@@ -17,31 +17,38 @@ limitations under the License.
 package revision
 
 import (
+	"bytes"
+	"log"
+
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller/util"
-	"log"
-	"strings"
 
 	apiv1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func getNginxConfig(enableQueue bool) (config string) {
-	var nginxConfiguration = NginxConfigFile
-	if enableQueue {
-		nginxConfiguration = strings.Replace(nginxConfiguration, UpstreamToAppServer, UpStreamToQueue, -1)
-		nginxConfiguration = strings.Replace(nginxConfiguration, ProxyPassToAppServer, ProxyPassToQueue, -1)
+func getNginxConfig(enableQueue bool) (string, error) {
+	ctx := nginxConfigContext{
+		EnableQueue: enableQueue,
 	}
-	return nginxConfiguration
+	var buf bytes.Buffer
+	if err := nginxConfigTemplate.Execute(&buf, ctx); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // MakeNginxConfigMap creates a ConfigMap that gets mounted for nginx container
 // on the pod.
-func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) *apiv1.ConfigMap {
+func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*apiv1.ConfigMap, error) {
 	// The request queue is disabled by default. To enable the queue, change this to true.
 	var enableQueue = false
 	log.Printf("Queue enabled: %t", enableQueue)
-	var nginxConfiguration = getNginxConfig(enableQueue)
+	nginxConfiguration, err := getNginxConfig(enableQueue)
+	if err != nil {
+		return &apiv1.ConfigMap{}, err
+	}
+
 	return &apiv1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      util.GetRevisionNginxConfigMapName(u),
@@ -54,5 +61,5 @@ func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) *apiv1.ConfigMap
 		Data: map[string]string{
 			"nginx.conf": nginxConfiguration,
 		},
-	}
+	}, nil
 }

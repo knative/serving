@@ -29,6 +29,7 @@ package revision
 */
 import (
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -163,6 +164,30 @@ func TestCreateHRCreatesStuff(t *testing.T) {
 		}(t)
 		if len(p.OwnerReferences) != 1 || rev.Name != p.OwnerReferences[0].Name {
 			t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+		}
+		return hooks.HookComplete
+	})
+
+	expectedConfigMapName := fmt.Sprintf("%s-%s-proxy-configmap", rev.Name, rev.Spec.Service)
+	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
+		cm := obj.(*corev1.ConfigMap)
+		glog.Infof("checking cm %s", cm.Name)
+		if expectedNamespace != cm.Namespace {
+			t.Errorf("configmap namespace was not %s", expectedNamespace)
+		}
+		if expectedConfigMapName != cm.Name {
+			t.Errorf("configmap name was not %s", expectedConfigMapName)
+		}
+		//TODO assert Labels
+		data, ok := cm.Data["nginx.conf"]
+		if !ok {
+			t.Error("expected configmap data to have \"nginx.conf\" key")
+		}
+		matched, err := regexp.Match("upstream app_server.*127\\.0\\.0\\.1:8080", []byte(data))
+		if err != nil {
+			t.Error(err)
+		} else if !matched {
+			t.Errorf("expected nginx config string to include appserver upstream with 127.0.0.1:8080, was \"%s\"", data)
 		}
 		return hooks.HookComplete
 	})
