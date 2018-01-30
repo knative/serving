@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["interface.go"],
+    importpath = "github.com/google/elafros/pkg/client/informers/externalversions/istio",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/client/informers/externalversions/internalinterfaces:go_default_library",
+        "//pkg/client/informers/externalversions/istio/v1alpha2:go_default_library",
+    ],
+)

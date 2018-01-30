@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "register.go",
+        "routerule_types.go",
+        "zz_generated.deepcopy.go",
+    ],
+    importpath = "github.com/google/elafros/pkg/apis/istio/v1alpha2",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/apis/istio:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+    ],
+)
