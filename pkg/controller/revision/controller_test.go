@@ -29,7 +29,6 @@ package revision
 */
 import (
 	"fmt"
-	"regexp"
 	"testing"
 	"time"
 
@@ -37,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
@@ -113,7 +113,7 @@ func newRunningTestController(t *testing.T) (
 	return
 }
 
-func TestCreateHRCreatesStuff(t *testing.T) {
+func TestCreateRevCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	rev := getTestRevision()
@@ -168,31 +168,6 @@ func TestCreateHRCreatesStuff(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	// Look for the nginx configmap.
-	expectedConfigMapName := fmt.Sprintf("%s-%s-proxy-configmap", rev.Name, rev.Spec.Service)
-	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
-		cm := obj.(*corev1.ConfigMap)
-		glog.Infof("checking cm %s", cm.Name)
-		if expectedNamespace != cm.Namespace {
-			t.Errorf("configmap namespace was not %s", expectedNamespace)
-		}
-		if expectedConfigMapName != cm.Name {
-			t.Errorf("configmap name was not %s", expectedConfigMapName)
-		}
-		//TODO assert Labels
-		data, ok := cm.Data["nginx.conf"]
-		if !ok {
-			t.Error("expected configmap data to have \"nginx.conf\" key")
-		}
-		matched, err := regexp.Match("upstream app_server.*127\\.0\\.0\\.1:8080", []byte(data))
-		if err != nil {
-			t.Error(err)
-		} else if !matched {
-			t.Errorf("expected nginx config string to include appserver upstream with 127.0.0.1:8080, was %q", data)
-		}
-		return hooks.HookComplete
-	})
-
 	// Ensure that the Revision status is updated.
 	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		updatedPr := obj.(*v1alpha1.Revision)
@@ -211,6 +186,280 @@ func TestCreateHRCreatesStuff(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRevWithBuildNameWaits(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	rev := getTestRevision()
+	h := hooks.NewHooks()
+
+	// Ensure that the Revision status is updated.
+	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+		updatedPr := obj.(*v1alpha1.Revision)
+		glog.Infof("updated rev %v", updatedPr)
+		want := v1alpha1.RevisionCondition{
+			Type:   "BuildComplete",
+			Status: "False",
+			Reason: "Building",
+		}
+		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
+			t.Errorf("expected conditions to have 1 condition equal to %v", want)
+		}
+		return hooks.HookComplete
+	})
+
+	bld := &buildv1alpha1.Build{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "foo",
+		},
+		Spec: buildv1alpha1.BuildSpec{
+			Steps: []corev1.Container{{
+				Name:    "nop",
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh"},
+				Args:    []string{"-c", "echo Hello"},
+			}},
+		},
+	}
+
+	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+
+	// Direct the Revision to wait for this build to complete.
+	rev.Spec.BuildName = bld.Name
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	rev := getTestRevision()
+	h := hooks.NewHooks()
+
+	reason := "Foo"
+	errMessage := "a long human-readable error message."
+
+	bld := &buildv1alpha1.Build{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "foo",
+		},
+		Spec: buildv1alpha1.BuildSpec{
+			Steps: []corev1.Container{{
+				Name:    "nop",
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh"},
+				Args:    []string{"-c", "echo Hello"},
+			}},
+		},
+	}
+
+	// Ensure that the Revision status is updated.
+	update := 0
+	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+		updatedPr := obj.(*v1alpha1.Revision)
+		update = update + 1
+		switch update {
+		case 1:
+			// After the initial update to the revision, we should be
+			// watching for this build to complete, so make it complete, but
+			// with a failure.
+			bld.Status = buildv1alpha1.BuildStatus{
+				Conditions: []buildv1alpha1.BuildCondition{{
+					Type:    buildv1alpha1.BuildFailed,
+					Status:  corev1.ConditionTrue,
+					Reason:  reason,
+					Message: errMessage,
+				}},
+			}
+
+			// This hangs for some reason:
+			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// so manually trigger the build event.
+			controller.addBuildEvent(bld)
+			return hooks.HookIncomplete
+
+		case 2:
+			// The next update we receive should tell us that the build failed,
+			// and surface the reason and message from that failure in our own
+			// status.
+			want := v1alpha1.RevisionCondition{
+				Type:    "BuildFailed",
+				Status:  "True",
+				Reason:  reason,
+				Message: errMessage,
+			}
+			if len(updatedPr.Status.Conditions) != 1 {
+				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
+			}
+			if want != updatedPr.Status.Conditions[0] {
+				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
+			}
+		}
+		return hooks.HookComplete
+	})
+
+	// Direct the Revision to wait for this build to complete.
+	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	rev.Spec.BuildName = bld.Name
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	rev := getTestRevision()
+	h := hooks.NewHooks()
+
+	bld := &buildv1alpha1.Build{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "foo",
+		},
+		Spec: buildv1alpha1.BuildSpec{
+			Steps: []corev1.Container{{
+				Name:    "nop",
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh"},
+				Args:    []string{"-c", "echo Hello"},
+			}},
+		},
+	}
+
+	// Ensure that the Revision status is updated.\
+	update := 0
+	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+		updatedPr := obj.(*v1alpha1.Revision)
+		update = update + 1
+		switch update {
+		case 1:
+			// After the initial update to the revision, we should be
+			// watching for this build to complete, so make it complete.
+			bld.Status = buildv1alpha1.BuildStatus{
+				Conditions: []buildv1alpha1.BuildCondition{{
+					Type:   buildv1alpha1.BuildComplete,
+					Status: corev1.ConditionTrue,
+				}},
+			}
+
+			// This hangs for some reason:
+			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// so manually trigger the build event.
+			controller.addBuildEvent(bld)
+			return hooks.HookIncomplete
+
+		case 2:
+			// The next update we receive should tell us that the build completed.
+			want := v1alpha1.RevisionCondition{
+				Type:   "BuildComplete",
+				Status: "True",
+			}
+			if len(updatedPr.Status.Conditions) != 1 {
+				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
+			}
+			if want != updatedPr.Status.Conditions[0] {
+				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
+			}
+		}
+		return hooks.HookComplete
+	})
+
+	// Direct the Revision to wait for this build to complete.
+	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	rev.Spec.BuildName = bld.Name
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	rev := getTestRevision()
+	h := hooks.NewHooks()
+
+	reason := "Foo"
+	errMessage := "a long human-readable error message."
+
+	bld := &buildv1alpha1.Build{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "foo",
+		},
+		Spec: buildv1alpha1.BuildSpec{
+			Steps: []corev1.Container{{
+				Name:    "nop",
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh"},
+				Args:    []string{"-c", "echo Hello"},
+			}},
+		},
+	}
+
+	// Ensure that the Revision status is updated.\
+	update := 0
+	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+		updatedPr := obj.(*v1alpha1.Revision)
+		update = update + 1
+		switch update {
+		case 1:
+			// After the initial update to the revision, we should be
+			// watching for this build to complete, so make it complete, but
+			// with a validation failure.
+			bld.Status = buildv1alpha1.BuildStatus{
+				Conditions: []buildv1alpha1.BuildCondition{{
+					Type:    buildv1alpha1.BuildInvalid,
+					Status:  corev1.ConditionTrue,
+					Reason:  reason,
+					Message: errMessage,
+				}},
+			}
+
+			// This hangs for some reason:
+			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// so manually trigger the build event.
+			controller.addBuildEvent(bld)
+			return hooks.HookIncomplete
+
+		case 2:
+			// The next update we receive should tell us that the build failed,
+			// and surface the reason and message from that failure in our own
+			// status.
+			want := v1alpha1.RevisionCondition{
+				Type:    "BuildFailed",
+				Status:  "True",
+				Reason:  reason,
+				Message: errMessage,
+			}
+			if len(updatedPr.Status.Conditions) != 1 {
+				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
+			}
+			if want != updatedPr.Status.Conditions[0] {
+				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
+			}
+		}
+		return hooks.HookComplete
+	})
+
+	// Direct the Revision to wait for this build to complete.
+	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	rev.Spec.BuildName = bld.Name
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
 	}
 }

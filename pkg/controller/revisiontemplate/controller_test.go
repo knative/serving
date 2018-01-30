@@ -31,9 +31,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
@@ -123,6 +125,51 @@ func TestCreateRTCreatesPR(t *testing.T) {
 		if rt.Spec.Template.Spec.Service != rev.Spec.Service {
 			t.Errorf("rev service was not %s", rt.Spec.Template.Spec.Service)
 		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().RevisionTemplates("test").Create(rt)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRTCreatesBuildAndPR(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	rt := getTestRevisionTemplate()
+	h := hooks.NewHooks()
+
+	rt.Spec.Build = &buildv1alpha1.BuildSpec{
+		Steps: []corev1.Container{{
+			Name:    "nop",
+			Image:   "busybox:latest",
+			Command: []string{"/bin/sh"},
+			Args:    []string{"-c", "echo Hello"},
+		}},
+	}
+
+	h.OnCreate(&elaClient.Fake, "builds", func(obj runtime.Object) hooks.HookResult {
+		b := obj.(*buildv1alpha1.Build)
+		glog.Infof("checking build %s", b.Name)
+		if rt.Spec.Build.Steps[0].Name != b.Spec.Steps[0].Name {
+			t.Errorf("BuildSpec mismatch; want %v, got %v", rt.Spec.Build.Steps[0], b.Spec.Steps[0])
+		}
+		return hooks.HookComplete
+	})
+
+	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+		hr := obj.(*v1alpha1.Revision)
+		glog.Infof("checking revision %s", hr.Name)
+		if rt.Spec.Template.Spec.Service != hr.Spec.Service {
+			t.Errorf("hr service was not %s", rt.Spec.Template.Spec.Service)
+		}
+		// TODO(mattmoor): The fake doesn't properly support GenerateName,
+		// so it never looks like the BuildName is populated.
+		// if hr.Spec.BuildName == "" {
+		// 	t.Error("Missing BuildName; want non-empty, but got empty string")
+		// }
 		return hooks.HookComplete
 	})
 

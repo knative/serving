@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	build "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,8 +40,9 @@ type RevisionTemplateSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
-	Generation int64         `json:"generation,omitempty"`
-	Template   Revision `json:"template"`
+	Generation int64            `json:"generation,omitempty"`
+	Build      *build.BuildSpec `json:"build,omitempty"`
+	Template   Revision         `json:"template"`
 }
 
 // RevisionTemplateStatus defines the observed state of RevisionTemplate

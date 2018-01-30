@@ -84,16 +84,24 @@ k8s_objects(
     ],
 )
 
+# All of our stuff goes here.
 k8s_objects(
-    name = "everything",
+    name = "elafros",
     objects = [
-        # We depend on Istio.
-        ":istio",
         ":namespace",
         ":authz",
         ":crds",
         ":controller",
         ":webhook",
         ":elawebhookservice",
+    ],
+)
+
+k8s_objects(
+    name = "everything",
+    objects = [
+        ":istio",  # We depend on Istio.
+        # TODO(mattmoor): Add the Build stuff here once we can import it properly.
+        ":elafros",
     ],
 )

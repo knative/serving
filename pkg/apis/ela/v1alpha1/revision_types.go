@@ -61,9 +61,14 @@ type RevisionSpec struct {
 	// as necessary
 	Active bool `json:"active"`
 
-	// One of these must be specified
-	FunctionSpec  *FunctionSpec  `json:"functionSpec,omitempty"`
-	AppSpec       *AppSpec       `json:"appSpec,omitempty"`
+	// The name of the build that is producing the container image that we are deploying.
+	BuildName string `json:"buildName,omitempty"`
+
+	// TODO(mattmoor): Remove these, and type definitions above.
+	FunctionSpec *FunctionSpec `json:"functionSpec,omitempty"`
+	AppSpec      *AppSpec      `json:"appSpec,omitempty"`
+
+	// TODO(mattmoor): Change to corev1.Container
 	ContainerSpec *ContainerSpec `json:"containerSpec,omitempty"`
 
 	// List of environment variables that will be passed to the app container.

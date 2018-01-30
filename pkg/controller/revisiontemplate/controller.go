@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
 	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
@@ -47,6 +48,8 @@ import (
 )
 
 const controllerAgentName = "revisiontemplate-controller"
+
+var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("RevisionTemplate")
 
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
@@ -63,8 +66,8 @@ const (
 // Controller implements the controller for RevisionTemplate resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
-	kubeclientset  kubernetes.Interface
-	elaclientset clientset.Interface
+	kubeclientset kubernetes.Interface
+	elaclientset  clientset.Interface
 
 	// lister indexes properties about RevisionTemplate
 	lister listers.RevisionTemplateLister
@@ -105,12 +108,12 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:  kubeclientset,
-		elaclientset: elaclientset,
-		lister:         informer.Lister(),
-		synced:         informer.Informer().HasSynced,
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionTemplates"),
-		recorder:       recorder,
+		kubeclientset: kubeclientset,
+		elaclientset:  elaclientset,
+		lister:        informer.Lister(),
+		synced:        informer.Informer().HasSynced,
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionTemplates"),
+		recorder:      recorder,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -258,6 +261,8 @@ func (c *Controller) syncHandler(key string) error {
 
 		return err
 	}
+	// Don't modify the informer's copy.
+	rt = rt.DeepCopy()
 
 	// RevisionTemplate business logic
 	// TODO: Once this bug gets fixed, use rt.Generation instead
@@ -269,13 +274,35 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	glog.Infof("Running reconcile RevisionTemplate for %s\n%+v\n%+v\n", rt.Name, rt, rt.Spec.Template)
+	spec := rt.Spec.Template.Spec
+
+	if rt.Spec.Build != nil {
+		// TODO(mattmoor): Determine whether we reuse the previous build.
+		build := &buildv1alpha1.Build{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    rt.Namespace,
+				GenerateName: fmt.Sprintf("%s-", rt.Name),
+			},
+			Spec: *rt.Spec.Build,
+		}
+		controllerRef := metav1.NewControllerRef(rt, controllerKind)
+		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
+		created, err := c.elaclientset.CloudbuildV1alpha1().Builds(build.Namespace).Create(build)
+		if err != nil {
+			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
+			return err
+		}
+		glog.Infof("Created Build:\n%+v", created.Name)
+		spec.BuildName = created.Name
+	}
+
+	rev := &v1alpha1.Revision{
+		ObjectMeta: rt.Spec.Template.ObjectMeta,
+		Spec:       spec,
+	}
 	revName, err := generateRevisionName(rt)
 	if err != nil {
 		return err
-	}
-	rev := &v1alpha1.Revision{
-		ObjectMeta: rt.Spec.Template.ObjectMeta,
-		Spec:       rt.Spec.Template.Spec,
 	}
 	// TODO: Should this just use rev.ObjectMeta.GenerateName =
 	rev.ObjectMeta.Name = revName
