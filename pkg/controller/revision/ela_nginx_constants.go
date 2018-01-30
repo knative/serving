@@ -16,11 +16,15 @@ limitations under the License.
 
 package revision
 
-// NginxConfigFile is a total hack to include a configuration string
-// that we use as the base configuration file for the nginx proxy.
-// this should eventually probably be a go-template or sumtin, but
-// for now this will suffice.
-const NginxConfigFile = `
+import "text/template"
+
+var nginxConfigTemplate *template.Template
+
+type nginxConfigContext struct {
+	EnableQueue bool
+}
+
+const nginxConfigTemplateSource = `
 daemon off;
 
 worker_processes auto;
@@ -46,8 +50,11 @@ http {
   # to avoid a race condition between the two timeouts.
   keepalive_timeout 650;
   keepalive_requests 10000;
-
+{{if .EnableQueue}}
+  upstream queue { server 127.0.0.1:8012; }
+{{else}}
   upstream app_server { keepalive 64; server 127.0.0.1:8080; }
+{{end}}
 
   geo $source_type {
     default ext;
@@ -261,8 +268,11 @@ http {
         }
 
         proxy_intercept_errors on;
-
+{{if .EnableQueue}}
+        proxy_pass http://queue;
+{{else}}
         proxy_pass http://app_server;
+{{end}}
         proxy_redirect off;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
@@ -334,10 +344,6 @@ http {
 }
 `
 
-var UpstreamToAppServer = `upstream app_server { keepalive 64; server 127.0.0.1:8080; }`
-
-var UpStreamToQueue = `upstream queue { server 127.0.0.1:8012; }`
-
-var ProxyPassToAppServer = `proxy_pass http://app_server;`
-
-var ProxyPassToQueue = `proxy_pass http://queue;`
+func init() {
+	nginxConfigTemplate = template.Must(template.New("nginxConfig").Parse(nginxConfigTemplateSource))
+}

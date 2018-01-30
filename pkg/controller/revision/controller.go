@@ -521,7 +521,12 @@ func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns s
 	}
 
 	controllerRef := metav1.NewControllerRef(u, controllerKind)
-	configMap := MakeNginxConfigMap(u, ns)
+	configMap, err := MakeNginxConfigMap(u, ns)
+	if err != nil {
+		glog.Errorf("Error generating nginx config: %v", err)
+		return err
+	}
+
 	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
 	log.Printf("Creating configmap: %q", configMap.Name)
 	_, err = cmc.Create(configMap)
