@@ -168,6 +168,7 @@ func TestCreateHRCreatesStuff(t *testing.T) {
 		return hooks.HookComplete
 	})
 
+	// Look for the nginx configmap.
 	expectedConfigMapName := fmt.Sprintf("%s-%s-proxy-configmap", rev.Name, rev.Spec.Service)
 	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
 		cm := obj.(*corev1.ConfigMap)
@@ -187,7 +188,7 @@ func TestCreateHRCreatesStuff(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		} else if !matched {
-			t.Errorf("expected nginx config string to include appserver upstream with 127.0.0.1:8080, was \"%s\"", data)
+			t.Errorf("expected nginx config string to include appserver upstream with 127.0.0.1:8080, was %q", data)
 		}
 		return hooks.HookComplete
 	})
