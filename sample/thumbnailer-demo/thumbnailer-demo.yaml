@@ -1,0 +1,27 @@
+apiVersion: elafros.dev/v1alpha1
+kind: ElaService
+metadata:
+  name: thumb
+  namespace: default
+spec:
+  domainSuffix: thumb.googlecustomer.net
+  rollout:
+    traffic:
+    - revisionTemplate: thumbtemplate
+      percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
+kind: RevisionTemplate
+metadata:
+  name: thumbtemplate
+  namespace: default
+spec:
+  template:
+    spec:
+      serviceType: container
+      env:
+        - name: TARGET
+          value: thumb_v1
+      containerSpec:
+        image: docker.io/${DOCKER_USERNAME}/rester-tester:latest
+        
