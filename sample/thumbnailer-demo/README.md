@@ -75,8 +75,6 @@ docker push ${DOCKER_USERNAME}/server-starter:latest
 
 Once the docker image is published to dockerhub, you can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `thumbnailer-demo.yaml`
 
-> TODO: update the dockerhub username at the bottom of `thumbnailer-demo.yaml` (image: docker.io/${DOCKER_USERNAME}/rester-tester:latest)
-
 ```
 kubectl apply -f thumbnailer-demo.yaml
 ```
