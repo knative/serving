@@ -29,6 +29,7 @@ package revision
 */
 import (
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -168,6 +169,31 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		return hooks.HookComplete
 	})
 
+	// Look for the nginx configmap.
+	expectedConfigMapName := fmt.Sprintf("%s-%s-proxy-configmap", rev.Name, rev.Spec.Service)
+	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
+		cm := obj.(*corev1.ConfigMap)
+		glog.Infof("checking cm %s", cm.Name)
+		if expectedNamespace != cm.Namespace {
+			t.Errorf("configmap namespace was not %s", expectedNamespace)
+		}
+		if expectedConfigMapName != cm.Name {
+			t.Errorf("configmap name was not %s", expectedConfigMapName)
+		}
+		//TODO assert Labels
+		data, ok := cm.Data["nginx.conf"]
+		if !ok {
+			t.Error("expected configmap data to have \"nginx.conf\" key")
+		}
+		matched, err := regexp.Match("upstream app_server.*127\\.0\\.0\\.1:8080", []byte(data))
+		if err != nil {
+			t.Error(err)
+		} else if !matched {
+			t.Errorf("expected nginx config string to include appserver upstream with 127.0.0.1:8080, was %q", data)
+		}
+		return hooks.HookComplete
+	})
+
 	// Ensure that the Revision status is updated.
 	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		updatedPr := obj.(*v1alpha1.Revision)
@@ -283,7 +309,9 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			// This hangs for some reason:
 			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
-			controller.addBuildEvent(bld)
+			// Launch this in a goroutine because the OnUpdate logic works a little too
+			// synchronously and this leads to lock re-entrancy.
+			go controller.addBuildEvent(bld)
 			return hooks.HookIncomplete
 
 		case 2:
@@ -356,7 +384,9 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			// This hangs for some reason:
 			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
-			controller.addBuildEvent(bld)
+			// Launch this in a goroutine because the OnUpdate logic works a little too
+			// synchronously and this leads to lock re-entrancy.
+			go controller.addBuildEvent(bld)
 			return hooks.HookIncomplete
 
 		case 2:
@@ -431,7 +461,9 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			// This hangs for some reason:
 			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
-			controller.addBuildEvent(bld)
+			// Launch this in a goroutine because the OnUpdate logic works a little too
+			// synchronously and this leads to lock re-entrancy.
+			go controller.addBuildEvent(bld)
 			return hooks.HookIncomplete
 
 		case 2:

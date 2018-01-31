@@ -412,18 +412,17 @@ func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 
 	// For each of the revisions watching this build, mark their build phase as complete.
 	for k := range c.buildtracker.GetTrackers(build) {
-		go func(k key) {
-			// Look up the revision to mark complete.
-			namespace, name := splitKey(k)
-			hr, err := c.lister.Revisions(namespace).Get(name)
-			if err != nil {
-				glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
-			}
-			if err := c.markBuildComplete(hr, cond); err != nil {
-				glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
-			}
-		}(k)
+		// Look up the revision to mark complete.
+		namespace, name := splitKey(k)
+		hr, err := c.lister.Revisions(namespace).Get(name)
+		if err != nil {
+			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
+		}
+		if err := c.markBuildComplete(hr, cond); err != nil {
+			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
+		}
 	}
+
 	return
 }
 

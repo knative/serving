@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestHooks(t *testing.T) {
+func Example_hooks(t *testing.T) {
 	h := NewHooks()
 	f := fake.NewSimpleClientset()
 
