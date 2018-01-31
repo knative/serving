@@ -60,7 +60,7 @@ func getTestElaService() *v1alpha1.ElaService {
 func newRunningTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
-	controller *ElaServiceControllerImpl,
+	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
@@ -82,7 +82,7 @@ func newRunningTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-	).(*ElaServiceControllerImpl)
+	).(*Controller)
 	if !ok {
 		t.Fatal("cast to *Controller failed")
 	}
