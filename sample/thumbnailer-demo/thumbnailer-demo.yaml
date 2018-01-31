@@ -23,5 +23,5 @@ spec:
         - name: TARGET
           value: thumb_v1
       containerSpec:
-        image: docker.io/${DOCKER_USERNAME}/rester-tester:latest
+        image: docker.io/mchmarny/rester-tester:latest
         
