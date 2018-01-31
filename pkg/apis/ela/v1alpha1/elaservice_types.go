@@ -71,7 +71,7 @@ type ElaServiceSpec struct {
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
-// ElaServiceCondition defines a readiness conditions.
+// ElaServiceCondition defines a readiness condition.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type ElaServiceCondition struct {
 	Type ElaServiceConditionType `json:"state"`

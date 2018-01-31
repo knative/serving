@@ -65,10 +65,15 @@ const (
 // Basically represents a k8s service representing a specific Revision
 // and how much of the traffic goes to it.
 type RevisionRoute struct {
-	Name         string // optional name for external routing
-	RevisionName string // Revision that we're currently routing to
-	Service      string // underlying k8s service we route to
-	Weight       int
+	// Name for external routing. Optional
+	Name string
+	// RevisionName is the underlying revision that we're currently
+	// routing to. Could be resolved from the RevisionTemplate or
+	// specified explicitly in TrafficTarget
+	RevisionName string
+	// Service is the name of the k8s service we route to
+	Service string
+	Weight  int
 }
 
 // +controller:group=ela,version=v1alpha1,kind=ElaService,resource=elaservices
