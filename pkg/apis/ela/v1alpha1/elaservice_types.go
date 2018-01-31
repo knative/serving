@@ -36,9 +36,9 @@ type ElaService struct {
 type ServiceType string
 
 const (
-	Function   ServiceType = "function"
-	HttpServer ServiceType = "httpserver"
-	Container  ServiceType = "container"
+	FunctionService   ServiceType = "function"
+	HttpServerService ServiceType = "httpserver"
+	ContainerService  ServiceType = "container"
 )
 
 type TrafficTarget struct {
@@ -78,9 +78,6 @@ type ElaServiceCondition struct {
 
 	// TODO: Where can we get a proper ConditionStatus?
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
