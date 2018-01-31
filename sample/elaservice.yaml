@@ -18,7 +18,7 @@ metadata:
   name: elaservice-example
   namespace: default
 spec:
-  domainSuffix: demo.googlecustomer.net
+  domainSuffix: demo.myhost.net
   traffic:
   - revisionTemplate: revisiontemplate-example
     percent: 100

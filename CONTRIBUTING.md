@@ -15,7 +15,12 @@ You generally only need to submit a CLA once, so if you've already submitted one
 (even if it was for a different project), you probably don't need to do it
 again.
 
-## Code reviews
+## Workflow
+
+* All PRs must be pulled from [forks](./DEVELOPMENT.md#setup-your-repo)
+* All PRs must [be reviewed](#code-reviews)
+
+### Code reviews
 
 All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult [GitHub Help] for more
