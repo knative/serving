@@ -140,11 +140,6 @@ func (in *BuildSpec) DeepCopyInto(out *BuildSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Images != nil {
-		in, out := &in.Images, &out.Images
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
 		*out = make([]v1.Volume, len(*in))

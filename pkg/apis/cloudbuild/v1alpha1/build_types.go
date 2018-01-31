@@ -38,8 +38,6 @@ type Build struct {
 type BuildSpec struct {
 	Source *SourceSpec        `json:"source,omitempty"`
 	Steps  []corev1.Container `json:"steps,omitempty"`
-	// TODO(mattmoor): Remove Images
-	Images []string `json:"images,omitempty"`
 
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
