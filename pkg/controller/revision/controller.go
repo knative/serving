@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
 	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
@@ -48,7 +49,7 @@ import (
 	"github.com/google/elafros/pkg/controller/util"
 )
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("ElaDeployment")
+var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 
 const (
 	elaServiceLabel string = "elaservice"
@@ -113,6 +114,8 @@ type RevisionControllerImpl struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	buildtracker *buildTracker
 }
 
 // Init initializes the controller and is called by the generated code
@@ -143,12 +146,13 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &RevisionControllerImpl{
-		kubeclientset:  kubeclientset,
-		elaclientset: elaclientset,
-		lister:         informer.Lister(),
-		synced:         informer.Informer().HasSynced,
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:       recorder,
+		kubeclientset: kubeclientset,
+		elaclientset:  elaclientset,
+		lister:        informer.Lister(),
+		synced:        informer.Informer().HasSynced,
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:      recorder,
+		buildtracker:  &buildTracker{builds: map[key]set{}},
 	}
 
 	glog.Info("Setting up event handlers")
@@ -158,6 +162,13 @@ func NewController(
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueRevision(new)
 		},
+	})
+
+	// Obtain a reference to a shared index informer for the Build type.
+	buildInformer := elaInformerFactory.Cloudbuild().V1alpha1().Builds()
+	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addBuildEvent,
+		UpdateFunc: controller.updateBuildEvent,
 	})
 
 	return controller
@@ -296,6 +307,33 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 		}
 		return err
 	}
+	// Don't modify the informer's copy.
+	rev = rev.DeepCopy()
+
+	if rev.Spec.BuildName != "" {
+		if done, failed := isBuildDone(rev); !done {
+			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
+				setCondition(rev, "BuildComplete", &v1alpha1.RevisionCondition{
+					Type:   "BuildComplete",
+					Status: "False",
+					Reason: "Building",
+				})
+				// Let this trigger a reconciliation loop.
+				if _, err := c.updateStatus(rev); err != nil {
+					glog.Errorf("Error recording the BuildComplete=False condition: %s", err)
+					return err
+				}
+			}
+			return nil
+		} else {
+			// The Build's complete, so stop tracking it.
+			c.buildtracker.Untrack(rev)
+			if failed {
+				return nil
+			}
+			// If the build didn't fail, proceed to creating K8s resources.
+		}
+	}
 
 	ns, err := util.GetOrCreateRevisionNamespace(namespace, c.kubeclientset)
 	if err != nil {
@@ -309,6 +347,91 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 
 // reconcileWithImage handles enqueued messages that have an image.
 func (c *RevisionControllerImpl) reconcileWithImage(u *v1alpha1.Revision, ns string) error {
+	return printErr(c.reconcileOnceBuilt(u, ns))
+}
+
+// Checks whether the Revision knows whether the build is done.
+func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
+	for _, cond := range u.Status.Conditions {
+		if cond.Status != "True" {
+			continue
+		}
+		switch cond.Type {
+		case "BuildComplete":
+			return true, false
+		case "BuildFailed":
+			return true, true
+		}
+	}
+	return false, false
+}
+
+func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
+	switch bc.Type {
+	case buildv1alpha1.BuildComplete:
+		removeCondition(u, "BuildFailed")
+		setCondition(u, "BuildComplete", &v1alpha1.RevisionCondition{
+			Type:   "BuildComplete",
+			Status: "True",
+		})
+	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
+		removeCondition(u, "BuildComplete")
+		setCondition(u, "BuildFailed", &v1alpha1.RevisionCondition{
+			Type:    "BuildFailed",
+			Status:  "True",
+			Reason:  bc.Reason,
+			Message: bc.Message,
+		})
+	}
+	// This will trigger a reconciliation that will cause us to stop tracking the build.
+	_, err := c.updateStatus(u)
+	return err
+}
+
+func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
+	for _, cond := range build.Status.Conditions {
+		if cond.Status != corev1.ConditionTrue {
+			continue
+		}
+		switch cond.Type {
+		case buildv1alpha1.BuildComplete, buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
+			return &cond
+		}
+	}
+	return nil
+}
+
+func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
+	build := obj.(*buildv1alpha1.Build)
+
+	cond := getBuildDoneCondition(build)
+	if cond == nil {
+		// The build isn't done, so ignore this event.
+		return
+	}
+
+	// For each of the revisions watching this build, mark their build phase as complete.
+	for k := range c.buildtracker.GetTrackers(build) {
+		// Look up the revision to mark complete.
+		namespace, name := splitKey(k)
+		hr, err := c.lister.Revisions(namespace).Get(name)
+		if err != nil {
+			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
+		}
+		if err := c.markBuildComplete(hr, cond); err != nil {
+			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
+		}
+	}
+
+	return
+}
+
+func (c *RevisionControllerImpl) updateBuildEvent(old, new interface{}) {
+	c.addBuildEvent(new)
+}
+
+// reconcileOnceBuilt handles enqueued messages that have an image.
+func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	accessor, err := meta.Accessor(u)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err)
@@ -355,13 +478,11 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 	log.Printf("Deleted service")
 
 	// And the deployment is no longer ready, so update that
-	u.Status.Conditions = []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: "False",
-			Reason: "Inactive",
-		},
-	}
+	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
+		Type:   "Ready",
+		Status: "False",
+		Reason: "Inactive",
+	})
 	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
 		log.Printf("Error recording build completion: %s", err)
@@ -401,13 +522,11 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 
 	// By updating our deployment status we will trigger a Reconcile()
 	// that will watch for Deployment completion.
-	u.Status.Conditions = []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: "False",
-			Reason: "Deploying",
-		},
-	}
+	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
+		Type:   "Ready",
+		Status: "False",
+		Reason: "Deploying",
+	})
 	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
 		log.Printf("Error recording build completion: %s", err)
@@ -638,6 +757,24 @@ func (c *RevisionControllerImpl) removeFinalizers(u *v1alpha1.Revision, ns strin
 	log.Printf("The finalizer 'controller' is removed.")
 
 	return nil
+}
+
+// setCondition removes the condition if new is nil.
+func setCondition(u *v1alpha1.Revision, t string, new *v1alpha1.RevisionCondition) {
+	var conditions []v1alpha1.RevisionCondition
+	for _, cond := range u.Status.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	if new != nil {
+		conditions = append(conditions, *new)
+	}
+	u.Status.Conditions = conditions
+}
+
+func removeCondition(u *v1alpha1.Revision, t string) {
+	setCondition(u, t, nil)
 }
 
 func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.Revision, error) {

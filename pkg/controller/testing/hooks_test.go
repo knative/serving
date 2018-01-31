@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func Example_hooks() {
+func Example_hooks(t *testing.T) {
 	h := NewHooks()
 	f := fake.NewSimpleClientset()
 
@@ -63,7 +63,9 @@ func Example_hooks() {
 	f.CoreV1().Pods("test").Update(updatedPod)
 
 	f.CoreV1().Pods("test").Delete(pod.Name, &metav1.DeleteOptions{})
-	h.WaitForHooks(time.Second)
+	if err := h.WaitForHooks(time.Second); err != nil {
+		t.Error(err)
+	}
 
 	// Output:
 	// Pod test-pod has restart policy Always
@@ -122,5 +124,48 @@ func TestWaitPartialCompletion(t *testing.T) {
 	}
 	if createCalled == false {
 		t.Error("expected create hook to be called")
+	}
+}
+
+func TestMultiUpdate(t *testing.T) {
+	h := NewHooks()
+	f := fake.NewSimpleClientset()
+
+	updates := 0
+	h.OnUpdate(&f.Fake, "pods", func(obj runtime.Object) HookResult {
+		updates = updates + 1
+		switch updates {
+		case 1:
+		case 2:
+			return HookComplete
+		}
+		return HookIncomplete
+	})
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pod",
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyAlways,
+		},
+	}
+	f.CoreV1().Pods("test").Create(pod)
+
+	updatedPod := pod.DeepCopy()
+	updatedPod.Spec.RestartPolicy = v1.RestartPolicyNever
+	f.CoreV1().Pods("test").Update(updatedPod)
+
+	updatedPod = pod.DeepCopy()
+	updatedPod.Spec.RestartPolicy = v1.RestartPolicyAlways
+	f.CoreV1().Pods("test").Update(updatedPod)
+
+	f.CoreV1().Pods("test").Delete(pod.Name, &metav1.DeleteOptions{})
+	if err := h.WaitForHooks(time.Second); err != nil {
+		t.Error(err)
+	}
+
+	if updates != 2 {
+		t.Errorf("Unexpected number of Update events; want 2, got %d", updates)
 	}
 }

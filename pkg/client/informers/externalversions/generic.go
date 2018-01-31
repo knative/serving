@@ -21,7 +21,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	v1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+	ela_v1alpha1 "github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	v1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -53,16 +54,22 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=config.istio.io, Version=v1alpha2
+	// Group=cloudbuild.googleapis.com, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("builds"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cloudbuild().V1alpha1().Builds().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("buildtemplates"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cloudbuild().V1alpha1().BuildTemplates().Informer()}, nil
+
+		// Group=config.istio.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithResource("routerules"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Config().V1alpha2().RouteRules().Informer()}, nil
 
 		// Group=elafros.dev, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("elaservices"):
+	case ela_v1alpha1.SchemeGroupVersion.WithResource("elaservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().ElaServices().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("revisions"):
+	case ela_v1alpha1.SchemeGroupVersion.WithResource("revisions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Revisions().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("revisiontemplates"):
+	case ela_v1alpha1.SchemeGroupVersion.WithResource("revisiontemplates"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().RevisionTemplates().Informer()}, nil
 
 	}

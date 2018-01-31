@@ -17,6 +17,7 @@ package versioned
 
 import (
 	glog "github.com/golang/glog"
+	cloudbuildv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1"
 	elafrosv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	configv1alpha2 "github.com/google/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
@@ -26,6 +27,9 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	CloudbuildV1alpha1() cloudbuildv1alpha1.CloudbuildV1alpha1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Cloudbuild() cloudbuildv1alpha1.CloudbuildV1alpha1Interface
 	ElafrosV1alpha1() elafrosv1alpha1.ElafrosV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Elafros() elafrosv1alpha1.ElafrosV1alpha1Interface
@@ -38,8 +42,20 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	elafrosV1alpha1 *elafrosv1alpha1.ElafrosV1alpha1Client
-	configV1alpha2  *configv1alpha2.ConfigV1alpha2Client
+	cloudbuildV1alpha1 *cloudbuildv1alpha1.CloudbuildV1alpha1Client
+	elafrosV1alpha1    *elafrosv1alpha1.ElafrosV1alpha1Client
+	configV1alpha2     *configv1alpha2.ConfigV1alpha2Client
+}
+
+// CloudbuildV1alpha1 retrieves the CloudbuildV1alpha1Client
+func (c *Clientset) CloudbuildV1alpha1() cloudbuildv1alpha1.CloudbuildV1alpha1Interface {
+	return c.cloudbuildV1alpha1
+}
+
+// Deprecated: Cloudbuild retrieves the default version of CloudbuildClient.
+// Please explicitly pick a version.
+func (c *Clientset) Cloudbuild() cloudbuildv1alpha1.CloudbuildV1alpha1Interface {
+	return c.cloudbuildV1alpha1
 }
 
 // ElafrosV1alpha1 retrieves the ElafrosV1alpha1Client
@@ -80,6 +96,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
+	cs.cloudbuildV1alpha1, err = cloudbuildv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.elafrosV1alpha1, err = elafrosv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -101,6 +121,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
+	cs.cloudbuildV1alpha1 = cloudbuildv1alpha1.NewForConfigOrDie(c)
 	cs.elafrosV1alpha1 = elafrosv1alpha1.NewForConfigOrDie(c)
 	cs.configV1alpha2 = configv1alpha2.NewForConfigOrDie(c)
 
@@ -111,6 +132,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.cloudbuildV1alpha1 = cloudbuildv1alpha1.New(c)
 	cs.elafrosV1alpha1 = elafrosv1alpha1.New(c)
 	cs.configV1alpha2 = configv1alpha2.New(c)
 
