@@ -18,7 +18,6 @@ package elaservice
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/golang/glog"
@@ -66,15 +65,17 @@ const (
 // Basically represents a k8s service representing a specific Revision
 // and how much of the traffic goes to it.
 type RevisionRoute struct {
-	Service string
-	Weight  int
+	Name         string // optional name for external routing
+	RevisionName string // Revision that we're currently routing to
+	Service      string // underlying k8s service we route to
+	Weight       int
 }
 
 // +controller:group=ela,version=v1alpha1,kind=ElaService,resource=elaservices
-type ElaServiceControllerImpl struct {
+type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
-	kubeclientset  kubernetes.Interface
-	elaclientset clientset.Interface
+	kubeclientset kubernetes.Interface
+	elaclientset  clientset.Interface
 
 	// lister indexes properties about RevisionTemplate
 	lister listers.ElaServiceLister
@@ -104,7 +105,7 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	log.Printf("ElaService controller Init")
+	glog.Infof("ElaService controller Init")
 
 	// obtain a reference to a shared index informer for the ElaServices type.
 	informer := elaInformerFactory.Elafros().V1alpha1().ElaServices()
@@ -119,13 +120,13 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	controller := &ElaServiceControllerImpl{
-		kubeclientset:  kubeclientset,
-		elaclientset: elaclientset,
-		lister:         informer.Lister(),
-		synced:         informer.Informer().HasSynced,
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ElaServices"),
-		recorder:       recorder,
+	controller := &Controller{
+		kubeclientset: kubeclientset,
+		elaclientset:  elaclientset,
+		lister:        informer.Lister(),
+		synced:        informer.Informer().HasSynced,
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ElaServices"),
+		recorder:      recorder,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -146,7 +147,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 //TODO(grantr): generic
-func (c *ElaServiceControllerImpl) Run(threadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
@@ -176,7 +177,7 @@ func (c *ElaServiceControllerImpl) Run(threadiness int, stopCh <-chan struct{}) 
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 //TODO(grantr): generic
-func (c *ElaServiceControllerImpl) runWorker() {
+func (c *Controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
@@ -184,7 +185,7 @@ func (c *ElaServiceControllerImpl) runWorker() {
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
 //TODO(grantr): generic
-func (c *ElaServiceControllerImpl) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
 	if shutdown {
@@ -240,7 +241,7 @@ func (c *ElaServiceControllerImpl) processNextWorkItem() bool {
 // queue. This method should *not* be passed resources of any type other than
 // ElaService.
 //TODO(grantr): generic
-func (c *ElaServiceControllerImpl) enqueueElaService(obj interface{}) {
+func (c *Controller) enqueueElaService(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -254,7 +255,7 @@ func (c *ElaServiceControllerImpl) enqueueElaService(obj interface{}) {
 // converge the two. It then updates the Status block of the Foo resource
 // with the current status of the resource.
 //TODO(grantr): not generic
-func (c *ElaServiceControllerImpl) syncHandler(key string) error {
+func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -264,6 +265,10 @@ func (c *ElaServiceControllerImpl) syncHandler(key string) error {
 
 	// Get the ElaService resource with this namespace/name
 	es, err := c.lister.ElaServices(namespace).Get(name)
+
+	// Don't modify the informers copy
+	es = es.DeepCopy()
+
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -282,35 +287,53 @@ func (c *ElaServiceControllerImpl) syncHandler(key string) error {
 	// fallthrough traffic if there are no route rules (revisions to target).
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
-	log.Printf("Creating/Updating placeholder k8s services")
+	glog.Infof("Creating/Updating placeholder k8s services")
 	err = c.createPlaceholderService(es, namespace)
 	if err != nil {
 		return err
 	}
 
 	// Then create the Ingress rule for this service
-	log.Printf("Creating or updating ingress rule")
+	glog.Infof("Creating or updating ingress rule")
 	err = c.createOrUpdateIngress(es, namespace)
 	if err != nil {
 		if !apierrs.IsAlreadyExists(err) {
-			log.Printf("Failed to create ingress rule: %s", err)
+			glog.Infof("Failed to create ingress rule: %s", err)
 			return err
 		}
 	}
 
 	// Then create the actual route rules.
-	log.Printf("Creating istio route rules")
-	err = c.createOrUpdateRoutes(es, namespace)
+	glog.Infof("Creating istio route rules")
+	routes, err := c.createOrUpdateRoutes(es, namespace)
 	if err != nil {
-		log.Printf("Failed to create Routes: %s", err)
+		glog.Infof("Failed to create Routes: %s", err)
 		return err
 	}
 
-	c.recorder.Event(es, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	// If routes were configured, update them
+	if routes != nil {
+		traffic := []v1alpha1.TrafficTarget{}
+		for _, r := range routes {
+			traffic = append(traffic, v1alpha1.TrafficTarget{
+				Name:     r.Name,
+				Revision: r.RevisionName,
+				Percent:  r.Weight,
+			})
+		}
+		es.Status.Traffic = traffic
+	}
+	updated, err := c.updateStatus(es)
+	if err != nil {
+		glog.Warningf("Failed to update service status: %s", err)
+		return err
+	}
+
+	c.recorder.Event(updated, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
-func (c *ElaServiceControllerImpl) createPlaceholderService(u *v1alpha1.ElaService, ns string) error {
+func (c *Controller) createPlaceholderService(u *v1alpha1.ElaService, ns string) error {
 	service := MakeElaServiceK8SService(u)
 	serviceRef := metav1.NewControllerRef(u, serviceKind)
 	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
@@ -319,15 +342,15 @@ func (c *ElaServiceControllerImpl) createPlaceholderService(u *v1alpha1.ElaServi
 	_, err := sc.Create(service)
 	if err != nil {
 		if !apierrs.IsAlreadyExists(err) {
-			log.Printf("Failed to create service: %s", err)
+			glog.Infof("Failed to create service: %s", err)
 			return err
 		}
 	}
-	log.Printf("Created service: %q", service.Name)
+	glog.Infof("Created service: %q", service.Name)
 	return nil
 }
 
-func (c *ElaServiceControllerImpl) createOrUpdateIngress(es *v1alpha1.ElaService, ns string) error {
+func (c *Controller) createOrUpdateIngress(es *v1alpha1.ElaService, ns string) error {
 	ingressName := util.GetElaK8SIngressName(es)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
@@ -343,19 +366,19 @@ func (c *ElaServiceControllerImpl) createOrUpdateIngress(es *v1alpha1.ElaService
 			return err
 		}
 		_, createErr := ic.Create(ingress)
-		log.Printf("Created ingress %q", ingress.Name)
+		glog.Infof("Created ingress %q", ingress.Name)
 		return createErr
 	}
 	return nil
 }
 
-func (c *ElaServiceControllerImpl) getRoutes(u *v1alpha1.ElaService) ([]RevisionRoute, error) {
-	log.Printf("Figuring out routes for ElaService: %s", u.Name)
+func (c *Controller) getRoutes(u *v1alpha1.ElaService) ([]RevisionRoute, error) {
+	glog.Infof("Figuring out routes for ElaService: %s", u.Name)
 	ret := []RevisionRoute{}
-	for _, tt := range u.Spec.Rollout.Traffic {
+	for _, tt := range u.Spec.Traffic {
 		rr, err := c.getRouteForTrafficTarget(tt, u.Namespace)
 		if err != nil {
-			log.Printf("Failed to get a route for target %+v : %q", tt, err)
+			glog.Infof("Failed to get a route for target %+v : %q", tt, err)
 			return nil, err
 		}
 		ret = append(ret, rr)
@@ -363,7 +386,7 @@ func (c *ElaServiceControllerImpl) getRoutes(u *v1alpha1.ElaService) ([]Revision
 	return ret, nil
 }
 
-func (c *ElaServiceControllerImpl) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns string) (RevisionRoute, error) {
+func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns string) (RevisionRoute, error) {
 	elaNS := util.GetElaNamespaceName(ns)
 	// If template specified, fetch last revision otherwise use Revision
 	revisionName := tt.Revision
@@ -378,48 +401,66 @@ func (c *ElaServiceControllerImpl) getRouteForTrafficTarget(tt v1alpha1.TrafficT
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 	rev, err := prClient.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
-		log.Printf("Failed to fetch Revision: %s : %s", revisionName, err)
+		glog.Infof("Failed to fetch Revision: %s : %s", revisionName, err)
 		return RevisionRoute{}, err
 	}
-	return RevisionRoute{Service: fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS), Weight: tt.Percent}, nil
+	return RevisionRoute{
+		Name:         tt.Name,
+		RevisionName: rev.Name,
+		Service:      fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS),
+		Weight:       tt.Percent,
+	}, nil
 }
 
-func (c *ElaServiceControllerImpl) createOrUpdateRoutes(u *v1alpha1.ElaService, ns string) error {
+func (c *Controller) createOrUpdateRoutes(u *v1alpha1.ElaService, ns string) ([]RevisionRoute, error) {
 	// grab a client that's specific to RouteRule.
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
-		log.Printf("Failed to create resource client")
-		return fmt.Errorf("Couldn't get a routeClient")
+		glog.Infof("Failed to create resource client")
+		return nil, fmt.Errorf("Couldn't get a routeClient")
 	}
 
 	routes, err := c.getRoutes(u)
 	if err != nil {
-		log.Printf("Failed to get routes for %s : %q", u.Name, err)
-		return err
+		glog.Infof("Failed to get routes for %s : %q", u.Name, err)
+		return nil, err
 	}
 	if len(routes) == 0 {
-		log.Printf("No routes were found for the service %q", u.Name)
-		return nil
+		glog.Infof("No routes were found for the service %q", u.Name)
+		return nil, nil
 	}
 	for _, r := range routes {
-		log.Printf("Adding a route to %q Weight: %d", r.Service, r.Weight)
+		glog.Infof("Adding a route to %q Weight: %d", r.Service, r.Weight)
 	}
 
 	routeRuleName := util.GetElaIstioRouteRuleName(u)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
-			return err
+			return nil, err
 		}
 		routeRules = MakeElaServiceIstioRoutes(u, ns, routes)
 		_, createErr := routeClient.Create(routeRules)
-		return createErr
+		return nil, createErr
 	}
 
 	routeRules.Spec = MakeElaServiceIstioSpec(u, ns, routes)
 	_, err = routeClient.Update(routeRules)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return routes, nil
+}
+
+func (c *Controller) updateStatus(u *v1alpha1.ElaService) (*v1alpha1.ElaService, error) {
+	esClient := c.elaclientset.ElafrosV1alpha1().ElaServices(u.Namespace)
+	newu, err := esClient.Get(u.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	newu.Status = u.Status
+
+	// TODO: for CRD there's no updatestatus, so use normal update
+	return esClient.Update(newu)
+	//	return rtClient.UpdateStatus(newu)
 }

@@ -19,7 +19,6 @@ metadata:
   namespace: default
 spec:
   domainSuffix: demo.googlecustomer.net
-  rollout:
-    traffic:
-    - revisionTemplate: revisiontemplate-example
-      percent: 100
+  traffic:
+  - revisionTemplate: revisiontemplate-example
+    percent: 100

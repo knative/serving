@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,30 +33,13 @@ type ElaService struct {
 	Status ElaServiceStatus `json:"status,omitempty"`
 }
 
-// ActiveDeploymentState specifies the state that the deployment
-// can be in. Currently it can be either next or current
-// TODO: Use this the below is fixed
-// https://github.com/kubernetes-incubator/apiserver-builder/issues/176
-//type ActiveDeploymentState string
-//
-//const (
-//	// ActiveDeploymentStateNext specifies that the specified ElaDeployment
-//	// is the next one.
-//	ActiveDeploymentStateNext ActiveDeploymentState = "next"
-//	// ActiveDeploymentStateNext specifies that the specified ElaDeployment
-//	// is the current one.
-//	ActiveDeploymentStateCurrent ActiveDeploymentState = "current"
-//)
+type ServiceType string
 
-// TODO: Use this the below is fixed
-// https://github.com/kubernetes-incubator/apiserver-builder/issues/176
-//type ServiceType string
-
-//const (
-//	Function   ServiceType = "function"
-//	HttpServer ServiceType = "httpserver"
-//	Container  ServiceType = "container"
-//)
+const (
+	Function   ServiceType = "function"
+	HttpServer ServiceType = "httpserver"
+	Container  ServiceType = "container"
+)
 
 type TrafficTarget struct {
 	// Optional name to expose this as an external target
@@ -70,54 +54,33 @@ type TrafficTarget struct {
 	// RevisionTemplate is the name to a revisiontemplate, rolls out
 	// automatically
 	// +optional
-	RevisionTemplate string `json:"revisionTemplate"`
+	RevisionTemplate string `json:"revisionTemplate,omitempty"`
 
 	// Specifies percent of the traffic to this Revision or RevisionTemplate
 	Percent int `json:"percent"`
 }
 
-type Rollout struct {
-	// List of targets to split the traffic between.
-	// Their percent must sum to 100%
-	Traffic []TrafficTarget `json:"traffic,omitempty"`
-}
-
 // ElaServiceSpec defines the desired state of ElaService
 type ElaServiceSpec struct {
-	/////////////////////////////////////////////////////////////////////////
-	// Latest proposed spec
-	/////////////////////////////////////////////////////////////////////////
 	DomainSuffix string `json:"domainSuffix"`
 	// What type of a Service is this
 	//	ServiceType ServiceType `json:"serviceType"`
 	ServiceType string `json:"serviceType"`
 
 	// Specifies the traffic split between Revisions and RevisionTemplates
-	Rollout Rollout `json:"rollout,omitempty"`
-	/////////////////////////////////////////////////////////////////////////
-	// End of latest proposed spec
-	/////////////////////////////////////////////////////////////////////////
-
-	/////////////////////////////////////////////////////////////////////////
-	// ** OLD ** stuff not in the current Ela API yet. Leaving things here
-	// while we move to the new design so that things don't completely break.
-	/////////////////////////////////////////////////////////////////////////
-	Current              string `json:"current"`
-	Next                 string `json:"next"`
-	RolloutPercentToNext int    `json:"rolloutPercentToNext"`
-	ForceReconcile       string `json:"forceReconcile"`
+	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
-// ElaServiceCondition defines a readiness condition for a ElaDeployment.
+// ElaServiceCondition defines a readiness conditions.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type ElaServiceCondition struct {
-	// TODO: Use this the below is fixed
-	// https://github.com/kubernetes-incubator/apiserver-builder/issues/176
-	// Type ElaDeploymentConditionType `json:"state"`
-	Type string `json:"type" description:"type of ElaDeployment condition"`
+	Type ElaServiceConditionType `json:"state"`
 
 	// TODO: Where can we get a proper ConditionStatus?
-	Status string `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -125,20 +88,25 @@ type ElaServiceCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
+// ElaServiceConditionType represents an ElaService condition value
+type ElaServiceConditionType string
+
+const (
+	// ElaServiceConditionReady is set when the service is configured
+	// and has available backends ready to receive traffic.
+	ElaServiceConditionReady ElaServiceConditionType = "Ready"
+	// ElaServiceConditionFailed is set when the service is not configured
+	// properly or has no available backends ready to receive traffic.
+	ElaServiceConditionFailed ElaServiceConditionType = "Failed"
+)
+
 // ElaServiceStatus defines the observed state of ElaService
 type ElaServiceStatus struct {
-	// Current is the name of current Revision. Controller updates this to next when
-	// rolloutPercentage hits 100
-	Current string `json:"current"`
+	Domain string `json:"domain,omitempty"`
 
-	// Current rolloutPercentage. When 100, current=next
-	RolloutPercentage string `json:"rolloutPercentage"`
+	// Specifies the traffic split between Revisions and RevisionTemplates
+	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
-	// Next is the name of the next Revision, rolloutPercentage specifies how
-	// much of the traffic is being routed to Next.
-	Next string `json:"next"`
-
-	// TODO: Add conditions as they are still quite a bit in flux.
 	Conditions []ElaServiceCondition `json:"conditions,omitempty"`
 }
 
