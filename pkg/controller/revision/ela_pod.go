@@ -25,7 +25,6 @@ import (
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // MakeElaPodSpec creates a pod spec.
@@ -57,17 +56,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *apiv1.PodSpec {
 			},
 		},
 		Env: u.Spec.Env,
-		// TODO(mattmoor): Copy this for LivenessProbe
-		ReadinessProbe: &apiv1.Probe{
-			Handler: apiv1.Handler{
-				HTTPGet: &apiv1.HTTPGetAction{
-					Path: "/_ah/health",
-					Port: intstr.IntOrString{Type: intstr.String, StrVal: elaPortName},
-				},
-			},
-			// Don't wait the default 10 seconds between readiness probes.
-			PeriodSeconds: 1,
-		},
 	}
 
 	elaContainerLogVolume := apiv1.Volume{
