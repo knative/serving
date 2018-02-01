@@ -1,7 +1,6 @@
 # Elafros
 
-This repository contains an open source specification and implementation of
-Google's next-generation serverless product.
+This repository contains an open source specification and implementation of a Kubernetes- and Istio-based container platform.
 
 If you are interested in contributing to `Elafros`, see
 [CONTRIBUTING.md](./CONTRIBUTING.md) and [DEVELOPMENT.md](./DEVELOPMENT.md).
