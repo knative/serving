@@ -50,8 +50,8 @@ go build
 When running the application locally in docker, you do not need to install `ffmpeg`, Docker will install it for you 'inside' of the Docker image
 
 ```
-docker build -t $(BINARY_NAME) .
-docker run -p 8080:8080 server-starter:latest
+docker build -t rester-tester:latest .
+docker run -p 8080:8080 rester-tester:latest
 ```
 
 ### Test
@@ -63,9 +63,9 @@ curl -X POST -H "Content-Type: application/json" http://localhost:8080/image \
      -d '{"src":"https://www.youtube.com/watch?v=DjByja9ejTQ"}'
 ```
 
-## Deploy
+## Publish
 
-> TODO: update the `DOCKER_USERNAME` variable with your dockerhub username
+> TODO: update the `DOCKER_USERNAME` variable with your dockerhub username, alternatively skip this step and procede to the next step (Deploy) 
 
 ```
 DOCKER_USERNAME=...
@@ -73,10 +73,12 @@ docker tag server-starter:latest ${DOCKER_USERNAME}/server-starter:latest
 docker push ${DOCKER_USERNAME}/server-starter:latest
 ```
 
+## Deploy
+
 Once the docker image is published to dockerhub, you can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `thumbnailer.yaml`
 
 ```
-kubectl apply -f thumbnailer-demo.yaml
+kubectl apply -f thumbnailer.yaml
 ```
 
 ## Demo
