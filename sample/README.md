@@ -10,4 +10,5 @@ functionality.
 
 ## Samples
 
-* [helloworld](./demo/helloworld) - A simple webserver
+* [helloworld](./helloworld) - A simple webserver
+* [thumbnailer](./thumbnailer) - A 'dockerized' web application creating thumbnails from videos

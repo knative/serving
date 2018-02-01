@@ -73,7 +73,7 @@ docker tag server-starter:latest ${DOCKER_USERNAME}/server-starter:latest
 docker push ${DOCKER_USERNAME}/server-starter:latest
 ```
 
-Once the docker image is published to dockerhub, you can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `thumbnailer-demo.yaml`
+Once the docker image is published to dockerhub, you can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `thumbnailer.yaml`
 
 ```
 kubectl apply -f thumbnailer-demo.yaml
@@ -87,7 +87,7 @@ To confirm that the app deployed, you can check for the Elafros service using `k
 kubectl get ing
 ```
 
-Sometimes the newlly deployed app may take few seconds to initialize. You can check its status like this
+Sometimes the newly deployed app may take few seconds to initialize. You can check its status like this
 
 ```
 kubectl -n default-ela get pods
@@ -96,7 +96,7 @@ kubectl -n default-ela get pods
 The Elafros ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
 
 ```
-export SERVICE_IP=`kubectl get ing demo-ela-ingress \
+export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"` 
 ```
 
@@ -129,6 +129,6 @@ curl -H "Host: thumb.googlecustomer.net" \
 
 ## Final Thoughts
 
-While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer-demo.yaml` and change a few variables. 
+While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables. 
 
 
