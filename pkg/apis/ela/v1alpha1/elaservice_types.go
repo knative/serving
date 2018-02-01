@@ -62,6 +62,12 @@ type TrafficTarget struct {
 
 // ElaServiceSpec defines the desired state of ElaService
 type ElaServiceSpec struct {
+	// TODOD: Generation does not work correctly with CRD. They are scrubbed
+	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
+	// So, we add Generation here. Once that gets fixed, remove this and use
+	// ObjectMeta.Generation instead.
+	Generation int64 `json:"generation,omitempty"`
+
 	DomainSuffix string `json:"domainSuffix"`
 	// What type of a Service is this
 	//	ServiceType ServiceType `json:"serviceType"`
@@ -105,6 +111,11 @@ type ElaServiceStatus struct {
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
 	Conditions []ElaServiceCondition `json:"conditions,omitempty"`
+
+	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
+	// was last processed by the controller. The reconciled generation is updated
+	// even if the controller failed to process the spec and create the Revision.
+	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

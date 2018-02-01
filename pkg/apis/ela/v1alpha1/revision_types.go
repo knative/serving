@@ -51,6 +51,12 @@ type ContainerSpec struct {
 
 // RevisionSpec defines the desired state of Revision
 type RevisionSpec struct {
+	// TODO: Generation does not work correctly with CRD. They are scrubbed
+	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
+	// So, we add Generation here. Once that gets fixed, remove this and use
+	// ObjectMeta.Generation instead.
+	Generation int64 `json:"generation,omitempty"`
+
 	// TODO(vaikas): I think we still need this?
 	// Service this is part of. Points to the Service in the namespace
 	Service string `json:"service"`
@@ -99,8 +105,12 @@ type RevisionStatus struct {
 	// This is the k8s name of the service that represents this revision.
 	// We expose this to ensure that we can easily route to it from
 	// ElaService.
-	ServiceName string                   `json:"serviceName,omitempty"`
+	ServiceName string              `json:"serviceName,omitempty"`
 	Conditions  []RevisionCondition `json:"conditions,omitempty"`
+	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
+	// was last processed by the controller. The reconciled generation is updated
+	// even if the controller failed to process the spec and create the Revision.
+	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
