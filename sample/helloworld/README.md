@@ -13,7 +13,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 You can deploy this to Elafros from the root directory via:
 ```shell
-bazel run sample/demo/helloworld:everything.create
+bazel run sample/helloworld:everything.create
 ```
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
@@ -53,5 +53,5 @@ Hello World: shiniestnewestversion!
 To clean up the sample service:
 
 ```shell
-bazel run sample/demo/helloworld:everything.delete
+bazel run sample/helloworld:everything.delete
 ```
