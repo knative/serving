@@ -5,10 +5,9 @@ metadata:
   namespace: default
 spec:
   domainSuffix: thumb.googlecustomer.net
-  rollout:
-    traffic:
-    - revisionTemplate: thumbtemplate
-      percent: 100
+  traffic:
+  - revisionTemplate: thumbtemplate
+    percent: 100
 ---
 apiVersion: elafros.dev/v1alpha1
 kind: RevisionTemplate
