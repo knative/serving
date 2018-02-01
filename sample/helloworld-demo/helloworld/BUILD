@@ -30,7 +30,7 @@ k8s_object(
     images = {
         "sample:latest": ":image",
     },
-    template = "//sample:revisiontemplate.yaml",
+    template = "//sample/helloworld-demo:revisiontemplate.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
@@ -38,7 +38,7 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-        "//sample:service",
+        "//sample/helloworld-demo:service",
         ":revisiontemplate",
     ],
 )
