@@ -7,6 +7,6 @@ exports_files([
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
-    name = "service",
+    name = "everything",
     template = ":thumbnailer.yaml",
 )
