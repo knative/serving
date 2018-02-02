@@ -14,8 +14,6 @@ If you are interested in contributing to `Elafros`, see
 Once you've [setup your development
 environment](./DEVELOPMENT.md#getting-started), stand up `Elafros` with:
 
-> Note, from Mac or Windows you will have to append target platform argument for go to cross compile binaries for Linux `--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64`
-
 ```shell
 bazel run :everything.create
 ```
