@@ -92,9 +92,6 @@ type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
-	// TODO(vaikas): This should be something that we can assign &v1alpha.Revision{} and
-	// &v1alpha.RevisionTemplate{}, etc. but can't figure out what it could be because
-	// they all require types.
 	Factory  runtime.Object
 	Callback ResourceCallback
 }
@@ -413,18 +410,15 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 }
 
 func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
-	var oldObj GenericCRD
-	var newObj GenericCRD
-	var cb ResourceCallback
-
-	if handler, ok := ac.handlers[kind]; ok {
-		cb = handler.Callback
-		oldObj = handler.Factory.DeepCopyObject().(GenericCRD)
-		newObj = handler.Factory.DeepCopyObject().(GenericCRD)
-	} else {
+	handler, ok := ac.handlers[kind]
+	if !ok {
 		glog.Warningf("Unhandled kind %q", kind)
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
+
+	cb := handler.Callback
+	oldObj := handler.Factory.DeepCopyObject().(GenericCRD)
+	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
 
 	if err := yaml.Unmarshal(newBytes, &newObj); err != nil {
 		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
@@ -441,8 +435,7 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	err = cb(&patches, oldObj, newObj)
-	if err != nil {
+	if err := cb(&patches, oldObj, newObj); err != nil {
 		glog.Warningf("Failed the resource specific callback: %s", err)
 		return nil, fmt.Errorf("Failed the Resource Specific Callback: %s", err)
 	}

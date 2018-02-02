@@ -330,10 +330,6 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 
 }
 
-func dumpPatches(e []jsonpatch.JsonPatchOperation) string {
-	return ""
-}
-
 func createRevisionTemplate(generation int64) v1alpha1.RevisionTemplate {
 	return v1alpha1.RevisionTemplate{
 		ObjectMeta: metav1.ObjectMeta{
