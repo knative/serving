@@ -61,6 +61,16 @@ k8s_object(
 )
 
 k8s_object(
+  name = "build",
+  template = "build.yaml",
+)
+
+k8s_object(
+  name = "buildtemplate",
+  template = "buildtemplate.yaml",
+)
+
+k8s_object(
     name = "istio",
     template = "@istio_release//:istio.yaml",
 )
@@ -81,6 +91,8 @@ k8s_objects(
         ":elaservice",
         ":revisiontemplate",
         ":revision",
+        ":build",
+        ":buildtemplate",
     ],
 )
 
