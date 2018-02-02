@@ -10,6 +10,7 @@ go_binary(
     name = "helloworld",
     embed = [":go_default_library"],
     importpath = "github.com/google/elafros/sample/helloworld",
+    pure = "on",
 )
 
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
