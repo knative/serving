@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	build "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,4 +69,16 @@ type RevisionTemplateList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []RevisionTemplate `json:"items"`
+}
+
+func (r *RevisionTemplate) GetGeneration() int64 {
+	return r.Spec.Generation
+}
+
+func (r *RevisionTemplate) SetGeneration(generation int64) {
+	r.Spec.Generation = generation
+}
+
+func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
+	return json.Marshal(r.Spec)
 }

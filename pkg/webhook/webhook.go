@@ -37,6 +37,7 @@ import (
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientadmissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
@@ -84,21 +85,37 @@ type ControllerOptions struct {
 	RegistrationDelay time.Duration
 }
 
+// ResourceCallback defines the signature that resource specific (ElaService, RevisionTemplate, etc.)
+// handlers that can validate and mutate an object. If non-nil error is returned, object creation
+// is denied. Any mutations are to be appended to the patches operations.
+type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
+
+// GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
+type GenericCRDHandler struct {
+	// TODO(vaikas): This should be something that we can assign &v1alpha.Revision{} and
+	// &v1alpha.RevisionTemplate{}, etc. but can't figure out what it could be because
+	// they all require types.
+	Factory  runtime.Object
+	Callback ResourceCallback
+}
+
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	client  kubernetes.Interface
-	options ControllerOptions
+	client   kubernetes.Interface
+	options  ControllerOptions
+	handlers map[string]GenericCRDHandler
 }
 
-// This is a struct that only assumes that there's Spec.Generation for
-// generalizing the spec updates on that field only.
-type genericCRDObject struct {
-	Spec genericSpec `json:"spec"`
-}
-
-type genericSpec struct {
-	Generation int64 `json:"generation,omitempty"`
+// GenericCRD is the interface definition that allows us to perform the generic
+// CRD actions like deciding whether to increment generation and so forth.
+type GenericCRD interface {
+	// GetGeneration returns the current Generation of the object
+	GetGeneration() int64
+	// SetGeneration sets the Generation of the object
+	SetGeneration(int64)
+	// GetSpecJSON returns the Spec part of the resource marshalled into JSON
+	GetSpecJSON() ([]byte, error)
 }
 
 // GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
@@ -178,6 +195,11 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 	return &AdmissionController{
 		client:  client,
 		options: options,
+		handlers: map[string]GenericCRDHandler{
+			"Revision":         GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
+			"RevisionTemplate": GenericCRDHandler{Factory: &v1alpha1.RevisionTemplate{}, Callback: ValidateRevisionTemplate},
+			"ElaService":       GenericCRDHandler{Factory: &v1alpha1.ElaService{}, Callback: ValidateElaService},
+		},
 	}, nil
 }
 
@@ -199,11 +221,11 @@ func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*t
 }
 
 // Run implements the admission controller run loop.
-func (ac *AdmissionController) Run(stop <-chan struct{}) {
+func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	tlsConfig, caCert, err := configureCerts(ac.client, &ac.options)
 	if err != nil {
 		glog.Infof("Could not configure admission webhook certs: %v", err)
-		return
+		return err
 	}
 
 	server := &http.Server{
@@ -222,7 +244,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		cl := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 		if err := ac.register(cl, caCert); err != nil {
 			glog.Infof("Failed to register webhook: %v", err)
-			return
+			return err
 		}
 		defer func() {
 			if err := ac.unregister(cl); err != nil {
@@ -231,7 +253,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		}()
 		glog.Info("Successfully registered webhook")
 	case <-stop:
-		return
+		return nil
 	}
 
 	go func() {
@@ -241,6 +263,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 	}()
 	<-stop
 	server.Close() // nolint: errcheck
+	return nil
 }
 
 // Unregister unregisters the external admission webhook
@@ -360,7 +383,8 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
 	result := apierrors.NewBadRequest(fmt.Sprintf(reason, args...)).Status()
 	return &admissionv1beta1.AdmissionResponse{
-		Result: &result,
+		Result:  &result,
+		Allowed: false,
 	}
 }
 
@@ -389,125 +413,96 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 }
 
 func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
-	switch kind {
-	case "RevisionTemplate":
-		return ac.mutateRevisionTemplate(oldBytes, newBytes)
-	case "ElaService":
-		return ac.mutateElaService(oldBytes, newBytes)
-	case "Revision":
-		return ac.mutateRevision(oldBytes, newBytes)
-	default:
+	var oldObj GenericCRD
+	var newObj GenericCRD
+	var cb ResourceCallback
+
+	if handler, ok := ac.handlers[kind]; ok {
+		cb = handler.Callback
+		oldObj = handler.Factory.DeepCopyObject().(GenericCRD)
+		newObj = handler.Factory.DeepCopyObject().(GenericCRD)
+	} else {
 		glog.Warningf("Unhandled kind %q", kind)
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
-}
 
-// TODO: Could we just do these in a more generic way with passing in the types
-// that are supposed to be coming in. The only thing different is the new/old
-// by doing a reflection for Spec.Generation and marshaling [old|new].Spec into
-// json into a generic way, then the mutate* functions could be totally generic.
-func (ac *AdmissionController) mutateRevisionTemplate(oldBytes []byte, newBytes []byte) ([]byte, error) {
-	var new v1alpha1.RevisionTemplate
-	if err := yaml.Unmarshal(newBytes, &new); err != nil {
+	if err := yaml.Unmarshal(newBytes, &newObj); err != nil {
 		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 	}
-	newSpecJSON, err := json.Marshal(new.Spec)
-	if err != nil {
-		return nil, err
-	}
 
-	var old v1alpha1.RevisionTemplate
-	if len(oldBytes) != 0 {
-		if err := yaml.Unmarshal(oldBytes, &old); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
-		}
+	if err := yaml.Unmarshal(oldBytes, &oldObj); err != nil {
+		return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 	}
 
 	var patches []jsonpatch.JsonPatchOperation
-
-	oldGeneration := old.Spec.Generation
-	oldSpecJSON, err := json.Marshal(old.Spec)
+	err := updateGeneration(&patches, oldObj, newObj)
 	if err != nil {
-		return nil, err
-	}
-	// Update the generation
-	err = updateGeneration(&patches, oldGeneration, oldSpecJSON, newSpecJSON)
-	if err != nil {
-		return nil, err
+		glog.Warningf("Failed to update generation : %s", err)
+		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	// TODO(vaikas): Call into object specific specific mutator here
+	err = cb(&patches, oldObj, newObj)
+	if err != nil {
+		glog.Warningf("Failed the resource specific callback: %s", err)
+		return nil, fmt.Errorf("Failed the Resource Specific Callback: %s", err)
+	}
 	return json.Marshal(patches)
 }
 
-func (ac *AdmissionController) mutateElaService(oldBytes []byte, newBytes []byte) ([]byte, error) {
-	var new v1alpha1.ElaService
-	if err := yaml.Unmarshal(newBytes, &new); err != nil {
-		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
-	}
-	newSpecJSON, err := json.Marshal(new.Spec)
-	if err != nil {
-		return nil, err
-	}
+func TestCallbackES(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldES *v1alpha1.ElaService
 
-	var old v1alpha1.ElaService
-	if len(oldBytes) != 0 {
-		if err := yaml.Unmarshal(oldBytes, &old); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+	if old != nil {
+		var ok bool
+		oldES, ok = old.(*v1alpha1.ElaService)
+		if !ok {
+			return fmt.Errorf("Failed to convert old into ElaService")
 		}
 	}
-
-	var patches []jsonpatch.JsonPatchOperation
-
-	oldGeneration := old.Spec.Generation
-	oldSpecJSON, err := json.Marshal(old.Spec)
-	if err != nil {
-		return nil, err
+	glog.Infof("TestCallbackES: OLD ElaService is\n%+v", oldES)
+	newES, ok := new.(*v1alpha1.ElaService)
+	if !ok {
+		return fmt.Errorf("Failed to convert new into ElaService")
 	}
-	// Update the generation
-	err = updateGeneration(&patches, oldGeneration, oldSpecJSON, newSpecJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(vaikas): Call into object specific specific mutator here
-
-	return json.Marshal(patches)
+	glog.Infof("TestCallbackES: NEW ElaService is\n%+v", newES)
+	return nil
 }
 
-func (ac *AdmissionController) mutateRevision(oldBytes []byte, newBytes []byte) ([]byte, error) {
-	var new v1alpha1.Revision
-	if err := yaml.Unmarshal(newBytes, &new); err != nil {
-		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
-	}
-	newSpecJSON, err := json.Marshal(new.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	var old v1alpha1.Revision
-	if len(oldBytes) != 0 {
-		if err := yaml.Unmarshal(oldBytes, &old); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+func TestCallbackR(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldR *v1alpha1.Revision
+	if old != nil {
+		var ok bool
+		oldR, ok = old.(*v1alpha1.Revision)
+		if !ok {
+			return fmt.Errorf("Failed to convert old into Revision: %+v", old)
 		}
 	}
-
-	var patches []jsonpatch.JsonPatchOperation
-
-	oldGeneration := old.Spec.Generation
-	oldSpecJSON, err := json.Marshal(old.Spec)
-	if err != nil {
-		return nil, err
-	}
-	// Update the generation
-	err = updateGeneration(&patches, oldGeneration, oldSpecJSON, newSpecJSON)
-	if err != nil {
-		return nil, err
+	glog.Infof("TestCallbackR: OLD Revision is\n%+v", oldR)
+	newR, ok := new.(*v1alpha1.Revision)
+	if !ok {
+		return fmt.Errorf("Failed to convert new into Revision: %+v", new)
 	}
 
-	// TODO(vaikas): Call into object specific specific mutator here
+	glog.Infof("TestCallbackR: NEW Revision is\n%+v", newR)
+	return nil
+}
 
-	return json.Marshal(patches)
+func TestCallbackRT(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldRT *v1alpha1.RevisionTemplate
+	if old != nil {
+		var ok bool
+		oldRT, ok = old.(*v1alpha1.RevisionTemplate)
+		if !ok {
+			return fmt.Errorf("Failed to convert old into RevisionTemplate")
+		}
+	}
+	glog.Infof("TestCallbackRT: OLD RevisionTemplate is\n%+v", oldRT)
+	newRT, ok := new.(*v1alpha1.RevisionTemplate)
+	if !ok {
+		return fmt.Errorf("Failed to convert new into RevisionTemplate")
+	}
+	glog.Infof("TestCallbackRT: NEW RevisionTemplate is\n%+v", newRT)
+	return nil
 }
 
 // updateGeneration sets the generation by following this logic:
@@ -518,7 +513,13 @@ func (ac *AdmissionController) mutateRevision(oldBytes []byte, newBytes []byte) 
 // by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 // So, we add Generation here. Once that gets fixed, remove this and use
 // ObjectMeta.Generation instead.
-func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, oldGeneration int64, oldSpecJSON []byte, newSpecJSON []byte) error {
+func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldGeneration int64
+	if old == nil {
+		glog.Infof("Old is nil")
+	} else {
+		oldGeneration = old.GetGeneration()
+	}
 	if oldGeneration == 0 {
 		glog.Infof("Creating an object, setting generation to 1")
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
@@ -527,6 +528,15 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, oldGeneration int
 			Value:     1,
 		})
 		return nil
+	}
+
+	oldSpecJSON, err := old.GetSpecJSON()
+	if err != nil {
+		glog.Warningf("Failed to get Spec JSON for old: %s", err)
+	}
+	newSpecJSON, err := new.GetSpecJSON()
+	if err != nil {
+		glog.Warningf("Failed to get Spec JSON for new: %s", err)
 	}
 
 	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)

@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	apiv1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,4 +123,16 @@ type RevisionList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Revision `json:"items"`
+}
+
+func (r *Revision) GetGeneration() int64 {
+	return r.Spec.Generation
+}
+
+func (r *Revision) SetGeneration(generation int64) {
+	r.Spec.Generation = generation
+}
+
+func (r *Revision) GetSpecJSON() ([]byte, error) {
+	return json.Marshal(r.Spec)
 }
