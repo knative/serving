@@ -449,62 +449,6 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	return json.Marshal(patches)
 }
 
-func TestCallbackES(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldES *v1alpha1.ElaService
-
-	if old != nil {
-		var ok bool
-		oldES, ok = old.(*v1alpha1.ElaService)
-		if !ok {
-			return fmt.Errorf("Failed to convert old into ElaService")
-		}
-	}
-	glog.Infof("TestCallbackES: OLD ElaService is\n%+v", oldES)
-	newES, ok := new.(*v1alpha1.ElaService)
-	if !ok {
-		return fmt.Errorf("Failed to convert new into ElaService")
-	}
-	glog.Infof("TestCallbackES: NEW ElaService is\n%+v", newES)
-	return nil
-}
-
-func TestCallbackR(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldR *v1alpha1.Revision
-	if old != nil {
-		var ok bool
-		oldR, ok = old.(*v1alpha1.Revision)
-		if !ok {
-			return fmt.Errorf("Failed to convert old into Revision: %+v", old)
-		}
-	}
-	glog.Infof("TestCallbackR: OLD Revision is\n%+v", oldR)
-	newR, ok := new.(*v1alpha1.Revision)
-	if !ok {
-		return fmt.Errorf("Failed to convert new into Revision: %+v", new)
-	}
-
-	glog.Infof("TestCallbackR: NEW Revision is\n%+v", newR)
-	return nil
-}
-
-func TestCallbackRT(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldRT *v1alpha1.RevisionTemplate
-	if old != nil {
-		var ok bool
-		oldRT, ok = old.(*v1alpha1.RevisionTemplate)
-		if !ok {
-			return fmt.Errorf("Failed to convert old into RevisionTemplate")
-		}
-	}
-	glog.Infof("TestCallbackRT: OLD RevisionTemplate is\n%+v", oldRT)
-	newRT, ok := new.(*v1alpha1.RevisionTemplate)
-	if !ok {
-		return fmt.Errorf("Failed to convert new into RevisionTemplate")
-	}
-	glog.Infof("TestCallbackRT: NEW RevisionTemplate is\n%+v", newRT)
-	return nil
-}
-
 // updateGeneration sets the generation by following this logic:
 // if there's no old object, it's create, set generation to 1
 // if there's an old object and spec has changed, set generation to oldGeneration + 1
