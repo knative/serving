@@ -33,8 +33,8 @@ kubectl get revisions -o yaml
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
 $ watch kubectl get ingress
-NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-elaservice-example-ela-ingress   demo.myhost.net             80        14s
+NAME                            HOSTS             ADDRESS         PORTS     AGE
+elaservice-example-ela-ingress  demo.myhost.net   35.227.55.157   80        14s
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
