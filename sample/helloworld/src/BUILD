@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["helloworld.go"],
-    importpath = "github.com/google/elafros/sample/helloworld/helloworld",
+    importpath = "github.com/google/elafros/sample/helloworld/src",
     visibility = ["//visibility:private"],
 )
 
@@ -41,4 +41,11 @@ k8s_objects(
         "//sample/helloworld:service",
         ":revisiontemplate",
     ],
+)
+
+go_binary(
+    name = "src",
+    embed = [":go_default_library"],
+    importpath = "github.com/google/elafros/sample/helloworld/src",
+    visibility = ["//visibility:public"],
 )
