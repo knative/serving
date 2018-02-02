@@ -31,10 +31,13 @@ import (
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 
 	"github.com/golang/glog"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/google/elafros/pkg/apis/istio/v1alpha2"
 	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
 
@@ -53,6 +56,33 @@ func getTestElaService() *v1alpha1.ElaService {
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/elaservices/test-es",
 			Name:      "test-es",
 			Namespace: "test",
+		},
+		Spec: v1alpha1.ElaServiceSpec{
+			Traffic: []v1alpha1.TrafficTarget{
+				v1alpha1.TrafficTarget{
+					Revision: "test-rev",
+					Percent:  100,
+				},
+			},
+		},
+	}
+}
+
+func getTestRevision() *v1alpha1.Revision {
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
+			Name:      "test-rev",
+			Namespace: "test",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			Service: "test-es",
+			ContainerSpec: &v1alpha1.ContainerSpec{
+				Image: "test-image",
+			},
+		},
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: "test-rev-service",
 		},
 	}
 }
@@ -103,10 +133,11 @@ func newRunningTestController(t *testing.T) (
 	return
 }
 
-func TestCreateHSCreatesStuff(t *testing.T) {
+func TestCreateESCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	es := getTestElaService()
+	rev := getTestRevision()
 	h := hooks.NewHooks()
 
 	// Look for the placeholder service to be created.
@@ -122,7 +153,15 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 		if es.Namespace != s.Namespace {
 			t.Errorf("service namespace was %s, not %s", s.Namespace, es.Namespace)
 		}
-		//TODO nginx port
+
+		expectedPort := corev1.ServicePort{
+			Name: "http",
+			Port: 80,
+		}
+
+		if len(s.Spec.Ports) != 1 || s.Spec.Ports[0] != expectedPort {
+			t.Error("expected a single service port http/80")
+		}
 		return hooks.HookComplete
 	})
 
@@ -133,7 +172,7 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 		if expectedIngressName != i.Name {
 			t.Errorf("ingress was not named %s", expectedIngressName)
 		}
-		//TODO(grantr): The expected namespace is currently the same as the
+		//The expected namespace is currently the same as the
 		//ElaService namespace, but that may change to expectedNamespace.
 		if es.Namespace != i.Namespace {
 			t.Errorf("ingress namespace was %s, not %s", i.Namespace, es.Namespace)
@@ -152,8 +191,49 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 	})
 
 	// Look for the route.
-	//TODO(grantr): routing is WIP so no tests yet
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
+		rule := obj.(*v1alpha2.RouteRule)
 
+		// Check labels
+		expectedLabels := map[string]string{"elaservice": es.Name}
+		if diff := cmp.Diff(expectedLabels, rule.Labels); diff != "" {
+			t.Errorf("rule labels differ from expected: %s", diff)
+		}
+
+		// Check owner refs
+		expectedRefs := []metav1.OwnerReference{
+			metav1.OwnerReference{
+				APIVersion: "elafros.dev/v1alpha1",
+				Kind:       "ElaService",
+				Name:       "test-es",
+			},
+		}
+
+		if diff := cmp.Diff(expectedRefs, rule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+			t.Errorf("rule owner refs differ from expected: %s", diff)
+		}
+
+		expectedRouteSpec := v1alpha2.RouteRuleSpec{
+			Destination: v1alpha2.IstioService{
+				Name: "test-es-service",
+			},
+			Route: []v1alpha2.DestinationWeight{
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test-ela",
+					},
+					Weight: 100,
+				},
+			},
+		}
+
+		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+			t.Errorf("rule spec differs from expected: %s", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().ElaServices("test").Create(es)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {

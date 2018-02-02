@@ -27,7 +27,7 @@ import (
 var httpServicePortName = "http"
 var servicePort = 80
 
-// MakeElaServiceService creates a Service that targets nothing. This is now only
+// MakeElaServiceK8SService creates a Service that targets nothing. This is now only
 // a placeholder so that we can route the traffic to Istio and the balance with
 // route rules exclusively to underlying k8s services that represent Revisions.
 func MakeElaServiceK8SService(u *v1alpha1.ElaService) *apiv1.Service {

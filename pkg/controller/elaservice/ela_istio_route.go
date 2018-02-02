@@ -49,7 +49,7 @@ func MakeElaServiceIstioSpec(u *v1alpha1.ElaService, ns string, routes []Revisio
 	}
 }
 
-// MakeElaServiceIstioRoute creates an Istio route
+// MakeElaServiceIstioRoutes creates an Istio route
 func MakeElaServiceIstioRoutes(u *v1alpha1.ElaService, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{

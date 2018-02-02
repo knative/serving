@@ -99,7 +99,7 @@ type RevisionStatus struct {
 	// This is the k8s name of the service that represents this revision.
 	// We expose this to ensure that we can easily route to it from
 	// ElaService.
-	ServiceName string                   `json:"serviceName,omitempty"`
+	ServiceName string              `json:"serviceName,omitempty"`
 	Conditions  []RevisionCondition `json:"conditions,omitempty"`
 }
 
