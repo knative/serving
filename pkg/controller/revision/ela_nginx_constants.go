@@ -50,11 +50,7 @@ http {
   # to avoid a race condition between the two timeouts.
   keepalive_timeout 650;
   keepalive_requests 10000;
-{{if .EnableQueue}}
   upstream queue { server 127.0.0.1:8012; }
-{{else}}
-  upstream app_server { keepalive 64; server 127.0.0.1:8080; }
-{{end}}
 
   geo $source_type {
     default ext;
