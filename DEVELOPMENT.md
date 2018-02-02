@@ -44,7 +44,8 @@ To check out this repository first [fork this
 repo](https://help.github.com/articles/fork-a-repo/), then:
 
 ```shell
-mkdir -p ${GOPATH}/src/github.com/google/elafros
+mkdir -p ${GOPATH}/src/github.com/google
+cd ${GOPATH}/src/github.com/google
 git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
 git remote add upstream git@github.com:google/elafros.git
 git remote set-url --push upstream no_push
