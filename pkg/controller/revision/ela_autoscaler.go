@@ -43,8 +43,9 @@ func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.H
 		},
 		Spec: autoscaling_v1.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscaling_v1.CrossVersionObjectReference{
-				Kind: "Deployment",
-				Name: util.GetRevisionDeploymentName(u),
+				APIVersion: "extensions/v1beta1",
+				Kind:       "Deployment",
+				Name:       util.GetRevisionDeploymentName(u),
 			},
 			MinReplicas:                    &min,
 			MaxReplicas:                    int32(max),
