@@ -37,6 +37,7 @@ import (
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientadmissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
@@ -84,11 +85,34 @@ type ControllerOptions struct {
 	RegistrationDelay time.Duration
 }
 
+// ResourceCallback defines the signature that resource specific (ElaService, RevisionTemplate, etc.)
+// handlers that can validate and mutate an object. If non-nil error is returned, object creation
+// is denied. Any mutations are to be appended to the patches operations.
+type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
+
+// GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
+type GenericCRDHandler struct {
+	Factory  runtime.Object
+	Callback ResourceCallback
+}
+
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	client  kubernetes.Interface
-	options ControllerOptions
+	client   kubernetes.Interface
+	options  ControllerOptions
+	handlers map[string]GenericCRDHandler
+}
+
+// GenericCRD is the interface definition that allows us to perform the generic
+// CRD actions like deciding whether to increment generation and so forth.
+type GenericCRD interface {
+	// GetGeneration returns the current Generation of the object
+	GetGeneration() int64
+	// SetGeneration sets the Generation of the object
+	SetGeneration(int64)
+	// GetSpecJSON returns the Spec part of the resource marshalled into JSON
+	GetSpecJSON() ([]byte, error)
 }
 
 // GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
@@ -168,6 +192,11 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 	return &AdmissionController{
 		client:  client,
 		options: options,
+		handlers: map[string]GenericCRDHandler{
+			"Revision":         GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
+			"RevisionTemplate": GenericCRDHandler{Factory: &v1alpha1.RevisionTemplate{}, Callback: ValidateRevisionTemplate},
+			"ElaService":       GenericCRDHandler{Factory: &v1alpha1.ElaService{}, Callback: ValidateElaService},
+		},
 	}, nil
 }
 
@@ -189,11 +218,11 @@ func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*t
 }
 
 // Run implements the admission controller run loop.
-func (ac *AdmissionController) Run(stop <-chan struct{}) {
+func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	tlsConfig, caCert, err := configureCerts(ac.client, &ac.options)
 	if err != nil {
 		glog.Infof("Could not configure admission webhook certs: %v", err)
-		return
+		return err
 	}
 
 	server := &http.Server{
@@ -212,7 +241,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		cl := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 		if err := ac.register(cl, caCert); err != nil {
 			glog.Infof("Failed to register webhook: %v", err)
-			return
+			return err
 		}
 		defer func() {
 			if err := ac.unregister(cl); err != nil {
@@ -221,7 +250,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		}()
 		glog.Info("Successfully registered webhook")
 	case <-stop:
-		return
+		return nil
 	}
 
 	go func() {
@@ -231,6 +260,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 	}()
 	<-stop
 	server.Close() // nolint: errcheck
+	return nil
 }
 
 // Unregister unregisters the external admission webhook
@@ -243,8 +273,7 @@ func (ac *AdmissionController) unregister(client clientadmissionregistrationv1be
 // configuration types.
 
 func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	// TODO(vaikas): Make this generic
-	resources := []string{"revisiontemplates"}
+	resources := []string{"revisiontemplates", "elaservices", "revisions"}
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -348,14 +377,15 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
-	makeErrorStatus := func(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
-		result := apierrors.NewBadRequest(fmt.Sprintf(reason, args...)).Status()
-		return &admissionv1beta1.AdmissionResponse{
-			Result: &result,
-		}
+func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
+	result := apierrors.NewBadRequest(fmt.Sprintf(reason, args...)).Status()
+	return &admissionv1beta1.AdmissionResponse{
+		Result:  &result,
+		Allowed: false,
 	}
+}
 
+func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
@@ -363,24 +393,11 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	var obj v1alpha1.RevisionTemplate
-	glog.Infof("INCOMING OBJECT: %v", string(request.Object.Raw))
-	if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
-		return makeErrorStatus("cannot decode incoming object: %v", err)
-	}
-
-	var oldObj v1alpha1.RevisionTemplate
-	if len(request.OldObject.Raw) != 0 {
-		if err := yaml.Unmarshal(request.OldObject.Raw, &oldObj); err != nil {
-			return makeErrorStatus("cannot decode old incoming object: %v", err)
-		}
-	}
-
-	patchBytes, err := ac.mutate(&oldObj, &obj)
+	patchBytes, err := ac.mutate(request.Kind.Kind, request.OldObject.Raw, request.Object.Raw)
 	if err != nil {
 		return makeErrorStatus("mutation failed: %v", err)
 	}
-	glog.Infof("PatchBytes: %v", string(patchBytes))
+	glog.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
 	return &admissionv1beta1.AdmissionResponse{
 		Patch:   patchBytes,
@@ -392,27 +409,55 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 	}
 }
 
-func (ac *AdmissionController) mutate(old *v1alpha1.RevisionTemplate, new *v1alpha1.RevisionTemplate) ([]byte, error) {
+func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
+	handler, ok := ac.handlers[kind]
+	if !ok {
+		glog.Warningf("Unhandled kind %q", kind)
+		return nil, fmt.Errorf("unhandled kind: %q", kind)
+	}
+
+	cb := handler.Callback
+	oldObj := handler.Factory.DeepCopyObject().(GenericCRD)
+	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
+
+	if err := yaml.Unmarshal(newBytes, &newObj); err != nil {
+		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+	}
+
+	if err := yaml.Unmarshal(oldBytes, &oldObj); err != nil {
+		return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+	}
+
 	var patches []jsonpatch.JsonPatchOperation
+	err := updateGeneration(&patches, oldObj, newObj)
+	if err != nil {
+		glog.Warningf("Failed to update generation : %s", err)
+		return nil, fmt.Errorf("Failed to update generation: %s", err)
+	}
 
-	// Update the generation
-	updateGeneration(&patches, old, new)
-
-	// TODO(vaikas): Call into appropriate object specific mutators
-
+	if err := cb(&patches, oldObj, newObj); err != nil {
+		glog.Warningf("Failed the resource specific callback: %s", err)
+		return nil, fmt.Errorf("Failed the Resource Specific Callback: %s", err)
+	}
 	return json.Marshal(patches)
 }
 
 // updateGeneration sets the generation by following this logic:
 // if there's no old object, it's create, set generation to 1
-// if there's an old object and spec has changed, set generation to old.generation + 1
+// if there's an old object and spec has changed, set generation to oldGeneration + 1
 // appends the patch to patches if changes are necessary.
-// TODOD: Generation does not work correctly with CRD. They are scrubbed
+// TODO: Generation does not work correctly with CRD. They are scrubbed
 // by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 // So, we add Generation here. Once that gets fixed, remove this and use
 // ObjectMeta.Generation instead.
-func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old *v1alpha1.RevisionTemplate, new *v1alpha1.RevisionTemplate) error {
-	if old == nil || old.Spec.Generation == 0 {
+func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldGeneration int64
+	if old == nil {
+		glog.Infof("Old is nil")
+	} else {
+		oldGeneration = old.GetGeneration()
+	}
+	if oldGeneration == 0 {
 		glog.Infof("Creating an object, setting generation to 1")
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
@@ -421,18 +466,19 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old *v1alpha1.Rev
 		})
 		return nil
 	}
-	// Diff the specs and see if there are differences
-	oldJSON, err := json.Marshal(old.Spec)
+
+	oldSpecJSON, err := old.GetSpecJSON()
 	if err != nil {
-		return err
+		glog.Warningf("Failed to get Spec JSON for old: %s", err)
 	}
-	newJSON, err := json.Marshal(new.Spec)
+	newSpecJSON, err := new.GetSpecJSON()
 	if err != nil {
-		return err
+		glog.Warningf("Failed to get Spec JSON for new: %s", err)
 	}
-	specPatches, e := jsonpatch.CreatePatch([]byte(oldJSON), []byte(newJSON))
-	if e != nil {
-		fmt.Printf("Error creating JSON patch:%v", e)
+
+	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
+	if err != nil {
+		fmt.Printf("Error creating JSON patch:%v", err)
 		return err
 	}
 	if len(specPatches) > 0 {
@@ -445,7 +491,7 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old *v1alpha1.Rev
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
-			Value:     old.Spec.Generation + 1,
+			Value:     oldGeneration + 1,
 		})
 		return nil
 	}

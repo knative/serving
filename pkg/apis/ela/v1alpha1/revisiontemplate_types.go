@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	build "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +38,7 @@ type RevisionTemplate struct {
 
 // RevisionTemplateSpec defines the desired state of RevisionTemplate
 type RevisionTemplateSpec struct {
-	// TODOD: Generation does not work correctly with CRD. They are scrubbed
+	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
@@ -56,7 +58,7 @@ type RevisionTemplateStatus struct {
 	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
 	// was last processed by the controller. The reconciled generation is updated
 	// even if the controller failed to process the spec and create the Revision.
-	ReconciledGeneration int64 `json:"reconciledGeneration"`
+	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -67,4 +69,16 @@ type RevisionTemplateList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []RevisionTemplate `json:"items"`
+}
+
+func (r *RevisionTemplate) GetGeneration() int64 {
+	return r.Spec.Generation
+}
+
+func (r *RevisionTemplate) SetGeneration(generation int64) {
+	r.Spec.Generation = generation
+}
+
+func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
+	return json.Marshal(r.Spec)
 }
