@@ -84,7 +84,6 @@ type ElaServiceSpec struct {
 type ElaServiceCondition struct {
 	Type ElaServiceConditionType `json:"state"`
 
-	// TODO: Where can we get a proper ConditionStatus?
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional

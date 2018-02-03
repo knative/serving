@@ -200,7 +200,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		glog.Infof("updated rev %v", updatedPr)
 		want := v1alpha1.RevisionCondition{
 			Type:   "Ready",
-			Status: "False",
+			Status: corev1.ConditionFalse,
 			Reason: "Deploying",
 		}
 		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
@@ -228,7 +228,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 		glog.Infof("updated rev %v", updatedPr)
 		want := v1alpha1.RevisionCondition{
 			Type:   "BuildComplete",
-			Status: "False",
+			Status: corev1.ConditionFalse,
 			Reason: "Building",
 		}
 		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
@@ -320,7 +320,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			// status.
 			want := v1alpha1.RevisionCondition{
 				Type:    "BuildFailed",
-				Status:  "True",
+				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: errMessage,
 			}
@@ -393,7 +393,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			// The next update we receive should tell us that the build completed.
 			want := v1alpha1.RevisionCondition{
 				Type:   "BuildComplete",
-				Status: "True",
+				Status: corev1.ConditionTrue,
 			}
 			if len(updatedPr.Status.Conditions) != 1 {
 				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
@@ -472,7 +472,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			// status.
 			want := v1alpha1.RevisionCondition{
 				Type:    "BuildFailed",
-				Status:  "True",
+				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: errMessage,
 			}
