@@ -50,6 +50,11 @@ bazel run :elafros.delete
 bazel run :istio.delete
 ```
 
+Delete all cached environment variables (e.g. `DOCKER_REPO_OVERRIDE`):
+```shell
+bazel clean
+```
+
 Due to [a bazel deletion ordering issue](https://github.com/bazelbuild/rules_k8s/issues/97),
 which also prevents `bazel run :everything.delete` from working,
 both of the above commands will output errors such as:

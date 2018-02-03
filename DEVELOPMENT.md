@@ -56,7 +56,7 @@ variables (we recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add `export GOPATH=...`
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will work properly.
-1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed.
+1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
 1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development environments should be managed.
 
 (Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authorization) for your
