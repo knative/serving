@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -82,7 +82,7 @@ type RevisionSpec struct {
 	// List of environment variables that will be passed to the app container.
 	// TODO: Add merge strategy for this similar to the EnvVar list on the
 	// Container type.
-	Env []apiv1.EnvVar `json:"env,omitempty"`
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // RevisionCondition defines a readiness condition for a ElaDeployment.
@@ -93,8 +93,7 @@ type RevisionCondition struct {
 	// Type ElaDeploymentConditionType `json:"state"`
 	Type string `json:"type" description:"type of ElaDeployment condition"`
 
-	// TODO: Where can we get a proper ConditionStatus?
-	Status string `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`

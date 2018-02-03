@@ -315,7 +315,7 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
 				setCondition(rev, "BuildComplete", &v1alpha1.RevisionCondition{
 					Type:   "BuildComplete",
-					Status: "False",
+					Status: corev1.ConditionFalse,
 					Reason: "Building",
 				})
 				// Let this trigger a reconciliation loop.
@@ -353,7 +353,7 @@ func (c *RevisionControllerImpl) reconcileWithImage(u *v1alpha1.Revision, ns str
 // Checks whether the Revision knows whether the build is done.
 func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 	for _, cond := range u.Status.Conditions {
-		if cond.Status != "True" {
+		if cond.Status != corev1.ConditionTrue {
 			continue
 		}
 		switch cond.Type {
@@ -372,13 +372,13 @@ func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *bui
 		removeCondition(u, "BuildFailed")
 		setCondition(u, "BuildComplete", &v1alpha1.RevisionCondition{
 			Type:   "BuildComplete",
-			Status: "True",
+			Status: corev1.ConditionTrue,
 		})
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		removeCondition(u, "BuildComplete")
 		setCondition(u, "BuildFailed", &v1alpha1.RevisionCondition{
 			Type:    "BuildFailed",
-			Status:  "True",
+			Status:  corev1.ConditionTrue,
 			Reason:  bc.Reason,
 			Message: bc.Message,
 		})
@@ -480,7 +480,7 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 	// And the deployment is no longer ready, so update that
 	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
 		Type:   "Ready",
-		Status: "False",
+		Status: corev1.ConditionFalse,
 		Reason: "Inactive",
 	})
 	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
@@ -524,7 +524,7 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 	// that will watch for Deployment completion.
 	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
 		Type:   "Ready",
-		Status: "False",
+		Status: corev1.ConditionFalse,
 		Reason: "Deploying",
 	})
 	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
