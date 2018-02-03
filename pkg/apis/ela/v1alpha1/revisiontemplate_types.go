@@ -82,3 +82,21 @@ func (r *RevisionTemplate) SetGeneration(generation int64) {
 func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
+
+// TODO(mattmoor): Once RevisionTemplate has Conditions
+// func (rts *RevisionTemplateStatus) SetCondition(t string, new *RevisionTemplateCondition) {
+// 	var conditions []RevisionTemplateCondition
+// 	for _, cond := range rts.Conditions {
+// 		if cond.Type != t {
+// 			conditions = append(conditions, cond)
+// 		}
+// 	}
+// 	if new != nil {
+// 		conditions = append(conditions, *new)
+// 	}
+// 	rts.Conditions = conditions
+// }
+//
+// func (rts *RevisionTemplateStatus) RemoveCondition(t string) {
+// 	rts.SetCondition(t, nil)
+// }

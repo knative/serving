@@ -313,8 +313,8 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 	if rev.Spec.BuildName != "" {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				setCondition(rev, "BuildComplete", &v1alpha1.RevisionCondition{
-					Type:   "BuildComplete",
+				rev.Status.SetCondition(v1alpha1.RevisionConditionBuildComplete, &v1alpha1.RevisionCondition{
+					Type:   v1alpha1.RevisionConditionBuildComplete,
 					Status: corev1.ConditionFalse,
 					Reason: "Building",
 				})
@@ -351,15 +351,16 @@ func (c *RevisionControllerImpl) reconcileWithImage(u *v1alpha1.Revision, ns str
 }
 
 // Checks whether the Revision knows whether the build is done.
+// TODO(mattmoor): Use a method on the Build type.
 func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 	for _, cond := range u.Status.Conditions {
 		if cond.Status != corev1.ConditionTrue {
 			continue
 		}
 		switch cond.Type {
-		case "BuildComplete":
+		case v1alpha1.RevisionConditionBuildComplete:
 			return true, false
-		case "BuildFailed":
+		case v1alpha1.RevisionConditionBuildFailed:
 			return true, true
 		}
 	}
@@ -369,15 +370,15 @@ func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
-		removeCondition(u, "BuildFailed")
-		setCondition(u, "BuildComplete", &v1alpha1.RevisionCondition{
-			Type:   "BuildComplete",
+		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
+		u.Status.SetCondition(v1alpha1.RevisionConditionBuildComplete, &v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionBuildComplete,
 			Status: corev1.ConditionTrue,
 		})
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
-		removeCondition(u, "BuildComplete")
-		setCondition(u, "BuildFailed", &v1alpha1.RevisionCondition{
-			Type:    "BuildFailed",
+		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
+		u.Status.SetCondition(v1alpha1.RevisionConditionBuildFailed, &v1alpha1.RevisionCondition{
+			Type:    v1alpha1.RevisionConditionBuildFailed,
 			Status:  corev1.ConditionTrue,
 			Reason:  bc.Reason,
 			Message: bc.Message,
@@ -478,8 +479,8 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 	log.Printf("Deleted service")
 
 	// And the deployment is no longer ready, so update that
-	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
-		Type:   "Ready",
+	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
+		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionFalse,
 		Reason: "Inactive",
 	})
@@ -522,8 +523,8 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 
 	// By updating our deployment status we will trigger a Reconcile()
 	// that will watch for Deployment completion.
-	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
-		Type:   "Ready",
+	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
+		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionFalse,
 		Reason: "Deploying",
 	})
@@ -757,24 +758,6 @@ func (c *RevisionControllerImpl) removeFinalizers(u *v1alpha1.Revision, ns strin
 	log.Printf("The finalizer 'controller' is removed.")
 
 	return nil
-}
-
-// setCondition removes the condition if new is nil.
-func setCondition(u *v1alpha1.Revision, t string, new *v1alpha1.RevisionCondition) {
-	var conditions []v1alpha1.RevisionCondition
-	for _, cond := range u.Status.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
-	u.Status.Conditions = conditions
-}
-
-func removeCondition(u *v1alpha1.Revision, t string) {
-	setCondition(u, t, nil)
 }
 
 func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.Revision, error) {

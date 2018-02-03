@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["helloworld.go"],
     importpath = "github.com/google/elafros/sample/helloworld",
+    visibility = ["//visibility:private"],
 )
 
 go_binary(
@@ -11,6 +12,7 @@ go_binary(
     embed = [":go_default_library"],
     importpath = "github.com/google/elafros/sample/helloworld",
     pure = "on",
+    visibility = ["//visibility:public"],
 )
 
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
@@ -29,6 +31,7 @@ k8s_object(
     },
     template = ":revisiontemplate.yaml",
 )
+
 k8s_object(
     name = "service",
     template = ":elaservice.yaml",
