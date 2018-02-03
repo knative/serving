@@ -140,3 +140,20 @@ func (r *ElaService) SetGeneration(generation int64) {
 func (r *ElaService) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
+
+func (ess *ElaServiceStatus) SetCondition(t ElaServiceConditionType, new *ElaServiceCondition) {
+	var conditions []ElaServiceCondition
+	for _, cond := range ess.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	if new != nil {
+		conditions = append(conditions, *new)
+	}
+	ess.Conditions = conditions
+}
+
+func (ess *ElaServiceStatus) RemoveCondition(t ElaServiceConditionType) {
+	ess.SetCondition(t, nil)
+}

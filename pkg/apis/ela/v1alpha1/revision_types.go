@@ -85,13 +85,25 @@ type RevisionSpec struct {
 	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
+// RevisionConditionType represents an Revision condition value
+type RevisionConditionType string
+
+const (
+	// RevisionConditionReady is set when the revision is starting to materialize
+	// runtime resources, and becomes true when those resources are ready.
+	RevisionConditionReady RevisionConditionType = "Ready"
+	// RevisionConditionBuildComplete is set when the revision has an associated build
+	// and is marked True if/once the Build has completed succesfully.
+	RevisionConditionBuildComplete RevisionConditionType = "BuildComplete"
+	// RevisionConditionBuildFailed is set when the revision has an associated build
+	// that has failed for some reason.
+	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"
+)
+
 // RevisionCondition defines a readiness condition for a ElaDeployment.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RevisionCondition struct {
-	// TODO: Use this the below is fixed
-	// https://github.com/kubernetes-incubator/apiserver-builder/issues/176
-	// Type ElaDeploymentConditionType `json:"state"`
-	Type string `json:"type" description:"type of ElaDeployment condition"`
+	Type RevisionConditionType `json:"type" description:"type of ElaDeployment condition"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
@@ -134,4 +146,21 @@ func (r *Revision) SetGeneration(generation int64) {
 
 func (r *Revision) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
+}
+
+func (rs *RevisionStatus) SetCondition(t RevisionConditionType, new *RevisionCondition) {
+	var conditions []RevisionCondition
+	for _, cond := range rs.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	if new != nil {
+		conditions = append(conditions, *new)
+	}
+	rs.Conditions = conditions
+}
+
+func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
+	rs.SetCondition(t, nil)
 }
