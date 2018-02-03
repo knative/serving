@@ -23,7 +23,8 @@ go_register_toolchains()
 # Pull in rules_docker
 git_repository(
     name = "io_bazel_rules_docker",
-    commit = "8aeab63328a82fdb8e8eb12f677a4e5ce6b183b1",
+    # HEAD as of 2018-02-03
+    commit = "bf925ec58ad96f2ead21cd8379caedbe3c26efc9",
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
@@ -45,7 +46,8 @@ _go_image_repos()
 # Pull in rules_k8s
 git_repository(
     name = "io_bazel_rules_k8s",
-    commit = "3756369d4920033c32c12d16207e8ee14fee1b18",
+    # HEAD as of 2018-02-03
+    commit = "959c5adc2d7863c0ff445c6fd789cfd04bc1815c",
     remote = "https://github.com/bazelbuild/rules_k8s",
 )
 
