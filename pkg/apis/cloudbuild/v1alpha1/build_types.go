@@ -155,3 +155,20 @@ type BuildList struct {
 
 	Items []Build `json:"items"`
 }
+
+func (b *BuildStatus) SetCondition(t BuildConditionType, new *BuildCondition) {
+	var conditions []BuildCondition
+	for _, cond := range b.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	if new != nil {
+		conditions = append(conditions, *new)
+	}
+	b.Conditions = conditions
+}
+
+func (b *BuildStatus) RemoveCondition(t BuildConditionType) {
+	b.SetCondition(t, nil)
+}

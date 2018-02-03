@@ -19,3 +19,16 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
     ],
 )
+
+# This test verifies that our checked in type definitions match
+# the version of the CRD we are linking against in //:everything
+sh_test(
+    name = "pristine_test",
+    srcs = ["pristine_test.sh"],
+    data = [
+        ":build_template_types.go",
+        ":build_types.go",
+        "@buildcrd//pkg/apis/cloudbuild/v1alpha1:build_template_types.go",
+        "@buildcrd//pkg/apis/cloudbuild/v1alpha1:build_types.go",
+    ],
+)

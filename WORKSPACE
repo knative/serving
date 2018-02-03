@@ -93,3 +93,28 @@ new_http_archive(
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
     build_file_content = "exports_files([\"istio.yaml\"])"
 )
+
+# Until the Build repo is public, we must use the Skylark-based git_repository rules
+# per the documentation: https://docs.bazel.build/versions/master/be/workspace.html#git_repository
+load(
+    "@bazel_tools//tools/build_defs/repo:git.bzl",
+    private_git_repository = "git_repository",
+)
+
+# TODO(mattmoor): Change to google/build-crd once https://github.com/google/build-crd/pull/13 merges.
+private_git_repository(
+   name = "buildcrd",
+   commit = "dec9ea89293a4bd4bbd3e1e034964d12dae23a9b",
+   remote = "https://github.com/mattmoor/build-crd",
+)
+
+# If you would like to test changes to both repositories,
+# you can comment the above and uncomment this:
+# local_repository(
+#    name = "buildcrd",
+#    path = "../build-crd",
+# )
+
+load("@buildcrd//:deps.bzl", "repositories")
+
+repositories()

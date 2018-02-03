@@ -37,4 +37,3 @@ spec:
           value: thumb_v1
       containerSpec:
         image: docker.io/mchmarny/rester-tester:latest
-        
