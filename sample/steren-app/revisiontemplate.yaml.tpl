@@ -1,24 +1,36 @@
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
+
+apiVersion: elafros.dev/v1alpha1
+kind: RevisionTemplate
 metadata:
-  name: buildtemplates.cloudbuild.googleapis.com
+  name: steren-sample-app
+  namespace: default
 spec:
-  group: cloudbuild.googleapis.com
-  version: v1alpha1
-  names:
-    kind: BuildTemplate
-    plural: buildtemplates
-  scope: Namespaced
+  build:
+    source:
+      git:
+        url: https://github.com/steren/sample-app
+        branch: master
+    template:
+      name: node-app
+      arguments:
+      - name: IMAGE
+        value: &image DOCKER_REPO_OVERRIDE/sample-app
+
+  template:
+    spec:
+      serviceType: container
+      containerSpec:
+        image: *image
