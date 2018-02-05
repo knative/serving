@@ -101,11 +101,10 @@ load(
     private_git_repository = "git_repository",
 )
 
-# TODO(mattmoor): Change to google/build-crd once https://github.com/google/build-crd/pull/13 merges.
 private_git_repository(
    name = "buildcrd",
-   commit = "dec9ea89293a4bd4bbd3e1e034964d12dae23a9b",
-   remote = "https://github.com/mattmoor/build-crd",
+   commit = "c68c218d67987d71e496e9c1b48f270614c8e5f2",
+   remote = "https://github.com/google/build-crd",
 )
 
 # If you would like to test changes to both repositories,
