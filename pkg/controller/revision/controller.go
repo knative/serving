@@ -62,6 +62,10 @@ const (
 	elaContainerLogVolumeName      string = "ela-logs"
 	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
 
+	queueContainerName string = "queue-proxy"
+	queueSidecarImage  string = "gcr.io/joe-does-flex/queue-proxy:latest"
+	queueHttpPortName  string = "queue-http-port"
+
 	nginxContainerName string = "nginx-proxy"
 	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
 	nginxHttpPortName  string = "nginx-http-port"

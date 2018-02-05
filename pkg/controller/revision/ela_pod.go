@@ -59,7 +59,26 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	nginxContainer := corev1.Container{
+	queueContainer := apiv1.Container{
+		Name:  queueContainerName,
+		Image: queueSidecarImage,
+		Resources: apiv1.ResourceRequirements{
+			Requests: apiv1.ResourceList{
+				apiv1.ResourceName("cpu"): resource.MustParse("25m"),
+			},
+		},
+		Ports: []apiv1.ContainerPort{
+			// TOOD: HTTPS connections from the Cloud LB require
+			// certs. Right now, the static nginx.conf file has
+			// been modified to only allow HTTP connections.
+			{
+				Name:          queueHttpPortName,
+				ContainerPort: int32(queueHttpPort),
+			},
+		},
+	}
+
+	nginxContainer := apiv1.Container{
 		Name:  nginxContainerName,
 		Image: nginxSidecarImage,
 		Resources: corev1.ResourceRequirements{
@@ -137,7 +156,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 
 	return &corev1.PodSpec{
 		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{*elaContainer, nginxContainer, fluentdContainer},
+		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
 	}
 }
 

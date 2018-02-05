@@ -176,7 +176,7 @@ http {
     }
 
     location / {
-      proxy_pass http://app_server;
+      proxy_pass http://queue;
       proxy_redirect off;
       proxy_http_version 1.1;
       proxy_set_header Connection "";
@@ -264,11 +264,7 @@ http {
         }
 
         proxy_intercept_errors on;
-{{if .EnableQueue}}
         proxy_pass http://queue;
-{{else}}
-        proxy_pass http://app_server;
-{{end}}
         proxy_redirect off;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
