@@ -40,17 +40,19 @@ environment](README.md#start-elafros)!
 The repository must be set up properly relative to your
 [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
-To check out this repository first [fork this
-repo](https://help.github.com/articles/fork-a-repo/), then:
+To check out this repository:
 
-```shell
-mkdir -p ${GOPATH}/src/github.com/google
-cd ${GOPATH}/src/github.com/google
-git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
-cd elafros
-git remote add upstream git@github.com:google/elafros.git
-git remote set-url --push upstream no_push
-```
+1. Create your own [fork of this
+  repo](https://help.github.com/articles/fork-a-repo/)
+2. Clone it to your machine:
+  ```shell
+  mkdir -p ${GOPATH}/src/github.com/google
+  cd ${GOPATH}/src/github.com/google
+  git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
+  cd elafros
+  git remote add upstream git@github.com:google/elafros.git
+  git remote set-url --push upstream no_push
+  ```
 ### Environment setup
 
 To [start your envrionment](./README.md#start-elafros) you'll need to set these environment
