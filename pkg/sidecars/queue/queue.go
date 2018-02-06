@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"elafros/pkg/autoscaler/types"
+	"encoding/gob"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type request struct {
@@ -15,8 +20,32 @@ type request struct {
 }
 
 var requestChan = make(chan *request)
+var statChan = make(chan *types.Stat)
 
-func init() { log.Println("Init queue container.") }
+func reporter() {
+	conn, _, err := websocket.DefaultDialer.Dial("", nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer conn.Close()
+	for {
+		s := <-statChan
+		var b bytes.Buffer
+		enc := gob.NewEncoder(&b)
+		err = enc.Encode(s)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		err = conn.WriteMessage(websocket.BinaryMessage, b.Bytes())
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+}
+
 func consumer() {
 	target, err := url.Parse("http://127.0.0.1:8080")
 	if err != nil {
@@ -30,7 +59,12 @@ func consumer() {
 		close(r.c)
 	}
 }
+
 func handler(w http.ResponseWriter, r *http.Request) {
+	stat := &types.Stat{
+		RequestCount: 1,
+	}
+	statChan <- stat
 	req := &request{
 		w: w,
 		r: r,
@@ -40,6 +74,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	requestChan <- req
 	<-req.c
 }
+
 func main() {
 	log.Println("Queue container is running")
 	go consumer()
