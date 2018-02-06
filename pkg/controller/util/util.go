@@ -31,7 +31,9 @@ import (
 
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
-	return ns + "-ela"
+	// We create resources in the same namespace as the Elafros resources by default.
+	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
+	return ns
 }
 
 func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
@@ -74,16 +76,8 @@ func GetElaK8SRouterServiceName(u *v1alpha1.ElaService) string {
 	return "router-service"
 }
 
-func GetOrCreateAppDeploymentNamespace(resourceNamespace string, c clientset.Interface) (string, error) {
-	return GetOrCreateNamespace(resourceNamespace+"-app", c)
-}
-
-func GetOrCreateElaDeploymentNamespace(resourceNamespace string, c clientset.Interface) (string, error) {
-	return GetOrCreateNamespace(GetElaNamespaceName(resourceNamespace), c)
-}
-
-func GetOrCreateRevisionNamespace(resourceNamespace string, c clientset.Interface) (string, error) {
-	return GetOrCreateNamespace(GetElaNamespaceName(resourceNamespace), c)
+func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {
+	return GetOrCreateNamespace(GetElaNamespaceName(ns), c)
 }
 
 func GetOrCreateNamespace(namespace string, c clientset.Interface) (string, error) {

@@ -121,7 +121,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	h := hooks.NewHooks()
 
 	// Look for the namespace.
-	expectedNamespace := fmt.Sprintf("%s-ela", rev.Namespace)
+	expectedNamespace := rev.Namespace
 	h.OnCreate(&kubeClient.Fake, "namespaces", func(obj runtime.Object) hooks.HookResult {
 		ns := obj.(*corev1.Namespace)
 		glog.Infof("checking namespace %s", ns.Name)
