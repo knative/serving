@@ -50,17 +50,9 @@ Hello World: shiniestnewestversion!
 
 ## Updating
 
-You can update the app to a new version on Elafros. For example, Update the TARGET env in
-sample/helloworld/revisiontemplate.yaml as
-```yaml
-env:
-  - name: TARGET
-    value: nextversion
-```
-
-Redeploy this to Elafros from the root directory via:
+You can update this to a new version with a new reversiontemplate.yaml. For example, run:
 ```shell
-bazel run sample/helloworld:everything.apply
+bazel run sample/helloworld:updated_everything.apply
 ```
 
 Once deployed, traffic will shift to the new revision automatically. You can verify the new version
