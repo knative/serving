@@ -76,6 +76,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				ContainerPort: int32(queueHttpPort),
 			},
 		},
+		// TODO(josephburnett): pass ELA_AUTOSCALER_SERVICE to queue.
 	}
 
 	nginxContainer := apiv1.Container{

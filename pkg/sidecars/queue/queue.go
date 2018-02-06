@@ -22,7 +22,17 @@ type request struct {
 var requestChan = make(chan *request)
 var statChan = make(chan *types.Stat)
 
-func reporter() {
+func init() {
+	svc := os.GetEnv("ELA_AUTOSCALER_SERVICE")
+	if svc == "" {
+		log.Println("No ELA_AUTOSCALER_SERVICE provided.")
+		return
+	}
+	// TODO(josephburnett): watch for service.spec.clusterIP
+	// go statReporter()
+}
+
+func statReporter() {
 	conn, _, err := websocket.DefaultDialer.Dial("", nil)
 	if err != nil {
 		log.Println(err)

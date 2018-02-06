@@ -24,6 +24,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TODO(josephburnett): make autoscaler service instead of hpa
 func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.HorizontalPodAutoscaler {
 	name := u.Name
 	serviceID := u.Spec.Service
