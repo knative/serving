@@ -22,7 +22,7 @@ Conduct](./code-of-conduct.md) at all times.
 
 ## Workflow
 
-* All PRs must be pulled from [forks](./DEVELOPMENT.md#setup-your-repo)
+* All PRs must be pulled from [forks](./DEVELOPMENT.md#checkout-your-fork)
 * All PRs must [be reviewed](#code-reviews)
 
 ### Code reviews

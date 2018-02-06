@@ -2,9 +2,12 @@
 
 ## Getting started
 
-* Create [a github account](https://github.com/join)
-* Install [requirements](#requirements)
-* Setup [environment](#environment-setup)
+1. Create [a GitHub account](https://github.com/join)
+1. Setup [GitHub access via
+   SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
+1. Install [requirements](#requirements)
+1. [Create and checkout a repo fork](#checkout-your-fork)
+1. Setup your [environment](#environment-setup)
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
@@ -35,7 +38,7 @@ You'll also need to setup:
 Once you meet these requirements, you can [start an `Elafros`
 environment](README.md#start-elafros)!
 
-### Setup your repo
+### Checkout your fork
 
 The repository must be set up properly relative to your
 [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
@@ -53,6 +56,10 @@ To check out this repository:
   git remote add upstream git@github.com:google/elafros.git
   git remote set-url --push upstream no_push
   ```
+
+_Adding the `upstream` remote sets you up nicely for regularly [syncing your
+fork](https://help.github.com/articles/syncing-a-fork/)._
+
 ### Environment setup
 
 To [start your envrionment](./README.md#start-elafros) you'll need to set these environment
