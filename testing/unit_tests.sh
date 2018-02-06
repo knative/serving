@@ -18,8 +18,8 @@
 set -ex
 
 # Clean up any leftover configuration
-readonly DOCKER_REPO_OVERRIDE=dummy_docker
-readonly K8S_CLUSTER_OVERRIDE=dummy_k8s_cluster
+export DOCKER_REPO_OVERRIDE=dummy_docker
+export K8S_CLUSTER_OVERRIDE=dummy_k8s_cluster
 bazel clean
 
 set +e
