@@ -6,8 +6,8 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Setup your development environment](../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../README.md#start-elafros)
+1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
+2. [Start Elafros](../../README.md#start-elafros)
 
 ## Running
 
