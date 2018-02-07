@@ -33,6 +33,14 @@ k8s_object(
 )
 
 k8s_object(
+    name = "updated_revisiontemplate",
+    images = {
+        "sample:latest": ":image",
+    },
+    template = ":updated_revisiontemplate.yaml",
+)
+
+k8s_object(
     name = "service",
     template = ":elaservice.yaml",
 )
@@ -44,5 +52,13 @@ k8s_objects(
     objects = [
         ":service",
         ":revisiontemplate",
+    ],
+)
+
+k8s_objects(
+    name = "updated_everything",
+    objects = [
+        ":service",
+        ":updated_revisiontemplate",
     ],
 )
