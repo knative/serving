@@ -50,7 +50,7 @@ Hello World: shiniestnewestversion!
 
 ## Updating
 
-You can update this to a new version with a new reversiontemplate.yaml. For example, run:
+You can update this to a new version. For example, update it with a new reversiontemplate.yaml via:
 ```shell
 bazel run sample/helloworld:updated_everything.apply
 ```
