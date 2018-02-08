@@ -119,7 +119,7 @@ func TestUnknownKindFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Garbage"},
 	}
 
-	assertFailsWith(t, ac.admit(&req), "unhandled kind")
+	expectFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
 func TestInvalidNewConfigurationFails(t *testing.T) {
@@ -128,15 +128,15 @@ func TestInvalidNewConfigurationFails(t *testing.T) {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	assertFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
+	expectFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
 }
 
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateConfiguration())
-	assertAllowed(t, resp)
+	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
 func TestValidConfigurationNoChanges(t *testing.T) {
@@ -144,8 +144,8 @@ func TestValidConfigurationNoChanges(t *testing.T) {
 	old := createConfiguration(testGeneration)
 	new := createConfiguration(testGeneration)
 	resp := ac.admit(createUpdateConfiguration(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidConfigurationEnvChanges(t *testing.T) {
@@ -159,8 +159,8 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 		},
 	}
 	resp := ac.admit(createUpdateConfiguration(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
@@ -172,9 +172,9 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateRoute())
-	assertAllowed(t, resp)
+	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
 func TestValidRouteNoChanges(t *testing.T) {
@@ -182,8 +182,8 @@ func TestValidRouteNoChanges(t *testing.T) {
 	old := createRoute(1)
 	new := createRoute(1)
 	resp := ac.admit(createUpdateRoute(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidRouteChanges(t *testing.T) {
@@ -197,8 +197,8 @@ func TestValidRouteChanges(t *testing.T) {
 		},
 	}
 	resp := ac.admit(createUpdateRoute(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
@@ -279,22 +279,23 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 	return req
 }
 
-func assertAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
+func expectAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
 	if !resp.Allowed {
 		t.Fatalf("Expected allowed, but failed with %+v", resp.Result)
 	}
 }
 
-func assertFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
+func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
 	if resp.Allowed {
-		t.Fatalf("expected denial, got allowed")
+		t.Errorf("expected denial, got allowed")
+		return
 	}
 	if !strings.Contains(resp.Result.Message, contains) {
-		t.Fatalf("expected failure containing %q got %q", contains, resp.Result.Message)
+		t.Errorf("expected failure containing %q got %q", contains, resp.Result.Message)
 	}
 }
 
-func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
+func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 	var actual []jsonpatch.JsonPatchOperation
 	// Keep track of the patches we've found
 	foundExpected := make([]bool, len(e))
@@ -302,10 +303,11 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 
 	err := json.Unmarshal(a, &actual)
 	if err != nil {
-		t.Fatalf("failed to unmarshal patches: %s", err)
+		t.Errorf("failed to unmarshal patches: %s", err)
+		return
 	}
 	if len(actual) != len(e) {
-		t.Fatalf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
+		t.Errorf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
 	}
 	// Make sure all the expected patches are found
 	for i, expectedPatch := range e {
@@ -314,18 +316,18 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 				foundExpected[i] = true
 				foundActual[j] = true
 			} else {
-				t.Fatalf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
+				t.Errorf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
 			}
 		}
 	}
 	for i, f := range foundExpected {
 		if !f {
-			t.Fatalf("did not find %+v in actual patches: %q", e[i], actual)
+			t.Errorf("did not find %+v in actual patches: %q", e[i], actual)
 		}
 	}
 	for i, f := range foundActual {
 		if !f {
-			t.Fatalf("Extra patch found %+v in expected patches: %q", a[i], e)
+			t.Errorf("Extra patch found %+v in expected patches: %q", a[i], e)
 		}
 	}
 }
