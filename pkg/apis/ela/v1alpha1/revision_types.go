@@ -166,19 +166,19 @@ func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionConditi
 	return nil
 }
 
-func (rs *RevisionStatus) SetCondition(newRc *RevisionCondition) {
-	if newRc == nil {
+func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
+	if new == nil {
 		return
 	}
 
-	t := newRc.Type
+	t := new.Type
 	var conditions []RevisionCondition
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	conditions = append(conditions, *newRc)
+	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
 

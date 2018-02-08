@@ -332,11 +332,12 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 	if rev.Spec.BuildName != "" {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				rev.Status.SetCondition(v1alpha1.RevisionConditionBuildComplete, &v1alpha1.RevisionCondition{
-					Type:   v1alpha1.RevisionConditionBuildComplete,
-					Status: corev1.ConditionFalse,
-					Reason: "Building",
-				})
+				rev.Status.SetCondition(
+					&v1alpha1.RevisionCondition{
+						Type:   v1alpha1.RevisionConditionBuildComplete,
+						Status: corev1.ConditionFalse,
+						Reason: "Building",
+					})
 				// Let this trigger a reconciliation loop.
 				if _, err := c.updateStatus(rev); err != nil {
 					glog.Errorf("Error recording the BuildComplete=False condition: %s", err)
@@ -388,11 +389,12 @@ func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 
 func (c *RevisionControllerImpl) markServiceReady(u *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q ready", u.Name)
-	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: corev1.ConditionTrue,
-		Reason: "ServiceReady",
-	})
+	u.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionTrue,
+			Reason: "ServiceReady",
+		})
 	_, err := c.updateStatus(u)
 	return err
 }
@@ -401,18 +403,20 @@ func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *bui
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
 		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
-		u.Status.SetCondition(v1alpha1.RevisionConditionBuildComplete, &v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionBuildComplete,
-			Status: corev1.ConditionTrue,
-		})
+		u.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:   v1alpha1.RevisionConditionBuildComplete,
+				Status: corev1.ConditionTrue,
+			})
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
-		u.Status.SetCondition(v1alpha1.RevisionConditionBuildFailed, &v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionBuildFailed,
-			Status:  corev1.ConditionTrue,
-			Reason:  bc.Reason,
-			Message: bc.Message,
-		})
+		u.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionBuildFailed,
+				Status:  corev1.ConditionTrue,
+				Reason:  bc.Reason,
+				Message: bc.Message,
+			})
 	}
 	// This will trigger a reconciliation that will cause us to stop tracking the build.
 	_, err := c.updateStatus(u)
@@ -559,11 +563,12 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 	log.Printf("Deleted service")
 
 	// And the deployment is no longer ready, so update that
-	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Inactive",
-	})
+	u.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Inactive",
+		})
 	log.Printf("Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
 		log.Printf("Error recording inactivation of revision: %s", err)
@@ -611,11 +616,12 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 
 	// By updating our deployment status we will trigger a Reconcile()
 	// that will watch for service to become ready for serving traffic.
-	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Deploying",
-	})
+	u.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Deploying",
+		})
 	log.Printf("Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
 		log.Printf("Error recording build completion: %s", err)

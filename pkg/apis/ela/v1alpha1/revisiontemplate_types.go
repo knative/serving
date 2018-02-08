@@ -84,19 +84,19 @@ func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
 }
 
 // TODO(mattmoor): Once RevisionTemplate has Conditions
-// func (rts *RevisionTemplateStatus) SetCondition(newRtc *RevisionTemplateCondition) {
-// 	if newRtc == nil {
+// func (rts *RevisionTemplateStatus) SetCondition(new *RevisionTemplateCondition) {
+// 	if new == nil {
 // 		return
 // 	}
 
-// 	t := newRtc.Type
+// 	t := new.Type
 // 	var conditions []RevisionTemplateCondition
 // 	for _, cond := range rts.Conditions {
 // 		if cond.Type != t {
 // 			conditions = append(conditions, cond)
 // 		}
 // 	}
-// 	conditions = append(conditions, *newRtc)
+// 	conditions = append(conditions, *new)
 // 	rts.Conditions = conditions
 // }
 
