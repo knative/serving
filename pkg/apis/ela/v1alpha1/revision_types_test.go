@@ -147,33 +147,6 @@ func TestIsReady(t *testing.T) {
 	}
 }
 
-/*
-func TestMismatchedConditions(t *testing.T) {
-	rs := RevisionStatus{
-		Conditions: []RevisionCondition{
-			{
-				Type:    RevisionConditionBuildComplete,
-				Status:  corev1.ConditionTrue,
-				Message: "existing",
-			},
-		},
-	}
-
-	rc := &RevisionCondition{
-		Type:    RevisionConditionReady,
-		Status:  corev1.ConditionTrue,
-		Message: "new one",
-	}
-	// Trying to add ConditionReady or update BuildComplete but screw up
-	// the type here, or in the above definition.
-	// End result is is that only the new one is added
-	rs.SetCondition(RevisionConditionBuildComplete, rc)
-	if len(rs.Conditions) != 2 {
-		t.Errorf("BUG?: %+v", rs.Conditions)
-	}
-}
-*/
-
 func TestGetSetCondition(t *testing.T) {
 	rs := RevisionStatus{}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
