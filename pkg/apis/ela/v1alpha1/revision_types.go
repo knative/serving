@@ -148,6 +148,25 @@ func (r *Revision) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
+// IsRevisionReady looks at the conditions and if the Status has a condition
+// RevisionConditionReady returns true if ConditionStatus is True
+func (rs *RevisionStatus) IsReady() bool {
+	if c := rs.GetCondition(RevisionConditionReady); c != nil {
+		return c.Status == corev1.ConditionTrue
+	}
+	return false
+}
+
+func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
+	for _, cond := range rs.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
+
+// TODO: check that t and new.Type match. Otherwise this is dangerous
 func (rs *RevisionStatus) SetCondition(t RevisionConditionType, new *RevisionCondition) {
 	var conditions []RevisionCondition
 	for _, cond := range rs.Conditions {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -116,6 +117,9 @@ type RevisionControllerImpl struct {
 	recorder record.EventRecorder
 
 	buildtracker *buildTracker
+
+	// don't start the workers until endpoints cache have been synced
+	endpointsSynced cache.InformerSynced
 }
 
 // Init initializes the controller and is called by the generated code
@@ -145,14 +149,17 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+
 	controller := &RevisionControllerImpl{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:      recorder,
-		buildtracker:  &buildTracker{builds: map[key]set{}},
+		kubeclientset:   kubeclientset,
+		elaclientset:    elaclientset,
+		lister:          informer.Lister(),
+		synced:          informer.Informer().HasSynced,
+		endpointsSynced: endpointsInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:        recorder,
+		buildtracker:    &buildTracker{builds: map[key]set{}},
 	}
 
 	glog.Info("Setting up event handlers")
@@ -169,6 +176,12 @@ func NewController(
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addBuildEvent,
 		UpdateFunc: controller.updateBuildEvent,
+	})
+
+	// Obtain a reference to a shared index informer for the Build type.
+	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addEndpointsEvent,
+		UpdateFunc: controller.updateEndpointsEvent,
 	})
 
 	return controller
@@ -190,6 +203,12 @@ func (c *RevisionControllerImpl) Run(threadiness int, stopCh <-chan struct{}) er
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	// Wait for the caches to be synced before starting workers
+	glog.Info("Waiting for endpoints informer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.endpointsSynced); !ok {
+		return fmt.Errorf("failed to wait for endpoints caches to sync")
 	}
 
 	glog.Info("Starting workers")
@@ -367,6 +386,17 @@ func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 	return false, false
 }
 
+func (c *RevisionControllerImpl) markServiceReady(u *v1alpha1.Revision) error {
+	glog.Infof("Marking Revision %q ready", u.Name)
+	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
+		Type:   v1alpha1.RevisionConditionReady,
+		Status: corev1.ConditionTrue,
+		Reason: "ServiceReady",
+	})
+	_, err := c.updateStatus(u)
+	return err
+}
+
 func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
@@ -402,6 +432,15 @@ func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondi
 	return nil
 }
 
+func getIsServiceReady(e *corev1.Endpoints) bool {
+	for _, es := range e.Subsets {
+		if len(es.Addresses) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
@@ -431,6 +470,45 @@ func (c *RevisionControllerImpl) updateBuildEvent(old, new interface{}) {
 	c.addBuildEvent(new)
 }
 
+func (c *RevisionControllerImpl) addEndpointsEvent(obj interface{}) {
+	endpoint := obj.(*corev1.Endpoints)
+	eName := endpoint.Name
+	namespace := endpoint.Namespace
+	// see if there's a 'revision' label on this object marking it as ours.
+	revisionName, ok := endpoint.Labels["revision"]
+	if !ok {
+		return
+	}
+
+	if !getIsServiceReady(endpoint) {
+		// The service isn't ready, so ignore this event.
+		glog.Infof("Endpoint %q is not ready", eName)
+		return
+	}
+	glog.Infof("Endpoint %q is ready", eName)
+
+	r, err := c.lister.Revisions(namespace).Get(revisionName)
+	if err != nil {
+		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revisionName, err)
+		return
+	}
+
+	// Check to see if the revision has already been marked as ready and if
+	// it is, then there's no need to do anything to it.
+	if r.Status.IsReady() {
+		return
+	}
+
+	if err := c.markServiceReady(r); err != nil {
+		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revisionName, err)
+	}
+	return
+}
+
+func (c *RevisionControllerImpl) updateEndpointsEvent(old, new interface{}) {
+	c.addEndpointsEvent(new)
+}
+
 // reconcileOnceBuilt handles enqueued messages that have an image.
 func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	accessor, err := meta.Accessor(u)
@@ -443,6 +521,7 @@ func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns str
 	log.Printf("Check the deletionTimestamp: %s\n", deletionTimestamp)
 
 	elaNS := util.GetElaNamespaceName(u.Namespace)
+
 	if deletionTimestamp == nil {
 		log.Printf("Creating or reconciling resources for %s\n", u.Name)
 		return c.createK8SResources(u, elaNS)
@@ -484,9 +563,9 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 		Status: corev1.ConditionFalse,
 		Reason: "Inactive",
 	})
-	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
+	log.Printf("Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
-		log.Printf("Error recording build completion: %s", err)
+		log.Printf("Error recording inactivation of revision: %s", err)
 		return err
 	}
 
@@ -521,14 +600,22 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 		u.Status.ServiceName = serviceName
 	}
 
+	// Check to see if the revision has already been marked as ready and
+	// don't mark it if it's already ready.
+	// TODO: could always fetch the endpoint again and double-check it is still
+	// ready.
+	if u.Status.IsReady() {
+		return nil
+	}
+
 	// By updating our deployment status we will trigger a Reconcile()
-	// that will watch for Deployment completion.
+	// that will watch for service to become ready for serving traffic.
 	u.Status.SetCondition(v1alpha1.RevisionConditionReady, &v1alpha1.RevisionCondition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionFalse,
 		Reason: "Deploying",
 	})
-	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
+	log.Printf("Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
 		log.Printf("Error recording build completion: %s", err)
 		return err
