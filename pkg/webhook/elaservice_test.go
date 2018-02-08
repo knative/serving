@@ -36,7 +36,7 @@ func createElaServiceWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alph
 	}
 }
 
-func TestValidElaServiceAllowed(t *testing.T) {
+func TestValidElaServiceWithTrafficAllowed(t *testing.T) {
 	elaService := createElaServiceWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
@@ -48,6 +48,16 @@ func TestValidElaServiceAllowed(t *testing.T) {
 				Percent:          50,
 			},
 		})
+
+	err := ValidateElaService(nil, &elaService, &elaService)
+
+	if err != nil {
+		t.Fatalf("Expected allowed, but failed with: %s.", err)
+	}
+}
+
+func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
+	elaService := createElaServiceWithTraffic(nil)
 
 	err := ValidateElaService(nil, &elaService, &elaService)
 
@@ -85,16 +95,6 @@ func TestNoneElaServiceTypeForNewResourceNotAllowed(t *testing.T) {
 	if err == nil || err.Error() != "Failed to convert new into ElaService." {
 		t.Fatalf(
 			"Expected: Failed to convert new into ElaService. Failed with: %s.", err)
-	}
-}
-
-func TestEmptyTrafficTargetNotAllowed(t *testing.T) {
-	elaService := createElaServiceWithTraffic(nil)
-	err := ValidateElaService(nil, &elaService, &elaService)
-
-	if err == nil || err.Error() != noTrafficErrorMessage {
-		t.Fatalf(
-			"Expected: %s. Failed with: %s.", noTrafficErrorMessage, err)
 	}
 }
 

@@ -27,7 +27,6 @@ const (
 	conflictRevisionsErrorMessage     = "Only one of revision and revisionTemplate can be specificed in traffic field."
 	negativeTargetPercentErrorMessage = "Traffic percent can not be negative."
 	noRevisionsErrorMessage           = "No revision nor revisionTemplate in traffic field provided."
-	noTrafficErrorMessage             = "No traffic field in spec provided."
 	targetPercentSumErrorMessage      = "Traffic percent sum is not equal to 100."
 )
 
@@ -58,8 +57,9 @@ func ValidateElaService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD,
 }
 
 func validateTrafficTarget(elaService *v1alpha1.ElaService) error {
+	// A service as a placeholder that's not backed by anything is allowed.
 	if elaService.Spec.Traffic == nil {
-		return fmt.Errorf(noTrafficErrorMessage)
+		return nil
 	}
 
 	percentSum := 0
