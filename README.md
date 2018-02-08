@@ -47,6 +47,7 @@ $ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-control
 You can delete all of the service components with:
 ```shell
 bazel run :elafros.delete
+bazel run @buildcrd//:everything.delete
 bazel run :istio.delete
 ```
 
