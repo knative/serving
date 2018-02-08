@@ -46,6 +46,7 @@ const (
 	envVarName       = "envname"
 	envVarValue      = "envvalue"
 	testDomain       = "example.com"
+	testGeneration   = 1
 	esName           = "test-elaservice-name"
 	testRevisionName = "test-revision"
 )
