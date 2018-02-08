@@ -20,7 +20,7 @@ import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller/util"
 
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,14 +30,14 @@ var servicePort = 80
 // MakeElaServiceService creates a Service that targets nothing. This is now only
 // a placeholder so that we can route the traffic to Istio and the balance with
 // route rules exclusively to underlying k8s services that represent Revisions.
-func MakeElaServiceK8SService(u *v1alpha1.ElaService) *apiv1.Service {
-	return &apiv1.Service{
+func MakeElaServiceK8SService(u *v1alpha1.ElaService) *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      util.GetElaK8SServiceName(u),
 			Namespace: u.Namespace,
 		},
-		Spec: apiv1.ServiceSpec{
-			Ports: []apiv1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
 					Name: httpServicePortName,
 					Port: int32(servicePort),
