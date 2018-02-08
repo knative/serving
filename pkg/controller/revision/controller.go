@@ -474,9 +474,10 @@ func (c *RevisionControllerImpl) addEndpointsEvent(obj interface{}) {
 	endpoint := obj.(*corev1.Endpoints)
 	eName := endpoint.Name
 	namespace := endpoint.Namespace
-	// see if there's a 'revision' label on this object marking it as ours.
-	revisionName, ok := endpoint.Labels["revision"]
-	if !ok {
+	// Lookup and see if this endpoints corresponds to a service that
+	// we own and hence the Revision that created this service.
+	revisionName := lookupServiceOwner(endpoint)
+	if len(revisionName) == 0 {
 		return
 	}
 
@@ -858,4 +859,16 @@ func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.R
 	// TODO: for CRD there's no updatestatus, so use normal update
 	return prClient.Update(newu)
 	//	return prClient.UpdateStatus(newu)
+}
+
+// Given an endpoint see if it's managed by us and return the
+// revision that created it.
+// TODO: Consider using OwnerReferences.
+// https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
+func lookupServiceOwner(e *corev1.Endpoints) string {
+	// see if there's a 'revision' label on this object marking it as ours.
+	if revisionName, ok := endpoint.Labels["revision"]; ok {
+		return revisionName
+	}
+	return ""
 }
