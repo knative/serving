@@ -161,7 +161,9 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 			},
 		})
 
-	if err := ValidateElaService(nil, &elaService, &elaService); err.Error() != errInvalidTargetPercentSumMessage {
+	err := ValidateElaService(nil, &elaService, &elaService)
+
+	if err == nil || err.Error() != errInvalidTargetPercentSumMessage {
 		t.Fatalf(
 			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSumMessage, err)
 	}
