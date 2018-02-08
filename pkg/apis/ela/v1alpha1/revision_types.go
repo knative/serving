@@ -166,20 +166,28 @@ func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionConditi
 	return nil
 }
 
-// TODO: check that t and new.Type match. Otherwise this is dangerous
-func (rs *RevisionStatus) SetCondition(t RevisionConditionType, new *RevisionCondition) {
+func (rs *RevisionStatus) SetCondition(newRc *RevisionCondition) {
+	if newRc == nil {
+		return
+	}
+
+	t := newRc.Type
 	var conditions []RevisionCondition
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
+	conditions = append(conditions, *newRc)
 	rs.Conditions = conditions
 }
 
 func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
-	rs.SetCondition(t, nil)
+	var conditions []RevisionCondition
+	for _, cond := range rs.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	rs.Conditions = conditions
 }

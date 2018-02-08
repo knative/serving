@@ -141,19 +141,28 @@ func (r *ElaService) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-func (ess *ElaServiceStatus) SetCondition(t ElaServiceConditionType, new *ElaServiceCondition) {
+func (ess *ElaServiceStatus) SetCondition(newEsc *ElaServiceCondition) {
+	if newEsc == nil {
+		return
+	}
+
+	t := newEsc.Type
 	var conditions []ElaServiceCondition
 	for _, cond := range ess.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
+	conditions = append(conditions, *newEsc)
 	ess.Conditions = conditions
 }
 
 func (ess *ElaServiceStatus) RemoveCondition(t ElaServiceConditionType) {
-	ess.SetCondition(t, nil)
+	var conditions []ElaServiceCondition
+	for _, cond := range ess.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	ess.Conditions = conditions
 }

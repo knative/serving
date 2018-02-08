@@ -158,7 +158,7 @@ func TestGetSetCondition(t *testing.T) {
 		Status: corev1.ConditionTrue,
 	}
 	// Set Condition and make sure it's the only thing returned
-	rs.SetCondition(RevisionConditionBuildComplete, rc)
+	rs.SetCondition(rc)
 	if e, a := rc, rs.GetCondition(RevisionConditionBuildComplete); !reflect.DeepEqual(e, a) {
 		t.Errorf("GetCondition expected %v got: %v", e, a)
 	}
@@ -170,5 +170,51 @@ func TestGetSetCondition(t *testing.T) {
 	if a := rs.GetCondition(RevisionConditionBuildComplete); a != nil {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
+}
 
+func TestRevisionConditions(t *testing.T) {
+	rev := &Revision{}
+	foo := &RevisionCondition{
+		Type:   "Foo",
+		Status: "True",
+	}
+	bar := &RevisionCondition{
+		Type:   "Bar",
+		Status: "True",
+	}
+
+	// Add a new condition.
+	rev.Status.SetCondition(foo)
+
+	if got, want := len(rev.Status.Conditions), 1; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
+
+	// Remove a non-existent condition.
+	rev.Status.RemoveCondition(bar.Type)
+
+	if got, want := len(rev.Status.Conditions), 1; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
+
+	// Add a second condition.
+	rev.Status.SetCondition(bar)
+
+	if got, want := len(rev.Status.Conditions), 2; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
+
+	// Remove an existing condition.
+	rev.Status.RemoveCondition(bar.Type)
+
+	if got, want := len(rev.Status.Conditions), 1; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
+
+	// Add nil condition.
+	rev.Status.SetCondition(nil)
+
+	if got, want := len(rev.Status.Conditions), 1; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
 }

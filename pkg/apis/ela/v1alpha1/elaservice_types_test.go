@@ -16,46 +16,6 @@ import (
 	"testing"
 )
 
-func TestRevisionConditions(t *testing.T) {
-	rev := &Revision{}
-	foo := &RevisionCondition{
-		Type:   "Foo",
-		Status: "True",
-	}
-	bar := &RevisionCondition{
-		Type:   "Bar",
-		Status: "True",
-	}
-
-	// Add a new condition.
-	rev.Status.SetCondition(foo.Type, foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Remove a non-existent condition.
-	rev.Status.RemoveCondition(bar.Type)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add a second condition.
-	rev.Status.SetCondition(bar.Type, bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Remove an existing condition.
-	rev.Status.RemoveCondition(bar.Type)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-}
-
 func TestElaServiceConditions(t *testing.T) {
 	svc := &ElaService{}
 	foo := &ElaServiceCondition{
@@ -68,7 +28,7 @@ func TestElaServiceConditions(t *testing.T) {
 	}
 
 	// Add a new condition.
-	svc.Status.SetCondition(foo.Type, foo)
+	svc.Status.SetCondition(foo)
 
 	if got, want := len(svc.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -82,7 +42,7 @@ func TestElaServiceConditions(t *testing.T) {
 	}
 
 	// Add a second condition.
-	svc.Status.SetCondition(bar.Type, bar)
+	svc.Status.SetCondition(bar)
 
 	if got, want := len(svc.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -90,6 +50,13 @@ func TestElaServiceConditions(t *testing.T) {
 
 	// Remove an existing condition.
 	svc.Status.RemoveCondition(bar.Type)
+
+	if got, want := len(svc.Status.Conditions), 1; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
+
+	// Add nil condition.
+	svc.Status.SetCondition(nil)
 
 	if got, want := len(svc.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
