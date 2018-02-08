@@ -265,9 +265,7 @@ func (c *Controller) syncHandler(key string) error {
 	rt = rt.DeepCopy()
 
 	// RevisionTemplate business logic
-	// TODO: Once this bug gets fixed, use rt.Generation instead
-	// https://github.com/kubernetes/kubernetes/issues/58778
-	if rt.Spec.Generation == rt.Status.ReconciledGeneration {
+	if rt.GetGeneration() == rt.Status.ReconciledGeneration {
 		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.Latest
 		glog.Infof("Skipping reconcile since already reconciled %d == %d", rt.Spec.Generation, rt.Status.ReconciledGeneration)
 		return nil
