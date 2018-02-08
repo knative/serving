@@ -21,7 +21,6 @@ import (
 
 	build "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,28 +45,6 @@ type RevisionTemplateSpec struct {
 	Generation int64            `json:"generation,omitempty"`
 	Build      *build.BuildSpec `json:"build,omitempty"`
 	Template   Revision         `json:"template"`
-}
-
-// RevisionTemplateConditionType represents an RevisionTemplate condition value
-type RevisionTemplateConditionType string
-
-const (
-	// RevisionTemplateConditionReady is set when the revisiontemplate has
-	// successfully created a Revision
-	RevisionTemplateConditionReady RevisionTemplateConditionType = "Ready"
-)
-
-// RevisionTemplateCondition defines a readiness condition for a RevisionTemplate.
-// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type RevisionTemplateCondition struct {
-	Type RevisionTemplateConditionType `json:"type" description:"type of RevisionTemplate condition"`
-
-	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
-
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
 // RevisionTemplateStatus defines the observed state of RevisionTemplate
