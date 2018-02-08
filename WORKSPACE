@@ -46,8 +46,8 @@ _go_image_repos()
 # Pull in rules_k8s
 git_repository(
     name = "io_bazel_rules_k8s",
-    # HEAD as of 2018-02-03
-    commit = "959c5adc2d7863c0ff445c6fd789cfd04bc1815c",
+    # HEAD as of 2018-02-07
+    commit = "d413b49efe2b1ffac3d7548254ff153879b6f9a0",
     remote = "https://github.com/bazelbuild/rules_k8s",
 )
 
