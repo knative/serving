@@ -865,7 +865,7 @@ func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.R
 // revision that created it.
 // TODO: Consider using OwnerReferences.
 // https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
-func lookupServiceOwner(e *corev1.Endpoints) string {
+func lookupServiceOwner(endpoint *corev1.Endpoints) string {
 	// see if there's a 'revision' label on this object marking it as ours.
 	if revisionName, ok := endpoint.Labels["revision"]; ok {
 		return revisionName
