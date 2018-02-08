@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	conflictRevisionsErrorMessage     = "Only one of revision and revisionTemplate can be specificed in traffic field."
-	negativeTargetPercentErrorMessage = "Traffic percent can not be negative."
-	noRevisionsErrorMessage           = "No revision nor revisionTemplate in traffic field provided."
-	targetPercentSumErrorMessage      = "Traffic percent sum is not equal to 100."
+	conflictRevisionsErrorMessage     = "Only one of revision and revisionTemplate can be specificed in traffic field"
+	negativeTargetPercentErrorMessage = "Traffic percent can not be negative"
+	noRevisionsErrorMessage           = "No revision nor revisionTemplate in traffic field provided"
+	targetPercentSumErrorMessage      = "Traffic percent sum is not equal to 100"
 )
 
 // ValidateElaService is ElaService resource specific validation and mutation handler
@@ -38,13 +38,13 @@ func ValidateElaService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD,
 		var ok bool
 		oldES, ok = old.(*v1alpha1.ElaService)
 		if !ok {
-			return fmt.Errorf("Failed to convert old into ElaService.")
+			return fmt.Errorf("Failed to convert old into ElaService")
 		}
 	}
 	glog.Infof("ValidateElaService: OLD ElaService is\n%+v", oldES)
 	newES, ok := new.(*v1alpha1.ElaService)
 	if !ok {
-		return fmt.Errorf("Failed to convert new into ElaService.")
+		return fmt.Errorf("Failed to convert new into ElaService")
 	}
 	glog.Infof("ValidateElaService: NEW ElaService is\n%+v", newES)
 

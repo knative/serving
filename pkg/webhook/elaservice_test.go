@@ -76,7 +76,7 @@ func TestNoneElaServiceTypeForOldResourceNotAllowed(t *testing.T) {
 
 	err := ValidateElaService(nil, &revision, &revision)
 
-	if err == nil || err.Error() != "Failed to convert old into ElaService." {
+	if err == nil || err.Error() != "Failed to convert old into ElaService" {
 		t.Fatalf(
 			"Expected: Failed to convert old into ElaService. Failed with: %s.", err)
 	}
@@ -92,7 +92,7 @@ func TestNoneElaServiceTypeForNewResourceNotAllowed(t *testing.T) {
 
 	err := ValidateElaService(nil, nil, &revision)
 
-	if err == nil || err.Error() != "Failed to convert new into ElaService." {
+	if err == nil || err.Error() != "Failed to convert new into ElaService" {
 		t.Fatalf(
 			"Expected: Failed to convert new into ElaService. Failed with: %s.", err)
 	}
