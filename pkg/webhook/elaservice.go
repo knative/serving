@@ -16,7 +16,7 @@ limitations under the License.
 package webhook
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
@@ -24,32 +24,29 @@ import (
 )
 
 const (
-	conflictRevisionsErrorMessage     = "Only one of revision and revisionTemplate can be specificed in traffic field"
-	negativeTargetPercentErrorMessage = "Traffic percent can not be negative"
-	noRevisionsErrorMessage           = "No revision nor revisionTemplate in traffic field provided"
-	targetPercentSumErrorMessage      = "Traffic percent sum is not equal to 100"
+	errInvalidRevisionsMessage        = "Exactly one of revision or revisiontemplate must be specified in traffic field"
+	errInvalidTargetPercentSumMessage = "Traffic percent sum is not equal to 100"
+	errNegativeTargetPercentMessage   = "Traffic percent can not be negative"
 )
 
 // ValidateElaService is ElaService resource specific validation and mutation handler
 func ValidateElaService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 	var oldES *v1alpha1.ElaService
-
 	if old != nil {
 		var ok bool
 		oldES, ok = old.(*v1alpha1.ElaService)
 		if !ok {
-			return fmt.Errorf("Failed to convert old into ElaService")
+			return errors.New("Failed to convert old into ElaService")
 		}
 	}
 	glog.Infof("ValidateElaService: OLD ElaService is\n%+v", oldES)
 	newES, ok := new.(*v1alpha1.ElaService)
 	if !ok {
-		return fmt.Errorf("Failed to convert new into ElaService")
+		return errors.New("Failed to convert new into ElaService")
 	}
 	glog.Infof("ValidateElaService: NEW ElaService is\n%+v", newES)
 
-	err := validateTrafficTarget(newES)
-	if err != nil {
+	if err := validateTrafficTarget(newES); err != nil {
 		return err
 	}
 
@@ -66,21 +63,19 @@ func validateTrafficTarget(elaService *v1alpha1.ElaService) error {
 	for _, trafficTarget := range elaService.Spec.Traffic {
 		revisionLen := len(trafficTarget.Revision)
 		revisionTemplateLen := len(trafficTarget.RevisionTemplate)
-		if revisionLen == 0 && revisionTemplateLen == 0 {
-			return fmt.Errorf(noRevisionsErrorMessage)
-		}
-		if revisionLen != 0 && revisionTemplateLen != 0 {
-			return fmt.Errorf(conflictRevisionsErrorMessage)
+		if (revisionLen == 0 && revisionTemplateLen == 0) ||
+			(revisionLen != 0 && revisionTemplateLen != 0) {
+			return errors.New(errInvalidRevisionsMessage)
 		}
 
 		if trafficTarget.Percent < 0 {
-			return fmt.Errorf(negativeTargetPercentErrorMessage)
+			return errors.New(errNegativeTargetPercentMessage)
 		}
 		percentSum += trafficTarget.Percent
 	}
 
 	if percentSum != 100 {
-		return fmt.Errorf(targetPercentSumErrorMessage)
+		return errors.New(errInvalidTargetPercentSumMessage)
 	}
 	return nil
 }

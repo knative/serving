@@ -108,9 +108,9 @@ func TestEmptyRevisionAndRevisionTemplateInOneTargetNotAllowed(t *testing.T) {
 
 	err := ValidateElaService(nil, &elaService, &elaService)
 
-	if err == nil || err.Error() != noRevisionsErrorMessage {
+	if err == nil || err.Error() != errInvalidRevisionsMessage {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", noRevisionsErrorMessage, err)
+			"Expected: %s. Failed with: %s.", errInvalidRevisionsMessage, err)
 	}
 }
 
@@ -126,9 +126,9 @@ func TestBothRevisionAndRevisionTemplateInOneTargetNotAllowed(t *testing.T) {
 
 	err := ValidateElaService(nil, &elaService, &elaService)
 
-	if err == nil || err.Error() != conflictRevisionsErrorMessage {
+	if err == nil || err.Error() != errInvalidRevisionsMessage {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", conflictRevisionsErrorMessage, err)
+			"Expected: %s. Failed with: %s.", errInvalidRevisionsMessage, err)
 	}
 }
 
@@ -143,9 +143,9 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 
 	err := ValidateElaService(nil, &elaService, &elaService)
 
-	if err == nil || err.Error() != negativeTargetPercentErrorMessage {
+	if err == nil || err.Error() != errNegativeTargetPercentMessage {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", negativeTargetPercentErrorMessage, err)
+			"Expected: %s. Failed with: %s.", errNegativeTargetPercentMessage, err)
 	}
 }
 
@@ -161,10 +161,8 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 			},
 		})
 
-	err := ValidateElaService(nil, &elaService, &elaService)
-
-	if err == nil || err.Error() != targetPercentSumErrorMessage {
+	if err := ValidateElaService(nil, &elaService, &elaService); err.Error() != errInvalidTargetPercentSumMessage {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", targetPercentSumErrorMessage, err)
+			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSumMessage, err)
 	}
 }

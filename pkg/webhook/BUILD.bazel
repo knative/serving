@@ -32,8 +32,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "elaservice_test.go",
         "webhook_test.go",
-        "elaservice_test.go"
     ],
     embed = [":go_default_library"],
     importpath = "github.com/google/elafros/pkg/webhook",
