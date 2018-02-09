@@ -24,7 +24,7 @@ import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -152,8 +152,8 @@ func TestValidRTEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRevisionTemplate(1)
 	new := createRevisionTemplate(1)
-	new.Spec.Template.Spec.Env = []apiv1.EnvVar{
-		apiv1.EnvVar{
+	new.Spec.Template.Spec.Env = []corev1.EnvVar{
+		corev1.EnvVar{
 			Name:  envVarName,
 			Value: "different",
 		},
@@ -344,8 +344,8 @@ func createRevisionTemplate(generation int64) v1alpha1.RevisionTemplate {
 					ContainerSpec: &v1alpha1.ContainerSpec{
 						Image: imageName,
 					},
-					Env: []apiv1.EnvVar{
-						apiv1.EnvVar{
+					Env: []corev1.EnvVar{
+						corev1.EnvVar{
 							Name:  envVarName,
 							Value: envVarValue,
 						},
