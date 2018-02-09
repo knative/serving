@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -166,20 +166,28 @@ func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionConditi
 	return nil
 }
 
-// TODO: check that t and new.Type match. Otherwise this is dangerous
-func (rs *RevisionStatus) SetCondition(t RevisionConditionType, new *RevisionCondition) {
+func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
+	if new == nil {
+		return
+	}
+
+	t := new.Type
 	var conditions []RevisionCondition
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
+	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
 
 func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
-	rs.SetCondition(t, nil)
+	var conditions []RevisionCondition
+	for _, cond := range rs.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	rs.Conditions = conditions
 }

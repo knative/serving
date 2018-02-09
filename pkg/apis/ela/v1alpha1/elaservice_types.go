@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -141,19 +141,28 @@ func (r *ElaService) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-func (ess *ElaServiceStatus) SetCondition(t ElaServiceConditionType, new *ElaServiceCondition) {
+func (ess *ElaServiceStatus) SetCondition(new *ElaServiceCondition) {
+	if new == nil {
+		return
+	}
+
+	t := new.Type
 	var conditions []ElaServiceCondition
 	for _, cond := range ess.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
+	conditions = append(conditions, *new)
 	ess.Conditions = conditions
 }
 
 func (ess *ElaServiceStatus) RemoveCondition(t ElaServiceConditionType) {
-	ess.SetCondition(t, nil)
+	var conditions []ElaServiceCondition
+	for _, cond := range ess.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	ess.Conditions = conditions
 }

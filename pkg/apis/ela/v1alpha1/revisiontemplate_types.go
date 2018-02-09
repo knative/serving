@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -84,19 +84,28 @@ func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
 }
 
 // TODO(mattmoor): Once RevisionTemplate has Conditions
-// func (rts *RevisionTemplateStatus) SetCondition(t string, new *RevisionTemplateCondition) {
+// func (rts *RevisionTemplateStatus) SetCondition(new *RevisionTemplateCondition) {
+// 	if new == nil {
+// 		return
+// 	}
+
+// 	t := new.Type
 // 	var conditions []RevisionTemplateCondition
 // 	for _, cond := range rts.Conditions {
 // 		if cond.Type != t {
 // 			conditions = append(conditions, cond)
 // 		}
 // 	}
-// 	if new != nil {
-// 		conditions = append(conditions, *new)
-// 	}
+// 	conditions = append(conditions, *new)
 // 	rts.Conditions = conditions
 // }
-//
+
 // func (rts *RevisionTemplateStatus) RemoveCondition(t string) {
-// 	rts.SetCondition(t, nil)
+// 	var conditions []RevisionTemplateCondition
+// 	for _, cond := range rts.Conditions {
+// 		if cond.Type != t {
+// 			conditions = append(conditions, cond)
+// 		}
+// 	}
+// 	rts.Conditions = conditions
 // }
