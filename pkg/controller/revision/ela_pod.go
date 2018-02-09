@@ -203,7 +203,7 @@ func MakeElaDeploymentLabels(u *v1alpha1.Revision) map[string]string {
 	serviceID := u.Spec.Service
 
 	return map[string]string{
-		elaServiceLabel: serviceID,
+		routeLabel: serviceID,
 		elaVersionLabel: name,
 	}
 }

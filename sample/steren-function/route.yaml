@@ -20,5 +20,5 @@ metadata:
 spec:
   domainSuffix: sample-fn.googlecustomer.net
   traffic:
-  - revisionTemplate: steren-sample-function
+  - Configuration: steren-sample-function
     percent: 100

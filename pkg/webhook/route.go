@@ -53,18 +53,18 @@ func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new 
 	return nil
 }
 
-func validateTrafficTarget(elaService *v1alpha1.Route) error {
+func validateTrafficTarget(route *v1alpha1.Route) error {
 	// A service as a placeholder that's not backed by anything is allowed.
-	if elaService.Spec.Traffic == nil {
+	if route.Spec.Traffic == nil {
 		return nil
 	}
 
 	percentSum := 0
-	for _, trafficTarget := range elaService.Spec.Traffic {
+	for _, trafficTarget := range route.Spec.Traffic {
 		revisionLen := len(trafficTarget.Revision)
-		revisionTemplateLen := len(trafficTarget.Configuration)
-		if (revisionLen == 0 && revisionTemplateLen == 0) ||
-			(revisionLen != 0 && revisionTemplateLen != 0) {
+		ConfigurationLen := len(trafficTarget.Configuration)
+		if (revisionLen == 0 && ConfigurationLen == 0) ||
+			(revisionLen != 0 && ConfigurationLen != 0) {
 			return errors.New(errInvalidRevisionsMessage)
 		}
 

@@ -20,7 +20,7 @@ metadata:
 spec:
   domainSuffix: thumb.googlecustomer.net
   traffic:
-  - revisionTemplate: thumbtemplate
+  - Configuration: thumbtemplate
     percent: 100
 ---
 apiVersion: elafros.dev/v1alpha1

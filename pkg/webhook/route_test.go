@@ -37,7 +37,7 @@ func createRouteWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alpha1.Ro
 }
 
 func TestValidRouteWithTrafficAllowed(t *testing.T) {
-	elaService := createRouteWithTraffic(
+	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Configuration: "test-revision-template-1",
@@ -49,7 +49,7 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 			},
 		})
 
-	err := ValidateRoute(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &route, &route)
 
 	if err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
@@ -57,9 +57,9 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 }
 
 func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
-	elaService := createRouteWithTraffic(nil)
+	route := createRouteWithTraffic(nil)
 
-	err := ValidateRoute(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &route, &route)
 
 	if err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
@@ -99,14 +99,14 @@ func TestNoneRouteTypeForNewResourceNotAllowed(t *testing.T) {
 }
 
 func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
-	elaService := createRouteWithTraffic(
+	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Percent: 100,
 			},
 		})
 
-	err := ValidateRoute(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &route, &route)
 
 	if err == nil || err.Error() != errInvalidRevisionsMessage {
 		t.Fatalf(
@@ -115,7 +115,7 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 }
 
 func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
-	elaService := createRouteWithTraffic(
+	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Revision:         testRevisionName,
@@ -124,7 +124,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 			},
 		})
 
-	err := ValidateRoute(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &route, &route)
 
 	if err == nil || err.Error() != errInvalidRevisionsMessage {
 		t.Fatalf(
@@ -133,7 +133,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 }
 
 func TestNegativeTargetPercentNotAllowed(t *testing.T) {
-	elaService := createRouteWithTraffic(
+	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Revision: testRevisionName,
@@ -141,7 +141,7 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 			},
 		})
 
-	err := ValidateRoute(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &route, &route)
 
 	if err == nil || err.Error() != errNegativeTargetPercentMessage {
 		t.Fatalf(
@@ -150,7 +150,7 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 }
 
 func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
-	elaService := createRouteWithTraffic(
+	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Configuration: "test-revision-template-1",
@@ -161,7 +161,7 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 			},
 		})
 
-	err := ValidateRoute(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &route, &route)
 
 	if err == nil || err.Error() != errInvalidTargetPercentSumMessage {
 		t.Fatalf(

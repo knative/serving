@@ -56,7 +56,7 @@ type TrafficTarget struct {
 	// Configuration is the name to a configuration, rolls out
 	// automatically
 	// +optional
-	Configuration string `json:"revisionTemplate,omitempty"`
+	Configuration string `json:"configuration,omitempty"`
 
 	// Specifies percent of the traffic to this Revision or Configuration
 	Percent int `json:"percent"`

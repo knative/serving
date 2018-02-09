@@ -20,5 +20,5 @@ metadata:
 spec:
   domainSuffix: sample-app.googlecustomer.net
   traffic:
-  - revisionTemplate: steren-sample-app
+  - Configuration: steren-sample-app
     percent: 100

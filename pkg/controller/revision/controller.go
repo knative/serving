@@ -53,7 +53,7 @@ import (
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 
 const (
-	elaServiceLabel string = "route"
+	routeLabel string = "route"
 	elaVersionLabel string = "revision"
 
 	elaContainerName string = "ela-container"

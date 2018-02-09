@@ -20,5 +20,5 @@ metadata:
 spec:
   domainSuffix: demo.myhost.net
   traffic:
-  - revisionTemplate: configuration-example
+  - Configuration: configuration-example
     percent: 100
