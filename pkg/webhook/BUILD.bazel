@@ -33,6 +33,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "elaservice_test.go",
+        "revisiontemplate_test.go",
         "webhook_test.go",
     ],
     embed = [":go_default_library"],

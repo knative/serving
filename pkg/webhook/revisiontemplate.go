@@ -17,10 +17,16 @@ package webhook
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
+)
+
+const (
+	emptySpecInRevisionTemplateErrorMessage = "The revision template must have revision template spec"
+	emptyTemplateInSpecErrorMessage         = "The revision template spec must have revision template"
 )
 
 // ValidateRevisionTemplate is RevisionTemplate resource specific validation and mutation handler
@@ -39,5 +45,20 @@ func ValidateRevisionTemplate(patches *[]jsonpatch.JsonPatchOperation, old Gener
 		return fmt.Errorf("Failed to convert new into RevisionTemplate")
 	}
 	glog.Infof("ValidateRevisionTemplate: NEW RevisionTemplate is\n%+v", newRT)
+
+	err := validateRevisionTemplate(newRT)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateRevisionTemplate(revisionTemplate *v1alpha1.RevisionTemplate) error {
+	if reflect.DeepEqual(revisionTemplate.Spec, v1alpha1.RevisionTemplateSpec{}) {
+		return fmt.Errorf(emptySpecInRevisionTemplateErrorMessage)
+	}
+	if reflect.DeepEqual(revisionTemplate.Spec.Template, v1alpha1.Revision{}) {
+		return fmt.Errorf(emptyTemplateInSpecErrorMessage)
+	}
 	return nil
 }
