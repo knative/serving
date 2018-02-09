@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	emptySpecInRevisionTemplateErrorMessage = "The revision template must have revision template spec"
-	emptyTemplateInSpecErrorMessage         = "The revision template spec must have revision template"
+	errEmptySpecInRevisionTemplateMessage      = "The revision template must have revision template spec"
+	errEmptyTemplateInSpecMessage              = "The revision template spec must have revision template"
+	errNonEmptyStatusInRevisionTemplateMessage = "The revision template cannot have status when it is created"
 )
 
 // ValidateRevisionTemplate is RevisionTemplate resource specific validation and mutation handler
@@ -46,8 +47,7 @@ func ValidateRevisionTemplate(patches *[]jsonpatch.JsonPatchOperation, old Gener
 	}
 	glog.Infof("ValidateRevisionTemplate: NEW RevisionTemplate is\n%+v", newRT)
 
-	err := validateRevisionTemplate(newRT)
-	if err != nil {
+	if err := validateRevisionTemplate(newRT); err != nil {
 		return err
 	}
 	return nil
@@ -55,10 +55,15 @@ func ValidateRevisionTemplate(patches *[]jsonpatch.JsonPatchOperation, old Gener
 
 func validateRevisionTemplate(revisionTemplate *v1alpha1.RevisionTemplate) error {
 	if reflect.DeepEqual(revisionTemplate.Spec, v1alpha1.RevisionTemplateSpec{}) {
-		return fmt.Errorf(emptySpecInRevisionTemplateErrorMessage)
+		return fmt.Errorf(errEmptySpecInRevisionTemplateMessage)
 	}
+	// TODO: add validation for revisionTemplate.Spec.Template, after we add a
+	// validation for Revision.
 	if reflect.DeepEqual(revisionTemplate.Spec.Template, v1alpha1.Revision{}) {
-		return fmt.Errorf(emptyTemplateInSpecErrorMessage)
+		return fmt.Errorf(errEmptyTemplateInSpecMessage)
+	}
+	if !reflect.DeepEqual(revisionTemplate.Status, v1alpha1.RevisionTemplateStatus{}) {
+		return fmt.Errorf(errNonEmptyStatusInRevisionTemplateMessage)
 	}
 	return nil
 }

@@ -50,8 +50,8 @@ func TestEmptySpecInRevisionTemplateNotAllowed(t *testing.T) {
 
 	err := ValidateRevisionTemplate(nil, &revisionTemplate, &revisionTemplate)
 
-	if err == nil || err.Error() != emptySpecInRevisionTemplateErrorMessage {
-		t.Fatalf("Expected: %s. Failed with %s", emptySpecInRevisionTemplateErrorMessage, err)
+	if err == nil || err.Error() != errEmptySpecInRevisionTemplateMessage {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptySpecInRevisionTemplateMessage, err)
 	}
 }
 
@@ -69,7 +69,20 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 
 	err := ValidateRevisionTemplate(nil, &revisionTemplate, &revisionTemplate)
 
-	if err == nil || err.Error() != emptyTemplateInSpecErrorMessage {
-		t.Fatalf("Expected: %s. Failed with %s", emptyTemplateInSpecErrorMessage, err)
+	if err == nil || err.Error() != errEmptyTemplateInSpecMessage {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpecMessage, err)
+	}
+}
+
+func TestNonEmptyStatusInRevisionTemplate(t *testing.T) {
+	revisionTemplate := createRevisionTemplate(testGeneration)
+	revisionTemplate.Status = v1alpha1.RevisionTemplateStatus{
+		Latest: "latest version",
+	}
+
+	err := ValidateRevisionTemplate(nil, &revisionTemplate, &revisionTemplate)
+
+	if err == nil || err.Error() != errNonEmptyStatusInRevisionTemplateMessage {
+		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInRevisionTemplateMessage, err)
 	}
 }
