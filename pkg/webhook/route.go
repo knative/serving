@@ -62,9 +62,9 @@ func validateTrafficTarget(route *v1alpha1.Route) error {
 	percentSum := 0
 	for _, trafficTarget := range route.Spec.Traffic {
 		revisionLen := len(trafficTarget.Revision)
-		ConfigurationLen := len(trafficTarget.Configuration)
-		if (revisionLen == 0 && ConfigurationLen == 0) ||
-			(revisionLen != 0 && ConfigurationLen != 0) {
+		configurationLen := len(trafficTarget.Configuration)
+		if (revisionLen == 0 && configurationLen == 0) ||
+			(revisionLen != 0 && configurationLen != 0) {
 			return errors.New(errInvalidRevisionsMessage)
 		}
 
