@@ -13,7 +13,7 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
-kind: ElaService
+kind: Route
 metadata:
   name: thumb
   namespace: default
@@ -24,7 +24,7 @@ spec:
     percent: 100
 ---
 apiVersion: elafros.dev/v1alpha1
-kind: RevisionTemplate
+kind: Configuration
 metadata:
   name: thumbtemplate
   namespace: default

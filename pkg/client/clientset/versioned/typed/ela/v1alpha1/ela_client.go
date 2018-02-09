@@ -24,9 +24,9 @@ import (
 
 type ElafrosV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ElaServicesGetter
+	RoutesGetter
 	RevisionsGetter
-	RevisionTemplatesGetter
+	ConfigurationsGetter
 }
 
 // ElafrosV1alpha1Client is used to interact with features provided by the elafros.dev group.
@@ -34,16 +34,16 @@ type ElafrosV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ElafrosV1alpha1Client) ElaServices(namespace string) ElaServiceInterface {
-	return newElaServices(c, namespace)
+func (c *ElafrosV1alpha1Client) Routes(namespace string) RouteInterface {
+	return newRoutes(c, namespace)
 }
 
 func (c *ElafrosV1alpha1Client) Revisions(namespace string) RevisionInterface {
 	return newRevisions(c, namespace)
 }
 
-func (c *ElafrosV1alpha1Client) RevisionTemplates(namespace string) RevisionTemplateInterface {
-	return newRevisionTemplates(c, namespace)
+func (c *ElafrosV1alpha1Client) Configurations(namespace string) ConfigurationInterface {
+	return newConfigurations(c, namespace)
 }
 
 // NewForConfig creates a new ElafrosV1alpha1Client for the given config.

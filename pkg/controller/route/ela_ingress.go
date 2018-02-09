@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package elaservice
+package route
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
@@ -25,10 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeElaServiceIngress creates an ingress rule. This ingress rule targets
+// MakeRouteIngress creates an ingress rule. This ingress rule targets
 // Istio by using the simple placeholder service name. All the routing actually
 // happens in the route rules.
-func MakeElaServiceIngress(u *v1alpha1.ElaService, namespace string) *v1beta1.Ingress {
+func MakeRouteIngress(u *v1alpha1.Route, namespace string) *v1beta1.Ingress {
 	// We used to have a distinct service, but in the ela world, use the
 	// name for serviceID too.
 

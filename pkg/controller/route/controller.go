@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package elaservice
+package route
 
 import (
 	"fmt"
@@ -45,10 +45,10 @@ import (
 	"github.com/google/elafros/pkg/controller/util"
 )
 
-var serviceKind = v1alpha1.SchemeGroupVersion.WithKind("ElaService")
+var serviceKind = v1alpha1.SchemeGroupVersion.WithKind("Route")
 
 const (
-	controllerAgentName = "elaservice-controller"
+	controllerAgentName = "route-controller"
 
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
 	SuccessSynced = "Synced"
@@ -58,7 +58,7 @@ const (
 
 	// MessageResourceSynced is the message used for an Event fired when a Foo
 	// is synced successfully
-	MessageResourceSynced = "ElaService synced successfully"
+	MessageResourceSynced = "Route synced successfully"
 )
 
 // RevisionRoute represents a single target to route to.
@@ -68,7 +68,7 @@ type RevisionRoute struct {
 	// Name for external routing. Optional
 	Name string
 	// RevisionName is the underlying revision that we're currently
-	// routing to. Could be resolved from the RevisionTemplate or
+	// routing to. Could be resolved from the Configuration or
 	// specified explicitly in TrafficTarget
 	RevisionName string
 	// Service is the name of the k8s service we route to
@@ -76,14 +76,14 @@ type RevisionRoute struct {
 	Weight  int
 }
 
-// +controller:group=ela,version=v1alpha1,kind=ElaService,resource=elaservices
+// +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
 	elaclientset  clientset.Interface
 
-	// lister indexes properties about RevisionTemplate
-	lister listers.ElaServiceLister
+	// lister indexes properties about Configuration
+	lister listers.RouteLister
 	synced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
@@ -110,10 +110,10 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	glog.Infof("ElaService controller Init")
+	glog.Infof("Route controller Init")
 
-	// obtain a reference to a shared index informer for the ElaServices type.
-	informer := elaInformerFactory.Elafros().V1alpha1().ElaServices()
+	// obtain a reference to a shared index informer for the Routes type.
+	informer := elaInformerFactory.Elafros().V1alpha1().Routes()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -130,16 +130,16 @@ func NewController(
 		elaclientset:  elaclientset,
 		lister:        informer.Lister(),
 		synced:        informer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ElaServices"),
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
 		recorder:      recorder,
 	}
 
 	glog.Info("Setting up event handlers")
-	// Set up an event handler for when RevisionTemplate resources change
+	// Set up an event handler for when Configuration resources change
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueElaService,
+		AddFunc: controller.enqueueRoute,
 		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueElaService(new)
+			controller.enqueueRoute(new)
 		},
 	})
 
@@ -157,7 +157,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting ElaService controller")
+	glog.Info("Starting Route controller")
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
@@ -241,12 +241,12 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-// enqueueElaService takes a ElaService resource and
+// enqueueRoute takes a Route resource and
 // converts it into a namespace/name string which is then put onto the work
 // queue. This method should *not* be passed resources of any type other than
-// ElaService.
+// Route.
 //TODO(grantr): generic
-func (c *Controller) enqueueElaService(obj interface{}) {
+func (c *Controller) enqueueRoute(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -268,8 +268,8 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the ElaService resource with this namespace/name
-	es, err := c.lister.ElaServices(namespace).Get(name)
+	// Get the Route resource with this namespace/name
+	es, err := c.lister.Routes(namespace).Get(name)
 
 	// Don't modify the informers copy
 	es = es.DeepCopy()
@@ -278,14 +278,14 @@ func (c *Controller) syncHandler(key string) error {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("elaservice '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("route '%s' in work queue no longer exists", key))
 			return nil
 		}
 
 		return err
 	}
 
-	glog.Infof("Running reconcile ElaService for %s\n%+v\n", es.Name, es)
+	glog.Infof("Running reconcile Route for %s\n%+v\n", es.Name, es)
 
 	// Create a placeholder service that is simply used by istio as a placeholder.
 	// This service could eventually be the 'router' service that will get all the
@@ -338,8 +338,8 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-func (c *Controller) createPlaceholderService(u *v1alpha1.ElaService, ns string) error {
-	service := MakeElaServiceK8SService(u)
+func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) error {
+	service := MakeRouteK8SService(u)
 	serviceRef := metav1.NewControllerRef(u, serviceKind)
 	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
 
@@ -355,13 +355,13 @@ func (c *Controller) createPlaceholderService(u *v1alpha1.ElaService, ns string)
 	return nil
 }
 
-func (c *Controller) createOrUpdateIngress(es *v1alpha1.ElaService, ns string) error {
+func (c *Controller) createOrUpdateIngress(es *v1alpha1.Route, ns string) error {
 	ingressName := util.GetElaK8SIngressName(es)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeElaServiceIngress(es, ns)
+	ingress := MakeRouteIngress(es, ns)
 	serviceRef := metav1.NewControllerRef(es, serviceKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
@@ -377,8 +377,8 @@ func (c *Controller) createOrUpdateIngress(es *v1alpha1.ElaService, ns string) e
 	return nil
 }
 
-func (c *Controller) getRoutes(u *v1alpha1.ElaService) ([]RevisionRoute, error) {
-	glog.Infof("Figuring out routes for ElaService: %s", u.Name)
+func (c *Controller) getRoutes(u *v1alpha1.Route) ([]RevisionRoute, error) {
+	glog.Infof("Figuring out routes for Route: %s", u.Name)
 	ret := []RevisionRoute{}
 	for _, tt := range u.Spec.Traffic {
 		rr, err := c.getRouteForTrafficTarget(tt, u.Namespace)
@@ -395,9 +395,9 @@ func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns stri
 	elaNS := util.GetElaNamespaceName(ns)
 	// If template specified, fetch last revision otherwise use Revision
 	revisionName := tt.Revision
-	if tt.RevisionTemplate != "" {
-		rtClient := c.elaclientset.ElafrosV1alpha1().RevisionTemplates(ns)
-		rt, err := rtClient.Get(tt.RevisionTemplate, metav1.GetOptions{})
+	if tt.Configuration != "" {
+		rtClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
+		rt, err := rtClient.Get(tt.Configuration, metav1.GetOptions{})
 		if err != nil {
 			return RevisionRoute{}, err
 		}
@@ -417,7 +417,7 @@ func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns stri
 	}, nil
 }
 
-func (c *Controller) createOrUpdateRoutes(u *v1alpha1.ElaService, ns string) ([]RevisionRoute, error) {
+func (c *Controller) createOrUpdateRoutes(u *v1alpha1.Route, ns string) ([]RevisionRoute, error) {
 	// grab a client that's specific to RouteRule.
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
@@ -444,12 +444,12 @@ func (c *Controller) createOrUpdateRoutes(u *v1alpha1.ElaService, ns string) ([]
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeElaServiceIstioRoutes(u, ns, routes)
+		routeRules = MakeRouteIstioRoutes(u, ns, routes)
 		_, createErr := routeClient.Create(routeRules)
 		return nil, createErr
 	}
 
-	routeRules.Spec = MakeElaServiceIstioSpec(u, ns, routes)
+	routeRules.Spec = MakeRouteIstioSpec(u, ns, routes)
 	_, err = routeClient.Update(routeRules)
 	if err != nil {
 		return nil, err
@@ -457,8 +457,8 @@ func (c *Controller) createOrUpdateRoutes(u *v1alpha1.ElaService, ns string) ([]
 	return routes, nil
 }
 
-func (c *Controller) updateStatus(u *v1alpha1.ElaService) (*v1alpha1.ElaService, error) {
-	esClient := c.elaclientset.ElafrosV1alpha1().ElaServices(u.Namespace)
+func (c *Controller) updateStatus(u *v1alpha1.Route) (*v1alpha1.Route, error) {
+	esClient := c.elaclientset.ElafrosV1alpha1().Routes(u.Namespace)
 	newu, err := esClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

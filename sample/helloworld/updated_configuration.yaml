@@ -13,9 +13,9 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
-kind: RevisionTemplate
+kind: Configuration
 metadata:
-  name: revisiontemplate-example
+  name: configuration-example
   namespace: default
 spec:
   # Uncomment this to test running a nop Build (the image is from Bazel).

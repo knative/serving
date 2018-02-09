@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package elaservice
+package route
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
@@ -27,10 +27,10 @@ import (
 var httpServicePortName = "http"
 var servicePort = 80
 
-// MakeElaServiceService creates a Service that targets nothing. This is now only
+// MakeRouteService creates a Service that targets nothing. This is now only
 // a placeholder so that we can route the traffic to Istio and the balance with
 // route rules exclusively to underlying k8s services that represent Revisions.
-func MakeElaServiceK8SService(u *v1alpha1.ElaService) *corev1.Service {
+func MakeRouteK8SService(u *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      util.GetElaK8SServiceName(u),

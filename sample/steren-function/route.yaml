@@ -13,7 +13,7 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
-kind: ElaService
+kind: Route
 metadata:
   name: steren-sample-fn
   namespace: default

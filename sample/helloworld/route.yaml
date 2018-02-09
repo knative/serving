@@ -13,12 +13,12 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
-kind: ElaService
+kind: Route
 metadata:
-  name: elaservice-example
+  name: route-example
   namespace: default
 spec:
   domainSuffix: demo.myhost.net
   traffic:
-  - revisionTemplate: revisiontemplate-example
+  - revisionTemplate: configuration-example
     percent: 100

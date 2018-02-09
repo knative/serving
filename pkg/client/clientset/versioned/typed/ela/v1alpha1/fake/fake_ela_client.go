@@ -25,16 +25,16 @@ type FakeElafrosV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeElafrosV1alpha1) ElaServices(namespace string) v1alpha1.ElaServiceInterface {
-	return &FakeElaServices{c, namespace}
+func (c *FakeElafrosV1alpha1) Routes(namespace string) v1alpha1.RouteInterface {
+	return &FakeRoutes{c, namespace}
 }
 
 func (c *FakeElafrosV1alpha1) Revisions(namespace string) v1alpha1.RevisionInterface {
 	return &FakeRevisions{c, namespace}
 }
 
-func (c *FakeElafrosV1alpha1) RevisionTemplates(namespace string) v1alpha1.RevisionTemplateInterface {
-	return &FakeRevisionTemplates{c, namespace}
+func (c *FakeElafrosV1alpha1) Configurations(namespace string) v1alpha1.ConfigurationInterface {
+	return &FakeConfigurations{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

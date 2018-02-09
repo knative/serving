@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package elaservice
+package route
 
 /* TODO tests:
 - When a ES is created:
@@ -47,10 +47,10 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
-func getTestElaService() *v1alpha1.ElaService {
-	return &v1alpha1.ElaService{
+func getTestRoute() *v1alpha1.Route {
+	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/elaservices/test-es",
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/routes/test-es",
 			Name:      "test-es",
 			Namespace: "test",
 		},
@@ -106,7 +106,7 @@ func newRunningTestController(t *testing.T) (
 func TestCreateHSCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
-	es := getTestElaService()
+	es := getTestRoute()
 	h := hooks.NewHooks()
 
 	// Look for the placeholder service to be created.
@@ -118,7 +118,7 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 			t.Errorf("unexpected service: %q expected: %q", a, e)
 		}
 		//TODO(grantr): The expected namespace is currently the same as the
-		//ElaService namespace, but that may change to expectedNamespace.
+		//Route namespace, but that may change to expectedNamespace.
 		if es.Namespace != s.Namespace {
 			t.Errorf("service namespace was %s, not %s", s.Namespace, es.Namespace)
 		}
@@ -134,7 +134,7 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 			t.Errorf("ingress was not named %s", expectedIngressName)
 		}
 		//TODO(grantr): The expected namespace is currently the same as the
-		//ElaService namespace, but that may change to expectedNamespace.
+		//Route namespace, but that may change to expectedNamespace.
 		if es.Namespace != i.Namespace {
 			t.Errorf("ingress namespace was %s, not %s", i.Namespace, es.Namespace)
 		}
@@ -154,7 +154,7 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 	// Look for the route.
 	//TODO(grantr): routing is WIP so no tests yet
 
-	elaClient.ElafrosV1alpha1().ElaServices("test").Create(es)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(es)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

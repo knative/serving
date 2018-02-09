@@ -23,21 +23,21 @@ import (
 	"github.com/mattbaird/jsonpatch"
 )
 
-// ValidateRevisionTemplate is RevisionTemplate resource specific validation and mutation handler
-func ValidateRevisionTemplate(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldRT *v1alpha1.RevisionTemplate
+// ValidateConfiguration is Configuration resource specific validation and mutation handler
+func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldRT *v1alpha1.Configuration
 	if old != nil {
 		var ok bool
-		oldRT, ok = old.(*v1alpha1.RevisionTemplate)
+		oldRT, ok = old.(*v1alpha1.Configuration)
 		if !ok {
-			return fmt.Errorf("Failed to convert old into RevisionTemplate")
+			return fmt.Errorf("Failed to convert old into Configuration")
 		}
 	}
-	glog.Infof("ValidateRevisionTemplate: OLD RevisionTemplate is\n%+v", oldRT)
-	newRT, ok := new.(*v1alpha1.RevisionTemplate)
+	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldRT)
+	newRT, ok := new.(*v1alpha1.Configuration)
 	if !ok {
-		return fmt.Errorf("Failed to convert new into RevisionTemplate")
+		return fmt.Errorf("Failed to convert new into Configuration")
 	}
-	glog.Infof("ValidateRevisionTemplate: NEW RevisionTemplate is\n%+v", newRT)
+	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newRT)
 	return nil
 }

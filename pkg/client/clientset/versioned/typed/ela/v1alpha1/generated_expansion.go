@@ -15,8 +15,8 @@ limitations under the License.
 */
 package v1alpha1
 
-type ElaServiceExpansion interface{}
+type RouteExpansion interface{}
 
 type RevisionExpansion interface{}
 
-type RevisionTemplateExpansion interface{}
+type ConfigurationExpansion interface{}

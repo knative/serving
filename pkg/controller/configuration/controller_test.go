@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revisiontemplate
+package configuration
 
 /* TODO tests:
 - When a RT is created or updated, a Revision is created with same namespace and spec
@@ -48,14 +48,14 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
-func getTestRevisionTemplate() *v1alpha1.RevisionTemplate {
-	return &v1alpha1.RevisionTemplate{
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisiontemplates/test-rt",
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-rt",
 			Name:      "test-rt",
 			Namespace: "test",
 		},
-		Spec: v1alpha1.RevisionTemplateSpec{
+		Spec: v1alpha1.ConfigurationSpec{
 			//TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
 			Template: v1alpha1.Revision{
@@ -116,7 +116,7 @@ func newRunningTestController(t *testing.T) (
 func TestCreateRTCreatesPR(t *testing.T) {
 	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
-	rt := getTestRevisionTemplate()
+	rt := getTestConfiguration()
 	h := hooks.NewHooks()
 
 	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
@@ -133,7 +133,7 @@ func TestCreateRTCreatesPR(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	elaClient.ElafrosV1alpha1().RevisionTemplates("test").Create(rt)
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(rt)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
@@ -143,7 +143,7 @@ func TestCreateRTCreatesPR(t *testing.T) {
 func TestCreateRTCreatesBuildAndPR(t *testing.T) {
 	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
-	rt := getTestRevisionTemplate()
+	rt := getTestConfiguration()
 	h := hooks.NewHooks()
 
 	rt.Spec.Build = &buildv1alpha1.BuildSpec{
@@ -178,7 +178,7 @@ func TestCreateRTCreatesBuildAndPR(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	elaClient.ElafrosV1alpha1().RevisionTemplates("test").Create(rt)
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(rt)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

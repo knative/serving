@@ -22,13 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func createElaServiceWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alpha1.ElaService {
-	return v1alpha1.ElaService{
+func createRouteWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alpha1.Route {
+	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      esName,
 		},
-		Spec: v1alpha1.ElaServiceSpec{
+		Spec: v1alpha1.RouteSpec{
 			Generation:   testGeneration,
 			DomainSuffix: testDomain,
 			Traffic:      trafficTargets,
@@ -36,20 +36,20 @@ func createElaServiceWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alph
 	}
 }
 
-func TestValidElaServiceWithTrafficAllowed(t *testing.T) {
-	elaService := createElaServiceWithTraffic(
+func TestValidRouteWithTrafficAllowed(t *testing.T) {
+	elaService := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				RevisionTemplate: "test-revision-template-1",
+				Configuration: "test-revision-template-1",
 				Percent:          50,
 			},
 			v1alpha1.TrafficTarget{
-				RevisionTemplate: "test-revision-template-2",
+				Configuration: "test-revision-template-2",
 				Percent:          50,
 			},
 		})
 
-	err := ValidateElaService(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &elaService, &elaService)
 
 	if err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
@@ -57,16 +57,16 @@ func TestValidElaServiceWithTrafficAllowed(t *testing.T) {
 }
 
 func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
-	elaService := createElaServiceWithTraffic(nil)
+	elaService := createRouteWithTraffic(nil)
 
-	err := ValidateElaService(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &elaService, &elaService)
 
 	if err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
 	}
 }
 
-func TestNoneElaServiceTypeForOldResourceNotAllowed(t *testing.T) {
+func TestNoneRouteTypeForOldResourceNotAllowed(t *testing.T) {
 	revision := v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -74,15 +74,15 @@ func TestNoneElaServiceTypeForOldResourceNotAllowed(t *testing.T) {
 		},
 	}
 
-	err := ValidateElaService(nil, &revision, &revision)
+	err := ValidateRoute(nil, &revision, &revision)
 
-	if err == nil || err.Error() != "Failed to convert old into ElaService" {
+	if err == nil || err.Error() != "Failed to convert old into Route" {
 		t.Fatalf(
-			"Expected: Failed to convert old into ElaService. Failed with: %s.", err)
+			"Expected: Failed to convert old into Route. Failed with: %s.", err)
 	}
 }
 
-func TestNoneElaServiceTypeForNewResourceNotAllowed(t *testing.T) {
+func TestNoneRouteTypeForNewResourceNotAllowed(t *testing.T) {
 	revision := v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -90,23 +90,23 @@ func TestNoneElaServiceTypeForNewResourceNotAllowed(t *testing.T) {
 		},
 	}
 
-	err := ValidateElaService(nil, nil, &revision)
+	err := ValidateRoute(nil, nil, &revision)
 
-	if err == nil || err.Error() != "Failed to convert new into ElaService" {
+	if err == nil || err.Error() != "Failed to convert new into Route" {
 		t.Fatalf(
-			"Expected: Failed to convert new into ElaService. Failed with: %s.", err)
+			"Expected: Failed to convert new into Route. Failed with: %s.", err)
 	}
 }
 
-func TestEmptyRevisionAndRevisionTemplateInOneTargetNotAllowed(t *testing.T) {
-	elaService := createElaServiceWithTraffic(
+func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
+	elaService := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Percent: 100,
 			},
 		})
 
-	err := ValidateElaService(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &elaService, &elaService)
 
 	if err == nil || err.Error() != errInvalidRevisionsMessage {
 		t.Fatalf(
@@ -114,17 +114,17 @@ func TestEmptyRevisionAndRevisionTemplateInOneTargetNotAllowed(t *testing.T) {
 	}
 }
 
-func TestBothRevisionAndRevisionTemplateInOneTargetNotAllowed(t *testing.T) {
-	elaService := createElaServiceWithTraffic(
+func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
+	elaService := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Revision:         testRevisionName,
-				RevisionTemplate: "test-revision-template",
+				Configuration: "test-revision-template",
 				Percent:          100,
 			},
 		})
 
-	err := ValidateElaService(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &elaService, &elaService)
 
 	if err == nil || err.Error() != errInvalidRevisionsMessage {
 		t.Fatalf(
@@ -133,7 +133,7 @@ func TestBothRevisionAndRevisionTemplateInOneTargetNotAllowed(t *testing.T) {
 }
 
 func TestNegativeTargetPercentNotAllowed(t *testing.T) {
-	elaService := createElaServiceWithTraffic(
+	elaService := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Revision: testRevisionName,
@@ -141,7 +141,7 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 			},
 		})
 
-	err := ValidateElaService(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &elaService, &elaService)
 
 	if err == nil || err.Error() != errNegativeTargetPercentMessage {
 		t.Fatalf(
@@ -150,18 +150,18 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 }
 
 func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
-	elaService := createElaServiceWithTraffic(
+	elaService := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				RevisionTemplate: "test-revision-template-1",
+				Configuration: "test-revision-template-1",
 			},
 			v1alpha1.TrafficTarget{
-				RevisionTemplate: "test-revision-template-2",
+				Configuration: "test-revision-template-2",
 				Percent:          50,
 			},
 		})
 
-	err := ValidateElaService(nil, &elaService, &elaService)
+	err := ValidateRoute(nil, &elaService, &elaService)
 
 	if err == nil || err.Error() != errInvalidTargetPercentSumMessage {
 		t.Fatalf(

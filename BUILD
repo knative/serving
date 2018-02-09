@@ -41,8 +41,8 @@ k8s_object(
 )
 
 k8s_object(
-    name = "elaservice",
-    template = "elaservice.yaml",
+    name = "route",
+    template = "route.yaml",
 )
 
 k8s_object(
@@ -51,8 +51,8 @@ k8s_object(
 )
 
 k8s_object(
-    name = "revisiontemplate",
-    template = "revisiontemplate.yaml",
+    name = "configuration",
+    template = "configuration.yaml",
 )
 
 k8s_object(
@@ -78,8 +78,8 @@ k8s_objects(
 k8s_objects(
     name = "crds",
     objects = [
-        ":elaservice",
-        ":revisiontemplate",
+        ":route",
+        ":configuration",
         ":revision",
     ],
 )

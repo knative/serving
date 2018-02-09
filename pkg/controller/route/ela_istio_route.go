@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package elaservice
+package route
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
@@ -26,8 +26,8 @@ import (
 	"github.com/google/elafros/pkg/controller/util"
 )
 
-// MakeElaServiceIstioSpec creates an Istio route
-func MakeElaServiceIstioSpec(u *v1alpha1.ElaService, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
+// MakeRouteIstioSpec creates an Istio route
+func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
 	// if either current or next is inactive, target them to proxy instead of
 	// the backend so the 0->1 transition will happen.
 	placeHolderK8SServiceName := util.GetElaK8SServiceName(u)
@@ -49,17 +49,17 @@ func MakeElaServiceIstioSpec(u *v1alpha1.ElaService, ns string, routes []Revisio
 	}
 }
 
-// MakeElaServiceIstioRoute creates an Istio route
-func MakeElaServiceIstioRoutes(u *v1alpha1.ElaService, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
+// MakeRouteIstioRoute creates an Istio route
+func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GetElaIstioRouteRuleName(u),
 			Namespace: ns,
 			Labels: map[string]string{
-				"elaservice": u.Name,
+				"route": u.Name,
 			},
 		},
-		Spec: MakeElaServiceIstioSpec(u, ns, routes),
+		Spec: MakeRouteIstioSpec(u, ns, routes),
 	}
 	serviceRef := metav1.NewControllerRef(u, serviceKind)
 	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)

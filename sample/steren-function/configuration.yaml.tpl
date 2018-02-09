@@ -13,7 +13,7 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
-kind: RevisionTemplate
+kind: Configuration
 metadata:
   name: steren-sample-function
   namespace: default

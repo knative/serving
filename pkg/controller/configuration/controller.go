@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revisiontemplate
+package configuration
 
 import (
 	"fmt"
@@ -47,9 +47,9 @@ import (
 	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
 )
 
-const controllerAgentName = "revisiontemplate-controller"
+const controllerAgentName = "configuration-controller"
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("RevisionTemplate")
+var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
@@ -60,17 +60,17 @@ const (
 
 	// MessageResourceSynced is the message used for an Event fired when a Foo
 	// is synced successfully
-	MessageResourceSynced = "RevisionTemplate synced successfully"
+	MessageResourceSynced = "Configuration synced successfully"
 )
 
-// Controller implements the controller for RevisionTemplate resources
+// Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
 	elaclientset  clientset.Interface
 
-	// lister indexes properties about RevisionTemplate
-	lister listers.RevisionTemplateLister
+	// lister indexes properties about Configuration
+	lister listers.ConfigurationLister
 	synced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
@@ -84,7 +84,7 @@ type Controller struct {
 	recorder record.EventRecorder
 }
 
-// NewController creates a new RevisionTemplate controller
+// NewController creates a new Configuration controller
 //TODO(grantr): somewhat generic (generic behavior)
 func NewController(
 	kubeclientset kubernetes.Interface,
@@ -93,9 +93,9 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain a reference to a shared index informer for the RevisionTemplate
+	// obtain a reference to a shared index informer for the Configuration
 	// type.
-	informer := elaInformerFactory.Elafros().V1alpha1().RevisionTemplates()
+	informer := elaInformerFactory.Elafros().V1alpha1().Configurations()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -112,16 +112,16 @@ func NewController(
 		elaclientset:  elaclientset,
 		lister:        informer.Lister(),
 		synced:        informer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionTemplates"),
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Configurations"),
 		recorder:      recorder,
 	}
 
 	glog.Info("Setting up event handlers")
-	// Set up an event handler for when RevisionTemplate resources change
+	// Set up an event handler for when Configuration resources change
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueRevisionTemplate,
+		AddFunc: controller.enqueueConfiguration,
 		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueRevisionTemplate(new)
+			controller.enqueueConfiguration(new)
 		},
 	})
 
@@ -138,7 +138,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting RevisionTemplate controller")
+	glog.Info("Starting Configuration controller")
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
@@ -222,12 +222,12 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-// enqueueRevisionTemplate takes a RevisionTemplate resource and
+// enqueueConfiguration takes a Configuration resource and
 // converts it into a namespace/name string which is then put onto the work
 // queue. This method should *not* be passed resources of any type other than
-// RevisionTemplate.
+// Configuration.
 //TODO(grantr): generic
-func (c *Controller) enqueueRevisionTemplate(obj interface{}) {
+func (c *Controller) enqueueConfiguration(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -249,13 +249,13 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the RevisionTemplate resource with this namespace/name
-	rt, err := c.lister.RevisionTemplates(namespace).Get(name)
+	// Get the Configuration resource with this namespace/name
+	rt, err := c.lister.Configurations(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("revisiontemplate '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("configuration '%s' in work queue no longer exists", key))
 			return nil
 		}
 
@@ -264,14 +264,14 @@ func (c *Controller) syncHandler(key string) error {
 	// Don't modify the informer's copy.
 	rt = rt.DeepCopy()
 
-	// RevisionTemplate business logic
+	// Configuration business logic
 	if rt.GetGeneration() == rt.Status.ReconciledGeneration {
 		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.Latest
 		glog.Infof("Skipping reconcile since already reconciled %d == %d", rt.Spec.Generation, rt.Status.ReconciledGeneration)
 		return nil
 	}
 
-	glog.Infof("Running reconcile RevisionTemplate for %s\n%+v\n%+v\n", rt.Name, rt, rt.Spec.Template)
+	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n", rt.Name, rt, rt.Spec.Template)
 	spec := rt.Spec.Template.Spec
 	controllerRef := metav1.NewControllerRef(rt, controllerKind)
 
@@ -309,7 +309,7 @@ func (c *Controller) syncHandler(key string) error {
 	// created.
 	rev.ObjectMeta.Namespace = rt.Namespace
 
-	// Delete revisions when the parent RevisionTemplate is deleted.
+	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
 
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(rt.Namespace).Create(rev)
@@ -340,14 +340,14 @@ func (c *Controller) syncHandler(key string) error {
 
 	// TODO: Set up the watch for LatestCreated so that we'll flip it
 	// to Latest once it's ready. Or should this be done at the
-	// ElaService level?
+	// Route level?
 
-	// end RevisionTemplate business logic
+	// end Configuration business logic
 	c.recorder.Event(rt, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
-func generateRevisionName(u *v1alpha1.RevisionTemplate) (string, error) {
+func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 	// Just return the UUID.
 	// TODO: consider using a prefix and make sure the length of the
 	// string will not cause problems down the stack
@@ -355,8 +355,8 @@ func generateRevisionName(u *v1alpha1.RevisionTemplate) (string, error) {
 	return fmt.Sprintf("p-%s", genUUID.String()), err
 }
 
-func (c *Controller) updateStatus(u *v1alpha1.RevisionTemplate) (*v1alpha1.RevisionTemplate, error) {
-	rtClient := c.elaclientset.ElafrosV1alpha1().RevisionTemplates(u.Namespace)
+func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+	rtClient := c.elaclientset.ElafrosV1alpha1().Configurations(u.Namespace)
 	newu, err := rtClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

@@ -27,17 +27,17 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// RevisionTemplate
-type RevisionTemplate struct {
+// Configuration
+type Configuration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RevisionTemplateSpec   `json:"spec,omitempty"`
-	Status RevisionTemplateStatus `json:"status,omitempty"`
+	Spec   ConfigurationSpec   `json:"spec,omitempty"`
+	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
-// RevisionTemplateSpec defines the desired state of RevisionTemplate
-type RevisionTemplateSpec struct {
+// ConfigurationSpec defines the desired state of Configuration
+type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
@@ -47,15 +47,15 @@ type RevisionTemplateSpec struct {
 	Template   Revision         `json:"template"`
 }
 
-// RevisionTemplateStatus defines the observed state of RevisionTemplate
-type RevisionTemplateStatus struct {
+// ConfigurationStatus defines the observed state of Configuration
+type ConfigurationStatus struct {
 	// Latest revision that is ready.
 	Latest string `json:"latest,omitempty"`
 	// LatestCreated is the last revision that has been created, it might not be
 	// ready yet however. Hence we just keep track of it so that when it's ready
 	// it will get moved to Latest.
 	LatestCreated string `json:"latestCreated,omitempty"`
-	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
+	// ReconciledGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The reconciled generation is updated
 	// even if the controller failed to process the spec and create the Revision.
 	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
@@ -63,34 +63,34 @@ type RevisionTemplateStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// RevisionTemplateList is a list of RevisionTemplate resources
-type RevisionTemplateList struct {
+// ConfigurationList is a list of Configuration resources
+type ConfigurationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []RevisionTemplate `json:"items"`
+	Items []Configuration `json:"items"`
 }
 
-func (r *RevisionTemplate) GetGeneration() int64 {
+func (r *Configuration) GetGeneration() int64 {
 	return r.Spec.Generation
 }
 
-func (r *RevisionTemplate) SetGeneration(generation int64) {
+func (r *Configuration) SetGeneration(generation int64) {
 	r.Spec.Generation = generation
 }
 
-func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
+func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-// TODO(mattmoor): Once RevisionTemplate has Conditions
-// func (rts *RevisionTemplateStatus) SetCondition(new *RevisionTemplateCondition) {
+// TODO(mattmoor): Once Configuration has Conditions
+// func (rts *ConfigurationStatus) SetCondition(new *ConfigurationCondition) {
 // 	if new == nil {
 // 		return
 // 	}
 
 // 	t := new.Type
-// 	var conditions []RevisionTemplateCondition
+// 	var conditions []ConfigurationCondition
 // 	for _, cond := range rts.Conditions {
 // 		if cond.Type != t {
 // 			conditions = append(conditions, cond)
@@ -100,8 +100,8 @@ func (r *RevisionTemplate) GetSpecJSON() ([]byte, error) {
 // 	rts.Conditions = conditions
 // }
 
-// func (rts *RevisionTemplateStatus) RemoveCondition(t string) {
-// 	var conditions []RevisionTemplateCondition
+// func (rts *ConfigurationStatus) RemoveCondition(t string) {
+// 	var conditions []ConfigurationCondition
 // 	for _, cond := range rts.Conditions {
 // 		if cond.Type != t {
 // 			conditions = append(conditions, cond)

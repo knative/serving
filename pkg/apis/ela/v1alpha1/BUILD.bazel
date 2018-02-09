@@ -4,10 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
-        "elaservice_types.go",
+        "route_types.go",
         "register.go",
         "revision_types.go",
-        "revisiontemplate_types.go",
+        "configuration_types.go",
         "zz_generated.deepcopy.go",
     ],
     importpath = "github.com/google/elafros/pkg/apis/ela/v1alpha1",
@@ -25,7 +25,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "elaservice_types_test.go",
+        "route_types_test.go",
         "revision_types_test.go",
     ],
     embed = [":go_default_library"],

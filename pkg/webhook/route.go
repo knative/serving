@@ -24,27 +24,27 @@ import (
 )
 
 const (
-	errInvalidRevisionsMessage        = "Exactly one of revision or revisiontemplate must be specified in traffic field"
+	errInvalidRevisionsMessage        = "Exactly one of revision or configuration must be specified in traffic field"
 	errInvalidTargetPercentSumMessage = "Traffic percent sum is not equal to 100"
 	errNegativeTargetPercentMessage   = "Traffic percent can not be negative"
 )
 
-// ValidateElaService is ElaService resource specific validation and mutation handler
-func ValidateElaService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldES *v1alpha1.ElaService
+// ValidateRoute is Route resource specific validation and mutation handler
+func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	var oldES *v1alpha1.Route
 	if old != nil {
 		var ok bool
-		oldES, ok = old.(*v1alpha1.ElaService)
+		oldES, ok = old.(*v1alpha1.Route)
 		if !ok {
-			return errors.New("Failed to convert old into ElaService")
+			return errors.New("Failed to convert old into Route")
 		}
 	}
-	glog.Infof("ValidateElaService: OLD ElaService is\n%+v", oldES)
-	newES, ok := new.(*v1alpha1.ElaService)
+	glog.Infof("ValidateRoute: OLD Route is\n%+v", oldES)
+	newES, ok := new.(*v1alpha1.Route)
 	if !ok {
-		return errors.New("Failed to convert new into ElaService")
+		return errors.New("Failed to convert new into Route")
 	}
-	glog.Infof("ValidateElaService: NEW ElaService is\n%+v", newES)
+	glog.Infof("ValidateRoute: NEW Route is\n%+v", newES)
 
 	if err := validateTrafficTarget(newES); err != nil {
 		return err
@@ -53,7 +53,7 @@ func ValidateElaService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD,
 	return nil
 }
 
-func validateTrafficTarget(elaService *v1alpha1.ElaService) error {
+func validateTrafficTarget(elaService *v1alpha1.Route) error {
 	// A service as a placeholder that's not backed by anything is allowed.
 	if elaService.Spec.Traffic == nil {
 		return nil
@@ -62,7 +62,7 @@ func validateTrafficTarget(elaService *v1alpha1.ElaService) error {
 	percentSum := 0
 	for _, trafficTarget := range elaService.Spec.Traffic {
 		revisionLen := len(trafficTarget.Revision)
-		revisionTemplateLen := len(trafficTarget.RevisionTemplate)
+		revisionTemplateLen := len(trafficTarget.Configuration)
 		if (revisionLen == 0 && revisionTemplateLen == 0) ||
 			(revisionLen != 0 && revisionTemplateLen != 0) {
 			return errors.New(errInvalidRevisionsMessage)

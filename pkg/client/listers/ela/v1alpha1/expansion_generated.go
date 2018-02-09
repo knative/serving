@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// ElaServiceListerExpansion allows custom methods to be added to
-// ElaServiceLister.
-type ElaServiceListerExpansion interface{}
+// RouteListerExpansion allows custom methods to be added to
+// RouteLister.
+type RouteListerExpansion interface{}
 
-// ElaServiceNamespaceListerExpansion allows custom methods to be added to
-// ElaServiceNamespaceLister.
-type ElaServiceNamespaceListerExpansion interface{}
+// RouteNamespaceListerExpansion allows custom methods to be added to
+// RouteNamespaceLister.
+type RouteNamespaceListerExpansion interface{}
 
 // RevisionListerExpansion allows custom methods to be added to
 // RevisionLister.
@@ -34,10 +34,10 @@ type RevisionListerExpansion interface{}
 // RevisionNamespaceLister.
 type RevisionNamespaceListerExpansion interface{}
 
-// RevisionTemplateListerExpansion allows custom methods to be added to
-// RevisionTemplateLister.
-type RevisionTemplateListerExpansion interface{}
+// ConfigurationListerExpansion allows custom methods to be added to
+// ConfigurationLister.
+type ConfigurationListerExpansion interface{}
 
-// RevisionTemplateNamespaceListerExpansion allows custom methods to be added to
-// RevisionTemplateNamespaceLister.
-type RevisionTemplateNamespaceListerExpansion interface{}
+// ConfigurationNamespaceListerExpansion allows custom methods to be added to
+// ConfigurationNamespaceLister.
+type ConfigurationNamespaceListerExpansion interface{}

@@ -16,13 +16,13 @@ import (
 	"testing"
 )
 
-func TestElaServiceConditions(t *testing.T) {
-	svc := &ElaService{}
-	foo := &ElaServiceCondition{
+func TestRouteConditions(t *testing.T) {
+	svc := &Route{}
+	foo := &RouteCondition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &ElaServiceCondition{
+	bar := &RouteCondition{
 		Type:   "Bar",
 		Status: "True",
 	}

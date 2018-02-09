@@ -26,13 +26,13 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ElaService
-type ElaService struct {
+// Route
+type Route struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ElaServiceSpec   `json:"spec,omitempty"`
-	Status ElaServiceStatus `json:"status,omitempty"`
+	Spec   RouteSpec   `json:"spec,omitempty"`
+	Status RouteStatus `json:"status,omitempty"`
 }
 
 type ServiceType string
@@ -53,17 +53,17 @@ type TrafficTarget struct {
 	// +optional
 	Revision string `json:"revision,omitempty"`
 
-	// RevisionTemplate is the name to a revisiontemplate, rolls out
+	// Configuration is the name to a configuration, rolls out
 	// automatically
 	// +optional
-	RevisionTemplate string `json:"revisionTemplate,omitempty"`
+	Configuration string `json:"revisionTemplate,omitempty"`
 
-	// Specifies percent of the traffic to this Revision or RevisionTemplate
+	// Specifies percent of the traffic to this Revision or Configuration
 	Percent int `json:"percent"`
 }
 
-// ElaServiceSpec defines the desired state of ElaService
-type ElaServiceSpec struct {
+// RouteSpec defines the desired state of Route
+type RouteSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
@@ -75,14 +75,14 @@ type ElaServiceSpec struct {
 	//	ServiceType ServiceType `json:"serviceType"`
 	ServiceType string `json:"serviceType"`
 
-	// Specifies the traffic split between Revisions and RevisionTemplates
+	// Specifies the traffic split between Revisions and Configurations
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
-// ElaServiceCondition defines a readiness condition.
+// RouteCondition defines a readiness condition.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
-type ElaServiceCondition struct {
-	Type ElaServiceConditionType `json:"state"`
+type RouteCondition struct {
+	Type RouteConditionType `json:"state"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
@@ -92,28 +92,28 @@ type ElaServiceCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
-// ElaServiceConditionType represents an ElaService condition value
-type ElaServiceConditionType string
+// RouteConditionType represents an Route condition value
+type RouteConditionType string
 
 const (
-	// ElaServiceConditionReady is set when the service is configured
+	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
-	ElaServiceConditionReady ElaServiceConditionType = "Ready"
-	// ElaServiceConditionFailed is set when the service is not configured
+	RouteConditionReady RouteConditionType = "Ready"
+	// RouteConditionFailed is set when the service is not configured
 	// properly or has no available backends ready to receive traffic.
-	ElaServiceConditionFailed ElaServiceConditionType = "Failed"
+	RouteConditionFailed RouteConditionType = "Failed"
 )
 
-// ElaServiceStatus defines the observed state of ElaService
-type ElaServiceStatus struct {
+// RouteStatus defines the observed state of Route
+type RouteStatus struct {
 	Domain string `json:"domain,omitempty"`
 
-	// Specifies the traffic split between Revisions and RevisionTemplates
+	// Specifies the traffic split between Revisions and Configurations
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
-	Conditions []ElaServiceCondition `json:"conditions,omitempty"`
+	Conditions []RouteCondition `json:"conditions,omitempty"`
 
-	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
+	// ReconciledGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The reconciled generation is updated
 	// even if the controller failed to process the spec and create the Revision.
 	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
@@ -121,33 +121,33 @@ type ElaServiceStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ElaServiceList is a list of ElaService resources
-type ElaServiceList struct {
+// RouteList is a list of Route resources
+type RouteList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []ElaService `json:"items"`
+	Items []Route `json:"items"`
 }
 
-func (r *ElaService) GetGeneration() int64 {
+func (r *Route) GetGeneration() int64 {
 	return r.Spec.Generation
 }
 
-func (r *ElaService) SetGeneration(generation int64) {
+func (r *Route) SetGeneration(generation int64) {
 	r.Spec.Generation = generation
 }
 
-func (r *ElaService) GetSpecJSON() ([]byte, error) {
+func (r *Route) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-func (ess *ElaServiceStatus) SetCondition(new *ElaServiceCondition) {
+func (ess *RouteStatus) SetCondition(new *RouteCondition) {
 	if new == nil {
 		return
 	}
 
 	t := new.Type
-	var conditions []ElaServiceCondition
+	var conditions []RouteCondition
 	for _, cond := range ess.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -157,8 +157,8 @@ func (ess *ElaServiceStatus) SetCondition(new *ElaServiceCondition) {
 	ess.Conditions = conditions
 }
 
-func (ess *ElaServiceStatus) RemoveCondition(t ElaServiceConditionType) {
-	var conditions []ElaServiceCondition
+func (ess *RouteStatus) RemoveCondition(t RouteConditionType) {
+	var conditions []RouteCondition
 	for _, cond := range ess.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)

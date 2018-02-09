@@ -47,10 +47,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Revision{},
 		&RevisionList{},
-		&RevisionTemplate{},
-		&RevisionTemplateList{},
-		&ElaService{},
-		&ElaServiceList{},
+		&Configuration{},
+		&ConfigurationList{},
+		&Route{},
+		&RouteList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
