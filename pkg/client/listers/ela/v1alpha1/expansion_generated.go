@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// RouteListerExpansion allows custom methods to be added to
-// RouteLister.
-type RouteListerExpansion interface{}
+// ConfigurationListerExpansion allows custom methods to be added to
+// ConfigurationLister.
+type ConfigurationListerExpansion interface{}
 
-// RouteNamespaceListerExpansion allows custom methods to be added to
-// RouteNamespaceLister.
-type RouteNamespaceListerExpansion interface{}
+// ConfigurationNamespaceListerExpansion allows custom methods to be added to
+// ConfigurationNamespaceLister.
+type ConfigurationNamespaceListerExpansion interface{}
 
 // RevisionListerExpansion allows custom methods to be added to
 // RevisionLister.
@@ -34,10 +34,10 @@ type RevisionListerExpansion interface{}
 // RevisionNamespaceLister.
 type RevisionNamespaceListerExpansion interface{}
 
-// ConfigurationListerExpansion allows custom methods to be added to
-// ConfigurationLister.
-type ConfigurationListerExpansion interface{}
+// RouteListerExpansion allows custom methods to be added to
+// RouteLister.
+type RouteListerExpansion interface{}
 
-// ConfigurationNamespaceListerExpansion allows custom methods to be added to
-// ConfigurationNamespaceLister.
-type ConfigurationNamespaceListerExpansion interface{}
+// RouteNamespaceListerExpansion allows custom methods to be added to
+// RouteNamespaceLister.
+type RouteNamespaceListerExpansion interface{}

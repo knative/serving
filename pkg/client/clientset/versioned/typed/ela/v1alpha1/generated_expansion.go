@@ -15,8 +15,8 @@ limitations under the License.
 */
 package v1alpha1
 
-type RouteExpansion interface{}
+type ConfigurationExpansion interface{}
 
 type RevisionExpansion interface{}
 
-type ConfigurationExpansion interface{}
+type RouteExpansion interface{}

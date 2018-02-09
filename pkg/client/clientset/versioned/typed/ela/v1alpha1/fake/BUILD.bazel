@@ -4,10 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
-        "fake_ela_client.go",
-        "fake_route.go",
-        "fake_revision.go",
         "fake_configuration.go",
+        "fake_ela_client.go",
+        "fake_revision.go",
+        "fake_route.go",
     ],
     importpath = "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake",
     visibility = ["//visibility:public"],

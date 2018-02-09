@@ -3,10 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "route.go",
+        "configuration.go",
         "interface.go",
         "revision.go",
-        "configuration.go",
+        "route.go",
     ],
     importpath = "github.com/google/elafros/pkg/client/informers/externalversions/ela/v1alpha1",
     visibility = ["//visibility:public"],

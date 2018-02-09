@@ -4,9 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "certs.go",
-        "route.go",
-        "revision.go",
         "configuration.go",
+        "revision.go",
+        "route.go",
         "webhook.go",
     ],
     importpath = "github.com/google/elafros/pkg/webhook",
