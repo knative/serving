@@ -125,6 +125,11 @@ func TestCreateRTCreatesPR(t *testing.T) {
 		if rt.Spec.Template.Spec.Service != rev.Spec.Service {
 			t.Errorf("rev service was not %s", rt.Spec.Template.Spec.Service)
 		}
+
+		if len(rev.OwnerReferences) != 1 || rt.Name != rev.OwnerReferences[0].Name {
+			t.Errorf("expected owner references to have 1 ref with name %s", rt.Name)
+		}
+
 		return hooks.HookComplete
 	})
 

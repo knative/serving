@@ -273,6 +273,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	glog.Infof("Running reconcile RevisionTemplate for %s\n%+v\n%+v\n", rt.Name, rt, rt.Spec.Template)
 	spec := rt.Spec.Template.Spec
+	controllerRef := metav1.NewControllerRef(rt, controllerKind)
 
 	if rt.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
@@ -283,7 +284,6 @@ func (c *Controller) syncHandler(key string) error {
 			},
 			Spec: *rt.Spec.Build,
 		}
-		controllerRef := metav1.NewControllerRef(rt, controllerKind)
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
 		created, err := c.elaclientset.CloudbuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
@@ -308,6 +308,10 @@ func (c *Controller) syncHandler(key string) error {
 	// so use the namespace of the template that's being updated for the Revision being
 	// created.
 	rev.ObjectMeta.Namespace = rt.Namespace
+
+	// Delete revisions when the parent RevisionTemplate is deleted.
+	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
+
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(rt.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
