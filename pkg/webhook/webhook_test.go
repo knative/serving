@@ -281,7 +281,7 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 
 func expectAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
 	if !resp.Allowed {
-		t.Fatalf("Expected allowed, but failed with %+v", resp.Result)
+		t.Errorf("Expected allowed, but failed with %+v", resp.Result)
 	}
 }
 
