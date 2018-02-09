@@ -56,11 +56,11 @@ func GetRevisionPodName(u *v1alpha1.Revision) string {
 	return fmt.Sprintf("%s-warmpod-%s", u.Name, genUUID)
 }
 
-func GetElaIstioRouteRuleName(u *v1alpha1.ElaService) string {
+func GetElaIstioRouteRuleName(u *v1alpha1.Route) string {
 	return u.Name + "-istio"
 }
 
-func GetElaK8SIngressName(u *v1alpha1.ElaService) string {
+func GetElaK8SIngressName(u *v1alpha1.Route) string {
 	return u.Name + "-ela-ingress"
 }
 
@@ -68,11 +68,11 @@ func GetElaK8SServiceNameForRevision(u *v1alpha1.Revision) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SServiceName(u *v1alpha1.ElaService) string {
+func GetElaK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SRouterServiceName(u *v1alpha1.ElaService) string {
+func GetElaK8SRouterServiceName(u *v1alpha1.Route) string {
 	return "router-service"
 }
 

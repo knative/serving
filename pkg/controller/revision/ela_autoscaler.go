@@ -37,7 +37,7 @@ func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.H
 			Name:      util.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
-				elaServiceLabel: serviceID,
+				routeLabel: serviceID,
 				elaVersionLabel: name,
 			},
 		},

@@ -54,7 +54,7 @@ func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*corev1.ConfigM
 			Name:      util.GetRevisionNginxConfigMapName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
-				elaServiceLabel: u.Spec.Service,
+				routeLabel: u.Spec.Service,
 				elaVersionLabel: u.Name,
 			},
 		},
