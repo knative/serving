@@ -30,14 +30,14 @@ func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.H
 
 	var min int32 = 1
 	var max int32 = 10
-	var targetPercentage int32 = 80
+	var targetPercentage int32 = 50
 
 	return &autoscaling_v1.HorizontalPodAutoscaler{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      util.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
-				elaServiceLabel: serviceID,
+				routeLabel: serviceID,
 				elaVersionLabel: name,
 			},
 		},

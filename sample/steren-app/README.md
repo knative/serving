@@ -25,8 +25,8 @@ INFO: Build completed successfully, 4 total actions
 
 INFO: Running command line: bazel-bin/sample/steren-app/everything.create
 buildtemplate "node-app" created
-elaservice "steren-sample-app" created
-revisiontemplate "steren-sample-app" created
+route "steren-sample-app" created
+configuration "steren-sample-app" created
 ```
 
 Once deployed, you will see that it first builds:

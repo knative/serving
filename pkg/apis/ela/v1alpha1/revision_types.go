@@ -117,10 +117,10 @@ type RevisionCondition struct {
 type RevisionStatus struct {
 	// This is the k8s name of the service that represents this revision.
 	// We expose this to ensure that we can easily route to it from
-	// ElaService.
+	// Route.
 	ServiceName string              `json:"serviceName,omitempty"`
 	Conditions  []RevisionCondition `json:"conditions,omitempty"`
-	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
+	// ReconciledGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The reconciled generation is updated
 	// even if the controller failed to process the spec and create the Revision.
 	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`

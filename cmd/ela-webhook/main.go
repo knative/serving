@@ -28,7 +28,7 @@ import (
 
 func main() {
 	flag.Parse()
-	glog.Info("Starting the RevisionTemplate Webhook...")
+	glog.Info("Starting the Configuration Webhook...")
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
