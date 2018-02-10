@@ -24,8 +24,8 @@ INFO: Build completed successfully, 4 total actions
 
 INFO: Running command line: bazel-bin/sample/steren-function/everything.create
 buildtemplate "node-fn" created
-elaservice "steren-sample-fn" created
-revisiontemplate "steren-sample-function" created
+route "steren-sample-fn" created
+configuration "steren-sample-function" created
 ```
 
 Once deployed, you will see that it first builds:

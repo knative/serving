@@ -32,8 +32,8 @@ import (
 	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
 	"github.com/google/elafros/pkg/controller/revision"
-	"github.com/google/elafros/pkg/controller/revisiontemplate"
-	"github.com/google/elafros/pkg/controller/elaservice"
+	"github.com/google/elafros/pkg/controller/configuration"
+	"github.com/google/elafros/pkg/controller/route"
 	"github.com/google/elafros/pkg/signals"
 )
 
@@ -72,9 +72,9 @@ func main() {
 
 	// Add new controllers here.
 	ctors := []controller.Constructor{
-		revisiontemplate.NewController,
+		configuration.NewController,
 		revision.NewController,
-		elaservice.NewController,
+		route.NewController,
 	}
 
 	// Build all of our controllers, with the clients constructed above.

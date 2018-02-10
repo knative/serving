@@ -24,12 +24,12 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ElaServices returns a ElaServiceInformer.
-	ElaServices() ElaServiceInformer
+	// Configurations returns a ConfigurationInformer.
+	Configurations() ConfigurationInformer
 	// Revisions returns a RevisionInformer.
 	Revisions() RevisionInformer
-	// RevisionTemplates returns a RevisionTemplateInformer.
-	RevisionTemplates() RevisionTemplateInformer
+	// Routes returns a RouteInformer.
+	Routes() RouteInformer
 }
 
 type version struct {
@@ -43,9 +43,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ElaServices returns a ElaServiceInformer.
-func (v *version) ElaServices() ElaServiceInformer {
-	return &elaServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// Configurations returns a ConfigurationInformer.
+func (v *version) Configurations() ConfigurationInformer {
+	return &configurationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // Revisions returns a RevisionInformer.
@@ -53,7 +53,7 @@ func (v *version) Revisions() RevisionInformer {
 	return &revisionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// RevisionTemplates returns a RevisionTemplateInformer.
-func (v *version) RevisionTemplates() RevisionTemplateInformer {
-	return &revisionTemplateInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// Routes returns a RouteInformer.
+func (v *version) Routes() RouteInformer {
+	return &routeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

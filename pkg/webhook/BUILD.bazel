@@ -4,9 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "certs.go",
-        "elaservice.go",
+        "configuration.go",
         "revision.go",
-        "revisiontemplate.go",
+        "route.go",
         "webhook.go",
     ],
     importpath = "github.com/google/elafros/pkg/webhook",
@@ -32,7 +32,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "elaservice_test.go",
+        "route_test.go",
         "webhook_test.go",
     ],
     embed = [":go_default_library"],

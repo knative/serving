@@ -47,7 +47,7 @@ const (
 	envVarValue      = "envvalue"
 	testDomain       = "example.com"
 	testGeneration   = 1
-	esName           = "test-elaservice-name"
+	esName           = "test-route-name"
 	testRevisionName = "test-revision"
 )
 
@@ -126,9 +126,9 @@ func TestInvalidNewRTFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	new := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "RevisionTemplate"},
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	assertFailsWith(t, ac.admit(new), "Failed to convert new into RevisionTemplate")
+	assertFailsWith(t, ac.admit(new), "Failed to convert new into Configuration")
 }
 
 func TestValidNewRTObject(t *testing.T) {
@@ -141,8 +141,8 @@ func TestValidNewRTObject(t *testing.T) {
 
 func TestValidRTNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRevisionTemplate(1)
-	new := createRevisionTemplate(1)
+	old := createConfiguration(1)
+	new := createConfiguration(1)
 	resp := ac.admit(createUpdateRT(&old, &new))
 	assertAllowed(t, resp)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
@@ -150,8 +150,8 @@ func TestValidRTNoChanges(t *testing.T) {
 
 func TestValidRTEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRevisionTemplate(1)
-	new := createRevisionTemplate(1)
+	old := createConfiguration(1)
+	new := createConfiguration(1)
 	new.Spec.Template.Spec.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
@@ -179,8 +179,8 @@ func TestValidNewESObject(t *testing.T) {
 
 func TestValidESNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createElaService(1)
-	new := createElaService(1)
+	old := createRoute(1)
+	new := createRoute(1)
 	resp := ac.admit(createUpdateES(&old, &new))
 	assertAllowed(t, resp)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
@@ -188,8 +188,8 @@ func TestValidESNoChanges(t *testing.T) {
 
 func TestValidESChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createElaService(1)
-	new := createElaService(1)
+	old := createRoute(1)
+	new := createRoute(1)
 	new.Spec.Traffic = []v1alpha1.TrafficTarget{
 		v1alpha1.TrafficTarget{
 			Revision: testRevisionName,
@@ -207,16 +207,16 @@ func TestValidESChanges(t *testing.T) {
 	})
 }
 
-func createUpdateRT(old, new *v1alpha1.RevisionTemplate) *admissionv1beta1.AdmissionRequest {
+func createUpdateRT(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateRT()
 	marshaled, err := yaml.Marshal(old)
 	if err != nil {
-		panic("failed to marshal revisiontemplate")
+		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
 	marshaledOld, err := yaml.Marshal(new)
 	if err != nil {
-		panic("failed to marshal revisiontemplate")
+		panic("failed to marshal configuration")
 	}
 	req.OldObject.Raw = marshaledOld
 	return req
@@ -225,12 +225,12 @@ func createUpdateRT(old, new *v1alpha1.RevisionTemplate) *admissionv1beta1.Admis
 func createValidCreateRT() *admissionv1beta1.AdmissionRequest {
 	req := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "RevisionTemplate"},
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	rt := createRevisionTemplate(0)
+	rt := createConfiguration(0)
 	marshaled, err := yaml.Marshal(rt)
 	if err != nil {
-		panic("failed to marshal revisiontemplate")
+		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
 	return req
@@ -239,19 +239,19 @@ func createValidCreateRT() *admissionv1beta1.AdmissionRequest {
 func createBaseUpdateRT() *admissionv1beta1.AdmissionRequest {
 	return &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Update,
-		Kind:      metav1.GroupVersionKind{Kind: "RevisionTemplate"},
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
 }
 
 func createValidCreateES() *admissionv1beta1.AdmissionRequest {
 	req := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "ElaService"},
+		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	rt := createElaService(0)
+	rt := createRoute(0)
 	marshaled, err := yaml.Marshal(rt)
 	if err != nil {
-		panic("failed to marshal elaservice")
+		panic("failed to marshal route")
 	}
 	req.Object.Raw = marshaled
 	return req
@@ -260,20 +260,20 @@ func createValidCreateES() *admissionv1beta1.AdmissionRequest {
 func createBaseUpdateES() *admissionv1beta1.AdmissionRequest {
 	return &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Update,
-		Kind:      metav1.GroupVersionKind{Kind: "ElaService"},
+		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
 }
 
-func createUpdateES(old, new *v1alpha1.ElaService) *admissionv1beta1.AdmissionRequest {
+func createUpdateES(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateES()
 	marshaled, err := yaml.Marshal(old)
 	if err != nil {
-		panic("failed to marshal elaservice")
+		panic("failed to marshal route")
 	}
 	req.Object.Raw = marshaled
 	marshaledOld, err := yaml.Marshal(new)
 	if err != nil {
-		panic("failed to marshal elaservice")
+		panic("failed to marshal route")
 	}
 	req.OldObject.Raw = marshaledOld
 	return req
@@ -331,13 +331,13 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 
 }
 
-func createRevisionTemplate(generation int64) v1alpha1.RevisionTemplate {
-	return v1alpha1.RevisionTemplate{
+func createConfiguration(generation int64) v1alpha1.Configuration {
+	return v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      rtName,
 		},
-		Spec: v1alpha1.RevisionTemplateSpec{
+		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
@@ -356,13 +356,13 @@ func createRevisionTemplate(generation int64) v1alpha1.RevisionTemplate {
 	}
 }
 
-func createElaService(generation int64) v1alpha1.ElaService {
-	return v1alpha1.ElaService{
+func createRoute(generation int64) v1alpha1.Route {
+	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      rtName,
 		},
-		Spec: v1alpha1.ElaServiceSpec{
+		Spec: v1alpha1.RouteSpec{
 			Generation:   generation,
 			DomainSuffix: testDomain,
 			Traffic: []v1alpha1.TrafficTarget{
