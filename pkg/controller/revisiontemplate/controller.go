@@ -82,6 +82,9 @@ type Controller struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	// don't start the workers until revisions cache have been synced
+	revisionsSynced cache.InformerSynced
 }
 
 // NewController creates a new RevisionTemplate controller
@@ -93,9 +96,10 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain a reference to a shared index informer for the RevisionTemplate
-	// type.
+	// obtain references to a shared index informer for the RevisionTemplate
+	// and Revision type.
 	informer := elaInformerFactory.Elafros().V1alpha1().RevisionTemplates()
+	revisionsInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -108,12 +112,13 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionTemplates"),
-		recorder:      recorder,
+		kubeclientset:   kubeclientset,
+		elaclientset:    elaclientset,
+		lister:          informer.Lister(),
+		synced:          informer.Informer().HasSynced,
+		revisionsSynced: revisionsInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionTemplates"),
+		recorder:        recorder,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -125,6 +130,10 @@ func NewController(
 		},
 	})
 
+	revisionsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addRevisionsEvent,
+		UpdateFunc: controller.updateRevisionsEvent,
+	})
 	return controller
 }
 
@@ -144,6 +153,12 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	// Wait for the revisions caches to be synced before starting workers
+	glog.Info("Waiting for revisions informer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.revisionsSynced); !ok {
+		return fmt.Errorf("failed to wait for revisions caches to sync")
 	}
 
 	glog.Info("Starting workers")
@@ -322,9 +337,9 @@ func (c *Controller) syncHandler(key string) error {
 	rt.Status.LatestCreated = created.ObjectMeta.Name
 	rt.Status.ReconciledGeneration = rt.Spec.Generation
 
-	// TODO(vaikas): For now, set the Latest to the created one even though
-	// it's not ready for testing e2e flows
-	rt.Status.Latest = revName
+	// // TODO(vaikas): For now, set the Latest to the created one even though
+	// // it's not ready for testing e2e flows
+	// rt.Status.Latest = revName
 
 	log.Printf("Updating the Template status:\n%+v", rt)
 
@@ -362,4 +377,44 @@ func (c *Controller) updateStatus(u *v1alpha1.RevisionTemplate) (*v1alpha1.Revis
 	// TODO: for CRD there's no updatestatus, so use normal update
 	return rtClient.Update(newu)
 	//	return rtClient.UpdateStatus(newu)
+}
+
+func (c *Controller) addRevisionsEvent(obj interface{}) {
+	revision := obj.(*corev1.Endpoints)
+	eName := endpoint.Name
+	namespace := endpoint.Namespace
+	// Lookup and see if this endpoints corresponds to a service that
+	// we own and hence the Revision that created this service.
+	revisionName := lookupServiceOwner(endpoint)
+	if len(revisionName) == 0 {
+		return
+	}
+
+	if !getIsServiceReady(endpoint) {
+		// The service isn't ready, so ignore this event.
+		glog.Infof("Endpoint %q is not ready", eName)
+		return
+	}
+	glog.Infof("Endpoint %q is ready", eName)
+
+	r, err := c.lister.Revisions(namespace).Get(revisionName)
+	if err != nil {
+		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revisionName, err)
+		return
+	}
+
+	// Check to see if the revision has already been marked as ready and if
+	// it is, then there's no need to do anything to it.
+	if r.Status.IsReady() {
+		return
+	}
+
+	if err := c.markServiceReady(r); err != nil {
+		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revisionName, err)
+	}
+	return
+}
+
+func (c *Controller) updateRevisionsEvent(old, new interface{}) {
+	c.addRevisionsEvent(new)
 }

@@ -136,8 +136,10 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain a reference to a shared index informer for the Revision type.
+	// obtain references to a shared index informer for the Revision and
+	// Endpoint type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -148,8 +150,6 @@ func NewController(
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
-
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	controller := &RevisionControllerImpl{
 		kubeclientset:   kubeclientset,
@@ -178,7 +178,6 @@ func NewController(
 		UpdateFunc: controller.updateBuildEvent,
 	})
 
-	// Obtain a reference to a shared index informer for the Build type.
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addEndpointsEvent,
 		UpdateFunc: controller.updateEndpointsEvent,
