@@ -25,9 +25,7 @@ import (
 func TestValidConfigurationAllowed(t *testing.T) {
 	configuration := createConfiguration(testGeneration)
 
-	err := ValidateConfiguration(nil, &configuration, &configuration)
-
-	if err != nil {
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != nil {
 		t.Fatalf("Valid revision template should pass, but failed with:  %s.", err)
 	}
 }
@@ -50,8 +48,8 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 
 	err := ValidateConfiguration(nil, &configuration, &configuration)
 
-	if err == nil || err.Error() != errEmptySpecInConfigurationMessage {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptySpecInConfigurationMessage, err)
+	if err == nil || err != errEmptySpecInConfiguration {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptySpecInConfiguration.Error(), err)
 	}
 }
 
@@ -69,8 +67,8 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 
 	err := ValidateConfiguration(nil, &configuration, &configuration)
 
-	if err == nil || err.Error() != errEmptyTemplateInSpecMessage {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpecMessage, err)
+	if err == nil || err != errEmptyTemplateInSpec {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec.Error(), err)
 	}
 }
 
@@ -82,7 +80,7 @@ func TestNonEmptyStatusInConfiguration(t *testing.T) {
 
 	err := ValidateConfiguration(nil, &configuration, &configuration)
 
-	if err == nil || err.Error() != errNonEmptyStatusInConfigurationMessage {
-		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInConfigurationMessage, err)
+	if err == nil || err != errNonEmptyStatusInConfiguration {
+		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInConfiguration.Error(), err)
 	}
 }

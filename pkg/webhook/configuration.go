@@ -16,7 +16,7 @@ limitations under the License.
 package webhook
 
 import (
-	"fmt"
+	"errors"
 	"reflect"
 
 	"github.com/golang/glog"
@@ -24,10 +24,10 @@ import (
 	"github.com/mattbaird/jsonpatch"
 )
 
-const (
-	errEmptySpecInConfigurationMessage      = "The revision template must have revision template spec"
-	errEmptyTemplateInSpecMessage           = "The revision template spec must have revision template"
-	errNonEmptyStatusInConfigurationMessage = "The revision template cannot have status when it is created"
+var (
+	errEmptySpecInConfiguration      = errors.New("The revision template must have revision template spec")
+	errEmptyTemplateInSpec           = errors.New("The revision template spec must have revision template")
+	errNonEmptyStatusInConfiguration = errors.New("The revision template cannot have status when it is created")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
@@ -37,13 +37,13 @@ func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 		var ok bool
 		oldConfiguration, ok = old.(*v1alpha1.Configuration)
 		if !ok {
-			return fmt.Errorf("Failed to convert old into Configuration")
+			return errors.New("Failed to convert old into Configuration")
 		}
 	}
 	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldConfiguration)
 	newConfiguration, ok := new.(*v1alpha1.Configuration)
 	if !ok {
-		return fmt.Errorf("Failed to convert new into Configuration")
+		return errors.New("Failed to convert new into Configuration")
 	}
 	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newConfiguration)
 
@@ -55,15 +55,15 @@ func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 
 func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
-		return fmt.Errorf(errEmptySpecInConfigurationMessage)
+		return errEmptySpecInConfiguration
 	}
 	// TODO: add validation for configuration.Spec.Template, after we add a
 	// validation for Revision.
 	if reflect.DeepEqual(configuration.Spec.Template, v1alpha1.Revision{}) {
-		return fmt.Errorf(errEmptyTemplateInSpecMessage)
+		return errEmptyTemplateInSpec
 	}
 	if !reflect.DeepEqual(configuration.Status, v1alpha1.ConfigurationStatus{}) {
-		return fmt.Errorf(errNonEmptyStatusInConfigurationMessage)
+		return errNonEmptyStatusInConfiguration
 	}
 	return nil
 }
