@@ -25,9 +25,9 @@ import (
 )
 
 var (
-	errEmptySpecInConfiguration      = errors.New("The revision template must have revision template spec")
-	errEmptyTemplateInSpec           = errors.New("The revision template spec must have revision template")
-	errNonEmptyStatusInConfiguration = errors.New("The revision template cannot have status when it is created")
+	errEmptySpecInConfiguration      = errors.New("The configuration must have configuration spec")
+	errEmptyTemplateInSpec           = errors.New("The configuration spec must have configuration")
+	errNonEmptyStatusInConfiguration = errors.New("The configuration cannot have status when it is created")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler

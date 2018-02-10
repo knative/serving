@@ -26,7 +26,7 @@ func TestValidConfigurationAllowed(t *testing.T) {
 	configuration := createConfiguration(testGeneration)
 
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err != nil {
-		t.Fatalf("Valid revision template should pass, but failed with:  %s.", err)
+		t.Fatalf("Valid configuration should pass, but failed with:  %s.", err)
 	}
 }
 
