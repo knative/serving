@@ -29,7 +29,7 @@ You'll also need to setup:
    [minikube](https://github.com/kubernetes/minikube)); your user **must** have
    cluster-admin privileges:
    ```bash
-   kubectl create clusterrolebinding cluster-admin-binding
+   kubectl create clusterrolebinding cluster-admin-binding \
    --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
    ```
 1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
