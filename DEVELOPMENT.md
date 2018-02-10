@@ -82,7 +82,7 @@ variables (we recommend adding them to your `.bashrc`):
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
 with `kubectl`.  You can list the clusters you currently have configured via:
-`kubectl config get-contexts`.  For the cluster you want to target, the value in the cluster column
+`kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
 
 These environment variables will be provided to `bazel` via
