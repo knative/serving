@@ -156,19 +156,19 @@ type BuildList struct {
 	Items []Build `json:"items"`
 }
 
-func (b *BuildStatus) SetCondition(new *BuildCondition) {
-	if new == nil {
+func (b *BuildStatus) SetCondition(newCond *BuildCondition) {
+	if newCond == nil {
 		return
 	}
 
-	t := new.Type
+	t := newCond.Type
 	var conditions []BuildCondition
 	for _, cond := range b.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	conditions = append(conditions, *new)
+	conditions = append(conditions, *newCond)
 	b.Conditions = conditions
 }
 
