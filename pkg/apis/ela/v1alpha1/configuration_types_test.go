@@ -13,42 +13,40 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestGeneration(t *testing.T) {
-	r := Revision{}
-	if a := r.GetGeneration(); a != 0 {
+func TestConfigurationGeneration(t *testing.T) {
+	config := Configuration{}
+	if a := config.GetGeneration(); a != 0 {
 		t.Errorf("empty revision generation should be 0 was: %d", a)
 	}
 
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
+	config.SetGeneration(5)
+	if e, a := int64(5), config.GetGeneration(); e != a {
 		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
 	}
-
 }
 
-func TestIsReady(t *testing.T) {
+func TestConfigurationIsReady(t *testing.T) {
 	cases := []struct {
 		name    string
-		status  RevisionStatus
+		status  ConfigurationStatus
 		isReady bool
 	}{
 		{
 			name:    "empty status should not be ready",
-			status:  RevisionStatus{},
+			status:  ConfigurationStatus{},
 			isReady: false,
 		},
 		{
 			name: "Different condition type should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type:   RevisionConditionBuildComplete,
+						Type:   ConfigurationConditionBuildComplete,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -57,10 +55,10 @@ func TestIsReady(t *testing.T) {
 		},
 		{
 			name: "False condition status should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type:   RevisionConditionReady,
+						Type:   ConfigurationConditionReady,
 						Status: corev1.ConditionFalse,
 					},
 				},
@@ -69,10 +67,10 @@ func TestIsReady(t *testing.T) {
 		},
 		{
 			name: "Unknown condition status should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type:   RevisionConditionReady,
+						Type:   ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					},
 				},
@@ -81,10 +79,10 @@ func TestIsReady(t *testing.T) {
 		},
 		{
 			name: "Missing condition status should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type: RevisionConditionReady,
+						Type: ConfigurationConditionReady,
 					},
 				},
 			},
@@ -92,10 +90,10 @@ func TestIsReady(t *testing.T) {
 		},
 		{
 			name: "True condition status should be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type:   RevisionConditionReady,
+						Type:   ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -104,14 +102,14 @@ func TestIsReady(t *testing.T) {
 		},
 		{
 			name: "Multiple conditions with ready status should be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type:   RevisionConditionBuildComplete,
+						Type:   ConfigurationConditionBuildComplete,
 						Status: corev1.ConditionTrue,
 					},
 					{
-						Type:   RevisionConditionReady,
+						Type:   ConfigurationConditionReady,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -120,14 +118,14 @@ func TestIsReady(t *testing.T) {
 		},
 		{
 			name: "Multiple conditions with ready status false should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
 					{
-						Type:   RevisionConditionBuildComplete,
+						Type:   ConfigurationConditionBuildComplete,
 						Status: corev1.ConditionTrue,
 					},
 					{
-						Type:   RevisionConditionReady,
+						Type:   ConfigurationConditionReady,
 						Status: corev1.ConditionFalse,
 					},
 				},
@@ -143,74 +141,49 @@ func TestIsReady(t *testing.T) {
 	}
 }
 
-func TestGetSetCondition(t *testing.T) {
-	rs := RevisionStatus{}
-	if a := rs.GetCondition(RevisionConditionReady); a != nil {
-		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
-	}
-
-	rc := &RevisionCondition{
-		Type:   RevisionConditionBuildComplete,
-		Status: corev1.ConditionTrue,
-	}
-	// Set Condition and make sure it's the only thing returned
-	rs.SetCondition(rc)
-	if e, a := rc, rs.GetCondition(RevisionConditionBuildComplete); !reflect.DeepEqual(e, a) {
-		t.Errorf("GetCondition expected %v got: %v", e, a)
-	}
-	if a := rs.GetCondition(RevisionConditionReady); a != nil {
-		t.Errorf("GetCondition expected nil got: %v", a)
-	}
-	// Remove and make sure it's no longer there
-	rs.RemoveCondition(RevisionConditionBuildComplete)
-	if a := rs.GetCondition(RevisionConditionBuildComplete); a != nil {
-		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
-	}
-}
-
-func TestRevisionConditions(t *testing.T) {
-	rev := &Revision{}
-	foo := &RevisionCondition{
+func TestConfigurationConditions(t *testing.T) {
+	config := &Configuration{}
+	foo := &ConfigurationCondition{
 		Type:   "Foo",
 		Status: "True",
 	}
-	bar := &RevisionCondition{
+	bar := &ConfigurationCondition{
 		Type:   "Bar",
 		Status: "True",
 	}
 
 	// Add a new condition.
-	rev.Status.SetCondition(foo)
+	config.Status.SetCondition(foo)
 
-	if got, want := len(rev.Status.Conditions), 1; got != want {
+	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Remove a non-existent condition.
-	rev.Status.RemoveCondition(bar.Type)
+	config.Status.RemoveCondition(bar.Type)
 
-	if got, want := len(rev.Status.Conditions), 1; got != want {
+	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add a second condition.
-	rev.Status.SetCondition(bar)
+	config.Status.SetCondition(bar)
 
-	if got, want := len(rev.Status.Conditions), 2; got != want {
+	if got, want := len(config.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Remove an existing condition.
-	rev.Status.RemoveCondition(bar.Type)
+	config.Status.RemoveCondition(bar.Type)
 
-	if got, want := len(rev.Status.Conditions), 1; got != want {
+	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add nil condition.
-	rev.Status.SetCondition(nil)
+	config.Status.SetCondition(nil)
 
-	if got, want := len(rev.Status.Conditions), 1; got != want {
+	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
