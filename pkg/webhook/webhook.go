@@ -85,7 +85,7 @@ type ControllerOptions struct {
 	RegistrationDelay time.Duration
 }
 
-// ResourceCallback defines the signature that resource specific (ElaService, RevisionTemplate, etc.)
+// ResourceCallback defines the signature that resource specific (Route, Configuration, etc.)
 // handlers that can validate and mutate an object. If non-nil error is returned, object creation
 // is denied. Any mutations are to be appended to the patches operations.
 type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
@@ -194,8 +194,8 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		options: options,
 		handlers: map[string]GenericCRDHandler{
 			"Revision":         GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
-			"RevisionTemplate": GenericCRDHandler{Factory: &v1alpha1.RevisionTemplate{}, Callback: ValidateRevisionTemplate},
-			"ElaService":       GenericCRDHandler{Factory: &v1alpha1.ElaService{}, Callback: ValidateElaService},
+			"Configuration": GenericCRDHandler{Factory: &v1alpha1.Configuration{}, Callback: ValidateConfiguration},
+			"Route":       GenericCRDHandler{Factory: &v1alpha1.Route{}, Callback: ValidateRoute},
 		},
 	}, nil
 }
@@ -273,7 +273,7 @@ func (ac *AdmissionController) unregister(client clientadmissionregistrationv1be
 // configuration types.
 
 func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	resources := []string{"revisiontemplates", "elaservices", "revisions"}
+	resources := []string{"configurations", "routes", "revisions"}
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{

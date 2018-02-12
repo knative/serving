@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -117,10 +117,10 @@ type RevisionCondition struct {
 type RevisionStatus struct {
 	// This is the k8s name of the service that represents this revision.
 	// We expose this to ensure that we can easily route to it from
-	// ElaService.
+	// Route.
 	ServiceName string              `json:"serviceName,omitempty"`
 	Conditions  []RevisionCondition `json:"conditions,omitempty"`
-	// ReconciledGeneration is the 'Generation' of the RevisionTemplate that
+	// ReconciledGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The reconciled generation is updated
 	// even if the controller failed to process the spec and create the Revision.
 	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
@@ -148,19 +148,46 @@ func (r *Revision) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-func (rs *RevisionStatus) SetCondition(t RevisionConditionType, new *RevisionCondition) {
+// IsRevisionReady looks at the conditions and if the Status has a condition
+// RevisionConditionReady returns true if ConditionStatus is True
+func (rs *RevisionStatus) IsReady() bool {
+	if c := rs.GetCondition(RevisionConditionReady); c != nil {
+		return c.Status == corev1.ConditionTrue
+	}
+	return false
+}
+
+func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
+	for _, cond := range rs.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
+
+func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
+	if new == nil {
+		return
+	}
+
+	t := new.Type
 	var conditions []RevisionCondition
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
+	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
 
 func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
-	rs.SetCondition(t, nil)
+	var conditions []RevisionCondition
+	for _, cond := range rs.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	rs.Conditions = conditions
 }

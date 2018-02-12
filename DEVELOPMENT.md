@@ -29,9 +29,16 @@ You'll also need to setup:
    [minikube](https://github.com/kubernetes/minikube)); your user **must** have
    cluster-admin privileges:
    ```bash
-   kubectl create clusterrolebinding cluster-admin-binding
+   kubectl create clusterrolebinding cluster-admin-binding \
    --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
    ```
+1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
+(https://kubernetes.io/docs/admin/extensible-admission-controllers/#enable-external-admission-webhooks)
+For example:
+```bash
+--admission-control=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
+```
+
 1. A docker repository you can push to
 1. [Your environment](#environment-setup)
 
@@ -75,7 +82,7 @@ variables (we recommend adding them to your `.bashrc`):
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
 with `kubectl`.  You can list the clusters you currently have configured via:
-`kubectl config get-contexts`.  For the cluster you want to target, the value in the cluster column
+`kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
 
 These environment variables will be provided to `bazel` via
@@ -86,6 +93,7 @@ These environment variables will be provided to `bazel` via
 _It is notable that if you change the `*_OVERRIDE` variables, you may need to `bazel clean` in order
 to properly pick up the change._
 
+Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-elafros).
 ### Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:

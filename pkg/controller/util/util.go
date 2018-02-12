@@ -23,7 +23,7 @@ import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 
 	"github.com/google/uuid"
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -56,11 +56,11 @@ func GetRevisionPodName(u *v1alpha1.Revision) string {
 	return fmt.Sprintf("%s-warmpod-%s", u.Name, genUUID)
 }
 
-func GetElaIstioRouteRuleName(u *v1alpha1.ElaService) string {
+func GetElaIstioRouteRuleName(u *v1alpha1.Route) string {
 	return u.Name + "-istio"
 }
 
-func GetElaK8SIngressName(u *v1alpha1.ElaService) string {
+func GetElaK8SIngressName(u *v1alpha1.Route) string {
 	return u.Name + "-ela-ingress"
 }
 
@@ -68,11 +68,11 @@ func GetElaK8SServiceNameForRevision(u *v1alpha1.Revision) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SServiceName(u *v1alpha1.ElaService) string {
+func GetElaK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SRouterServiceName(u *v1alpha1.ElaService) string {
+func GetElaK8SRouterServiceName(u *v1alpha1.Route) string {
 	return "router-service"
 }
 
@@ -88,7 +88,7 @@ func GetOrCreateNamespace(namespace string, c clientset.Interface) (string, erro
 			return "", err
 		}
 		log.Printf("namespace: %v, not found. Creating...", namespace)
-		nsObj := &apiv1.Namespace{
+		nsObj := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace,
 				Namespace: "",

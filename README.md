@@ -46,24 +46,10 @@ $ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-control
 
 You can delete all of the service components with:
 ```shell
-bazel run :elafros.delete
-bazel run :istio.delete
+bazel run :everything.delete
 ```
 
 Delete all cached environment variables (e.g. `DOCKER_REPO_OVERRIDE`):
 ```shell
 bazel clean
 ```
-
-Due to [a bazel deletion ordering issue](https://github.com/bazelbuild/rules_k8s/issues/97),
-which also prevents `bazel run :everything.delete` from working,
-both of the above commands will output errors such as:
-
-```
-deployments.extensions "ela-webhook" not found
-...
-serviceaccounts "istio-mixer-service-account" not found
-```
-
-Deleting the Custom Resource Definitions will cascade and cause any instances
-of those resources to be cleaned up.
