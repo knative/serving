@@ -41,7 +41,7 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 	configuration := v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      rtName,
+			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{},
 	}
@@ -57,7 +57,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 	configuration := v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      rtName,
+			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: testGeneration,

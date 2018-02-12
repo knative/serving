@@ -41,13 +41,13 @@ func newDefaultOptions() ControllerOptions {
 
 const (
 	testNamespace    = "test-namespace"
-	rtName           = "test-revision-template"
+	testConfigurationName           = "test-configuration"
 	imageName        = "test-container-image"
 	envVarName       = "envname"
 	envVarValue      = "envvalue"
 	testDomain       = "example.com"
 	testGeneration   = 1
-	esName           = "test-route-name"
+	testRouteName           = "test-route-name"
 	testRevisionName = "test-revision"
 )
 
@@ -122,7 +122,7 @@ func TestUnknownKindFails(t *testing.T) {
 	assertFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
-func TestInvalidNewRTFails(t *testing.T) {
+func TestInvalidNewConfigurationFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	new := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
@@ -131,34 +131,34 @@ func TestInvalidNewRTFails(t *testing.T) {
 	assertFailsWith(t, ac.admit(new), "Failed to convert new into Configuration")
 }
 
-func TestValidNewRTObject(t *testing.T) {
+func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateRT())
+	resp := ac.admit(createValidCreateConfiguration())
 	assertAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
-func TestValidRTNoChanges(t *testing.T) {
+func TestValidConfigurationNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createConfiguration(1)
-	new := createConfiguration(1)
-	resp := ac.admit(createUpdateRT(&old, &new))
+	old := createConfiguration(testGeneration)
+	new := createConfiguration(testGeneration)
+	resp := ac.admit(createUpdateConfiguration(&old, &new))
 	assertAllowed(t, resp)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
-func TestValidRTEnvChanges(t *testing.T) {
+func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createConfiguration(1)
-	new := createConfiguration(1)
+	old := createConfiguration(testGeneration)
+	new := createConfiguration(testGeneration)
 	new.Spec.Template.Spec.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
 			Value: "different",
 		},
 	}
-	resp := ac.admit(createUpdateRT(&old, &new))
+	resp := ac.admit(createUpdateConfiguration(&old, &new))
 	assertAllowed(t, resp)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -169,24 +169,24 @@ func TestValidRTEnvChanges(t *testing.T) {
 	})
 }
 
-func TestValidNewESObject(t *testing.T) {
+func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateES())
+	resp := ac.admit(createValidCreateRoute())
 	assertAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
-func TestValidESNoChanges(t *testing.T) {
+func TestValidRouteNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1)
 	new := createRoute(1)
-	resp := ac.admit(createUpdateES(&old, &new))
+	resp := ac.admit(createUpdateRoute(&old, &new))
 	assertAllowed(t, resp)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
-func TestValidESChanges(t *testing.T) {
+func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1)
 	new := createRoute(1)
@@ -196,7 +196,7 @@ func TestValidESChanges(t *testing.T) {
 			Percent:  100,
 		},
 	}
-	resp := ac.admit(createUpdateES(&old, &new))
+	resp := ac.admit(createUpdateRoute(&old, &new))
 	assertAllowed(t, resp)
 	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -207,8 +207,8 @@ func TestValidESChanges(t *testing.T) {
 	})
 }
 
-func createUpdateRT(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
-	req := createBaseUpdateRT()
+func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
+	req := createBaseUpdateConfiguration()
 	marshaled, err := yaml.Marshal(old)
 	if err != nil {
 		panic("failed to marshal configuration")
@@ -222,7 +222,7 @@ func createUpdateRT(old, new *v1alpha1.Configuration) *admissionv1beta1.Admissio
 	return req
 }
 
-func createValidCreateRT() *admissionv1beta1.AdmissionRequest {
+func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 	req := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
@@ -236,14 +236,14 @@ func createValidCreateRT() *admissionv1beta1.AdmissionRequest {
 	return req
 }
 
-func createBaseUpdateRT() *admissionv1beta1.AdmissionRequest {
+func createBaseUpdateConfiguration() *admissionv1beta1.AdmissionRequest {
 	return &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Update,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
 }
 
-func createValidCreateES() *admissionv1beta1.AdmissionRequest {
+func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 	req := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
@@ -257,15 +257,15 @@ func createValidCreateES() *admissionv1beta1.AdmissionRequest {
 	return req
 }
 
-func createBaseUpdateES() *admissionv1beta1.AdmissionRequest {
+func createBaseUpdateRoute() *admissionv1beta1.AdmissionRequest {
 	return &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Update,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
 }
 
-func createUpdateES(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
-	req := createBaseUpdateES()
+func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
+	req := createBaseUpdateRoute()
 	marshaled, err := yaml.Marshal(old)
 	if err != nil {
 		panic("failed to marshal route")
@@ -335,7 +335,7 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 	return v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      rtName,
+			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
@@ -360,14 +360,14 @@ func createRoute(generation int64) v1alpha1.Route {
 	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      rtName,
+			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Generation:   generation,
 			DomainSuffix: testDomain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:     esName,
+					Name:     "test-traffic-target",
 					Revision: testRevisionName,
 					Percent:  100,
 				},

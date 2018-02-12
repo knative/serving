@@ -19,13 +19,13 @@ bazel run sample/helloworld:everything.create
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
 ```shell
-# This will show the ES that we created:
+# This will show the route that we created:
 kubectl get route -o yaml
 
-# This will show the RT that we created:
+# This will show the configuration that we created:
 kubectl get configurations -o yaml
 
-# This will show the Revision that was created by our RT:
+# This will show the Revision that was created by our configuration:
 kubectl get revisions -o yaml
 
 ```
@@ -50,7 +50,7 @@ Hello World: shiniestnewestversion!
 
 ## Updating
 
-You can update this to a new version. For example, update it with a new reversiontemplate.yaml via:
+You can update this to a new version. For example, update it with a new configuration.yaml via:
 ```shell
 bazel run sample/helloworld:updated_everything.apply
 ```
@@ -58,7 +58,7 @@ bazel run sample/helloworld:updated_everything.apply
 Once deployed, traffic will shift to the new revision automatically. You can verify the new version
 by checking route status:
 ```shell
-# This will show the ES that we created:
+# This will show the route that we created:
 kubectl get route -o yaml
 ```
 
