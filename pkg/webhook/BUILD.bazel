@@ -32,6 +32,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "configuration_test.go",
         "route_test.go",
         "webhook_test.go",
     ],
