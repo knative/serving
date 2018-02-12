@@ -389,32 +389,34 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	namespace := revision.Namespace
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
-	configurationName := lookupRevisionOwner(revision)
-	if len(configurationName) == 0 {
+	configName := lookupRevisionOwner(revision)
+	if len(configName) == 0 {
 		return
 	}
 
-	if !getIsServiceReady(endpoint) {
-		// The service isn't ready, so ignore this event.
-		glog.Infof("Endpoint %q is not ready", eName)
+	if !revision.Status.IsReady() {
+		// The revision isn't ready, so ignore this event.
+		glog.Infof("Revision %q is not ready", revisionName)
 		return
 	}
-	glog.Infof("Endpoint %q is ready", eName)
+	glog.Infof("Revision %q is ready", revisionName)
 
-	r, err := c.lister.Revisions(namespace).Get(revisionName)
+	config, err := c.lister.Configurations(namespace).Get(revisionName)
 	if err != nil {
-		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revisionName, err)
+		glog.Errorf("Error fetching configuration '%s/%s' upon revision becoming ready: %v",
+			namespace, revisionName, err)
 		return
 	}
 
-	// Check to see if the revision has already been marked as ready and if
+	// Check to see if the configuration has already been marked as ready and if
 	// it is, then there's no need to do anything to it.
-	if r.Status.IsReady() {
+	if config.Status.IsReady() {
 		return
 	}
 
-	if err := c.markServiceReady(r); err != nil {
-		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revisionName, err)
+	if err := c.markConfigurationReady(config); err != nil {
+		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
+			namespace, configName, err)
 	}
 	return
 }
@@ -423,14 +425,25 @@ func (c *Controller) updateRevisionEvent(old, new interface{}) {
 	c.addRevisionEvent(new)
 }
 
-// Given a revision see if it's managed by us and return the
-// configuration that created it.
-// TODO: Consider using OwnerReferences.
-// https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
+// Return the configuration that created it.
 func lookupRevisionOwner(revision *v1alpha1.Revision) string {
-	// see if there's a 'revision' label on this object marking it as ours.
-	if revisionName, ok := revision.Labels["revision"]; ok {
-		return revisionName
+	// See if there's a 'configuration' owner reference on this object.
+	for _, ownerReference := range revision.OwnerReferences {
+		if ownerReference.Kind == controllerKind.Kind {
+			return ownerReference.Name
+		}
 	}
 	return ""
+}
+
+func (c *Controller) markConfigurationReady(config *v1alpha1.Configuration) error {
+	glog.Infof("Marking Configuration %q ready", config.Name)
+	config.Status.SetCondition(
+		&v1alpha1.ConfigurationCondition{
+			Type:   v1alpha1.ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+			Reason: "ServiceReady",
+		})
+	_, err := c.updateStatus(config)
+	return err
 }

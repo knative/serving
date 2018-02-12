@@ -100,15 +100,16 @@ const (
 	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"
 )
 
-// RevisionCondition defines a readiness condition for a ElaDeployment.
+// RevisionCondition defines a readiness condition for a Ela Revision.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RevisionCondition struct {
-	Type RevisionConditionType `json:"type" description:"type of ElaDeployment condition"`
+	Type RevisionConditionType `json:"type" description:"type of Ela Revision condition"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
+
 	// +optional
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
@@ -148,7 +149,7 @@ func (r *Revision) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-// IsRevisionReady looks at the conditions and if the Status has a condition
+// IsReady looks at the conditions and if the Status has a condition
 // RevisionConditionReady returns true if ConditionStatus is True
 func (rs *RevisionStatus) IsReady() bool {
 	if c := rs.GetCondition(RevisionConditionReady); c != nil {
