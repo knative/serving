@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC..
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ import (
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 
 const (
-	routeLabel string = "route"
+	routeLabel      string = "route"
 	elaVersionLabel string = "revision"
 
 	elaContainerName string = "ela-container"

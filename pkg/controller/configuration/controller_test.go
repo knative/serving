@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -218,7 +218,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 		switch update {
 		case 1:
 			// After the initial update to the configuration, we should be
-			// watching for this version to become ready.
+			// watching for this revision to become ready.
 			revision.Status = v1alpha1.RevisionStatus{
 				Conditions: []v1alpha1.RevisionCondition{{
 					Type:   v1alpha1.RevisionConditionReady,

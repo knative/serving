@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -340,10 +340,6 @@ func (c *Controller) syncHandler(key string) error {
 	// for ready state so that when ready, we can make it Latest.
 	rt.Status.LatestCreated = created.ObjectMeta.Name
 	rt.Status.ReconciledGeneration = rt.Spec.Generation
-
-	// // TODO(vaikas): For now, set the Latest to the created one even though
-	// // it's not ready for testing e2e flows
-	// rt.Status.Latest = revName
 
 	log.Printf("Updating the Template status:\n%+v", rt)
 
