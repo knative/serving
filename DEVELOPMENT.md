@@ -93,6 +93,7 @@ These environment variables will be provided to `bazel` via
 _It is notable that if you change the `*_OVERRIDE` variables, you may need to `bazel clean` in order
 to properly pick up the change._
 
+Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-elafros).
 ### Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
