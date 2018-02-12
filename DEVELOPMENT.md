@@ -29,7 +29,7 @@ You'll also need to setup:
    [minikube](https://github.com/kubernetes/minikube)); your user **must** have
    cluster-admin privileges:
    ```bash
-   kubectl create clusterrolebinding cluster-admin-binding
+   kubectl create clusterrolebinding cluster-admin-binding \
    --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
    ```
 1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
@@ -82,7 +82,7 @@ variables (we recommend adding them to your `.bashrc`):
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
 with `kubectl`.  You can list the clusters you currently have configured via:
-`kubectl config get-contexts`.  For the cluster you want to target, the value in the cluster column
+`kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
 
 These environment variables will be provided to `bazel` via

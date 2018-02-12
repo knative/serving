@@ -46,8 +46,8 @@ _go_image_repos()
 # Pull in rules_k8s
 git_repository(
     name = "io_bazel_rules_k8s",
-    # HEAD as of 2018-02-07
-    commit = "d413b49efe2b1ffac3d7548254ff153879b6f9a0",
+    # HEAD as of 2018-02-09
+    commit = "761ba3bdf864f85cae7d3e65b045197ad208e1a0",
     remote = "https://github.com/bazelbuild/rules_k8s",
 )
 
@@ -103,7 +103,7 @@ load(
 
 private_git_repository(
    name = "buildcrd",
-   commit = "31452fe5c2bac56f4fae1483abd8ff48171b6a12",
+   commit = "91197a93f54316cc15ff3d54b31ed3096a97fb74",
    remote = "git@github.com:google/build-crd.git",
 )
 
