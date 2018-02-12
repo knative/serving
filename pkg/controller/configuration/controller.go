@@ -401,20 +401,14 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	}
 	glog.Infof("Revision %q is ready", revisionName)
 
-	config, err := c.lister.Configurations(namespace).Get(revisionName)
+	config, err := c.lister.Configurations(namespace).Get(configName)
 	if err != nil {
 		glog.Errorf("Error fetching configuration '%s/%s' upon revision becoming ready: %v",
-			namespace, revisionName, err)
+			namespace, configName, err)
 		return
 	}
 
-	// Check to see if the configuration has already been marked as ready and if
-	// it is, then there's no need to do anything to it.
-	if config.Status.IsReady() {
-		return
-	}
-
-	if err := c.markConfigurationReady(config); err != nil {
+	if err := c.markConfigurationReady(config, revision); err != nil {
 		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
 			namespace, configName, err)
 	}
@@ -436,14 +430,18 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 	return ""
 }
 
-func (c *Controller) markConfigurationReady(config *v1alpha1.Configuration) error {
+// Mark ConfigurationConditionReady of Configuration ready as the givne latest
+// created revision is ready. Also set latest field to the given revision.
+func (c *Controller) markConfigurationReady(
+	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
 	glog.Infof("Marking Configuration %q ready", config.Name)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
 			Type:   v1alpha1.ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
-			Reason: "ServiceReady",
+			Reason: "LatestRevisionReady",
 		})
+	config.Status.Latest = revision.Name
 	_, err := c.updateStatus(config)
 	return err
 }
