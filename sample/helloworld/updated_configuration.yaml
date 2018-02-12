@@ -30,8 +30,8 @@ spec:
   template:
     spec:
       serviceType: container
-      env:
-        - name: TARGET
-          value: updatedversion
       containerSpec:
         image: sample:latest
+        env:
+          - name: TARGET
+            value: updatedversion

@@ -51,7 +51,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				Name:      elaContainerLogVolumeName,
 			},
 		},
-		Env: u.Spec.Env,
+		Env: u.Spec.ContainerSpec.Env,
 	}
 
 	elaContainerLogVolume := corev1.Volume{
