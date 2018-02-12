@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/google/elafros/pkg/apis/ela"
@@ -312,7 +313,7 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
 
-	// Try to create the webhook and if it already exists, use it.
+	// Try to create the webhook and if it already exists validate webhook rules
 	_, err = client.Create(webhook)
 	if err != nil {
 		if !apierrors.IsAlreadyExists(err) {
@@ -320,6 +321,24 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 			return err
 		}
 		glog.Infof("Webhook already exists")
+		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
+		if err != nil {
+			glog.Fatalf("Error retrieving webhook: %s", err)
+			return err
+		}
+		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
+			glog.Infof("Recreating webhook")
+			if err := client.Delete(ac.options.WebhookName, nil); err != nil {
+				glog.Fatalf("Failed to delete existing webhook: %s", err)
+				return err
+			}
+			if _, err := client.Create(webhook); err != nil {
+				glog.Fatalf("Failed to recreate webhook: %s", err)
+				return err
+			}
+		} else {
+			glog.Infof("Webhook is already valid")
+		}
 	} else {
 		glog.Infof("Created a webhook")
 	}
