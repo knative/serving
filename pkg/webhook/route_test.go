@@ -162,7 +162,7 @@ func TestNonEmptyStatusInRoute(t *testing.T) {
 			},
 		})
 	route.Status = v1alpha1.RouteStatus{
-		Domain: "test-donmain",
+		Domain: "test-domain",
 	}
 
 	if err := ValidateRoute(nil, &route, &route); err != errNonEmptyStatusInRoute {
