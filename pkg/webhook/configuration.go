@@ -27,6 +27,7 @@ import (
 var (
 	errEmptySpecInConfiguration      = errors.New("The configuration must have configuration spec")
 	errEmptyTemplateInSpec           = errors.New("The configuration spec must have configuration")
+	errInvalidConfigurationInput     = errors.New("Failed to convert input into configuration")
 	errNonEmptyStatusInConfiguration = errors.New("The configuration cannot have status when it is created")
 )
 
@@ -37,13 +38,13 @@ func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 		var ok bool
 		oldConfiguration, ok = old.(*v1alpha1.Configuration)
 		if !ok {
-			return errors.New("Failed to convert old into Configuration")
+			return errInvalidConfigurationInput
 		}
 	}
 	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldConfiguration)
 	newConfiguration, ok := new.(*v1alpha1.Configuration)
 	if !ok {
-		return errors.New("Failed to convert new into Configuration")
+		return errInvalidConfigurationInput
 	}
 	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newConfiguration)
 

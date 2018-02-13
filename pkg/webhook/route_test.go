@@ -41,17 +41,15 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Configuration: "test-revision-template-1",
-				Percent:          50,
+				Percent:       50,
 			},
 			v1alpha1.TrafficTarget{
 				Configuration: "test-revision-template-2",
-				Percent:          50,
+				Percent:       50,
 			},
 		})
 
-	err := ValidateRoute(nil, &route, &route)
-
-	if err != nil {
+	if err := ValidateRoute(nil, &route, &route); err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
 	}
 }
@@ -59,9 +57,7 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
 	route := createRouteWithTraffic(nil)
 
-	err := ValidateRoute(nil, &route, &route)
-
-	if err != nil {
+	if err := ValidateRoute(nil, &route, &route); err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
 	}
 }
@@ -74,11 +70,9 @@ func TestNoneRouteTypeForOldResourceNotAllowed(t *testing.T) {
 		},
 	}
 
-	err := ValidateRoute(nil, &revision, &revision)
-
-	if err == nil || err.Error() != "Failed to convert old into Route" {
+	if err := ValidateRoute(nil, &revision, &revision); err != errInvalidRouteInput {
 		t.Fatalf(
-			"Expected: Failed to convert old into Route. Failed with: %s.", err)
+			"Expected: %s. Failed with: %s.", errInvalidRouteInput, err)
 	}
 }
 
@@ -90,11 +84,9 @@ func TestNoneRouteTypeForNewResourceNotAllowed(t *testing.T) {
 		},
 	}
 
-	err := ValidateRoute(nil, nil, &revision)
-
-	if err == nil || err.Error() != "Failed to convert new into Route" {
+	if err := ValidateRoute(nil, nil, &revision); err != errInvalidRouteInput {
 		t.Fatalf(
-			"Expected: Failed to convert new into Route. Failed with: %s.", err)
+			"Expected: %s. Failed with: %s.", errInvalidRouteInput, err)
 	}
 }
 
@@ -106,11 +98,9 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 			},
 		})
 
-	err := ValidateRoute(nil, &route, &route)
-
-	if err == nil || err.Error() != errInvalidRevisionsMessage {
+	if err := ValidateRoute(nil, &route, &route); err != errInvalidRevisions {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", errInvalidRevisionsMessage, err)
+			"Expected: %s. Failed with: %s.", errInvalidRevisions, err)
 	}
 }
 
@@ -118,17 +108,15 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision:         testRevisionName,
+				Revision:      testRevisionName,
 				Configuration: "test-revision-template",
-				Percent:          100,
+				Percent:       100,
 			},
 		})
 
-	err := ValidateRoute(nil, &route, &route)
-
-	if err == nil || err.Error() != errInvalidRevisionsMessage {
+	if err := ValidateRoute(nil, &route, &route); err != errInvalidRevisions {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", errInvalidRevisionsMessage, err)
+			"Expected: %s. Failed with: %s.", errInvalidRevisions, err)
 	}
 }
 
@@ -141,11 +129,9 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 			},
 		})
 
-	err := ValidateRoute(nil, &route, &route)
-
-	if err == nil || err.Error() != errNegativeTargetPercentMessage {
+	if err := ValidateRoute(nil, &route, &route); err != errNegativeTargetPercent {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", errNegativeTargetPercentMessage, err)
+			"Expected: %s. Failed with: %s.", errNegativeTargetPercent, err)
 	}
 }
 
@@ -157,14 +143,29 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 			},
 			v1alpha1.TrafficTarget{
 				Configuration: "test-revision-template-2",
-				Percent:          50,
+				Percent:       50,
 			},
 		})
 
-	err := ValidateRoute(nil, &route, &route)
-
-	if err == nil || err.Error() != errInvalidTargetPercentSumMessage {
+	if err := ValidateRoute(nil, &route, &route); err != errInvalidTargetPercentSum {
 		t.Fatalf(
-			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSumMessage, err)
+			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSum, err)
+	}
+}
+
+func TestNonEmptyStatusInRoute(t *testing.T) {
+	route := createRouteWithTraffic(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Revision: testRevisionName,
+				Percent:  100,
+			},
+		})
+	route.Status = v1alpha1.RouteStatus{
+		Domain: "test-donmain",
+	}
+
+	if err := ValidateRoute(nil, &route, &route); err != errNonEmptyStatusInRoute {
+		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInRoute, err)
 	}
 }

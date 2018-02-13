@@ -17,40 +17,51 @@ package webhook
 
 import (
 	"errors"
+	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
-const (
-	errInvalidRevisionsMessage        = "Exactly one of revision or configuration must be specified in traffic field"
-	errInvalidTargetPercentSumMessage = "Traffic percent sum is not equal to 100"
-	errNegativeTargetPercentMessage   = "Traffic percent can not be negative"
+var (
+	errInvalidRevisions        = errors.New("The route must has exactly one of revision or configuration in traffic field")
+	errInvalidRouteInput       = errors.New("Failed to convert input into Route")
+	errInvalidTargetPercentSum = errors.New("The route must has traffic percent sum equal to 100")
+	errNegativeTargetPercent   = errors.New("The route cannot has negative traffic percent")
+	errNonEmptyStatusInRoute   = errors.New("The route cannot have status when it is created")
 )
 
 // ValidateRoute is Route resource specific validation and mutation handler
 func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldES *v1alpha1.Route
+	var oldRoute *v1alpha1.Route
 	if old != nil {
 		var ok bool
-		oldES, ok = old.(*v1alpha1.Route)
+		oldRoute, ok = old.(*v1alpha1.Route)
 		if !ok {
-			return errors.New("Failed to convert old into Route")
+			return errInvalidRouteInput
 		}
 	}
-	glog.Infof("ValidateRoute: OLD Route is\n%+v", oldES)
-	newES, ok := new.(*v1alpha1.Route)
+	glog.Infof("ValidateRoute: OLD Route is\n%+v", oldRoute)
+	newRoute, ok := new.(*v1alpha1.Route)
 	if !ok {
-		return errors.New("Failed to convert new into Route")
+		return errInvalidRouteInput
 	}
-	glog.Infof("ValidateRoute: NEW Route is\n%+v", newES)
+	glog.Infof("ValidateRoute: NEW Route is\n%+v", newRoute)
 
-	if err := validateTrafficTarget(newES); err != nil {
+	if err := validateRoute(newRoute); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func validateRoute(route *v1alpha1.Route) error {
+	if !reflect.DeepEqual(route.Status, v1alpha1.RouteStatus{}) {
+		return errNonEmptyStatusInRoute
+	}
+
+	return validateTrafficTarget(route)
 }
 
 func validateTrafficTarget(route *v1alpha1.Route) error {
@@ -65,17 +76,17 @@ func validateTrafficTarget(route *v1alpha1.Route) error {
 		configurationLen := len(trafficTarget.Configuration)
 		if (revisionLen == 0 && configurationLen == 0) ||
 			(revisionLen != 0 && configurationLen != 0) {
-			return errors.New(errInvalidRevisionsMessage)
+			return errInvalidRevisions
 		}
 
 		if trafficTarget.Percent < 0 {
-			return errors.New(errNegativeTargetPercentMessage)
+			return errNegativeTargetPercent
 		}
 		percentSum += trafficTarget.Percent
 	}
 
 	if percentSum != 100 {
-		return errors.New(errInvalidTargetPercentSumMessage)
+		return errInvalidTargetPercentSum
 	}
 	return nil
 }

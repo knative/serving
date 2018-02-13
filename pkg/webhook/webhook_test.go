@@ -122,15 +122,6 @@ func TestUnknownKindFails(t *testing.T) {
 	assertFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
-func TestInvalidNewRTFails(t *testing.T) {
-	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	new := &admissionv1beta1.AdmissionRequest{
-		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
-	}
-	assertFailsWith(t, ac.admit(new), "Failed to convert new into Configuration")
-}
-
 func TestValidNewRTObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateRT())
@@ -328,7 +319,6 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 			t.Fatalf("Extra patch found %+v in expected patches: %q", a[i], e)
 		}
 	}
-
 }
 
 func createConfiguration(generation int64) v1alpha1.Configuration {
