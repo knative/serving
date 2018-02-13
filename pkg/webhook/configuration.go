@@ -16,28 +16,54 @@ limitations under the License.
 package webhook
 
 import (
-	"fmt"
+	"errors"
+	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
+var (
+	errEmptySpecInConfiguration      = errors.New("The configuration must have configuration spec")
+	errEmptyTemplateInSpec           = errors.New("The configuration spec must have configuration")
+	errNonEmptyStatusInConfiguration = errors.New("The configuration cannot have status when it is created")
+)
+
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
 func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldRT *v1alpha1.Configuration
+	var oldConfiguration *v1alpha1.Configuration
 	if old != nil {
 		var ok bool
-		oldRT, ok = old.(*v1alpha1.Configuration)
+		oldConfiguration, ok = old.(*v1alpha1.Configuration)
 		if !ok {
-			return fmt.Errorf("Failed to convert old into Configuration")
+			return errors.New("Failed to convert old into Configuration")
 		}
 	}
-	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldRT)
-	newRT, ok := new.(*v1alpha1.Configuration)
+	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldConfiguration)
+	newConfiguration, ok := new.(*v1alpha1.Configuration)
 	if !ok {
-		return fmt.Errorf("Failed to convert new into Configuration")
+		return errors.New("Failed to convert new into Configuration")
 	}
-	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newRT)
+	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newConfiguration)
+
+	if err := validateConfiguration(newConfiguration); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateConfiguration(configuration *v1alpha1.Configuration) error {
+	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
+		return errEmptySpecInConfiguration
+	}
+	// TODO: add validation for configuration.Spec.Template, after we add a
+	// validation for Revision.
+	if reflect.DeepEqual(configuration.Spec.Template, v1alpha1.Revision{}) {
+		return errEmptyTemplateInSpec
+	}
+	if !reflect.DeepEqual(configuration.Status, v1alpha1.ConfigurationStatus{}) {
+		return errNonEmptyStatusInConfiguration
+	}
 	return nil
 }

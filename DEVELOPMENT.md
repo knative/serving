@@ -29,7 +29,7 @@ You'll also need to setup:
    [minikube](https://github.com/kubernetes/minikube)); your user **must** have
    cluster-admin privileges:
    ```bash
-   kubectl create clusterrolebinding cluster-admin-binding
+   kubectl create clusterrolebinding cluster-admin-binding \
    --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
    ```
 1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
@@ -77,12 +77,12 @@ variables (we recommend adding them to your `.bashrc`):
 1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
 1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development environments should be managed.
 
-(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authorization) for your
+(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authentication) for your
 `DOCKER_REPO_OVERRIDE` if required.)
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
 with `kubectl`.  You can list the clusters you currently have configured via:
-`kubectl config get-contexts`.  For the cluster you want to target, the value in the cluster column
+`kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
 
 These environment variables will be provided to `bazel` via
@@ -93,6 +93,7 @@ These environment variables will be provided to `bazel` via
 _It is notable that if you change the `*_OVERRIDE` variables, you may need to `bazel clean` in order
 to properly pick up the change._
 
+Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-elafros).
 ### Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
