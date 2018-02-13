@@ -17,7 +17,6 @@ package webhook
 
 import (
 	"errors"
-	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
@@ -29,7 +28,6 @@ var (
 	errInvalidRouteInput       = errors.New("Failed to convert input into Route")
 	errInvalidTargetPercentSum = errors.New("The route must has traffic percent sum equal to 100")
 	errNegativeTargetPercent   = errors.New("The route cannot has negative traffic percent")
-	errNonEmptyStatusInRoute   = errors.New("The route cannot have status when it is created")
 )
 
 // ValidateRoute is Route resource specific validation and mutation handler
@@ -49,19 +47,11 @@ func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new 
 	}
 	glog.Infof("ValidateRoute: NEW Route is\n%+v", newRoute)
 
-	if err := validateRoute(newRoute); err != nil {
+	if err := validateTrafficTarget(newRoute); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func validateRoute(route *v1alpha1.Route) error {
-	if !reflect.DeepEqual(route.Status, v1alpha1.RouteStatus{}) {
-		return errNonEmptyStatusInRoute
-	}
-
-	return validateTrafficTarget(route)
 }
 
 func validateTrafficTarget(route *v1alpha1.Route) error {

@@ -152,20 +152,3 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSum, err)
 	}
 }
-
-func TestNonEmptyStatusInRoute(t *testing.T) {
-	route := createRouteWithTraffic(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				Revision: testRevisionName,
-				Percent:  100,
-			},
-		})
-	route.Status = v1alpha1.RouteStatus{
-		Domain: "test-domain",
-	}
-
-	if err := ValidateRoute(nil, &route, &route); err != errNonEmptyStatusInRoute {
-		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInRoute, err)
-	}
-}
