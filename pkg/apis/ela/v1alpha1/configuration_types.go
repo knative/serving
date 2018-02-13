@@ -21,6 +21,7 @@ import (
 
 	build "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,14 +48,41 @@ type ConfigurationSpec struct {
 	Template   Revision         `json:"template"`
 }
 
+// ConfigurationConditionType represents a Configuration condition value
+type ConfigurationConditionType string
+
+const (
+	// RevisionConditionReady is set when the configuration is starting to materialize
+	// runtime resources, and becomes true when those resources are ready.
+	ConfigurationConditionReady ConfigurationConditionType = "Ready"
+)
+
+// ConfigurationCondition defines a readiness condition for a Configuration.
+// See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
+type ConfigurationCondition struct {
+	Type ConfigurationConditionType `json:"type" description:"type of Configuration condition"`
+
+	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+
+	// +optional
+	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
+
+	// +optional
+	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
+
 // ConfigurationStatus defines the observed state of Configuration
 type ConfigurationStatus struct {
+	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
+
 	// Latest revision that is ready.
 	Latest string `json:"latest,omitempty"`
+
 	// LatestCreated is the last revision that has been created, it might not be
 	// ready yet however. Hence we just keep track of it so that when it's ready
 	// it will get moved to Latest.
 	LatestCreated string `json:"latestCreated,omitempty"`
+
 	// ReconciledGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The reconciled generation is updated
 	// even if the controller failed to process the spec and create the Revision.
@@ -83,29 +111,46 @@ func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-// TODO(mattmoor): Once Configuration has Conditions
-// func (rts *ConfigurationStatus) SetCondition(new *ConfigurationCondition) {
-// 	if new == nil {
-// 		return
-// 	}
+// IsReady looks at the conditions and if the Status has a condition
+// ConfigurationConditionReady returns true if ConditionStatus is True
+func (configStatus *ConfigurationStatus) IsReady() bool {
+	if c := configStatus.GetCondition(ConfigurationConditionReady); c != nil {
+		return c.Status == corev1.ConditionTrue
+	}
+	return false
+}
 
-// 	t := new.Type
-// 	var conditions []ConfigurationCondition
-// 	for _, cond := range rts.Conditions {
-// 		if cond.Type != t {
-// 			conditions = append(conditions, cond)
-// 		}
-// 	}
-// 	conditions = append(conditions, *new)
-// 	rts.Conditions = conditions
-// }
+func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
+	for _, cond := range config.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
 
-// func (rts *ConfigurationStatus) RemoveCondition(t string) {
-// 	var conditions []ConfigurationCondition
-// 	for _, cond := range rts.Conditions {
-// 		if cond.Type != t {
-// 			conditions = append(conditions, cond)
-// 		}
-// 	}
-// 	rts.Conditions = conditions
-// }
+func (configStatus *ConfigurationStatus) SetCondition(new *ConfigurationCondition) {
+	if new == nil {
+		return
+	}
+
+	t := new.Type
+	var conditions []ConfigurationCondition
+	for _, cond := range configStatus.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	conditions = append(conditions, *new)
+	configStatus.Conditions = conditions
+}
+
+func (configStatus *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
+	var conditions []ConfigurationCondition
+	for _, cond := range configStatus.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	configStatus.Conditions = conditions
+}

@@ -25,6 +25,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "configuration_types_test.go",
         "revision_types_test.go",
         "route_types_test.go",
     ],

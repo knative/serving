@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -82,6 +82,9 @@ type Controller struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	// don't start the workers until revisions cache have been synced
+	revisionsSynced cache.InformerSynced
 }
 
 // NewController creates a new Configuration controller
@@ -93,9 +96,10 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain a reference to a shared index informer for the Configuration
-	// type.
+	// obtain references to a shared index informer for the Configuration
+	// and Revision type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Configurations()
+	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -108,12 +112,13 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Configurations"),
-		recorder:      recorder,
+		kubeclientset:   kubeclientset,
+		elaclientset:    elaclientset,
+		lister:          informer.Lister(),
+		synced:          informer.Informer().HasSynced,
+		revisionsSynced: revisionInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Configurations"),
+		recorder:        recorder,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -125,6 +130,10 @@ func NewController(
 		},
 	})
 
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addRevisionEvent,
+		UpdateFunc: controller.updateRevisionEvent,
+	})
 	return controller
 }
 
@@ -144,6 +153,12 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	// Wait for the revisions caches to be synced before starting workers
+	glog.Info("Waiting for revisions informer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.revisionsSynced); !ok {
+		return fmt.Errorf("failed to wait for revisions caches to sync")
 	}
 
 	glog.Info("Starting workers")
@@ -326,10 +341,6 @@ func (c *Controller) syncHandler(key string) error {
 	rt.Status.LatestCreated = created.ObjectMeta.Name
 	rt.Status.ReconciledGeneration = rt.Spec.Generation
 
-	// TODO(vaikas): For now, set the Latest to the created one even though
-	// it's not ready for testing e2e flows
-	rt.Status.Latest = revName
-
 	log.Printf("Updating the Template status:\n%+v", rt)
 
 	_, err = c.updateStatus(rt)
@@ -366,4 +377,67 @@ func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configur
 	// TODO: for CRD there's no updatestatus, so use normal update
 	return rtClient.Update(newu)
 	//	return rtClient.UpdateStatus(newu)
+}
+
+func (c *Controller) addRevisionEvent(obj interface{}) {
+	revision := obj.(*v1alpha1.Revision)
+	revisionName := revision.Name
+	namespace := revision.Namespace
+	// Lookup and see if this Revision corresponds to a Configuration that
+	// we own and hence the Configuration that created this Revision.
+	configName := lookupRevisionOwner(revision)
+	if configName == "" {
+		return
+	}
+
+	if !revision.Status.IsReady() {
+		// The revision isn't ready, so ignore this event.
+		glog.Infof("Revision %q is not ready", revisionName)
+		return
+	}
+	glog.Infof("Revision %q is ready", revisionName)
+
+	config, err := c.lister.Configurations(namespace).Get(configName)
+	if err != nil {
+		glog.Errorf("Error fetching configuration '%s/%s' upon revision becoming ready: %v",
+			namespace, configName, err)
+		return
+	}
+
+	if err := c.markConfigurationReady(config, revision); err != nil {
+		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
+			namespace, configName, err)
+	}
+	return
+}
+
+func (c *Controller) updateRevisionEvent(old, new interface{}) {
+	c.addRevisionEvent(new)
+}
+
+// Return the configuration that created it.
+func lookupRevisionOwner(revision *v1alpha1.Revision) string {
+	// See if there's a 'configuration' owner reference on this object.
+	for _, ownerReference := range revision.OwnerReferences {
+		if ownerReference.Kind == controllerKind.Kind {
+			return ownerReference.Name
+		}
+	}
+	return ""
+}
+
+// Mark ConfigurationConditionReady of Configuration ready as the givne latest
+// created revision is ready. Also set latest field to the given revision.
+func (c *Controller) markConfigurationReady(
+	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
+	glog.Infof("Marking Configuration %q ready", config.Name)
+	config.Status.SetCondition(
+		&v1alpha1.ConfigurationCondition{
+			Type:   v1alpha1.ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+			Reason: "LatestRevisionReady",
+		})
+	config.Status.Latest = revision.Name
+	_, err := c.updateStatus(config)
+	return err
 }

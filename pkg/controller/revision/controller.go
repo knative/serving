@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC..
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ import (
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 
 const (
-	routeLabel string = "route"
+	routeLabel      string = "route"
 	elaVersionLabel string = "revision"
 
 	elaContainerName string = "ela-container"
@@ -136,8 +136,10 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain a reference to a shared index informer for the Revision type.
+	// obtain references to a shared index informer for the Revision and
+	// Endpoint type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -148,8 +150,6 @@ func NewController(
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
-
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	controller := &RevisionControllerImpl{
 		kubeclientset:   kubeclientset,
@@ -178,7 +178,6 @@ func NewController(
 		UpdateFunc: controller.updateBuildEvent,
 	})
 
-	// Obtain a reference to a shared index informer for the Build type.
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addEndpointsEvent,
 		UpdateFunc: controller.updateEndpointsEvent,
@@ -481,7 +480,7 @@ func (c *RevisionControllerImpl) addEndpointsEvent(obj interface{}) {
 	// Lookup and see if this endpoints corresponds to a service that
 	// we own and hence the Revision that created this service.
 	revisionName := lookupServiceOwner(endpoint)
-	if len(revisionName) == 0 {
+	if revisionName == "" {
 		return
 	}
 
