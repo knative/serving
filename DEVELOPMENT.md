@@ -21,7 +21,6 @@ You must install these tools:
 1. [`bazel`](https://docs.bazel.build/versions/master/getting-started.html): For performing builds.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For managing development environments.
 
-
 You'll also need to setup:
 
 1. [This repo](#setup-your-repo)
@@ -77,7 +76,7 @@ variables (we recommend adding them to your `.bashrc`):
 1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
 1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development environments should be managed.
 
-(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authorization) for your
+(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authentication) for your
 `DOCKER_REPO_OVERRIDE` if required.)
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
@@ -94,6 +93,7 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to `b
 to properly pick up the change._
 
 Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-elafros).
+
 ### Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
@@ -110,3 +110,11 @@ bazel run :controller.replace
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Elafros`](./README.md#start-elafros).
+
+### Running the tests
+
+Running tests as you make changes to the code-base is pretty simple. Just run the `unit_tests.sh` script:
+
+```shell
+./testing/unit_tests.sh
+```
