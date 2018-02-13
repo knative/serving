@@ -355,14 +355,14 @@ func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) erro
 	return nil
 }
 
-func (c *Controller) createOrUpdateIngress(es *v1alpha1.Route, ns string) error {
-	ingressName := util.GetElaK8SIngressName(es)
+func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
+	ingressName := util.GetElaK8SIngressName(route)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(es, ns)
-	serviceRef := metav1.NewControllerRef(es, serviceKind)
+	ingress := MakeRouteIngress(route, ns)
+	serviceRef := metav1.NewControllerRef(route, serviceKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
 	_, err := ic.Get(ingressName, metav1.GetOptions{})
