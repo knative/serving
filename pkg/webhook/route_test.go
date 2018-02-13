@@ -26,7 +26,7 @@ func createRouteWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alpha1.Ro
 	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      esName,
+			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Generation:   testGeneration,
@@ -40,11 +40,11 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-revision-template-1",
+				Configuration: "test-configuration-1",
 				Percent:       50,
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-revision-template-2",
+				Configuration: "test-configuration-2",
 				Percent:       50,
 			},
 		})
@@ -109,7 +109,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				Revision:      testRevisionName,
-				Configuration: "test-revision-template",
+				Configuration: testConfigurationName,
 				Percent:       100,
 			},
 		})
@@ -139,10 +139,10 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-revision-template-1",
+				Configuration: "test-configuration-1",
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-revision-template-2",
+				Configuration: "test-configuration-2",
 				Percent:       50,
 			},
 		})

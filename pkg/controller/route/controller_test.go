@@ -50,8 +50,8 @@ import (
 func getTestRoute() *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/routes/test-es",
-			Name:      "test-es",
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/routes/test-route",
+			Name:      "test-route",
 			Namespace: "test",
 		},
 	}
