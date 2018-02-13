@@ -55,18 +55,12 @@ const (
 	// RevisionConditionReady is set when the configuration is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
-	// ConfigurationConditionBuildComplete is set when the configuration has an
-	//  associated buildand is marked True if/once the Build has completed succesfully.
-	ConfigurationConditionBuildComplete ConfigurationConditionType = "BuildComplete"
-	// ConfigurationConditionBuildFailed is set when the configuration has an
-	// associated build that has failed for some reason.
-	ConfigurationConditionBuildFailed ConfigurationConditionType = "BuildFailed"
 )
 
-// ConfigurationCondition defines a readiness condition for a Ela Configuration.
+// ConfigurationCondition defines a readiness condition for a Configuration.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type ConfigurationCondition struct {
-	Type ConfigurationConditionType `json:"type" description:"type of Ela Configuration condition"`
+	Type ConfigurationConditionType `json:"type" description:"type of Configuration condition"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 

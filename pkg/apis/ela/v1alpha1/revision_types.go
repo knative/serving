@@ -100,10 +100,10 @@ const (
 	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"
 )
 
-// RevisionCondition defines a readiness condition for a Ela Revision.
+// RevisionCondition defines a readiness condition for a Revision.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RevisionCondition struct {
-	Type RevisionConditionType `json:"type" description:"type of Ela Revision condition"`
+	Type RevisionConditionType `json:"type" description:"type of Revision condition"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 

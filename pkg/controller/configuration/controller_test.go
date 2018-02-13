@@ -27,6 +27,7 @@ package configuration
 -
 */
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -229,20 +230,19 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			return hooks.HookIncomplete
 		case 2:
 			// The next update we receive should tell us that the revision is ready.
-			want := v1alpha1.ConfigurationCondition{
-				Type:   v1alpha1.ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-				Reason: "LatestRevisionReady",
+			expectedConfigConditions := []v1alpha1.ConfigurationCondition{
+				v1alpha1.ConfigurationCondition{
+					Type:   v1alpha1.ConfigurationConditionReady,
+					Status: corev1.ConditionTrue,
+					Reason: "LatestRevisionReady",
+				},
 			}
 
-			if len(config.Status.Conditions) != 1 {
-				t.Errorf("want 1 condition, got %d", len(config.Status.Conditions))
+			if got, want := config.Status.Conditions, expectedConfigConditions; !reflect.DeepEqual(got, want) {
+				t.Errorf("Conditions diff; got %v, want %v", got, want)
 			}
-			if want != config.Status.Conditions[0] {
-				t.Errorf("wanted %v, got %v", want, config.Status.Conditions[0])
-			}
-			if config.Status.Latest != revision.Name {
-				t.Errorf("wanted %v as latest revision, got %v", revision.Name, config.Status.Latest)
+			if got, want := config.Status.Latest, revision.Name; got != want {
+				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 			}
 		}
 		return hooks.HookComplete

@@ -46,7 +46,7 @@ func TestConfigurationIsReady(t *testing.T) {
 			status: ConfigurationStatus{
 				Conditions: []ConfigurationCondition{
 					{
-						Type:   ConfigurationConditionBuildComplete,
+						Type:   "Foo",
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -105,7 +105,7 @@ func TestConfigurationIsReady(t *testing.T) {
 			status: ConfigurationStatus{
 				Conditions: []ConfigurationCondition{
 					{
-						Type:   ConfigurationConditionBuildComplete,
+						Type:   "Foo",
 						Status: corev1.ConditionTrue,
 					},
 					{
@@ -121,7 +121,7 @@ func TestConfigurationIsReady(t *testing.T) {
 			status: ConfigurationStatus{
 				Conditions: []ConfigurationCondition{
 					{
-						Type:   ConfigurationConditionBuildComplete,
+						Type:   "Foo",
 						Status: corev1.ConditionTrue,
 					},
 					{

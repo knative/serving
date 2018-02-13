@@ -480,7 +480,7 @@ func (c *RevisionControllerImpl) addEndpointsEvent(obj interface{}) {
 	// Lookup and see if this endpoints corresponds to a service that
 	// we own and hence the Revision that created this service.
 	revisionName := lookupServiceOwner(endpoint)
-	if len(revisionName) == 0 {
+	if revisionName == "" {
 		return
 	}
 

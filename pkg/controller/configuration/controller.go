@@ -96,7 +96,7 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain references to a shared index informer for the RevisionTemplate
+	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Configurations()
 	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
@@ -117,7 +117,7 @@ func NewController(
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,
 		revisionsSynced: revisionInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionTemplates"),
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Configurations"),
 		recorder:        recorder,
 	}
 
@@ -386,7 +386,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
 	configName := lookupRevisionOwner(revision)
-	if len(configName) == 0 {
+	if configName == "" {
 		return
 	}
 
