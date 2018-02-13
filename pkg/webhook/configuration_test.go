@@ -66,6 +66,8 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
 	}
 }
+<<<<<<< HEAD
+=======
 
 func TestNonEmptyStatusInConfiguration(t *testing.T) {
 	configuration := createConfiguration(testGeneration)
@@ -77,3 +79,4 @@ func TestNonEmptyStatusInConfiguration(t *testing.T) {
 		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInConfiguration, err)
 	}
 }
+>>>>>>> upstream/master
