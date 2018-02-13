@@ -23,8 +23,8 @@ go_register_toolchains()
 # Pull in rules_docker
 git_repository(
     name = "io_bazel_rules_docker",
-    # HEAD as of 2018-02-03
-    commit = "bf925ec58ad96f2ead21cd8379caedbe3c26efc9",
+    # HEAD as of 2018-02-13
+    commit = "c7f9eaa63bc3a31acab5e399c72b4e5228ab5ad7",
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
