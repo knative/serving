@@ -67,6 +67,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		},
 	}
 }
+
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{

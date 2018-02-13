@@ -20,7 +20,7 @@ import (
 
 func TestConfigurationGeneration(t *testing.T) {
 	config := Configuration{}
-	if a := config.GetGeneration(); a != 0 {
+	if e, a := int64(0), config.GetGeneration(); e != a {
 		t.Errorf("empty revision generation should be 0 was: %d", a)
 	}
 
