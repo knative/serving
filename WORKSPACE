@@ -57,6 +57,7 @@ k8s_repositories()
 
 # See ./print-workspace-status.sh for definitions.
 _CLUSTER = "{STABLE_K8S_CLUSTER}"
+
 _REPOSITORY = "{STABLE_DOCKER_REPO}"
 
 k8s_defaults(
@@ -85,13 +86,14 @@ go_repository(
 
 # Istio
 ISTIO_RELEASE = "0.4.0"
+
 new_http_archive(
     name = "istio_release",
-    url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
+    build_file_content = "exports_files([\"istio.yaml\"])",
     sha256 = "0085456a6e06afb4366648b507586814be04943ad536756729784f2b0d1ace81",
-    type = "tar.gz",
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
-    build_file_content = "exports_files([\"istio.yaml\"])"
+    type = "tar.gz",
+    url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
 )
 
 # Until the Build repo is public, we must use the Skylark-based git_repository rules
@@ -102,9 +104,9 @@ load(
 )
 
 private_git_repository(
-   name = "buildcrd",
-   commit = "91197a93f54316cc15ff3d54b31ed3096a97fb74",
-   remote = "git@github.com:google/build-crd.git",
+    name = "buildcrd",
+    commit = "91197a93f54316cc15ff3d54b31ed3096a97fb74",
+    remote = "git@github.com:google/build-crd.git",
 )
 
 # If you would like to test changes to both repositories,
