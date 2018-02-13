@@ -40,15 +40,15 @@ func newDefaultOptions() ControllerOptions {
 }
 
 const (
-	testNamespace    = "test-namespace"
-	testConfigurationName           = "test-configuration"
-	imageName        = "test-container-image"
-	envVarName       = "envname"
-	envVarValue      = "envvalue"
-	testDomain       = "example.com"
-	testGeneration   = 1
-	testRouteName           = "test-route-name"
-	testRevisionName = "test-revision"
+	testNamespace         = "test-namespace"
+	testConfigurationName = "test-configuration"
+	imageName             = "test-container-image"
+	envVarName            = "envname"
+	envVarValue           = "envvalue"
+	testDomain            = "example.com"
+	testGeneration        = 1
+	testRouteName         = "test-route-name"
+	testRevisionName      = "test-revision"
 )
 
 func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) (
