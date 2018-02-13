@@ -26,14 +26,13 @@ func TestValidConfigurationAllowed(t *testing.T) {
 	configuration := createConfiguration(testGeneration)
 
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err != nil {
-		t.Fatalf("Valid configuration should pass, but failed with:  %s.", err)
+		t.Fatalf("Expected allowed. Failed with %s", err)
 	}
 }
 
 func TestEmptyConfigurationNotAllowed(t *testing.T) {
-	err := ValidateConfiguration(nil, nil, nil)
-	if err == nil || err.Error() != "Failed to convert new into Configuration" {
-		t.Fatalf("Expected: Failed to convert new into Configuration. Failed with %s", err)
+	if err := ValidateConfiguration(nil, nil, nil); err != errInvalidConfigurationInput {
+		t.Fatalf("Expected: %s. Failed with %s", errInvalidConfigurationInput, err)
 	}
 }
 
@@ -46,9 +45,7 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 		Spec: v1alpha1.ConfigurationSpec{},
 	}
 
-	err := ValidateConfiguration(nil, &configuration, &configuration)
-
-	if err == nil || err != errEmptySpecInConfiguration {
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptySpecInConfiguration {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptySpecInConfiguration, err)
 	}
 }
@@ -65,9 +62,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 		},
 	}
 
-	err := ValidateConfiguration(nil, &configuration, &configuration)
-
-	if err == nil || err != errEmptyTemplateInSpec {
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyTemplateInSpec {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
 	}
 }
@@ -78,9 +73,7 @@ func TestNonEmptyStatusInConfiguration(t *testing.T) {
 		Latest: "latest version",
 	}
 
-	err := ValidateConfiguration(nil, &configuration, &configuration)
-
-	if err == nil || err != errNonEmptyStatusInConfiguration {
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errNonEmptyStatusInConfiguration {
 		t.Fatalf("Expected: %s. Failed with %s", errNonEmptyStatusInConfiguration, err)
 	}
 }
