@@ -128,7 +128,7 @@ func TestInvalidNewConfigurationFails(t *testing.T) {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-  assertFailsWith(t, ac.admit(new), errInvalidInputConfiguration.Error())
+	assertFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
 }
 
 func TestValidNewConfigurationObject(t *testing.T) {
