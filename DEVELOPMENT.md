@@ -61,7 +61,7 @@ variables (we recommend adding them to your `.bashrc`):
 1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
 1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development environments should be managed.
 
-(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authorization) for your
+(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authentication) for your
 `DOCKER_REPO_OVERRIDE` if required.)
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
