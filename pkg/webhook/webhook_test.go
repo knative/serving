@@ -128,7 +128,7 @@ func TestInvalidNewConfigurationFails(t *testing.T) {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	assertFailsWith(t, ac.admit(new), "Failed to convert new into Configuration")
+	assertFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
 }
 
 func TestValidNewConfigurationObject(t *testing.T) {
@@ -328,7 +328,6 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 			t.Fatalf("Extra patch found %+v in expected patches: %q", a[i], e)
 		}
 	}
-
 }
 
 func createConfiguration(generation int64) v1alpha1.Configuration {
