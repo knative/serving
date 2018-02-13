@@ -31,8 +31,7 @@ You'll also need to setup:
    kubectl create clusterrolebinding cluster-admin-binding \
    --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
    ```
-1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
-(https://kubernetes.io/docs/admin/extensible-admission-controllers/#enable-external-admission-webhooks)
+1. Kubernetes cluster must have MutatingAdmissionWebhook specified with [--admission-control](https://kubernetes.io/docs/admin/extensible-admission-controllers/#enable-external-admission-webhooks).
 For example:
 ```bash
 --admission-control=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
