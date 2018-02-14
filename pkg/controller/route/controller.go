@@ -401,7 +401,7 @@ func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns stri
 		if err != nil {
 			return RevisionRoute{}, err
 		}
-		revisionName = rt.Status.Latest
+		revisionName = rt.Status.LatestReady
 	}
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 	rev, err := prClient.Get(revisionName, metav1.GetOptions{})

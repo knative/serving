@@ -36,21 +36,6 @@ type Revision struct {
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
-type FunctionSpec struct {
-	Entrypoint string `json:"entrypoint"`
-	//	Timeout    *metav1.Duration `json:"timeoutDuration,omitempty"`
-	Timeout metav1.Duration `json:"timeoutDuration,omitempty"`
-}
-
-type AppSpec struct {
-	// TODO: What goes here, not in the Ela API spec
-	Image string `json:"image,omitempty"`
-}
-
-type ContainerSpec struct {
-	Image string `json:"image,omitempty"`
-}
-
 // RevisionSpec defines the desired state of Revision
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -72,17 +57,7 @@ type RevisionSpec struct {
 	// The name of the build that is producing the container image that we are deploying.
 	BuildName string `json:"buildName,omitempty"`
 
-	// TODO(mattmoor): Remove these, and type definitions above.
-	FunctionSpec *FunctionSpec `json:"functionSpec,omitempty"`
-	AppSpec      *AppSpec      `json:"appSpec,omitempty"`
-
-	// TODO(mattmoor): Change to corev1.Container
-	ContainerSpec *ContainerSpec `json:"containerSpec,omitempty"`
-
-	// List of environment variables that will be passed to the app container.
-	// TODO: Add merge strategy for this similar to the EnvVar list on the
-	// Container type.
-	Env []corev1.EnvVar `json:"env,omitempty"`
+	ContainerSpec *corev1.Container `json:"containerSpec,omitempty"`
 }
 
 // RevisionConditionType represents an Revision condition value

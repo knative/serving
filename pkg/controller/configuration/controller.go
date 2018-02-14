@@ -265,7 +265,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Get the Configuration resource with this namespace/name
-	rt, err := c.lister.Configurations(namespace).Get(name)
+	config, err := c.lister.Configurations(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -277,27 +277,29 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 	// Don't modify the informer's copy.
-	rt = rt.DeepCopy()
+	config = config.DeepCopy()
 
 	// Configuration business logic
-	if rt.GetGeneration() == rt.Status.ReconciledGeneration {
-		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.Latest
-		glog.Infof("Skipping reconcile since already reconciled %d == %d", rt.Spec.Generation, rt.Status.ReconciledGeneration)
+	if config.GetGeneration() == config.Status.ReconciledGeneration {
+		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.LatestReady
+		glog.Infof("Skipping reconcile since already reconciled %d == %d",
+			config.Spec.Generation, config.Status.ReconciledGeneration)
 		return nil
 	}
 
-	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n", rt.Name, rt, rt.Spec.Template)
-	spec := rt.Spec.Template.Spec
-	controllerRef := metav1.NewControllerRef(rt, controllerKind)
+	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
+		config.Name, config, config.Spec.Template)
+	spec := config.Spec.Template.Spec
+	controllerRef := metav1.NewControllerRef(config, controllerKind)
 
-	if rt.Spec.Build != nil {
+	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
 		build := &buildv1alpha1.Build{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    rt.Namespace,
-				GenerateName: fmt.Sprintf("%s-", rt.Name),
+				Namespace:    config.Namespace,
+				GenerateName: fmt.Sprintf("%s-", config.Name),
 			},
-			Spec: *rt.Spec.Build,
+			Spec: *config.Spec.Build,
 		}
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
 		created, err := c.elaclientset.CloudbuildV1alpha1().Builds(build.Namespace).Create(build)
@@ -310,51 +312,47 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	rev := &v1alpha1.Revision{
-		ObjectMeta: rt.Spec.Template.ObjectMeta,
+		ObjectMeta: config.Spec.Template.ObjectMeta,
 		Spec:       spec,
 	}
-	revName, err := generateRevisionName(rt)
+	revName, err := generateRevisionName(config)
 	if err != nil {
 		return err
 	}
 	// TODO: Should this just use rev.ObjectMeta.GenerateName =
 	rev.ObjectMeta.Name = revName
 	// Can't generate objects in a different namespace from what the call is made against,
-	// so use the namespace of the template that's being updated for the Revision being
+	// so use the namespace of the configuration that's being updated for the Revision being
 	// created.
-	rev.ObjectMeta.Namespace = rt.Namespace
+	rev.ObjectMeta.Namespace = config.Namespace
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
 
-	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(rt.Namespace).Create(rev)
+	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
 		return err
 	}
 	glog.Infof("Created Revision:\n%+v", created)
 
-	// Update the Status of the template with the latest generation that
+	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.
 	// Also update the LatestCreated so that we'll know revision to check
 	// for ready state so that when ready, we can make it Latest.
-	rt.Status.LatestCreated = created.ObjectMeta.Name
-	rt.Status.ReconciledGeneration = rt.Spec.Generation
+	config.Status.LatestCreated = created.ObjectMeta.Name
+	config.Status.ReconciledGeneration = config.Spec.Generation
 
-	log.Printf("Updating the Template status:\n%+v", rt)
+	log.Printf("Updating the configuration status:\n%+v", config)
 
-	_, err = c.updateStatus(rt)
+	_, err = c.updateStatus(config)
 	if err != nil {
-		log.Printf("Failed to update the template %s", err)
+		log.Printf("Failed to update the configuration %s", err)
 		return err
 	}
 
-	// TODO: Set up the watch for LatestCreated so that we'll flip it
-	// to Latest once it's ready. Or should this be done at the
-	// Route level?
-
-	// end Configuration business logic
-	c.recorder.Event(rt, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	// end configuration business logic
+	c.recorder.Event(config, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
@@ -404,6 +402,12 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
+	if revision.Name != config.Status.LatestCreated {
+		// The revision isn't the latest created one, so ignore this event.
+		glog.Infof("Revision %q is not the latest created one", revisionName)
+		return
+	}
+
 	if err := c.markConfigurationReady(config, revision); err != nil {
 		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
 			namespace, configName, err)
@@ -437,7 +441,10 @@ func (c *Controller) markConfigurationReady(
 			Status: corev1.ConditionTrue,
 			Reason: "LatestRevisionReady",
 		})
-	config.Status.Latest = revision.Name
+
+	glog.Infof("Seting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
+	config.Status.LatestReady = revision.Name
+
 	_, err := c.updateStatus(config)
 	return err
 }
