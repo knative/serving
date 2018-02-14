@@ -27,17 +27,18 @@ To use a k8s cluster running in GKE:
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
-      # Version 1.9+ is required
       --cluster-version=1.9.2-gke.1 \
-      # Change this to whichever zone you choose
       --zone=us-east1-d \
-      # cloud-platform scope is required to access GCB
       --scopes=cloud-platform \
-      # Autoscale from 1 to 3 nodes. Adjust this for your use case
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
-      # Change this to your preferred cluster name
       elafros-demo
     ```
+    - Version 1.9+ is required
+    - Change this to whichever zone you choose
+    - cloud-platform scope is required to access GCB
+    - Autoscale from 1 to 3 nodes. Adjust this for your use case
+    - Change this to your preferred cluster name
+
 
     You can see the list of supported cluster versions in a particular zone
     by running:
