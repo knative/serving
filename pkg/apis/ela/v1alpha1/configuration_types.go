@@ -76,7 +76,7 @@ type ConfigurationStatus struct {
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
 	// Latest revision that is ready.
-	Latest string `json:"latest,omitempty"`
+	LatestReady string `json:"latestReady,omitempty"`
 
 	// LatestCreated is the last revision that has been created, it might not be
 	// ready yet however. Hence we just keep track of it so that when it's ready

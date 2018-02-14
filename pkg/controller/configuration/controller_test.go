@@ -17,14 +17,14 @@ limitations under the License.
 package configuration
 
 /* TODO tests:
-- When a RT is created or updated, a Revision is created with same namespace and spec
-  and RT's latest points to it
-- If a RT is created and deleted before the queue fires, no Revision is created
-- When a RT is updated, a new Revision is created and RT's latest points to it.
-  Also the previous RT still exists.
-- When a RT controller is created and a RT is already out of sync, the
-  controller creates or updates a Revision for the out of sync RT
--
+- If a Congfiguration is created and deleted before the queue fires, no Revision
+  is created.
+- When a Congfiguration is updated, a new Revision is created and
+	Congfiguration's LatestReady points to it. Also the previous Congfiguration
+	still exists.
+- When a Congfiguration controller is created and a Congfiguration is already
+	out of sync, the controller creates or updates a Revision for the out of sync
+	Congfiguration.
 */
 import (
 	"reflect"
@@ -49,12 +49,16 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
+const (
+	testNamespace string = "test"
+)
+
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-rt",
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
 			Name:      "test-config",
-			Namespace: "test",
+			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			//TODO(grantr): This is a workaround for generation initialization
@@ -73,7 +77,7 @@ func getTestRevision() *v1alpha1.Revision {
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
-			Namespace: "test",
+			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
 			Service: "test-service",
@@ -150,7 +154,7 @@ func TestCreateConfigurationsCreatesPR(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
@@ -195,7 +199,7 @@ func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
@@ -211,6 +215,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
+	config.Status.LatestCreated = revision.Name
 
 	// Ensure that the Configuration status is updated.
 	update := 0
@@ -219,6 +224,13 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 		update = update + 1
 		switch update {
 		case 1:
+			// Not update if the revision is not ready.
+			if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
+				t.Errorf("Conditions length diff; got %v, want %v", got, want)
+			}
+			if got, want := config.Status.LatestReady, ""; got != want {
+				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
+			}
 			// After the initial update to the configuration, we should be
 			// watching for this revision to become ready.
 			revision.Status = v1alpha1.RevisionStatus{
@@ -242,15 +254,53 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			if got, want := config.Status.Conditions, expectedConfigConditions; !reflect.DeepEqual(got, want) {
 				t.Errorf("Conditions diff; got %v, want %v", got, want)
 			}
-			if got, want := config.Status.Latest, revision.Name; got != want {
+			if got, want := config.Status.LatestReady, revision.Name; got != want {
 				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 			}
 		}
 		return hooks.HookComplete
 	})
 
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(revision)
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(revision)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDoNotSetLatestWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	h := hooks.NewHooks()
+
+	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	revision := getTestRevision()
+	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
+
+	// Mark the revision ready to trigger an update
+	revision.Status = v1alpha1.RevisionStatus{
+		Conditions: []v1alpha1.RevisionCondition{{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+	go controller.addRevisionEvent(revision)
+
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
+			t.Errorf("Conditions length diff; got %v, want %v", got, want)
+		}
+		if got, want := config.Status.LatestReady, ""; got != want {
+			t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(revision)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
