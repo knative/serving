@@ -1,4 +1,4 @@
-# Creating a Kubernetes Cluster
+# Creating a Kubernetes Cluster for Elafros
 
 Two options:
 
