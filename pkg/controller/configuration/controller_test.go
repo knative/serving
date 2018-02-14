@@ -56,7 +56,7 @@ const (
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-rt",
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
 			Name:      "test-config",
 			Namespace: testNamespace,
 		},
