@@ -8,7 +8,7 @@
 1. Install [requirements](#requirements)
 1. Set up your [environment](#environment-setup)
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
-1. Set up docker repository you can push to
+1. Set up a docker repository you can push to
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you meet these requirements, you can [start an `Elafros`
@@ -31,7 +31,7 @@ You must install these tools:
 
 ### Environment setup
 
-To [start your envrionment](./README.md#start-elafros) you'll need to set these environment
+To [start your environment](./README.md#start-elafros) you'll need to set these environment
 variables (we recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add `export GOPATH=...`
