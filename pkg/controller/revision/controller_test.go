@@ -61,7 +61,7 @@ func getTestRevision() *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			Service: "test-service",
-			ContainerSpec: &v1alpha1.ContainerSpec{
+			ContainerSpec: &corev1.Container{
 				Image: "test-image",
 			},
 		},

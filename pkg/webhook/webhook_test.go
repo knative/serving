@@ -340,14 +340,12 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 			Generation: generation,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &v1alpha1.ContainerSpec{
+					ContainerSpec: &corev1.Container{
 						Image: imageName,
-					},
-					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						Env: []corev1.EnvVar{{
 							Name:  envVarName,
 							Value: envVarValue,
-						},
+						}},
 					},
 				},
 			},

@@ -42,8 +42,8 @@ spec:
   template:
     spec:
       serviceType: container
-      env:
-        - name: TARGET
-          value: thumb_v1
       containerSpec:
         image: *image
+        env:
+          - name: TARGET
+            value: thumb_v1

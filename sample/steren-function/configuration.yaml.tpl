@@ -34,6 +34,6 @@ spec:
       serviceType: container
       containerSpec:
         image: *image
-      env:
-      - name: FUNCTION_TRIGGER_TYPE
-        value: HTTP_TRIGGER
+        env:
+        - name: FUNCTION_TRIGGER_TYPE
+          value: HTTP_TRIGGER

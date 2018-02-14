@@ -33,25 +33,22 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	serviceID := u.Spec.Service
 	nginxConfigMapName := name + "-" + serviceID + "-proxy-configmap"
 
-	elaContainer := corev1.Container{
-		Name:  elaContainerName,
-		Image: u.Spec.ContainerSpec.Image,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
-			},
+	elaContainer := u.Spec.ContainerSpec.DeepCopy()
+	elaContainer.Name = elaContainerName
+	elaContainer.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceName("cpu"): resource.MustParse("25m"),
 		},
-		Ports: []corev1.ContainerPort{{
-			Name:          elaPortName,
-			ContainerPort: int32(elaPort),
-		}},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: elaContainerLogVolumeMountPath,
-				Name:      elaContainerLogVolumeName,
-			},
+	}
+	elaContainer.Ports = []corev1.ContainerPort{{
+		Name:          elaPortName,
+		ContainerPort: int32(elaPort),
+	}}
+	elaContainer.VolumeMounts = []corev1.VolumeMount{
+		{
+			MountPath: elaContainerLogVolumeMountPath,
+			Name:      elaContainerLogVolumeName,
 		},
-		Env: u.Spec.Env,
 	}
 
 	elaContainerLogVolume := corev1.Volume{
@@ -139,7 +136,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 
 	return &corev1.PodSpec{
 		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{elaContainer, nginxContainer, fluentdContainer},
+		Containers: []corev1.Container{*elaContainer, nginxContainer, fluentdContainer},
 	}
 }
 
