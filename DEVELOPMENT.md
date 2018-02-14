@@ -66,8 +66,8 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to
 
 ### Checkout your fork
 
-The repository must be set up properly relative to your
-[`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
+The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory 
+in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
 
