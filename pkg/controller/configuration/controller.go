@@ -281,7 +281,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Configuration business logic
 	if config.GetGeneration() == config.Status.ReconciledGeneration {
-		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.Latest
+		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.LatestReady
 		glog.Infof("Skipping reconcile since already reconciled %d == %d",
 			config.Spec.Generation, config.Status.ReconciledGeneration)
 		return nil
@@ -442,8 +442,8 @@ func (c *Controller) markConfigurationReady(
 			Reason: "LatestRevisionReady",
 		})
 
-	glog.Infof("Seting Latest of Configuration %q to revision %q", config.Name, revision.Name)
-	config.Status.Latest = revision.Name
+	glog.Infof("Seting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
+	config.Status.LatestReady = revision.Name
 
 	_, err := c.updateStatus(config)
 	return err
