@@ -31,6 +31,8 @@ spec:
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
+        - "-queueSidecarImage"
+        - ela-queue:latest
         ports:
         - name: metrics
           containerPort: 9090

@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -63,8 +64,8 @@ const (
 	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
 
 	queueContainerName string = "queue-proxy"
-	queueSidecarImage  string = "gcr.io/joe-does-flex/queue-proxy:latest"
-	queueHttpPortName  string = "queue-http-port"
+	// queueSidecarName set by -queueSidecarName flag
+	queueHttpPortName string = "queue-http-port"
 
 	nginxContainerName string = "nginx-proxy"
 	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
@@ -79,9 +80,9 @@ const (
 
 	requestQueueContainerName string = "request-queue"
 	requestQueuePortName      string = "queue-port"
-)
 
-const controllerAgentName = "revision-controller"
+	controllerAgentName = "revision-controller"
+)
 
 var (
 	elaPodReplicaCount       = int32(2)
@@ -90,6 +91,7 @@ var (
 	elaPort                  = 8080
 	nginxHttpPort            = 8180
 	requestQueuePort         = 8012
+	queueSidecarImage        string
 	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "elafros",
 		Name:      "revision_process_item_count",
@@ -99,6 +101,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(revisionProcessItemCount)
+	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 }
 
 // Helper to make sure we log error messages returned by Reconcile().
@@ -186,7 +189,7 @@ func NewController(
 		},
 	})
 
-	// Obtain a reference to a shared index informer for the Build type.
+	// Obtain a refrence to a shared index informer for the Build type.
 	buildInformer := elaInformerFactory.Cloudbuild().V1alpha1().Builds()
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addBuildEvent,

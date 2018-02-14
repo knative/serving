@@ -2,16 +2,20 @@ package main
 
 import (
 	"bytes"
-	"elafros/pkg/autoscaler/types"
 	"encoding/gob"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
+	"os"
 	"time"
+
+	"github.com/google/elafros/pkg/autoscaler/types"
 
 	"github.com/gorilla/websocket"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -21,18 +25,21 @@ var kubeClient *kubernetes.Clientset
 var statSink *websocket.Conn
 
 func connectStatSink() {
-	ns := os.GenEnv("ELA_NAMESPACE")
+	ns := os.Getenv("ELA_NAMESPACE")
 	if ns == "" {
 		log.Println("No ELA_NAMESPACE provided.")
 		return
 	}
-	rev := os.GetEnv("ELA_REVISION")
+	rev := os.Getenv("ELA_REVISION")
 	if rev == "" {
 		log.Println("No ELA_REVISION provided.")
 		return
 	}
 	services := kubeClient.CoreV1().Services(ns)
 	selector := fmt.Sprintf("revision=%s", rev)
+	opt := metav1.ListOptions{
+		LabelSelector: selector,
+	}
 	wi, err := services.Watch(opt)
 	if err != nil {
 		log.Println(err)
@@ -42,8 +49,8 @@ func connectStatSink() {
 	ch := wi.ResultChan()
 	for {
 		event := <-ch
-		if svc, ok := event.Object(corev1.Service); ok {
-			ip := svc.ClusterIP
+		if svc, ok := event.Object.(*corev1.Service); ok {
+			ip := svc.Spec.ClusterIP
 			if ip != "" {
 				conn, _, err := websocket.DefaultDialer.Dial(ip, nil)
 				if err != nil {
@@ -67,12 +74,12 @@ func statReporter() {
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
-		err = enc.Encode(s)
+		err := enc.Encode(s)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-		err = conn.WriteMessage(websocket.BinaryMessage, b.Bytes())
+		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
 			log.Println(err)
 			continue
@@ -85,15 +92,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		RequestCount: 1,
 	}
 	statChan <- stat
-	req := &request{
-		w: w,
-		r: r,
-		c: make(chan struct{}),
+	target, err := url.Parse("http://localhost:8080")
+	if err != nil {
+		panic(err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	log.Println("Forwarding a request to the app container at ", time.Now().String())
-	proxy.ServeHTTP(r.w, r.r)
-	close(r.c)
+	proxy.ServeHTTP(w, r)
 }
 
 func main() {

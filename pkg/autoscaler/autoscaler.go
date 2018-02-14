@@ -2,11 +2,12 @@ package main
 
 import (
 	"bytes"
-	"elafros/pkg/autoscaler/types"
 	"encoding/gob"
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/google/elafros/pkg/autoscaler/types"
 
 	"github.com/gorilla/websocket"
 )
