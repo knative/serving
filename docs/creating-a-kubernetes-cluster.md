@@ -50,7 +50,7 @@ To use a k8s cluster running in GKE:
 5. If you haven't installed `kubectl` yet, you can install it now with `gcloud`:
 
     ```shell
-    gcloud  components install kubectl
+    gcloud components install kubectl
     ```
 
 6.  Give your gcloud user cluster-admin privileges:
@@ -80,7 +80,7 @@ To use a k8s cluster running in GKE:
    docker-credential-gcr configure-docker
    ```
 
-Now you can use `https://gcr.io/$PROJECT_ID` as your Docker repo and your GKE
+Now you can use `gcr.io/$PROJECT_ID` as your Docker repo and your GKE
 cluster will automatically pull from it.
 
 ## Minikube
