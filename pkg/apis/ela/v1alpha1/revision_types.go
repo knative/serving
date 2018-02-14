@@ -36,17 +36,6 @@ type Revision struct {
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
-type FunctionSpec struct {
-	Entrypoint string `json:"entrypoint"`
-	//	Timeout    *metav1.Duration `json:"timeoutDuration,omitempty"`
-	Timeout metav1.Duration `json:"timeoutDuration,omitempty"`
-}
-
-type AppSpec struct {
-	// TODO: What goes here, not in the Ela API spec
-	Image string `json:"image,omitempty"`
-}
-
 // RevisionSpec defines the desired state of Revision
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -67,10 +56,6 @@ type RevisionSpec struct {
 
 	// The name of the build that is producing the container image that we are deploying.
 	BuildName string `json:"buildName,omitempty"`
-
-	// TODO(mattmoor): Remove these, and type definitions above.
-	FunctionSpec *FunctionSpec `json:"functionSpec,omitempty"`
-	AppSpec      *AppSpec      `json:"appSpec,omitempty"`
 
 	ContainerSpec *corev1.Container `json:"containerSpec,omitempty"`
 }
