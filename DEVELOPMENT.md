@@ -23,25 +23,8 @@ You must install these tools:
 
 You'll also need to setup:
 
-1. [This repo](#setup-your-repo)
-1. A running kubernetes cluster (for example, using
-   [minikube](https://github.com/kubernetes/minikube)); your user **must** have
-   cluster-admin privileges:
-   ```bash
-   kubectl create clusterrolebinding cluster-admin-binding \
-   --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
-   ```
-
-   _See [`docs/creating-a-kubernetes-cluster.md`](./docs/creating-a-kubernetes-cluster.md)
-   for step-by-step instructions on setting up both GKE and minikube clusters._
-
-1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
-(https://kubernetes.io/docs/admin/extensible-admission-controllers/#enable-external-admission-webhooks)
-For example:
-```bash
---admission-control=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
-```
-
+1. [This repo](#checkout-your-fork)
+1. [A running kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
 1. A docker repository you can push to
 1. [Your environment](#environment-setup)
 
