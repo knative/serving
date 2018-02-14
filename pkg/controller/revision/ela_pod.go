@@ -50,10 +50,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				MountPath: elaContainerLogVolumeMountPath,
 				Name:      elaContainerLogVolumeName,
 			},
-			{
-				MountPath: "/tmp/health-checks",
-				Name:      "health-checks",
-			},
 		},
 		Env: u.Spec.Env,
 	}
@@ -98,29 +94,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				MountPath: nginxLogVolumeMountPath,
 				Name:      nginxLogVolumeName,
 			},
-			{
-				MountPath: "/tmp/health-checks",
-				Name:      "health-checks",
-			},
-		},
-		Lifecycle: &corev1.Lifecycle{
-			PostStart: &corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"rm", "/tmp/health-checks/app_lameducked",
-					},
-				},
-			},
-		},
-		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"/bin/sh", "-c",
-						"test ! -f /tmp/health-checks/app_lameducked",
-					},
-				},
-			},
 		},
 	}
 
@@ -164,36 +137,9 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	initContainer := corev1.Container{
-		Name:  "health-check-seeder",
-		Image: "gcr.io/google_appengine/base",
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
-			},
-		},
-		Command: []string{
-			"touch", "/tmp/health-checks/app_lameducked",
-			"/tmp/health-checks/lameducked",
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: "/tmp/health-checks",
-				Name:      "health-checks",
-			},
-		},
-	}
-
-	healthCheckVolume := corev1.Volume{
-		Name: "health-checks",
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
 	return &corev1.PodSpec{
-		Volumes:    []corev1.Volume{healthCheckVolume, elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{elaContainer, nginxContainer, fluentdContainer}, InitContainers: []corev1.Container{initContainer},
+		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
+		Containers: []corev1.Container{elaContainer, nginxContainer, fluentdContainer},
 	}
 }
 
@@ -203,7 +149,7 @@ func MakeElaDeploymentLabels(u *v1alpha1.Revision) map[string]string {
 	serviceID := u.Spec.Service
 
 	return map[string]string{
-		routeLabel: serviceID,
+		routeLabel:      serviceID,
 		elaVersionLabel: name,
 	}
 }
