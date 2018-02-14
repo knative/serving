@@ -23,7 +23,7 @@ To use a k8s cluster running in GKE:
     gcloud --project=$PROJECT_ID services enable container.googleapis.com
     ```
 
-4.  Create a k8s cluster:
+4.  Create a k8s cluster (version 1.9 or greater):
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
@@ -86,20 +86,18 @@ cluster will automatically pull from it.
 
 ## Minikube
 
-To run a k8s cluster locally, you will need to [install and configure
+1. [Install and configure
 minikube](https://github.com/kubernetes/minikube#minikube) with a [VM
 driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm` on
 Linux or `xhyve` on macOS.
 
-If this worked, you should be able to walk through [the minikube
-quickstart](https://github.com/kubernetes/minikube#quickstart) successfully.
+2. [Create a cluster](https://github.com/kubernetes/minikube#quickstart) with version 1.9 or greater and your chosen VM driver:
+
+   _Until minikube [enables it by default](https://github.com/kubernetes/minikube/pull/2547),the MutatingAdmissionWebhook plugin must be manually enabled._
 
 ```shell
 minikube start \
-# Kubernetes version must be at least 1.9.0
 --kubernetes-version=v1.9.0 \
-# Use the VM driver you installed above
---vm-driver=kvm
+--vm-driver=kvm \
+--extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
 ```
-
-_TODO Add instructions for setting up a local registry_
