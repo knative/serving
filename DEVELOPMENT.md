@@ -31,6 +31,10 @@ You'll also need to setup:
    kubectl create clusterrolebinding cluster-admin-binding \
    --clusterrole=cluster-admin  --user=${YOUR_KUBE_USER}
    ```
+
+   _See [`docs/creating-a-kubernetes-cluster.md`](./docs/creating-a-kubernetes-cluster.md)
+   for step-by-step instructions on setting up both GKE and minikube clusters._
+
 1. Kubernetes cluster must have MutatingAdmissionWebhook specified in the [--admission-control as per]:
 (https://kubernetes.io/docs/admin/extensible-admission-controllers/#enable-external-admission-webhooks)
 For example:
