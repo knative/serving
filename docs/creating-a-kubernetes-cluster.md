@@ -93,12 +93,12 @@ Linux or `xhyve` on macOS.
 If this worked, you should be able to walk through [the minikube
 quickstart](https://github.com/kubernetes/minikube#quickstart) successfully.
 
-    ```shell
-    minikube start \
-    # Kubernetes version must be at least 1.9.0
-    --kubernetes-version=v1.9.0 \
-    # Use the VM driver you installed above
-    --vm-driver=kvm
-    ```
+```shell
+minikube start \
+# Kubernetes version must be at least 1.9.0
+--kubernetes-version=v1.9.0 \
+# Use the VM driver you installed above
+--vm-driver=kvm
+```
 
 _TODO Add instructions for setting up a local registry_
