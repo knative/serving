@@ -105,7 +105,7 @@ load(
 
 private_git_repository(
     name = "buildcrd",
-    commit = "91197a93f54316cc15ff3d54b31ed3096a97fb74",
+    commit = "d729e217e09b5e14c92eb77a0b6655e359bd7391",
     remote = "git@github.com:google/build-crd.git",
 )
 

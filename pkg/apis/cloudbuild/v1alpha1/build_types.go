@@ -41,6 +41,9 @@ type BuildSpec struct {
 
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
+	// The name of the service account as which to run this build.
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// Template, if specified,references a BuildTemplate resource to use to
 	// populate fields in the build, and optional Arguments to pass to the
 	// template.
