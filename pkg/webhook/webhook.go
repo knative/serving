@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -193,9 +192,9 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		client:  client,
 		options: options,
 		handlers: map[string]GenericCRDHandler{
-			"Revision":         GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
+			"Revision":      GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
 			"Configuration": GenericCRDHandler{Factory: &v1alpha1.Configuration{}, Callback: ValidateConfiguration},
-			"Route":       GenericCRDHandler{Factory: &v1alpha1.Route{}, Callback: ValidateRoute},
+			"Route":         GenericCRDHandler{Factory: &v1alpha1.Route{}, Callback: ValidateRoute},
 		},
 	}, nil
 }
@@ -332,16 +331,6 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	glog.Infof("Webhook ServeHTTP request=%#v", r)
 
-	var body []byte
-	if r.Body != nil {
-		data, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			glog.Warningf("Failed to read incoming Body: %s", err)
-			http.Error(w, fmt.Sprintf("could not read incoming body: %v", err), http.StatusInternalServerError)
-		}
-		body = data
-	}
-
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
@@ -350,14 +339,14 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	var review admissionv1beta1.AdmissionReview
-	if err := json.Unmarshal(body, &review); err != nil {
+	defer r.Body.Close()
+	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
 		http.Error(w, fmt.Sprintf("could not decode body: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	reviewResponse := ac.admit(review.Request)
-	response := admissionv1beta1.AdmissionReview{}
-
+	var response admissionv1beta1.AdmissionReview
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID
@@ -366,13 +355,8 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	glog.Infof("AdmissionReview for %s: %v/%v response=%v",
 		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
 
-	resp, err := json.Marshal(response)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
-	if _, err := w.Write(resp); err != nil {
-		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 		return
 	}
 }
