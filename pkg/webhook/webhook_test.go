@@ -342,12 +342,10 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 				Spec: v1alpha1.RevisionSpec{
 					ContainerSpec: &corev1.Container{
 						Image: imageName,
-						Env: []corev1.EnvVar{
-							corev1.EnvVar{
-								Name:  envVarName,
-								Value: envVarValue,
-							},
-						},
+						Env: []corev1.EnvVar{{
+							Name:  envVarName,
+							Value: envVarValue,
+						}},
 					},
 				},
 			},
