@@ -97,10 +97,7 @@ Linux or `xhyve` on macOS.
 
 ```shell
 minikube start \
-# Kubernetes version must be at least 1.9.0
 --kubernetes-version=v1.9.0 \
-# Use the VM driver you installed above
---vm-driver=kvm
-# Enable MutatingAdmissionWebhook plugin
+--vm-driver=kvm \
 --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
 ```
