@@ -6,7 +6,7 @@ assumes you have gone through the steps listed in
 that you at least have installed `go`, set `GOPATH`, and put `$GOPATH/bin` on
 your `PATH`).
 
-It currently only contains instructions for [Google Contianer Registry
+It currently only contains instructions for [Google Container Registry
 (GCR)](https://cloud.google.com/container-registry/), but you should be able to
 use any Docker registry.
 
@@ -14,12 +14,15 @@ use any Docker registry.
 
 ### Required Tools
 
-If necessary, install the following tools:
+Install the following tools:
 
 1.  [`gcloud`](https://cloud.google.com/sdk/downloads)
 1.  [`docker-credential-gcr`](https://github.com/GoogleCloudPlatform/docker-credential-gcr)
 
-`docker-credential-gcr` can be installed with `go get`:
+`docker-credential-gcr` can be installed with `gcloud components install
+docker-credential-gcr` after you install `gcloud`. Note that some methods of
+`gcloud` installation don't allow you to install components, in which case you
+can build from source:
 
 ```shell
 go get github.com/GoogleCloudPlatform/docker-credential-gcr
@@ -41,16 +44,16 @@ gcloud projects create "${PROJECT_ID}"
 gcloud --project="${PROJECT_ID}" service-management enable \
     containerregistry.googleapis.com
 
-# Update your DOCKER_REPO_OVERRIDE environment variable (remember to update your
-# .bashrc!):
-export DOCKER_REPO_OVERRIDE="us.gcr.io/${PROJECT_ID}"
-
 # Hook up your GCR credentials. Note that this may complain if you don't have
 # the docker CLI installed, but it is not necessary and should still work.
 docker-credential-gcr configure-docker
 ```
 
-Extra reminder to update `DOCKER_REPO_OVERRIDE` in your `.bashrc` if you haven't
-done so already.
+If you need to, update your `DOCKER_REPO_OVERRIDE` in your `.bashrc`. It should
+now be `export DOCKER_REPO_OVERRIDE='us.gcr.io/<your-project-id>`. (Or maybe a
+different region instead of 'us' if you didn't pick a 'us' Google Cloud region.)
+
+You may need to run `bazel clean` after updating your `DOCKER_REPO_OVERRIDE`
+variable for `bazel` to pick up the change.
 
 That's it, you're done!
