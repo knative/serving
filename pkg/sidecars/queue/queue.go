@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var statChan = make(chan *types.Stat)
+var statChan = make(chan *types.Stat, 10)
 var kubeClient *kubernetes.Clientset
 var statSink *websocket.Conn
 
@@ -30,26 +30,44 @@ func connectStatSink() {
 		log.Println("No ELA_NAMESPACE provided.")
 		return
 	}
+	log.Println("ELA_NAMESPACE=" + ns)
 	rev := os.Getenv("ELA_REVISION")
 	if rev == "" {
 		log.Println("No ELA_REVISION provided.")
 		return
 	}
-	services := kubeClient.CoreV1().Services(ns)
+	log.Println("ELA_REVISION=" + rev)
+
 	selector := fmt.Sprintf("revision=%s", rev)
+	log.Println("Revision selector: " + selector)
 	opt := metav1.ListOptions{
 		LabelSelector: selector,
 	}
-	wi, err := services.Watch(opt)
+
+	// TODO(josephburnett): figure out why this errors with "unknown (get pods)"
+	pods := kubeClient.Core().Pods(ns)
+	wi, err := pods.Watch(opt)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error watching pods: %v", err)
+		return
+	}
+
+	services := kubeClient.CoreV1().Services(ns)
+	wi, err = services.Watch(opt)
+	if err != nil {
+		log.Println("Error watching services: %v", err)
 		return
 	}
 	defer wi.Stop()
 	ch := wi.ResultChan()
+	log.Println("Looking for autoscaler service.")
 	for {
 		event := <-ch
 		if svc, ok := event.Object.(*corev1.Service); ok {
+			if svc.Name != rev+"--autoscaler" {
+				log.Println("This is not the service you're looking for: " + svc.Name)
+				continue
+			}
 			ip := svc.Spec.ClusterIP
 			if ip != "" {
 				conn, _, err := websocket.DefaultDialer.Dial(ip, nil)
@@ -68,9 +86,10 @@ func connectStatSink() {
 func statReporter() {
 	for {
 		s := <-statChan
+		log.Println("Sending stat.")
 		if statSink == nil {
 			log.Println("Stat sink not connected.")
-			return
+			continue
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
@@ -88,6 +107,7 @@ func statReporter() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Request received.")
 	stat := &types.Stat{
 		RequestCount: 1,
 	}
@@ -113,6 +133,7 @@ func main() {
 	}
 	kubeClient = kc
 	go connectStatSink()
+	go statReporter()
 	defer func() {
 		if statSink != nil {
 			statSink.Close()

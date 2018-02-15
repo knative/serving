@@ -76,7 +76,16 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				ContainerPort: int32(queueHttpPort),
 			},
 		},
-		// TODO(josephburnett): pass ELA_AUTOSCALER_SERVICE to queue.
+		Env: []corev1.EnvVar{
+			{
+				Name:  "ELA_NAMESPACE",
+				Value: u.Namespace,
+			},
+			{
+				Name:  "ELA_REVISION",
+				Value: u.Name,
+			},
+		},
 	}
 
 	nginxContainer := corev1.Container{
