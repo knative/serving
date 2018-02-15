@@ -19,41 +19,72 @@ Install the following tools:
 1.  [`gcloud`](https://cloud.google.com/sdk/downloads)
 1.  [`docker-credential-gcr`](https://github.com/GoogleCloudPlatform/docker-credential-gcr)
 
-`docker-credential-gcr` can be installed with `gcloud components install
-docker-credential-gcr` after you install `gcloud`. Note that some methods of
-`gcloud` installation don't allow you to install components, in which case you
-can build from source:
+    If you installed `gcloud` using the archive or installer, you can install
+    `docker-credential-gcr` like this:
 
-```shell
-go get github.com/GoogleCloudPlatform/docker-credential-gcr
-cd "$GOPATH/src/github.com/GoogleCloudPlatform/docker-credential-gcr"
-make && mv ./bin/docker-credential-gcr "${GOPATH}/bin/"
-```
+    ```shell
+    gcloud components install docker-credential-gcr
+    ```
+
+    If you installed `gcloud` using a package manager, you may need to install
+    it with `go get`:
+
+    ```shell
+    go get github.com/GoogleCloudPlatform/docker-credential-gcr
+    ```
+
+    If you used `go get` to install and `$GOPATH/bin` isn't already in `PATH`,
+    add it:
+
+    ```shell
+    export PATH=$PATH:$GOPATH/bin
+    ```
 
 ### Setup
 
-```shell
-# Authenticate yourself with the gcloud CLI:
-gcloud auth login
+1.  Choose a project name, and export it.
 
-# Choose a name for your project.
-export PROJECT_ID=YOUR_PROJECT_ID_HERE_YOU_MUST_PICK_A_NEW_ONE
-gcloud projects create "${PROJECT_ID}"
+    ```shell
+    export PROJECT_ID=YOUR_PROJECT_ID_HERE_YOU_MUST_PICK_A_NEW_ONE
+    ```
 
-# Enable the GCR API.
-gcloud --project="${PROJECT_ID}" service-management enable \
+1.  Authenticate yourself with the `gcloud` CLI.
+
+    ```shell
+    gcloud auth login
+    ```
+
+1.  Create your project.
+
+    ```shell
+    gcloud projects create "${PROJECT_ID}"
+    ```
+
+1.  Enable the GCR API.
+
+    ```shell
+    gcloud --project="${PROJECT_ID}" service-management enable \
     containerregistry.googleapis.com
+    ```
 
-# Hook up your GCR credentials. Note that this may complain if you don't have
-# the docker CLI installed, but it is not necessary and should still work.
-docker-credential-gcr configure-docker
-```
+1.  Hook up your GCR credentials. Note that this may complain if you don't have
+    the docker CLI installed, but it is not necessary and should still work.
 
-If you need to, update your `DOCKER_REPO_OVERRIDE` in your `.bashrc`. It should
-now be `export DOCKER_REPO_OVERRIDE='us.gcr.io/<your-project-id>`. (Or maybe a
-different region instead of 'us' if you didn't pick a 'us' Google Cloud region.)
+    ```shell
+    docker-credential-gcr configure-docker
+    ```
 
-You may need to run `bazel clean` after updating your `DOCKER_REPO_OVERRIDE`
-variable for `bazel` to pick up the change.
+1.  If you need to, update your `DOCKER_REPO_OVERRIDE` in your `.bashrc`. It
+    should now be
+
+    ```shell
+    export DOCKER_REPO_OVERRIDE='us.gcr.io/<your-project-id>'
+    ```
+
+    (Or maybe a different region instead of 'us' if you didn't pick a 'us'
+    Google Cloud region.)
+
+1.  You may need to run `bazel clean` after updating your `DOCKER_REPO_OVERRIDE`
+    variable for `bazel` to pick up the change.
 
 That's it, you're done!
