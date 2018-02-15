@@ -198,12 +198,12 @@ const (
 	port = ":8080"
 )
 
-func HelloWorld(w http.ResponseWriter, r *http.Request) {
+func helloWorld(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World.")
 }
 
 func main() {
-	http.HandleFunc("/", HelloWorld)
+	http.HandleFunc("/", helloWorld)
 	http.ListenAndServe(port, nil)
 }
 ```
