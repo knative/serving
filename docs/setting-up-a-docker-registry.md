@@ -42,21 +42,11 @@ Install the following tools:
 
 ### Setup
 
-1.  Choose a project name, and export it.
+1.  If you haven't already set up a GCP project, create one and export its name
+    for use in later commands.
 
     ```shell
-    export PROJECT_ID=YOUR_PROJECT_ID_HERE_YOU_MUST_PICK_A_NEW_ONE
-    ```
-
-1.  Authenticate yourself with the `gcloud` CLI.
-
-    ```shell
-    gcloud auth login
-    ```
-
-1.  Create your project.
-
-    ```shell
+    export PROJECT_ID=my-project-name
     gcloud projects create "${PROJECT_ID}"
     ```
 
@@ -81,7 +71,7 @@ Install the following tools:
     export DOCKER_REPO_OVERRIDE='us.gcr.io/<your-project-id>'
     ```
 
-    (Or maybe a different region instead of 'us' if you didn't pick a 'us'
+    (You may need to use a different region than 'us' if you didn't pick a 'us'
     Google Cloud region.)
 
 1.  You may need to run `bazel clean` after updating your `DOCKER_REPO_OVERRIDE`
