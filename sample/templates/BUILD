@@ -8,6 +8,11 @@ k8s_object(
 )
 
 k8s_object(
+    name = "docker-build-helper",
+    template = "docker-build-helper.yaml",
+)
+
+k8s_object(
     name = "node-app",
     template = "node-app.yaml",
 )
@@ -17,19 +22,14 @@ k8s_object(
     template = "node-fn.yaml",
 )
 
-k8s_object(
-    name = "php-app",
-    template = "php-app.yaml",
-)
-
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
     name = "all",
     objects = [
         ":docker-build",
+        ":docker-build-helper",
         ":node-app",
         ":node-fn",
-        ":php-app",
     ],
 )

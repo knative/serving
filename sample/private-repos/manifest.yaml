@@ -11,39 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 apiVersion: elafros.dev/v1alpha1
 kind: Route
 metadata:
-  name: thumb
-  namespace: default
+  name: private-repos
 spec:
-  domainSuffix: thumb.googlecustomer.net
+  domainSuffix: private-repos.googlecustomer.net
   traffic:
-  - configuration: thumbtemplate
+  - configuration: private-repos
     percent: 100
 ---
 apiVersion: elafros.dev/v1alpha1
 kind: Configuration
 metadata:
-  name: thumbtemplate
-  namespace: default
+  name: private-repos
 spec:
   build:
+    # Run this build as our build-bot
+    serviceAccountName: build-bot
     source:
       git:
-        url: https://github.com/mchmarny/rester-tester
+        url: git@github.com:dewitt/elafros-build.git
         branch: master
     template:
-      name: docker-build-push-helper
+      name: docker-build-push
       arguments:
       - name: IMAGE
-        value: &image DOCKER_REPO_OVERRIDE/rester-tester
+        value: &image REPLACE_ME
   template:
     spec:
       serviceType: container
       containerSpec:
         image: *image
-        env:
-          - name: TARGET
-            value: thumb_v1

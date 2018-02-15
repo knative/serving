@@ -97,8 +97,8 @@ INFO: Build completed successfully, 2 total actions
 Then you can simply issue the following `kubectl` commands:
 
 ```shell
-# First, be sure you have the latest docker-build template installed with:
-kubectl apply -f sample/templates/docker-build.yaml
+# First, be sure you have the latest docker-build-helper template installed with:
+kubectl apply -f sample/templates/docker-build-helper.yaml
 
 # From the root of this repository
 kubectl apply -f bazel-genfiles/sample/thumbnailer/thumbnailer.yaml
@@ -135,7 +135,7 @@ kubectl get ing
 Sometimes the newly deployed app may take few seconds to initialize. You can check its status like this
 
 ```
-kubectl -n default-ela get pods
+kubectl -n default get pods
 ```
 
 The Elafros ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
