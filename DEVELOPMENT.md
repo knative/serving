@@ -8,7 +8,8 @@
 1. Install [requirements](#requirements)
 1. Set up your [environment](#environment-setup)
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
-1. Set up a docker repository you can push to
+1. [Set up a docker repository you can push
+   to](./docs/setting-up-a-docker-registry.md)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you meet these requirements, you can [start an `Elafros`
@@ -66,7 +67,7 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to
 
 ### Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory 
+The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory
 in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
