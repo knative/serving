@@ -19,10 +19,10 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-# load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
-# go_image(
-#     name = "image",
-#     binary = ":ela-autoscaler",
-#     visibility = ["//visibility:public"],
-# )
+go_image(
+    name = "image",
+    binary = ":ela-autoscaler",
+    visibility = ["//visibility:public"],
+)

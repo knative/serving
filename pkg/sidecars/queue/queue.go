@@ -44,16 +44,9 @@ func connectStatSink() {
 		LabelSelector: selector,
 	}
 
-	// TODO(josephburnett): figure out why this errors with "unknown (get pods)"
-	pods := kubeClient.Core().Pods(ns)
-	wi, err := pods.Watch(opt)
-	if err != nil {
-		log.Printf("Error watching pods: %v", err)
-		return
-	}
-
+	// TODO(josephburnett): should we use dns instead?
 	services := kubeClient.CoreV1().Services(ns)
-	wi, err = services.Watch(opt)
+	wi, err := services.Watch(opt)
 	if err != nil {
 		log.Println("Error watching services: %v", err)
 		return
@@ -69,8 +62,9 @@ func connectStatSink() {
 				continue
 			}
 			ip := svc.Spec.ClusterIP
+			log.Printf("Found autoscaler service %q with IP %q.", svc.Name, ip)
 			if ip != "" {
-				conn, _, err := websocket.DefaultDialer.Dial(ip, nil)
+				conn, _, err := websocket.DefaultDialer.Dial("ws://"+ip+":8080", nil)
 				if err != nil {
 					log.Println(err)
 				} else {

@@ -35,5 +35,5 @@ subjects:
     namespace: default
 roleRef:
   kind: ClusterRole
-  name: cluster-admin
+  name: cluster-admin  # TODO(josephburnett): reduce this role to read-only
   apiGroup: rbac.authorization.k8s.io
