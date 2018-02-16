@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+var podName string = os.Getenv("ELA_POD")
 var statChan = make(chan *types.Stat, 10)
 var kubeClient *kubernetes.Clientset
 var statSink *websocket.Conn
@@ -64,13 +65,17 @@ func connectStatSink() {
 			ip := svc.Spec.ClusterIP
 			log.Printf("Found autoscaler service %q with IP %q.", svc.Name, ip)
 			if ip != "" {
-				conn, _, err := websocket.DefaultDialer.Dial("ws://"+ip+":8080", nil)
-				if err != nil {
-					log.Println(err)
-				} else {
-					log.Println("Connected to stat sink.")
-					statSink = conn
-					return
+				for {
+					time.Sleep(time.Second)
+					conn, _, err := websocket.DefaultDialer.Dial("ws://"+ip+":8080", nil)
+					if err != nil {
+						log.Println(err)
+					} else {
+						log.Println("Connected to stat sink.")
+						statSink = conn
+						return
+					}
+					log.Println("Retrying connection to autoscaler.")
 				}
 			}
 		}
@@ -95,6 +100,9 @@ func statReporter() {
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
 			log.Println(err)
+			statSink = nil
+			log.Println("Attempting reconnection to stat sink.")
+			go connectStatSink()
 			continue
 		}
 	}
@@ -103,6 +111,7 @@ func statReporter() {
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Request received.")
 	stat := &types.Stat{
+		PodName:      podName,
 		RequestCount: 1,
 	}
 	statChan <- stat

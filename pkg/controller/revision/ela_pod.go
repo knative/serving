@@ -85,6 +85,14 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				Name:  "ELA_REVISION",
 				Value: u.Name,
 			},
+			{
+				Name: "ELA_POD",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
 		},
 	}
 

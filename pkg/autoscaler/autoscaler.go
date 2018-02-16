@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/google/elafros/pkg/autoscaler/types"
 
@@ -40,7 +39,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			continue
 		}
-		log.Println("Stat.RequestCount: " + strconv.Itoa(stat.RequestCount))
+		log.Printf("Stat: %+v", stat)
 	}
 }
 
