@@ -106,7 +106,7 @@ minikube start \
 
 You can use Google Container Registry as the registry for a Minikube cluster.
 
-1. [Set up a GCR instance](TODO). Export the environment variable  `PROJECT_ID`
+1. [Set up a GCR repo](TODO). Export the environment variable  `PROJECT_ID`
    as the name of your project.
 
 2. Create a GCP service account:
