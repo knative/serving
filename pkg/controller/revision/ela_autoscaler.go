@@ -75,6 +75,16 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 								Name:          "autoscaler-port",
 								ContainerPort: int32(8080),
 							}},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ELA_NAMESPACE",
+									Value: u.Namespace,
+								},
+								{
+									Name:  "ELA_DEPLOYMENT",
+									Value: util.GetRevisionDeploymentName(u),
+								},
+							},
 						},
 					},
 					ServiceAccountName: "ela-revision", // TODO(josephburnett) create ela-autoscaler service account

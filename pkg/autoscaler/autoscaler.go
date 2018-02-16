@@ -5,21 +5,26 @@ import (
 	"encoding/gob"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/elafros/pkg/autoscaler/types"
 
 	"github.com/gorilla/websocket"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
-	stableWindowSeconds int           = 60
-	stableWindow        time.Duration = stableWindowSeconds * time.Second
-	stableQpsPerPod     int           = 10
+	stableWindowSeconds int32         = 60
+	stableWindow        time.Duration = 60 * time.Second
+	stableQpsPerPod     int32         = 10
 
-	panicWindowSeconds int           = 6
-	panicWindow        time.Duration = panicWindowSeconds * time.Second
-	panicQpsPerPod     int           = 20
+	panicWindowSeconds      int32         = 6
+	panicWindow             time.Duration = 6 * time.Second
+	panicQpsPerPodThreshold int32         = 20
 )
 
 var upgrader = websocket.Upgrader{
@@ -28,18 +33,21 @@ var upgrader = websocket.Upgrader{
 }
 
 var statChan = make(chan types.Stat, 100)
+var kubeClient *kubernetes.Clientset
 
 type podName string
 
 func autoscaler() {
 
 	// Record QPS per unique observed pod so missing data doesn't skew the results
-	var qps = make(map[time.Time]map[podName]int)
+	var qps = make(map[time.Time]map[podName]int32)
+	var panicTime *time.Time
+	var maxPanicPods int32
 
 	record := func(stat types.Stat) {
 		second := time.Now().Truncate(time.Second)
 		if _, ok := qps[second]; !ok {
-			qps[second] = make(map[podName]int)
+			qps[second] = make(map[podName]int32)
 		}
 		queries := qps[second]
 		pod := podName(stat.PodName)
@@ -52,10 +60,10 @@ func autoscaler() {
 
 	tick := func() {
 
-		stableQueries := 0
+		stableQueries := int32(0)
 		stablePods := make(map[podName]bool)
 
-		panicQueries := 0
+		panicQueries := int32(0)
 		panicPods := make(map[podName]bool)
 
 		now := time.Now()
@@ -76,16 +84,53 @@ func autoscaler() {
 			}
 		}
 
-		log.Printf("%v second qps is %v over %v pods.", panicWindowSeconds, panicQueries/panicWindowSeconds, len(panicPods))
-		log.Printf("%v second qps %v over %v pods.", stableWindowSeconds, stableQueries/stableWindowSeconds, len(stablePods))
+		// Stop panicking after the surge has made its way into the stable metric.
+		if panicTime != nil && panicTime.Add(stableWindow).Before(time.Now()) {
+			log.Println("Un-panicking.")
+			panicTime = nil
+			maxPanicPods = 0
+		}
 
-		if len(panicPods) > 0 && vpanicQueries/panicWindowSeconds/len(panicPods) > panicQpsPerPod {
-			log.Println("Panicking.")
-			scaleTo(panicQueries/panicWindowSeconds/stableQpsPerPod + 1)
-		} else if len(stablePods) > 0 {
-			scaleTo(stableQueries/stableWindowSeconds/stableQpsPerPod + 1)
-		} else {
+		// Do nothing when we have no data.
+		if len(stablePods) == 0 {
 			log.Println("No data to scale on.")
+			return
+		}
+
+		observedStableQps := stableQueries / stableWindowSeconds
+		desiredStablePods := (observedStableQps / stableQpsPerPod) + 1
+
+		observedPanicQps := panicQueries / panicWindowSeconds
+		desiredPanicPods := (observedPanicQps / stableQpsPerPod) + 2
+
+		log.Printf("Observed %v QPS average over %v seconds over %v pods.", observedStableQps, stableWindowSeconds, len(stablePods))
+		log.Printf("Observed %v QPS average over %v seconds over %v pods.", observedPanicQps, panicWindowSeconds, len(panicPods))
+
+		// Begin panicking when we cross the short-term QPS per pod threshold.
+		if panicTime == nil && len(panicPods) > 0 && observedPanicQps/int32(len(panicPods)) > panicQpsPerPodThreshold {
+			log.Println("PANICKING")
+			tmp := time.Now()
+			panicTime = &tmp
+		}
+
+		if panicTime != nil {
+			log.Printf("Operating in panic mode.")
+			if desiredPanicPods > maxPanicPods {
+				log.Printf("Continue PANICKING. Increasing from %v pods to %v pods.", maxPanicPods, desiredPanicPods)
+				tmp := time.Now()
+				panicTime = &tmp
+				maxPanicPods = desiredPanicPods
+			}
+			if desiredStablePods > maxPanicPods {
+				log.Printf("Continue PANICKING. Increasing from %v pods to %v pods.", maxPanicPods, desiredStablePods)
+				tmp := time.Now()
+				panicTime = &tmp
+				maxPanicPods = desiredStablePods
+			}
+			scaleTo(maxPanicPods)
+		} else {
+			log.Println("Operating in stable mode.")
+			scaleTo(desiredStablePods)
 		}
 	}
 
@@ -101,8 +146,26 @@ func autoscaler() {
 	}
 }
 
-func scaleTo(podCount int) {
-	log.Printf("Scaling to %v", podCount)
+func scaleTo(podCount int32) {
+	log.Printf("Target scale is %v", podCount)
+	deploymentName := os.Getenv("ELA_DEPLOYMENT")
+	ns := os.Getenv("ELA_NAMESPACE")
+	dc := kubeClient.ExtensionsV1beta1().Deployments(ns)
+	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error getting Deployment %q: %s", deploymentName, err)
+		return
+	}
+	if *deployment.Spec.Replicas == podCount {
+		log.Println("Already at scale.")
+		return
+	}
+	deployment.Spec.Replicas = &podCount
+	_, err = dc.Update(deployment)
+	if err != nil {
+		log.Printf("Error updating Deployment %q: %s", deploymentName, err)
+	}
+	log.Println("Successfully scaled.")
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +197,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	log.Println("Autoscaler up")
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err)
+	}
+	kc, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+	kubeClient = kc
 	http.HandleFunc("/", handler)
 	go autoscaler()
 	http.ListenAndServe(":8080", nil)
