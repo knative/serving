@@ -107,7 +107,21 @@ minikube start \
 You can use Google Container Registry as the registry for a Minikube cluster.
 
 1. [Set up a GCR repo](TODO). Export the environment variable  `PROJECT_ID`
-   as the name of your project.
+   as the name of your project. Also export `GCR_DOMAIN` as the domain name
+   of your GCR repo. This will be either `gcr.io` or a region-specific variant
+   like `us.gcr.io`.
+
+   ```shell
+   export PROJECT_ID=elafros-demo-project
+   export GCR_DOMAIN=gcr.io
+   ```
+
+   To have Bazel builds push to GCR, set `DOCKER_REPO_OVERRIDE` to the GCR
+   repo's url.
+
+   ```shell
+   export DOCKER_REPO_OVERRIDE="${GCR_DOMAIN}/${PROJECT_ID}"
+   ```
 
 2. Create a GCP service account:
 
@@ -134,18 +148,19 @@ You can use Google Container Registry as the registry for a Minikube cluster.
    ```
 
 Now you can use the `minikube-gcr-key.json` file to create image pull secrets
-for use with pods and Kubernetes service accounts. _A secret must be created
-in each pod-containing namespace._
+and link them to Kubernetes service accounts. _A secret must be created and
+linked to a service account in each namespace that will pull images from GCR._
 
 For example, use these steps to allow Minikube to pull Elafros and Build
-images from GCR as built by Bazel (`bazel run :everything.create`):
+images from GCR as built by Bazel (`bazel run :everything.create`). _This is
+only necessary if you are not using public Elafros and Build images._
 
 1. Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
 
    ```shell
    for prefix in ela build; do
      kubectl create secret docker-registry "gcr" \
-     --docker-server=gcr.io \
+     --docker-server=$GCR_DOMAIN \
      --docker-username=_json_key \
      --docker-password="$(cat minikube-gcr-key.json)" \
      --docker-email=your.email@here.com \
@@ -156,8 +171,8 @@ images from GCR as built by Bazel (`bazel run :everything.create`):
    _The secret must be created in the same namespace as the pod or service
    account._
 
-2. Add the secret as an imagePullSecret to the `ela-controller` and `build-controller`
-   service accounts:
+2. Add the secret as an imagePullSecret to the `ela-controller` and
+   `build-controller` service accounts:
 
    ```shell
    for prefix in ela build; do
