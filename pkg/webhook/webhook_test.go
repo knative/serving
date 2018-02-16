@@ -17,6 +17,8 @@ package webhook
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,7 +26,9 @@ import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -207,6 +211,39 @@ func TestValidRouteChanges(t *testing.T) {
 	})
 }
 
+func TestValidWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	createDeployment(ac)
+	err := ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	if err != nil {
+		t.Fatalf("Failed to create webhook: %s", err)
+	}
+}
+
+func TestUpdatingWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ac.options.WebhookName,
+		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{
+			{
+				Name:         ac.options.WebhookName,
+				Rules:        []admissionregistrationv1beta1.RuleWithOperations{{}},
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+			},
+		},
+	}
+
+	createDeployment(ac)
+	createWebhook(ac, webhook)
+	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
+		t.Fatalf("Expected webhook to be updated")
+	}
+}
+
 func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateConfiguration()
 	marshaled, err := yaml.Marshal(old)
@@ -277,6 +314,24 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 	}
 	req.OldObject.Raw = marshaledOld
 	return req
+}
+
+func createDeployment(ac *AdmissionController) {
+	deployment := &v1beta1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      elaWebhookDeployment,
+			Namespace: elaSystemNamespace,
+		},
+	}
+	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+}
+
+func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
+	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
+	_, err := client.Create(webhook)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create test webhook: %s", err))
+	}
 }
 
 func assertAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {

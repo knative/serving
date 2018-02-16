@@ -307,8 +307,7 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 	// Set the owner to our deployment
 	deployment, err := ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Get(elaWebhookDeployment, metav1.GetOptions{})
 	if err != nil {
-		glog.Fatalf("Failed to fetch our deployment: %s", err)
-		return err
+		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}
 	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
@@ -317,24 +316,20 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 	_, err = client.Create(webhook)
 	if err != nil {
 		if !apierrors.IsAlreadyExists(err) {
-			glog.Fatalf("Failed to create a webhook: %s", err)
-			return err
+			return fmt.Errorf("Failed to create a webhook: %s", err)
 		}
 		glog.Infof("Webhook already exists")
 		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
 		if err != nil {
-			glog.Fatalf("Error retrieving webhook: %s", err)
-			return err
+			return fmt.Errorf("Error retrieving webhook: %s", err)
 		}
 		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
 			glog.Infof("Recreating webhook")
 			if err := client.Delete(ac.options.WebhookName, nil); err != nil {
-				glog.Fatalf("Failed to delete existing webhook: %s", err)
-				return err
+				return fmt.Errorf("Failed to delete existing webhook: %s", err)
 			}
 			if _, err := client.Create(webhook); err != nil {
-				glog.Fatalf("Failed to recreate webhook: %s", err)
-				return err
+				return fmt.Errorf("Failed to recreate webhook: %s", err)
 			}
 		} else {
 			glog.Infof("Webhook is already valid")
