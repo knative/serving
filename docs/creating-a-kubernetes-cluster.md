@@ -167,5 +167,8 @@ images from GCR as built by Bazel (`bazel run :everything.create`):
    done
    ```
 
-You can use the same steps to add imagePullSecrets to pods and service accounts
-in any namespace.
+Use the same procedure to add imagePullSecrets to service accounts in any
+namespace. Use the `default` service account for pods that do not specify a
+service account.
+
+_See also the [private-repo sample README](./../sample/private-repos/README.md).
