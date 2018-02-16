@@ -67,7 +67,10 @@ func connectStatSink() {
 			if ip != "" {
 				for {
 					time.Sleep(time.Second)
-					conn, _, err := websocket.DefaultDialer.Dial("ws://"+ip+":8080", nil)
+					dialer := &websocket.Dialer{
+						HandshakeTimeout: 3 * time.Second,
+					}
+					conn, _, err := dialer.Dial("ws://"+ip+":8080", nil)
 					if err != nil {
 						log.Println(err)
 					} else {
