@@ -101,3 +101,37 @@ minikube start \
 --vm-driver=kvm \
 --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
 ```
+
+### Minikube with GCR
+
+You can use Google Container Registry as the registry for a Minikube cluster.
+
+1. [Set up a GCR instance](TODO). Export the environment variable  `PROJECT_ID`
+   as the name of your project.
+
+2. Create a GCP service account:
+
+   ```shell
+   gcloud iam service-accounts create minikube-gcr \
+   --display-name "Minikube GCR Pull" \
+   --project $PROJECT_ID
+   ```
+
+3. Give your service account the `storage.objectViewer` role:
+
+   ```shell
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+   --member "serviceAccount:minikube-gcr@${PROJECT_ID}.iam.gserviceaccount.com" \
+   --role roles/storage.objectViewer
+   ```
+
+4. Create a key credential file for the service account:
+
+   ```shell
+   gcloud iam service-accounts keys create \
+   --iam-account "minikube-gcr@${PROJECT_ID}.iam.gserviceaccount.com" \
+   minikube-gcr-key.json
+   ```
+
+Now you can use the `minikube-gcr-key.json` file to create image pull secrets
+for use with pods and Kubernetes service accounts.
