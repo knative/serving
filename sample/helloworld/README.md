@@ -41,10 +41,23 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
 # Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
-$ curl --header 'Host:demo.myhost.net' http://${SERVICE_IP}
+curl --header 'Host:demo.myhost.net' http://${SERVICE_IP}
+Hello World: shiniestnewestversion!
+```
+
+If your cluster is running outside a cloud provider (for example on Minikube),
+your ingress will never get an address. In that case, you can hit the
+`istio-ingress` service directly via its nodePort:
+
+```shell
+# Get the istio ingress pod IP and service nodePort
+export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
+
+# Curl Istio directly, bypassing the Ingresses
+curl --header 'Host:demo.myhost.net' http://${SERVICE_IP}
 Hello World: shiniestnewestversion!
 ```
 
