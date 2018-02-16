@@ -13,11 +13,13 @@ import (
 )
 
 var (
-	stableWindow    time.Duration = 60 * time.Second
-	stableQpsPerPod int           = 10
+	stableWindowSeconds int           = 60
+	stableWindow        time.Duration = stableWindowSeconds * time.Second
+	stableQpsPerPod     int           = 10
 
-	panicWindow    time.Duration = 6 * time.Second
-	panicQpsPerPod int           = 20
+	panicWindowSeconds int           = 6
+	panicWindow        time.Duration = panicWindowSeconds * time.Second
+	panicQpsPerPod     int           = 20
 )
 
 var upgrader = websocket.Upgrader{
@@ -74,14 +76,14 @@ func autoscaler() {
 			}
 		}
 
-		log.Printf("6 second qps is %v over %v pods.", panicQueries/6, len(panicPods))
-		log.Printf("60 second qps %v over %v pods.", stableQueries/60, len(stablePods))
+		log.Printf("%v second qps is %v over %v pods.", panicWindowSeconds, panicQueries/panicWindowSeconds, len(panicPods))
+		log.Printf("%v second qps %v over %v pods.", stableWindowSeconds, stableQueries/stableWindowSeconds, len(stablePods))
 
-		if len(panicPods) > 0 && panicQueries/6/len(panicPods) > panicQpsPerPod {
+		if len(panicPods) > 0 && vpanicQueries/panicWindowSeconds/len(panicPods) > panicQpsPerPod {
 			log.Println("Panicking.")
-			scaleTo(panicQueries/6/stableQpsPerPod + 1)
+			scaleTo(panicQueries/panicWindowSeconds/stableQpsPerPod + 1)
 		} else if len(stablePods) > 0 {
-			scaleTo(stableQueries/60/stableQpsPerPod + 1)
+			scaleTo(stableQueries/stableWindowSeconds/stableQpsPerPod + 1)
 		} else {
 			log.Println("No data to scale on.")
 		}
