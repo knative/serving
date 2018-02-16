@@ -137,29 +137,35 @@ Now you can use the `minikube-gcr-key.json` file to create image pull secrets
 for use with pods and Kubernetes service accounts. _A secret must be created
 in each pod-containing namespace._
 
-For example, use these steps to allow Minikube to pull Elafros controller and
-webhook images from GCR as built by Bazel (`bazel run :everything.create`):
+For example, use these steps to allow Minikube to pull Elafros and Build
+images from GCR as built by Bazel (`bazel run :everything.create`):
 
-1. Create a Kubernetes secret in the `ela-system` namespace:
+1. Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
 
    ```shell
-   kubectl create secret docker-registry "gcr" \
-   --docker-server=gcr.io \
-   --docker-username=_json_key \
-   --docker-password="$(cat minikube-gcr-key.json)" \
-   --docker-email=your.email@here.com \
-   -n ela-system
+   for prefix in ela build; do
+     kubectl create secret docker-registry "gcr" \
+     --docker-server=gcr.io \
+     --docker-username=_json_key \
+     --docker-password="$(cat minikube-gcr-key.json)" \
+     --docker-email=your.email@here.com \
+     -n "${prefix}-system"
+   done
    ```
 
    _The secret must be created in the same namespace as the pod or service
    account._
 
-2. Add the secret as an imagePullSecret to the `ela-controller` service account:
+2. Add the secret as an imagePullSecret to the `ela-controller` and `build-controller`
+   service accounts:
 
    ```shell
-   kubectl patch serviceaccount ela-controller \
-   -p '{\"imagePullSecrets\": [{\"name\": \"gcr\"}]}' \
-   -n ela-system
+   for prefix in ela build; do
+     kubectl patch serviceaccount "${prefix}-controller" \
+     -p '{"imagePullSecrets": [{"name": "gcr"}]}' \
+     -n "${prefix}-system"
+   done
    ```
 
-Now all pods created by the `ela-controller` will be able to pull from GCR.
+You can use the same steps to add imagePullSecrets to pods and service accounts
+in any namespace.
