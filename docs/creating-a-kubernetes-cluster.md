@@ -134,7 +134,8 @@ You can use Google Container Registry as the registry for a Minikube cluster.
    ```
 
 Now you can use the `minikube-gcr-key.json` file to create image pull secrets
-for use with pods and Kubernetes service accounts.
+for use with pods and Kubernetes service accounts. _A secret must be created
+in each pod-containing namespace._
 
 For example, use these steps to allow Minikube to pull Elafros controller and
 webhook images from GCR as built by Bazel (`bazel run :everything.create`):
