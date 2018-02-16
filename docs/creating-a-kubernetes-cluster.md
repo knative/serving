@@ -101,3 +101,89 @@ minikube start \
 --vm-driver=kvm \
 --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
 ```
+
+### Minikube with GCR
+
+You can use Google Container Registry as the registry for a Minikube cluster.
+
+1. [Set up a GCR repo](TODO). Export the environment variable  `PROJECT_ID`
+   as the name of your project. Also export `GCR_DOMAIN` as the domain name
+   of your GCR repo. This will be either `gcr.io` or a region-specific variant
+   like `us.gcr.io`.
+
+   ```shell
+   export PROJECT_ID=elafros-demo-project
+   export GCR_DOMAIN=gcr.io
+   ```
+
+   To have Bazel builds push to GCR, set `DOCKER_REPO_OVERRIDE` to the GCR
+   repo's url.
+
+   ```shell
+   export DOCKER_REPO_OVERRIDE="${GCR_DOMAIN}/${PROJECT_ID}"
+   ```
+
+2. Create a GCP service account:
+
+   ```shell
+   gcloud iam service-accounts create minikube-gcr \
+   --display-name "Minikube GCR Pull" \
+   --project $PROJECT_ID
+   ```
+
+3. Give your service account the `storage.objectViewer` role:
+
+   ```shell
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+   --member "serviceAccount:minikube-gcr@${PROJECT_ID}.iam.gserviceaccount.com" \
+   --role roles/storage.objectViewer
+   ```
+
+4. Create a key credential file for the service account:
+
+   ```shell
+   gcloud iam service-accounts keys create \
+   --iam-account "minikube-gcr@${PROJECT_ID}.iam.gserviceaccount.com" \
+   minikube-gcr-key.json
+   ```
+
+Now you can use the `minikube-gcr-key.json` file to create image pull secrets
+and link them to Kubernetes service accounts. _A secret must be created and
+linked to a service account in each namespace that will pull images from GCR._
+
+For example, use these steps to allow Minikube to pull Elafros and Build
+images from GCR as built by Bazel (`bazel run :everything.create`). _This is
+only necessary if you are not using public Elafros and Build images._
+
+1. Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
+
+   ```shell
+   for prefix in ela build; do
+     kubectl create secret docker-registry "gcr" \
+     --docker-server=$GCR_DOMAIN \
+     --docker-username=_json_key \
+     --docker-password="$(cat minikube-gcr-key.json)" \
+     --docker-email=your.email@here.com \
+     -n "${prefix}-system"
+   done
+   ```
+
+   _The secret must be created in the same namespace as the pod or service
+   account._
+
+2. Add the secret as an imagePullSecret to the `ela-controller` and
+   `build-controller` service accounts:
+
+   ```shell
+   for prefix in ela build; do
+     kubectl patch serviceaccount "${prefix}-controller" \
+     -p '{"imagePullSecrets": [{"name": "gcr"}]}' \
+     -n "${prefix}-system"
+   done
+   ```
+
+Use the same procedure to add imagePullSecrets to service accounts in any
+namespace. Use the `default` service account for pods that do not specify a
+service account.
+
+_See also the [private-repo sample README](./../sample/private-repos/README.md).
