@@ -135,3 +135,30 @@ You can use Google Container Registry as the registry for a Minikube cluster.
 
 Now you can use the `minikube-gcr-key.json` file to create image pull secrets
 for use with pods and Kubernetes service accounts.
+
+For example, use these steps to allow Minikube to pull Elafros controller and
+webhook images from GCR as built by Bazel (`bazel run :everything.create`):
+
+1. Create a Kubernetes secret in the `ela-system` namespace:
+
+   ```shell
+   kubectl create secret docker-registry "gcr" \
+   --docker-server=gcr.io \
+   --docker-username=_json_key \
+   --docker-password="$(cat minikube-gcr-key.json)" \
+   --docker-email=your.email@here.com \
+   -n ela-system
+   ```
+
+   _The secret must be created in the same namespace as the pod or service
+   account._
+
+2. Add the secret as an imagePullSecret to the `ela-controller` service account:
+
+   ```shell
+   kubectl patch serviceaccount ela-controller \
+   -p '{\"imagePullSecrets\": [{\"name\": \"gcr\"}]}' \
+   -n ela-system
+   ```
+
+Now all pods created by the `ela-controller` will be able to pull from GCR.
