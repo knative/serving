@@ -60,8 +60,18 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 ```shell
 # Put the Ingress IP into an environment variable.
 $ export SERVICE_IP=`kubectl get ingress steren-sample-fn-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+```
 
-# Curl the Ingress IP "as-if" DNS were properly configured.
+If your cluster is running outside a cloud provider (for example on Minikube),
+your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
+
+```shell
+export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
+```
+
+Now curl the service IP as if DNS were properly configured:
+
+```shell
 $ curl --header 'Host:sample-fn.googlecustomer.net' http://${SERVICE_IP}/execute?name=${USER}
 Hello mattmoor
 ```
