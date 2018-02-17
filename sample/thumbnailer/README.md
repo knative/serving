@@ -6,7 +6,7 @@ Thumbnailer demo is a walk-through example on how to deploy a 'dockerized' appli
 
 ## Sample Code
 
-In this demo we are going to use a simple `golang` REST app called [rester-tester](https://github.com/mchmarny/rester-tester). It's important to point out that this application doesn't use any 'special' Elafros components nor does it have any Elafros SDK dependencies. 
+In this demo we are going to use a simple `golang` REST app called [rester-tester](https://github.com/mchmarny/rester-tester). It's important to point out that this application doesn't use any 'special' Elafros components nor does it have any Elafros SDK dependencies.
 
 ### App code
 
@@ -38,10 +38,10 @@ You can now run the `rester-tester` application locally in `go` or using Docker
 
 **Local**
 
-> Note: to run the application locally in `go` you will need [FFmpeg](https://www.ffmpeg.org/) in your path. 
+> Note: to run the application locally in `go` you will need [FFmpeg](https://www.ffmpeg.org/) in your path.
 
 ```
-go build 
+go build
 ./rester-tester
 ```
 
@@ -142,7 +142,14 @@ The Elafros ingress service will automatically be assigned an IP so let's captur
 
 ```
 export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
-  -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"` 
+  -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+```
+
+If your cluster is running outside a cloud provider (for example on Minikube),
+your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
+
+```shell
+export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
 ```
 
 > To make the JSON service responses more readable consider installing [jq](https://stedolan.github.io/jq/), makes JSON pretty
@@ -158,7 +165,7 @@ curl -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
 
 ### Video Thumbnail
 
-Now the video thumbnail. 
+Now the video thumbnail.
 
 ```
 curl -X POST -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
@@ -174,6 +181,4 @@ curl -H "Host: thumb.googlecustomer.net" \
 
 ## Final Thoughts
 
-While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables. 
-
-
+While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables.
