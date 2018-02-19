@@ -1,6 +1,6 @@
 # Prime Calculator Demo
 
-Prime Calculator demo walks through deployment of a 'dockerized' application to the Elafros service. In this demo we will use a sample `golang` REST application that takes a number as an input and calculates the highest prime number that lower than that number.
+Prime Calculator demo walks through deployment of a 'dockerized' application to the Elafros service. In this demo we will use a sample `golang` REST application that takes a number as an input and calculates the highest prime number that lower than that number. This application is particularly helpful in demonstrating Elafros app scaling as it provides an easy way of increasing the individual request execution time by passing higher max number argument into prime calculator (see [Demo](##Demo))
 
 > In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/google/elafros/blob/master/README.md) on how to deploy one.
 
@@ -16,7 +16,7 @@ You can now deploy the `rester-tester` app to the Elafros service from it's curr
 kubectl apply -f manifest.yaml
 ```
 
-## Demo Setup
+## Setup
 
 To confirm that the app deployed, you can check for the Elafros service using `kubectl`. First, is there an ingress service:
 
@@ -32,8 +32,8 @@ kubectl -n default get pods
 
 The Elafros ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
 
-```
-export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
+```shell
+export SERVICE_IP=`kubectl get ing prime-ela-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 

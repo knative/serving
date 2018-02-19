@@ -16,7 +16,7 @@ kind: Route
 metadata:
   name: prime
 spec:
-  domainSuffix: prime.googlecustomer.net
+  domainSuffix: prime.myhost.net
   traffic:
   - configuration: prime
     percent: 100
