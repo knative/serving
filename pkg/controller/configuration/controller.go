@@ -430,7 +430,7 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 	return ""
 }
 
-// Mark ConfigurationConditionReady of Configuration ready as the givne latest
+// Mark ConfigurationConditionReady of Configuration ready as the given latest
 // created revision is ready. Also set latest field to the given revision.
 func (c *Controller) markConfigurationReady(
 	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
@@ -442,7 +442,7 @@ func (c *Controller) markConfigurationReady(
 			Reason: "LatestRevisionReady",
 		})
 
-	glog.Infof("Seting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
+	glog.Infof("Setting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
 	config.Status.LatestReady = revision.Name
 
 	_, err := c.updateStatus(config)
