@@ -18,19 +18,18 @@ package route
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/google/elafros/pkg/controller"
 
 	istiov1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/google/elafros/pkg/controller/util"
 )
 
 // MakeRouteIstioSpec creates an Istio route
 func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
 	// if either current or next is inactive, target them to proxy instead of
 	// the backend so the 0->1 transition will happen.
-	placeHolderK8SServiceName := util.GetElaK8SServiceName(u)
+	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
 	for _, route := range routes {
 		destinationWeights = append(destinationWeights,
@@ -53,7 +52,7 @@ func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) is
 func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GetElaIstioRouteRuleName(u),
+			Name:      controller.GetElaIstioRouteRuleName(u),
 			Namespace: ns,
 			Labels: map[string]string{
 				"route": u.Name,
