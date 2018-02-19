@@ -41,6 +41,12 @@
   version = "v2.5.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  revision = "944e07253867aacae43c04b2e6a239005443f33a"
+
+[[projects]]
   name = "github.com/ghodss/yaml"
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
@@ -196,6 +202,50 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/onsi/ginkgo"
+  packages = [
+    ".",
+    "config",
+    "internal/codelocation",
+    "internal/containernode",
+    "internal/failer",
+    "internal/leafnodes",
+    "internal/remote",
+    "internal/spec",
+    "internal/spec_iterator",
+    "internal/specrunner",
+    "internal/suite",
+    "internal/testingtproxy",
+    "internal/writer",
+    "reporters",
+    "reporters/stenographer",
+    "reporters/stenographer/support/go-colorable",
+    "reporters/stenographer/support/go-isatty",
+    "types"
+  ]
+  revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
+  version = "v1.4.0"
+
+[[projects]]
+  name = "github.com/onsi/gomega"
+  packages = [
+    ".",
+    "format",
+    "internal/assertion",
+    "internal/asyncassertion",
+    "internal/oraclematcher",
+    "internal/testingtsupport",
+    "matchers",
+    "matchers/support/goraph/bipartitegraph",
+    "matchers/support/goraph/edge",
+    "matchers/support/goraph/node",
+    "matchers/support/goraph/util",
+    "types"
+  ]
+  revision = "003f63b7f4cff3fc95357005358af2de0f5fe152"
+  version = "v1.3.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/petar/GoLLRB"
   packages = ["llrb"]
@@ -261,6 +311,9 @@
   packages = [
     "context",
     "context/ctxhttp",
+    "html",
+    "html/atom",
+    "html/charset",
     "http2",
     "http2/hpack",
     "idna",
@@ -295,12 +348,24 @@
   packages = [
     "collate",
     "collate/build",
+    "encoding",
+    "encoding/charmap",
+    "encoding/htmlindex",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "encoding/korean",
+    "encoding/simplifiedchinese",
+    "encoding/traditionalchinese",
+    "encoding/unicode",
     "internal/colltab",
     "internal/gen",
     "internal/tag",
     "internal/triegen",
     "internal/ucd",
+    "internal/utf8internal",
     "language",
+    "runes",
     "secure/bidirule",
     "transform",
     "unicode/bidi",
@@ -645,6 +710,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "39f3e408d6d2405adc44c232beb0e53e405779e5efc1ccfbf174b7cc06976e45"
+  inputs-digest = "5360780b8bd461a6fe4c086da226b032ee75a11bfb6ae49d1cfcec441cc57430"
   solver-name = "gps-cdcl"
   solver-version = 1

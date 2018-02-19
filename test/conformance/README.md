@@ -102,7 +102,7 @@ bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=-
 To get `bazel` to run with verbose output:
 
 ```bash
- bazel test //test/...  --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=-ginkgo.v
+bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=-ginkgo.v
 ```
 
 ## Adding conformance tests
