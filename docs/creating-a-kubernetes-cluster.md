@@ -62,28 +62,6 @@ To use a k8s cluster running in GKE:
         --user=$GCP_USER
     ```
 
-7. Enable the GCR API:
-
-   ```shell
-   gcloud --project=$PROJECT_ID service-management enable containerregistry.googleapis.com
-   ```
-
-8. Install the `docker-credential-gcr` helper so Docker (and Bazel) can
-   authenticate with GCR:
-
-   ```shell
-   gcloud components install docker-credential-gcr
-   ```
-
-9. Add the GCR credentials to the Docker config file:
-
-   ```shell
-   docker-credential-gcr configure-docker
-   ```
-
-Now you can use `gcr.io/$PROJECT_ID` as your Docker repo and your GKE
-cluster will automatically pull from it.
-
 ## Minikube
 
 1. [Install and configure
@@ -106,10 +84,10 @@ minikube start \
 
 You can use Google Container Registry as the registry for a Minikube cluster.
 
-1. [Set up a GCR repo](TODO). Export the environment variable  `PROJECT_ID`
-   as the name of your project. Also export `GCR_DOMAIN` as the domain name
-   of your GCR repo. This will be either `gcr.io` or a region-specific variant
-   like `us.gcr.io`.
+1. [Set up a GCR repo](setting-up-a-docker-registry.md). Export the environment
+   variable  `PROJECT_ID` as the name of your project. Also export `GCR_DOMAIN`
+   as the domain name of your GCR repo. This will be either `gcr.io` or a
+   region-specific variant like `us.gcr.io`.
 
    ```shell
    export PROJECT_ID=elafros-demo-project
