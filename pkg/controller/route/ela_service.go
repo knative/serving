@@ -18,7 +18,7 @@ package route
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller/util"
+	"github.com/google/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,7 @@ var servicePort = 80
 func MakeRouteK8SService(u *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetElaK8SServiceName(u),
+			Name:      controller.GetElaK8SServiceName(u),
 			Namespace: u.Namespace,
 		},
 		Spec: corev1.ServiceSpec{

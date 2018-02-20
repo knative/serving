@@ -42,7 +42,6 @@ import (
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
 	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
-	"github.com/google/elafros/pkg/controller/util"
 )
 
 var serviceKind = v1alpha1.SchemeGroupVersion.WithKind("Route")
@@ -356,7 +355,7 @@ func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) erro
 }
 
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
-	ingressName := util.GetElaK8SIngressName(route)
+	ingressName := controller.GetElaK8SIngressName(route)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
@@ -392,7 +391,7 @@ func (c *Controller) getRoutes(u *v1alpha1.Route) ([]RevisionRoute, error) {
 }
 
 func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns string) (RevisionRoute, error) {
-	elaNS := util.GetElaNamespaceName(ns)
+	elaNS := controller.GetElaNamespaceName(ns)
 	// If template specified, fetch last revision otherwise use Revision
 	revisionName := tt.Revision
 	if tt.Configuration != "" {
@@ -438,7 +437,7 @@ func (c *Controller) createOrUpdateRoutes(u *v1alpha1.Route, ns string) ([]Revis
 		glog.Infof("Adding a route to %q Weight: %d", r.Service, r.Weight)
 	}
 
-	routeRuleName := util.GetElaIstioRouteRuleName(u)
+	routeRuleName := controller.GetElaIstioRouteRuleName(u)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {

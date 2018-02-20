@@ -18,7 +18,7 @@ package revision
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller/util"
+	"github.com/google/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +34,7 @@ var servicePort = 80
 func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetElaK8SServiceNameForRevision(u),
+			Name:      controller.GetElaK8SServiceNameForRevision(u),
 			Namespace: ns,
 			Labels: map[string]string{
 				"revision": u.Name,
