@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "format.go",
+        "sort.go",
+    ],
+    importpath = "github.com/google/go-cmp/cmp/internal/value",
+    visibility = ["//vendor/github.com/google/go-cmp/cmp:__subpackages__"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["format_test.go"],
+    embed = [":go_default_library"],
+    importpath = "github.com/google/go-cmp/cmp/internal/value",
+)
+
+go_test(
+    name = "go_default_xtest",
+    srcs = ["sort_test.go"],
+    importpath = "github.com/google/go-cmp/cmp/internal/value_test",
+    deps = [
+        ":go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+    ],
+)
