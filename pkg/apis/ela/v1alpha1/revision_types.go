@@ -45,7 +45,9 @@ type RevisionSpec struct {
 	Generation int64 `json:"generation,omitempty"`
 
 	// TODO(vaikas): I think we still need this?
-	// Service this is part of. Points to the Service in the namespace
+	// TODO(grantr): What is the use case for this?
+	// Service (Route) this is part of. Points to the Service (Route) in the
+	// namespace.
 	Service string `json:"service"`
 
 	// TODO(vaikas): I think we still need this?
