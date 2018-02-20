@@ -103,8 +103,10 @@ func autoscaler() {
 		observedPanicQps := panicQueries / panicWindowSeconds
 		desiredPanicPods := (observedPanicQps / stableQpsPerPod) + 2
 
-		log.Printf("Observed %v QPS average over %v seconds over %v pods.", observedStableQps, stableWindowSeconds, len(stablePods))
-		log.Printf("Observed %v QPS average over %v seconds over %v pods.", observedPanicQps, panicWindowSeconds, len(panicPods))
+		log.Printf("Observed %v QPS total over %v seconds over %v pods.",
+			observedStableQps, stableWindowSeconds, len(stablePods))
+		log.Printf("Observed %v QPS total over %v seconds over %v pods.",
+			observedPanicQps, panicWindowSeconds, len(panicPods))
 
 		// Begin panicking when we cross the short-term QPS per pod threshold.
 		if panicTime == nil && len(panicPods) > 0 && observedPanicQps/int32(len(panicPods)) > panicQpsPerPodThreshold {
@@ -127,10 +129,10 @@ func autoscaler() {
 				panicTime = &tmp
 				maxPanicPods = desiredStablePods
 			}
-			scaleTo(maxPanicPods)
+			go scaleTo(maxPanicPods)
 		} else {
 			log.Println("Operating in stable mode.")
-			scaleTo(desiredStablePods)
+			go scaleTo(desiredStablePods)
 		}
 	}
 
@@ -174,6 +176,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	log.Println("New metrics source online.")
 	for {
 		messageType, msg, err := conn.ReadMessage()
 		if err != nil {
