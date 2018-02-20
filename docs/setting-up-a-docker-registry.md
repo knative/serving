@@ -71,10 +71,10 @@ Install the following tools:
     export DOCKER_REPO_OVERRIDE='us.gcr.io/<your-project-id>'
     ```
 
-    (You may need to use a different region than 'us' if you didn't pick a 'us'
+    (You may need to use a different region than `us` if you didn`t pick a`us`
     Google Cloud region.)
 
 1.  You may need to run `bazel clean` after updating your `DOCKER_REPO_OVERRIDE`
-    variable for `bazel` to pick up the change.
+    environment variable for `bazel` to pick up the change.
 
 That's it, you're done!
