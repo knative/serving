@@ -84,10 +84,10 @@ minikube start \
 
 You can use Google Container Registry as the registry for a Minikube cluster.
 
-1. [Set up a GCR repo](TODO). Export the environment variable  `PROJECT_ID`
-   as the name of your project. Also export `GCR_DOMAIN` as the domain name
-   of your GCR repo. This will be either `gcr.io` or a region-specific variant
-   like `us.gcr.io`.
+1. [Set up a GCR repo](setting-up-a-docker-registry.md). Export the environment
+   variable  `PROJECT_ID` as the name of your project. Also export `GCR_DOMAIN`
+   as the domain name of your GCR repo. This will be either `gcr.io` or a
+   region-specific variant like `us.gcr.io`.
 
    ```shell
    export PROJECT_ID=elafros-demo-project
