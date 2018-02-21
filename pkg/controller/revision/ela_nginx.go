@@ -21,7 +21,7 @@ import (
 	"log"
 
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller/util"
+	"github.com/google/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,10 +51,10 @@ func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*corev1.ConfigM
 
 	return &corev1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetRevisionNginxConfigMapName(u),
+			Name:      controller.GetRevisionNginxConfigMapName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
-				routeLabel: u.Spec.Service,
+				routeLabel:      u.Spec.Service,
 				elaVersionLabel: u.Name,
 			},
 		},

@@ -365,16 +365,16 @@ func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	rtClient := c.elaclientset.ElafrosV1alpha1().Configurations(u.Namespace)
-	newu, err := rtClient.Get(u.Name, metav1.GetOptions{})
+	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(u.Namespace)
+	newu, err := configClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	newu.Status = u.Status
 
 	// TODO: for CRD there's no updatestatus, so use normal update
-	return rtClient.Update(newu)
-	//	return rtClient.UpdateStatus(newu)
+	return configClient.Update(newu)
+	//	return configClient.UpdateStatus(newu)
 }
 
 func (c *Controller) addRevisionEvent(obj interface{}) {
@@ -430,7 +430,7 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 	return ""
 }
 
-// Mark ConfigurationConditionReady of Configuration ready as the givne latest
+// Mark ConfigurationConditionReady of Configuration ready as the given latest
 // created revision is ready. Also set latest field to the given revision.
 func (c *Controller) markConfigurationReady(
 	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
@@ -442,7 +442,7 @@ func (c *Controller) markConfigurationReady(
 			Reason: "LatestRevisionReady",
 		})
 
-	glog.Infof("Seting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
+	glog.Infof("Setting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
 	config.Status.LatestReady = revision.Name
 
 	_, err := c.updateStatus(config)

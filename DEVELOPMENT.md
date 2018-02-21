@@ -1,5 +1,9 @@
 # Development
 
+This doc explains how to setup a development environment so you can get started
+[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the 
+development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/README.md).
+
 ## Getting started
 
 1. Create [a GitHub account](https://github.com/join)
@@ -8,7 +12,8 @@
 1. Install [requirements](#requirements)
 1. Set up your [environment](#environment-setup)
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
-1. Set up a docker repository you can push to
+1. [Set up a docker repository you can push
+   to](./docs/setting-up-a-docker-registry.md)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you meet these requirements, you can [start an `Elafros`
@@ -66,7 +71,7 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to
 
 ### Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory 
+The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory
 in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
@@ -105,10 +110,56 @@ bazel run :controller.replace
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Elafros`](./README.md#start-elafros).
 
-## Running the tests
+## Tests
 
-Running tests as you make changes to the code-base is pretty simple. Just run the `unit_tests.sh` script:
+Running tests as you make changes to the code-base is pretty simple. See [the test docs](./test/README.md).
+
+## Collecting and generating telemetry
+
+To see k8s, Istio & node metrics, deploy Prometheus & service monitors:
 
 ```shell
-./testing/unit_tests.sh
+bazel run config/prometheus:everything.create
 ```
+
+To debug Prometheus installation and configuration, enable Prometheus UI on a public IP and browse to the IP.
+Keep in mind that running below creates a public IP and and all the data in Prometheus is exposed to outside.
+DO NOT run this in production environments or environments with sensitive metrics data.
+
+```shell
+bazel run config/prometheus:everything-public.create
+```
+
+To see Prometheus UI, get load balancer service IP:
+
+```shell
+# Put the Ingress IP into an environment variable.
+$ kubectl get service prometheus-system-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+```
+
+And browse to <IP_ADDRESS>:30800.
+
+To see dashboards, deploy Grafana and expose it on a public IP:
+```shell
+bazel run config/grafana:everything.create
+bazel run config/grafana:everything-public.create
+```
+
+Configuration above installs Grafana with a hard coded admin username and password:
+
+```shell
+Username: admin
+Password: admin
+```
+
+This default configuration should only be used in development environments with no sensitive metric data.
+To login to Grafana UI, get load balancer service IP: 
+
+```shell
+# Put the Ingress IP into an environment variable.
+$ kubectl get service grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+```
+
+And browse to <IP_ADDRESS>:30802.
+
+To generate metrics, see [Telemetry Sample](./sample/telemetrysample/README.md)

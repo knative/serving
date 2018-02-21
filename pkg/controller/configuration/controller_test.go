@@ -186,14 +186,14 @@ func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
 	})
 
 	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		hr := obj.(*v1alpha1.Revision)
-		glog.Infof("checking revision %s", hr.Name)
-		if config.Spec.Template.Spec.Service != hr.Spec.Service {
-			t.Errorf("hr service was not %s", config.Spec.Template.Spec.Service)
+		rev := obj.(*v1alpha1.Revision)
+		glog.Infof("checking revision %s", rev.Name)
+		if config.Spec.Template.Spec.Service != rev.Spec.Service {
+			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
 		}
 		// TODO(mattmoor): The fake doesn't properly support GenerateName,
 		// so it never looks like the BuildName is populated.
-		// if hr.Spec.BuildName == "" {
+		// if rev.Spec.BuildName == "" {
 		// 	t.Error("Missing BuildName; want non-empty, but got empty string")
 		// }
 		return hooks.HookComplete

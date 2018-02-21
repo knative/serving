@@ -17,7 +17,7 @@ limitations under the License.
 package route
 
 /* TODO tests:
-- When a ES is created:
+- When a Route is created:
   - a namespace is created
 
 - When a Revision is updated TODO
@@ -106,11 +106,11 @@ func newRunningTestController(t *testing.T) (
 func TestCreateHSCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
-	es := getTestRoute()
+	route := getTestRoute()
 	h := hooks.NewHooks()
 
 	// Look for the placeholder service to be created.
-	expectedServiceName := fmt.Sprintf("%s-service", es.Name)
+	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
 	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) hooks.HookResult {
 		s := obj.(*corev1.Service)
 		glog.Infof("checking service %s", s.Name)
@@ -119,15 +119,15 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 		}
 		//TODO(grantr): The expected namespace is currently the same as the
 		//Route namespace, but that may change to expectedNamespace.
-		if es.Namespace != s.Namespace {
-			t.Errorf("service namespace was %s, not %s", s.Namespace, es.Namespace)
+		if route.Namespace != s.Namespace {
+			t.Errorf("service namespace was %s, not %s", s.Namespace, route.Namespace)
 		}
 		//TODO nginx port
 		return hooks.HookComplete
 	})
 
 	// Look for the ingress.
-	expectedIngressName := fmt.Sprintf("%s-ela-ingress", es.Name)
+	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
 	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
 		i := obj.(*v1beta1.Ingress)
 		if expectedIngressName != i.Name {
@@ -135,8 +135,8 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 		}
 		//TODO(grantr): The expected namespace is currently the same as the
 		//Route namespace, but that may change to expectedNamespace.
-		if es.Namespace != i.Namespace {
-			t.Errorf("ingress namespace was %s, not %s", i.Namespace, es.Namespace)
+		if route.Namespace != i.Namespace {
+			t.Errorf("ingress namespace was %s, not %s", i.Namespace, route.Namespace)
 		}
 		return hooks.HookComplete
 	})
@@ -154,7 +154,7 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 	// Look for the route.
 	//TODO(grantr): routing is WIP so no tests yet
 
-	elaClient.ElafrosV1alpha1().Routes("test").Create(es)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

@@ -47,7 +47,6 @@ import (
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
 	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
-	"github.com/google/elafros/pkg/controller/util"
 )
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
@@ -354,7 +353,7 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 		}
 	}
 
-	ns, err := util.GetOrCreateRevisionNamespace(namespace, c.kubeclientset)
+	ns, err := controller.GetOrCreateRevisionNamespace(namespace, c.kubeclientset)
 	if err != nil {
 		log.Printf("Failed to create namespace: %s", err)
 		panic("Failed to create namespace")
@@ -457,11 +456,11 @@ func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 	for k := range c.buildtracker.GetTrackers(build) {
 		// Look up the revision to mark complete.
 		namespace, name := splitKey(k)
-		hr, err := c.lister.Revisions(namespace).Get(name)
+		rev, err := c.lister.Revisions(namespace).Get(name)
 		if err != nil {
 			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
 		}
-		if err := c.markBuildComplete(hr, cond); err != nil {
+		if err := c.markBuildComplete(rev, cond); err != nil {
 			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
 		}
 	}
@@ -524,7 +523,7 @@ func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns str
 	deletionTimestamp := accessor.GetDeletionTimestamp()
 	log.Printf("Check the deletionTimestamp: %s\n", deletionTimestamp)
 
-	elaNS := util.GetElaNamespaceName(u.Namespace)
+	elaNS := controller.GetElaNamespaceName(u.Namespace)
 
 	if deletionTimestamp == nil {
 		log.Printf("Creating or reconciling resources for %s\n", u.Name)
@@ -631,7 +630,7 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 }
 
 func (c *RevisionControllerImpl) deleteDeployment(u *v1alpha1.Revision, ns string) error {
-	deploymentName := util.GetRevisionDeploymentName(u)
+	deploymentName := controller.GetRevisionDeploymentName(u)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 	_, err := dc.Get(deploymentName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -656,7 +655,7 @@ func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns st
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 
 	// First, check if deployment exists already.
-	deploymentName := util.GetRevisionDeploymentName(u)
+	deploymentName := controller.GetRevisionDeploymentName(u)
 	_, err := dc.Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -676,7 +675,7 @@ func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns st
 	podSpec := MakeElaPodSpec(u)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GetRevisionPodName(u),
+			Name:      controller.GetRevisionPodName(u),
 			Namespace: ns,
 		},
 		Spec: *podSpec,
@@ -699,7 +698,7 @@ func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns st
 }
 
 func (c *RevisionControllerImpl) deleteNginxConfig(u *v1alpha1.Revision, ns string) error {
-	configMapName := util.GetRevisionNginxConfigMapName(u)
+	configMapName := controller.GetRevisionNginxConfigMapName(u)
 	cmc := c.kubeclientset.Core().ConfigMaps(ns)
 	_, err := cmc.Get(configMapName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -720,7 +719,7 @@ func (c *RevisionControllerImpl) deleteNginxConfig(u *v1alpha1.Revision, ns stri
 
 func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns string) error {
 	cmc := c.kubeclientset.Core().ConfigMaps(ns)
-	configMapName := util.GetRevisionNginxConfigMapName(u)
+	configMapName := controller.GetRevisionNginxConfigMapName(u)
 	_, err := cmc.Get(configMapName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -748,7 +747,7 @@ func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns s
 
 func (c *RevisionControllerImpl) deleteService(u *v1alpha1.Revision, ns string) error {
 	sc := c.kubeclientset.Core().Services(ns)
-	serviceName := util.GetElaK8SServiceNameForRevision(u)
+	serviceName := controller.GetElaK8SServiceNameForRevision(u)
 
 	log.Printf("Deleting service %q", serviceName)
 	tmp := metav1.DeletePropagationForeground
@@ -764,7 +763,7 @@ func (c *RevisionControllerImpl) deleteService(u *v1alpha1.Revision, ns string) 
 
 func (c *RevisionControllerImpl) reconcileService(u *v1alpha1.Revision, ns string) (string, error) {
 	sc := c.kubeclientset.Core().Services(ns)
-	serviceName := util.GetElaK8SServiceNameForRevision(u)
+	serviceName := controller.GetElaK8SServiceNameForRevision(u)
 	_, err := sc.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -788,7 +787,7 @@ func (c *RevisionControllerImpl) reconcileService(u *v1alpha1.Revision, ns strin
 }
 
 func (c *RevisionControllerImpl) deleteAutoscaler(u *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(u)
+	autoscalerName := controller.GetRevisionAutoscalerName(u)
 	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
 	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -809,7 +808,7 @@ func (c *RevisionControllerImpl) deleteAutoscaler(u *v1alpha1.Revision, ns strin
 }
 
 func (c *RevisionControllerImpl) reconcileAutoscaler(u *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(u)
+	autoscalerName := controller.GetRevisionAutoscalerName(u)
 	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
 
 	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})

@@ -18,8 +18,7 @@ package revision
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-
-	"github.com/google/elafros/pkg/controller/util"
+	"github.com/google/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -160,7 +159,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetRevisionDeploymentName(u),
+			Name:      controller.GetRevisionDeploymentName(u),
 			Namespace: namespace,
 			Labels:    MakeElaDeploymentLabels(u),
 		},
