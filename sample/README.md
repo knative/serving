@@ -16,3 +16,4 @@ functionality.
 * [steren's sample-function](./steren-function) - A simple Node.js function
 * [private repos](./private-repos/) - A sample illustrating private GitHub / DockerHub
 * [telemetrysample](./telemetrysample) - A simple webserver emitting logs and metrics
+* [prime calculator](./prime-calculator) - A simple REST service calculating prime (good for scaling demos)

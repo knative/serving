@@ -1,0 +1,25 @@
+apiVersion: elafros.dev/v1alpha1
+kind: Route
+metadata:
+  name: primer
+  namespace: default
+spec:
+  domainSuffix: primer.myhost.net
+  traffic:
+  - configuration: primertemplate
+    percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: primertemplate
+  namespace: default
+spec:
+  template:
+    spec:
+      serviceType: container
+      containerSpec:
+        image: docker.io/mchmarny/primer:latest
+        env:
+          - name: TARGET
+            value: primer_v1
