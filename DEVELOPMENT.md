@@ -1,5 +1,9 @@
 # Development
 
+This doc explains how to setup a development environment so you can get started
+[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the 
+development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/README.md).
+
 ## Getting started
 
 1. Create [a GitHub account](https://github.com/join)
@@ -106,13 +110,9 @@ bazel run :controller.replace
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Elafros`](./README.md#start-elafros).
 
-## Running the tests
+## Tests
 
-Running tests as you make changes to the code-base is pretty simple. Just run the `unit_tests.sh` script:
-
-```shell
-./testing/unit_tests.sh
-```
+Running tests as you make changes to the code-base is pretty simple. See [the test docs](./test/README.md).
 
 ## Collecting and generating telemetry
 

@@ -24,7 +24,7 @@ Conduct](./code-of-conduct.md) at all times.
 
 * All PRs must be pulled from [forks](./DEVELOPMENT.md#checkout-your-fork)
 * All PRs must [be reviewed](#code-reviews)
-* All PRs must [pass the tests](./DEVELOPMENT.md#running-the-tests)
+* All PRs must [pass the tests](./test/README.md)
 
 ### Code reviews
 

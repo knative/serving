@@ -1,0 +1,9 @@
+FROM node
+WORKDIR /usr/src/app
+COPY package.json ./
+ENV PORT=8080
+ENV MESSAGE="Re-energize yourself with a slice of pepperoni!"
+RUN npm install
+COPY server.js ./
+EXPOSE 8080
+CMD [ "npm", "start" ]

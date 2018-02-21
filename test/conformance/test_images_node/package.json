@@ -1,0 +1,13 @@
+{
+  "name": "pizzaplanet",
+  "version": "1.0.0",
+  "description": "Re-energize yourself with a slice of pepperoni!",
+  "author": "Buzz Lightyear <buzz@lightyear.com>",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.16.1"
+  }
+}
