@@ -365,16 +365,16 @@ func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	rtClient := c.elaclientset.ElafrosV1alpha1().Configurations(u.Namespace)
-	newu, err := rtClient.Get(u.Name, metav1.GetOptions{})
+	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(u.Namespace)
+	newu, err := configClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	newu.Status = u.Status
 
 	// TODO: for CRD there's no updatestatus, so use normal update
-	return rtClient.Update(newu)
-	//	return rtClient.UpdateStatus(newu)
+	return configClient.Update(newu)
+	//	return configClient.UpdateStatus(newu)
 }
 
 func (c *Controller) addRevisionEvent(obj interface{}) {

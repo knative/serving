@@ -223,7 +223,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
+			return fmt.Errorf("error syncing %q: %s", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
@@ -268,10 +268,10 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Get the Route resource with this namespace/name
-	es, err := c.lister.Routes(namespace).Get(name)
+	route, err := c.lister.Routes(namespace).Get(name)
 
 	// Don't modify the informers copy
-	es = es.DeepCopy()
+	route = route.DeepCopy()
 
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
@@ -284,7 +284,7 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	glog.Infof("Running reconcile Route for %s\n%+v\n", es.Name, es)
+	glog.Infof("Running reconcile Route for %s\n%+v\n", route.Name, route)
 
 	// Create a placeholder service that is simply used by istio as a placeholder.
 	// This service could eventually be the 'router' service that will get all the
@@ -292,14 +292,14 @@ func (c *Controller) syncHandler(key string) error {
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
 	glog.Infof("Creating/Updating placeholder k8s services")
-	err = c.createPlaceholderService(es, namespace)
+	err = c.createPlaceholderService(route, namespace)
 	if err != nil {
 		return err
 	}
 
 	// Then create the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	err = c.createOrUpdateIngress(es, namespace)
+	err = c.createOrUpdateIngress(route, namespace)
 	if err != nil {
 		if !apierrs.IsAlreadyExists(err) {
 			glog.Infof("Failed to create ingress rule: %s", err)
@@ -309,7 +309,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Then create the actual route rules.
 	glog.Infof("Creating istio route rules")
-	routes, err := c.createOrUpdateRoutes(es, namespace)
+	routes, err := c.createOrUpdateRoutes(route, namespace)
 	if err != nil {
 		glog.Infof("Failed to create Routes: %s", err)
 		return err
@@ -325,9 +325,9 @@ func (c *Controller) syncHandler(key string) error {
 				Percent:  r.Weight,
 			})
 		}
-		es.Status.Traffic = traffic
+		route.Status.Traffic = traffic
 	}
-	updated, err := c.updateStatus(es)
+	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
 		return err
@@ -395,12 +395,12 @@ func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns stri
 	// If template specified, fetch last revision otherwise use Revision
 	revisionName := tt.Revision
 	if tt.Configuration != "" {
-		rtClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
-		rt, err := rtClient.Get(tt.Configuration, metav1.GetOptions{})
+		configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
+		config, err := configClient.Get(tt.Configuration, metav1.GetOptions{})
 		if err != nil {
 			return RevisionRoute{}, err
 		}
-		revisionName = rt.Status.LatestReady
+		revisionName = config.Status.LatestReady
 	}
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 	rev, err := prClient.Get(revisionName, metav1.GetOptions{})
@@ -457,14 +457,14 @@ func (c *Controller) createOrUpdateRoutes(u *v1alpha1.Route, ns string) ([]Revis
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Route) (*v1alpha1.Route, error) {
-	esClient := c.elaclientset.ElafrosV1alpha1().Routes(u.Namespace)
-	newu, err := esClient.Get(u.Name, metav1.GetOptions{})
+	routeClient := c.elaclientset.ElafrosV1alpha1().Routes(u.Namespace)
+	newu, err := routeClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	newu.Status = u.Status
 
 	// TODO: for CRD there's no updatestatus, so use normal update
-	return esClient.Update(newu)
-	//	return rtClient.UpdateStatus(newu)
+	return routeClient.Update(newu)
+	//	return routeClient.UpdateStatus(newu)
 }

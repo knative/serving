@@ -456,11 +456,11 @@ func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 	for k := range c.buildtracker.GetTrackers(build) {
 		// Look up the revision to mark complete.
 		namespace, name := splitKey(k)
-		hr, err := c.lister.Revisions(namespace).Get(name)
+		rev, err := c.lister.Revisions(namespace).Get(name)
 		if err != nil {
 			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
 		}
-		if err := c.markBuildComplete(hr, cond); err != nil {
+		if err := c.markBuildComplete(rev, cond); err != nil {
 			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
 		}
 	}
