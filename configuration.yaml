@@ -23,3 +23,28 @@ spec:
     kind: Configuration
     plural: configurations
   scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            template:
+              properties:
+                spec:
+                  properties:
+                    containerSpec:
+                      # Name, ResourceRequirements, ContainerPort, and VolumeMount
+                      # are set by the Elafros controller, not the user.
+                      properties:
+                        name:
+                          type: string
+                          maxLength: 0
+                        resourceRequirements:
+                          type: array
+                          maxItems: 0
+                        containerPorts:
+                          type: array
+                          maxItems: 0
+                        volumeMount:
+                          type: array
+                          maxItems: 0
