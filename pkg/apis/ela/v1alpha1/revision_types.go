@@ -44,8 +44,8 @@ type RevisionSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// TODO(vaikas): I think we still need this?
-	// TODO(grantr): What is the use case for this?
+	// TODO(grantr): This is used to generate names for sub-resources. Can we
+	// do that a different way that doesn't require this reference to the Route?
 	// Service (Route) this is part of. Points to the Service (Route) in the
 	// namespace.
 	Service string `json:"service"`
