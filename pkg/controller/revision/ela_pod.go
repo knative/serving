@@ -66,7 +66,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 			},
 		},
 		Ports: []corev1.ContainerPort{
-			// TOOD: HTTPS connections from the Cloud LB require
+			// TODO: HTTPS connections from the Cloud LB require
 			// certs. Right now, the static nginx.conf file has
 			// been modified to only allow HTTP connections.
 			{
