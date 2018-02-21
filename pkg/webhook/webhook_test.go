@@ -214,7 +214,8 @@ func TestValidRouteChanges(t *testing.T) {
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
-	err := ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create webhook: %s", err)
 	}
