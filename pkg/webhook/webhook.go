@@ -324,12 +324,9 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 			return fmt.Errorf("Error retrieving webhook: %s", err)
 		}
 		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
-			glog.Infof("Recreating webhook")
-			if err := client.Delete(ac.options.WebhookName, nil); err != nil {
-				return fmt.Errorf("Failed to delete existing webhook: %s", err)
-			}
-			if _, err := client.Create(webhook); err != nil {
-				return fmt.Errorf("Failed to recreate webhook: %s", err)
+			glog.Infof("Updating webhook")
+			if _, err := client.Update(webhook); err != nil {
+				return fmt.Errorf("Failed to update webhook: %s", err)
 			}
 		} else {
 			glog.Infof("Webhook is already valid")
