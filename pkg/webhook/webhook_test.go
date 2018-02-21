@@ -227,8 +227,8 @@ func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	rt := createConfiguration(0)
-	marshaled, err := yaml.Marshal(rt)
+	config := createConfiguration(0)
+	marshaled, err := yaml.Marshal(config)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -248,8 +248,8 @@ func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	rt := createRoute(0)
-	marshaled, err := yaml.Marshal(rt)
+	route := createRoute(0)
+	marshaled, err := yaml.Marshal(route)
 	if err != nil {
 		panic("failed to marshal route")
 	}
