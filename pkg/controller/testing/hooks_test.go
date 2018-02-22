@@ -18,6 +18,7 @@ package testing
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func Example_hooks(t *testing.T) {
+func ExampleHooks() {
 	h := NewHooks()
 	f := fake.NewSimpleClientset()
 
@@ -64,7 +65,7 @@ func Example_hooks(t *testing.T) {
 
 	f.CoreV1().Pods("test").Delete(pod.Name, &metav1.DeleteOptions{})
 	if err := h.WaitForHooks(time.Second); err != nil {
-		t.Error(err)
+		log.Fatal(err)
 	}
 
 	// Output:
