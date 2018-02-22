@@ -22,6 +22,8 @@ import (
 
 var podName string = os.Getenv("ELA_POD")
 var statChan = make(chan *types.Stat, 10)
+var reqInChan = make(chan struct{}, 10)
+var reqOutChan = make(chan struct{}, 10)
 var kubeClient *kubernetes.Clientset
 var statSink *websocket.Conn
 
@@ -88,7 +90,7 @@ func connectStatSink() {
 func statReporter() {
 	for {
 		s := <-statChan
-		log.Println("Sending stat.")
+		log.Printf("Sending stat: %+v", s)
 		if statSink == nil {
 			log.Println("Stat sink not connected.")
 			continue
@@ -111,13 +113,33 @@ func statReporter() {
 	}
 }
 
+func concurrencyReporter() {
+	var concurrentRequests int32 = 0
+	ticker := time.NewTicker(time.Second).C
+	for {
+		select {
+		case <-ticker:
+			stat := &types.Stat{
+				PodName:            podName,
+				ConcurrentRequests: concurrentRequests,
+			}
+			statChan <- stat
+		case <-reqInChan:
+			concurrentRequests = concurrentRequests + 1
+		case <-reqOutChan:
+			concurrentRequests = concurrentRequests - 1
+		}
+	}
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Request received.")
-	stat := &types.Stat{
-		PodName:      podName,
-		RequestCount: 1,
-	}
-	statChan <- stat
+	var in struct{}
+	reqInChan <- in
+	defer func() {
+		var out struct{}
+		reqOutChan <- out
+	}()
 	target, err := url.Parse("http://localhost:8080")
 	if err != nil {
 		panic(err)
@@ -140,6 +162,7 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
+	go concurrencyReporter()
 	defer func() {
 		if statSink != nil {
 			statSink.Close()

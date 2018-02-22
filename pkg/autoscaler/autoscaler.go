@@ -19,13 +19,13 @@ import (
 )
 
 var (
-	stableWindowSeconds float64       = 60
-	stableWindow        time.Duration = 60 * time.Second
-	stableQpsPerPod     float64       = 10
+	stableWindowSeconds     float64       = 60
+	stableWindow            time.Duration = 60 * time.Second
+	stableConcurrencyPerPod float64       = 1
 
-	panicWindowSeconds      float64       = 6
-	panicWindow             time.Duration = 6 * time.Second
-	panicQpsPerPodThreshold float64       = 20
+	panicWindowSeconds              float64       = 6
+	panicWindow                     time.Duration = 6 * time.Second
+	panicConcurrencyPerPodThreshold float64       = stableConcurrencyPerPod * 2
 )
 
 var upgrader = websocket.Upgrader{
@@ -36,52 +36,41 @@ var upgrader = websocket.Upgrader{
 var statChan = make(chan types.Stat, 100)
 var kubeClient *kubernetes.Clientset
 
-type podName string
-
 func autoscaler() {
 
 	// Record QPS per unique observed pod so missing data doesn't skew the results
-	var qps = make(map[time.Time]map[podName]int32)
+	var stats = make(map[time.Time]types.Stat)
 	var panicTime *time.Time
-	var maxPanicPods float64
+	var maxPanicPods float64 = 0
 
 	record := func(stat types.Stat) {
-		second := time.Now().Truncate(time.Second)
-		if _, ok := qps[second]; !ok {
-			qps[second] = make(map[podName]int32)
-		}
-		queries := qps[second]
-		pod := podName(stat.PodName)
-		if count, ok := queries[pod]; ok {
-			queries[pod] = count + stat.RequestCount
-		} else {
-			queries[pod] = stat.RequestCount
-		}
+		now := time.Now()
+		stats[now] = stat
 	}
 
 	tick := func() {
 
-		stableQueries := int32(0)
-		stablePods := make(map[podName]bool)
+		stableTotal := float64(0)
+		stableCount := float64(0)
+		stablePods := make(map[string]bool)
 
-		panicQueries := int32(0)
-		panicPods := make(map[podName]bool)
+		panicTotal := float64(0)
+		panicCount := float64(0)
+		panicPods := make(map[string]bool)
 
 		now := time.Now()
-		for sec, queries := range qps {
+		for sec, stat := range stats {
 			if sec.Add(panicWindow).After(now) {
-				for pod, count := range queries {
-					panicQueries = panicQueries + count
-					panicPods[pod] = true
-				}
+				panicTotal = panicTotal + float64(stat.ConcurrentRequests)
+				panicCount = panicCount + 1
+				panicPods[stat.PodName] = true
 			}
 			if sec.Add(stableWindow).After(now) {
-				for pod, count := range queries {
-					stableQueries = stableQueries + count
-					stablePods[pod] = true
-				}
+				stableTotal = stableTotal + float64(stat.ConcurrentRequests)
+				stableCount = stableCount + 1
+				stablePods[stat.PodName] = true
 			} else {
-				delete(qps, sec)
+				delete(stats, sec)
 			}
 		}
 
@@ -98,19 +87,19 @@ func autoscaler() {
 			return
 		}
 
-		observedStableQps := float64(stableQueries) / float64(stableWindowSeconds)
-		desiredStablePods := (observedStableQps / stableQpsPerPod) + 1
+		observedStableConcurrency := stableTotal / stableCount
+		desiredStablePodCount := (observedStableConcurrency/stableConcurrencyPerPod)*float64(len(stablePods)) + 1
 
-		observedPanicQps := float64(panicQueries) / float64(panicWindowSeconds)
-		desiredPanicPods := (observedPanicQps / stableQpsPerPod) + 2
+		observedPanicConcurrency := panicTotal / panicCount
+		desiredPanicPodCount := (observedPanicConcurrency/stableConcurrencyPerPod)*float64(len(panicPods)) + 1
 
-		log.Printf("Observed %0.1f QPS total over %v seconds over %v pods.",
-			observedStableQps, stableWindowSeconds, len(stablePods))
-		log.Printf("Observed %0.1f QPS total over %v seconds over %v pods.",
-			observedPanicQps, panicWindowSeconds, len(panicPods))
+		log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
+			observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
+		log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
+			observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
 
 		// Begin panicking when we cross the short-term QPS per pod threshold.
-		if panicTime == nil && len(panicPods) > 0 && observedPanicQps/float64(len(panicPods)) > panicQpsPerPodThreshold {
+		if panicTime == nil && len(panicPods) > 0 && observedPanicConcurrency > panicConcurrencyPerPodThreshold {
 			log.Println("PANICKING")
 			tmp := time.Now()
 			panicTime = &tmp
@@ -118,22 +107,16 @@ func autoscaler() {
 
 		if panicTime != nil {
 			log.Printf("Operating in panic mode.")
-			if desiredPanicPods > maxPanicPods {
-				log.Printf("Continue PANICKING. Increasing from %v pods to %v pods.", maxPanicPods, desiredPanicPods)
+			if desiredPanicPodCount > maxPanicPods {
+				log.Printf("Continue PANICKING. Increasing pods from %v to %v.", len(panicPods), desiredPanicPodCount)
 				tmp := time.Now()
 				panicTime = &tmp
-				maxPanicPods = desiredPanicPods
-			}
-			if desiredStablePods > maxPanicPods {
-				log.Printf("Continue PANICKING. Increasing from %v pods to %v pods.", maxPanicPods, desiredStablePods)
-				tmp := time.Now()
-				panicTime = &tmp
-				maxPanicPods = desiredStablePods
+				maxPanicPods = desiredPanicPodCount
 			}
 			go scaleTo(int32(math.Floor(maxPanicPods)))
 		} else {
 			log.Println("Operating in stable mode.")
-			go scaleTo(int32(math.Floor(desiredStablePods)))
+			go scaleTo(int32(math.Floor(desiredStablePodCount)))
 		}
 	}
 
@@ -181,7 +164,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	for {
 		messageType, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
+			log.Println("Metrics source dropping off.")
 			return
 		}
 		if messageType != websocket.BinaryMessage {
