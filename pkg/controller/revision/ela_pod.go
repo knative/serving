@@ -38,7 +38,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	elaContainer.Name = elaContainerName
 	elaContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse("25m"),
+			corev1.ResourceName("cpu"): resource.MustParse("700m"),
 		},
 	}
 	elaContainer.Ports = []corev1.ContainerPort{{
@@ -155,7 +155,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Image: fluentdSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceName("cpu"): resource.MustParse("100m"),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
