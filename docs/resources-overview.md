@@ -4,7 +4,7 @@ This document provides a high-level description of the resources deployed to a K
 
 ## Dependencies
 
-Elafros depends on two other projects in order to function: [Istio][istio] and the [Build CRD][build-crd]. Istio is responsible for setting up the network routing both inside the cluster and ingress into the cluster. The Build CRD provides a custom resource for Kubernetes which provides an extensible primitive for creating container images from various sources e.g. a Git repository.
+Elafros depends on two other projects in order to function: [Istio][istio] and the [Build CRD][build-crd]. Istio is responsible for setting up the network routing both inside the cluster and ingress into the cluster. The Build CRD provides a custom resource for Kubernetes which provides an extensible primitive for creating container images from various sources, for example a Git repository.
 
 You can find out more about both from their respective websites.
 
@@ -13,19 +13,15 @@ You can find out more about both from their respective websites.
 
 ## Components
 
-There are two primary components to the Elafros system. The first, a controller which is responsible for updating the state of the cluster based on user input. The second is the webhook component which handles validation of the objects and actions performed.
+There are two primary components to the Elafros system. The first is a controller which is responsible for updating the state of the cluster based on user input. The second is the webhook component which handles validation of the objects and actions performed.
 
-The controller processes a series of notification events in order to move the system from its current, actual state to the state desired by the user.
+The controller processes a series of state changes in order to move the system from its current, actual state to the state desired by the user.
 
-All of the Elafros components are deployed into the `ela-system` namespace. You can see the various objects in this namespace by running `kubectl -n ela-system get OBJECTS`. For example, to see the webhook and controller deployments inside Elafros you can run `kubectl -n ela-system get deployments`.
-
-The Elafros controller create other child objects inside Kubernetes. You can see these objects by running `kubectl -n ela-system get all`. Unfortunately, despite what the command may say, this doesn't contain all of the resources in the namespace. For example, the controller has a [service account][service-account] which it can use to access the API server.
-
-[service-account]: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+All of the Elafros components are deployed into the `ela-system` namespace. You can see the various objects in this namespace by running `kubectl -n ela-system get all` ([minus some admin-level resources like service accounts](https://github.com/kubernetes/kubectl/issues/151)). To see only objects of a specific type, for example to see the webhook and controller deployments inside Elafros, you can run `kubectl -n ela-system get deployments`. The Elafros controller creates other child objects inside Kubernetes. You can specify the namespace for your child objects by specifying your desired namespace when deploying your Elafros configuration.
 
 ## Precise Object Listing
 
-You can get a single file which contains a list of all of your resources using the following Bazel commands:
+You can get a single file which contains a list of the Kubernetes resources that are installed with Elafros by using the following Bazel commands:
 
 ```
 # All resources including dependencies
@@ -69,7 +65,7 @@ ela-controller-5bfb798f96-2zjnf   1/1       Running   0          9m
 ela-webhook-64c459569b-v5npx      1/1       Running   0          8m
 ```
 
-Similarly, you can run the same commands in the build-crd and istio namespaces to view the running deployments. To view all namespaces, run `kubectl get namespaces`.
+Similarly, you can run the same commands in the build-crd (`build-system`) and istio (`istio-system`) namespaces to view the running deployments. To view all namespaces, run `kubectl get namespaces`.
 
 ### Service Accounts and RBAC policies
 
