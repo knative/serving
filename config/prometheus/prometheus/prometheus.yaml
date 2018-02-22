@@ -25,7 +25,7 @@ spec:
   serviceAccountName: prometheus-system
   serviceMonitorSelector:
     matchExpressions:
-    - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,system]}
+    - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,ela-system]}
   ruleSelector:
     matchLabels:
       role: prometheus-rulefiles

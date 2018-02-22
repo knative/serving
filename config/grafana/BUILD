@@ -11,18 +11,48 @@ k8s_object(
 )
 
 k8s_object(
+    name = "grafana-datasources",
+    template = "datasources.yaml",
+)
+
+k8s_object(
     name = "grafana-dashboards",
     template = "dashboards.yaml",
 )
 
 k8s_object(
-    name = "grafana-dashboard-definitions",
-    template = "dashboard-definitions.yaml",
+    name = "grafana-dashboard-definition-deployment",
+    template = "dashboard-definition/deployment.yaml",
 )
 
 k8s_object(
-    name = "grafana-datasources",
-    template = "datasources.yaml",
+    name = "grafana-dashboard-definition-etcd",
+    template = "dashboard-definition/etcd.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-k8s",
+    template = "dashboard-definition/k8s.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-node",
+    template = "dashboard-definition/node.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-pod",
+    template = "dashboard-definition/pod.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-statefulset",
+    template = "dashboard-definition/statefulset.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-ela-controller",
+    template = "dashboard-definition/ela-controller.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
@@ -32,7 +62,13 @@ k8s_objects(
     objects = [
        ":grafana-datasources",
        ":grafana-dashboards",
-       ":grafana-dashboard-definitions",
+       ":grafana-dashboard-definition-deployment",
+       ":grafana-dashboard-definition-etcd",
+       ":grafana-dashboard-definition-k8s",
+       ":grafana-dashboard-definition-node",
+       ":grafana-dashboard-definition-pod",
+       ":grafana-dashboard-definition-statefulset",
+       ":grafana-dashboard-definition-ela-controller",
        ":grafana-deployment",
     ],
 )

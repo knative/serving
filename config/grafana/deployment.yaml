@@ -36,8 +36,20 @@ spec:
           mountPath: /grafana/conf/provisioning/datasources
         - name: grafana-dashboards
           mountPath: /grafana/conf/provisioning/dashboards
-        - name: grafana-dashboard-definitions-0
-          mountPath: /grafana-dashboard-definitions/0
+        - name: grafana-dashboard-definition-deployment
+          mountPath: /grafana-dashboard-definition/deployment
+        - name: grafana-dashboard-definition-etcd
+          mountPath: /grafana-dashboard-definition/etcd
+        - name: grafana-dashboard-definition-k8s
+          mountPath: /grafana-dashboard-definition/k8s
+        - name: grafana-dashboard-definition-node
+          mountPath: /grafana-dashboard-definition/node
+        - name: grafana-dashboard-definition-pod
+          mountPath: /grafana-dashboard-definition/pod
+        - name: grafana-dashboard-definition-statefulset
+          mountPath: /grafana-dashboard-definition/statefulset
+        - name: grafana-dashboard-definition-ela-controller
+          mountPath: /grafana-dashboard-definition/ela-controller
         ports:
         - name: web
           containerPort: 3000
@@ -57,6 +69,24 @@ spec:
       - name: grafana-dashboards
         configMap:
           name: grafana-dashboards
-      - name: grafana-dashboard-definitions-0
+      - name: grafana-dashboard-definition-deployment
         configMap:
-          name: grafana-dashboard-definitions-0
+          name: grafana-dashboard-definition-deployment
+      - name: grafana-dashboard-definition-etcd
+        configMap:
+          name: grafana-dashboard-definition-etcd
+      - name: grafana-dashboard-definition-k8s
+        configMap:
+          name: grafana-dashboard-definition-k8s
+      - name: grafana-dashboard-definition-node
+        configMap:
+          name: grafana-dashboard-definition-node
+      - name: grafana-dashboard-definition-pod
+        configMap:
+          name: grafana-dashboard-definition-pod
+      - name: grafana-dashboard-definition-statefulset
+        configMap:
+          name: grafana-dashboard-definition-statefulset
+      - name: grafana-dashboard-definition-ela-controller
+        configMap:
+          name: grafana-dashboard-definition-ela-controller

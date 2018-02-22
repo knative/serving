@@ -130,6 +130,11 @@ k8s_object(
     template = "servicemonitor/prometheus-operator.yaml",
 )
 
+k8s_object(
+    name = "prometheus-service-monitor-ela-controller",
+    template = "servicemonitor/ela-controller.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -143,8 +148,8 @@ k8s_objects(
         ":prometheus-role-bindings",
         ":prometheus-operator-deployment",
         ":prometheus-operator-service",
-        ":prometheus-prometheus",
         ":prometheus-service",
+        ":prometheus-prometheus",
         ":prometheus-rules",
         ":prometheus-exporter-kube-controller-metrics",
         ":prometheus-exporter-kube-scheduler-metrics",
@@ -160,6 +165,7 @@ k8s_objects(
         ":prometheus-service-monitor-node-exporter",
         ":prometheus-service-monitor-prometheus",
         ":prometheus-service-monitor-prometheus-operator",
+        ":prometheus-service-monitor-ela-controller",
     ],
 )
 
