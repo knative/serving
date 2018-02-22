@@ -94,7 +94,7 @@ func printErr(err error) error {
 }
 
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
-type RevisionControllerImpl struct {
+type Controller struct {
 	// kubeClient allows us to talk to the k8s for core APIs
 	kubeclientset kubernetes.Interface
 
@@ -150,7 +150,7 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	controller := &RevisionControllerImpl{
+	controller := &Controller{
 		kubeclientset:   kubeclientset,
 		elaclientset:    elaclientset,
 		lister:          informer.Lister(),
@@ -190,7 +190,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 //TODO(grantr): generic
-func (c *RevisionControllerImpl) Run(threadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
@@ -226,7 +226,7 @@ func (c *RevisionControllerImpl) Run(threadiness int, stopCh <-chan struct{}) er
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 //TODO(grantr): generic
-func (c *RevisionControllerImpl) runWorker() {
+func (c *Controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
@@ -234,7 +234,7 @@ func (c *RevisionControllerImpl) runWorker() {
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
 //TODO(vaikas): generic
-func (c *RevisionControllerImpl) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
 	if shutdown {
@@ -290,7 +290,7 @@ func (c *RevisionControllerImpl) processNextWorkItem() bool {
 // queue. This method should *not* be passed resources of any type other than
 // Revision.
 //TODO(grantr): generic
-func (c *RevisionControllerImpl) enqueueRevision(obj interface{}) {
+func (c *Controller) enqueueRevision(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -304,7 +304,7 @@ func (c *RevisionControllerImpl) enqueueRevision(obj interface{}) {
 // converge the two. It then updates the Status block of the Foo resource
 // with the current status of the resource.
 //TODO(grantr): not generic
-func (c *RevisionControllerImpl) syncHandler(key string) error {
+func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -364,7 +364,7 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 }
 
 // reconcileWithImage handles enqueued messages that have an image.
-func (c *RevisionControllerImpl) reconcileWithImage(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileWithImage(u *v1alpha1.Revision, ns string) error {
 	return printErr(c.reconcileOnceBuilt(u, ns))
 }
 
@@ -385,7 +385,7 @@ func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 	return false, false
 }
 
-func (c *RevisionControllerImpl) markServiceReady(u *v1alpha1.Revision) error {
+func (c *Controller) markServiceReady(u *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q ready", u.Name)
 	u.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
@@ -397,7 +397,7 @@ func (c *RevisionControllerImpl) markServiceReady(u *v1alpha1.Revision) error {
 	return err
 }
 
-func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
+func (c *Controller) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
 		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
@@ -443,7 +443,7 @@ func getIsServiceReady(e *corev1.Endpoints) bool {
 	return false
 }
 
-func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
+func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
 	cond := getBuildDoneCondition(build)
@@ -468,11 +468,11 @@ func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 	return
 }
 
-func (c *RevisionControllerImpl) updateBuildEvent(old, new interface{}) {
+func (c *Controller) updateBuildEvent(old, new interface{}) {
 	c.addBuildEvent(new)
 }
 
-func (c *RevisionControllerImpl) addEndpointsEvent(obj interface{}) {
+func (c *Controller) addEndpointsEvent(obj interface{}) {
 	endpoint := obj.(*corev1.Endpoints)
 	eName := endpoint.Name
 	namespace := endpoint.Namespace
@@ -508,12 +508,12 @@ func (c *RevisionControllerImpl) addEndpointsEvent(obj interface{}) {
 	return
 }
 
-func (c *RevisionControllerImpl) updateEndpointsEvent(old, new interface{}) {
+func (c *Controller) updateEndpointsEvent(old, new interface{}) {
 	c.addEndpointsEvent(new)
 }
 
 // reconcileOnceBuilt handles enqueued messages that have an image.
-func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	accessor, err := meta.Accessor(u)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err)
@@ -534,7 +534,7 @@ func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns str
 	return nil
 }
 
-func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteK8SResources(u *v1alpha1.Revision, ns string) error {
 	log.Printf("Deleting the resources for %s\n", u.Name)
 	err := c.deleteDeployment(u, ns)
 	if err != nil {
@@ -576,7 +576,7 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 	return nil
 }
 
-func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) createK8SResources(u *v1alpha1.Revision, ns string) error {
 	// Fire off a Deployment..
 	err := c.reconcileDeployment(u, ns)
 	if err != nil {
@@ -629,7 +629,7 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 	return nil
 }
 
-func (c *RevisionControllerImpl) deleteDeployment(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteDeployment(u *v1alpha1.Revision, ns string) error {
 	deploymentName := controller.GetRevisionDeploymentName(u)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 	_, err := dc.Get(deploymentName, metav1.GetOptions{})
@@ -649,7 +649,7 @@ func (c *RevisionControllerImpl) deleteDeployment(u *v1alpha1.Revision, ns strin
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileDeployment(u *v1alpha1.Revision, ns string) error {
 	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
 	// https://kubernetes.io/docs/reference/workloads-18-19.
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
@@ -697,7 +697,7 @@ func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns st
 	return createErr
 }
 
-func (c *RevisionControllerImpl) deleteNginxConfig(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteNginxConfig(u *v1alpha1.Revision, ns string) error {
 	configMapName := controller.GetRevisionNginxConfigMapName(u)
 	cmc := c.kubeclientset.Core().ConfigMaps(ns)
 	_, err := cmc.Get(configMapName, metav1.GetOptions{})
@@ -717,7 +717,7 @@ func (c *RevisionControllerImpl) deleteNginxConfig(u *v1alpha1.Revision, ns stri
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileNginxConfig(u *v1alpha1.Revision, ns string) error {
 	cmc := c.kubeclientset.Core().ConfigMaps(ns)
 	configMapName := controller.GetRevisionNginxConfigMapName(u)
 	_, err := cmc.Get(configMapName, metav1.GetOptions{})
@@ -745,7 +745,7 @@ func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns s
 	return err
 }
 
-func (c *RevisionControllerImpl) deleteService(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteService(u *v1alpha1.Revision, ns string) error {
 	sc := c.kubeclientset.Core().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(u)
 
@@ -761,7 +761,7 @@ func (c *RevisionControllerImpl) deleteService(u *v1alpha1.Revision, ns string) 
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileService(u *v1alpha1.Revision, ns string) (string, error) {
+func (c *Controller) reconcileService(u *v1alpha1.Revision, ns string) (string, error) {
 	sc := c.kubeclientset.Core().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(u)
 	_, err := sc.Get(serviceName, metav1.GetOptions{})
@@ -786,7 +786,7 @@ func (c *RevisionControllerImpl) reconcileService(u *v1alpha1.Revision, ns strin
 	return serviceName, err
 }
 
-func (c *RevisionControllerImpl) deleteAutoscaler(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscaler(u *v1alpha1.Revision, ns string) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(u)
 	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
 	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})
@@ -807,7 +807,7 @@ func (c *RevisionControllerImpl) deleteAutoscaler(u *v1alpha1.Revision, ns strin
 
 }
 
-func (c *RevisionControllerImpl) reconcileAutoscaler(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscaler(u *v1alpha1.Revision, ns string) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(u)
 	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
 
@@ -831,7 +831,7 @@ func (c *RevisionControllerImpl) reconcileAutoscaler(u *v1alpha1.Revision, ns st
 	return err
 }
 
-func (c *RevisionControllerImpl) removeFinalizers(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) removeFinalizers(u *v1alpha1.Revision, ns string) error {
 	log.Printf("Removing finalizers for %q\n", u.Name)
 	accessor, err := meta.Accessor(u)
 	if err != nil {
@@ -852,7 +852,7 @@ func (c *RevisionControllerImpl) removeFinalizers(u *v1alpha1.Revision, ns strin
 	return nil
 }
 
-func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+func (c *Controller) updateStatus(u *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(u.Namespace)
 	newu, err := prClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
