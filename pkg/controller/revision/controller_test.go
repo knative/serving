@@ -137,13 +137,48 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		d := obj.(*v1beta1.Deployment)
 		glog.Infof("checking d %s", d.Name)
 		if expectedDeploymentName != d.Name {
-			t.Errorf("deployment was not named %s", expectedDeploymentName)
+			t.Errorf("deployment was not named %s. Got %s", expectedDeploymentName, d.Name)
 		}
 		if expectedNamespace != d.Namespace {
 			t.Errorf("deployment namespace was not %s", expectedNamespace)
 		}
 		if len(d.OwnerReferences) != 1 && rev.Name != d.OwnerReferences[0].Name {
 			t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+		}
+		foundQueueProxy := false
+		for _, container := range d.Spec.Template.Spec.Containers {
+			if container.Name == "queue-proxy" {
+				foundQueueProxy = true
+				envVars := make(map[string]corev1.EnvVar)
+				for _, e := range container.Env {
+					envVars[e.Name] = e
+				}
+				check := func(name, value, fieldPath string) {
+					v, ok := envVars[name]
+					if !ok {
+						t.Errorf("Missing environment variable %s", name)
+					}
+					if value != "" && v.Value != value {
+						t.Errorf("Incorrect environment variable %s. Expected value %s. Got %s.", name, value, v.Value)
+					}
+					if fieldPath != "" {
+						if vf := v.ValueFrom; vf == nil {
+							t.Errorf("Incorrect environment variable %s. Missing value source.", name)
+						} else if fr := vf.FieldRef; fr == nil {
+							t.Errorf("Incorrect environment variable %s. Missing field ref.", name)
+						} else if fr.FieldPath != fieldPath {
+							t.Errorf("Incorrect environment variable %s. Expected field path %s. Got %s.",
+								name, fr.FieldPath, fieldPath)
+						}
+					}
+				}
+				check("ELA_NAMESPACE", "test", "")
+				check("ELA_REVISION", "test-rev", "")
+				check("ELA_POD", "", "metadata.name")
+			}
+		}
+		if !foundQueueProxy {
+			t.Error("Missing queue-proxy")
 		}
 		return hooks.HookComplete
 	})
@@ -185,7 +220,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		if !ok {
 			t.Error("expected configmap data to have \"nginx.conf\" key")
 		}
-		matched, err := regexp.Match("upstream app_server.*127\\.0\\.0\\.1:8080", []byte(data))
+		matched, err := regexp.Match("upstream queue.*127\\.0\\.0\\.1:8012", []byte(data))
 		if err != nil {
 			t.Error(err)
 		} else if !matched {
