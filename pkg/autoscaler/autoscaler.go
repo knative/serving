@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"time"
@@ -18,13 +19,13 @@ import (
 )
 
 var (
-	stableWindowSeconds int32         = 60
+	stableWindowSeconds float64       = 60
 	stableWindow        time.Duration = 60 * time.Second
-	stableQpsPerPod     int32         = 10
+	stableQpsPerPod     float64       = 10
 
-	panicWindowSeconds      int32         = 6
+	panicWindowSeconds      float64       = 6
 	panicWindow             time.Duration = 6 * time.Second
-	panicQpsPerPodThreshold int32         = 20
+	panicQpsPerPodThreshold float64       = 20
 )
 
 var upgrader = websocket.Upgrader{
@@ -42,7 +43,7 @@ func autoscaler() {
 	// Record QPS per unique observed pod so missing data doesn't skew the results
 	var qps = make(map[time.Time]map[podName]int32)
 	var panicTime *time.Time
-	var maxPanicPods int32
+	var maxPanicPods float64
 
 	record := func(stat types.Stat) {
 		second := time.Now().Truncate(time.Second)
@@ -97,19 +98,19 @@ func autoscaler() {
 			return
 		}
 
-		observedStableQps := stableQueries / stableWindowSeconds
+		observedStableQps := float64(stableQueries) / float64(stableWindowSeconds)
 		desiredStablePods := (observedStableQps / stableQpsPerPod) + 1
 
-		observedPanicQps := panicQueries / panicWindowSeconds
+		observedPanicQps := float64(panicQueries) / float64(panicWindowSeconds)
 		desiredPanicPods := (observedPanicQps / stableQpsPerPod) + 2
 
-		log.Printf("Observed %v QPS total over %v seconds over %v pods.",
+		log.Printf("Observed %0.1f QPS total over %v seconds over %v pods.",
 			observedStableQps, stableWindowSeconds, len(stablePods))
-		log.Printf("Observed %v QPS total over %v seconds over %v pods.",
+		log.Printf("Observed %0.1f QPS total over %v seconds over %v pods.",
 			observedPanicQps, panicWindowSeconds, len(panicPods))
 
 		// Begin panicking when we cross the short-term QPS per pod threshold.
-		if panicTime == nil && len(panicPods) > 0 && observedPanicQps/int32(len(panicPods)) > panicQpsPerPodThreshold {
+		if panicTime == nil && len(panicPods) > 0 && observedPanicQps/float64(len(panicPods)) > panicQpsPerPodThreshold {
 			log.Println("PANICKING")
 			tmp := time.Now()
 			panicTime = &tmp
@@ -129,10 +130,10 @@ func autoscaler() {
 				panicTime = &tmp
 				maxPanicPods = desiredStablePods
 			}
-			go scaleTo(maxPanicPods)
+			go scaleTo(int32(math.Floor(maxPanicPods)))
 		} else {
 			log.Println("Operating in stable mode.")
-			go scaleTo(desiredStablePods)
+			go scaleTo(int32(math.Floor(desiredStablePods)))
 		}
 	}
 
