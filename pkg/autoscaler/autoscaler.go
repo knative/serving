@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/elafros/pkg/autoscaler/types"
@@ -21,12 +22,27 @@ import (
 var (
 	stableWindowSeconds     float64       = 60
 	stableWindow            time.Duration = 60 * time.Second
-	stableConcurrencyPerPod float64       = 1
+	stableConcurrencyPerPod float64
 
 	panicWindowSeconds              float64       = 6
 	panicWindow                     time.Duration = 6 * time.Second
-	panicConcurrencyPerPodThreshold float64       = stableConcurrencyPerPod * 2
+	panicConcurrencyPerPodThreshold float64
 )
+
+func init() {
+	targetConcurrencyPerProcess := os.Getenv("ELA_TARGET_CONCURRENCY")
+	if targetConcurrencyPerProcess == "" {
+		stableConcurrencyPerPod = 10
+	} else {
+		concurrency, err := strconv.Atoi(targetConcurrencyPerProcess)
+		if err != nil {
+			panic(err)
+		}
+		stableConcurrencyPerPod = float64(concurrency)
+	}
+	panicConcurrencyPerPodThreshold = stableConcurrencyPerPod * 2
+	log.Printf("Target concurrency: %0.2f. Panic threshold %0.2f", stableConcurrencyPerPod, panicConcurrencyPerPodThreshold)
+}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,

@@ -85,7 +85,7 @@ const (
 )
 
 var (
-	elaPodReplicaCount       = int32(2)
+	elaPodReplicaCount       = int32(1)
 	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPort                  = 8080
