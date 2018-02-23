@@ -33,6 +33,8 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	nginxConfigMapName := name + "-" + serviceID + "-proxy-configmap"
 
 	elaContainer := u.Spec.ContainerSpec.DeepCopy()
+	// Adding or removing an overwritten corev1.Container field here? Don't forget to
+	// update the validations in pkg/webhook.validateContainerSpec.
 	elaContainer.Name = elaContainerName
 	elaContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
