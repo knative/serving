@@ -3,142 +3,106 @@ package lib
 import (
 	"log"
 	"math"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/google/elafros/pkg/autoscaler/types"
 )
 
-var (
-	stableWindowSeconds     float64       = 60
-	stableWindow            time.Duration = 60 * time.Second
-	stableConcurrencyPerPod float64
-
-	panicWindowSeconds              float64       = 6
-	panicWindow                     time.Duration = 6 * time.Second
-	panicConcurrencyPerPodThreshold float64
+const (
+	stableWindowSeconds float64       = 60
+	stableWindow        time.Duration = 60 * time.Second
+	panicWindowSeconds  float64       = 6
+	panicWindow         time.Duration = 6 * time.Second
 )
 
-func init() {
-	targetConcurrencyPerProcess := os.Getenv("ELA_TARGET_CONCURRENCY")
-	if targetConcurrencyPerProcess == "" {
-		stableConcurrencyPerPod = 10
-	} else {
-		concurrency, err := strconv.Atoi(targetConcurrencyPerProcess)
-		if err != nil {
-			panic(err)
-		}
-		stableConcurrencyPerPod = float64(concurrency)
-	}
-	panicConcurrencyPerPodThreshold = stableConcurrencyPerPod * 2
-	log.Printf("Target concurrency: %0.2f. Panic threshold %0.2f", stableConcurrencyPerPod, panicConcurrencyPerPodThreshold)
-}
-
 type Autoscaler struct {
-	tickerChan <-chan time.Time
-	statChan   chan types.Stat
-	scaleToFn  func(int32)
+	stableConcurrencyPerPod         float64
+	panicConcurrencyPerPodThreshold float64
+	stats                           map[time.Time]types.Stat
+	panicking                       bool
+	panicTime                       *time.Time
+	maxPanicPods                    float64
 }
 
-func NewAutoscaler(tickerChan <-chan time.Time, statChan chan types.Stat, scaleToFn func(int32)) *Autoscaler {
+func NewAutoscaler(targetConcurrency float64) *Autoscaler {
 	return &Autoscaler{
-		tickerChan: tickerChan,
-		statChan:   statChan,
-		scaleToFn:  scaleToFn,
+		stableConcurrencyPerPod:         targetConcurrency,
+		panicConcurrencyPerPodThreshold: targetConcurrency * 2,
+		stats: make(map[time.Time]types.Stat),
 	}
 }
 
-func (a *Autoscaler) Run() {
+func (a *Autoscaler) Record(stat types.Stat, now time.Time) {
+	a.stats[now] = stat
+}
 
-	// Record QPS per unique observed pod so missing data doesn't skew the results
-	var stats = make(map[time.Time]types.Stat)
-	var panicTime *time.Time
-	var maxPanicPods float64 = 0
+func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
-	record := func(stat types.Stat) {
-		now := time.Now()
-		stats[now] = stat
-	}
+	stableTotal := float64(0)
+	stableCount := float64(0)
+	stablePods := make(map[string]bool)
 
-	tick := func() {
+	panicTotal := float64(0)
+	panicCount := float64(0)
+	panicPods := make(map[string]bool)
 
-		stableTotal := float64(0)
-		stableCount := float64(0)
-		stablePods := make(map[string]bool)
-
-		panicTotal := float64(0)
-		panicCount := float64(0)
-		panicPods := make(map[string]bool)
-
-		now := time.Now()
-		for sec, stat := range stats {
-			if sec.Add(panicWindow).After(now) {
-				panicTotal = panicTotal + float64(stat.ConcurrentRequests)
-				panicCount = panicCount + 1
-				panicPods[stat.PodName] = true
-			}
-			if sec.Add(stableWindow).After(now) {
-				stableTotal = stableTotal + float64(stat.ConcurrentRequests)
-				stableCount = stableCount + 1
-				stablePods[stat.PodName] = true
-			} else {
-				delete(stats, sec)
-			}
+	for sec, stat := range a.stats {
+		if sec.Add(panicWindow).After(now) {
+			panicTotal = panicTotal + float64(stat.ConcurrentRequests)
+			panicCount = panicCount + 1
+			panicPods[stat.PodName] = true
 		}
-
-		// Stop panicking after the surge has made its way into the stable metric.
-		if panicTime != nil && panicTime.Add(stableWindow).Before(time.Now()) {
-			log.Println("Un-panicking.")
-			panicTime = nil
-			maxPanicPods = 0
-		}
-
-		// Do nothing when we have no data.
-		if len(stablePods) == 0 {
-			log.Println("No data to scale on.")
-			return
-		}
-
-		observedStableConcurrency := stableTotal / stableCount
-		desiredStablePodCount := (observedStableConcurrency/stableConcurrencyPerPod)*float64(len(stablePods)) + 1
-
-		observedPanicConcurrency := panicTotal / panicCount
-		desiredPanicPodCount := (observedPanicConcurrency/stableConcurrencyPerPod)*float64(len(panicPods)) + 1
-
-		log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
-			observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
-		log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
-			observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
-
-		// Begin panicking when we cross the short-term QPS per pod threshold.
-		if panicTime == nil && len(panicPods) > 0 && observedPanicConcurrency > panicConcurrencyPerPodThreshold {
-			log.Println("PANICKING")
-			tmp := time.Now()
-			panicTime = &tmp
-		}
-
-		if panicTime != nil {
-			log.Printf("Operating in panic mode.")
-			if desiredPanicPodCount > maxPanicPods {
-				log.Printf("Continue PANICKING. Increasing pods from %v to %v.", len(panicPods), desiredPanicPodCount)
-				tmp := time.Now()
-				panicTime = &tmp
-				maxPanicPods = desiredPanicPodCount
-			}
-			go a.scaleToFn(int32(math.Floor(maxPanicPods)))
+		if sec.Add(stableWindow).After(now) {
+			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
+			stableCount = stableCount + 1
+			stablePods[stat.PodName] = true
 		} else {
-			log.Println("Operating in stable mode.")
-			go a.scaleToFn(int32(math.Floor(desiredStablePodCount)))
+			delete(a.stats, sec)
 		}
 	}
 
-	for {
-		select {
-		case <-a.tickerChan:
-			tick()
-		case s := <-a.statChan:
-			record(s)
+	// Stop panicking after the surge has made its way into the stable metric.
+	if a.panicking && a.panicTime.Add(stableWindow).Before(time.Now()) {
+		log.Println("Un-panicking.")
+		a.panicking = false
+		a.panicTime = nil
+		a.maxPanicPods = 0
+	}
+
+	// Do nothing when we have no data.
+	if len(stablePods) == 0 {
+		log.Println("No data to scale on.")
+		return 0, false
+	}
+
+	observedStableConcurrency := stableTotal / stableCount
+	desiredStablePodCount := (observedStableConcurrency/a.stableConcurrencyPerPod)*float64(len(stablePods)) + 1
+
+	observedPanicConcurrency := panicTotal / panicCount
+	desiredPanicPodCount := (observedPanicConcurrency/a.stableConcurrencyPerPod)*float64(len(panicPods)) + 1
+
+	log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
+		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
+	log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
+		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
+
+	// Begin panicking when we cross the short-term QPS per pod threshold.
+	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency > a.panicConcurrencyPerPodThreshold {
+		log.Println("PANICKING")
+		a.panicking = true
+		a.panicTime = &now
+	}
+
+	if a.panicking {
+		log.Printf("Operating in panic mode.")
+		if desiredPanicPodCount > a.maxPanicPods {
+			log.Printf("Continue PANICKING. Increasing pods from %v to %v.", len(panicPods), desiredPanicPodCount)
+			a.panicTime = &now
+			a.maxPanicPods = desiredPanicPodCount
 		}
+		return int32(math.Floor(a.maxPanicPods)), true
+	} else {
+		log.Println("Operating in stable mode.")
+		return int32(math.Floor(desiredStablePodCount)), true
 	}
 }

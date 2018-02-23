@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/elafros/pkg/autoscaler/lib"
@@ -25,6 +26,35 @@ var upgrader = websocket.Upgrader{
 
 var kubeClient *kubernetes.Clientset
 var statChan = make(chan types.Stat, 100)
+
+func autoscaler() {
+	targetConcurrency := float64(10)
+
+	targetConcurrencyParam := os.Getenv("ELA_TARGET_CONCURRENCY")
+	if targetConcurrencyParam != "" {
+		concurrency, err := strconv.Atoi(targetConcurrencyParam)
+		if err != nil {
+			panic(err)
+		}
+		targetConcurrency = float64(concurrency)
+	}
+	log.Printf("Target concurrency: %0.2f.", targetConcurrency)
+
+	a := lib.NewAutoscaler(targetConcurrency)
+	ticker := time.NewTicker(2 * time.Second)
+
+	for {
+		select {
+		case <-ticker.C:
+			scale, ok := a.Scale(time.Now())
+			if ok {
+				go scaleTo(scale)
+			}
+		case s := <-statChan:
+			a.Record(s, time.Now())
+		}
+	}
+}
 
 func scaleTo(podCount int32) {
 	log.Printf("Target scale is %v", podCount)
@@ -87,9 +117,7 @@ func main() {
 		panic(err)
 	}
 	kubeClient = kc
-	tickerChan := time.NewTicker(2 * time.Second).C
-	autoscaler := lib.NewAutoscaler(tickerChan, statChan, scaleTo)
-	go autoscaler.Run()
+	go autoscaler()
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
 }
