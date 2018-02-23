@@ -21,7 +21,7 @@ Then browse to localhost:3000
 bazel run config/grafana:everything-public.create
 
 # Wait for the load balancer IP creation to finish and get the IP address once done:
-$ kubectl get service grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+kubectl get service -n monitoring grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
 ```
 
 Then browse to <IP_ADDRESS>:30802.
