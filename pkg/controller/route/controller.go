@@ -46,7 +46,7 @@ import (
 )
 
 var (
-	serviceKind           = v1alpha1.SchemeGroupVersion.WithKind("Route")
+	controllerKind        = v1alpha1.SchemeGroupVersion.WithKind("Route")
 	routeProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "elafros",
 		Name:      "route_process_item_count",
@@ -353,7 +353,7 @@ func (c *Controller) syncHandler(key string) error {
 
 func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) error {
 	service := MakeRouteK8SService(u)
-	serviceRef := metav1.NewControllerRef(u, serviceKind)
+	serviceRef := metav1.NewControllerRef(u, controllerKind)
 	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
 
 	sc := c.kubeclientset.Core().Services(ns)
@@ -375,7 +375,7 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 
 	// Check to see if we need to create or update
 	ingress := MakeRouteIngress(route, ns)
-	serviceRef := metav1.NewControllerRef(route, serviceKind)
+	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
 	_, err := ic.Get(ingressName, metav1.GetOptions{})
