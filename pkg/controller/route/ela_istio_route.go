@@ -60,7 +60,7 @@ func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute) 
 		},
 		Spec: MakeRouteIstioSpec(u, ns, routes),
 	}
-	serviceRef := metav1.NewControllerRef(u, serviceKind)
+	serviceRef := metav1.NewControllerRef(u, controllerKind)
 	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
 	return r
 }
