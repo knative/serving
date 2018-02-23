@@ -83,7 +83,8 @@ func validateContainerSpec(container *corev1.Container) error {
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
-	// the users.
+	// the users.  See pkg/controller/revision.MakeElaPodSpec for the list of fields
+	// overridden.
 	var ignoredFields []string
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "template.spec.containerSpec.name")
