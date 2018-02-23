@@ -28,18 +28,21 @@ import (
 	"testing"
 	"time"
 
-	v1beta1 "k8s.io/api/extensions/v1beta1"
-
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/google/elafros/pkg/apis/istio/v1alpha2"
 	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/rest"
+	kubetesting "k8s.io/client-go/testing"
 
 	hooks "github.com/google/elafros/pkg/controller/testing"
 
@@ -54,7 +57,89 @@ func getTestRoute() *v1alpha1.Route {
 			Name:      "test-route",
 			Namespace: "test",
 		},
+		Spec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{
+				v1alpha1.TrafficTarget{
+					Revision: "test-rev",
+					Percent:  100,
+				},
+			},
+		},
 	}
+}
+
+func getTestRouteWithMultipleTargets() *v1alpha1.Route {
+	return &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/Routes/test-route",
+			Name:      "test-route",
+			Namespace: "test",
+		},
+		Spec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{
+				v1alpha1.TrafficTarget{
+					Configuration: "test-config",
+					Percent:       90,
+				},
+				v1alpha1.TrafficTarget{
+					Revision: "test-rev",
+					Percent:  10,
+				},
+			},
+		},
+	}
+}
+
+func getTestRevision(name string) *v1alpha1.Revision {
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/test/revisions/%s", name),
+			Name:      name,
+			Namespace: "test",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			ContainerSpec: &corev1.Container{
+				Image: "test-image",
+			},
+		},
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: fmt.Sprintf("%s-service", name),
+		},
+	}
+}
+
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisiontemplates/test-config",
+			Name:      "test-config",
+			Namespace: "test",
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			// This is a workaround for generation initialization
+			Generation: 1,
+			Template: v1alpha1.Revision{
+				Spec: v1alpha1.RevisionSpec{
+					ContainerSpec: &corev1.Container{
+						Image: "test-image",
+					},
+				},
+			},
+		},
+	}
+}
+
+func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision {
+	rev := config.Spec.Template.DeepCopy()
+	rev.ObjectMeta = metav1.ObjectMeta{
+		SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
+		Name:      "p-deadbeef",
+		Namespace: "test",
+	}
+	rev.Status = v1alpha1.RevisionStatus{
+		ServiceName: "p-deadbeef-service",
+	}
+	return rev
 }
 
 func newRunningTestController(t *testing.T) (
@@ -103,10 +188,11 @@ func newRunningTestController(t *testing.T) (
 	return
 }
 
-func TestCreateHSCreatesStuff(t *testing.T) {
+func TestCreateRouteCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRoute()
+	rev := getTestRevision("test-rev")
 	h := hooks.NewHooks()
 
 	// Look for the placeholder service to be created.
@@ -117,12 +203,18 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 		if e, a := expectedServiceName, s.Name; e != a {
 			t.Errorf("unexpected service: %q expected: %q", a, e)
 		}
-		//TODO(grantr): The expected namespace is currently the same as the
-		//Route namespace, but that may change to expectedNamespace.
-		if route.Namespace != s.Namespace {
-			t.Errorf("service namespace was %s, not %s", s.Namespace, route.Namespace)
+		if e, a := route.Namespace, s.Namespace; e != a {
+			t.Errorf("unexpected route namespace: %q expected: %q", a, e)
 		}
-		//TODO nginx port
+
+		expectedPort := corev1.ServicePort{
+			Name: "http",
+			Port: 80,
+		}
+
+		if len(s.Spec.Ports) != 1 || s.Spec.Ports[0] != expectedPort {
+			t.Error("expected a single service port http/80")
+		}
 		return hooks.HookComplete
 	})
 
@@ -130,13 +222,11 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
 	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
 		i := obj.(*v1beta1.Ingress)
-		if expectedIngressName != i.Name {
-			t.Errorf("ingress was not named %s", expectedIngressName)
+		if e, a := expectedIngressName, i.Name; e != a {
+			t.Errorf("unexpected ingress name: %q expected: %q", a, e)
 		}
-		//TODO(grantr): The expected namespace is currently the same as the
-		//Route namespace, but that may change to expectedNamespace.
-		if route.Namespace != i.Namespace {
-			t.Errorf("ingress namespace was %s, not %s", i.Namespace, route.Namespace)
+		if e, a := route.Namespace, i.Namespace; e != a {
+			t.Errorf("unexpected ingress namespace: %q expected: %q", a, e)
 		}
 		return hooks.HookComplete
 	})
@@ -152,8 +242,110 @@ func TestCreateHSCreatesStuff(t *testing.T) {
 	})
 
 	// Look for the route.
-	//TODO(grantr): routing is WIP so no tests yet
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
+		rule := obj.(*v1alpha2.RouteRule)
 
+		// Check labels
+		expectedLabels := map[string]string{"route": route.Name}
+		if diff := cmp.Diff(expectedLabels, rule.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+
+		// Check owner refs
+		expectedRefs := []metav1.OwnerReference{
+			metav1.OwnerReference{
+				APIVersion: "elafros.dev/v1alpha1",
+				Kind:       "Route",
+				Name:       "test-route",
+			},
+		}
+
+		if diff := cmp.Diff(expectedRefs, rule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+			t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
+		}
+
+		expectedRouteSpec := v1alpha2.RouteRuleSpec{
+			Destination: v1alpha2.IstioService{
+				Name: "test-route-service",
+			},
+			Route: []v1alpha2.DestinationWeight{
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 100,
+				},
+			},
+		}
+
+		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+			t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRouteWithMultipleTargets(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithMultipleTargets()
+	rev := getTestRevision("test-rev")
+	config := getTestConfiguration()
+	h := hooks.NewHooks()
+
+	// Create a Revision when the Configuration is created to simulate the action
+	// of the Configuration controller, which isn't running during this test.
+	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
+		cfgrev := getTestRevisionForConfig(cfg)
+		// This must be a goroutine to avoid deadlocking the Fake fixture
+		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
+		// Set LatestReady to this revision
+		cfg.Status.LatestReady = cfgrev.Name
+		// Return the modified Configuration so the object passed to later reactors
+		// (including the fixture reactor) has our Status mutation
+		return false, cfg, nil
+	})
+
+	// Look for the route.
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
+		rule := obj.(*v1alpha2.RouteRule)
+
+		expectedRouteSpec := v1alpha2.RouteRuleSpec{
+			Destination: v1alpha2.IstioService{
+				Name: "test-route-service",
+			},
+			Route: []v1alpha2.DestinationWeight{
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "p-deadbeef-service.test",
+					},
+					Weight: 90,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 10,
+				},
+			},
+		}
+
+		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
