@@ -38,9 +38,9 @@ To access to the web UI, forward the Prometheus server to your machine:
 kubectl port-forward -n default $(kubectl get pods -n default --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
-Then browse to http://localhost:9090 to access the UI. To see the targets that are being scraped, 
-go to Status -> Targets. To see what Prometheus service discovery is picking up vs. dropping, 
-go to Status -> Service Discovery.
+Then browse to http://localhost:9090 to access the UI:
+* To see the targets that are being scraped, go to Status -> Targets
+* To see what Prometheus service discovery is picking up vs. dropping, go to Status -> Service Discovery
 
 ## Generating metrics
 
