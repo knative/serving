@@ -131,56 +131,71 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		return hooks.HookComplete
 	})
 
+	checkEnv := func(env []corev1.EnvVar, name, value, fieldPath string) {
+		nameFound := false
+		for _, e := range env {
+			if e.Name == name {
+				nameFound = true
+				if value != "" && e.Value != value {
+					t.Errorf("Incorrect environment variable %s. Expected value %s. Got %s.", name, value, e.Value)
+				}
+				if fieldPath != "" {
+					if vf := e.ValueFrom; vf == nil {
+						t.Errorf("Incorrect environment variable %s. Missing value source.", name)
+					} else if fr := vf.FieldRef; fr == nil {
+						t.Errorf("Incorrect environment variable %s. Missing field ref.", name)
+					} else if fr.FieldPath != fieldPath {
+						t.Errorf("Incorrect environment variable %s. Expected field path %s. Got %s.",
+							name, fr.FieldPath, fieldPath)
+					}
+				}
+			}
+		}
+		if !nameFound {
+			t.Errorf("Missing environment variable %s", name)
+		}
+	}
+
 	// Look for the ela and autoscaler deployments.
 	expectedDeploymentName := fmt.Sprintf("%s-%s-ela-deployment", rev.Name, rev.Spec.Service)
 	expectedAutoscalerName := fmt.Sprintf("%s-%s-autoscaler", rev.Name, rev.Spec.Service)
 	h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) hooks.HookResult {
 		d := obj.(*v1beta1.Deployment)
 		glog.Infof("checking d %s", d.Name)
+		if expectedNamespace != d.Namespace {
+			t.Errorf("Deployment namespace was not %s. Got %s.", expectedNamespace, d.Namespace)
+		}
+		if len(d.OwnerReferences) != 1 && rev.Name != d.OwnerReferences[0].Name {
+			t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+		}
 		if d.Name == expectedDeploymentName {
-			if expectedNamespace != d.Namespace {
-				t.Errorf("Deployment namespace was not %s. Got %s.", expectedNamespace, d.Namespace)
-			}
-			if len(d.OwnerReferences) != 1 && rev.Name != d.OwnerReferences[0].Name {
-				t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
-			}
+			// Check the ela deployment queue proxy environment variables
 			foundQueueProxy := false
 			for _, container := range d.Spec.Template.Spec.Containers {
 				if container.Name == "queue-proxy" {
 					foundQueueProxy = true
-					envVars := make(map[string]corev1.EnvVar)
-					for _, e := range container.Env {
-						envVars[e.Name] = e
-					}
-					check := func(name, value, fieldPath string) {
-						v, ok := envVars[name]
-						if !ok {
-							t.Errorf("Missing environment variable %s", name)
-						}
-						if value != "" && v.Value != value {
-							t.Errorf("Incorrect environment variable %s. Expected value %s. Got %s.", name, value, v.Value)
-						}
-						if fieldPath != "" {
-							if vf := v.ValueFrom; vf == nil {
-								t.Errorf("Incorrect environment variable %s. Missing value source.", name)
-							} else if fr := vf.FieldRef; fr == nil {
-								t.Errorf("Incorrect environment variable %s. Missing field ref.", name)
-							} else if fr.FieldPath != fieldPath {
-								t.Errorf("Incorrect environment variable %s. Expected field path %s. Got %s.",
-									name, fr.FieldPath, fieldPath)
-							}
-						}
-					}
-					check("ELA_NAMESPACE", "test", "")
-					check("ELA_REVISION", "test-rev", "")
-					check("ELA_POD", "", "metadata.name")
+					checkEnv(container.Env, "ELA_NAMESPACE", "test", "")
+					checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+					checkEnv(container.Env, "ELA_POD", "", "metadata.name")
 				}
 			}
 			if !foundQueueProxy {
 				t.Error("Missing queue-proxy")
 			}
 		} else if d.Name == expectedAutoscalerName {
-			// test autoscaler
+			// Check the autoscaler deployment environment variables
+			foundAutoscaler := false
+			for _, container := range d.Spec.Template.Spec.Containers {
+				if container.Name == "autoscaler" {
+					foundAutoscaler = true
+					checkEnv(container.Env, "ELA_NAMESPACE", "test", "")
+					checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
+					checkEnv(container.Env, "ELA_TARGET_CONCURRENCY", "10", "")
+				}
+			}
+			if !foundAutoscaler {
+				t.Error("Missing autoscaler")
+			}
 		} else {
 			t.Errorf("Deployment was not named %s or %s. Got %s.", expectedDeploymentName, expectedAutoscalerName, d.Name)
 		}
