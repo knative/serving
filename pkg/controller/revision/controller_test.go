@@ -71,7 +71,7 @@ func getTestRevision() *v1alpha1.Revision {
 func newRunningTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
-	controller *RevisionControllerImpl,
+	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
@@ -93,7 +93,7 @@ func newRunningTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-	).(*RevisionControllerImpl)
+	).(*Controller)
 	if !ok {
 		t.Fatal("cast to *Controller failed")
 	}

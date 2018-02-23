@@ -416,6 +416,7 @@ func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns stri
 		}
 		revisionName = config.Status.LatestReady
 	}
+	//TODO(grantr): What should happen if revisionName is empty?
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 	rev, err := prClient.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
