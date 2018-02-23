@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/google/elafros/pkg/apis/ela"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
 	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
@@ -52,8 +53,13 @@ const controllerAgentName = "configuration-controller"
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 const (
+	// ConfigurationLabelKey is the label key attached to a Revison indicating by
+	// which Configuration it is created.
+	ConfigurationLabelKey = ela.GroupName + "/configuration"
+
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
 	SuccessSynced = "Synced"
+
 	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
 	// to sync due to a Deployment of the same name already existing.
 	ErrResourceExists = "ErrResourceExists"
@@ -325,6 +331,11 @@ func (c *Controller) syncHandler(key string) error {
 	// so use the namespace of the configuration that's being updated for the Revision being
 	// created.
 	rev.ObjectMeta.Namespace = config.Namespace
+
+	if rev.ObjectMeta.Labels == nil {
+		rev.ObjectMeta.Labels = make(map[string]string)
+	}
+	rev.ObjectMeta.Labels[ConfigurationLabelKey] = config.Name
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
