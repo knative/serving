@@ -71,6 +71,27 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 	}
 }
 
+func TestEmptyContainerSpecNotAllowed(t *testing.T) {
+	configuration := v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testConfigurationName,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: testGeneration,
+			Template: v1alpha1.Revision{
+				Spec: v1alpha1.RevisionSpec{
+					ContainerSpec: &corev1.Container{},
+				},
+			},
+		},
+	}
+
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerSpecInTemplate {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
+	}
+}
+
 func TestUnwantedFieldInContainerSpecNotAllowed(t *testing.T) {
 	container := corev1.Container{
 		Name: "Not Allowed",

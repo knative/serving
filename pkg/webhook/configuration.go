@@ -28,9 +28,10 @@ import (
 )
 
 var (
-	errEmptySpecInConfiguration  = errors.New("The configuration must have configuration spec")
-	errEmptyTemplateInSpec       = errors.New("The configuration spec must have configuration")
-	errInvalidConfigurationInput = errors.New("Failed to convert input into configuration")
+	errEmptyContainerSpecInTemplate = errors.New("The configuration template must have a container spec")
+	errEmptySpecInConfiguration     = errors.New("The configuration must have configuration spec")
+	errEmptyTemplateInSpec          = errors.New("The configuration spec must have configuration")
+	errInvalidConfigurationInput    = errors.New("Failed to convert input into configuration")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
@@ -77,8 +78,8 @@ func validateTemplate(template *v1alpha1.Revision) error {
 }
 
 func validateContainerSpec(container *corev1.Container) error {
-	if container == nil {
-		return nil
+	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
+		return errEmptyContainerSpecInTemplate
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
