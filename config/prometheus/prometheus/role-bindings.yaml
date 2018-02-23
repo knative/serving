@@ -24,7 +24,21 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: default
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: prometheus-system
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-system
+subjects:
+- kind: ServiceAccount
+  name: prometheus-system
+  namespace: monitoring
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
@@ -38,7 +52,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: default
+  namespace: monitoring
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
@@ -52,7 +66,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: default
+  namespace: monitoring
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -65,4 +79,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-system
-  namespace: default
+  namespace: monitoring

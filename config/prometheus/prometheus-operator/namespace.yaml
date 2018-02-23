@@ -13,17 +13,6 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: ConfigMap
+kind: Namespace
 metadata:
-  name: grafana-datasources
-  namespace: monitoring
-data:
-  prometheus.yaml: |+
-    datasources:
-     - name: prometheus
-       type: prometheus
-       access: proxy
-       org_id: 1
-       url: http://prometheus-system-np:8080
-       version: 1
-       editable: false
+  name: monitoring

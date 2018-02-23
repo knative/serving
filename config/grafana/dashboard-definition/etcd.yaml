@@ -16,6 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-etcd
+  namespace: monitoring
 data:
   etcd-dashboard.json: |+
     {

@@ -16,6 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-ela-controller
+  namespace: monitoring
 data:
   ela-controller-dashboard.json: |+
     {
