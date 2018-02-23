@@ -148,7 +148,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 		}
 
 		if rev.Labels[ConfigurationLabelKey] != config.Name {
-			t.Errorf("rev does not have lable <%s:%s>", ConfigurationLabelKey, config.Name)
+			t.Errorf("rev does not have label <%s:%s>", ConfigurationLabelKey, config.Name)
 		}
 
 		if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {

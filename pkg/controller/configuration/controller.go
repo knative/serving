@@ -52,8 +52,8 @@ const controllerAgentName = "configuration-controller"
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 const (
-	// The label key attached to a Revison indicating by which Configuration it is
-	// created.
+	// ConfigurationLabelKey is the label key attached to a Revison indicating by
+	// which Configuration it is created.
 	ConfigurationLabelKey = "elafros.dev/configuration"
 
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
@@ -331,9 +331,10 @@ func (c *Controller) syncHandler(key string) error {
 	// created.
 	rev.ObjectMeta.Namespace = config.Namespace
 
-	rev.ObjectMeta.Labels = map[string]string{
-		ConfigurationLabelKey: config.Name,
+	if rev.ObjectMeta.Labels == nil {
+		rev.ObjectMeta.Labels = make(map[string]string)
 	}
+	rev.ObjectMeta.Labels[ConfigurationLabelKey] = config.Name
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
