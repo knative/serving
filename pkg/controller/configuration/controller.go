@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/google/elafros/pkg/apis/ela"
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
 	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
@@ -54,7 +55,7 @@ var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 const (
 	// ConfigurationLabelKey is the label key attached to a Revison indicating by
 	// which Configuration it is created.
-	ConfigurationLabelKey = "elafros.dev/configuration"
+	ConfigurationLabelKey = ela.GroupName + "/configuration"
 
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
 	SuccessSynced = "Synced"
