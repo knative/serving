@@ -76,11 +76,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "prometheus-public",
-    template = "prometheus/service-public.yaml",
-)
-
-k8s_object(
     name = "prometheus-rules",
     template = "prometheus/rules.yaml",
 )
@@ -149,7 +144,6 @@ k8s_objects(
         ":prometheus-operator-deployment",
         ":prometheus-operator-service",
         ":prometheus-service",
-        ":prometheus-prometheus",
         ":prometheus-rules",
         ":prometheus-exporter-kube-controller-metrics",
         ":prometheus-exporter-kube-scheduler-metrics",
@@ -166,12 +160,6 @@ k8s_objects(
         ":prometheus-service-monitor-prometheus",
         ":prometheus-service-monitor-prometheus-operator",
         ":prometheus-service-monitor-ela-controller",
-    ],
-)
-
-k8s_objects(
-    name = "everything-public",
-    objects = [
-        ":prometheus-public",
+        ":prometheus-prometheus",
     ],
 )

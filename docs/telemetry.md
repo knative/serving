@@ -4,39 +4,43 @@ Deploy Prometheus, service monitors and Grafana:
 ```shell
 bazel run config/prometheus:everything.create
 bazel run config/grafana:everything.create
-bazel run config/grafana:everything-public.create
 ```
 
-To see pre-installed system dashboards, find the public IP that Grafana is exposed on:
+To see pre-installed dashboards, you have two options:
+1. Forward the Grafana server to your machine:
 
 ```shell
-# Put the Ingress IP into an environment variable.
+kubectl port-forward -n default $(kubectl get pods -n default --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
+```
+
+Then browse to localhost:3000
+
+2. Deploy grafana-public and open a public IP for the Grafana endpoint:
+
+```shell
+bazel run config/grafana:everything-public.create
+
+# Wait for the load balancer IP creation to finish and get the IP address once done:
 $ kubectl get service grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
 ```
 
-And browse to <IP_ADDRESS>:30802.
+Then browse to <IP_ADDRESS>:30802.
 
 **Above installs Grafana with a hard coded admin username (_admin_) and password (_admin_) 
-and publishes it on a public IP. This should only be done in a development environment with no sensitive data.**
+and exposes it on a public IP. This should only be done in a development environment with no sensitive data.**
 
 ## Troubleshooting
 
-You can expose Prometheus UI to troubleshoot metric publishing or service discovery issues:
+You can use Prometheus web UI to troubleshoot publishing and service discovery issues. 
+To access to the web UI, forward the Prometheus server to your machine:
 
 ```shell
-bazel run config/prometheus:everything-public.create
+kubectl port-forward -n default $(kubectl get pods -n default --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
-**Run this only in a development environment with no sensitive data. This step enables viewing all metrics on a public IP without any authorization.**
-
-Wait until the load balancer IP is created and then copy the IP address:
-
-```shell
-# Put the Ingress IP into an environment variable.
-$ kubectl get service prometheus-system-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
-```
-
-And browse to <IP_ADDRESS>:30800.
+Then browse to http://localhost:9090 to access the UI:
+* To see the targets that are being scraped, go to Status -> Targets
+* To see what Prometheus service discovery is picking up vs. dropping, go to Status -> Service Discovery
 
 ## Generating metrics
 
@@ -46,7 +50,8 @@ and emitting metrics to it.
 If you want to generate metrics within Elafros services and send them to shared instance of Prometheus, 
 follow the steps below. We will create a counter metric below:
 1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/) 
-and read [Data model](https://prometheus.io/docs/concepts/data_model/) and [Metric types](https://prometheus.io/docs/concepts/metric_types/) sections.
+and read [Data model](https://prometheus.io/docs/concepts/data_model/) and 
+[Metric types](https://prometheus.io/docs/concepts/metric_types/) sections.
 2. Create a top level variable in your go file and initialize it in init() - example:
 
 ```go
