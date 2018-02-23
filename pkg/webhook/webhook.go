@@ -325,6 +325,8 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 		}
 		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
 			glog.Infof("Updating webhook")
+			// Set the ResourceVersion as required by update.
+			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
 			if _, err := client.Update(webhook); err != nil {
 				return fmt.Errorf("Failed to update webhook: %s", err)
 			}
