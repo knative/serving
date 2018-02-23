@@ -134,7 +134,7 @@ func newRunningTestController(t *testing.T) (
 	return
 }
 
-func TestCreateConfigurationsCreatesPR(t *testing.T) {
+func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
@@ -145,6 +145,10 @@ func TestCreateConfigurationsCreatesPR(t *testing.T) {
 		glog.Infof("checking revision %s", rev.Name)
 		if config.Spec.Template.Spec.Service != rev.Spec.Service {
 			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
+		}
+
+		if rev.Labels[ConfigurationLabelKey] != config.Name {
+			t.Errorf("rev does not have lable <%s:%s>", ConfigurationLabelKey, config.Name)
 		}
 
 		if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {

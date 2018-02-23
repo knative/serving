@@ -52,8 +52,13 @@ const controllerAgentName = "configuration-controller"
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 const (
+	// The label key attached to a Revison indicating by which Configuration it is
+	// created.
+	ConfigurationLabelKey = "elafros.dev/configuration"
+
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
 	SuccessSynced = "Synced"
+
 	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
 	// to sync due to a Deployment of the same name already existing.
 	ErrResourceExists = "ErrResourceExists"
@@ -325,6 +330,10 @@ func (c *Controller) syncHandler(key string) error {
 	// so use the namespace of the configuration that's being updated for the Revision being
 	// created.
 	rev.ObjectMeta.Namespace = config.Namespace
+
+	rev.ObjectMeta.Labels = map[string]string{
+		ConfigurationLabelKey: config.Name,
+	}
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
