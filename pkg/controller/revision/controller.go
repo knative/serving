@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -78,12 +79,23 @@ const (
 
 const controllerAgentName = "revision-controller"
 
-var elaPodReplicaCount = int32(2)
-var elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-var elaPodMaxSurge = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-var elaPort = 8080
-var nginxHttpPort = 8180
-var requestQueuePort = 8012
+var (
+	elaPodReplicaCount       = int32(2)
+	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPort                  = 8080
+	nginxHttpPort            = 8180
+	requestQueuePort         = 8012
+	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "elafros",
+		Name:      "revision_process_item_count",
+		Help:      "Counter to keep track of items in the revision work queue",
+	}, []string{"status"})
+)
+
+func init() {
+	prometheus.MustRegister(revisionProcessItemCount)
+}
 
 // Helper to make sure we log error messages returned by Reconcile().
 func printErr(err error) error {
@@ -242,7 +254,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err := func(obj interface{}) error {
+	err, promStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -263,19 +275,21 @@ func (c *Controller) processNextWorkItem() bool {
 			// process a work item that is invalid.
 			c.workqueue.Forget(obj)
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
+			return nil, controller.PromLabelValueInvalid
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
+			return fmt.Errorf("error syncing '%s': %s", key, err.Error()), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
 		glog.Infof("Successfully synced '%s'", key)
-		return nil
+		return nil, controller.PromLabelValueSuccess
 	}(obj)
+
+	revisionProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
 
 	if err != nil {
 		runtime.HandleError(err)

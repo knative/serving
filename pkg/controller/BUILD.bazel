@@ -6,6 +6,7 @@ go_library(
         "controller.go",
         "doc.go",
         "names.go",
+        "promethus_labels.go",
     ],
     importpath = "github.com/google/elafros/pkg/controller",
     visibility = ["//visibility:public"],

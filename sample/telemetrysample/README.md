@@ -1,8 +1,8 @@
 # Telemetry Sample
 
-A simple web server that you can use for testing. When called, the
-server waits randomly up to 1 second and emmits metrics that you can 
-see in Prometheus.
+This sample runs a simple web server and responds the requests with "Hello World!" 
+with a random delay up to 1 second. The purpose of this sample is to show creating
+dedicated Prometheus instances and emmitting metrics to it.
 
 ## Prerequisites
 
