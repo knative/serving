@@ -17,7 +17,9 @@ There are two primary components to the Elafros system. The first is a controlle
 
 The controller processes a series of state changes in order to move the system from its current, actual state to the state desired by the user.
 
-All of the Elafros components are deployed into the `ela-system` namespace. You can see the various objects in this namespace by running `kubectl -n ela-system get all` ([minus some admin-level resources like service accounts](https://github.com/kubernetes/kubectl/issues/151)). To see only objects of a specific type, for example to see the webhook and controller deployments inside Elafros, you can run `kubectl -n ela-system get deployments`. The Elafros controller creates other child objects inside Kubernetes. You can specify the namespace for your child objects by specifying your desired namespace when deploying your Elafros configuration.
+All of the Elafros components are deployed into the `ela-system` namespace. You can see the various objects in this namespace by running `kubectl -n ela-system get all` ([minus some admin-level resources like service accounts](https://github.com/kubernetes/kubectl/issues/151)). To see only objects of a specific type, for example to see the webhook and controller deployments inside Elafros, you can run `kubectl -n ela-system get deployments`.
+
+The Elafros controller creates Kubernetes, Istio, and Build CRD resources when Elafros resources are created and updated. These sub-resources will be created in the same namespace as their parent Elafros resource, _not_ the `ela-system` namespace.
 
 ## Precise Object Listing
 
