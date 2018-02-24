@@ -509,14 +509,15 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revName, err)
 		return
 	}
-	// Don't modify the informer's copy.
-	rev = rev.DeepCopy()
 
 	// Check to see if the revision has already been marked as ready and if
 	// it is, then there's no need to do anything to it.
 	if rev.Status.IsReady() {
 		return
 	}
+
+	// Don't modify the informer's copy.
+	rev = rev.DeepCopy()
 
 	if err := c.markServiceReady(rev); err != nil {
 		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revName, err)

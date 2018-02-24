@@ -401,14 +401,15 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 			namespace, configName, err)
 		return
 	}
-	// Don't modify the informer's copy.
-	config = config.DeepCopy()
 
 	if revision.Name != config.Status.LatestCreated {
 		// The revision isn't the latest created one, so ignore this event.
 		glog.Infof("Revision %q is not the latest created one", revisionName)
 		return
 	}
+
+	// Don't modify the informer's copy.
+	config = config.DeepCopy()
 
 	if err := c.markConfigurationReady(config, revision); err != nil {
 		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
