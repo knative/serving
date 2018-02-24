@@ -401,6 +401,8 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 			namespace, configName, err)
 		return
 	}
+	// Don't modify the informer's copy.
+	config = config.DeepCopy()
 
 	if revision.Name != config.Status.LatestCreated {
 		// The revision isn't the latest created one, so ignore this event.
