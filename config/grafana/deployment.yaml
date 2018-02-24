@@ -16,6 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: grafana
+  namespace: monitoring
 spec:
   replicas: 1
   template:

@@ -10,7 +10,7 @@ To see pre-installed dashboards, you have two options:
 1. Forward the Grafana server to your machine:
 
 ```shell
-kubectl port-forward -n default $(kubectl get pods -n default --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
+kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
 Then browse to localhost:3000
@@ -21,7 +21,7 @@ Then browse to localhost:3000
 bazel run config/grafana:everything-public.create
 
 # Wait for the load balancer IP creation to finish and get the IP address once done:
-$ kubectl get service grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+kubectl get service -n monitoring grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
 ```
 
 Then browse to <IP_ADDRESS>:30802.
@@ -35,7 +35,7 @@ You can use Prometheus web UI to troubleshoot publishing and service discovery i
 To access to the web UI, forward the Prometheus server to your machine:
 
 ```shell
-kubectl port-forward -n default $(kubectl get pods -n default --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
+kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
 Then browse to http://localhost:9090 to access the UI:
@@ -131,6 +131,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: myappname
+  namespace: monitoring
   labels:
     monitor-category: ela-system # Shared Prometheus instance only targets 'k8s', 'istio', 'node',
                                  # 'prometheus' or 'ela-system' - if you pick something else, 
