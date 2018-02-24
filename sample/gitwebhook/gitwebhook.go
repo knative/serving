@@ -32,62 +32,58 @@ import (
 )
 
 const (
+	// Secret given to github. Used for verifying the incoming objects.
 	accessTokenKey = "ACCESS_TOKEN"
+	// Personal Access Token created in github that allows us to make
+	// calls into github.
 	secretTokenKey = "SECRET_TOKEN"
+	// this is what we tack onto each PR title if not there already
+	titleSuffix = "looks pretty legit"
 )
 
+// GithubHandler holds necessary objects for communicating with the Github.
 type GithubHandler struct {
-	accessToken string
-	secretToken string
-	hook        *github.Webhook
-	client      *ghclient.Client
-	ctx         context.Context
+	client *ghclient.Client
+	ctx    context.Context
 }
 
-func NewGithubHandler(accessToken string, secretToken string, hook *github.Webhook, client *ghclient.Client, context context.Context) *GithubHandler {
+func NewGithubHandler(client *ghclient.Client, context context.Context) *GithubHandler {
 	return &GithubHandler{
-		accessToken: accessToken,
-		secretToken: secretToken,
-		hook:        hook,
-		client:      client,
-		ctx:         context,
+		client: client,
+		ctx:    context,
 	}
 }
 
+// HandlePullRequest is invoked whenever a PullRequest is modified (created, updated, etc.)
 func (handler *GithubHandler) HandlePullRequest(payload interface{}, header webhooks.Header) {
 	glog.Info("Handling Pull Request")
 
 	pl := payload.(github.PullRequestPayload)
 
 	// Do whatever you want from here...
-	glog.Infof("GOT PR:\n%+v", pl)
+	title := pl.PullRequest.Title
+	glog.Infof("GOT PR with Title: %q", title)
 
 	// Check the title and if it contains 'looks pretty legit' leave it alone
-	if strings.Contains(pl.PullRequest.Title, "looks pretty legit") {
-		// already modified, call it good...
+	if strings.Contains(title, titleSuffix) {
+		// already modified, leave it alone.
 		return
 	}
 
-	s := fmt.Sprintf("%s (%s)", pl.PullRequest.Title, "looks pretty legit")
+	newTitle := fmt.Sprintf("%s (%s)", title, titleSuffix)
 	updatedPR := ghclient.PullRequest{
-		Title: &s,
+		Title: &newTitle,
 	}
 	newPR, response, err := handler.client.PullRequests.Edit(handler.ctx, pl.Repository.Owner.Login, pl.Repository.Name, int(pl.Number), &updatedPR)
 	if err != nil {
-		glog.Warningf("Failed to update PR: %s", err)
+		glog.Warningf("Failed to update PR: %s\n%s", err, response)
 		return
 	}
-	glog.Infof("New PR: %v\nresponse: %s", newPR, response)
-}
-
-func (handler *GithubHandler) HandleLabelRequest(payload interface{}, header webhooks.Header) {
-	glog.Info("Handling Label Request")
-
-	pl := payload.(github.LabelPayload)
-
-	// Do whatever you want from here...
-	glog.Infof("GOT Label Request:\n%+v", pl)
-	glog.Infof("Action is: %q", pl.Action)
+	if newPR.Title != nil {
+		glog.Infof("New PR Title: %q", *newPR.Title)
+	} else {
+		glog.Infof("New PR title is nil")
+	}
 }
 
 func main() {
@@ -96,8 +92,10 @@ func main() {
 	flag.Lookup("logtostderr").Value.Set("true")
 	accessToken := os.Getenv(accessTokenKey)
 	secretToken := os.Getenv(secretTokenKey)
-	hook := github.New(&github.Config{Secret: secretToken})
 
+	// Set up the auth for being able to talk to Github. It's
+	// odd that you have to also pass context around for the
+	// calls even after giving it to client. But, whatever.
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: accessToken},
@@ -106,9 +104,10 @@ func main() {
 
 	client := ghclient.NewClient(tc)
 
-	h := NewGithubHandler(accessToken, secretToken, hook, client, ctx)
+	h := NewGithubHandler(client, ctx)
+
+	hook := github.New(&github.Config{Secret: secretToken})
 	hook.RegisterEvents(h.HandlePullRequest, github.PullRequestEvent)
-	hook.RegisterEvents(h.HandleLabelRequest, github.LabelEvent)
 
 	err := webhooks.Run(hook, ":8080", "/")
 	if err != nil {
