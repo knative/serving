@@ -419,6 +419,9 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
+	// Don't modify the informer's copy.
+	config = config.DeepCopy()
+
 	if err := c.markConfigurationReady(config, revision); err != nil {
 		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
 			namespace, configName, err)
