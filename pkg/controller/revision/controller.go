@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -46,13 +48,12 @@ import (
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
 	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
-	"github.com/google/elafros/pkg/controller/util"
 )
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 
 const (
-	elaServiceLabel string = "elaservice"
+	routeLabel      string = "route"
 	elaVersionLabel string = "revision"
 
 	elaContainerName string = "ela-container"
@@ -78,12 +79,23 @@ const (
 
 const controllerAgentName = "revision-controller"
 
-var elaPodReplicaCount = int32(2)
-var elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-var elaPodMaxSurge = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-var elaPort = 8080
-var nginxHttpPort = 8180
-var requestQueuePort = 8012
+var (
+	elaPodReplicaCount       = int32(2)
+	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPort                  = 8080
+	nginxHttpPort            = 8180
+	requestQueuePort         = 8012
+	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "elafros",
+		Name:      "revision_process_item_count",
+		Help:      "Counter to keep track of items in the revision work queue",
+	}, []string{"status"})
+)
+
+func init() {
+	prometheus.MustRegister(revisionProcessItemCount)
+}
 
 // Helper to make sure we log error messages returned by Reconcile().
 func printErr(err error) error {
@@ -94,7 +106,7 @@ func printErr(err error) error {
 }
 
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
-type RevisionControllerImpl struct {
+type Controller struct {
 	// kubeClient allows us to talk to the k8s for core APIs
 	kubeclientset kubernetes.Interface
 
@@ -116,6 +128,9 @@ type RevisionControllerImpl struct {
 	recorder record.EventRecorder
 
 	buildtracker *buildTracker
+
+	// don't start the workers until endpoints cache have been synced
+	endpointsSynced cache.InformerSynced
 }
 
 // Init initializes the controller and is called by the generated code
@@ -132,8 +147,10 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config) controller.Interface {
 
-	// obtain a reference to a shared index informer for the Revision type.
+	// obtain references to a shared index informer for the Revision and
+	// Endpoint type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -145,14 +162,15 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	controller := &RevisionControllerImpl{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:      recorder,
-		buildtracker:  &buildTracker{builds: map[key]set{}},
+	controller := &Controller{
+		kubeclientset:   kubeclientset,
+		elaclientset:    elaclientset,
+		lister:          informer.Lister(),
+		synced:          informer.Informer().HasSynced,
+		endpointsSynced: endpointsInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:        recorder,
+		buildtracker:    &buildTracker{builds: map[key]set{}},
 	}
 
 	glog.Info("Setting up event handlers")
@@ -171,6 +189,11 @@ func NewController(
 		UpdateFunc: controller.updateBuildEvent,
 	})
 
+	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addEndpointsEvent,
+		UpdateFunc: controller.updateEndpointsEvent,
+	})
+
 	return controller
 }
 
@@ -179,7 +202,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 //TODO(grantr): generic
-func (c *RevisionControllerImpl) Run(threadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
@@ -190,6 +213,12 @@ func (c *RevisionControllerImpl) Run(threadiness int, stopCh <-chan struct{}) er
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	// Wait for the caches to be synced before starting workers
+	glog.Info("Waiting for endpoints informer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.endpointsSynced); !ok {
+		return fmt.Errorf("failed to wait for endpoints caches to sync")
 	}
 
 	glog.Info("Starting workers")
@@ -209,7 +238,7 @@ func (c *RevisionControllerImpl) Run(threadiness int, stopCh <-chan struct{}) er
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 //TODO(grantr): generic
-func (c *RevisionControllerImpl) runWorker() {
+func (c *Controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
@@ -217,7 +246,7 @@ func (c *RevisionControllerImpl) runWorker() {
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
 //TODO(vaikas): generic
-func (c *RevisionControllerImpl) processNextWorkItem() bool {
+func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
 	if shutdown {
@@ -225,7 +254,7 @@ func (c *RevisionControllerImpl) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err := func(obj interface{}) error {
+	err, promStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -246,19 +275,21 @@ func (c *RevisionControllerImpl) processNextWorkItem() bool {
 			// process a work item that is invalid.
 			c.workqueue.Forget(obj)
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
+			return nil, controller.PromLabelValueInvalid
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
+			return fmt.Errorf("error syncing '%s': %s", key, err.Error()), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
 		glog.Infof("Successfully synced '%s'", key)
-		return nil
+		return nil, controller.PromLabelValueSuccess
 	}(obj)
+
+	revisionProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
 
 	if err != nil {
 		runtime.HandleError(err)
@@ -273,7 +304,7 @@ func (c *RevisionControllerImpl) processNextWorkItem() bool {
 // queue. This method should *not* be passed resources of any type other than
 // Revision.
 //TODO(grantr): generic
-func (c *RevisionControllerImpl) enqueueRevision(obj interface{}) {
+func (c *Controller) enqueueRevision(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -287,7 +318,7 @@ func (c *RevisionControllerImpl) enqueueRevision(obj interface{}) {
 // converge the two. It then updates the Status block of the Foo resource
 // with the current status of the resource.
 //TODO(grantr): not generic
-func (c *RevisionControllerImpl) syncHandler(key string) error {
+func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -313,11 +344,12 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 	if rev.Spec.BuildName != "" {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				setCondition(rev, "BuildComplete", &v1alpha1.RevisionCondition{
-					Type:   "BuildComplete",
-					Status: "False",
-					Reason: "Building",
-				})
+				rev.Status.SetCondition(
+					&v1alpha1.RevisionCondition{
+						Type:   v1alpha1.RevisionConditionBuildComplete,
+						Status: corev1.ConditionFalse,
+						Reason: "Building",
+					})
 				// Let this trigger a reconciliation loop.
 				if _, err := c.updateStatus(rev); err != nil {
 					glog.Errorf("Error recording the BuildComplete=False condition: %s", err)
@@ -335,7 +367,7 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 		}
 	}
 
-	ns, err := util.GetOrCreateRevisionNamespace(namespace, c.kubeclientset)
+	ns, err := controller.GetOrCreateRevisionNamespace(namespace, c.kubeclientset)
 	if err != nil {
 		log.Printf("Failed to create namespace: %s", err)
 		panic("Failed to create namespace")
@@ -346,42 +378,57 @@ func (c *RevisionControllerImpl) syncHandler(key string) error {
 }
 
 // reconcileWithImage handles enqueued messages that have an image.
-func (c *RevisionControllerImpl) reconcileWithImage(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileWithImage(u *v1alpha1.Revision, ns string) error {
 	return printErr(c.reconcileOnceBuilt(u, ns))
 }
 
 // Checks whether the Revision knows whether the build is done.
+// TODO(mattmoor): Use a method on the Build type.
 func isBuildDone(u *v1alpha1.Revision) (done, failed bool) {
 	for _, cond := range u.Status.Conditions {
-		if cond.Status != "True" {
+		if cond.Status != corev1.ConditionTrue {
 			continue
 		}
 		switch cond.Type {
-		case "BuildComplete":
+		case v1alpha1.RevisionConditionBuildComplete:
 			return true, false
-		case "BuildFailed":
+		case v1alpha1.RevisionConditionBuildFailed:
 			return true, true
 		}
 	}
 	return false, false
 }
 
-func (c *RevisionControllerImpl) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
+func (c *Controller) markServiceReady(u *v1alpha1.Revision) error {
+	glog.Infof("Marking Revision %q ready", u.Name)
+	u.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionTrue,
+			Reason: "ServiceReady",
+		})
+	_, err := c.updateStatus(u)
+	return err
+}
+
+func (c *Controller) markBuildComplete(u *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
-		removeCondition(u, "BuildFailed")
-		setCondition(u, "BuildComplete", &v1alpha1.RevisionCondition{
-			Type:   "BuildComplete",
-			Status: "True",
-		})
+		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
+		u.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:   v1alpha1.RevisionConditionBuildComplete,
+				Status: corev1.ConditionTrue,
+			})
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
-		removeCondition(u, "BuildComplete")
-		setCondition(u, "BuildFailed", &v1alpha1.RevisionCondition{
-			Type:    "BuildFailed",
-			Status:  "True",
-			Reason:  bc.Reason,
-			Message: bc.Message,
-		})
+		u.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
+		u.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionBuildFailed,
+				Status:  corev1.ConditionTrue,
+				Reason:  bc.Reason,
+				Message: bc.Message,
+			})
 	}
 	// This will trigger a reconciliation that will cause us to stop tracking the build.
 	_, err := c.updateStatus(u)
@@ -401,7 +448,16 @@ func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondi
 	return nil
 }
 
-func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
+func getIsServiceReady(e *corev1.Endpoints) bool {
+	for _, es := range e.Subsets {
+		if len(es.Addresses) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
 	cond := getBuildDoneCondition(build)
@@ -414,11 +470,11 @@ func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 	for k := range c.buildtracker.GetTrackers(build) {
 		// Look up the revision to mark complete.
 		namespace, name := splitKey(k)
-		hr, err := c.lister.Revisions(namespace).Get(name)
+		rev, err := c.lister.Revisions(namespace).Get(name)
 		if err != nil {
 			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
 		}
-		if err := c.markBuildComplete(hr, cond); err != nil {
+		if err := c.markBuildComplete(rev, cond); err != nil {
 			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
 		}
 	}
@@ -426,12 +482,52 @@ func (c *RevisionControllerImpl) addBuildEvent(obj interface{}) {
 	return
 }
 
-func (c *RevisionControllerImpl) updateBuildEvent(old, new interface{}) {
+func (c *Controller) updateBuildEvent(old, new interface{}) {
 	c.addBuildEvent(new)
 }
 
+func (c *Controller) addEndpointsEvent(obj interface{}) {
+	endpoint := obj.(*corev1.Endpoints)
+	eName := endpoint.Name
+	namespace := endpoint.Namespace
+	// Lookup and see if this endpoints corresponds to a service that
+	// we own and hence the Revision that created this service.
+	revisionName := lookupServiceOwner(endpoint)
+	if revisionName == "" {
+		return
+	}
+
+	if !getIsServiceReady(endpoint) {
+		// The service isn't ready, so ignore this event.
+		glog.Infof("Endpoint %q is not ready", eName)
+		return
+	}
+	glog.Infof("Endpoint %q is ready", eName)
+
+	r, err := c.lister.Revisions(namespace).Get(revisionName)
+	if err != nil {
+		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revisionName, err)
+		return
+	}
+
+	// Check to see if the revision has already been marked as ready and if
+	// it is, then there's no need to do anything to it.
+	if r.Status.IsReady() {
+		return
+	}
+
+	if err := c.markServiceReady(r); err != nil {
+		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revisionName, err)
+	}
+	return
+}
+
+func (c *Controller) updateEndpointsEvent(old, new interface{}) {
+	c.addEndpointsEvent(new)
+}
+
 // reconcileOnceBuilt handles enqueued messages that have an image.
-func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	accessor, err := meta.Accessor(u)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err)
@@ -441,7 +537,8 @@ func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns str
 	deletionTimestamp := accessor.GetDeletionTimestamp()
 	log.Printf("Check the deletionTimestamp: %s\n", deletionTimestamp)
 
-	elaNS := util.GetElaNamespaceName(u.Namespace)
+	elaNS := controller.GetElaNamespaceName(u.Namespace)
+
 	if deletionTimestamp == nil {
 		log.Printf("Creating or reconciling resources for %s\n", u.Name)
 		return c.createK8SResources(u, elaNS)
@@ -451,7 +548,7 @@ func (c *RevisionControllerImpl) reconcileOnceBuilt(u *v1alpha1.Revision, ns str
 	return nil
 }
 
-func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteK8SResources(u *v1alpha1.Revision, ns string) error {
 	log.Printf("Deleting the resources for %s\n", u.Name)
 	err := c.deleteDeployment(u, ns)
 	if err != nil {
@@ -478,21 +575,22 @@ func (c *RevisionControllerImpl) deleteK8SResources(u *v1alpha1.Revision, ns str
 	log.Printf("Deleted service")
 
 	// And the deployment is no longer ready, so update that
-	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
-		Type:   "Ready",
-		Status: "False",
-		Reason: "Inactive",
-	})
-	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
+	u.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Inactive",
+		})
+	log.Printf("Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
-		log.Printf("Error recording build completion: %s", err)
+		log.Printf("Error recording inactivation of revision: %s", err)
 		return err
 	}
 
 	return nil
 }
 
-func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) createK8SResources(u *v1alpha1.Revision, ns string) error {
 	// Fire off a Deployment..
 	err := c.reconcileDeployment(u, ns)
 	if err != nil {
@@ -520,14 +618,23 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 		u.Status.ServiceName = serviceName
 	}
 
+	// Check to see if the revision has already been marked as ready and
+	// don't mark it if it's already ready.
+	// TODO: could always fetch the endpoint again and double-check it is still
+	// ready.
+	if u.Status.IsReady() {
+		return nil
+	}
+
 	// By updating our deployment status we will trigger a Reconcile()
-	// that will watch for Deployment completion.
-	setCondition(u, "Ready", &v1alpha1.RevisionCondition{
-		Type:   "Ready",
-		Status: "False",
-		Reason: "Deploying",
-	})
-	log.Printf("2. Updating status with the following conditions %+v", u.Status.Conditions)
+	// that will watch for service to become ready for serving traffic.
+	u.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Deploying",
+		})
+	log.Printf("Updating status with the following conditions %+v", u.Status.Conditions)
 	if _, err := c.updateStatus(u); err != nil {
 		log.Printf("Error recording build completion: %s", err)
 		return err
@@ -536,8 +643,8 @@ func (c *RevisionControllerImpl) createK8SResources(u *v1alpha1.Revision, ns str
 	return nil
 }
 
-func (c *RevisionControllerImpl) deleteDeployment(u *v1alpha1.Revision, ns string) error {
-	deploymentName := util.GetRevisionDeploymentName(u)
+func (c *Controller) deleteDeployment(u *v1alpha1.Revision, ns string) error {
+	deploymentName := controller.GetRevisionDeploymentName(u)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 	_, err := dc.Get(deploymentName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -556,13 +663,13 @@ func (c *RevisionControllerImpl) deleteDeployment(u *v1alpha1.Revision, ns strin
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileDeployment(u *v1alpha1.Revision, ns string) error {
 	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
 	// https://kubernetes.io/docs/reference/workloads-18-19.
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 
 	// First, check if deployment exists already.
-	deploymentName := util.GetRevisionDeploymentName(u)
+	deploymentName := controller.GetRevisionDeploymentName(u)
 	_, err := dc.Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -582,7 +689,7 @@ func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns st
 	podSpec := MakeElaPodSpec(u)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GetRevisionPodName(u),
+			Name:      controller.GetRevisionPodName(u),
 			Namespace: ns,
 		},
 		Spec: *podSpec,
@@ -604,8 +711,8 @@ func (c *RevisionControllerImpl) reconcileDeployment(u *v1alpha1.Revision, ns st
 	return createErr
 }
 
-func (c *RevisionControllerImpl) deleteNginxConfig(u *v1alpha1.Revision, ns string) error {
-	configMapName := util.GetRevisionNginxConfigMapName(u)
+func (c *Controller) deleteNginxConfig(u *v1alpha1.Revision, ns string) error {
+	configMapName := controller.GetRevisionNginxConfigMapName(u)
 	cmc := c.kubeclientset.Core().ConfigMaps(ns)
 	_, err := cmc.Get(configMapName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -624,9 +731,9 @@ func (c *RevisionControllerImpl) deleteNginxConfig(u *v1alpha1.Revision, ns stri
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileNginxConfig(u *v1alpha1.Revision, ns string) error {
 	cmc := c.kubeclientset.Core().ConfigMaps(ns)
-	configMapName := util.GetRevisionNginxConfigMapName(u)
+	configMapName := controller.GetRevisionNginxConfigMapName(u)
 	_, err := cmc.Get(configMapName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -652,9 +759,9 @@ func (c *RevisionControllerImpl) reconcileNginxConfig(u *v1alpha1.Revision, ns s
 	return err
 }
 
-func (c *RevisionControllerImpl) deleteService(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteService(u *v1alpha1.Revision, ns string) error {
 	sc := c.kubeclientset.Core().Services(ns)
-	serviceName := util.GetElaK8SServiceNameForRevision(u)
+	serviceName := controller.GetElaK8SServiceNameForRevision(u)
 
 	log.Printf("Deleting service %q", serviceName)
 	tmp := metav1.DeletePropagationForeground
@@ -668,9 +775,9 @@ func (c *RevisionControllerImpl) deleteService(u *v1alpha1.Revision, ns string) 
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileService(u *v1alpha1.Revision, ns string) (string, error) {
+func (c *Controller) reconcileService(u *v1alpha1.Revision, ns string) (string, error) {
 	sc := c.kubeclientset.Core().Services(ns)
-	serviceName := util.GetElaK8SServiceNameForRevision(u)
+	serviceName := controller.GetElaK8SServiceNameForRevision(u)
 	_, err := sc.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -693,8 +800,8 @@ func (c *RevisionControllerImpl) reconcileService(u *v1alpha1.Revision, ns strin
 	return serviceName, err
 }
 
-func (c *RevisionControllerImpl) deleteAutoscaler(u *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(u)
+func (c *Controller) deleteAutoscaler(u *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(u)
 	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
 	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -714,8 +821,8 @@ func (c *RevisionControllerImpl) deleteAutoscaler(u *v1alpha1.Revision, ns strin
 
 }
 
-func (c *RevisionControllerImpl) reconcileAutoscaler(u *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(u)
+func (c *Controller) reconcileAutoscaler(u *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(u)
 	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
 
 	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})
@@ -738,7 +845,7 @@ func (c *RevisionControllerImpl) reconcileAutoscaler(u *v1alpha1.Revision, ns st
 	return err
 }
 
-func (c *RevisionControllerImpl) removeFinalizers(u *v1alpha1.Revision, ns string) error {
+func (c *Controller) removeFinalizers(u *v1alpha1.Revision, ns string) error {
 	log.Printf("Removing finalizers for %q\n", u.Name)
 	accessor, err := meta.Accessor(u)
 	if err != nil {
@@ -759,25 +866,7 @@ func (c *RevisionControllerImpl) removeFinalizers(u *v1alpha1.Revision, ns strin
 	return nil
 }
 
-// setCondition removes the condition if new is nil.
-func setCondition(u *v1alpha1.Revision, t string, new *v1alpha1.RevisionCondition) {
-	var conditions []v1alpha1.RevisionCondition
-	for _, cond := range u.Status.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	if new != nil {
-		conditions = append(conditions, *new)
-	}
-	u.Status.Conditions = conditions
-}
-
-func removeCondition(u *v1alpha1.Revision, t string) {
-	setCondition(u, t, nil)
-}
-
-func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+func (c *Controller) updateStatus(u *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(u.Namespace)
 	newu, err := prClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
@@ -788,4 +877,16 @@ func (c *RevisionControllerImpl) updateStatus(u *v1alpha1.Revision) (*v1alpha1.R
 	// TODO: for CRD there's no updatestatus, so use normal update
 	return prClient.Update(newu)
 	//	return prClient.UpdateStatus(newu)
+}
+
+// Given an endpoint see if it's managed by us and return the
+// revision that created it.
+// TODO: Consider using OwnerReferences.
+// https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
+func lookupServiceOwner(endpoint *corev1.Endpoints) string {
+	// see if there's a 'revision' label on this object marking it as ours.
+	if revisionName, ok := endpoint.Labels["revision"]; ok {
+		return revisionName
+	}
+	return ""
 }

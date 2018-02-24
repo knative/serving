@@ -4,10 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "certs.go",
+        "configuration.go",
+        "revision.go",
+        "route.go",
         "webhook.go",
-	"revision.go",
-	"revisiontemplate.go",
-	"elaservice.go",
     ],
     importpath = "github.com/google/elafros/pkg/webhook",
     visibility = ["//visibility:public"],
@@ -31,8 +31,23 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["webhook_test.go"],
+    srcs = [
+        "configuration_test.go",
+        "route_test.go",
+        "webhook_test.go",
+    ],
     embed = [":go_default_library"],
     importpath = "github.com/google/elafros/pkg/webhook",
-    deps = ["//vendor/k8s.io/client-go/kubernetes/fake:go_default_library"],
+    deps = [
+        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//vendor/github.com/ghodss/yaml:go_default_library",
+        "//vendor/github.com/mattbaird/jsonpatch:go_default_library",
+        "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
+        "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
+    ],
 )

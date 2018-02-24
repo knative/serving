@@ -17,6 +17,8 @@ package webhook
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,7 +26,9 @@ import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	apiv1 "k8s.io/api/core/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -40,14 +44,15 @@ func newDefaultOptions() ControllerOptions {
 }
 
 const (
-	testNamespace    = "test-namespace"
-	rtName           = "test-revision-template"
-	imageName        = "test-container-image"
-	envVarName       = "envname"
-	envVarValue      = "envvalue"
-	testDomain       = "example.com"
-	esName           = "test-elaservice-name"
-	testRevisionName = "test-revision"
+	testNamespace         = "test-namespace"
+	testConfigurationName = "test-configuration"
+	imageName             = "test-container-image"
+	envVarName            = "envname"
+	envVarValue           = "envvalue"
+	testDomain            = "example.com"
+	testGeneration        = 1
+	testRouteName         = "test-route-name"
+	testRevisionName      = "test-revision"
 )
 
 func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) (
@@ -118,48 +123,48 @@ func TestUnknownKindFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Garbage"},
 	}
 
-	assertFailsWith(t, ac.admit(&req), "unhandled kind")
+	expectFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
-func TestInvalidNewRTFails(t *testing.T) {
+func TestInvalidNewConfigurationFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	new := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "RevisionTemplate"},
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	assertFailsWith(t, ac.admit(new), "Failed to convert new into RevisionTemplate")
+	expectFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
 }
 
-func TestValidNewRTObject(t *testing.T) {
+func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateRT())
-	assertAllowed(t, resp)
+	resp := ac.admit(createValidCreateConfiguration())
+	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
-func TestValidRTNoChanges(t *testing.T) {
+func TestValidConfigurationNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRevisionTemplate(1)
-	new := createRevisionTemplate(1)
-	resp := ac.admit(createUpdateRT(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+	old := createConfiguration(testGeneration)
+	new := createConfiguration(testGeneration)
+	resp := ac.admit(createUpdateConfiguration(&old, &new))
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
-func TestValidRTEnvChanges(t *testing.T) {
+func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRevisionTemplate(1)
-	new := createRevisionTemplate(1)
-	new.Spec.Template.Spec.Env = []apiv1.EnvVar{
-		apiv1.EnvVar{
+	old := createConfiguration(testGeneration)
+	new := createConfiguration(testGeneration)
+	new.Spec.Template.Spec.ContainerSpec.Env = []corev1.EnvVar{
+		corev1.EnvVar{
 			Name:  envVarName,
 			Value: "different",
 		},
 	}
-	resp := ac.admit(createUpdateRT(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+	resp := ac.admit(createUpdateConfiguration(&old, &new))
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
@@ -168,36 +173,36 @@ func TestValidRTEnvChanges(t *testing.T) {
 	})
 }
 
-func TestValidNewESObject(t *testing.T) {
+func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateES())
-	assertAllowed(t, resp)
+	resp := ac.admit(createValidCreateRoute())
+	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
-func TestValidESNoChanges(t *testing.T) {
+func TestValidRouteNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createElaService(1)
-	new := createElaService(1)
-	resp := ac.admit(createUpdateES(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+	old := createRoute(1)
+	new := createRoute(1)
+	resp := ac.admit(createUpdateRoute(&old, &new))
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
-func TestValidESChanges(t *testing.T) {
+func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createElaService(1)
-	new := createElaService(1)
+	old := createRoute(1)
+	new := createRoute(1)
 	new.Spec.Traffic = []v1alpha1.TrafficTarget{
 		v1alpha1.TrafficTarget{
 			Revision: testRevisionName,
 			Percent:  100,
 		},
 	}
-	resp := ac.admit(createUpdateES(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+	resp := ac.admit(createUpdateRoute(&old, &new))
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
@@ -206,94 +211,147 @@ func TestValidESChanges(t *testing.T) {
 	})
 }
 
-func createUpdateRT(old, new *v1alpha1.RevisionTemplate) *admissionv1beta1.AdmissionRequest {
-	req := createBaseUpdateRT()
+func TestValidWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	createDeployment(ac)
+	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create webhook: %s", err)
+	}
+}
+
+func TestUpdatingWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ac.options.WebhookName,
+		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{
+			{
+				Name:         ac.options.WebhookName,
+				Rules:        []admissionregistrationv1beta1.RuleWithOperations{{}},
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+			},
+		},
+	}
+
+	createDeployment(ac)
+	createWebhook(ac, webhook)
+	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
+		t.Fatalf("Expected webhook to be updated")
+	}
+}
+
+func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
+	req := createBaseUpdateConfiguration()
 	marshaled, err := yaml.Marshal(old)
 	if err != nil {
-		panic("failed to marshal revisiontemplate")
+		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
 	marshaledOld, err := yaml.Marshal(new)
 	if err != nil {
-		panic("failed to marshal revisiontemplate")
+		panic("failed to marshal configuration")
 	}
 	req.OldObject.Raw = marshaledOld
 	return req
 }
 
-func createValidCreateRT() *admissionv1beta1.AdmissionRequest {
+func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 	req := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "RevisionTemplate"},
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	rt := createRevisionTemplate(0)
-	marshaled, err := yaml.Marshal(rt)
+	config := createConfiguration(0)
+	marshaled, err := yaml.Marshal(config)
 	if err != nil {
-		panic("failed to marshal revisiontemplate")
+		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
 	return req
 }
 
-func createBaseUpdateRT() *admissionv1beta1.AdmissionRequest {
+func createBaseUpdateConfiguration() *admissionv1beta1.AdmissionRequest {
 	return &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Update,
-		Kind:      metav1.GroupVersionKind{Kind: "RevisionTemplate"},
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
 }
 
-func createValidCreateES() *admissionv1beta1.AdmissionRequest {
+func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 	req := &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "ElaService"},
+		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	rt := createElaService(0)
-	marshaled, err := yaml.Marshal(rt)
+	route := createRoute(0)
+	marshaled, err := yaml.Marshal(route)
 	if err != nil {
-		panic("failed to marshal elaservice")
+		panic("failed to marshal route")
 	}
 	req.Object.Raw = marshaled
 	return req
 }
 
-func createBaseUpdateES() *admissionv1beta1.AdmissionRequest {
+func createBaseUpdateRoute() *admissionv1beta1.AdmissionRequest {
 	return &admissionv1beta1.AdmissionRequest{
 		Operation: admissionv1beta1.Update,
-		Kind:      metav1.GroupVersionKind{Kind: "ElaService"},
+		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
 }
 
-func createUpdateES(old, new *v1alpha1.ElaService) *admissionv1beta1.AdmissionRequest {
-	req := createBaseUpdateES()
+func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
+	req := createBaseUpdateRoute()
 	marshaled, err := yaml.Marshal(old)
 	if err != nil {
-		panic("failed to marshal elaservice")
+		panic("failed to marshal route")
 	}
 	req.Object.Raw = marshaled
 	marshaledOld, err := yaml.Marshal(new)
 	if err != nil {
-		panic("failed to marshal elaservice")
+		panic("failed to marshal route")
 	}
 	req.OldObject.Raw = marshaledOld
 	return req
 }
 
-func assertAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
+func createDeployment(ac *AdmissionController) {
+	deployment := &v1beta1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      elaWebhookDeployment,
+			Namespace: elaSystemNamespace,
+		},
+	}
+	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+}
+
+func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
+	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
+	_, err := client.Create(webhook)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create test webhook: %s", err))
+	}
+}
+
+func expectAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
 	if !resp.Allowed {
-		t.Fatalf("Expected allowed, but failed with %+v", resp.Result)
+		t.Errorf("Expected allowed, but failed with %+v", resp.Result)
 	}
 }
 
-func assertFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
+func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
 	if resp.Allowed {
-		t.Fatalf("expected denial, got allowed")
+		t.Errorf("expected denial, got allowed")
+		return
 	}
 	if !strings.Contains(resp.Result.Message, contains) {
-		t.Fatalf("expected failure containing %q got %q", contains, resp.Result.Message)
+		t.Errorf("expected failure containing %q got %q", contains, resp.Result.Message)
 	}
 }
 
-func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
+func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 	var actual []jsonpatch.JsonPatchOperation
 	// Keep track of the patches we've found
 	foundExpected := make([]bool, len(e))
@@ -301,10 +359,11 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 
 	err := json.Unmarshal(a, &actual)
 	if err != nil {
-		t.Fatalf("failed to unmarshal patches: %s", err)
+		t.Errorf("failed to unmarshal patches: %s", err)
+		return
 	}
 	if len(actual) != len(e) {
-		t.Fatalf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
+		t.Errorf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
 	}
 	// Make sure all the expected patches are found
 	for i, expectedPatch := range e {
@@ -313,41 +372,38 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 				foundExpected[i] = true
 				foundActual[j] = true
 			} else {
-				t.Fatalf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
+				t.Errorf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
 			}
 		}
 	}
 	for i, f := range foundExpected {
 		if !f {
-			t.Fatalf("did not find %+v in actual patches: %q", e[i], actual)
+			t.Errorf("did not find %+v in actual patches: %q", e[i], actual)
 		}
 	}
 	for i, f := range foundActual {
 		if !f {
-			t.Fatalf("Extra patch found %+v in expected patches: %q", a[i], e)
+			t.Errorf("Extra patch found %+v in expected patches: %q", a[i], e)
 		}
 	}
-
 }
 
-func createRevisionTemplate(generation int64) v1alpha1.RevisionTemplate {
-	return v1alpha1.RevisionTemplate{
+func createConfiguration(generation int64) v1alpha1.Configuration {
+	return v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      rtName,
+			Name:      testConfigurationName,
 		},
-		Spec: v1alpha1.RevisionTemplateSpec{
+		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &v1alpha1.ContainerSpec{
+					ContainerSpec: &corev1.Container{
 						Image: imageName,
-					},
-					Env: []apiv1.EnvVar{
-						apiv1.EnvVar{
+						Env: []corev1.EnvVar{{
 							Name:  envVarName,
 							Value: envVarValue,
-						},
+						}},
 					},
 				},
 			},
@@ -355,18 +411,18 @@ func createRevisionTemplate(generation int64) v1alpha1.RevisionTemplate {
 	}
 }
 
-func createElaService(generation int64) v1alpha1.ElaService {
-	return v1alpha1.ElaService{
+func createRoute(generation int64) v1alpha1.Route {
+	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      rtName,
+			Name:      testRouteName,
 		},
-		Spec: v1alpha1.ElaServiceSpec{
+		Spec: v1alpha1.RouteSpec{
 			Generation:   generation,
 			DomainSuffix: testDomain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:     esName,
+					Name:     "test-traffic-target",
 					Revision: testRevisionName,
 					Percent:  100,
 				},

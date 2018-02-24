@@ -21,9 +21,9 @@ import (
 	"log"
 
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller/util"
+	"github.com/google/elafros/pkg/controller"
 
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,21 +40,21 @@ func getNginxConfig(enableQueue bool) (string, error) {
 
 // MakeNginxConfigMap creates a ConfigMap that gets mounted for nginx container
 // on the pod.
-func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*apiv1.ConfigMap, error) {
+func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*corev1.ConfigMap, error) {
 	// The request queue is disabled by default. To enable the queue, change this to true.
 	var enableQueue = false
 	log.Printf("Queue enabled: %t", enableQueue)
 	nginxConfiguration, err := getNginxConfig(enableQueue)
 	if err != nil {
-		return &apiv1.ConfigMap{}, err
+		return &corev1.ConfigMap{}, err
 	}
 
-	return &apiv1.ConfigMap{
+	return &corev1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetRevisionNginxConfigMapName(u),
+			Name:      controller.GetRevisionNginxConfigMapName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
-				elaServiceLabel: u.Spec.Service,
+				routeLabel:      u.Spec.Service,
 				elaVersionLabel: u.Name,
 			},
 		},

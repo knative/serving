@@ -18,62 +18,56 @@ package revision
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/google/elafros/pkg/controller"
 
-	"github.com/google/elafros/pkg/controller/util"
-
-	apiv1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(u *v1alpha1.Revision) *apiv1.PodSpec {
+func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	name := u.Name
 	serviceID := u.Spec.Service
 	nginxConfigMapName := name + "-" + serviceID + "-proxy-configmap"
 
-	elaContainer := apiv1.Container{
-		Name:  elaContainerName,
-		Image: u.Spec.ContainerSpec.Image,
-		Resources: apiv1.ResourceRequirements{
-			Requests: apiv1.ResourceList{
-				apiv1.ResourceName("cpu"): resource.MustParse("25m"),
-			},
+	elaContainer := u.Spec.ContainerSpec.DeepCopy()
+	// Adding or removing an overwritten corev1.Container field here? Don't forget to
+	// update the validations in pkg/webhook.validateContainerSpec.
+	elaContainer.Name = elaContainerName
+	elaContainer.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceName("cpu"): resource.MustParse("25m"),
 		},
-		Ports: []apiv1.ContainerPort{{
-			Name:          elaPortName,
-			ContainerPort: int32(elaPort),
-		}},
-		VolumeMounts: []apiv1.VolumeMount{
-			{
-				MountPath: elaContainerLogVolumeMountPath,
-				Name:      elaContainerLogVolumeName,
-			},
-			{
-				MountPath: "/tmp/health-checks",
-				Name:      "health-checks",
-			},
+	}
+	elaContainer.Ports = []corev1.ContainerPort{{
+		Name:          elaPortName,
+		ContainerPort: int32(elaPort),
+	}}
+	elaContainer.VolumeMounts = []corev1.VolumeMount{
+		{
+			MountPath: elaContainerLogVolumeMountPath,
+			Name:      elaContainerLogVolumeName,
 		},
-		Env: u.Spec.Env,
 	}
 
-	elaContainerLogVolume := apiv1.Volume{
+	elaContainerLogVolume := corev1.Volume{
 		Name: elaContainerLogVolumeName,
-		VolumeSource: apiv1.VolumeSource{
-			EmptyDir: &apiv1.EmptyDirVolumeSource{},
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 
-	nginxContainer := apiv1.Container{
+	nginxContainer := corev1.Container{
 		Name:  nginxContainerName,
 		Image: nginxSidecarImage,
-		Resources: apiv1.ResourceRequirements{
-			Requests: apiv1.ResourceList{
-				apiv1.ResourceName("cpu"): resource.MustParse("25m"),
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceName("cpu"): resource.MustParse("25m"),
 			},
 		},
-		Ports: []apiv1.ContainerPort{
+		Ports: []corev1.ContainerPort{
 			// TOOD: HTTPS connections from the Cloud LB require
 			// certs. Right now, the static nginx.conf file has
 			// been modified to only allow HTTP connections.
@@ -82,13 +76,13 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *apiv1.PodSpec {
 				ContainerPort: int32(nginxHttpPort),
 			},
 		},
-		Env: []apiv1.EnvVar{
+		Env: []corev1.EnvVar{
 			{
 				Name:  "CONF_FILE",
 				Value: nginxConfigMountPath + "/nginx.conf",
 			},
 		},
-		VolumeMounts: []apiv1.VolumeMount{
+		VolumeMounts: []corev1.VolumeMount{
 			{
 				MountPath: nginxConfigMountPath,
 				Name:      nginxConfigMapName,
@@ -98,59 +92,36 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *apiv1.PodSpec {
 				MountPath: nginxLogVolumeMountPath,
 				Name:      nginxLogVolumeName,
 			},
-			{
-				MountPath: "/tmp/health-checks",
-				Name:      "health-checks",
-			},
-		},
-		Lifecycle: &apiv1.Lifecycle{
-			PostStart: &apiv1.Handler{
-				Exec: &apiv1.ExecAction{
-					Command: []string{
-						"rm", "/tmp/health-checks/app_lameducked",
-					},
-				},
-			},
-		},
-		ReadinessProbe: &apiv1.Probe{
-			Handler: apiv1.Handler{
-				Exec: &apiv1.ExecAction{
-					Command: []string{
-						"/bin/sh", "-c",
-						"test ! -f /tmp/health-checks/app_lameducked",
-					},
-				},
-			},
 		},
 	}
 
-	nginxConfigVolume := apiv1.Volume{
+	nginxConfigVolume := corev1.Volume{
 		Name: nginxConfigMapName,
-		VolumeSource: apiv1.VolumeSource{
-			ConfigMap: &apiv1.ConfigMapVolumeSource{
-				LocalObjectReference: apiv1.LocalObjectReference{
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: nginxConfigMapName,
 				},
 			},
 		},
 	}
 
-	nginxLogVolume := apiv1.Volume{
+	nginxLogVolume := corev1.Volume{
 		Name: nginxLogVolumeName,
-		VolumeSource: apiv1.VolumeSource{
-			EmptyDir: &apiv1.EmptyDirVolumeSource{},
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 
-	fluentdContainer := apiv1.Container{
+	fluentdContainer := corev1.Container{
 		Name:  fluentdContainerName,
 		Image: fluentdSidecarImage,
-		Resources: apiv1.ResourceRequirements{
-			Requests: apiv1.ResourceList{
-				apiv1.ResourceName("cpu"): resource.MustParse("25m"),
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceName("cpu"): resource.MustParse("25m"),
 			},
 		},
-		VolumeMounts: []apiv1.VolumeMount{
+		VolumeMounts: []corev1.VolumeMount{
 			{
 				MountPath: nginxLogVolumeMountPath,
 				Name:      nginxLogVolumeName,
@@ -164,36 +135,9 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *apiv1.PodSpec {
 		},
 	}
 
-	initContainer := apiv1.Container{
-		Name:  "health-check-seeder",
-		Image: "gcr.io/google_appengine/base",
-		Resources: apiv1.ResourceRequirements{
-			Requests: apiv1.ResourceList{
-				apiv1.ResourceName("cpu"): resource.MustParse("25m"),
-			},
-		},
-		Command: []string{
-			"touch", "/tmp/health-checks/app_lameducked",
-			"/tmp/health-checks/lameducked",
-		},
-		VolumeMounts: []apiv1.VolumeMount{
-			{
-				MountPath: "/tmp/health-checks",
-				Name:      "health-checks",
-			},
-		},
-	}
-
-	healthCheckVolume := apiv1.Volume{
-		Name: "health-checks",
-		VolumeSource: apiv1.VolumeSource{
-			EmptyDir: &apiv1.EmptyDirVolumeSource{},
-		},
-	}
-
-	return &apiv1.PodSpec{
-		Volumes:    []apiv1.Volume{healthCheckVolume, elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []apiv1.Container{elaContainer, nginxContainer, fluentdContainer}, InitContainers: []apiv1.Container{initContainer},
+	return &corev1.PodSpec{
+		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
+		Containers: []corev1.Container{*elaContainer, nginxContainer, fluentdContainer},
 	}
 }
 
@@ -203,7 +147,7 @@ func MakeElaDeploymentLabels(u *v1alpha1.Revision) map[string]string {
 	serviceID := u.Spec.Service
 
 	return map[string]string{
-		elaServiceLabel: serviceID,
+		routeLabel:      serviceID,
 		elaVersionLabel: name,
 	}
 }
@@ -217,7 +161,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetRevisionDeploymentName(u),
+			Name:      controller.GetRevisionDeploymentName(u),
 			Namespace: namespace,
 			Labels:    MakeElaDeploymentLabels(u),
 		},
@@ -227,7 +171,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},
-			Template: apiv1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Labels: MakeElaDeploymentLabels(u),
 				},

@@ -1,0 +1,53 @@
+# Copyright 2018 Google, Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: cloudbuild.googleapis.com/v1alpha1
+kind: BuildTemplate
+metadata:
+  name: docker-build-push
+spec:
+  parameters:
+  - name: IMAGE
+    description: The name of the image to push.
+  - name: DIRECTORY
+    description: The directory containing the build context
+    default: /workspace
+
+  steps:
+  - name: docker-build
+    image: gcr.io/cloud-builders/docker
+    workingdir: "${DIRECTORY}"
+    args: ["build", "--no-cache", "-t", "${IMAGE}", "."]
+    # We change HOME, so we must redirect docker to load its
+    # configuration to use the credential helper.
+    env:
+    volumeMounts:
+    - name: docker-socket
+      mountPath: /var/run/docker.sock
+
+  - name: docker-push
+    image: gcr.io/cloud-builders/docker
+    workingdir: "${DIRECTORY}"
+    args: ["push", "${IMAGE}"]
+    # We change HOME, so we must redirect docker to load its
+    # configuration to use the credential helper.
+    env:
+    volumeMounts:
+    - name: docker-socket
+      mountPath: /var/run/docker.sock
+
+  volumes:
+  - name: docker-socket
+    hostPath:
+      path: /var/run/docker.sock
+      type: Socket

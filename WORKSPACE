@@ -23,7 +23,8 @@ go_register_toolchains()
 # Pull in rules_docker
 git_repository(
     name = "io_bazel_rules_docker",
-    commit = "8aeab63328a82fdb8e8eb12f677a4e5ce6b183b1",
+    # HEAD as of 2018-02-13
+    commit = "c7f9eaa63bc3a31acab5e399c72b4e5228ab5ad7",
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
@@ -45,7 +46,8 @@ _go_image_repos()
 # Pull in rules_k8s
 git_repository(
     name = "io_bazel_rules_k8s",
-    commit = "3756369d4920033c32c12d16207e8ee14fee1b18",
+    # HEAD as of 2018-02-09
+    commit = "761ba3bdf864f85cae7d3e65b045197ad208e1a0",
     remote = "https://github.com/bazelbuild/rules_k8s",
 )
 
@@ -55,6 +57,7 @@ k8s_repositories()
 
 # See ./print-workspace-status.sh for definitions.
 _CLUSTER = "{STABLE_K8S_CLUSTER}"
+
 _REPOSITORY = "{STABLE_DOCKER_REPO}"
 
 k8s_defaults(
@@ -83,11 +86,36 @@ go_repository(
 
 # Istio
 ISTIO_RELEASE = "0.4.0"
+
 new_http_archive(
     name = "istio_release",
-    url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
+    build_file_content = "exports_files([\"istio.yaml\"])",
     sha256 = "0085456a6e06afb4366648b507586814be04943ad536756729784f2b0d1ace81",
-    type = "tar.gz",
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
-    build_file_content = "exports_files([\"istio.yaml\"])"
+    type = "tar.gz",
+    url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
 )
+
+# Until the Build repo is public, we must use the Skylark-based git_repository rules
+# per the documentation: https://docs.bazel.build/versions/master/be/workspace.html#git_repository
+load(
+    "@bazel_tools//tools/build_defs/repo:git.bzl",
+    private_git_repository = "git_repository",
+)
+
+private_git_repository(
+    name = "buildcrd",
+    commit = "d729e217e09b5e14c92eb77a0b6655e359bd7391",
+    remote = "git@github.com:google/build-crd.git",
+)
+
+# If you would like to test changes to both repositories,
+# you can comment the above and uncomment this:
+# local_repository(
+#    name = "buildcrd",
+#    path = "../build-crd",
+# )
+
+load("@buildcrd//:deps.bzl", "repositories")
+
+repositories()

@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ func getTestRevision() *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			Service: "test-service",
-			ContainerSpec: &v1alpha1.ContainerSpec{
+			ContainerSpec: &corev1.Container{
 				Image: "test-image",
 			},
 		},
@@ -71,7 +71,7 @@ func getTestRevision() *v1alpha1.Revision {
 func newRunningTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
-	controller *RevisionControllerImpl,
+	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
@@ -93,7 +93,7 @@ func newRunningTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-	).(*RevisionControllerImpl)
+	).(*Controller)
 	if !ok {
 		t.Fatal("cast to *Controller failed")
 	}
@@ -121,7 +121,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	h := hooks.NewHooks()
 
 	// Look for the namespace.
-	expectedNamespace := fmt.Sprintf("%s-ela", rev.Namespace)
+	expectedNamespace := rev.Namespace
 	h.OnCreate(&kubeClient.Fake, "namespaces", func(obj runtime.Object) hooks.HookResult {
 		ns := obj.(*corev1.Namespace)
 		glog.Infof("checking namespace %s", ns.Name)
@@ -200,7 +200,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		glog.Infof("updated rev %v", updatedPr)
 		want := v1alpha1.RevisionCondition{
 			Type:   "Ready",
-			Status: "False",
+			Status: corev1.ConditionFalse,
 			Reason: "Deploying",
 		}
 		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
@@ -228,7 +228,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 		glog.Infof("updated rev %v", updatedPr)
 		want := v1alpha1.RevisionCondition{
 			Type:   "BuildComplete",
-			Status: "False",
+			Status: corev1.ConditionFalse,
 			Reason: "Building",
 		}
 		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
@@ -320,7 +320,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			// status.
 			want := v1alpha1.RevisionCondition{
 				Type:    "BuildFailed",
-				Status:  "True",
+				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: errMessage,
 			}
@@ -393,7 +393,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			// The next update we receive should tell us that the build completed.
 			want := v1alpha1.RevisionCondition{
 				Type:   "BuildComplete",
-				Status: "True",
+				Status: corev1.ConditionTrue,
 			}
 			if len(updatedPr.Status.Conditions) != 1 {
 				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
@@ -472,7 +472,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			// status.
 			want := v1alpha1.RevisionCondition{
 				Type:    "BuildFailed",
-				Status:  "True",
+				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: errMessage,
 			}

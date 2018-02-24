@@ -18,7 +18,7 @@ package revision
 
 import (
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller/util"
+	"github.com/google/elafros/pkg/controller"
 
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,14 +30,14 @@ func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.H
 
 	var min int32 = 1
 	var max int32 = 10
-	var targetPercentage int32 = 80
+	var targetPercentage int32 = 50
 
 	return &autoscaling_v1.HorizontalPodAutoscaler{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetRevisionAutoscalerName(u),
+			Name:      controller.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
-				elaServiceLabel: serviceID,
+				routeLabel:      serviceID,
 				elaVersionLabel: name,
 			},
 		},
@@ -45,7 +45,7 @@ func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.H
 			ScaleTargetRef: autoscaling_v1.CrossVersionObjectReference{
 				APIVersion: "extensions/v1beta1",
 				Kind:       "Deployment",
-				Name:       util.GetRevisionDeploymentName(u),
+				Name:       controller.GetRevisionDeploymentName(u),
 			},
 			MinReplicas:                    &min,
 			MaxReplicas:                    int32(max),

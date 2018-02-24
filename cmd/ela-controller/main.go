@@ -17,7 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"net/http"
 	"time"
 
 	"github.com/google/elafros/pkg/controller"
@@ -31,14 +33,17 @@ import (
 
 	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
 	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	"github.com/google/elafros/pkg/controller/configuration"
 	"github.com/google/elafros/pkg/controller/revision"
-	"github.com/google/elafros/pkg/controller/revisiontemplate"
-	"github.com/google/elafros/pkg/controller/elaservice"
+	"github.com/google/elafros/pkg/controller/route"
 	"github.com/google/elafros/pkg/signals"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
 	threadsPerController = 2
+	metricsScrapeAddr    = ":9090"
+	metricsScrapePath    = "/metrics"
 )
 
 var (
@@ -72,9 +77,9 @@ func main() {
 
 	// Add new controllers here.
 	ctors := []controller.Constructor{
-		revisiontemplate.NewController,
+		configuration.NewController,
 		revision.NewController,
-		elaservice.NewController,
+		route.NewController,
 	}
 
 	// Build all of our controllers, with the clients constructed above.
@@ -98,7 +103,23 @@ func main() {
 		}(ctrlr)
 	}
 
+	// Start the endpoint that Prometheus scraper talks to
+	srv := &http.Server{Addr: metricsScrapeAddr}
+	http.Handle(metricsScrapePath, promhttp.Handler())
+	go func() {
+		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
+		if err := srv.ListenAndServe(); err != nil {
+			glog.Infof("Httpserver: ListenAndServe() finished with error: %s", err)
+		}
+	}()
+
 	<-stopCh
+
+	// Close the http server gracefully
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
+
 	glog.Flush()
 }
 

@@ -41,6 +41,9 @@ type BuildSpec struct {
 
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
+	// The name of the service account as which to run this build.
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// Template, if specified,references a BuildTemplate resource to use to
 	// populate fields in the build, and optional Arguments to pass to the
 	// template.
@@ -154,4 +157,30 @@ type BuildList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Build `json:"items"`
+}
+
+func (b *BuildStatus) SetCondition(newCond *BuildCondition) {
+	if newCond == nil {
+		return
+	}
+
+	t := newCond.Type
+	var conditions []BuildCondition
+	for _, cond := range b.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	conditions = append(conditions, *newCond)
+	b.Conditions = conditions
+}
+
+func (b *BuildStatus) RemoveCondition(t BuildConditionType) {
+	var conditions []BuildCondition
+	for _, cond := range b.Conditions {
+		if cond.Type != t {
+			conditions = append(conditions, cond)
+		}
+	}
+	b.Conditions = conditions
 }
