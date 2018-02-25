@@ -36,7 +36,9 @@ func autoscaler() {
 		if err != nil {
 			panic(err)
 		}
-		targetConcurrency = float64(concurrency)
+		if concurrency > 0 {
+			targetConcurrency = float64(concurrency)
+		}
 	}
 	log.Printf("Target concurrency: %0.2f.", targetConcurrency)
 
