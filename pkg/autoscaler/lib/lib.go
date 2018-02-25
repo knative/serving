@@ -62,7 +62,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	}
 
 	// Stop panicking after the surge has made its way into the stable metric.
-	if a.panicking && a.panicTime.Add(stableWindow).Before(time.Now()) {
+	if a.panicking && a.panicTime.Add(stableWindow).Before(now) {
 		log.Println("Un-panicking.")
 		a.panicking = false
 		a.panicTime = nil
@@ -76,10 +76,10 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	}
 
 	observedStableConcurrency := stableTotal / stableCount
-	desiredStablePodCount := (observedStableConcurrency/a.stableConcurrencyPerPod)*float64(len(stablePods)) + 1
+	desiredStablePodCount := (observedStableConcurrency / a.stableConcurrencyPerPod) * float64(len(stablePods))
 
 	observedPanicConcurrency := panicTotal / panicCount
-	desiredPanicPodCount := (observedPanicConcurrency/a.stableConcurrencyPerPod)*float64(len(panicPods)) + 1
+	desiredPanicPodCount := (observedPanicConcurrency / a.stableConcurrencyPerPod) * float64(len(stablePods))
 
 	log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
@@ -87,7 +87,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
 
 	// Begin panicking when we cross the short-term QPS per pod threshold.
-	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency > a.panicConcurrencyPerPodThreshold {
+	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {
 		log.Println("PANICKING")
 		a.panicking = true
 		a.panicTime = &now
@@ -96,13 +96,13 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	if a.panicking {
 		log.Printf("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
-			log.Printf("Continue PANICKING. Increasing pods from %v to %v.", len(panicPods), desiredPanicPodCount)
+			log.Printf("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
-		return int32(math.Floor(a.maxPanicPods)), true
+		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
 	} else {
 		log.Println("Operating in stable mode.")
-		return int32(math.Floor(desiredStablePodCount)), true
+		return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 	}
 }
