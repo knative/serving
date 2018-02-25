@@ -66,7 +66,7 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 	a.expectScale(t, now, 1, true)
 }
 
-func TestAutoscaler_StableModeLowTraffic_ScaleToOne(t *testing.T) {
+func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
 	a := NewAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
@@ -100,6 +100,9 @@ func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 	a.expectScale(t, now, 20, true)
 }
 
+// QPS is increasing exponentially. Each scaling event bring concurrency
+// back to the target level (1.0) but then traffic continues to increase.
+// At 1296 QPS traffic stablizes.
 func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 	a := NewAutoscaler(1.0)
 	now := a.recordLinearSeries(
@@ -142,7 +145,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 		now,
 		linearSeries{
 			startConcurrency: 1,
-			endConcurrency:   1,
+			endConcurrency:   1, // achieved desired concurrency
 			durationSeconds:  6,
 			podCount:         1296,
 		})
@@ -172,12 +175,12 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	now = a.recordLinearSeries(
 		now,
 		linearSeries{
-			startConcurrency: 1,
+			startConcurrency: 1, // traffic drops off
 			endConcurrency:   1,
 			durationSeconds:  30,
 			podCount:         100,
 		})
-	a.expectScale(t, now, 100, true)
+	a.expectScale(t, now, 100, true) // still in panic mode--no decrease
 	now = a.recordLinearSeries(
 		now,
 		linearSeries{
@@ -186,9 +189,10 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 			durationSeconds:  31,
 			podCount:         100,
 		})
-	a.expectScale(t, now, 10, true)
+	a.expectScale(t, now, 10, true) // back to stable mode
 }
 
+// Autoscaler should drop data after 60 seconds.
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	a := NewAutoscaler(10.0)
 	now := a.recordLinearSeries(
@@ -217,6 +221,8 @@ type linearSeries struct {
 	podCount         int
 }
 
+// Record a data point every second, for every pod, for duration of the
+// linear series, on the line from start to end concurrency.
 func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time {
 	points := make([]int32, 0)
 	for i := 1; i <= s.durationSeconds; i++ {
