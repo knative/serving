@@ -33,6 +33,8 @@ You must install these tools:
    performing builds.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+1. [`docker-ce`](https://docs.docker.com/install/linux/docker-ce/ubuntu/): For
+   running containers.
 
 ### Environment setup
 
