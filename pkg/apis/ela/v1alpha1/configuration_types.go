@@ -52,7 +52,7 @@ type ConfigurationSpec struct {
 type ConfigurationConditionType string
 
 const (
-	// RevisionConditionReady is set when the configuration is starting to materialize
+	// ConfigurationConditionReady is set when the configuration is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
 )
@@ -78,9 +78,8 @@ type ConfigurationStatus struct {
 	// Latest revision that is ready.
 	LatestReady string `json:"latestReady,omitempty"`
 
-	// LatestCreated is the last revision that has been created, it might not be
-	// ready yet however. Hence we just keep track of it so that when it's ready
-	// it will get moved to Latest.
+	// LatestCreated is the last revision that was created; it might not be
+	// ready yet. When it's ready, it will get moved to Latest.
 	LatestCreated string `json:"latestCreated,omitempty"`
 
 	// ReconciledGeneration is the 'Generation' of the Configuration that
@@ -111,7 +110,7 @@ func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-// IsReady looks at the conditions and if the Status has a condition
+// IsReady looks at the conditions on the ConfigurationStatus.
 // ConfigurationConditionReady returns true if ConditionStatus is True
 func (configStatus *ConfigurationStatus) IsReady() bool {
 	if c := configStatus.GetCondition(ConfigurationConditionReady); c != nil {
