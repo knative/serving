@@ -29,6 +29,7 @@ package revision
 */
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"testing"
 	"time"
@@ -61,8 +62,25 @@ func getTestRevision() *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			Service: "test-service",
+			// corev1.Container has a lot of setting.  We try to pass many
+			// of them here to verify that we pass through the settings to
+			// the derived Revisions.
 			ContainerSpec: &corev1.Container{
-				Image: "test-image",
+				Image:      "gcr.io/repo/image",
+				Command:    []string{"echo"},
+				Args:       []string{"hello", "world"},
+				WorkingDir: "/tmp",
+				Env: []corev1.EnvVar{{
+					Name:  "EDITOR",
+					Value: "emacs",
+				}},
+				LivenessProbe: &corev1.Probe{
+					TimeoutSeconds: 42,
+				},
+				ReadinessProbe: &corev1.Probe{
+					TimeoutSeconds: 43,
+				},
+				TerminationMessagePath: "/dev/null",
 			},
 		},
 	}
@@ -158,6 +176,16 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		func(t *testing.T) {
 			for _, c := range p.Spec.Containers {
 				if c.Image == rev.Spec.ContainerSpec.Image {
+					// Make a copy and removed fields set by the controller.
+					container := c.DeepCopy()
+					container.Name = ""
+					container.Resources = corev1.ResourceRequirements{}
+					container.Ports = nil
+					container.VolumeMounts = nil
+					// Verify that all other fields match revision container spec.
+					if !reflect.DeepEqual(container, rev.Spec.ContainerSpec) {
+						t.Error("pod container spec does not match revision")
+					}
 					return
 				}
 			}

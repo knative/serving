@@ -66,6 +66,26 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					Service: "test-service",
+					// corev1.Container has a lot of setting.  We try to pass many
+					// of them here to verify that we pass through the settings to
+					// the derived Revisions.
+					ContainerSpec: &corev1.Container{
+						Image:      "gcr.io/repo/image",
+						Command:    []string{"echo"},
+						Args:       []string{"hello", "world"},
+						WorkingDir: "/tmp",
+						Env: []corev1.EnvVar{{
+							Name:  "EDITOR",
+							Value: "emacs",
+						}},
+						LivenessProbe: &corev1.Probe{
+							TimeoutSeconds: 42,
+						},
+						ReadinessProbe: &corev1.Probe{
+							TimeoutSeconds: 43,
+						},
+						TerminationMessagePath: "/dev/null",
+					},
 				},
 			},
 		},
@@ -145,6 +165,10 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 		glog.Infof("checking revision %s", rev.Name)
 		if config.Spec.Template.Spec.Service != rev.Spec.Service {
 			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
+		}
+
+		if !reflect.DeepEqual(rev.Spec, config.Spec.Template.Spec) {
+			t.Error("rev spec does not match config template spec")
 		}
 
 		if rev.Labels[ConfigurationLabelKey] != config.Name {
