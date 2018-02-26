@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -11,6 +10,7 @@ import (
 	ela_autoscaler "github.com/google/elafros/pkg/autoscaler"
 	"github.com/google/elafros/pkg/autoscaler/types"
 
+	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,7 @@ var statChan = make(chan types.Stat, 100)
 
 func autoscaler() {
 	targetConcurrency := float64(1.0)
-	log.Printf("Target concurrency: %0.2f.", targetConcurrency)
+	glog.Info("Target concurrency: %0.2f.", targetConcurrency)
 
 	a := ela_autoscaler.NewAutoscaler(targetConcurrency)
 	ticker := time.NewTicker(2 * time.Second)
@@ -47,49 +47,49 @@ func autoscaler() {
 }
 
 func scaleTo(podCount int32) {
-	log.Printf("Target scale is %v", podCount)
+	glog.Info("Target scale is %v", podCount)
 	deploymentName := os.Getenv("ELA_DEPLOYMENT")
 	ns := os.Getenv("ELA_NAMESPACE")
 	dc := kubeClient.ExtensionsV1beta1().Deployments(ns)
 	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
-		log.Printf("Error getting Deployment %q: %s", deploymentName, err)
+		glog.Error("Error getting Deployment %q: %s", deploymentName, err)
 		return
 	}
 	if *deployment.Spec.Replicas == podCount {
-		log.Println("Already at scale.")
+		glog.Info("Already at scale.")
 		return
 	}
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
-		log.Printf("Error updating Deployment %q: %s", deploymentName, err)
+		glog.Error("Error updating Deployment %q: %s", deploymentName, err)
 	}
-	log.Println("Successfully scaled.")
+	glog.Info("Successfully scaled.")
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		glog.Error(err)
 		return
 	}
-	log.Println("New metrics source online.")
+	glog.Verbose("New metrics source online.")
 	for {
 		messageType, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("Metrics source dropping off.")
+			glog.Verbose("Metrics source dropping off.")
 			return
 		}
 		if messageType != websocket.BinaryMessage {
-			log.Println("Dropping non-binary message.")
+			glog.Error("Dropping non-binary message.")
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
 		var stat types.Stat
 		err = dec.Decode(&stat)
 		if err != nil {
-			log.Println(err)
+			glog.Error(err)
 			continue
 		}
 		statChan <- stat
@@ -97,7 +97,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	log.Println("Autoscaler up")
+	glog.Info("Autoscaler up")
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err)

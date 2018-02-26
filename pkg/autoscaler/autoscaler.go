@@ -1,10 +1,10 @@
 package autoscaler
 
 import (
-	"log"
 	"math"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/autoscaler/types"
 )
 
@@ -84,7 +84,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(stableWindow).Before(now) {
-		log.Println("Un-panicking.")
+		glog.Info("Un-panicking.")
 		a.panicking = false
 		a.panicTime = nil
 		a.maxPanicPods = 0
@@ -92,7 +92,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	// Do nothing when we have no data.
 	if len(stablePods) == 0 {
-		log.Println("No data to scale on.")
+		glog.Verbose("No data to scale on.")
 		return 0, false
 	}
 
@@ -108,28 +108,28 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
-	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+	glog.Verbose("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
-	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+	glog.Verbose("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {
-		log.Println("PANICKING")
+		glog.Info("PANICKING")
 		a.panicking = true
 		a.panicTime = &now
 	}
 
 	if a.panicking {
-		log.Printf("Operating in panic mode.")
+		glog.Verbose("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
-			log.Printf("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
+			glog.Verbose("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
 		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
 	} else {
-		log.Println("Operating in stable mode.")
+		glog.Verbose("Operating in stable mode.")
 		return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 	}
 }

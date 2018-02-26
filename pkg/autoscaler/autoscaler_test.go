@@ -2,10 +2,10 @@ package autoscaler
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/google/elafros/pkg/autoscaler/types"
 )
 
@@ -228,7 +228,7 @@ func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time
 	for i := 1; i <= s.durationSeconds; i++ {
 		points = append(points, int32(float64(s.startConcurrency)+float64(s.endConcurrency-s.startConcurrency)*(float64(i)/float64(s.durationSeconds))))
 	}
-	log.Printf("Recording points: %v.", points)
+	glog.Verbose("Recording points: %v.", points)
 	for _, point := range points {
 		t := now
 		now = now.Add(time.Second)
