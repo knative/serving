@@ -115,7 +115,7 @@ func init() {
 	prometheus.MustRegister(routeProcessItemCount)
 }
 
-// Init initializes the controller and is called by the generated code
+// NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 // config - client configuration for talking to the apiserver
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
@@ -405,10 +405,10 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 }
 
 func (c *Controller) getRevisionRoutesAndConfigurations(route *v1alpha1.Route) (
-	[]RevisionRoute, []*v1alpha1.Configuration, error) {
+	[]RevisionRoute, []v1alpha1.Configuration, error) {
 	glog.Infof("Figuring out routes for Route: %s", route.Name)
 	revRoutes := []RevisionRoute{}
-	configs := []*v1alpha1.Configuration{}
+	configs := []v1alpha1.Configuration{}
 	for _, tt := range route.Spec.Traffic {
 		rr, config, err := c.getRouteAndConfigurationForTrafficTarget(tt, route.Namespace)
 		if err != nil {
@@ -416,7 +416,7 @@ func (c *Controller) getRevisionRoutesAndConfigurations(route *v1alpha1.Route) (
 			return nil, nil, err
 		}
 		revRoutes = append(revRoutes, rr)
-		configs = append(configs, config)
+		configs = append(configs, *config)
 	}
 	return revRoutes, configs, nil
 }
@@ -506,25 +506,69 @@ func (c *Controller) createOrUpdateRevisionRoutes(
 }
 
 func (c *Controller) updateConfigurations(
-	route *v1alpha1.Route, configs []*v1alpha1.Configuration, ns string) error {
-	if len(configs) == 0 {
-		glog.Infof("No configurations were found for the route %q", route.Name)
-		return nil
-	}
+	route *v1alpha1.Route, configs []v1alpha1.Configuration, ns string) error {
 
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
-	for _, config := range configs {
+
+	// The existingConfigs are configured as traffic target before this sync.
+	// The configs passed as parameter are configured as traffic target after this
+	// sync.
+	existingConfigsList, err := configClient.List(
+		metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", RouteLabelKey, route.Name),
+		},
+	)
+	existingConfigs := existingConfigsList.Items
+	if err != nil {
+		glog.Infof("Failed to fetch configurations with label '%s=%s': %s",
+			RouteLabelKey, route.Name, err)
+		return err
+	}
+
+	newlyRemovedConfigs := getDifferentConfigurationSet(existingConfigs, configs)
+	newlyAddedConfigs := getDifferentConfigurationSet(configs, existingConfigs)
+
+	// Delete label for newly removed configurations as traffic target.
+	for _, config := range newlyRemovedConfigs {
+		delete(config.Labels, RouteLabelKey)
+		if _, err := configClient.Update(&config); err != nil {
+			glog.Infof("Failed to update Configuraiton %s: %s", config.Name, err)
+			return err
+		}
+	}
+
+	// Set label for newly added configurations as traffic target.
+	for _, config := range newlyAddedConfigs {
 		if config.Labels == nil {
 			config.Labels = make(map[string]string)
 		}
 		config.Labels[RouteLabelKey] = route.Name
-
-		if _, err := configClient.Update(config); err != nil {
+		if _, err := configClient.Update(&config); err != nil {
+			glog.Infof("Failed to update Configuraiton %s: %s", config.Name, err)
 			return err
 		}
 	}
 
 	return nil
+}
+
+// getDifferentSet returns all configurations those are in the first given
+// array but not in the second given array.
+func getDifferentConfigurationSet(configsA, configsB []v1alpha1.Configuration) []v1alpha1.Configuration {
+	ret := []v1alpha1.Configuration{}
+	for _, configA := range configsA {
+		inAnotherArray := false
+		for _, configB := range configsB {
+			if configA.Name == configB.Name {
+				inAnotherArray = true
+				break
+			}
+		}
+		if !inAnotherArray {
+			ret = append(ret, configA)
+		}
+	}
+	return ret
 }
 
 func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
