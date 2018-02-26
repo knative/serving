@@ -572,7 +572,7 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 	log.Printf("Deleted autoscaler Deployment")
 
-	err = c.deleteAutoscalerService(u, ns)
+	err = c.deleteAutoscalerService(rev, ns)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Service: %s", err)
 	}
@@ -820,8 +820,8 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 	return serviceName, err
 }
 
-func (c *RevisionControllerImpl) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(rev)
+func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	sc := c.kubeclientset.Core().Services(ns)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -839,8 +839,8 @@ func (c *RevisionControllerImpl) deleteAutoscalerService(rev *v1alpha1.Revision,
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileAutoscalerService(u *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(u)
+func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	sc := c.kubeclientset.Core().Services(ns)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
@@ -854,16 +854,16 @@ func (c *RevisionControllerImpl) reconcileAutoscalerService(u *v1alpha1.Revision
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(u, controllerKind)
-	service := MakeElaAutoscalerService(u, ns)
+	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	service := MakeElaAutoscalerService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
 	_, err = sc.Create(service)
 	return err
 }
 
-func (c *RevisionControllerImpl) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(rev)
+func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
@@ -881,8 +881,8 @@ func (c *RevisionControllerImpl) deleteAutoscalerDeployment(rev *v1alpha1.Revisi
 	return nil
 }
 
-func (c *RevisionControllerImpl) reconcileAutoscalerDeployment(u *v1alpha1.Revision, ns string) error {
-	autoscalerName := util.GetRevisionAutoscalerName(u)
+func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {

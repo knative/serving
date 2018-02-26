@@ -48,7 +48,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 	}
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      util.GetRevisionAutoscalerName(u),
+			Name:      controller.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"revision": u.Name,
@@ -63,7 +63,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Labels: map[string]string{
-						"autoscaler": util.GetRevisionAutoscalerName(u),
+						"autoscaler": controller.GetRevisionAutoscalerName(u),
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -87,7 +87,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 								},
 								{
 									Name:  "ELA_DEPLOYMENT",
-									Value: util.GetRevisionDeploymentName(u),
+									Value: controller.GetRevisionDeploymentName(u),
 								},
 								{
 									Name:  "ELA_TARGET_CONCURRENCY",
@@ -104,6 +104,8 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 }
 
 func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Service {
+	name := u.Name
+	serviceID := u.Spec.Service
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
@@ -123,7 +125,7 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Se
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				"autoscaler": util.GetRevisionAutoscalerName(u),
+				"autoscaler": controller.GetRevisionAutoscalerName(u),
 			},
 		},
 	}
