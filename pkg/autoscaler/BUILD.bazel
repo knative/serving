@@ -1,32 +1,11 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
     srcs = ["autoscaler.go"],
     importpath = "github.com/google/elafros/pkg/autoscaler",
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
     deps = [
         "//pkg/autoscaler/types:go_default_library",
-        "//pkg/autoscaler/lib:go_default_library",
-        "//vendor/github.com/gorilla/websocket:go_default_library",
-	"//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
-        "//vendor/k8s.io/client-go/rest:go_default_library",
     ],
-)
-
-go_binary(
-    name = "ela-autoscaler",
-    embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/pkg/autoscaler",
-    pure = "on",
-    visibility = ["//visibility:public"],
-)
-
-load("@io_bazel_rules_docker//go:image.bzl", "go_image")
-
-go_image(
-    name = "image",
-    binary = ":ela-autoscaler",
-    visibility = ["//visibility:public"],
 )

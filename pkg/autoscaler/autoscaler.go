@@ -1,125 +1,142 @@
-package main
+package autoscaler
 
 import (
-	"bytes"
-	"encoding/gob"
 	"log"
-	"net/http"
-	"os"
-	"strconv"
+	"math"
 	"time"
 
-	"github.com/google/elafros/pkg/autoscaler/lib"
 	"github.com/google/elafros/pkg/autoscaler/types"
-
-	"github.com/gorilla/websocket"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+// Autoscaler calculates the number of pods necessary for the desired
+// level of concurrency per pod (stableConcurrencyPerPod). It operates in
+// two modes, stable mode and panic mode.
+
+// Stable mode calculates the average concurrency observed over the last
+// 60 seconds and adjusts the observed pod count to achieve the target
+// value. Current observed pod count is the number of unique pod names
+// which show up in the last 60 seconds.
+
+// Panic mode calculates the average concurrency observed over the last 6
+// seconds and adjusts the observed pod count to achieve the stable
+// target value. Panic mode is engaged when the observed 6 second average
+// concurrency reaches 2x the target stable concurrency. Panic mode will
+// last at least 60 seconds--longer if the 2x threshold is repeatedly
+// breached. During panic mode the number of pods is never decreased in
+// order to prevent flapping.
+
+const (
+	stableWindowSeconds float64       = 60
+	stableWindow        time.Duration = 60 * time.Second
+	panicWindowSeconds  float64       = 6
+	panicWindow         time.Duration = 6 * time.Second
+	maxScaleUpRate      float64       = 10
+)
+
+type Autoscaler struct {
+	stableConcurrencyPerPod         float64
+	panicConcurrencyPerPodThreshold float64
+	stats                           map[time.Time]types.Stat
+	panicking                       bool
+	panicTime                       *time.Time
+	maxPanicPods                    float64
 }
 
-var kubeClient *kubernetes.Clientset
-var statChan = make(chan types.Stat, 100)
-
-func autoscaler() {
-	targetConcurrency := float64(10)
-
-	targetConcurrencyParam := os.Getenv("ELA_TARGET_CONCURRENCY")
-	if targetConcurrencyParam != "" {
-		concurrency, err := strconv.Atoi(targetConcurrencyParam)
-		if err != nil {
-			panic(err)
-		}
-		if concurrency > 0 {
-			targetConcurrency = float64(concurrency)
-		}
-	}
-	log.Printf("Target concurrency: %0.2f.", targetConcurrency)
-
-	a := lib.NewAutoscaler(targetConcurrency)
-	ticker := time.NewTicker(2 * time.Second)
-
-	for {
-		select {
-		case <-ticker.C:
-			scale, ok := a.Scale(time.Now())
-			if ok {
-				go scaleTo(scale)
-			}
-		case s := <-statChan:
-			a.Record(s, time.Now())
-		}
-	}
-}
-
-func scaleTo(podCount int32) {
-	log.Printf("Target scale is %v", podCount)
-	deploymentName := os.Getenv("ELA_DEPLOYMENT")
-	ns := os.Getenv("ELA_NAMESPACE")
-	dc := kubeClient.ExtensionsV1beta1().Deployments(ns)
-	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
-	if err != nil {
-		log.Printf("Error getting Deployment %q: %s", deploymentName, err)
-		return
-	}
-	if *deployment.Spec.Replicas == podCount {
-		log.Println("Already at scale.")
-		return
-	}
-	deployment.Spec.Replicas = &podCount
-	_, err = dc.Update(deployment)
-	if err != nil {
-		log.Printf("Error updating Deployment %q: %s", deploymentName, err)
-	}
-	log.Println("Successfully scaled.")
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	log.Println("New metrics source online.")
-	for {
-		messageType, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Println("Metrics source dropping off.")
-			return
-		}
-		if messageType != websocket.BinaryMessage {
-			log.Println("Dropping non-binary message.")
-			continue
-		}
-		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var stat types.Stat
-		err = dec.Decode(&stat)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		statChan <- stat
+func NewAutoscaler(targetConcurrency float64) *Autoscaler {
+	return &Autoscaler{
+		stableConcurrencyPerPod:         targetConcurrency,
+		panicConcurrencyPerPodThreshold: targetConcurrency * 2,
+		stats: make(map[time.Time]types.Stat),
 	}
 }
 
-func main() {
-	log.Println("Autoscaler up")
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err)
+func (a *Autoscaler) Record(stat types.Stat, now time.Time) {
+	a.stats[now] = stat
+}
+
+func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
+
+	// 60 second window
+	stableTotal := float64(0)
+	stableCount := float64(0)
+	stablePods := make(map[string]bool)
+
+	// 6 second window
+	panicTotal := float64(0)
+	panicCount := float64(0)
+	panicPods := make(map[string]bool)
+
+	for sec, stat := range a.stats {
+		if sec.Add(panicWindow).After(now) {
+			panicTotal = panicTotal + float64(stat.ConcurrentRequests)
+			panicCount = panicCount + 1
+			panicPods[stat.PodName] = true
+		}
+		if sec.Add(stableWindow).After(now) {
+			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
+			stableCount = stableCount + 1
+			stablePods[stat.PodName] = true
+		} else {
+			// Drop metrics after 60 seconds
+			delete(a.stats, sec)
+		}
 	}
-	kc, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err)
+
+	// Stop panicking after the surge has made its way into the stable metric.
+	if a.panicking && a.panicTime.Add(stableWindow).Before(now) {
+		log.Println("Un-panicking.")
+		a.panicking = false
+		a.panicTime = nil
+		a.maxPanicPods = 0
 	}
-	kubeClient = kc
-	go autoscaler()
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+
+	// Do nothing when we have no data.
+	if len(stablePods) == 0 {
+		log.Println("No data to scale on.")
+		return 0, false
+	}
+
+	// Observed concurrency is the average of all data points in each window
+	observedStableConcurrency := stableTotal / stableCount
+	observedPanicConcurrency := panicTotal / panicCount
+
+	// Desired scaling ratio is observed concurrency over desired
+	// (stable) concurrency. Rate limited to within maxScaleUpRate.
+	desiredStableScalingRatio := rateLimited(observedStableConcurrency / a.stableConcurrencyPerPod)
+	desiredPanicScalingRatio := rateLimited(observedPanicConcurrency / a.stableConcurrencyPerPod)
+
+	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
+	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
+
+	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
+	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
+
+	// Begin panicking when we cross the 6 second concurrency threshold.
+	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {
+		log.Println("PANICKING")
+		a.panicking = true
+		a.panicTime = &now
+	}
+
+	if a.panicking {
+		log.Printf("Operating in panic mode.")
+		if desiredPanicPodCount > a.maxPanicPods {
+			log.Printf("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
+			a.panicTime = &now
+			a.maxPanicPods = desiredPanicPodCount
+		}
+		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
+	} else {
+		log.Println("Operating in stable mode.")
+		return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
+	}
+}
+
+func rateLimited(desiredRate float64) float64 {
+	if desiredRate > maxScaleUpRate {
+		return maxScaleUpRate
+	}
+	return desiredRate
 }

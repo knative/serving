@@ -14,7 +14,7 @@ k8s_object(
     images = {
         "ela-controller:latest": "//cmd/ela-controller:image",
         "ela-queue:latest": "//pkg/sidecars/queue:image",
-        "ela-autoscaler:latest": "//pkg/autoscaler:image",
+        "ela-autoscaler:latest": "//cmd/ela-autoscaler:image",
     },
     template = "controller.yaml",
 )
