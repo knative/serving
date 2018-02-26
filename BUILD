@@ -13,7 +13,7 @@ k8s_object(
     name = "controller",
     images = {
         "ela-controller:latest": "//cmd/ela-controller:image",
-        "ela-queue:latest": "//pkg/sidecars/queue:image",
+        "ela-queue:latest": "//cmd/ela-queue:image",
         "ela-autoscaler:latest": "//cmd/ela-autoscaler:image",
     },
     template = "controller.yaml",
