@@ -48,7 +48,7 @@ func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) is
 	}
 }
 
-// MakeRouteIstioRoute creates an Istio route
+// MakeRouteIstioRoutes creates an Istio route
 func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
