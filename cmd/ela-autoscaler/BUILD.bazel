@@ -6,10 +6,11 @@ go_library(
     importpath = "github.com/google/elafros/cmd/ela-autoscaler",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/autoscaler/types:go_default_library",
         "//pkg/autoscaler:go_default_library",
+        "//pkg/autoscaler/types:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
-	"//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
     ],
@@ -18,7 +19,7 @@ go_library(
 go_binary(
     name = "ela-autoscaler",
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/pkg/ela-autoscaler",
+    importpath = "github.com/google/elafros/cmd/ela-autoscaler",
     pure = "on",
     visibility = ["//visibility:public"],
 )
