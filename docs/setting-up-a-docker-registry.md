@@ -53,7 +53,7 @@ Install the following tools:
 1.  Enable the GCR API.
 
     ```shell
-    gcloud --project="${PROJECT_ID}" service-management enable \
+    gcloud --project="${PROJECT_ID}" services enable \
     containerregistry.googleapis.com
     ```
 

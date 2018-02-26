@@ -1,8 +1,8 @@
 # Telemetry Sample
 
-A simple web server that you can use for testing. When called, the
-server waits randomly up to 1 second and emmits metrics that you can 
-see in Prometheus.
+This sample runs a simple web server and responds the requests with "Hello World!" 
+with a random delay up to 1 second. The purpose of this sample is to show creating
+dedicated Prometheus instances and emmitting metrics to it.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ kubectl get revisions -o yaml
 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
-$ watch kubectl get ingress
+watch kubectl get ingress
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
 telemetrysample-route-ela-ingress   telemetrysample.myhost.net             80        14s
 ```
@@ -41,10 +41,10 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
 # Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
-$ curl --header 'Host:telemetrysample.myhost.net' http://${SERVICE_IP}
+curl --header 'Host:telemetrysample.myhost.net' http://${SERVICE_IP}
 Hello World!
 ```
 
@@ -54,7 +54,7 @@ First, get the service IP that Prometheus UI is exposed on:
 
 ```shell
 # Put the Ingress IP into an environment variable.
-$ kubectl get service prometheus-test-web -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+kubectl get service prometheus-test-web -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
 
 104.154.90.16
 ```

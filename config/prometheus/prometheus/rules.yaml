@@ -16,6 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-system-rules
+  namespace: monitoring
   labels:
     role: prometheus-rulefiles
     prometheus: system

@@ -12,18 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: ConfigMap
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
-  name: grafana-datasources
+  name: ela-controller
   namespace: monitoring
-data:
-  prometheus.yaml: |+
-    datasources:
-     - name: prometheus
-       type: prometheus
-       access: proxy
-       org_id: 1
-       url: http://prometheus-system-np:8080
-       version: 1
-       editable: false
+  labels:
+    monitor-category: ela-system
+spec:
+  selector:
+    matchLabels:
+      app: ela-controller
+      prometheus: ela-controller
+  namespaceSelector:
+    matchNames:
+    - ela-system
+  endpoints:
+  - port: metrics
+    interval: 30s

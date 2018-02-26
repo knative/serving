@@ -1,6 +1,11 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
+    name = "prometheus-operator-namespace",
+    template = "prometheus-operator/namespace.yaml",
+)
+
+k8s_object(
     name = "prometheus-operator-service-account",
     template = "prometheus-operator/service-account.yaml",
 )
@@ -76,11 +81,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "prometheus-public",
-    template = "prometheus/service-public.yaml",
-)
-
-k8s_object(
     name = "prometheus-rules",
     template = "prometheus/rules.yaml",
 )
@@ -130,11 +130,17 @@ k8s_object(
     template = "servicemonitor/prometheus-operator.yaml",
 )
 
+k8s_object(
+    name = "prometheus-service-monitor-ela-controller",
+    template = "servicemonitor/ela-controller.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
     name = "everything",
     objects = [
+        ":prometheus-operator-namespace",
         ":prometheus-operator-service-account",
         ":prometheus-operator-cluster-role",
         ":prometheus-operator-cluster-role-binding",
@@ -143,7 +149,6 @@ k8s_objects(
         ":prometheus-role-bindings",
         ":prometheus-operator-deployment",
         ":prometheus-operator-service",
-        ":prometheus-prometheus",
         ":prometheus-service",
         ":prometheus-rules",
         ":prometheus-exporter-kube-controller-metrics",
@@ -160,12 +165,7 @@ k8s_objects(
         ":prometheus-service-monitor-node-exporter",
         ":prometheus-service-monitor-prometheus",
         ":prometheus-service-monitor-prometheus-operator",
-    ],
-)
-
-k8s_objects(
-    name = "everything-public",
-    objects = [
-        ":prometheus-public",
+        ":prometheus-service-monitor-ela-controller",
+        ":prometheus-prometheus",
     ],
 )

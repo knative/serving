@@ -16,6 +16,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: system
+  namespace: monitoring
   labels:
     app: prometheus
     prometheus: system
@@ -25,7 +26,7 @@ spec:
   serviceAccountName: prometheus-system
   serviceMonitorSelector:
     matchExpressions:
-    - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,system]}
+    - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,ela-system]}
   ruleSelector:
     matchLabels:
       role: prometheus-rulefiles

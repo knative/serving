@@ -12,20 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: Enabling below will open a public port to the world and
-# all metrics will be exposed outside. This should only be used for development & testing.
 apiVersion: v1
-kind: Service
+kind: Namespace
 metadata:
-  name: prometheus-system-public
-  namespace: default
-  labels:
-    prometheus: system
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 30800
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    prometheus: system
+  name: monitoring

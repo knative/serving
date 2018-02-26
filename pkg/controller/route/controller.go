@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +45,14 @@ import (
 	"github.com/google/elafros/pkg/controller"
 )
 
-var serviceKind = v1alpha1.SchemeGroupVersion.WithKind("Route")
+var (
+	controllerKind        = v1alpha1.SchemeGroupVersion.WithKind("Route")
+	routeProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "elafros",
+		Name:      "route_process_item_count",
+		Help:      "Counter to keep track of items in the route work queue",
+	}, []string{"status"})
+)
 
 const (
 	controllerAgentName = "route-controller"
@@ -94,6 +102,10 @@ type Controller struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+}
+
+func init() {
+	prometheus.MustRegister(routeProcessItemCount)
 }
 
 // Init initializes the controller and is called by the generated code
@@ -197,7 +209,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err := func(obj interface{}) error {
+	err, promStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -218,19 +230,21 @@ func (c *Controller) processNextWorkItem() bool {
 			// process a work item that is invalid.
 			c.workqueue.Forget(obj)
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
+			return nil, controller.PromLabelValueInvalid
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing %q: %s", key, err.Error())
+			return fmt.Errorf("error syncing %q: %s", key, err.Error()), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
 		glog.Infof("Successfully synced '%s'", key)
-		return nil
+		return nil, controller.PromLabelValueSuccess
 	}(obj)
+
+	routeProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
 
 	if err != nil {
 		runtime.HandleError(err)
@@ -339,7 +353,7 @@ func (c *Controller) syncHandler(key string) error {
 
 func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) error {
 	service := MakeRouteK8SService(u)
-	serviceRef := metav1.NewControllerRef(u, serviceKind)
+	serviceRef := metav1.NewControllerRef(u, controllerKind)
 	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
 
 	sc := c.kubeclientset.Core().Services(ns)
@@ -361,7 +375,7 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 
 	// Check to see if we need to create or update
 	ingress := MakeRouteIngress(route, ns)
-	serviceRef := metav1.NewControllerRef(route, serviceKind)
+	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
 	_, err := ic.Get(ingressName, metav1.GetOptions{})

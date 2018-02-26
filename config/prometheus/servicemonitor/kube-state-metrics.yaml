@@ -16,6 +16,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: kube-state-metrics
+  namespace: monitoring
   labels:
     monitor-category: k8s
 spec:
@@ -25,7 +26,7 @@ spec:
       app: kube-state-metrics
   namespaceSelector:
     matchNames:
-    - default
+    - monitoring
   endpoints:
   - port: https-main
     scheme: https

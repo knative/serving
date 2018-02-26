@@ -16,6 +16,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: prometheus-operator
+  namespace: monitoring
   labels:
     monitor-category: prometheus
 spec:
@@ -24,3 +25,6 @@ spec:
   selector:
     matchLabels:
       app: prometheus-operator
+  namespaceSelector:
+    matchNames:
+    - monitoring
