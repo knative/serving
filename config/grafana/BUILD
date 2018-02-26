@@ -55,6 +55,21 @@ k8s_object(
     template = "dashboard-definition/ela-controller.yaml",
 )
 
+k8s_object(
+    name = "grafana-dashboard-definition-istio",
+    template = "dashboard-definition/istio.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-istio-mixer",
+    template = "dashboard-definition/istio-mixer.yaml",
+)
+
+k8s_object(
+    name = "grafana-dashboard-definition-istio-pilot",
+    template = "dashboard-definition/istio-pilot.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -69,6 +84,9 @@ k8s_objects(
        ":grafana-dashboard-definition-pod",
        ":grafana-dashboard-definition-statefulset",
        ":grafana-dashboard-definition-ela-controller",
+       ":grafana-dashboard-definition-istio",
+       ":grafana-dashboard-definition-istio-mixer",
+       ":grafana-dashboard-definition-istio-pilot",
        ":grafana-deployment",
     ],
 )

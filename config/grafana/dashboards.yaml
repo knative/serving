@@ -60,3 +60,21 @@ data:
       type: file
       options:
         folder: /grafana-dashboard-definition/ela-controller
+    - name: 'istio'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/istio
+    - name: 'istio-mixer'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/istio-mixer
+    - name: 'istio-pilot'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/istio-pilot
