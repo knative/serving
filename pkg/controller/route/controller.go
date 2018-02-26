@@ -453,7 +453,7 @@ func (c *Controller) getRouteAndConfigurationForTrafficTarget(
 			return RevisionRoute{}, config, err
 		}
 		configName := rev.Labels[elaconfig.ConfigurationLabelKey]
-		config, err = configClient.Get(tt.Configuration, metav1.GetOptions{})
+		config, err = configClient.Get(configName, metav1.GetOptions{})
 		if err != nil {
 			glog.Infof("Failed to fetch Configuraiton %s: %s", configName, err)
 			return RevisionRoute{}, config, err
