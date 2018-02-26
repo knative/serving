@@ -18,10 +18,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
+var upgrader = websocket.Upgrader{}
 
 var kubeClient *kubernetes.Clientset
 var statChan = make(chan types.Stat, 100)
