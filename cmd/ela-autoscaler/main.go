@@ -71,11 +71,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		glog.Error(err)
 		return
 	}
-	glog.Verbose("New metrics source online.")
+	glog.Info("New metrics source online.")
 	for {
 		messageType, msg, err := conn.ReadMessage()
 		if err != nil {
-			glog.Verbose("Metrics source dropping off.")
+			glog.Info("Metrics source dropping off.")
 			return
 		}
 		if messageType != websocket.BinaryMessage {

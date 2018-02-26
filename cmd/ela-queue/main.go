@@ -33,16 +33,16 @@ func connectStatSink() {
 		glog.Error("No ELA_NAMESPACE provided.")
 		return
 	}
-	glog.Versbose("ELA_NAMESPACE=" + ns)
+	glog.Info("ELA_NAMESPACE=" + ns)
 	rev := os.Getenv("ELA_REVISION")
 	if rev == "" {
 		glog.Error("No ELA_REVISION provided.")
 		return
 	}
-	glog.Verbose("ELA_REVISION=" + rev)
+	glog.Info("ELA_REVISION=" + rev)
 
 	selector := fmt.Sprintf("revision=%s", rev)
-	glog.Verbose("Revision selector: " + selector)
+	glog.Info("Revision selector: " + selector)
 	opt := metav1.ListOptions{
 		LabelSelector: selector,
 	}
@@ -90,7 +90,7 @@ func connectStatSink() {
 func statReporter() {
 	for {
 		s := <-statChan
-		glog.Verbose("Sending stat: %+v", s)
+		glog.Info("Sending stat: %+v", s)
 		if statSink == nil {
 			glog.Error("Stat sink not connected.")
 			continue
@@ -133,7 +133,7 @@ func concurrencyReporter() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	glog.Verbose("Request received.")
+	glog.Info("Request received.")
 	var in struct{}
 	reqInChan <- in
 	defer func() {
@@ -145,7 +145,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	glog.Verbose("Forwarding a request to the app container at ", time.Now().String())
+	glog.Infof("Forwarding a request to the app container at ", time.Now().String())
 	proxy.ServeHTTP(w, r)
 }
 
