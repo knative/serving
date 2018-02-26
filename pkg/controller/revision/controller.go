@@ -64,7 +64,7 @@ const (
 
 	nginxContainerName string = "nginx-proxy"
 	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
-	nginxHttpPortName  string = "nginx-http-port"
+	nginxHTTPPortName  string = "nginx-http-port"
 
 	nginxConfigMountPath    string = "/tmp/nginx"
 	nginxLogVolumeName      string = "nginx-logs"
@@ -84,7 +84,7 @@ var (
 	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPort                  = 8080
-	nginxHttpPort            = 8180
+	nginxHTTPPort            = 8180
 	requestQueuePort         = 8012
 	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "elafros",
@@ -105,6 +105,7 @@ func printErr(err error) error {
 	return err
 }
 
+// Controller implements the controller for Revision resources.
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
 	// kubeClient allows us to talk to the k8s for core APIs
@@ -133,12 +134,11 @@ type Controller struct {
 	endpointsSynced cache.InformerSynced
 }
 
-// Init initializes the controller and is called by the generated code
+// NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 // config - client configuration for talking to the apiserver
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // queue - message queue for handling new events.  unique to this controller.
-
 //TODO(vaikas): somewhat generic (generic behavior)
 func NewController(
 	kubeclientset kubernetes.Interface,
@@ -356,7 +356,6 @@ func (c *Controller) syncHandler(key string) error {
 					return err
 				}
 			}
-			return nil
 		} else {
 			// The Build's complete, so stop tracking it.
 			c.buildtracker.Untrack(rev)
@@ -545,10 +544,8 @@ func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	if deletionTimestamp == nil {
 		log.Printf("Creating or reconciling resources for %s\n", u.Name)
 		return c.createK8SResources(u, elaNS)
-	} else {
-		return c.deleteK8SResources(u, elaNS)
 	}
-	return nil
+	return c.deleteK8SResources(u, elaNS)
 }
 
 func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error {
