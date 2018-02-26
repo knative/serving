@@ -64,7 +64,7 @@ func getTestRevision() *v1alpha1.Revision {
 			Service: "test-service",
 			// corev1.Container has a lot of setting.  We try to pass many
 			// of them here to verify that we pass through the settings to
-			// the derived Revisions.
+			// derived objects.
 			ContainerSpec: &corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},
