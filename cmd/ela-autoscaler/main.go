@@ -18,13 +18,27 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var upgrader = websocket.Upgrader{}
+const (
+	// The desired number of concurrent requests for each pod.  This
+	// is the primary knob for the fast autoscaler which will try
+	// achieve a 60-second average concurrency per pod of
+	// targetConcurrency.  Another process may tune targetConcurrency
+	// to best handle the resource requirements of the revision.
+	targetConcurency = float64(1.0)
 
-var kubeClient *kubernetes.Clientset
-var statChan = make(chan types.Stat, 100)
+	// A big enough buffer to handle 1000 pods sending stats every 1
+	// second while we do the autoscaling computation (a few hundred
+	// milliseconds).
+	statBufferSize = 1000
+)
+
+var (
+	upgrader   = websocket.Upgrader{}
+	kubeClient *kubernetes.Clientset
+	statChan   = make(chan types.Stat, statBufferSize)
+)
 
 func autoscaler() {
-	targetConcurrency := float64(1.0)
 	glog.Info("Target concurrency: %0.2f.", targetConcurrency)
 
 	a := ela_autoscaler.NewAutoscaler(targetConcurrency)
@@ -97,11 +111,11 @@ func main() {
 	glog.Info("Autoscaler up")
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err)
+		glog.Fatal(err)
 	}
 	kc, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		glog.Fatal(err)
 	}
 	kubeClient = kc
 	go autoscaler()
