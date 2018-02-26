@@ -47,13 +47,6 @@ type GithubHandler struct {
 	ctx    context.Context
 }
 
-func NewGithubHandler(client *ghclient.Client, context context.Context) *GithubHandler {
-	return &GithubHandler{
-		client: client,
-		ctx:    context,
-	}
-}
-
 // HandlePullRequest is invoked whenever a PullRequest is modified (created, updated, etc.)
 func (handler *GithubHandler) HandlePullRequest(payload interface{}, header webhooks.Header) {
 	glog.Info("Handling Pull Request")
@@ -104,7 +97,10 @@ func main() {
 
 	client := ghclient.NewClient(tc)
 
-	h := NewGithubHandler(client, ctx)
+	h := &GithubHandler{
+		client: client,
+		ctx:    ctx,
+	}
 
 	hook := github.New(&github.Config{Secret: secretToken})
 	hook.RegisterEvents(h.HandlePullRequest, github.PullRequestEvent)
