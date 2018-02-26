@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	ela_autoscaler "github.com/google/elafros/pkg/autoscaler"
@@ -28,18 +27,7 @@ var kubeClient *kubernetes.Clientset
 var statChan = make(chan types.Stat, 100)
 
 func autoscaler() {
-	targetConcurrency := float64(10)
-
-	targetConcurrencyParam := os.Getenv("ELA_TARGET_CONCURRENCY")
-	if targetConcurrencyParam != "" {
-		concurrency, err := strconv.Atoi(targetConcurrencyParam)
-		if err != nil {
-			panic(err)
-		}
-		if concurrency > 0 {
-			targetConcurrency = float64(concurrency)
-		}
-	}
+	targetConcurrency := float64(1.0)
 	log.Printf("Target concurrency: %0.2f.", targetConcurrency)
 
 	a := ela_autoscaler.NewAutoscaler(targetConcurrency)

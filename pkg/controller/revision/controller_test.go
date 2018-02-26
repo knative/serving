@@ -190,7 +190,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 					foundAutoscaler = true
 					checkEnv(container.Env, "ELA_NAMESPACE", "test", "")
 					checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
-					checkEnv(container.Env, "ELA_TARGET_CONCURRENCY", "10", "")
 				}
 			}
 			if !foundAutoscaler {

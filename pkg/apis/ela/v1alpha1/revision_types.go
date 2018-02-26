@@ -60,14 +60,6 @@ type RevisionSpec struct {
 	BuildName string `json:"buildName,omitempty"`
 
 	ContainerSpec *corev1.Container `json:"containerSpec,omitempty"`
-
-	// Scaling parameters.
-	Scaling *ScalingSpec `json:"scaling,omitempty"`
-}
-
-type ScalingSpec struct {
-	// The desired average number of concurrent requests to maintain in each container process
-	TargetConcurrencyPerProcess int64 `json:"targetConcurrencyPerProcess,omitEmpty"`
 }
 
 // RevisionConditionType represents an Revision condition value

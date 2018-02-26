@@ -18,7 +18,6 @@ package revision
 
 import (
 	"flag"
-	"strconv"
 
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
@@ -42,10 +41,6 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
 	replicas := int32(1)
-	targetConcurrencyPerProcess := "10"
-	if spec := u.Spec.Scaling; spec != nil {
-		targetConcurrencyPerProcess = strconv.Itoa(int(spec.TargetConcurrencyPerProcess))
-	}
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
@@ -88,10 +83,6 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 								{
 									Name:  "ELA_DEPLOYMENT",
 									Value: controller.GetRevisionDeploymentName(u),
-								},
-								{
-									Name:  "ELA_TARGET_CONCURRENCY",
-									Value: targetConcurrencyPerProcess,
 								},
 							},
 						},
