@@ -87,7 +87,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 							},
 						},
 					},
-					ServiceAccountName: "ela-revision", // TODO(josephburnett) create ela-autoscaler service account
+					ServiceAccountName: "ela-autoscaler",
 				},
 			},
 		},
