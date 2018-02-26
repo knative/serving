@@ -356,6 +356,7 @@ func (c *Controller) syncHandler(key string) error {
 					return err
 				}
 			}
+			return nil
 		} else {
 			// The Build's complete, so stop tracking it.
 			c.buildtracker.Untrack(rev)
