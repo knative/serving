@@ -37,6 +37,24 @@ k8s_object(
     template = "serviceaccount.yaml",
 )
 
+# Generate a istioclusterrolebinding.yaml based on the
+# K8S_USER_OVERRIDE env variable.
+genrule(
+    name = "gen-istioclusterrolebinding",
+    srcs = ["istioclusterrolebinding.yaml.tpl"],
+    outs = ["istioclusterrolebinding.yaml"],
+    cmd = """
+K8S_USER_OVERRIDE=$$(grep STABLE_K8S_USER bazel-out/stable-status.txt | cut -d' ' -f 2)
+sed "s/K8S_USER_OVERRIDE/$${K8S_USER_OVERRIDE}/g" $(location istioclusterrolebinding.yaml.tpl) > $(location istioclusterrolebinding.yaml)
+""",
+    stamp = 1,
+)
+
+k8s_object(
+    name = "istioclusterrolebinding",
+    template = "istioclusterrolebinding.yaml",
+)
+
 k8s_object(
     name = "clusterrolebinding",
     template = "clusterrolebinding.yaml",
@@ -97,6 +115,7 @@ k8s_objects(
 k8s_objects(
     name = "everything",
     objects = [
+        ":istioclusterrolebinding",
         "@istio_release//:istio",  # We depend on Istio.
         "@buildcrd//:everything",
         ":elafros",
