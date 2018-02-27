@@ -39,13 +39,15 @@ type Revision struct {
 type RevisionServingStateType string
 
 const (
-	// The revision is ready to serve traffic.
+	// The revision is ready to serve traffic. It should have Kubernetes
+	// resources, and the Istio route should be pointed to the given resources.
 	RevisionServingStateActive RevisionServingStateType = "Active"
 	// The revision is not currently serving traffic, but could be made to serve
-	// traffic quickly.
+	// traffic quickly. It should have Kubernetes resources, but the Istio route
+	// should be pointed to the activator.
 	RevisionServingStateReserve RevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
-	// anymore.
+	// anymore. It should not have any Istio routes or Kubernetes resources.
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
@@ -61,8 +63,8 @@ type RevisionSpec struct {
 	// Service this is part of. Points to the Service in the namespace
 	Service string `json:"service"`
 
-	// Serving state of the Revision. Used to determine what state the Kubernetes
-	// resources should be in.
+	// Desired serving state of the Revision. Used to determine what state the
+	// Kubernetes resources should be in.
 	ServingState RevisionServingStateType `json:"servingState"`
 
 	// The name of the build that is producing the container image that we are deploying.
