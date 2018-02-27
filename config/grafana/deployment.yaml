@@ -16,6 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: grafana
+  namespace: monitoring
 spec:
   replicas: 1
   template:
@@ -50,6 +51,12 @@ spec:
           mountPath: /grafana-dashboard-definition/statefulset
         - name: grafana-dashboard-definition-ela-controller
           mountPath: /grafana-dashboard-definition/ela-controller
+        - name: grafana-dashboard-definition-istio
+          mountPath: /grafana-dashboard-definition/istio
+        - name: grafana-dashboard-definition-istio-mixer
+          mountPath: /grafana-dashboard-definition/istio-mixer
+        - name: grafana-dashboard-definition-istio-pilot
+          mountPath: /grafana-dashboard-definition/istio-pilot
         ports:
         - name: web
           containerPort: 3000
@@ -90,3 +97,12 @@ spec:
       - name: grafana-dashboard-definition-ela-controller
         configMap:
           name: grafana-dashboard-definition-ela-controller
+      - name: grafana-dashboard-definition-istio
+        configMap:
+          name: grafana-dashboard-definition-istio
+      - name: grafana-dashboard-definition-istio-mixer
+        configMap:
+          name: grafana-dashboard-definition-istio-mixer
+      - name: grafana-dashboard-definition-istio-pilot
+        configMap:
+          name: grafana-dashboard-definition-istio-pilot

@@ -17,7 +17,9 @@ kind: Deployment
 metadata:
   labels:
     app: prometheus-operator
+    prometheus: system
   name: prometheus-operator
+  namespace: monitoring
 spec:
   replicas: 1
   template:

@@ -90,6 +90,7 @@ type RevisionRoute struct {
 	Weight  int
 }
 
+// Controller implements the controller for Route resources.
 // +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset

@@ -85,12 +85,12 @@ go_repository(
 )
 
 # Istio
-ISTIO_RELEASE = "0.4.0"
+ISTIO_RELEASE = "0.5.1"
 
 new_http_archive(
     name = "istio_release",
     build_file_content = "exports_files([\"istio.yaml\"])",
-    sha256 = "0085456a6e06afb4366648b507586814be04943ad536756729784f2b0d1ace81",
+    sha256 = "f811d29df1b14f71f9e4c14622c949f8b7a1a049ca970e62811933e37a128727",
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
     type = "tar.gz",
     url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",

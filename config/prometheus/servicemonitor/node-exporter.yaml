@@ -16,6 +16,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: node-exporter
+  namespace: monitoring
   labels:
     monitor-category: node
 spec:
@@ -25,7 +26,7 @@ spec:
       app: node-exporter
   namespaceSelector:
     matchNames:
-    - default
+    - monitoring
   endpoints:
   - port: https
     scheme: https

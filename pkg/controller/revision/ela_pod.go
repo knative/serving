@@ -72,8 +72,8 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 			// certs. Right now, the static nginx.conf file has
 			// been modified to only allow HTTP connections.
 			{
-				Name:          nginxHttpPortName,
-				ContainerPort: int32(nginxHttpPort),
+				Name:          nginxHTTPPortName,
+				ContainerPort: int32(nginxHTTPPort),
 			},
 		},
 		Env: []corev1.EnvVar{
