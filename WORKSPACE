@@ -89,7 +89,7 @@ ISTIO_RELEASE = "0.5.1"
 
 new_http_archive(
     name = "istio_release",
-    build_file_content = "exports_files([\"istio.yaml\"])",
+    build_file = "BUILD.istio",
     sha256 = "f811d29df1b14f71f9e4c14622c949f8b7a1a049ca970e62811933e37a128727",
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
     type = "tar.gz",
