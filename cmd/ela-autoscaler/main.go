@@ -48,10 +48,33 @@ const (
 )
 
 var (
-	upgrader   = websocket.Upgrader{}
-	kubeClient *kubernetes.Clientset
-	statChan   = make(chan types.Stat, statBufferSize)
+	upgrader          = websocket.Upgrader{}
+	kubeClient        *kubernetes.Clientset
+	statChan          = make(chan types.Stat, statBufferSize)
+	elaNamespace      string
+	elaDeployment     string
+	elaAutoscalerPort string
 )
+
+func init() {
+	elaNamespace = os.Getenv("ELA_NAMESPACE")
+	if elaNamespace == "" {
+		glog.Fatal("No ELA_NAMESPACE provided.")
+	}
+	glog.Infof("ELA_NAMESPACE=%v", elaNamespace)
+
+	elaDeployment = os.Getenv("ELA_DEPLOYMENT")
+	if elaDeployment == "" {
+		glog.Fatal("No ELA_DEPLOYMENT provided.")
+	}
+	glog.Infof("ELA_DEPLOYMENT=%v", elaDeployment)
+
+	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
+	if elaAutoscalerPort == "" {
+		glog.Fatal("No ELA_AUTOSCALER_PORT provided.")
+	}
+	glog.Infof("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
+}
 
 func autoscaler() {
 	glog.Info("Target concurrency: %0.2f.", targetConcurrency)
@@ -74,12 +97,10 @@ func autoscaler() {
 
 func scaleTo(podCount int32) {
 	glog.Info("Target scale is %v", podCount)
-	deploymentName := os.Getenv("ELA_DEPLOYMENT")
-	ns := os.Getenv("ELA_NAMESPACE")
-	dc := kubeClient.ExtensionsV1beta1().Deployments(ns)
-	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
+	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
+	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
-		glog.Error("Error getting Deployment %q: %s", deploymentName, err)
+		glog.Error("Error getting Deployment %q: %s", elaDeployment, err)
 		return
 	}
 	if *deployment.Spec.Replicas == podCount {
@@ -89,7 +110,7 @@ func scaleTo(podCount int32) {
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
-		glog.Error("Error updating Deployment %q: %s", deploymentName, err)
+		glog.Error("Error updating Deployment %q: %s", elaDeployment, err)
 	}
 	glog.Info("Successfully scaled.")
 }
@@ -135,5 +156,5 @@ func main() {
 	kubeClient = kc
 	go autoscaler()
 	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":"+elaAutoscalerPort, nil)
 }

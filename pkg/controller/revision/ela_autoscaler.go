@@ -18,6 +18,7 @@ package revision
 
 import (
 	"flag"
+	"strconv"
 
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
@@ -73,7 +74,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 							},
 							Ports: []corev1.ContainerPort{{
 								Name:          "autoscaler-port",
-								ContainerPort: int32(8080),
+								ContainerPort: autoscalerPort,
 							}},
 							Env: []corev1.EnvVar{
 								{
@@ -83,6 +84,10 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 								{
 									Name:  "ELA_DEPLOYMENT",
 									Value: controller.GetRevisionDeploymentName(u),
+								},
+								{
+									Name:  "ELA_AUTOSCALER_PORT",
+									Value: strconv.Itoa(autoscalerPort),
 								},
 							},
 						},
@@ -110,8 +115,8 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Se
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "autoscaler-port",
-					Port:       int32(8080),
-					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+					Port:       int32(autoscalerPort),
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: autoscalerPort},
 				},
 			},
 			Type: "NodePort",

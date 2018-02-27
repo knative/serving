@@ -44,12 +44,13 @@ const (
 )
 
 var (
-	podName    string
-	statChan   = make(chan *types.Stat, statReportingQueueLength)
-	reqInChan  = make(chan struct{}, requestCountingQueueLength)
-	reqOutChan = make(chan struct{}, requestCountingQueueLength)
-	kubeClient *kubernetes.Clientset
-	statSink   *websocket.Conn
+	podName           string
+	elaAutoscalerPort string
+	statChan          = make(chan *types.Stat, statReportingQueueLength)
+	reqInChan         = make(chan struct{}, requestCountingQueueLength)
+	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
+	kubeClient        *kubernetes.Clientset
+	statSink          *websocket.Conn
 )
 
 func init() {
@@ -76,6 +77,12 @@ func connectStatSink() {
 		glog.Fatal("No ELA_AUTOSCALER provided.")
 	}
 	glog.Infof("ELA_AUTOSCALER=%v", autoscaler)
+
+	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
+	if elaAutoscalerPort == "" {
+		glog.Fatal("No ELA_AUTOSCALER_PORT provided.")
+	}
+	glog.Infof("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
 
 	selector := fmt.Sprintf("revision=%s", rev)
 	glog.Info("Revision selector: " + selector)
@@ -108,7 +115,7 @@ func connectStatSink() {
 					dialer := &websocket.Dialer{
 						HandshakeTimeout: 3 * time.Second,
 					}
-					conn, _, err := dialer.Dial("ws://"+ip+":8080", nil)
+					conn, _, err := dialer.Dial("ws://"+ip+":"+elaAutoscalerPort, nil)
 					if err != nil {
 						glog.Error(err)
 					} else {

@@ -17,6 +17,8 @@ limitations under the License.
 package revision
 
 import (
+	"strconv"
+
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
 
@@ -96,6 +98,10 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 			{
 				Name:  "ELA_AUTOSCALER",
 				Value: controller.GetRevisionAutoscalerName(u),
+			},
+			{
+				Name:  "ELA_AUTOSCALER_PORT",
+				Value: strconv.Itoa(autoscalerPort),
 			},
 			{
 				Name: "ELA_POD",

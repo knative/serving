@@ -59,6 +59,7 @@ const (
 
 	elaContainerName string = "ela-container"
 	elaPortName      string = "ela-port"
+	elaPort                 = 8080
 
 	elaContainerLogVolumeName      string = "ela-logs"
 	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
@@ -70,6 +71,7 @@ const (
 	nginxContainerName string = "nginx-proxy"
 	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
 	nginxHttpPortName  string = "nginx-http-port"
+	nginxHttpPort             = 8180
 
 	nginxConfigMountPath    string = "/tmp/nginx"
 	nginxLogVolumeName      string = "nginx-logs"
@@ -80,17 +82,17 @@ const (
 
 	requestQueueContainerName string = "request-queue"
 	requestQueuePortName      string = "queue-port"
+	requestQueuePort                 = 8012
 
 	controllerAgentName = "revision-controller"
+
+	autoscalerPort = 8080
 )
 
 var (
 	elaPodReplicaCount       = int32(1)
 	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	elaPort                  = 8080
-	nginxHttpPort            = 8180
-	requestQueuePort         = 8012
 	queueSidecarImage        string
 	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "elafros",
