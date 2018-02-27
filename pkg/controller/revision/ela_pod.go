@@ -26,6 +26,14 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// Each Elafros pod gets 1 cpu.
+	elaContainerCpu     = "850m"
+	queueContainerCpu   = "25m"
+	nginxContainerCpu   = "25m"
+	fluentdContainerCpu = "100m"
+)
+
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	name := u.Name
@@ -38,7 +46,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	elaContainer.Name = elaContainerName
 	elaContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse("700m"),
+			corev1.ResourceName("cpu"): resource.MustParse(elaContainerCpu),
 		},
 	}
 	elaContainer.Ports = []corev1.ContainerPort{{
@@ -64,7 +72,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Image: queueSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCpu),
 			},
 		},
 		Ports: []corev1.ContainerPort{
@@ -105,7 +113,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Image: nginxSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceName("cpu"): resource.MustParse(nginxContainerCpu),
 			},
 		},
 		Ports: []corev1.ContainerPort{
@@ -159,7 +167,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Image: fluentdSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("100m"),
+				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCpu),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
