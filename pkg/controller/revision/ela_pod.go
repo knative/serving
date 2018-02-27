@@ -86,6 +86,10 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				Value: u.Name,
 			},
 			{
+				Name:  "ELA_AUTOSCALER",
+				Value: controller.GetRevisionAutoscalerName(u),
+			},
+			{
 				Name: "ELA_POD",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{

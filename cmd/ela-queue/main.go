@@ -20,26 +20,37 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var podName string = os.Getenv("ELA_POD")
+var podName string
 var statChan = make(chan *types.Stat, 10)
 var reqInChan = make(chan struct{}, 10)
 var reqOutChan = make(chan struct{}, 10)
 var kubeClient *kubernetes.Clientset
 var statSink *websocket.Conn
 
+func init() {
+	podName = os.Getenv("ELA_POD")
+	if podName == "" {
+		glog.Fatal("No ELA_POD provided.")
+	}
+	glog.Infof("ELA_POD=%v", podName)
+}
+
 func connectStatSink() {
 	ns := os.Getenv("ELA_NAMESPACE")
 	if ns == "" {
-		glog.Error("No ELA_NAMESPACE provided.")
-		return
+		glog.Fatal("No ELA_NAMESPACE provided.")
 	}
-	glog.Info("ELA_NAMESPACE=" + ns)
+	glog.Infof("ELA_NAMESPACE=%v", ns)
 	rev := os.Getenv("ELA_REVISION")
 	if rev == "" {
-		glog.Error("No ELA_REVISION provided.")
-		return
+		glog.Fatal("No ELA_REVISION provided.")
 	}
-	glog.Info("ELA_REVISION=" + rev)
+	glog.Infof("ELA_REVISION=%v", rev)
+	autoscaler := os.Getenv("ELA_AUTOSCALER")
+	if autoscaler == "" {
+		glog.Fatal("No ELA_AUTOSCALER provided.")
+	}
+	glog.Infof("ELA_AUTOSCALER=%v", autoscaler)
 
 	selector := fmt.Sprintf("revision=%s", rev)
 	glog.Info("Revision selector: " + selector)
@@ -60,7 +71,7 @@ func connectStatSink() {
 	for {
 		event := <-ch
 		if svc, ok := event.Object.(*corev1.Service); ok {
-			if svc.Name != rev+"--autoscaler" {
+			if svc.Name != autoscaler {
 				glog.Info("This is not the service you're looking for: " + svc.Name)
 				continue
 			}
