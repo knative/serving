@@ -20,12 +20,22 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var podName string
-var statChan = make(chan *types.Stat, 10)
-var reqInChan = make(chan struct{}, 10)
-var reqOutChan = make(chan struct{}, 10)
-var kubeClient *kubernetes.Clientset
-var statSink *websocket.Conn
+const (
+	// Add a little buffer space between request handling and stat
+	// reporting so that latency in the stat pipeline doesn't
+	// interfere with request handling.
+	statReportingQueueLength   = 10
+	requestCountingQueueLength = 10
+)
+
+var (
+	podName    string
+	statChan   = make(chan *types.Stat, statReportingQueueLength)
+	reqInChan  = make(chan struct{}, requestCountingQueueLength)
+	reqOutChan = make(chan struct{}, requestCountingQueueLength)
+	kubeClient *kubernetes.Clientset
+	statSink   *websocket.Conn
+)
 
 func init() {
 	podName = os.Getenv("ELA_POD")
