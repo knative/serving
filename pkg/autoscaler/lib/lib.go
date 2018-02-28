@@ -30,6 +30,7 @@ const (
 	stableWindow        time.Duration = 60 * time.Second
 	panicWindowSeconds  float64       = 6
 	panicWindow         time.Duration = 6 * time.Second
+	maxScaleUpRate      float64       = 10
 )
 
 type Autoscaler struct {
@@ -99,14 +100,17 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	observedStableConcurrency := stableTotal / stableCount
 	observedPanicConcurrency := panicTotal / panicCount
 
-	// Desired pod count is the ratio of observed concurrency to
-	// desired (stable) concurrency times the observed pod count.
-	desiredStablePodCount := (observedStableConcurrency / a.stableConcurrencyPerPod) * float64(len(stablePods))
-	desiredPanicPodCount := (observedPanicConcurrency / a.stableConcurrencyPerPod) * float64(len(stablePods))
+	// Desired scaling ratio is observed concurrency over desired
+	// (stable) concurrency. Rate limited to within maxScaleUpRate.
+	desiredStableScalingRatio := rateLimited(observedStableConcurrency / a.stableConcurrencyPerPod)
+	desiredPanicScalingRatio := rateLimited(observedPanicConcurrency / a.stableConcurrencyPerPod)
 
-	log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
+	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
+	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
+
+	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
-	log.Printf("Observed average %0.1f concurrency over %v seconds over %v samples over %v pods.",
+	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
@@ -128,4 +132,11 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		log.Println("Operating in stable mode.")
 		return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 	}
+}
+
+func rateLimited(desiredRate float64) float64 {
+	if desiredRate > maxScaleUpRate {
+		return maxScaleUpRate
+	}
+	return desiredRate
 }
