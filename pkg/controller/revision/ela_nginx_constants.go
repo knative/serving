@@ -50,11 +50,7 @@ http {
   # to avoid a race condition between the two timeouts.
   keepalive_timeout 650;
   keepalive_requests 10000;
-{{if .EnableQueue}}
   upstream queue { server 127.0.0.1:8012; }
-{{else}}
-  upstream app_server { keepalive 64; server 127.0.0.1:8080; }
-{{end}}
 
   geo $source_type {
     default ext;
@@ -180,7 +176,7 @@ http {
     }
 
     location / {
-      proxy_pass http://app_server;
+      proxy_pass http://queue;
       proxy_redirect off;
       proxy_http_version 1.1;
       proxy_set_header Connection "";
@@ -268,11 +264,7 @@ http {
         }
 
         proxy_intercept_errors on;
-{{if .EnableQueue}}
         proxy_pass http://queue;
-{{else}}
-        proxy_pass http://app_server;
-{{end}}
         proxy_redirect off;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
