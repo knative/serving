@@ -78,11 +78,6 @@ k8s_object(
     template = "revision.yaml",
 )
 
-k8s_object(
-    name = "istio",
-    template = "@istio_release//:istio.yaml",
-)
-
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -119,7 +114,7 @@ k8s_objects(
     name = "everything",
     objects = [
         ":istioclusterrolebinding",
-        ":istio",  # We depend on Istio.
+        "@istio_release//:istio",  # We depend on Istio.
         "@buildcrd//:everything",
         ":elafros",
     ],
