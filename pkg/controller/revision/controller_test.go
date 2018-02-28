@@ -17,13 +17,6 @@ limitations under the License.
 package revision
 
 /* TODO tests:
-- When a Revision is created:
-	- a namespace is created
-	- a deployment is created
-	- an autoscaler is created
-	- an nginx configmap is created
-	- Revision status is updated
-
 - When a Revision is updated TODO
 - When a Revision is deleted TODO
 */
@@ -32,6 +25,9 @@ import (
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,8 +57,25 @@ func getTestRevision() *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			Service: "test-service",
+			// corev1.Container has a lot of setting.  We try to pass many
+			// of them here to verify that we pass through the settings to
+			// derived objects.
 			ContainerSpec: &corev1.Container{
-				Image: "test-image",
+				Image:      "gcr.io/repo/image",
+				Command:    []string{"echo"},
+				Args:       []string{"hello", "world"},
+				WorkingDir: "/tmp",
+				Env: []corev1.EnvVar{{
+					Name:  "EDITOR",
+					Value: "emacs",
+				}},
+				LivenessProbe: &corev1.Probe{
+					TimeoutSeconds: 42,
+				},
+				ReadinessProbe: &corev1.Probe{
+					TimeoutSeconds: 43,
+				},
+				TerminationMessagePath: "/dev/null",
 			},
 		},
 	}
@@ -211,6 +224,12 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		func(t *testing.T) {
 			for _, c := range p.Spec.Containers {
 				if c.Image == rev.Spec.ContainerSpec.Image {
+					// Ignoring fields set by Elafros controller.
+					ignored := cmpopts.IgnoreFields(corev1.Container{}, "Name", "Ports", "Resources", "VolumeMounts")
+					// All other fields must match.
+					if diff := cmp.Diff(rev.Spec.ContainerSpec, &c, ignored); diff != "" {
+						t.Errorf("Pod container spec != revision container spec (-want +got): %v", diff)
+					}
 					return
 				}
 			}

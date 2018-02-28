@@ -83,6 +83,7 @@ type RevisionRoute struct {
 	Weight  int
 }
 
+// Controller implements the controller for Route resources.
 // +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -108,7 +109,7 @@ func init() {
 	prometheus.MustRegister(routeProcessItemCount)
 }
 
-// Init initializes the controller and is called by the generated code
+// NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 // config - client configuration for talking to the apiserver
 // si - informer factory shared across all controllers for listening to events and indexing resource properties

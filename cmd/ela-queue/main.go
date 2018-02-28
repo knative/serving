@@ -65,22 +65,22 @@ func init() {
 	glog.Infof("ELA_POD=%v", podName)
 
 	elaNamespace = os.Getenv("ELA_NAMESPACE")
-	if ns == "" {
+	if elaNamespace == "" {
 		glog.Fatal("No ELA_NAMESPACE provided.")
 	}
-	glog.Infof("ELA_NAMESPACE=%v", ns)
+	glog.Infof("ELA_NAMESPACE=%v", elaNamespace)
 
 	elaRevision = os.Getenv("ELA_REVISION")
-	if rev == "" {
+	if elaRevision == "" {
 		glog.Fatal("No ELA_REVISION provided.")
 	}
-	glog.Infof("ELA_REVISION=%v", rev)
+	glog.Infof("ELA_REVISION=%v", elaRevision)
 
 	elaAutoscaler = os.Getenv("ELA_AUTOSCALER")
-	if autoscaler == "" {
+	if elaAutoscaler == "" {
 		glog.Fatal("No ELA_AUTOSCALER provided.")
 	}
-	glog.Infof("ELA_AUTOSCALER=%v", autoscaler)
+	glog.Infof("ELA_AUTOSCALER=%v", elaRevision)
 
 	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
 	if elaAutoscalerPort == "" {
@@ -216,11 +216,11 @@ func main() {
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatalf(err)
+		glog.Fatalf("Error getting in cluster config: %v", err)
 	}
 	kc, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Fatalf(err)
+		glog.Fatalf("Error creating new config: %v", err)
 	}
 	kubeClient = kc
 	go connectStatSink()

@@ -10,10 +10,10 @@ development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/REA
 1. Setup [GitHub access via
    SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
 1. Install [requirements](#requirements)
-1. Set up your [environment](#environment-setup)
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
 1. [Set up a docker repository you can push
    to](./docs/setting-up-a-docker-registry.md)
+1. Set up your [shell environment](#environment-setup)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you meet these requirements, you can [start an `Elafros`
@@ -104,7 +104,7 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
 ```shell
-bazel run :controller.replace
+bazel run :controller.apply
 ```
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely

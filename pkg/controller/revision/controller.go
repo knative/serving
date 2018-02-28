@@ -70,8 +70,8 @@ const (
 
 	nginxContainerName string = "nginx-proxy"
 	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
-	nginxHttpPortName  string = "nginx-http-port"
-	nginxHttpPort             = 8180
+	nginxHTTPPortName  string = "nginx-http-port"
+	nginxHTTPPort             = 8180
 
 	nginxConfigMountPath    string = "/tmp/nginx"
 	nginxLogVolumeName      string = "nginx-logs"
@@ -114,6 +114,7 @@ func printErr(err error) error {
 	return err
 }
 
+// Controller implements the controller for Revision resources.
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
 	// kubeClient allows us to talk to the k8s for core APIs
@@ -142,12 +143,11 @@ type Controller struct {
 	endpointsSynced cache.InformerSynced
 }
 
-// Init initializes the controller and is called by the generated code
+// NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 // config - client configuration for talking to the apiserver
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // queue - message queue for handling new events.  unique to this controller.
-
 //TODO(vaikas): somewhat generic (generic behavior)
 func NewController(
 	kubeclientset kubernetes.Interface,
@@ -554,10 +554,8 @@ func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	if deletionTimestamp == nil {
 		log.Printf("Creating or reconciling resources for %s\n", u.Name)
 		return c.createK8SResources(u, elaNS)
-	} else {
-		return c.deleteK8SResources(u, elaNS)
 	}
-	return nil
+	return c.deleteK8SResources(u, elaNS)
 }
 
 func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error {
