@@ -456,8 +456,8 @@ func (c *Controller) markConfigurationReady(
 			Reason: "LatestRevisionReady",
 		})
 
-	glog.Infof("Setting LatestReady of Configuration %q to revision %q", config.Name, revision.Name)
-	config.Status.LatestReady = revision.Name
+	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q", config.Name, revision.Name)
+	config.Status.LatestReadyRevisionName = revision.Name
 
 	_, err := c.updateStatus(config)
 	return err
