@@ -45,12 +45,18 @@ const (
 	// second while we do the autoscaling computation (a few hundred
 	// milliseconds).
 	statBufferSize = 1000
+
+	// Enough buffer to store scale requests generated every 2
+	// seconds while an http request is taking the full timeout of 5
+	// second.
+	scaleBufferSize = 10
 )
 
 var (
 	upgrader          = websocket.Upgrader{}
 	kubeClient        *kubernetes.Clientset
 	statChan          = make(chan types.Stat, statBufferSize)
+	scaleChan         = make(chan int32, scaleBufferSize)
 	elaNamespace      string
 	elaDeployment     string
 	elaAutoscalerPort string
@@ -87,10 +93,33 @@ func autoscaler() {
 		case <-ticker.C:
 			scale, ok := a.Scale(time.Now())
 			if ok {
-				go scaleTo(scale)
+				scaleChan <- scale
 			}
 		case s := <-statChan:
 			a.Record(s)
+		}
+	}
+}
+
+func scaleSerializer() {
+	for {
+		select {
+		case desiredPodCount := <-scaleChan:
+		FastForward:
+			// Fast forward to the most recent desired pod
+			// count since the http timeout (5 sec) is more
+			// than the autoscaling rate (2 sec) and there
+			// could be multiple pending scale requests.
+			for {
+				select {
+				case p := <-scaleChan:
+					glog.Warning("Scaling is not keeping up with autoscaling requests.")
+					desiredPodCount = p
+				default:
+					break FastForward
+				}
+			}
+			scaleTo(desiredPodCount)
 		}
 	}
 }
@@ -149,12 +178,14 @@ func main() {
 	if err != nil {
 		glog.Fatal(err)
 	}
+	config.Timeout = time.Duration(5 * time.Second)
 	kc, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		glog.Fatal(err)
 	}
 	kubeClient = kc
 	go autoscaler()
+	go scaleSerializer()
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":"+elaAutoscalerPort, nil)
 }
