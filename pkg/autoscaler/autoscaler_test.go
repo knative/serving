@@ -242,7 +242,7 @@ func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time
 	for i := 1; i <= s.durationSeconds; i++ {
 		points = append(points, int32(float64(s.startConcurrency)+float64(s.endConcurrency-s.startConcurrency)*(float64(i)/float64(s.durationSeconds))))
 	}
-	glog.Verbose("Recording points: %v.", points)
+	glog.Infof("Recording points: %v.", points)
 	for _, point := range points {
 		t := now
 		now = now.Add(time.Second)
