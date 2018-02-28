@@ -5,7 +5,6 @@ go_library(
     srcs = ["autoscale.go"],
     importpath = "github.com/google/elafros/sample/autoscale",
     visibility = ["//visibility:private"],
-    deps = ["//vendor/github.com/gorilla/mux:go_default_library"],
 )
 
 go_binary(
