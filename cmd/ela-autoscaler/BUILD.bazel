@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/autoscaler:go_default_library",
-        "//pkg/autoscaler/types:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

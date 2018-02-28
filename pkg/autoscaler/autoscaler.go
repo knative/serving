@@ -5,8 +5,19 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/elafros/pkg/autoscaler/types"
 )
+
+type Stat struct {
+	// The time the data point was collected on the pod.
+	Time *time.Time
+
+	// The unique identity of this pod.  Used to count how many pods
+	// are contributing to the metrics.
+	PodName string
+
+	// Number of requests currently being handled by this pod.
+	ConcurrentRequests int32
+}
 
 type statKey struct {
 	podName string
@@ -24,7 +35,7 @@ const (
 type Autoscaler struct {
 	stableConcurrencyPerPod         float64
 	panicConcurrencyPerPodThreshold float64
-	stats                           map[statKey]types.Stat
+	stats                           map[statKey]Stat
 	panicking                       bool
 	panicTime                       *time.Time
 	maxPanicPods                    float64
@@ -34,11 +45,11 @@ func NewAutoscaler(targetConcurrency float64) *Autoscaler {
 	return &Autoscaler{
 		stableConcurrencyPerPod:         targetConcurrency,
 		panicConcurrencyPerPodThreshold: targetConcurrency * 2,
-		stats: make(map[statKey]types.Stat),
+		stats: make(map[statKey]Stat),
 	}
 }
 
-func (a *Autoscaler) Record(stat types.Stat) {
+func (a *Autoscaler) Record(stat Stat) {
 	if stat.Time == nil {
 		glog.Errorf("Missing time from stat: %+v", stat)
 		return

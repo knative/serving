@@ -6,7 +6,6 @@ go_library(
     importpath = "github.com/google/elafros/pkg/autoscaler",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/autoscaler/types:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
     ],
 )

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	ela_autoscaler "github.com/google/elafros/pkg/autoscaler"
-	"github.com/google/elafros/pkg/autoscaler/types"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -55,7 +54,7 @@ const (
 var (
 	upgrader          = websocket.Upgrader{}
 	kubeClient        *kubernetes.Clientset
-	statChan          = make(chan types.Stat, statBufferSize)
+	statChan          = make(chan ela_autoscaler.Stat, statBufferSize)
 	scaleChan         = make(chan int32, scaleBufferSize)
 	elaNamespace      string
 	elaDeployment     string
@@ -162,7 +161,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var stat types.Stat
+		var stat ela_autoscaler.Stat
 		err = dec.Decode(&stat)
 		if err != nil {
 			glog.Error(err)

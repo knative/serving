@@ -25,7 +25,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/elafros/pkg/autoscaler/types"
+	"github.com/google/elafros/pkg/autoscaler"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -46,7 +46,7 @@ const (
 var (
 	podName           string
 	elaAutoscalerPort string
-	statChan          = make(chan *types.Stat, statReportingQueueLength)
+	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqInChan         = make(chan struct{}, requestCountingQueueLength)
 	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
@@ -181,7 +181,7 @@ func concurrencyReporter() {
 		select {
 		case <-ticker:
 			now := time.Now()
-			stat := &types.Stat{
+			stat := &autoscaler.Stat{
 				Time:               &now,
 				PodName:            podName,
 				ConcurrentRequests: concurrentRequests,
