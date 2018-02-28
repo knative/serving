@@ -50,8 +50,12 @@ func NewAutoscaler(targetConcurrency float64) *Autoscaler {
 	}
 }
 
-func (a *Autoscaler) Record(stat types.Stat, now time.Time) {
-	a.stats[now] = stat
+func (a *Autoscaler) Record(stat types.Stat) {
+	if stat.Time == nil {
+		glog.Errorf("Missing time from stat: %+v", stat)
+		return
+	}
+	a.stats[*stat.Time] = stat
 }
 
 func (a *Autoscaler) Scale(now time.Time) (int32, bool) {

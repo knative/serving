@@ -162,7 +162,9 @@ func concurrencyReporter() {
 	for {
 		select {
 		case <-ticker:
+			now := time.Now()
 			stat := &types.Stat{
+				Time:               &now,
 				PodName:            podName,
 				ConcurrentRequests: concurrentRequests,
 			}

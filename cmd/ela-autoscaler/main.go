@@ -90,7 +90,7 @@ func autoscaler() {
 				go scaleTo(scale)
 			}
 		case s := <-statChan:
-			a.Record(s, time.Now())
+			a.Record(s)
 		}
 	}
 }
