@@ -36,13 +36,32 @@ docker push "${DOCKER_REPO_OVERRIDE}/hey"
 
 ## Running
 
-Ramp up a bunch of traffic on the autoscale app.
+Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
 
 ```shell
-for i in `seq 4 4 40`; do
+for i in `seq 2 2 60`; do
   kubectl -n hey run hey-$i --image "${DOCKER_REPO_OVERRIDE?}/hey" --restart Never -- \
-    -n 999999 -c $i -z 3m -host 'demo.myhost.net' \
+    -n 999999 -c $i -z 2m -host 'demo.myhost.net' \
     "http://${SERVICE_IP?}/primes/40000000"
   sleep 1
 done
+```
+
+Watch the Elafros deployment pod count increase.
+
+```shell
+watch kubectl get deploy
+```
+
+Look at the latency, requests/sec and success rate of each pod.
+
+```shell
+for i in `seq 4 4 120`; do kubectl -n hey logs hey-$i ; done | less
+```
+
+## Cleanup
+
+```shell
+kubectl delete all --all -n hey
+bazel run sample/autoscale:everything.delete
 ```
