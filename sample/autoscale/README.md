@@ -24,7 +24,7 @@ export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="
 Request the largest prime less than 40,000,000 from the autoscale app.  Note that it consumes about 1 cpu/sec.
 
 ```shell
-time curl --header 'Host:demo.myhost.net' http://${SERVICE_IP?}/primes/40000000
+time curl --header 'Host:autoscale.myhost.net' http://${SERVICE_IP?}/primes/40000000
 ```
 
 Build the load testing container [hey](https://github.com/rakyll/hey).
@@ -41,7 +41,7 @@ Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
 ```shell
 for i in `seq 2 2 60`; do
   kubectl -n hey run hey-$i --image "${DOCKER_REPO_OVERRIDE?}/hey" --restart Never -- \
-    -n 999999 -c $i -z 2m -host 'demo.myhost.net' \
+    -n 999999 -c $i -z 2m -host 'autoscale.myhost.net' \
     "http://${SERVICE_IP?}/primes/40000000"
   sleep 1
 done
