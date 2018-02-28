@@ -24,7 +24,7 @@ const (
 	// achieve a 60-second average concurrency per pod of
 	// targetConcurrency.  Another process may tune targetConcurrency
 	// to best handle the resource requirements of the revision.
-	targetConcurency = float64(1.0)
+	targetConcurrency = float64(1.0)
 
 	// A big enough buffer to handle 1000 pods sending stats every 1
 	// second while we do the autoscaling computation (a few hundred
