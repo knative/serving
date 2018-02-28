@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["autoscaler.go"],
+    srcs = [
+        "autoscaler.go",
+        "doc.go",
+    ],
     importpath = "github.com/google/elafros/pkg/autoscaler",
     visibility = ["//visibility:public"],
     deps = [
@@ -15,8 +18,5 @@ go_test(
     srcs = ["autoscaler_test.go"],
     embed = [":go_default_library"],
     importpath = "github.com/google/elafros/pkg/autoscaler",
-    deps = [
-        "//pkg/autoscaler/types:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
-    ],
+    deps = ["//vendor/github.com/golang/glog:go_default_library"],
 )
