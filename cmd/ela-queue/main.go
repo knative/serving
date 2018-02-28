@@ -109,22 +109,26 @@ func connectStatSink() {
 			}
 			ip := svc.Spec.ClusterIP
 			glog.Infof("Found autoscaler service %q with IP %q.", svc.Name, ip)
-			if ip != "" {
-				for {
-					time.Sleep(time.Second)
-					dialer := &websocket.Dialer{
-						HandshakeTimeout: 3 * time.Second,
-					}
-					conn, _, err := dialer.Dial("ws://"+ip+":"+elaAutoscalerPort, nil)
-					if err != nil {
-						glog.Error(err)
-					} else {
-						glog.Info("Connected to stat sink.")
-						statSink = conn
-						return
-					}
-					glog.Error("Retrying connection to autoscaler.")
+			if ip == "" {
+				// If IP is not found, continue waiting for it to
+				// be assigned, which will be another event.
+				glog.Info("Continue waiting for IP.")
+				continue
+			}
+			for {
+				time.Sleep(time.Second)
+				dialer := &websocket.Dialer{
+					HandshakeTimeout: 3 * time.Second,
 				}
+				conn, _, err := dialer.Dial("ws://"+ip+":"+elaAutoscalerPort, nil)
+				if err != nil {
+					glog.Error(err)
+				} else {
+					glog.Info("Connected to stat sink.")
+					statSink = conn
+					return
+				}
+				glog.Error("Retrying connection to autoscaler.")
 			}
 		}
 	}
