@@ -104,11 +104,11 @@ func connectStatSink() {
 		event := <-ch
 		if svc, ok := event.Object.(*corev1.Service); ok {
 			if svc.Name != autoscaler {
-				glog.Info("This is not the service you're looking for: " + svc.Name)
+				glog.Infof("This is not the service you're looking for: %v", svc.Name)
 				continue
 			}
 			ip := svc.Spec.ClusterIP
-			glog.Info("Found autoscaler service %q with IP %q.", svc.Name, ip)
+			glog.Infof("Found autoscaler service %q with IP %q.", svc.Name, ip)
 			if ip != "" {
 				for {
 					time.Sleep(time.Second)
@@ -133,7 +133,7 @@ func connectStatSink() {
 func statReporter() {
 	for {
 		s := <-statChan
-		glog.Info("Sending stat: %+v", s)
+		glog.Infof("Sending stat: %+v", s)
 		if statSink == nil {
 			glog.Error("Stat sink not connected.")
 			continue
@@ -188,7 +188,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	glog.Infof("Forwarding a request to the app container at ", time.Now().String())
+	glog.Infof("Forwarding a request to the app container at %v", time.Now().String())
 	proxy.ServeHTTP(w, r)
 }
 

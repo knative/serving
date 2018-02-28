@@ -77,7 +77,7 @@ func init() {
 }
 
 func autoscaler() {
-	glog.Info("Target concurrency: %0.2f.", targetConcurrency)
+	glog.Infof("Target concurrency: %0.2f.", targetConcurrency)
 
 	a := ela_autoscaler.NewAutoscaler(targetConcurrency)
 	ticker := time.NewTicker(2 * time.Second)
@@ -96,7 +96,7 @@ func autoscaler() {
 }
 
 func scaleTo(podCount int32) {
-	glog.Info("Target scale is %v", podCount)
+	glog.Infof("Target scale is %v", podCount)
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
 	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
@@ -110,7 +110,7 @@ func scaleTo(podCount int32) {
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
-		glog.Error("Error updating Deployment %q: %s", elaDeployment, err)
+		glog.Errorf("Error updating Deployment %q: %s", elaDeployment, err)
 	}
 	glog.Info("Successfully scaled.")
 }
