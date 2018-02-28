@@ -116,7 +116,14 @@ func connectStatSink() {
 				continue
 			}
 			for {
+				// Everything is coming up at the same
+				// time.  We wait a second first to let
+				// the autoscaler start serving.  And we
+				// wait 1 second between attempts to
+				// connect so we don't overwhelm the
+				// autoscaler.
 				time.Sleep(time.Second)
+
 				dialer := &websocket.Dialer{
 					HandshakeTimeout: 3 * time.Second,
 				}
