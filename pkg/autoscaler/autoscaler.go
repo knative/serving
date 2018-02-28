@@ -49,6 +49,7 @@ func NewAutoscaler(targetConcurrency float64) *Autoscaler {
 	}
 }
 
+// Record a data point. No safe for concurrent access or concurrent access with Scale.
 func (a *Autoscaler) Record(stat Stat) {
 	if stat.Time == nil {
 		glog.Errorf("Missing time from stat: %+v", stat)
@@ -61,6 +62,8 @@ func (a *Autoscaler) Record(stat Stat) {
 	a.stats[key] = stat
 }
 
+// Calculate the desired scale based on current statistics given the current time.
+// Not safe for concurrent access or concurrent access with Record.
 func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	// 60 second window
