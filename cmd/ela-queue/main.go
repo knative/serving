@@ -51,7 +51,7 @@ var (
 	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
-	target            *url.URL
+	proxy             *httputil.ReverseProxy
 )
 
 func init() {
@@ -61,11 +61,11 @@ func init() {
 	}
 	glog.Infof("ELA_POD=%v", podName)
 
-	t, err := url.Parse("http://localhost:8080")
+	target, err := url.Parse("http://localhost:8080")
 	if err != nil {
 		glog.Fatal(err)
 	}
-	target = t
+	proxy = httputil.NewSingleHostReverseProxy(target)
 }
 
 func connectStatSink() {
@@ -203,7 +203,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		var out struct{}
 		reqOutChan <- out
 	}()
-	proxy := httputil.NewSingleHostReverseProxy(target)
 	glog.Infof("Forwarding a request to the app container at %v", time.Now().String())
 	proxy.ServeHTTP(w, r)
 }
