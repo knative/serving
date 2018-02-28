@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
 
+	elaconfig "github.com/google/elafros/pkg/controller/configuration"
 	hooks "github.com/google/elafros/pkg/controller/testing"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -86,6 +87,19 @@ func getTestRouteWithMultipleTargets() *v1alpha1.Route {
 					Percent:  10,
 				},
 			},
+		},
+	}
+}
+
+func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
+	return &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/Routes/test-route",
+			Name:      "test-route",
+			Namespace: "test",
+		},
+		Spec: v1alpha1.RouteSpec{
+			Traffic: traffic,
 		},
 	}
 }
@@ -135,6 +149,9 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 		SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
 		Name:      "p-deadbeef",
 		Namespace: "test",
+		Labels: map[string]string{
+			elaconfig.ConfigurationLabelKey: config.Name,
+		},
 	}
 	rev.Status = v1alpha1.RevisionStatus{
 		ServiceName: "p-deadbeef-service",
@@ -347,6 +364,106 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Revision: rev.Name,
+				Percent:  100,
+			},
+		},
+	)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels
+		expectedLabels := map[string]string{RouteLabelKey: route.Name}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Configuration: config.Name,
+				Percent:       100,
+			},
+		},
+	)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels
+		expectedLabels := map[string]string{RouteLabelKey: route.Name}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	config := getTestConfiguration()
+	// Set a label which is expected to be deleted.
+	config.Labels = map[string]string{RouteLabelKey: route.Name}
+	rev := getTestRevisionForConfig(config)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels, should be empty.
+		expectedLabels := map[string]string{}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
