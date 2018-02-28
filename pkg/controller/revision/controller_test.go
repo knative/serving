@@ -17,22 +17,17 @@ limitations under the License.
 package revision
 
 /* TODO tests:
-- When a Revision is created:
-	- a namespace is created
-	- a deployment is created
-	- an autoscaler is created
-	- an nginx configmap is created
-	- Revision status is updated
-
 - When a Revision is updated TODO
 - When a Revision is deleted TODO
 */
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -176,15 +171,11 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		func(t *testing.T) {
 			for _, c := range p.Spec.Containers {
 				if c.Image == rev.Spec.ContainerSpec.Image {
-					// Make a copy and removed fields set by the controller.
-					container := c.DeepCopy()
-					container.Name = ""
-					container.Resources = corev1.ResourceRequirements{}
-					container.Ports = nil
-					container.VolumeMounts = nil
-					// Verify that all other fields match revision container spec.
-					if !reflect.DeepEqual(container, rev.Spec.ContainerSpec) {
-						t.Error("pod container spec does not match revision")
+					// Ignoring fields set by Elafros controller.
+					ignored := cmpopts.IgnoreFields(corev1.Container{}, "Name", "Ports", "Resources", "VolumeMounts")
+					// All other fields must match.
+					if diff := cmp.Diff(rev.Spec.ContainerSpec, &c, ignored); diff != "" {
+						t.Errorf("Pod container spec != revision container spec (-want +got): %v", diff)
 					}
 					return
 				}

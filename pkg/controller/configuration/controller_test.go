@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -167,8 +168,8 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
 		}
 
-		if !reflect.DeepEqual(rev.Spec, config.Spec.Template.Spec) {
-			t.Error("rev spec does not match config template spec")
+		if diff := cmp.Diff(rev.Spec, config.Spec.Template.Spec); diff != "" {
+			t.Errorf("rev spec != config template spec (-want +got): %v", diff)
 		}
 
 		if rev.Labels[ConfigurationLabelKey] != config.Name {
