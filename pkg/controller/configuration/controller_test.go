@@ -168,7 +168,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
 		}
 
-		if diff := cmp.Diff(rev.Spec, config.Spec.Template.Spec); diff != "" {
+		if diff := cmp.Diff(config.Spec.Template.Spec, rev.Spec); diff != "" {
 			t.Errorf("rev spec != config template spec (-want +got): %v", diff)
 		}
 
