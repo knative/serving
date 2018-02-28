@@ -439,3 +439,33 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	config := getTestConfiguration()
+	// Set a label which is expected to be deleted.
+	config.Labels = map[string]string{RouteLabelKey: route.Name}
+	rev := getTestRevisionForConfig(config)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels, should be empty.
+		expectedLabels := map[string]string{}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
