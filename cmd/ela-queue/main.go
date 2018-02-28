@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc. All Rights Reserved.
+Copyright 2018 Google Inc. All Rights Reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -45,6 +45,9 @@ const (
 
 var (
 	podName           string
+	elaNamespace      string
+	elaRevision       string
+	elaAutoscaler     string
 	elaAutoscalerPort string
 	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqInChan         = make(chan struct{}, requestCountingQueueLength)
@@ -61,25 +64,19 @@ func init() {
 	}
 	glog.Infof("ELA_POD=%v", podName)
 
-	target, err := url.Parse("http://localhost:8080")
-	if err != nil {
-		glog.Fatal(err)
-	}
-	proxy = httputil.NewSingleHostReverseProxy(target)
-}
-
-func connectStatSink() {
-	ns := os.Getenv("ELA_NAMESPACE")
+	elaNamespace = os.Getenv("ELA_NAMESPACE")
 	if ns == "" {
 		glog.Fatal("No ELA_NAMESPACE provided.")
 	}
 	glog.Infof("ELA_NAMESPACE=%v", ns)
-	rev := os.Getenv("ELA_REVISION")
+
+	elaRevision = os.Getenv("ELA_REVISION")
 	if rev == "" {
 		glog.Fatal("No ELA_REVISION provided.")
 	}
 	glog.Infof("ELA_REVISION=%v", rev)
-	autoscaler := os.Getenv("ELA_AUTOSCALER")
+
+	elaAutoscaler = os.Getenv("ELA_AUTOSCALER")
 	if autoscaler == "" {
 		glog.Fatal("No ELA_AUTOSCALER provided.")
 	}
@@ -91,14 +88,22 @@ func connectStatSink() {
 	}
 	glog.Infof("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
 
-	selector := fmt.Sprintf("revision=%s", rev)
+	target, err := url.Parse("http://localhost:8080")
+	if err != nil {
+		glog.Fatal(err)
+	}
+	proxy = httputil.NewSingleHostReverseProxy(target)
+}
+
+func connectStatSink() {
+	selector := fmt.Sprintf("revision=%s", elaRevision)
 	glog.Info("Revision selector: " + selector)
 	opt := metav1.ListOptions{
 		LabelSelector: selector,
 	}
 
 	// TODO(josephburnett): should we use dns instead?
-	services := kubeClient.CoreV1().Services(ns)
+	services := kubeClient.CoreV1().Services(elaNamespace)
 	wi, err := services.Watch(opt)
 	if err != nil {
 		glog.Error("Error watching services: %v", err)
@@ -110,7 +115,7 @@ func connectStatSink() {
 	for {
 		event := <-ch
 		if svc, ok := event.Object.(*corev1.Service); ok {
-			if svc.Name != autoscaler {
+			if svc.Name != elaAutoscaler {
 				glog.Infof("This is not the service you're looking for: %v", svc.Name)
 				continue
 			}
@@ -211,11 +216,11 @@ func main() {
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err)
+		glog.Fatalf(err)
 	}
 	kc, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		glog.Fatalf(err)
 	}
 	kubeClient = kc
 	go connectStatSink()
