@@ -286,10 +286,10 @@ func (c *Controller) syncHandler(key string) error {
 	config = config.DeepCopy()
 
 	// Configuration business logic
-	if config.GetGeneration() == config.Status.ReconciledGeneration {
+	if config.GetGeneration() == config.Status.ObservedGeneration {
 		// TODO(vaikas): Check to see if Status.LatestCreatedRevisionName is ready and update Status.LatestReady
 		glog.Infof("Skipping reconcile since already reconciled %d == %d",
-			config.Spec.Generation, config.Status.ReconciledGeneration)
+			config.Spec.Generation, config.Status.ObservedGeneration)
 		return nil
 	}
 
@@ -352,7 +352,7 @@ func (c *Controller) syncHandler(key string) error {
 	// Also update the LatestCreatedRevisionName so that we'll know revision to check
 	// for ready state so that when ready, we can make it Latest.
 	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
-	config.Status.ReconciledGeneration = config.Spec.Generation
+	config.Status.ObservedGeneration = config.Spec.Generation
 
 	log.Printf("Updating the configuration status:\n%+v", config)
 
