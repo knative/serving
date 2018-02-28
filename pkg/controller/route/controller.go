@@ -417,7 +417,9 @@ func (c *Controller) getRevisionRoutesAndConfigurations(route *v1alpha1.Route) (
 			return nil, nil, err
 		}
 		revRoutes = append(revRoutes, rr)
-		configs = append(configs, *config)
+		if config != nil {
+			configs = append(configs, *config)
+		}
 	}
 	return revRoutes, configs, nil
 }
@@ -453,11 +455,17 @@ func (c *Controller) getRouteAndConfigurationForTrafficTarget(
 			glog.Infof("Failed to fetch Revision %s: %s", revName, err)
 			return RevisionRoute{}, config, err
 		}
-		configName := rev.Labels[elaconfig.ConfigurationLabelKey]
-		config, err = configClient.Get(configName, metav1.GetOptions{})
-		if err != nil {
-			glog.Infof("Failed to fetch Configuraiton %s: %s", configName, err)
-			return RevisionRoute{}, config, err
+
+		if rev.Labels == nil || rev.Labels[elaconfig.ConfigurationLabelKey] == "" {
+			glog.Warningf("Revision %s does not have label for key %s",
+				revName, elaconfig.ConfigurationLabelKey)
+		} else {
+			configName := rev.Labels[elaconfig.ConfigurationLabelKey]
+			config, err = configClient.Get(configName, metav1.GetOptions{})
+			if err != nil {
+				glog.Infof("Failed to fetch Configuraiton %s: %s", configName, err)
+				return RevisionRoute{}, config, err
+			}
 		}
 	}
 	//TODO(grantr): What should happen if revisionName is empty?
