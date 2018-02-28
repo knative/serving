@@ -104,7 +104,7 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
 ```shell
-bazel run :controller.replace
+bazel run :controller.apply
 ```
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
