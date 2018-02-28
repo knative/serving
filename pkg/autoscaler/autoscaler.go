@@ -8,6 +8,11 @@ import (
 	"github.com/google/elafros/pkg/autoscaler/types"
 )
 
+type statKey struct {
+	podName string
+	time    time.Time
+}
+
 const (
 	stableWindowSeconds float64       = 60
 	stableWindow        time.Duration = 60 * time.Second
@@ -19,7 +24,7 @@ const (
 type Autoscaler struct {
 	stableConcurrencyPerPod         float64
 	panicConcurrencyPerPodThreshold float64
-	stats                           map[time.Time]types.Stat
+	stats                           map[statKey]types.Stat
 	panicking                       bool
 	panicTime                       *time.Time
 	maxPanicPods                    float64
@@ -29,7 +34,7 @@ func NewAutoscaler(targetConcurrency float64) *Autoscaler {
 	return &Autoscaler{
 		stableConcurrencyPerPod:         targetConcurrency,
 		panicConcurrencyPerPodThreshold: targetConcurrency * 2,
-		stats: make(map[time.Time]types.Stat),
+		stats: make(map[statKey]types.Stat),
 	}
 }
 
@@ -38,7 +43,11 @@ func (a *Autoscaler) Record(stat types.Stat) {
 		glog.Errorf("Missing time from stat: %+v", stat)
 		return
 	}
-	a.stats[*stat.Time] = stat
+	key := statKey{
+		podName: stat.PodName,
+		time:    *stat.Time,
+	}
+	a.stats[key] = stat
 }
 
 func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
@@ -53,19 +62,20 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	panicCount := float64(0)
 	panicPods := make(map[string]bool)
 
-	for sec, stat := range a.stats {
-		if sec.Add(panicWindow).After(now) {
+	for key, stat := range a.stats {
+		instant := key.time
+		if instant.Add(panicWindow).After(now) {
 			panicTotal = panicTotal + float64(stat.ConcurrentRequests)
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
 		}
-		if sec.Add(stableWindow).After(now) {
+		if instant.Add(stableWindow).After(now) {
 			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
 		} else {
 			// Drop metrics after 60 seconds
-			delete(a.stats, sec)
+			delete(a.stats, key)
 		}
 	}
 
