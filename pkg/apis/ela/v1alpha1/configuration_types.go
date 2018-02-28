@@ -79,7 +79,7 @@ type ConfigurationStatus struct {
 	LatestReady string `json:"latestReady,omitempty"`
 
 	// LatestCreated is the last revision that was created; it might not be
-	// ready yet. When it's ready, it will get moved to Latest.
+	// ready yet. When it's ready, it will get moved to LatestReady.
 	LatestCreated string `json:"latestCreated,omitempty"`
 
 	// ReconciledGeneration is the 'Generation' of the Configuration that
