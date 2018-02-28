@@ -13,7 +13,7 @@ development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/REA
 1. [Set up a kubernetes cluster](./docs/creating-a-kubernetes-cluster.md)
 1. [Set up a docker repository you can push
    to](./docs/setting-up-a-docker-registry.md)
-1. Set up your [environment](#environment-setup)
+1. Set up your [shell environment](#environment-setup)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you meet these requirements, you can [start an `Elafros`
