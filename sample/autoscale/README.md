@@ -45,6 +45,7 @@ for i in `seq 2 2 60`; do
     "http://${SERVICE_IP?}/primes/40000000"
   sleep 1
 done
+watch kubectl get pods -n hey --show-all
 ```
 
 Watch the Elafros deployment pod count increase.
