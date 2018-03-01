@@ -23,8 +23,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	elatyped "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"

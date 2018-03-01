@@ -17,9 +17,9 @@ package versioned
 
 import (
 	glog "github.com/golang/glog"
-	cloudbuildv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1"
-	elafrosv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
-	configv1alpha2 "github.com/google/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	cloudbuildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1"
+	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

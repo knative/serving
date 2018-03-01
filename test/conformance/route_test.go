@@ -26,9 +26,9 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/ginkgo"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/client/clientset/versioned"
-	elatyped "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/client/clientset/versioned"
+	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"

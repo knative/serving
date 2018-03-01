@@ -8,7 +8,7 @@ go_library(
         "names.go",
         "promethus_labels.go",
     ],
-    importpath = "github.com/google/elafros/pkg/controller",
+    importpath = "github.com/elafros/elafros/pkg/controller",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",

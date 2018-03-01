@@ -19,7 +19,7 @@ package controller
 import (
 	"log"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"

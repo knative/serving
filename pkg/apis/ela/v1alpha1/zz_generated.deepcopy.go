@@ -21,7 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	cloudbuild_v1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+	cloudbuild_v1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
