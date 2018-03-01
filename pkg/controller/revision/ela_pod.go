@@ -30,7 +30,7 @@ import (
 
 const (
 	// Each Elafros pod gets 1 cpu.
-	elaContainerCpu     = "850m"
+	elaContainerCpu     = "400m"
 	queueContainerCpu   = "25m"
 	nginxContainerCpu   = "25m"
 	fluentdContainerCpu = "100m"
