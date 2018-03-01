@@ -18,8 +18,8 @@ limitations under the License.
 package conformance
 
 import (
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/util/json"
 )
 
