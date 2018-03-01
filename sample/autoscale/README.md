@@ -27,20 +27,14 @@ Request the largest prime less than 40,000,000 from the autoscale app.  Note tha
 time curl --header 'Host:autoscale.myhost.net' http://${SERVICE_IP?}/primes/40000000
 ```
 
-Build the load testing container [hey](https://github.com/rakyll/hey).
-
-```
-docker build -t "${DOCKER_REPO_OVERRIDE?}/hey" sample/autoscale/hey
-docker push "${DOCKER_REPO_OVERRIDE}/hey"
-```
-
 ## Running
 
 Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
 
 ```shell
+kubectl delete namespace hey --ignore-not-found && kubectl create namespace hey
 for i in `seq 2 2 60`; do
-  kubectl -n hey run hey-$i --image "${DOCKER_REPO_OVERRIDE?}/hey" --restart Never -- \
+  kubectl -n hey run hey-$i --image josephburnett/hey --restart Never -- \
     -n 999999 -c $i -z 2m -host 'autoscale.myhost.net' \
     "http://${SERVICE_IP?}/primes/40000000"
   sleep 1
