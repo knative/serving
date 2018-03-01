@@ -409,25 +409,25 @@ func (c *Controller) getRevisionRoutesAndConfigurations(route *v1alpha1.Route) (
 	[]RevisionRoute, []v1alpha1.Configuration, error) {
 	glog.Infof("Figuring out routes for Route: %s", route.Name)
 	revRoutes := []RevisionRoute{}
-	configs := []v1alpha1.Configuration{}
+	// Use this cache to avoiding multiple fetches for same configuration.
+	configCache := ConfigurationCache{
+		configClient: c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace),
+		configSet:    make(map[string]*v1alpha1.Configuration),
+	}
 	for _, tt := range route.Spec.Traffic {
-		rr, config, err := c.getRouteAndConfigurationForTrafficTarget(tt, route.Namespace)
+		rr, err := c.getRouteTrafficTarget(tt, route.Namespace, configCache)
 		if err != nil {
 			glog.Infof("Failed to get a route for target %+v : %q", tt, err)
 			return nil, nil, err
 		}
 		revRoutes = append(revRoutes, rr)
-		if config != nil {
-			configs = append(configs, *config)
-		}
 	}
-	return revRoutes, configs, nil
+	return revRoutes, configCache.List(), nil
 }
 
-func (c *Controller) getRouteAndConfigurationForTrafficTarget(
-	tt v1alpha1.TrafficTarget, ns string) (RevisionRoute, *v1alpha1.Configuration, error) {
+func (c *Controller) getRouteTrafficTarget(
+	tt v1alpha1.TrafficTarget, ns string, configCache ConfigurationCache) (RevisionRoute, error) {
 	elaNS := controller.GetElaNamespaceName(ns)
-	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
 	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 
 	var rev *v1alpha1.Revision
@@ -436,16 +436,16 @@ func (c *Controller) getRouteAndConfigurationForTrafficTarget(
 	if tt.Configuration != "" {
 		// Configuration is specified, fetch last revision
 		configName := tt.Configuration
-		config, err = configClient.Get(configName, metav1.GetOptions{})
+		config, err = configCache.Get(configName)
 		if err != nil {
 			glog.Infof("Failed to fetch Configuraiton %s: %s", configName, err)
-			return RevisionRoute{}, config, err
+			return RevisionRoute{}, err
 		}
 		revName := config.Status.LatestReady
 		rev, err = revClient.Get(revName, metav1.GetOptions{})
 		if err != nil {
 			glog.Infof("Failed to fetch Revision %s: %s", revName, err)
-			return RevisionRoute{}, config, err
+			return RevisionRoute{}, err
 		}
 	} else {
 		// Revision is specified, fetch its configuration
@@ -453,7 +453,7 @@ func (c *Controller) getRouteAndConfigurationForTrafficTarget(
 		rev, err = revClient.Get(revName, metav1.GetOptions{})
 		if err != nil {
 			glog.Infof("Failed to fetch Revision %s: %s", revName, err)
-			return RevisionRoute{}, config, err
+			return RevisionRoute{}, err
 		}
 
 		if rev.Labels == nil || rev.Labels[elaconfig.ConfigurationLabelKey] == "" {
@@ -461,10 +461,10 @@ func (c *Controller) getRouteAndConfigurationForTrafficTarget(
 				revName, elaconfig.ConfigurationLabelKey)
 		} else {
 			configName := rev.Labels[elaconfig.ConfigurationLabelKey]
-			config, err = configClient.Get(configName, metav1.GetOptions{})
+			config, err = configCache.Get(configName)
 			if err != nil {
 				glog.Infof("Failed to fetch Configuraiton %s: %s", configName, err)
-				return RevisionRoute{}, config, err
+				return RevisionRoute{}, err
 			}
 		}
 	}
@@ -475,7 +475,7 @@ func (c *Controller) getRouteAndConfigurationForTrafficTarget(
 		RevisionName: rev.Name,
 		Service:      fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS),
 		Weight:       tt.Percent,
-	}, config, nil
+	}, nil
 }
 
 func (c *Controller) createOrUpdateRevisionRoutes(

@@ -110,6 +110,7 @@ func getTestRevision(name string) *v1alpha1.Revision {
 			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/test/revisions/%s", name),
 			Name:      name,
 			Namespace: "test",
+			Labels:    map[string]string{},
 		},
 		Spec: v1alpha1.RevisionSpec{
 			ContainerSpec: &corev1.Container{
@@ -315,6 +316,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	route := getTestRouteWithMultipleTargets()
 	rev := getTestRevision("test-rev")
 	config := getTestConfiguration()
+	// Make two revisions point to same configuration
+	rev.Labels[elaconfig.ConfigurationLabelKey] = config.Name
 	h := hooks.NewHooks()
 
 	// Create a Revision when the Configuration is created to simulate the action
