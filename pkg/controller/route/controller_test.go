@@ -307,8 +307,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		cfgrev := getTestRevisionForConfig(cfg)
 		// This must be a goroutine to avoid deadlocking the Fake fixture
 		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
-		// Set LatestReady to this revision
-		cfg.Status.LatestReady = cfgrev.Name
+		// Set LatestReadyRevisionName to this revision
+		cfg.Status.LatestReadyRevisionName = cfgrev.Name
 		// Return the modified Configuration so the object passed to later reactors
 		// (including the fixture reactor) has our Status mutation
 		return false, cfg, nil
