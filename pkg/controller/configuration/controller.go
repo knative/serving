@@ -287,7 +287,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Configuration business logic
 	if config.GetGeneration() == config.Status.ReconciledGeneration {
-		// TODO(vaikas): Check to see if Status.LatestCreated is ready and update Status.LatestReady
+		// TODO(vaikas): Check to see if Status.LatestCreatedRevisionName is ready and update Status.LatestReady
 		glog.Infof("Skipping reconcile since already reconciled %d == %d",
 			config.Spec.Generation, config.Status.ReconciledGeneration)
 		return nil
@@ -349,9 +349,9 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.
-	// Also update the LatestCreated so that we'll know revision to check
+	// Also update the LatestCreatedRevisionName so that we'll know revision to check
 	// for ready state so that when ready, we can make it Latest.
-	config.Status.LatestCreated = created.ObjectMeta.Name
+	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
 	config.Status.ReconciledGeneration = config.Spec.Generation
 
 	log.Printf("Updating the configuration status:\n%+v", config)
@@ -413,7 +413,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
-	if revision.Name != config.Status.LatestCreated {
+	if revision.Name != config.Status.LatestCreatedRevisionName {
 		// The revision isn't the latest created one, so ignore this event.
 		glog.Infof("Revision %q is not the latest created one", revisionName)
 		return
