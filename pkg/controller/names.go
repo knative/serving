@@ -37,7 +37,7 @@ func GetElaNamespaceName(ns string) string {
 }
 
 func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
-	return u.Name + "-ela-deployment"
+	return u.Name + "-deployment"
 }
 
 func GetRevisionNginxConfigMapName(u *v1alpha1.Revision) string {
