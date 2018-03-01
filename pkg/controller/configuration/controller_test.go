@@ -20,7 +20,7 @@ package configuration
 - If a Congfiguration is created and deleted before the queue fires, no Revision
   is created.
 - When a Congfiguration is updated, a new Revision is created and
-	Congfiguration's LatestReady points to it. Also the previous Congfiguration
+	Congfiguration's LatestReadyRevisionName points to it. Also the previous Congfiguration
 	still exists.
 - When a Congfiguration controller is created and a Congfiguration is already
 	out of sync, the controller creates or updates a Revision for the out of sync
@@ -257,7 +257,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
 				t.Errorf("Conditions length diff; got %v, want %v", got, want)
 			}
-			if got, want := config.Status.LatestReady, ""; got != want {
+			if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
 				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 			}
 			// After the initial update to the configuration, we should be
@@ -283,7 +283,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			if got, want := config.Status.Conditions, expectedConfigConditions; !reflect.DeepEqual(got, want) {
 				t.Errorf("Conditions diff; got %v, want %v", got, want)
 			}
-			if got, want := config.Status.LatestReady, revision.Name; got != want {
+			if got, want := config.Status.LatestReadyRevisionName, revision.Name; got != want {
 				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 			}
 		}
@@ -322,7 +322,7 @@ func TestDoNotSetLatestWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
 		if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
 			t.Errorf("Conditions length diff; got %v, want %v", got, want)
 		}
-		if got, want := config.Status.LatestReady, ""; got != want {
+		if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
 			t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 		}
 		return hooks.HookComplete

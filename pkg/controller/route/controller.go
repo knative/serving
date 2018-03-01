@@ -415,7 +415,7 @@ func (c *Controller) getRouteForTrafficTarget(tt v1alpha1.TrafficTarget, ns stri
 		if err != nil {
 			return RevisionRoute{}, err
 		}
-		revisionName = config.Status.LatestReady
+		revisionName = config.Status.LatestReadyRevisionName
 	}
 	//TODO(grantr): What should happen if revisionName is empty?
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
