@@ -20,7 +20,7 @@ package configuration
 - If a Congfiguration is created and deleted before the queue fires, no Revision
   is created.
 - When a Congfiguration is updated, a new Revision is created and
-	Congfiguration's LatestReady points to it. Also the previous Congfiguration
+	Congfiguration's LatestReadyRevisionName points to it. Also the previous Congfiguration
 	still exists.
 - When a Congfiguration controller is created and a Congfiguration is already
 	out of sync, the controller creates or updates a Revision for the out of sync
@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,6 +67,26 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					Service: "test-service",
+					// corev1.Container has a lot of setting.  We try to pass many
+					// of them here to verify that we pass through the settings to
+					// the derived Revisions.
+					ContainerSpec: &corev1.Container{
+						Image:      "gcr.io/repo/image",
+						Command:    []string{"echo"},
+						Args:       []string{"hello", "world"},
+						WorkingDir: "/tmp",
+						Env: []corev1.EnvVar{{
+							Name:  "EDITOR",
+							Value: "emacs",
+						}},
+						LivenessProbe: &corev1.Probe{
+							TimeoutSeconds: 42,
+						},
+						ReadinessProbe: &corev1.Probe{
+							TimeoutSeconds: 43,
+						},
+						TerminationMessagePath: "/dev/null",
+					},
 				},
 			},
 		},
@@ -147,6 +168,10 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
 		}
 
+		if diff := cmp.Diff(config.Spec.Template.Spec, rev.Spec); diff != "" {
+			t.Errorf("rev spec != config template spec (-want +got): %v", diff)
+		}
+
 		if rev.Labels[ConfigurationLabelKey] != config.Name {
 			t.Errorf("rev does not have label <%s:%s>", ConfigurationLabelKey, config.Name)
 		}
@@ -219,7 +244,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	config.Status.LatestCreated = revision.Name
+	config.Status.LatestCreatedRevisionName = revision.Name
 
 	// Ensure that the Configuration status is updated.
 	update := 0
@@ -232,7 +257,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
 				t.Errorf("Conditions length diff; got %v, want %v", got, want)
 			}
-			if got, want := config.Status.LatestReady, ""; got != want {
+			if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
 				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 			}
 			// After the initial update to the configuration, we should be
@@ -258,7 +283,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			if got, want := config.Status.Conditions, expectedConfigConditions; !reflect.DeepEqual(got, want) {
 				t.Errorf("Conditions diff; got %v, want %v", got, want)
 			}
-			if got, want := config.Status.LatestReady, revision.Name; got != want {
+			if got, want := config.Status.LatestReadyRevisionName, revision.Name; got != want {
 				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 			}
 		}
@@ -297,7 +322,7 @@ func TestDoNotSetLatestWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
 		if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
 			t.Errorf("Conditions length diff; got %v, want %v", got, want)
 		}
-		if got, want := config.Status.LatestReady, ""; got != want {
+		if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
 			t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
 		}
 		return hooks.HookComplete

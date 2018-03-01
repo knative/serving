@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -58,13 +59,19 @@ const (
 
 	elaContainerName string = "ela-container"
 	elaPortName      string = "ela-port"
+	elaPort                 = 8080
 
 	elaContainerLogVolumeName      string = "ela-logs"
 	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
 
+	queueContainerName string = "queue-proxy"
+	// queueSidecarName set by -queueSidecarName flag
+	queueHttpPortName string = "queue-http-port"
+
 	nginxContainerName string = "nginx-proxy"
 	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
 	nginxHTTPPortName  string = "nginx-http-port"
+	nginxHTTPPort             = 8180
 
 	nginxConfigMountPath    string = "/tmp/nginx"
 	nginxLogVolumeName      string = "nginx-logs"
@@ -75,17 +82,18 @@ const (
 
 	requestQueueContainerName string = "request-queue"
 	requestQueuePortName      string = "queue-port"
+	requestQueuePort                 = 8012
+
+	controllerAgentName = "revision-controller"
+
+	autoscalerPort = 8080
 )
 
-const controllerAgentName = "revision-controller"
-
 var (
-	elaPodReplicaCount       = int32(2)
+	elaPodReplicaCount       = int32(1)
 	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	elaPort                  = 8080
-	nginxHTTPPort            = 8180
-	requestQueuePort         = 8012
+	queueSidecarImage        string
 	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "elafros",
 		Name:      "revision_process_item_count",
@@ -95,6 +103,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(revisionProcessItemCount)
+	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 }
 
 // Helper to make sure we log error messages returned by Reconcile().
@@ -557,11 +566,17 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 	log.Printf("Deleted deployment")
 
-	err = c.deleteAutoscaler(rev, ns)
+	err = c.deleteAutoscalerDeployment(rev, ns)
 	if err != nil {
-		log.Printf("Failed to delete autoscaler: %s", err)
+		log.Printf("Failed to delete autoscaler Deployment: %s", err)
 	}
-	log.Printf("Deleted autoscaler")
+	log.Printf("Deleted autoscaler Deployment")
+
+	err = c.deleteAutoscalerService(rev, ns)
+	if err != nil {
+		log.Printf("Failed to delete autoscaler Service: %s", err)
+	}
+	log.Printf("Deleted autoscaler Service")
 
 	err = c.deleteNginxConfig(rev, ns)
 	if err != nil {
@@ -600,9 +615,13 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscaler(rev, ns)
+	err = c.reconcileAutoscalerDeployment(rev, ns)
 	if err != nil {
-		log.Printf("Failed to create autoscaler: %s", err)
+		log.Printf("Failed to create autoscaler Deployment: %s", err)
+	}
+	err = c.reconcileAutoscalerService(rev, ns)
+	if err != nil {
+		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
 
 	// Create nginx config
@@ -801,48 +820,87 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 	return serviceName, err
 }
 
-func (c *Controller) deleteAutoscaler(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
-	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})
+	sc := c.kubeclientset.Core().Services(ns)
+	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
-
-	log.Printf("Deleting autoscaler %q", autoscalerName)
+	log.Printf("Deleting autoscaler Service %q", autoscalerName)
 	tmp := metav1.DeletePropagationForeground
-	err = hpas.Delete(autoscalerName, &metav1.DeleteOptions{
+	err = sc.Delete(autoscalerName, &metav1.DeleteOptions{
 		PropagationPolicy: &tmp,
 	})
 	if err != nil && !apierrs.IsNotFound(err) {
-		log.Printf("autoscaler.Delete for %q failed: %s", autoscalerName, err)
+		log.Printf("Autoscaler Service delete for %q failed: %s", autoscalerName, err)
 		return err
 	}
 	return nil
-
 }
 
-func (c *Controller) reconcileAutoscaler(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns string) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	hpas := c.kubeclientset.AutoscalingV1().HorizontalPodAutoscalers(ns)
-
-	_, err := hpas.Get(autoscalerName, metav1.GetOptions{})
+	sc := c.kubeclientset.Core().Services(ns)
+	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
-			log.Printf("autoscaler.Get for %q failed: %s", autoscalerName, err)
+			log.Printf("Autoscaler Service get for %q failed: %s", autoscalerName, err)
 			return err
 		}
-		log.Printf("Autoscaler %q doesn't exist, creating", autoscalerName)
+		log.Printf("Autoscaler Service %q doesn't exist, creating", autoscalerName)
 	} else {
-		log.Printf("Found existing Autoscaler %q", autoscalerName)
+		log.Printf("Found existing autoscaler Service %q", autoscalerName)
 		return nil
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	autoscaler := MakeElaAutoscaler(rev, ns)
-	autoscaler.OwnerReferences = append(autoscaler.OwnerReferences, *controllerRef)
-	log.Printf("Creating autoscaler: %q", autoscaler.Name)
-	_, err = hpas.Create(autoscaler)
+	service := MakeElaAutoscalerService(rev, ns)
+	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
+	log.Printf("Creating autoscaler Service: %q", service.Name)
+	_, err = sc.Create(service)
+	return err
+}
+
+func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(rev)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
+	if err != nil && apierrs.IsNotFound(err) {
+		return nil
+	}
+	log.Printf("Deleting autoscaler Deployment %q", autoscalerName)
+	tmp := metav1.DeletePropagationForeground
+	err = dc.Delete(autoscalerName, &metav1.DeleteOptions{
+		PropagationPolicy: &tmp,
+	})
+	if err != nil && !apierrs.IsNotFound(err) {
+		log.Printf("Autoscaler Deployment delete for %q failed: %s", autoscalerName, err)
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+	autoscalerName := controller.GetRevisionAutoscalerName(rev)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			log.Printf("Autoscaler Deployment get for %q failed: %s", autoscalerName, err)
+			return err
+		}
+		log.Printf("Autoscaler Deployment %q doesn't exist, creating", autoscalerName)
+	} else {
+		log.Printf("Found existing autoscaler Deployment %q", autoscalerName)
+		return nil
+	}
+
+	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	deployment := MakeElaAutoscalerDeployment(rev, ns)
+	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
+	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
+	_, err = dc.Create(deployment)
 	return err
 }
 

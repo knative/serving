@@ -210,8 +210,8 @@ var _ = Describe("Route", func() {
 			By("The Configuration will be updated with the Revision after it is created")
 			var revisionName string
 			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error){
-				if c.Status.LatestCreated != "" {
-					revisionName = c.Status.LatestCreated
+				if c.Status.LatestCreatedRevisionName != "" {
+					revisionName = c.Status.LatestCreatedRevisionName
 					return true, nil
 				}
 				return false, nil
@@ -222,7 +222,7 @@ var _ = Describe("Route", func() {
 
 			By("The Configuration will be updated when the Revision is ready to serve traffic")
 			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration)(bool, error){
-				return c.Status.LatestReady == revisionName, nil
+				return c.Status.LatestReadyRevisionName == revisionName, nil
 			})
 
 			By("Once the Configuration has been updated with the Revision, the Route will be updated to route traffic to the Revision")
@@ -258,8 +258,8 @@ var _ = Describe("Route", func() {
 			By("A new Revision will be made and the Configuration will be updated with it")
 			var newRevisionName string
 			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration)(bool, error){
-				if c.Status.LatestCreated != revisionName {
-					newRevisionName = c.Status.LatestCreated
+				if c.Status.LatestCreatedRevisionName != revisionName {
+					newRevisionName = c.Status.LatestCreatedRevisionName
 					return true, nil
 				}
 				return false, nil
@@ -270,7 +270,7 @@ var _ = Describe("Route", func() {
 
 			By("The Configuration will be updated to indicate the new revision is ready")
 			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration)(bool, error){
-				return c.Status.LatestReady == newRevisionName, nil
+				return c.Status.LatestReadyRevisionName == newRevisionName, nil
 			})
 
 			By("The Route will then immediately send all traffic to the new revision")

@@ -18,7 +18,6 @@ package revision
 
 import (
 	"bytes"
-	"log"
 
 	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/google/elafros/pkg/controller"
@@ -27,10 +26,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func getNginxConfig(enableQueue bool) (string, error) {
-	ctx := nginxConfigContext{
-		EnableQueue: enableQueue,
-	}
+func getNginxConfig() (string, error) {
+	ctx := nginxConfigContext{}
 	var buf bytes.Buffer
 	if err := nginxConfigTemplate.Execute(&buf, ctx); err != nil {
 		return "", err
@@ -41,10 +38,7 @@ func getNginxConfig(enableQueue bool) (string, error) {
 // MakeNginxConfigMap creates a ConfigMap that gets mounted for nginx container
 // on the pod.
 func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*corev1.ConfigMap, error) {
-	// The request queue is disabled by default. To enable the queue, change this to true.
-	var enableQueue = false
-	log.Printf("Queue enabled: %t", enableQueue)
-	nginxConfiguration, err := getNginxConfig(enableQueue)
+	nginxConfiguration, err := getNginxConfig()
 	if err != nil {
 		return &corev1.ConfigMap{}, err
 	}

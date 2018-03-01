@@ -76,16 +76,16 @@ type ConfigurationStatus struct {
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
 	// Latest revision that is ready.
-	LatestReady string `json:"latestReady,omitempty"`
+	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
 
-	// LatestCreated is the last revision that was created; it might not be
+	// LatestCreatedRevisionName is the last revision that was created; it might not be
 	// ready yet. When it's ready, it will get moved to LatestReady.
-	LatestCreated string `json:"latestCreated,omitempty"`
+	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
-	// ReconciledGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The reconciled generation is updated
+	// ObservedGeneration is the 'Generation' of the Configuration that
+	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
-	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
