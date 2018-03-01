@@ -244,7 +244,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	config.Status.LatestCreated = revision.Name
+	config.Status.LatestCreatedRevisionName = revision.Name
 
 	// Ensure that the Configuration status is updated.
 	update := 0
