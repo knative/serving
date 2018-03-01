@@ -37,15 +37,15 @@ func GetElaNamespaceName(ns string) string {
 }
 
 func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
-	return u.Name + "-" + u.Spec.Service + "-ela-deployment"
+	return u.Name + "-ela-deployment"
 }
 
 func GetRevisionNginxConfigMapName(u *v1alpha1.Revision) string {
-	return u.Name + "-" + u.Spec.Service + "-proxy-configmap"
+	return u.Name + "-proxy-configmap"
 }
 
 func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
-	return u.Name + "-" + u.Spec.Service + "-autoscaler"
+	return u.Name + "-autoscaler"
 }
 
 func GetRevisionPodName(u *v1alpha1.Revision) string {

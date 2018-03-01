@@ -27,9 +27,6 @@ import (
 // MakeElaAutoscaler returns a HorizontalPodAutoscaler for the pods of the given
 // Revision with some default configuraion values.
 func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.HorizontalPodAutoscaler {
-	name := u.Name
-	serviceID := u.Spec.Service
-
 	var min int32 = 1
 	var max int32 = 10
 	var targetPercentage int32 = 50
@@ -38,10 +35,7 @@ func MakeElaAutoscaler(u *v1alpha1.Revision, namespace string) *autoscaling_v1.H
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
-			Labels: map[string]string{
-				routeLabel:      serviceID,
-				elaVersionLabel: name,
-			},
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: autoscaling_v1.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscaling_v1.CrossVersionObjectReference{

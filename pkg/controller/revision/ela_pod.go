@@ -29,8 +29,7 @@ import (
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	name := u.Name
-	serviceID := u.Spec.Service
-	nginxConfigMapName := name + "-" + serviceID + "-proxy-configmap"
+	nginxConfigMapName := name + "-proxy-configmap"
 
 	elaContainer := u.Spec.ContainerSpec.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
@@ -141,17 +140,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	}
 }
 
-// MakeElaDeploymentLabels constructs the labels we will apply to K8s resources.
-func MakeElaDeploymentLabels(u *v1alpha1.Revision) map[string]string {
-	name := u.Name
-	serviceID := u.Spec.Service
-
-	return map[string]string{
-		routeLabel:      serviceID,
-		elaVersionLabel: name,
-	}
-}
-
 // MakeElaDeployment creates a deployment.
 func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
@@ -163,7 +151,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionDeploymentName(u),
 			Namespace: namespace,
-			Labels:    MakeElaDeploymentLabels(u),
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: v1beta1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
@@ -173,7 +161,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: MakeElaDeploymentLabels(u),
+					Labels: MakeElaResourceLabels(u),
 				},
 			},
 		},

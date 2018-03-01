@@ -53,10 +53,7 @@ func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*corev1.ConfigM
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionNginxConfigMapName(u),
 			Namespace: namespace,
-			Labels: map[string]string{
-				routeLabel:      u.Spec.Service,
-				elaVersionLabel: u.Name,
-			},
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Data: map[string]string{
 			"nginx.conf": nginxConfiguration,
