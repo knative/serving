@@ -707,21 +707,6 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev)
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetRevisionPodName(rev),
-			Namespace: ns,
-		},
-		Spec: *podSpec,
-	}
-	pod.OwnerReferences = append(pod.OwnerReferences, *controllerRef)
-	pc := c.kubeclientset.Core().Pods(ns)
-	_, err = pc.Create(pod)
-	if err != nil {
-		// It's fine if this doesn't work because deployment creates things
-		// below, just slower.
-		log.Printf("Failed to create pod: %s", err)
-	}
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
