@@ -57,6 +57,6 @@ for i in `seq 4 4 120`; do kubectl -n hey logs hey-$i ; done | less
 ## Cleanup
 
 ```shell
-kubectl delete all --all -n hey
+kubectl delete namespace hey
 bazel run sample/autoscale:everything.delete
 ```
