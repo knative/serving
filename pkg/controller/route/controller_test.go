@@ -90,6 +90,51 @@ func getTestRouteWithMultipleTargets() *v1alpha1.Route {
 	}
 }
 
+func getTestRouteWithDuplicateTargets() *v1alpha1.Route {
+	return &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/Routes/test-route",
+			Name:      "test-route",
+			Namespace: "test",
+		},
+		Spec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{
+				v1alpha1.TrafficTarget{
+					Configuration: "test-config",
+					Percent:       30,
+				},
+				v1alpha1.TrafficTarget{
+					Configuration: "test-config",
+					Percent:       20,
+				},
+				v1alpha1.TrafficTarget{
+					Revision: "test-rev",
+					Percent:  10,
+				},
+				v1alpha1.TrafficTarget{
+					Revision: "test-rev",
+					Percent:  5,
+				},
+				v1alpha1.TrafficTarget{
+					Name:     "test-revision-1",
+					Revision: "test-rev",
+					Percent:  10,
+				},
+				v1alpha1.TrafficTarget{
+					Name:     "test-revision-1",
+					Revision: "test-rev",
+					Percent:  10,
+				},
+				v1alpha1.TrafficTarget{
+					Name:     "test-revision-2",
+					Revision: "test-rev",
+					Percent:  15,
+				},
+			},
+		},
+	}
+}
+
 func getTestRevision(name string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -334,6 +379,79 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 						Name: "test-rev-service.test",
 					},
 					Weight: 10,
+				},
+			},
+		}
+
+		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRouteWithDuplicateTargets(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithDuplicateTargets()
+	rev := getTestRevision("test-rev")
+	config := getTestConfiguration()
+	h := hooks.NewHooks()
+
+	// Create a Revision when the Configuration is created to simulate the action
+	// of the Configuration controller, which isn't running during this test.
+	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
+		cfgrev := getTestRevisionForConfig(cfg)
+		// This must be a goroutine to avoid deadlocking the Fake fixture
+		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
+		// Set LatestReady to this revision
+		cfg.Status.LatestReady = cfgrev.Name
+		// Return the modified Configuration so the object passed to later reactors
+		// (including the fixture reactor) has our Status mutation
+		return false, cfg, nil
+	})
+
+	// Look for the route.
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
+		rule := obj.(*v1alpha2.RouteRule)
+
+		expectedRouteSpec := v1alpha2.RouteRuleSpec{
+			Destination: v1alpha2.IstioService{
+				Name: "test-route-service",
+			},
+			Route: []v1alpha2.DestinationWeight{
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "p-deadbeef-service.test",
+					},
+					Weight: 50,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 15,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 20,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 15,
 				},
 			},
 		}
