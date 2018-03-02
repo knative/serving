@@ -15,10 +15,11 @@ Once you've [setup your development
 environment](./DEVELOPMENT.md#getting-started), stand up `Elafros` with:
 
 ```shell
-bazel run :everything.create
+bazel run :everything.apply
 ```
 
 This will:
+ * Setup Istio.
  * Build the `ela-controller` into a Docker container.
  * Publish the `ela-controller` container to `{DOCKER_REPO_OVERRIDE}/ela-controller:latest`.
  * Create a number of resources, including:
@@ -41,6 +42,22 @@ You can access the Elafros Controller's logs with:
 
 ```shell
 $ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
+```
+
+## Enable Istio Sidecar Injection
+After standing up elafros, perform the following steps to enable automatic
+sidecar injection.
+
+First, create a signed cert for the Istio webhook:
+
+```shell
+bazel run @istio_release//:webhook-create-signed-cert
+```
+
+Second, label namespaces with `istio-injection=enabled`:
+
+```shell
+kubectl label namespace default istio-injection=enabled
 ```
 
 ## Clean up
