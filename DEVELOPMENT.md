@@ -80,8 +80,8 @@ To check out this repository:
   repo](https://help.github.com/articles/fork-a-repo/)
 2. Clone it to your machine:
   ```shell
-  mkdir -p ${GOPATH}/src/github.com/google
-  cd ${GOPATH}/src/github.com/google
+  mkdir -p ${GOPATH}/src/github.com/elafros
+  cd ${GOPATH}/src/github.com/elafros
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
   cd elafros
   git remote add upstream git@github.com:elafros/elafros.git
