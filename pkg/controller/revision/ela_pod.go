@@ -208,6 +208,9 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Labels: MakeElaDeploymentLabels(u),
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "true",
+					},
 				},
 			},
 		},
