@@ -119,3 +119,7 @@ private_git_repository(
 load("@buildcrd//:deps.bzl", "repositories")
 
 repositories()
+
+load(":ca_bundle.bzl", "ca_bundle")
+
+ca_bundle(name = "ca_bundle")

@@ -1,7 +1,7 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
-package(default_visibility=["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
 
 k8s_object(
     name = "istio-core",
@@ -9,9 +9,42 @@ k8s_object(
     visibility = ["//visibility:public"],
 )
 
+k8s_object(
+    name = "istio-sidecar-injector-configmap",
+    kind = "configmap",
+    template = "istio-sidecar-injector-configmap-release.yaml",
+)
+
+sh_binary(
+    name = "webhook-create-signed-cert",
+    srcs = ["webhook-create-signed-cert.sh"],
+    args = [
+        "--service istio-sidecar-injector",
+        "--namespace istio-system",
+        "--secret sidecar-injector-certs",
+    ],
+)
+
+genrule(
+    name = "gen-istio-sidecar-injector-with-ca-bundle",
+    srcs = [
+        "@ca_bundle//:ca-bundle",
+        "istio-sidecar-injector.yaml",
+    ],
+    outs = ["istio-sidecar-injector-with-ca-bundle.yaml"],
+    cmd = "CA_BUNDLE=$$(< $(location @ca_bundle//:ca-bundle)) envsubst <$(location istio-sidecar-injector.yaml) >$@",
+)
+
+k8s_object(
+    name = "istio-sidecar-injector-with-ca-bundle",
+    template = "istio-sidecar-injector-with-ca-bundle.yaml",
+)
+
 k8s_objects(
     name = "istio",
     objects = [
         ":istio-core",
+        ":istio-sidecar-injector-configmap",
+        ":istio-sidecar-injector-with-ca-bundle",
     ],
 )
