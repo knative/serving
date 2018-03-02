@@ -9,7 +9,7 @@ go_library(
         "ela_nginx.go",
         "ela_nginx_constants.go",
         "ela_pod.go",
-	"ela_resource.go",
+        "ela_resource.go",
         "ela_service.go",
     ],
     importpath = "github.com/google/elafros/pkg/controller/revision",

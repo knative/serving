@@ -2,7 +2,7 @@ package revision
 
 import "github.com/google/elafros/pkg/apis/ela/v1alpha1"
 
-// MakeElaDeploymentLabels constructs the labels we will apply to K8s resources.
+// MakeElaResourceLabels constructs the labels we will apply to K8s resources.
 func MakeElaResourceLabels(u *v1alpha1.Revision) map[string]string {
 	labels := map[string]string{
 		elaVersionLabel: u.Name,
