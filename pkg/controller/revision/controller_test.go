@@ -54,9 +54,11 @@ func getTestRevision() *v1alpha1.Revision {
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
 			Namespace: "test",
+			Labels: map[string]string{
+				"route": "test-route",
+			},
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Service: "test-service",
 			// corev1.Container has a lot of setting.  We try to pass many
 			// of them here to verify that we pass through the settings to
 			// derived objects.
@@ -135,6 +137,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 	// Look for the namespace.
 	expectedNamespace := rev.Namespace
+	expectedRouteLabel := rev.Labels["route"]
 	h.OnCreate(&kubeClient.Fake, "namespaces", func(obj runtime.Object) hooks.HookResult {
 		ns := obj.(*corev1.Namespace)
 		glog.Infof("checking namespace %s", ns.Name)
@@ -169,9 +172,15 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		}
 	}
 
+	checkLabel := func(meta metav1.ObjectMeta, label string, value string) {
+		if meta.Labels[label] != value {
+			t.Errorf("Incorrect label %s. Expected %s, got %s", label, value, meta.Labels[label])
+		}
+	}
+
 	// Look for the ela and autoscaler deployments.
-	expectedDeploymentName := fmt.Sprintf("%s-%s-ela-deployment", rev.Name, rev.Spec.Service)
-	expectedAutoscalerName := fmt.Sprintf("%s-%s-autoscaler", rev.Name, rev.Spec.Service)
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 	h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) hooks.HookResult {
 		d := obj.(*v1beta1.Deployment)
 		glog.Infof("checking d %s", d.Name)
@@ -195,6 +204,8 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			if !foundQueueProxy {
 				t.Error("Missing queue-proxy")
 			}
+			checkLabel(d.ObjectMeta, "route", expectedRouteLabel)
+			checkLabel(d.Spec.Template.ObjectMeta, "route", expectedRouteLabel)
 		} else if d.Name == expectedAutoscalerName {
 			// Check the autoscaler deployment environment variables
 			foundAutoscaler := false
@@ -238,11 +249,12 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		if len(p.OwnerReferences) != 1 || rev.Name != p.OwnerReferences[0].Name {
 			t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
 		}
+		//checkLabel(p.ObjectMeta, "route", expectedRouteLabel)
 		return hooks.HookComplete
 	})
 
 	// Look for the nginx configmap.
-	expectedConfigMapName := fmt.Sprintf("%s-%s-proxy-configmap", rev.Name, rev.Spec.Service)
+	expectedConfigMapName := fmt.Sprintf("%s-proxy-configmap", rev.Name)
 	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
 		cm := obj.(*corev1.ConfigMap)
 		glog.Infof("checking cm %s", cm.Name)
