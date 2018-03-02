@@ -37,12 +37,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 
-	hooks "github.com/google/elafros/pkg/controller/testing"
+	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	"k8s.io/client-go/rest"
 

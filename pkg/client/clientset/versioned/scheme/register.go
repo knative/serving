@@ -16,9 +16,9 @@ limitations under the License.
 package scheme
 
 import (
-	cloudbuildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	elafrosv1alpha1 "github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	configv1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
+	cloudbuildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	elafrosv1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	configv1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

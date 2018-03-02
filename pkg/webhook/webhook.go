@@ -25,8 +25,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/google/elafros/pkg/apis/ela"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"

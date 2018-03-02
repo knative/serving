@@ -6,7 +6,7 @@ go_library(
         "autoscaler.go",
         "doc.go",
     ],
-    importpath = "github.com/google/elafros/pkg/autoscaler",
+    importpath = "github.com/elafros/elafros/pkg/autoscaler",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/golang/glog:go_default_library",
@@ -17,6 +17,6 @@ go_test(
     name = "go_default_test",
     srcs = ["autoscaler_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/pkg/autoscaler",
+    importpath = "github.com/elafros/elafros/pkg/autoscaler",
     deps = ["//vendor/github.com/golang/glog:go_default_library"],
 )

@@ -2,7 +2,7 @@
 
 The Elafros project is open sourced under [the Apache 2 license](./LICENSE).
 Its source code is freely available at
-[github.com/google/elafros](https://github.com/google/elafros).
+[github.com/elafros/elafros](https://github.com/elafros/elafros).
 
 * [Community](#community)
 * [Contributors](#contributors)
@@ -30,7 +30,7 @@ Elafros contributors are the individuals who have had an impact
 on Elafros through their contributions to the project itself. While all
 [have signed a CLA](#contributor-license-agreement), this isn’t an otherwise
 formally defined group, which today maps somewhat to [GitHub
-contributors](https://github.com/google/elafros/graphs/contributors).
+contributors](https://github.com/elafros/elafros/graphs/contributors).
 
 Active contributors will be invited to join [the Elafros Slack team (a paid account)](https://elafros.slack.com).
 
