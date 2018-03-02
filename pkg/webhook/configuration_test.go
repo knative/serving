@@ -61,13 +61,13 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: testGeneration,
-			Template:   v1alpha1.Revision{},
+			Generation:       testGeneration,
+			RevisionTemplate: v1alpha1.Revision{},
 		},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyTemplateInSpec {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyRevisionTemplateInSpec {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
 	}
 }
 
@@ -79,7 +79,7 @@ func TestEmptyContainerSpecNotAllowed(t *testing.T) {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: testGeneration,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					ContainerSpec: &corev1.Container{},
 				},
@@ -87,8 +87,8 @@ func TestEmptyContainerSpecNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerSpecInTemplate {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerSpecInRevisionTemplate {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
 	}
 }
 
@@ -116,7 +116,7 @@ func TestUnwantedFieldInContainerSpecNotAllowed(t *testing.T) {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: testGeneration,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					ContainerSpec: &container,
 				},
@@ -124,10 +124,10 @@ func TestUnwantedFieldInContainerSpecNotAllowed(t *testing.T) {
 		},
 	}
 	unwanted := []string{
-		"template.spec.containerSpec.name",
-		"template.spec.containerSpec.resources",
-		"template.spec.containerSpec.ports",
-		"template.spec.containerSpec.volumeMounts",
+		"revisiontemplate.spec.containerSpec.name",
+		"revisiontemplate.spec.containerSpec.resources",
+		"revisiontemplate.spec.containerSpec.ports",
+		"revisiontemplate.spec.containerSpec.volumeMounts",
 	}
 	expected := fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted, ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {

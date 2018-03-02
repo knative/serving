@@ -76,7 +76,7 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 			Name:      configName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					ContainerSpec: &corev1.Container{
 						Image: imagePath,
