@@ -1,0 +1,16 @@
+### KEEP THIS FIRST, LAST RULE WINS!
+# Default ownership until delegated
+# * @evankanderson @mattmoor @vaikas-google
+
+### Component-level ownerships
+
+# API governance.
+pkg/apis @evankanderson @mattmoor @vaikas-google
+
+# All groups can review docs
+docs/ @elafros/elafros-writers @google/elafros-readers
+
+### To request CODEOWNERS on a subdirectory, propose it above
+### in a PR to the below maintainers.
+.github/CODEOWNERS @evankanderson @mattmoor @vaikas-google
+### KEEP THIS LAST, LAST RULE WINS!
