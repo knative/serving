@@ -168,31 +168,9 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCpu),
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: nginxLogVolumeMountPath,
-				Name:      nginxLogVolumeName,
-				//ReadOnly:  true,
-			},
-			{
-				MountPath: elaContainerLogVolumeMountPath,
-				Name:      elaContainerLogVolumeName,
-				//ReadOnly:  true,
-			},
-		},
-	}
-
 	return &corev1.PodSpec{
 		Volumes:            []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers:         []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
+		Containers:         []corev1.Container{*elaContainer, queueContainer, nginxContainer},
 		ServiceAccountName: "ela-revision",
 	}
 }
