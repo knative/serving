@@ -45,7 +45,7 @@ type ConfigurationSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation       int64            `json:"generation,omitempty"`
 	Build            *build.BuildSpec `json:"build,omitempty"`
-	RevisionTemplate Revision         `json:"template"`
+	RevisionTemplate Revision         `json:"revisiontemplate"`
 }
 
 // ConfigurationConditionType represents a Configuration condition value
