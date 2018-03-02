@@ -8,6 +8,10 @@
 pkg/apis @evankanderson @mattmoor @vaikas-google
 
 
+# All groups can review docs
+docs/ @google/elafros-google-users @google/elafros-google-readers
+
+
 ### KEEP THIS LAST, LAST RULE WINS!
 
 # To request CODEOWNERS on a subdirectory, propose it above
