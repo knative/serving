@@ -28,10 +28,10 @@ import (
 )
 
 var (
-	errEmptyContainerSpecInTemplate = errors.New("The configuration template must have a container spec")
-	errEmptySpecInConfiguration     = errors.New("The configuration must have configuration spec")
-	errEmptyTemplateInSpec          = errors.New("The configuration spec must have configuration")
-	errInvalidConfigurationInput    = errors.New("Failed to convert input into configuration")
+	errEmptyContainerSpecInRevisionTemplate = errors.New("The configuration template must have a container spec")
+	errEmptySpecInConfiguration             = errors.New("The configuration must have configuration spec")
+	errEmptyRevisionTemplateInSpec          = errors.New("The configuration spec must have configuration")
+	errInvalidConfigurationInput            = errors.New("Failed to convert input into configuration")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
@@ -61,7 +61,7 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	if err := validateTemplate(&configuration.Spec.Template); err != nil {
+	if err := validateTemplate(&configuration.Spec.RevisionTemplate); err != nil {
 		return err
 	}
 	return nil
@@ -69,7 +69,7 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 
 func validateTemplate(template *v1alpha1.Revision) error {
 	if reflect.DeepEqual(*template, v1alpha1.Revision{}) {
-		return errEmptyTemplateInSpec
+		return errEmptyRevisionTemplateInSpec
 	}
 	if err := validateContainerSpec(template.Spec.ContainerSpec); err != nil {
 		return err
@@ -79,7 +79,7 @@ func validateTemplate(template *v1alpha1.Revision) error {
 
 func validateContainerSpec(container *corev1.Container) error {
 	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
-		return errEmptyContainerSpecInTemplate
+		return errEmptyContainerSpecInRevisionTemplate
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
@@ -87,16 +87,16 @@ func validateContainerSpec(container *corev1.Container) error {
 	// overridden.
 	var ignoredFields []string
 	if container.Name != "" {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.name")
+		ignoredFields = append(ignoredFields, "revisiontemplate.spec.containerSpec.name")
 	}
 	if !reflect.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.resources")
+		ignoredFields = append(ignoredFields, "revisiontemplate.spec.containerSpec.resources")
 	}
 	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.ports")
+		ignoredFields = append(ignoredFields, "revisiontemplate.spec.containerSpec.ports")
 	}
 	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.volumeMounts")
+		ignoredFields = append(ignoredFields, "revisiontemplate.spec.containerSpec.volumeMounts")
 	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.

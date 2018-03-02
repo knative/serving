@@ -117,7 +117,7 @@ func (in *ConfigurationSpec) DeepCopyInto(out *ConfigurationSpec) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
-	in.Template.DeepCopyInto(&out.Template)
+	in.RevisionTemplate.DeepCopyInto(&out.RevisionTemplate)
 	return
 }
 
