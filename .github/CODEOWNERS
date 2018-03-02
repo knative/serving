@@ -2,14 +2,17 @@
 # Default ownership until delegated
 * @evankanderson @mattmoor @vaikas-google
 
+# Only maintainers can change code ownership
+.github/CODEOWNERS @evankanderson @mattmoor @vaikas-google
+
 # Component-level ownerships
 
 # API governance.
 pkg/apis @evankanderson @mattmoor @vaikas-google
 
 
-### KEEP THIS LAST, LAST RULE WINS!
 
 # To request CODEOWNERS on a subdirectory, propose it above
 # in a PR to the below maintainers.
 CODEOWNERS @evankanderson @mattmoor @vaikas-google
+### KEEP THIS LAST, LAST RULE WINS!
