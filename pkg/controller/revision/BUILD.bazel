@@ -11,7 +11,7 @@ go_library(
         "ela_pod.go",
         "ela_service.go",
     ],
-    importpath = "github.com/google/elafros/pkg/controller/revision",
+    importpath = "github.com/elafros/elafros/pkg/controller/revision",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/cloudbuild/v1alpha1:go_default_library",
@@ -47,7 +47,7 @@ go_test(
     name = "go_default_test",
     srcs = ["controller_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/pkg/controller/revision",
+    importpath = "github.com/elafros/elafros/pkg/controller/revision",
     deps = [
         "//pkg/apis/cloudbuild/v1alpha1:go_default_library",
         "//pkg/apis/ela/v1alpha1:go_default_library",

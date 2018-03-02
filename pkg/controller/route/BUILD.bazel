@@ -8,7 +8,7 @@ go_library(
         "ela_istio_route.go",
         "ela_service.go",
     ],
-    importpath = "github.com/google/elafros/pkg/controller/route",
+    importpath = "github.com/elafros/elafros/pkg/controller/route",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",
@@ -42,7 +42,7 @@ go_test(
     name = "go_default_test",
     srcs = ["controller_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/pkg/controller/route",
+    importpath = "github.com/elafros/elafros/pkg/controller/route",
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",
         "//pkg/apis/istio/v1alpha2:go_default_library",

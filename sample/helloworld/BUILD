@@ -3,14 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["helloworld.go"],
-    importpath = "github.com/google/elafros/sample/helloworld",
+    importpath = "github.com/elafros/elafros/sample/helloworld",
     visibility = ["//visibility:private"],
 )
 
 go_binary(
     name = "helloworld",
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/sample/helloworld",
+    importpath = "github.com/elafros/elafros/sample/helloworld",
     pure = "on",
     visibility = ["//visibility:public"],
 )

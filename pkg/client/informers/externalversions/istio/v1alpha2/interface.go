@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	internalinterfaces "github.com/google/elafros/pkg/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.
