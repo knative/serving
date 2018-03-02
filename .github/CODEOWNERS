@@ -7,6 +7,8 @@
 # API governance.
 pkg/apis @evankanderson @mattmoor @vaikas-google
 
+# All groups can review docs
+docs/ @google/elafros-google-users @google/elafros-google-readers
 
 
 ### To request CODEOWNERS on a subdirectory, propose it above
