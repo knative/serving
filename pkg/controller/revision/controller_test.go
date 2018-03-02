@@ -294,7 +294,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 		},
 	}
 
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
@@ -349,7 +349,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			}
 
 			// This hangs for some reason:
-			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
 			// Launch this in a goroutine because the OnUpdate logic works a little too
 			// synchronously and this leads to lock re-entrancy.
@@ -377,7 +377,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	})
 
 	// Direct the Revision to wait for this build to complete.
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 
@@ -424,7 +424,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			}
 
 			// This hangs for some reason:
-			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
 			// Launch this in a goroutine because the OnUpdate logic works a little too
 			// synchronously and this leads to lock re-entrancy.
@@ -448,7 +448,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 	})
 
 	// Direct the Revision to wait for this build to complete.
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 
@@ -501,7 +501,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			}
 
 			// This hangs for some reason:
-			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
 			// Launch this in a goroutine because the OnUpdate logic works a little too
 			// synchronously and this leads to lock re-entrancy.
@@ -529,7 +529,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	})
 
 	// Direct the Revision to wait for this build to complete.
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 

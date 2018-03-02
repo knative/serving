@@ -3,14 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["autoscale.go"],
-    importpath = "github.com/google/elafros/sample/autoscale",
+    importpath = "github.com/elafros/elafros/sample/autoscale",
     visibility = ["//visibility:private"],
 )
 
 go_binary(
     name = "autoscale",
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/sample/autoscale",
+    importpath = "github.com/elafros/elafros/sample/autoscale",
     pure = "on",
     visibility = ["//visibility:public"],
 )

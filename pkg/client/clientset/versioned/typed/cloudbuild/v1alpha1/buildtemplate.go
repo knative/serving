@@ -50,7 +50,7 @@ type buildTemplates struct {
 }
 
 // newBuildTemplates returns a BuildTemplates
-func newBuildTemplates(c *CloudbuildV1alpha1Client, namespace string) *buildTemplates {
+func newBuildTemplates(c *BuildV1alpha1Client, namespace string) *buildTemplates {
 	return &buildTemplates{
 		client: c.RESTClient(),
 		ns:     namespace,
