@@ -18,7 +18,7 @@ metadata:
   name: autoscale-route
   namespace: default
 spec:
-  domainSuffix: demo.myhost.net
+  domainSuffix: autoscale.myhost.net
   traffic:
   - configuration: autoscale-configuration
     percent: 100
