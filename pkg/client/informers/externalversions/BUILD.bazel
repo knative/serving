@@ -6,7 +6,7 @@ go_library(
         "factory.go",
         "generic.go",
     ],
-    importpath = "github.com/google/elafros/pkg/client/informers/externalversions",
+    importpath = "github.com/elafros/elafros/pkg/client/informers/externalversions",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/cloudbuild/v1alpha1:go_default_library",

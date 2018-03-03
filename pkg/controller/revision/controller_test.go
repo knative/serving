@@ -26,19 +26,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 
-	hooks "github.com/google/elafros/pkg/controller/testing"
+	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -222,34 +219,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		} else {
 			t.Errorf("Deployment was not named %s or %s. Got %s.", expectedDeploymentName, expectedAutoscalerName, d.Name)
 		}
-		return hooks.HookComplete
-	})
-
-	// Look for the pod created in advance of the deployment.
-	h.OnCreate(&kubeClient.Fake, "pods", func(obj runtime.Object) hooks.HookResult {
-		p := obj.(*corev1.Pod)
-		glog.Infof("checking p %s", p.Name)
-		if expectedNamespace != p.Namespace {
-			t.Errorf("pod namespace was not %s", expectedNamespace)
-		}
-		func(t *testing.T) {
-			for _, c := range p.Spec.Containers {
-				if c.Image == rev.Spec.ContainerSpec.Image {
-					// Ignoring fields set by Elafros controller.
-					ignored := cmpopts.IgnoreFields(corev1.Container{}, "Name", "Ports", "Resources", "VolumeMounts")
-					// All other fields must match.
-					if diff := cmp.Diff(rev.Spec.ContainerSpec, &c, ignored); diff != "" {
-						t.Errorf("Pod container spec != revision container spec (-want +got): %v", diff)
-					}
-					return
-				}
-			}
-			t.Errorf("No container with image %s", rev.Spec.ContainerSpec.Image)
-		}(t)
-		if len(p.OwnerReferences) != 1 || rev.Name != p.OwnerReferences[0].Name {
-			t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
-		}
-		//checkLabel(p.ObjectMeta, "route", expectedRouteLabel)
 		return hooks.HookComplete
 	})
 

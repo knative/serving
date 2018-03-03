@@ -17,12 +17,10 @@ limitations under the License.
 package controller
 
 import (
-	"fmt"
 	"log"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,14 +44,6 @@ func GetRevisionNginxConfigMapName(u *v1alpha1.Revision) string {
 
 func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
-}
-
-func GetRevisionPodName(u *v1alpha1.Revision) string {
-	genUUID, err := uuid.NewRandom()
-	if err != nil {
-		return fmt.Sprintf("%s-warmpod-uuid-failed", u.Name)
-	}
-	return fmt.Sprintf("%s-warmpod-%s", u.Name, genUUID)
 }
 
 func GetElaIstioRouteRuleName(u *v1alpha1.Route) string {

@@ -9,7 +9,7 @@ go_library(
         "doc.go",
         "generated_expansion.go",
     ],
-    importpath = "github.com/google/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1",
+    importpath = "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/cloudbuild/v1alpha1:go_default_library",

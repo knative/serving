@@ -20,8 +20,8 @@ import (
 	"flag"
 	"strconv"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"

@@ -37,12 +37,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
-	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
 )
 
 var (
@@ -440,6 +440,7 @@ func (c *Controller) createOrUpdateRoutes(u *v1alpha1.Route, ns string) ([]Revis
 		return nil, fmt.Errorf("Couldn't get a routeClient")
 	}
 
+	c.consolidateTrafficTargets(u)
 	routes, err := c.getRoutes(u)
 	if err != nil {
 		glog.Infof("Failed to get routes for %s : %q", u.Name, err)
@@ -483,4 +484,52 @@ func (c *Controller) updateStatus(u *v1alpha1.Route) (*v1alpha1.Route, error) {
 	// TODO: for CRD there's no updatestatus, so use normal update
 	return routeClient.Update(newu)
 	//	return routeClient.UpdateStatus(newu)
+}
+
+// consolidateTrafficTargets will consolidate all duplicate revisions
+// and configurations. If the traffic target names are unique, the traffic
+// targets will not be consolidated.
+func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
+	type trafficTarget struct {
+		name          string
+		revision      string
+		configuration string
+	}
+
+	glog.Infof("Attempting to consolidate traffic targets")
+	trafficTargets := u.Spec.Traffic
+	trafficMap := make(map[trafficTarget]int)
+
+	for _, t := range trafficTargets {
+		tt := trafficTarget{
+			name:          t.Name,
+			revision:      t.Revision,
+			configuration: t.Configuration,
+		}
+		if trafficMap[tt] != 0 {
+			glog.Infof(
+				"Found duplicate traffic targets (name: %s, revision: %s, configuration:%s), consolidating traffic",
+				tt.name,
+				tt.revision,
+				tt.configuration,
+			)
+			trafficMap[tt] += t.Percent
+		} else {
+			trafficMap[tt] = t.Percent
+		}
+	}
+
+	consolidatedTraffic := []v1alpha1.TrafficTarget{}
+	for tt, p := range trafficMap {
+		consolidatedTraffic = append(
+			consolidatedTraffic,
+			v1alpha1.TrafficTarget{
+				Name:          tt.name,
+				Configuration: tt.configuration,
+				Revision:      tt.revision,
+				Percent:       p,
+			},
+		)
+	}
+	u.Spec.Traffic = consolidatedTraffic
 }

@@ -71,7 +71,7 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to
 
 ### Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory
+The Go tools require that you clone the repository to the `src/github.com/elafros/elafros` directory
 in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
@@ -80,11 +80,11 @@ To check out this repository:
   repo](https://help.github.com/articles/fork-a-repo/)
 2. Clone it to your machine:
   ```shell
-  mkdir -p ${GOPATH}/src/github.com/google
-  cd ${GOPATH}/src/github.com/google
+  mkdir -p ${GOPATH}/src/github.com/elafros
+  cd ${GOPATH}/src/github.com/elafros
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
   cd elafros
-  git remote add upstream git@github.com:google/elafros.git
+  git remote add upstream git@github.com:elafros/elafros.git
   git remote set-url --push upstream no_push
   ```
 

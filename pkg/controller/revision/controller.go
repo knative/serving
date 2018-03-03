@@ -42,13 +42,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
-	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
 )
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
@@ -707,21 +707,6 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev)
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetRevisionPodName(rev),
-			Namespace: ns,
-		},
-		Spec: *podSpec,
-	}
-	pod.OwnerReferences = append(pod.OwnerReferences, *controllerRef)
-	pc := c.kubeclientset.Core().Pods(ns)
-	_, err = pc.Create(pod)
-	if err != nil {
-		// It's fine if this doesn't work because deployment creates things
-		// below, just slower.
-		log.Printf("Failed to create pod: %s", err)
-	}
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
