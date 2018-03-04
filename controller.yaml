@@ -39,6 +39,22 @@ spec:
         - name: metrics
           containerPort: 9090
 ---
+apiVersion: mattmoor.io/v2
+kind: WarmImage
+metadata:
+  name: ela-queue
+  namespace: ela-system
+spec:
+  image: ela-queue:latest
+---
+apiVersion: mattmoor.io/v2
+kind: WarmImage
+metadata:
+  name: ela-autoscaler
+  namespace: ela-system
+spec:
+  image: ela-autoscaler:latest
+---
 apiVersion: v1
 kind: Service
 metadata:
