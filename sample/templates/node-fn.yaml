@@ -36,3 +36,17 @@ spec:
     env:
     - name: DOCKER_CONFIG
       value: /root/.docker
+---
+apiVersion: mattmoor.io/v2
+kind: WarmImage
+metadata:
+  name: node-fn-builder
+spec:
+  image: gcr.io/gcp-runtimes/ftl_node_8_5_0_ubuntu_16_0_4_build:f1607c1721353971301dae01ac911ddcd3d39388
+---
+apiVersion: mattmoor.io/v2
+kind: WarmImage
+metadata:
+  name: node-fn-base
+spec:
+  image: gcr.io/gae-runtimes/nodejs8_fn:nodejs8_20180126_RC01

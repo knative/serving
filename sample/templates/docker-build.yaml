@@ -51,3 +51,10 @@ spec:
     hostPath:
       path: /var/run/docker.sock
       type: Socket
+---
+apiVersion: mattmoor.io/v2
+kind: WarmImage
+metadata:
+  name: docker-builder
+spec:
+  image: gcr.io/cloud-builders/docker
