@@ -125,12 +125,12 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Cloudbuild() cloudbuild.Interface
+	Build() cloudbuild.Interface
 	Elafros() ela.Interface
 	Config() istio.Interface
 }
 
-func (f *sharedInformerFactory) Cloudbuild() cloudbuild.Interface {
+func (f *sharedInformerFactory) Build() cloudbuild.Interface {
 	return cloudbuild.New(f, f.namespace, f.tweakListOptions)
 }
 
