@@ -308,7 +308,7 @@ func (c *Controller) syncHandler(key string) error {
 			Spec: *config.Spec.Build,
 		}
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
-		created, err := c.elaclientset.CloudbuildV1alpha1().Builds(build.Namespace).Create(build)
+		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
 			return err

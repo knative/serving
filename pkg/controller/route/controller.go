@@ -499,6 +499,7 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 	glog.Infof("Attempting to consolidate traffic targets")
 	trafficTargets := u.Spec.Traffic
 	trafficMap := make(map[trafficTarget]int)
+	var order []trafficTarget
 
 	for _, t := range trafficTargets {
 		tt := trafficTarget{
@@ -516,11 +517,14 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 			trafficMap[tt] += t.Percent
 		} else {
 			trafficMap[tt] = t.Percent
+			// The order to walk the map (Go randomizes otherwise)
+			order = append(order, tt)
 		}
 	}
 
 	consolidatedTraffic := []v1alpha1.TrafficTarget{}
-	for tt, p := range trafficMap {
+	for _, tt := range order {
+		p := trafficMap[tt]
 		consolidatedTraffic = append(
 			consolidatedTraffic,
 			v1alpha1.TrafficTarget{
