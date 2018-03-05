@@ -458,6 +458,7 @@ func (c *Controller) updateConfigurations(
 	// Validate
 	for _, config := range configMap {
 		if routeName, ok := config.Labels[ela.RouteLabelKey]; ok {
+			// TODO(yanweiguo): add a condition in status for this error
 			if routeName != "" && routeName != route.Name {
 				return fmt.Errorf("Configuration %s already has label %s set to %s",
 					config.Name, ela.RouteLabelKey, routeName)
