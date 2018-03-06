@@ -52,7 +52,7 @@ export GOPATH='~/go'
 export PATH="${PATH}:${GOPATH}/bin"
 export DOCKER_REPO_OVERRIDE='gcr.io/my-gcloud-project-name'
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
-export K8S_USER_OVERRIDE=${YOUR_KUBE_USER}
+export K8S_USER_OVERRIDE='my-k8s-user'
 ```
 
 (Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authentication) for your
