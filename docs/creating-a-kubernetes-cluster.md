@@ -63,6 +63,12 @@ To use a k8s cluster running in GKE:
       --user=$GCP_USER
     ```
 
+1.  Add to your .bashrc:
+    ```shell
+    # When using GKE, the K8s user is your GCP user.
+    export K8S_USER_OVERRIDE=$GCP_USER
+    ```
+
 ## Minikube
 
 1.  [Install and configure
@@ -162,6 +168,12 @@ necessary if you are not using public Elafros and Build images._
         -p '{"imagePullSecrets": [{"name": "gcr"}]}' \
         -n "${prefix}-system"
     done
+    ```
+
+1.  Add to your .bashrc:
+    ```shell
+    # When using Minikube, the K8s user is your local user.
+    export K8S_USER_OVERRIDE=$USER
     ```
 
 Use the same procedure to add imagePullSecrets to service accounts in any
