@@ -535,9 +535,10 @@ func (c *Controller) computeRevisionRoutes(
 	for _, tt := range route.Spec.Traffic {
 		var rev *v1alpha1.Revision
 		var err error
+		revName := tt.Revision
 		if tt.Configuration != "" {
 			// Get the configuration's LatestReadyRevisionName
-			revName := configMap[tt.Configuration].Status.LatestReadyRevisionName
+			revName = configMap[tt.Configuration].Status.LatestReadyRevisionName
 			rev, err = revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
@@ -545,9 +546,15 @@ func (c *Controller) computeRevisionRoutes(
 			}
 		} else {
 			// Direct revision has already been fetched
-			rev = revMap[tt.Revision]
+			rev = revMap[revName]
 		}
 		//TODO(grantr): What should happen if revisionName is empty?
+
+		if rev == nil {
+			// For safety, which should never happen.
+			glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
+			return nil, err
+		}
 		rr := RevisionRoute{
 			Name:         tt.Name,
 			RevisionName: rev.Name,
