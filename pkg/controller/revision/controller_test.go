@@ -169,12 +169,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		}
 	}
 
-	checkLabel := func(meta metav1.ObjectMeta, label string, value string) {
-		if meta.Labels[label] != value {
-			t.Errorf("Incorrect label %s. Expected %s, got %s", label, value, meta.Labels[label])
-		}
-	}
-
 	// Look for the ela and autoscaler deployments.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
@@ -201,8 +195,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			if !foundQueueProxy {
 				t.Error("Missing queue-proxy")
 			}
-			checkLabel(d.ObjectMeta, "route", expectedRouteLabel)
-			checkLabel(d.Spec.Template.ObjectMeta, "route", expectedRouteLabel)
+			if routeLabel := d.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
+				t.Errorf("Route label not set correctly on deployment: expected %s got %s.",
+					expectedRouteLabel, routeLabel)
+			}
+			if routeLabel := d.Spec.Template.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
+				t.Errorf("Route label not set correctly in pod template: expected %s got %s.",
+					expectedRouteLabel, routeLabel)
+			}
 		} else if d.Name == expectedAutoscalerName {
 			// Check the autoscaler deployment environment variables
 			foundAutoscaler := false
