@@ -17,6 +17,10 @@ To use a k8s cluster running in GKE:
     project in an environment variable (e.g. `PROJECT_ID`) along with the email
     of your GCP user (`GCP_USER`).
 
+    _If you are a new GCP user, you might be eligible for a trial credit making
+    your GKE cluster and other resources free for a short time. Otherwise, any
+    GCP resources you create will cost money._
+
 1.  Enable the k8s API:
 
     ```shell
