@@ -328,8 +328,13 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		return err
 	}
-
-	if err := c.updateConfigurations(route, configMap, revMap); err != nil {
+	if err := c.extendConfigurationsWithIndirectTrafficTargets(route, configMap, revMap); err != nil {
+		return err
+	}
+	if err := c.setLabelForGivenConfigurations(route, configMap); err != nil {
+		return err
+	}
+	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap); err != nil {
 		return err
 	}
 
@@ -433,7 +438,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 	return configMap, revMap, nil
 }
 
-func (c *Controller) updateConfigurations(
+func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) error {
 	ns := route.Namespace
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
@@ -445,7 +450,7 @@ func (c *Controller) updateConfigurations(
 				// This is not a duplicated configuration
 				config, err := configClient.Get(configName, metav1.GetOptions{})
 				if err != nil {
-					glog.Infof("Failed to fetch Configuration %s: %s", configName, err)
+					glog.Errorf("Failed to fetch Configuration %s: %s", configName, err)
 					return err
 				}
 				configMap[configName] = config
@@ -455,17 +460,44 @@ func (c *Controller) updateConfigurations(
 		}
 	}
 
+	return nil
+}
+
+func (c *Controller) setLabelForGivenConfigurations(
+	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
+	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
+
 	// Validate
 	for _, config := range configMap {
 		if routeName, ok := config.Labels[ela.RouteLabelKey]; ok {
 			// TODO(yanweiguo): add a condition in status for this error
-			if routeName != "" && routeName != route.Name {
+			if routeName != route.Name {
 				return fmt.Errorf("Configuration %s already has label %s set to %s",
 					config.Name, ela.RouteLabelKey, routeName)
 			}
 		}
 	}
 
+	// Set label for newly added configurations as traffic target.
+	for _, config := range configMap {
+		if config.Labels == nil {
+			config.Labels = make(map[string]string)
+		} else if _, ok := config.Labels[config.Name]; ok {
+			continue
+		}
+		config.Labels[ela.RouteLabelKey] = route.Name
+		if _, err := configClient.Update(config); err != nil {
+			glog.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
+	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
+	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
 	// Get Configurations set as traffic target before this sync.
 	oldConfigsList, err := configClient.List(
 		metav1.ListOptions{
@@ -473,35 +505,17 @@ func (c *Controller) updateConfigurations(
 		},
 	)
 	if err != nil {
-		glog.Infof("Failed to fetch configurations with label '%s=%s': %s",
+		glog.Errorf("Failed to fetch configurations with label '%s=%s': %s",
 			ela.RouteLabelKey, route.Name, err)
 		return err
 	}
-	oldConfigMap := map[string]v1alpha1.Configuration{}
-	for _, oldConfig := range oldConfigsList.Items {
-		oldConfigMap[oldConfig.Name] = oldConfig
-	}
 
 	// Delete label for newly removed configurations as traffic target.
-	for _, config := range oldConfigMap {
+	for _, config := range oldConfigsList.Items {
 		if _, ok := configMap[config.Name]; !ok {
 			delete(config.Labels, ela.RouteLabelKey)
 			if _, err := configClient.Update(&config); err != nil {
-				glog.Infof("Failed to update Configuration %s: %s", config.Name, err)
-				return err
-			}
-		}
-	}
-
-	// Set label for newly added configurations as traffic target.
-	for _, config := range configMap {
-		if _, ok := oldConfigMap[config.Name]; !ok {
-			if config.Labels == nil {
-				config.Labels = make(map[string]string)
-			}
-			config.Labels[ela.RouteLabelKey] = route.Name
-			if _, err := configClient.Update(config); err != nil {
-				glog.Infof("Failed to update Configuration %s: %s", config.Name, err)
+				glog.Errorf("Failed to update Configuration %s: %s", config.Name, err)
 				return err
 			}
 		}
@@ -510,7 +524,7 @@ func (c *Controller) updateConfigurations(
 	return nil
 }
 
-func (c *Controller) getRevisionRoutes(
+func (c *Controller) computeRevisionRoutes(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	glog.Infof("Figuring out routes for Route: %s", route.Name)
 	ns := route.Namespace
@@ -526,7 +540,7 @@ func (c *Controller) getRevisionRoutes(
 			revName := configMap[tt.Configuration].Status.LatestReadyRevisionName
 			rev, err = revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
-				glog.Infof("Failed to fetch Revison %s: %s", revName, err)
+				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
 				return nil, err
 			}
 		} else {
@@ -550,21 +564,21 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 	ns := route.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
-		glog.Infof("Failed to create resource client")
+		glog.Errorf("Failed to create resource client")
 		return nil, fmt.Errorf("Couldn't get a routeClient")
 	}
 
-	revisionRoutes, err := c.getRevisionRoutes(route, configMap, revMap)
+	revisionRoutes, err := c.computeRevisionRoutes(route, configMap, revMap)
 	if err != nil {
-		glog.Infof("Failed to get routes for %s : %q", route.Name, err)
+		glog.Errorf("Failed to get routes for %s : %q", route.Name, err)
 		return nil, err
 	}
 	if len(revisionRoutes) == 0 {
-		glog.Infof("No routes were found for the service %q", route.Name)
+		glog.Errorf("No routes were found for the service %q", route.Name)
 		return nil, nil
 	}
 	for _, rr := range revisionRoutes {
-		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
+		glog.Errorf("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
 	routeRuleName := controller.GetElaIstioRouteRuleName(route)
