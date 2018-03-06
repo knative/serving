@@ -65,6 +65,7 @@ To use a k8s cluster running in GKE:
 
 1.  Add to your .bashrc:
     ```shell
+    # When using GKE, the K8s user is your GCP user.
     export K8S_USER_OVERRIDE=$GCP_USER
     ```
 
@@ -171,6 +172,7 @@ necessary if you are not using public Elafros and Build images._
 
 1.  Add to your .bashrc:
     ```shell
+    # When using Minikube, the K8s user is your local user.
     export K8S_USER_OVERRIDE=$USER
     ```
 
