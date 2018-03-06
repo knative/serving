@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
@@ -172,8 +173,8 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 			t.Errorf("rev spec != config template spec (-want +got): %v", diff)
 		}
 
-		if rev.Labels[ConfigurationLabelKey] != config.Name {
-			t.Errorf("rev does not have label <%s:%s>", ConfigurationLabelKey, config.Name)
+		if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
+			t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
 		}
 
 		if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
