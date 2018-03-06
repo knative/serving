@@ -14,8 +14,8 @@ spec:
       arguments:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/buildpack-sample-app
-      - name: CACHE
-        value: buildpack-sample-app-cache
+    # - name: CACHE
+    #   value: buildpack-sample-app-cache
     # volumes:
     # - name: buildpack-sample-app-cache
     #   persistentVolumeClaim:

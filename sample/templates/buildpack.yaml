@@ -1,4 +1,4 @@
-apiVersion: cloudbuild.googleapis.com/v1alpha1
+apiVersion: build.dev/v1alpha1
 kind: BuildTemplate
 metadata:
   name: buildpack
@@ -14,18 +14,23 @@ spec:
     default: app-cache
 
   steps:
+  # In: a CF app in $DIRECTORY
+  # Out: a CF app droplet in /out
+  # Out: a build cache in /cache
   - name: build
-    image: packs/cf:build-v4
+    image: packs/cf:build
     workingdir: "${DIRECTORY}"
     env:
     volumeMounts:
     - name: droplet
       mountPath: /out
-    - name: app-cache # "${CACHE}" doesn't work
+    - name: "${CACHE}"
       mountPath: /cache
 
+  # In: a CF app droplet in /in
+  # Out: an image published as $IMAGE
   - name: export
-    image: packs/cf:export-v4
+    image: packs/cf:export-gcr
     workingdir: /in
     args: ["${IMAGE}"]
     env:

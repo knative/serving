@@ -17,14 +17,7 @@ sample app for Cloud Foundry.
 You can deploy this to Elafros from the root directory via:
 ```shell
 $ bazel run sample/buildpack-app:everything.create
-INFO: Analysed target //sample/buildpack-app:everything.create (1 packages loaded).
-INFO: Found 1 target...
-Target //sample/buildpack-app:everything.create up-to-date:
-  bazel-bin/sample/buildpack-app/everything.create
-INFO: Elapsed time: 0.634s, Critical Path: 0.07s
-INFO: Build completed successfully, 4 total actions
-
-INFO: Running command line: bazel-bin/sample/buildpack-app/everything.create
+...
 buildtemplate "buildpack" created
 route "buildpack-sample-app" created
 configuration "buildpack-sample-app" created
@@ -64,7 +57,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 $ export SERVICE_IP=`kubectl get ingress buildpack-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
-$ curl --header 'Host:sample-app.googlecustomer.net' http://${SERVICE_IP}/
+$ curl --header 'Host: buildpack-app.example.com' http://${SERVICE_IP}/
 [response]
 ```
 
