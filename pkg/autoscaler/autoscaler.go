@@ -32,6 +32,9 @@ type Stat struct {
 
 	// Number of requests currently being handled by this pod.
 	ConcurrentRequests int32
+
+	// Number of requests received since last Stat (approximately QPS).
+	QueryCount int32
 }
 
 type statKey struct {
@@ -91,12 +94,21 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	panicCount := float64(0)
 	panicPods := make(map[string]bool)
 
+	// Approximate current QPS
+	currentQps := make(map[string]int32)
+
+	// Approximate current concurrent clients
+	currentConcurrency := make(map[string]int32)
+
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(panicWindow).After(now) {
 			panicTotal = panicTotal + float64(stat.ConcurrentRequests)
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
+
+			currentQps[stat.PodName] = stat.QueryCount
+			currentConcurrency[stat.PodName] = stat.ConcurrentRequests
 		}
 		if instant.Add(stableWindow).After(now) {
 			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
@@ -138,6 +150,17 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
+
+	// System totals
+	totalCurrentQps := int32(0)
+	for _, qps := range currentQps {
+		totalCurrentQps = totalCurrentQps + qps
+	}
+	totalCurrentConcurrency := int32(0)
+	for _, con := range currentConcurrency {
+		totalCurrentConcurrency = totalCurrentConcurrency + con
+	}
+	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQps, totalCurrentConcurrency)
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {
