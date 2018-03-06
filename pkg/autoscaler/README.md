@@ -9,9 +9,9 @@ When a Revision is actively serving requests it will increase and descrease the 
 ## Implementation
 
 The Revision has three autoscaling states which are
-1. Active when the Revision is actively serving requests,
-2. Reserve when the Revision is scaled down to 0 Pods but is still in service, and
-3. Retired when the Revision will no longer recieve traffic.
+1. **Active** when the Revision is actively serving requests,
+2. **Reserve** when the Revision is scaled down to 0 Pods but is still in service, and
+3. **Retired** when the Revision will no longer recieve traffic.
 
 In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its current QPS and number of current clients each second to the Autoscaler.
 
@@ -22,9 +22,14 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 ## Context 
 
 ```
-        +---------+
-        | INGRESS |------------------+
-        +---------+                  |
+   +---------------------+
+   | ROUTE               |
+   |                     |
+   |   +-------------+   |
+   |   | Istio Route |---------------+
+   |   +-------------+   |           |
+   |         |           |           |
+   +---------|-----------+           |
              |                       |
              |                       |
              | inactive              | active
@@ -46,7 +51,3 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
                               +----------------------------------------+
                               
 ```
-
-## Pod Autoscaling
-
-## Cluster Autoscaling
