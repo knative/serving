@@ -565,3 +565,62 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Configuration: config.Name,
+				Percent:       100,
+			},
+		},
+	)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the route.
+	update := 0
+	h.OnUpdate(&elaClient.Fake, "routes", func(obj runtime.Object) hooks.HookResult {
+		route := obj.(*v1alpha1.Route)
+		update = update + 1
+		switch update {
+		case 1:
+			// The configuration isn't ready, the route should be updated.
+			var expectedTrafficTargets []v1alpha1.TrafficTarget
+			if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
+				t.Errorf("Unexpected label diff (-want +got): %v", diff)
+			}
+			// After the initial update to the route, we should be
+			// watching for this configuration to has LatestReadyRevisionName.
+			config.Status.LatestCreatedRevisionName = rev.Name
+			config.Labels = map[string]string{
+				ela.RouteLabelKey: route.Name,
+			}
+			go controller.addConfigurationEvent(config)
+			return hooks.HookIncomplete
+		case 2:
+			// The configuration is ready, the route should be updated.
+			expectedTrafficTargets := []v1alpha1.TrafficTarget{
+				v1alpha1.TrafficTarget{
+					Revision: rev.Name,
+					Percent:  100,
+				},
+			}
+			if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
+				t.Errorf("Unexpected label diff (-want +got): %v", diff)
+			}
+		}
+		return hooks.HookComplete
+	})
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
