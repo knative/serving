@@ -192,7 +192,7 @@ func NewController(
 	})
 
 	// Obtain a reference to a shared index informer for the Build type.
-	buildInformer := elaInformerFactory.Cloudbuild().V1alpha1().Builds()
+	buildInformer := elaInformerFactory.Build().V1alpha1().Builds()
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addBuildEvent,
 		UpdateFunc: controller.updateBuildEvent,

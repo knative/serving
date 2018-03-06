@@ -61,13 +61,13 @@ func NewFilteredBuildInformer(client versioned.Interface, namespace string, resy
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CloudbuildV1alpha1().Builds(namespace).List(options)
+				return client.BuildV1alpha1().Builds(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CloudbuildV1alpha1().Builds(namespace).Watch(options)
+				return client.BuildV1alpha1().Builds(namespace).Watch(options)
 			},
 		},
 		&cloudbuild_v1alpha1.Build{},

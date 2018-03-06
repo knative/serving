@@ -21,21 +21,21 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeCloudbuildV1alpha1 struct {
+type FakeBuildV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCloudbuildV1alpha1) Builds(namespace string) v1alpha1.BuildInterface {
+func (c *FakeBuildV1alpha1) Builds(namespace string) v1alpha1.BuildInterface {
 	return &FakeBuilds{c, namespace}
 }
 
-func (c *FakeCloudbuildV1alpha1) BuildTemplates(namespace string) v1alpha1.BuildTemplateInterface {
+func (c *FakeBuildV1alpha1) BuildTemplates(namespace string) v1alpha1.BuildTemplateInterface {
 	return &FakeBuildTemplates{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeCloudbuildV1alpha1) RESTClient() rest.Interface {
+func (c *FakeBuildV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

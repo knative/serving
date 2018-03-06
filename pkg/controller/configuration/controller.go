@@ -53,10 +53,6 @@ const controllerAgentName = "configuration-controller"
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 const (
-	// ConfigurationLabelKey is the label key attached to a Revison indicating by
-	// which Configuration it is created.
-	ConfigurationLabelKey = ela.GroupName + "/configuration"
-
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
 	SuccessSynced = "Synced"
 
@@ -308,7 +304,7 @@ func (c *Controller) syncHandler(key string) error {
 			Spec: *config.Spec.Build,
 		}
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
-		created, err := c.elaclientset.CloudbuildV1alpha1().Builds(build.Namespace).Create(build)
+		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
 			return err
@@ -335,7 +331,7 @@ func (c *Controller) syncHandler(key string) error {
 	if rev.ObjectMeta.Labels == nil {
 		rev.ObjectMeta.Labels = make(map[string]string)
 	}
-	rev.ObjectMeta.Labels[ConfigurationLabelKey] = config.Name
+	rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
