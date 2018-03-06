@@ -18,15 +18,6 @@ metadata:
   name: configuration-example
   namespace: default
 spec:
-  # Uncomment this to test running a nop Build (the image is from Bazel).
-  # This is disabled until we stand up the Build components as part of
-  # everything, which necessitates vendoring.
-  # build:
-  #   steps:
-  #   - name: blah
-  #     image: busybox:latest
-  #     args: ["echo", "Hello"]
-
   template:
     spec:
       serviceType: container
