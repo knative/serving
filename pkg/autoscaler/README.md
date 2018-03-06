@@ -4,9 +4,7 @@ Elafros Revisions are automatically scaled up and down according incoming traffi
 
 ## Behavior
 
-When a Revision is actively serving requests it will increase and descrease the number of Pods to maintain the desired average concurrent clients per process.  When requests are longer being served, the Revision will be scaled down to 0 Pods.  When the first request arrives, the Revision will be scaled back up again.
-
-## Implementation
+When a Revision is actively serving requests it will increase and descrease the number of Pods to maintain the desired average concurrent clients per process.  When requests are no longer being served, the Revision will be scaled down to 0 Pods.  When the first request arrives, the Revision will be scaled back up again.
 
 The Revision has three autoscaling states which are
 1. **Active** when the Revision is actively serving requests,
@@ -51,3 +49,11 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
                               +----------------------------------------+
                               
 ```
+
+## Design Goals
+
+1. Scale quickly.  Revisions should be able to scale from 0 to 1000 concurrent writers in 30 seconds or less.
+1. Make everything better.  Creating custom components is a short-term strategy to get something working now.  The long-term strategy is to make the underlying components better so that custom code can be replaced with configuration.  E.g. Autoscale should be replaced with the K8s Horizontal Pod Autoscaler and Custom Metrics.
+1. Fewer knobs.  Wherever possible the system should be able to figure out the right thing to do.
+
+## Implementation
