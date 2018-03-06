@@ -1,6 +1,6 @@
 package revision
 
-import "github.com/google/elafros/pkg/apis/ela/v1alpha1"
+import "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
 // MakeElaResourceLabels constructs the labels we will apply to K8s resources.
 func MakeElaResourceLabels(u *v1alpha1.Revision) map[string]string {
