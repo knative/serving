@@ -3,6 +3,35 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 package(default_visibility=["//visibility:public"])
 
+# Generate a istioclusterrolebinding.yaml based on the
+# K8S_USER_OVERRIDE env variable.
+genrule(
+    name = "gen-istioclusterrolebinding",
+    outs = ["istioclusterrolebinding.yaml"],
+    cmd = """
+K8S_USER_OVERRIDE=$$(grep STABLE_K8S_USER bazel-out/stable-status.txt | cut -d' ' -f 2)
+cat > $(location istioclusterrolebinding.yaml) <<EOF
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cluster-admin-binding
+subjects:
+  - kind: User
+    name: $${K8S_USER_OVERRIDE}
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+EOF
+""",
+    stamp = 1,
+)
+
+k8s_object(
+    name = "istioclusterrolebinding",
+    template = "istioclusterrolebinding.yaml",
+)
+
 k8s_object(
     name = "istio-core",
     template = "istio.yaml",
@@ -12,6 +41,7 @@ k8s_object(
 k8s_objects(
     name = "istio",
     objects = [
+        ":istioclusterrolebinding",
         ":istio-core",
     ],
 )
