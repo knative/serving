@@ -20,5 +20,5 @@ metadata:
 spec:
   domainSuffix: autoscale.myhost.net
   traffic:
-  - configuration: autoscale-configuration
+  - configurationName: autoscale-configuration
     percent: 100

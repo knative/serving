@@ -22,6 +22,11 @@ k8s_object(
     template = "node-fn.yaml",
 )
 
+k8s_object(
+    name = "buildpack",
+    template = "buildpack.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -31,5 +36,6 @@ k8s_objects(
         ":docker-build-helper",
         ":node-app",
         ":node-fn",
+        ":buildpack",
     ],
 )

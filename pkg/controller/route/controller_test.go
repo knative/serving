@@ -55,8 +55,8 @@ func getTestRoute() *v1alpha1.Route {
 	return getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision: "test-rev",
-				Percent:  100,
+				RevisionName: "test-rev",
+				Percent:      100,
 			},
 		},
 	)
@@ -79,12 +79,12 @@ func getTestRouteWithMultipleTargets() *v1alpha1.Route {
 	return getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-config",
-				Percent:       90,
+				ConfigurationName: "test-config",
+				Percent:           90,
 			},
 			v1alpha1.TrafficTarget{
-				Revision: "test-rev",
-				Percent:  10,
+				RevisionName: "test-rev",
+				Percent:      10,
 			},
 		},
 	)
@@ -94,35 +94,35 @@ func getTestRouteWithDuplicateTargets() *v1alpha1.Route {
 	return getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-config",
-				Percent:       30,
+				ConfigurationName: "test-config",
+				Percent:           30,
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-config",
-				Percent:       20,
+				ConfigurationName: "test-config",
+				Percent:           20,
 			},
 			v1alpha1.TrafficTarget{
-				Revision: "test-rev",
-				Percent:  10,
+				RevisionName: "test-rev",
+				Percent:      10,
 			},
 			v1alpha1.TrafficTarget{
-				Revision: "test-rev",
-				Percent:  5,
+				RevisionName: "test-rev",
+				Percent:      5,
 			},
 			v1alpha1.TrafficTarget{
-				Name:     "test-revision-1",
-				Revision: "test-rev",
-				Percent:  10,
+				Name:         "test-revision-1",
+				RevisionName: "test-rev",
+				Percent:      10,
 			},
 			v1alpha1.TrafficTarget{
-				Name:     "test-revision-1",
-				Revision: "test-rev",
-				Percent:  10,
+				Name:         "test-revision-1",
+				RevisionName: "test-rev",
+				Percent:      10,
 			},
 			v1alpha1.TrafficTarget{
-				Name:     "test-revision-2",
-				Revision: "test-rev",
-				Percent:  15,
+				Name:         "test-revision-2",
+				RevisionName: "test-rev",
+				Percent:      15,
 			},
 		},
 	)
@@ -475,8 +475,8 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: config.Name,
-				Percent:       100,
+				ConfigurationName: config.Name,
+				Percent:           100,
 			},
 		},
 	)
@@ -509,8 +509,8 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision: rev.Name,
-				Percent:  100,
+				RevisionName: rev.Name,
+				Percent:      100,
 			},
 		},
 	)
@@ -574,8 +574,8 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: config.Name,
-				Percent:       100,
+				ConfigurationName: config.Name,
+				Percent:           100,
 			},
 		},
 	)
@@ -609,8 +609,8 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 			// The configuration is ready, the route should be updated.
 			expectedTrafficTargets := []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Revision: rev.Name,
-					Percent:  100,
+					RevisionName: rev.Name,
+					Percent:      100,
 				},
 			}
 			if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {

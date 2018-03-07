@@ -60,9 +60,9 @@ func route() *v1alpha1.Route {
 			DomainSuffix: domain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:          routeName,
-					Configuration: configName,
-					Percent:       100,
+					Name:              routeName,
+					ConfigurationName: configName,
+					Percent:           100,
 				},
 			},
 		},
@@ -123,7 +123,7 @@ func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1
 	return func(r *v1alpha1.Route) (bool, error) {
 		if len(r.Status.Traffic) > 0 {
 			Expect(r.Status.Traffic).To(HaveLen(1))
-			if r.Status.Traffic[0].Revision == revisionName {
+			if r.Status.Traffic[0].RevisionName == revisionName {
 				Expect(r.Status.Traffic[0].Percent).To(Equal(100))
 				Expect(r.Status.Traffic[0].Name).To(Equal(routeName))
 				return true, nil

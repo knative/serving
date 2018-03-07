@@ -20,5 +20,5 @@ metadata:
 spec:
   domainSuffix: telemetrysample.myhost.net
   traffic:
-  - configuration: telemetrysample-configuration
+  - configurationName: telemetrysample-configuration
     percent: 100
