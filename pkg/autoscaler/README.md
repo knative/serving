@@ -4,16 +4,16 @@ Elafros Revisions are automatically scaled up and down according incoming traffi
 
 ## Behavior
 
-When a Revision is actively serving requests it will increase and descrease the number of Pods to maintain the desired average concurrent clients per process.  When requests are no longer being served, the Revision will be scaled down to 0 Pods.  When the first request arrives, the Revision will be scaled back up again.
+When a Revision is actively serving requests it will increase and decrease the number of Pods to maintain the desired average concurrent clients per Pod.  When requests are no longer being served, the Revision will be scaled down to 0 Pods.  When the first request arrives, the Revision will be scaled back up again.
 
-The Revision has three autoscaling states which are
-1. **Active** when the Revision is actively serving requests,
-2. **Reserve** when the Revision is scaled down to 0 Pods but is still in service, and
-3. **Retired** when the Revision will no longer recieve traffic.
+Revisions have three autoscaling states which are
+1. **Active** when they are actively serving requests,
+2. **Reserve** when they are scaled down to 0 Pods but is still in service, and
+3. **Retired** when they will no longer receive traffic.
 
-In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its current QPS and number of current clients each second to the Autoscaler.
+In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its number of concurrent clients each second to the Autoscaler (how many clients are connected at that moment).
 
-In the Reserve state, the Revision has no scheduled pods.  The Istio route rule for the Revision points to the singleton Activator which will catch traffic for all Reserve Revisions.  When a request arrives to the Activator, it first flips the desired state of the Revision to Active.  Then it watches for the first available Pod.  All pending and subsequent requests are then forwarded to the first Pod.  As the Revision becomes active, the Istio route rules will be updated to route traffic away from the Activator and onto the Pods directly.
+In the Reserve state, the Revision has no scheduled Pods.  The Istio route rule for the Revision points to the singleton Activator which will catch traffic for all Reserve Revisions.  When the Activator catches a request for a Reserve Revision, it will flip the Revision to an Active state and then forward requests to the Revision when it ready.
 
 In the Retired state, the Revision has provisioned resources.  No requests will be served for the Revision.
 
@@ -52,8 +52,8 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 
 ## Design Goals
 
-1. **Make if fast**.  Revisions should be able to scale from 0 to 1000 concurrent writers in 30 seconds or less.
-2. **Make it light**.  Wherever possible the system should be able to figure out the right thing to do.
+1. **Make if fast**.  Revisions should be able to scale from 0 to 1000 concurrent requests in 30 seconds or less.
+2. **Make it light**.  Wherever possible the system should be able to figure out the right thing to do without the user's intervention or configuration.
 3. **Make everything better**.  Creating custom components is a short-term strategy to get something working now.  The long-term strategy is to make the underlying components better so that custom code can be replaced with configuration.  E.g. Autoscale should be replaced with the K8s Horizontal Pod Autoscaler and Custom Metrics.
 
 ## Implementation
@@ -62,16 +62,16 @@ This stuff is subject to change as the Elafros implementation changes.  Just FYI
 
 ### Autoscaler
 
-There is a proxy on in the Elafros Pods (`queue-proxy`) who is responsible enforcing request queue parameters, and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see Design Goal #3).  The Elafros controller injects the identity of the Revision into the Pod queue proxy environment variables.  When the queue proxy wakes up, it find the Autoscaler for the revision and establishes a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the currently observed number of concurrent clients.
+There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see Design Goal #3).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent clients at that moment.
 
 The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.  The Autoscaler has two modes of operation, Panic Mode and Stable Mode.
 
-In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod.  It calculates the current concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to help out and provide a metrics stream).
+In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod.  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
 
-The Autoscaler evaluates its metrics every 2 seconds.  In addition to the 60-second window it also calculates the average concurrency per Pod over the last 6 second (the panic window).  If the 6-second average concurrency reaches 2 times the desired average, then the Autoscaler transitions to Panic Mode.  In Panic Mode the Autoscaler bases all its decisions off the 6-second window, which makes it much more responsive to increases in traffic.  Every 2 seconds it adjusts the size of the Deployment to achieve the stable, desired average (or a maximum of 10 times the current observed Pod count, whichever is smaller).  To prevent rapid fluctuations in the Pod count, the Autoscaler will only increase Deployment size during Panic Mode, never decrease.  60 seconds after the last Panic Mode increase to the Deployment size, the Autoscaler transistions back to Stable Mode and begins evaluating the 60-second windows again.
+The Autoscaler evaluates its metrics every 2 seconds.  In addition to the 60-second window, it also keeps a 6-second window (the panic window).  If the 6-second average concurrency reaches 2 times the desired average, then the Autoscaler transitions into Panic Mode.  In Panic Mode the Autoscaler bases all its decisions on the 6-second window, which makes it much more responsive to sudden increases in traffic.  Every 2 seconds it adjusts the size of the Deployment to achieve the stable, desired average (or a maximum of 10 times the current observed Pod count, whichever is smaller).  To prevent rapid fluctuations in the Pod count, the Autoscaler will only increase Deployment size during Panic Mode, never decrease.  60 seconds after the last Panic Mode increase to the Deployment size, the Autoscaler transistions back to Stable Mode and begins evaluating the 60-second windows again.
 
-When the Autoscaler has observed an average concurrency per pod of 0.0 for 5 minutes, it will transistion the Revision to the Reserve state.  This causes the Deployment and the Autoscaler to be torn down (or scaled to 0) and routes all traffic for the Revision to the Activator.
+When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/elafros/elafros/issues/305)), it will transistion the Revision into the Reserve state.  This causes the Deployment and the Autoscaler to be turned down (or scaled to 0) and routes all traffic for the Revision to the Activator.
 
 ### Activator
 
-The Activator is a singleton compononent that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see Design Goal #3).  When the Activator get request for a Reserve Revision, it calls the Elafros control plane to transistion the Revision to an Active state.  It will take a few minutes for all the resources to be provisioned, so more requests might arrive at the Activator in the mean time.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  In the meantime, the Elafros control plane will update the Istio route rules to take the Activator back out of the serving path.
+The Activator is a singleton compononent that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see Design Goal #3).  When the Activator gets a request for a Reserve Revision, it calls the Elafros control plane to transistion the Revision to an Active state.  It will take a few minutes for all the resources to be provisioned, so more requests might arrive at the Activator in the meantime.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  Concurrently, the Elafros control plane will update the Istio route rules to take the Activator back out of the serving path.
