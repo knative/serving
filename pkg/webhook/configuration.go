@@ -32,10 +32,10 @@ func errMissingField(fieldPath string) error {
 }
 
 var (
-	errEmptySpecInConfiguration  = errMissingField("spec")
-	errEmptyTemplateInSpec       = errMissingField("spec.template")
-	errEmptyContainerInTemplate  = errMissingField("spec.template.spec.container")
-	errInvalidConfigurationInput = errors.New(`Failed to convert input into configuration`)
+	errEmptySpecInConfiguration         = errMissingField("spec")
+	errEmptyRevisionTemplateInSpec      = errMissingField("spec.revisionTemplate")
+	errEmptyContainerInRevisionTemplate = errMissingField("spec.revisionTemplate.spec.container")
+	errInvalidConfigurationInput        = errors.New(`Failed to convert input into configuration`)
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
@@ -65,7 +65,7 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	if err := validateTemplate(&configuration.Spec.Template); err != nil {
+	if err := validateTemplate(&configuration.Spec.RevisionTemplate); err != nil {
 		return err
 	}
 	return nil
@@ -73,7 +73,7 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 
 func validateTemplate(template *v1alpha1.Revision) error {
 	if reflect.DeepEqual(*template, v1alpha1.Revision{}) {
-		return errEmptyTemplateInSpec
+		return errEmptyRevisionTemplateInSpec
 	}
 	if err := validateContainer(template.Spec.Container); err != nil {
 		return err
@@ -83,7 +83,7 @@ func validateTemplate(template *v1alpha1.Revision) error {
 
 func validateContainer(container *corev1.Container) error {
 	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
-		return errEmptyContainerInTemplate
+		return errEmptyContainerInRevisionTemplate
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
@@ -91,16 +91,16 @@ func validateContainer(container *corev1.Container) error {
 	// overridden.
 	var ignoredFields []string
 	if container.Name != "" {
-		ignoredFields = append(ignoredFields, "template.spec.container.name")
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.name")
 	}
 	if !reflect.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
-		ignoredFields = append(ignoredFields, "template.spec.container.resources")
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.resources")
 	}
 	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "template.spec.container.ports")
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.ports")
 	}
 	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "template.spec.container.volumeMounts")
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.volumeMounts")
 	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.

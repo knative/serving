@@ -18,7 +18,7 @@ metadata:
   name: configuration-example
   namespace: default
 spec:
-  template:
+  revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: container

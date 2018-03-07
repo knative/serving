@@ -155,7 +155,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createConfiguration(testGeneration)
 	new := createConfiguration(testGeneration)
-	new.Spec.Template.Spec.Container.Env = []corev1.EnvVar{
+	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
 			Value: "different",
@@ -395,7 +395,7 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: imageName,

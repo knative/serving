@@ -37,7 +37,7 @@ spec:
       arguments:
       - name: IMAGE
         value: &image REPLACE_ME
-  template:
+  revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: container

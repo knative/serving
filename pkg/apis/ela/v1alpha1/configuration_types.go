@@ -43,9 +43,9 @@ type ConfigurationSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
-	Generation int64            `json:"generation,omitempty"`
-	Build      *build.BuildSpec `json:"build,omitempty"`
-	Template   Revision         `json:"template"`
+	Generation       int64            `json:"generation,omitempty"`
+	Build            *build.BuildSpec `json:"build,omitempty"`
+	RevisionTemplate Revision         `json:"revisionTemplate"`
 }
 
 // ConfigurationConditionType represents a Configuration condition value

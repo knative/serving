@@ -29,7 +29,7 @@ spec:
   #     image: busybox:latest
   #     args: ["echo", "Hello"]
 
-  template:
+  revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: container

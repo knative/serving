@@ -159,7 +159,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
 			Generation: 1,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: "test-image",
@@ -171,7 +171,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 }
 
 func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision {
-	rev := config.Spec.Template.DeepCopy()
+	rev := config.Spec.RevisionTemplate.DeepCopy()
 	rev.ObjectMeta = metav1.ObjectMeta{
 		SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
 		Name:      "p-deadbeef",
