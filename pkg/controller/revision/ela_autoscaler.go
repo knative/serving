@@ -46,9 +46,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
-			Labels: map[string]string{
-				"revision": u.Name,
-			},
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: v1beta1.DeploymentSpec{
 			Replicas: &replicas,
@@ -100,16 +98,11 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 }
 
 func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Service {
-	name := u.Name
-	serviceID := u.Spec.Service
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
 			Namespace: namespace,
-			Labels: map[string]string{
-				routeLabel:      serviceID,
-				elaVersionLabel: name,
-			},
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
