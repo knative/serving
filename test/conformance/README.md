@@ -96,7 +96,7 @@ and your [`DOCKER_REPO_OVERRIDE`](../../DEVELOPMENT.md#environment-setup) is con
 to the location where [you have pushed the conformance test images](#conformance-test-images)):
 
 ```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--./kubeconfig
+bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
 ```
 
 To get `bazel` to run with verbose output:
