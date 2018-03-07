@@ -724,7 +724,11 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	c.syncTrafficTargets(route)
+	_, err := c.syncTrafficTargets(route)
+	if err != nil {
+		glog.Errorf("Error updating route '%s/%s' upon configuration becoming ready: %v",
+			ns, routeName, err)
+	}
 }
 
 func (c *Controller) updateConfigurationEvent(old, new interface{}) {
