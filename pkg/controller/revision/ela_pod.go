@@ -190,9 +190,8 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	}
 
 	return &corev1.PodSpec{
-		Volumes:            []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers:         []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
-		ServiceAccountName: "ela-revision",
+		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
+		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
 	}
 }
 
