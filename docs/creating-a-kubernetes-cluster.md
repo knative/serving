@@ -66,7 +66,7 @@ To use a k8s cluster running in GKE:
 1.  Add to your .bashrc:
     ```shell
     # When using GKE, the K8s user is your GCP user.
-    export K8S_USER_OVERRIDE=$GCP_USER
+    export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
     ```
 
 ## Minikube
