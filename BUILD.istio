@@ -40,7 +40,6 @@ k8s_object(
 
 k8s_object(
     name = "istio-sidecar-injector-configmap",
-    kind = "configmap",
     template = "istio-sidecar-injector-configmap-release.yaml",
 )
 
