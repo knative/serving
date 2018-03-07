@@ -351,9 +351,9 @@ func (c *Controller) syncHandler(key string) error {
 		traffic := []v1alpha1.TrafficTarget{}
 		for _, r := range revisionRoutes {
 			traffic = append(traffic, v1alpha1.TrafficTarget{
-				Name:     r.Name,
-				Revision: r.RevisionName,
-				Percent:  r.Weight,
+				Name:         r.Name,
+				RevisionName: r.RevisionName,
+				Percent:      r.Weight,
 			})
 		}
 		route.Status.Traffic = traffic
@@ -416,8 +416,8 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 	revMap := map[string]*v1alpha1.Revision{}
 
 	for _, tt := range route.Spec.Traffic {
-		if tt.Configuration != "" {
-			configName := tt.Configuration
+		if tt.ConfigurationName != "" {
+			configName := tt.ConfigurationName
 			config, err := configClient.Get(configName, metav1.GetOptions{})
 			if err != nil {
 				glog.Infof("Failed to fetch Configuration %s: %s", configName, err)
@@ -425,7 +425,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 			}
 			configMap[configName] = config
 		} else {
-			revName := tt.Revision
+			revName := tt.RevisionName
 			rev, err := revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				glog.Infof("Failed to fetch Revison %s: %s", revName, err)
@@ -535,10 +535,10 @@ func (c *Controller) computeRevisionRoutes(
 	for _, tt := range route.Spec.Traffic {
 		var rev *v1alpha1.Revision
 		var err error
-		revName := tt.Revision
-		if tt.Configuration != "" {
+		revName := tt.RevisionName
+		if tt.ConfigurationName != "" {
 			// Get the configuration's LatestReadyRevisionName
-			revName = configMap[tt.Configuration].Status.LatestReadyRevisionName
+			revName = configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
 			rev, err = revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
@@ -625,9 +625,9 @@ func (c *Controller) updateStatus(u *v1alpha1.Route) (*v1alpha1.Route, error) {
 // targets will not be consolidated.
 func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 	type trafficTarget struct {
-		name          string
-		revision      string
-		configuration string
+		name              string
+		revisionName      string
+		configurationName string
 	}
 
 	glog.Infof("Attempting to consolidate traffic targets")
@@ -637,16 +637,16 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 
 	for _, t := range trafficTargets {
 		tt := trafficTarget{
-			name:          t.Name,
-			revision:      t.Revision,
-			configuration: t.Configuration,
+			name:              t.Name,
+			revisionName:      t.RevisionName,
+			configurationName: t.ConfigurationName,
 		}
 		if trafficMap[tt] != 0 {
 			glog.Infof(
 				"Found duplicate traffic targets (name: %s, revision: %s, configuration:%s), consolidating traffic",
 				tt.name,
-				tt.revision,
-				tt.configuration,
+				tt.revisionName,
+				tt.configurationName,
 			)
 			trafficMap[tt] += t.Percent
 		} else {
@@ -662,10 +662,10 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 		consolidatedTraffic = append(
 			consolidatedTraffic,
 			v1alpha1.TrafficTarget{
-				Name:          tt.name,
-				Configuration: tt.configuration,
-				Revision:      tt.revision,
-				Percent:       p,
+				Name:              tt.name,
+				ConfigurationName: tt.configurationName,
+				RevisionName:      tt.revisionName,
+				Percent:           p,
 			},
 		)
 	}

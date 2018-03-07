@@ -20,5 +20,5 @@ metadata:
 spec:
   domainSuffix: demostuff.aikas.org
   traffic:
-  - configuration: git-webhook
+  - configurationName: git-webhook
     percent: 100

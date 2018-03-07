@@ -51,12 +51,12 @@ type TrafficTarget struct {
 	// One of these is valid...
 	// Revision is the name to a specific revision
 	// +optional
-	Revision string `json:"revision,omitempty"`
+	RevisionName string `json:"revisionName,omitempty"`
 
 	// Configuration is the name to a configuration, rolls out
 	// automatically
 	// +optional
-	Configuration string `json:"configuration,omitempty"`
+	ConfigurationName string `json:"configurationName,omitempty"`
 
 	// Specifies percent of the traffic to this Revision or Configuration
 	Percent int `json:"percent"`

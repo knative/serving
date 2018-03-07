@@ -40,12 +40,12 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-1",
-				Percent:       50,
+				ConfigurationName: "test-configuration-1",
+				Percent:           50,
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-2",
-				Percent:       50,
+				ConfigurationName: "test-configuration-2",
+				Percent:           50,
 			},
 		})
 
@@ -108,9 +108,9 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision:      testRevisionName,
-				Configuration: testConfigurationName,
-				Percent:       100,
+				RevisionName:      testRevisionName,
+				ConfigurationName: testConfigurationName,
+				Percent:           100,
 			},
 		})
 
@@ -124,8 +124,8 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision: testRevisionName,
-				Percent:  -20,
+				RevisionName: testRevisionName,
+				Percent:      -20,
 			},
 		})
 
@@ -139,11 +139,11 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-1",
+				ConfigurationName: "test-configuration-1",
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-2",
-				Percent:       50,
+				ConfigurationName: "test-configuration-2",
+				Percent:           50,
 			},
 		})
 
