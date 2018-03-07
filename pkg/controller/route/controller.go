@@ -724,8 +724,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	_, err := c.syncTrafficTargets(route)
-	if err != nil {
+	if _, err := c.syncTrafficTargets(route); err != nil {
 		glog.Errorf("Error updating route '%s/%s' upon configuration becoming ready: %v",
 			ns, routeName, err)
 	}
