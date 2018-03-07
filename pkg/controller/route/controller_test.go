@@ -592,17 +592,17 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 		update = update + 1
 		switch update {
 		case 1:
-			// The configuration isn't ready, the route should be updated.
+			// The configuration has no LatestReadyRevisionName, nothing should be changing.
 			var expectedTrafficTargets []v1alpha1.TrafficTarget
 			if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
 				t.Errorf("Unexpected label diff (-want +got): %v", diff)
 			}
-			// After the initial update to the route, we should be
-			// watching for this configuration to has LatestReadyRevisionName.
-			config.Status.LatestCreatedRevisionName = rev.Name
+			// Update config to has LatestReadyRevisionName.
+			config.Status.LatestReadyRevisionName = rev.Name
 			config.Labels = map[string]string{
 				ela.RouteLabelKey: route.Name,
 			}
+			go elaClient.ElafrosV1alpha1().Configurations("test").Update(config)
 			go controller.addConfigurationEvent(config)
 			return hooks.HookIncomplete
 		case 2:

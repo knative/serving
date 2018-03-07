@@ -566,6 +566,10 @@ func (c *Controller) computeRevisionRoutes(
 		if tt.Configuration != "" {
 			// Get the configuration's LatestReadyRevisionName
 			revName = configMap[tt.Configuration].Status.LatestReadyRevisionName
+			if revName == "" {
+				glog.Errorf("Configuration %s is not ready. Should skip updating route rules", tt.Configuration)
+				return nil, nil
+			}
 			rev, err = revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
@@ -612,7 +616,7 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 		return nil, nil
 	}
 	for _, rr := range revisionRoutes {
-		glog.Errorf("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
+		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
 	routeRuleName := controller.GetElaIstioRouteRuleName(route)
@@ -623,7 +627,7 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 		}
 		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
 		_, createErr := routeClient.Create(routeRules)
-		return nil, createErr
+		return revisionRoutes, createErr
 	}
 
 	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
@@ -706,6 +710,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	if config.Status.LatestReadyRevisionName == "" {
 		glog.Infof("Configuration %s is not ready", configName)
+		return
 	}
 
 	routeName, ok := config.Labels[ela.RouteLabelKey]
