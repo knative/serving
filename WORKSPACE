@@ -122,4 +122,4 @@ repositories()
 
 load(":ca_bundle.bzl", "ca_bundle")
 
-ca_bundle(name = "ca_bundle")
+ca_bundle(name = "cluster_ca_bundle")

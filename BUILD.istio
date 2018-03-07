@@ -57,11 +57,11 @@ sh_binary(
 genrule(
     name = "gen-istio-sidecar-injector-with-ca-bundle",
     srcs = [
-        "@ca_bundle//:ca-bundle",
+        "@cluster_ca_bundle//:ca-bundle",
         "istio-sidecar-injector.yaml",
     ],
     outs = ["istio-sidecar-injector-with-ca-bundle.yaml"],
-    cmd = "CA_BUNDLE=$$(< $(location @ca_bundle//:ca-bundle)) envsubst <$(location istio-sidecar-injector.yaml) >$@",
+    cmd = "CA_BUNDLE=$$(< $(location @cluster_ca_bundle//:ca-bundle)) envsubst <$(location istio-sidecar-injector.yaml) >$@",
 )
 
 k8s_object(
