@@ -14,8 +14,7 @@ To use a k8s cluster running in GKE:
 
 1.  Create a GCP project (or use an existing project if you've already created
     one) at http://console.cloud.google.com/home/dashboard. Set the ID of the
-    project in an environment variable (e.g. `PROJECT_ID`) along with the email
-    of your GCP user (`GCP_USER`).
+    project in an environment variable (e.g. `PROJECT_ID`).
 
 1.  Enable the k8s API:
 
@@ -60,7 +59,7 @@ To use a k8s cluster running in GKE:
     ```shell
     kubectl create clusterrolebinding gcloud-admin-binding \
       --clusterrole=cluster-admin \
-      --user=$GCP_USER
+      --user=$(gcloud config get-value core/account)
     ```
 
 1.  Add to your .bashrc:
