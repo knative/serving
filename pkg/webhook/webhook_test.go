@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/ghodss/yaml"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -196,8 +196,8 @@ func TestValidRouteChanges(t *testing.T) {
 	new := createRoute(1)
 	new.Spec.Traffic = []v1alpha1.TrafficTarget{
 		v1alpha1.TrafficTarget{
-			Revision: testRevisionName,
-			Percent:  100,
+			RevisionName: testRevisionName,
+			Percent:      100,
 		},
 	}
 	resp := ac.admit(createUpdateRoute(&old, &new))
@@ -422,9 +422,9 @@ func createRoute(generation int64) v1alpha1.Route {
 			DomainSuffix: testDomain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:     "test-traffic-target",
-					Revision: testRevisionName,
-					Percent:  100,
+					Name:         "test-traffic-target",
+					RevisionName: testRevisionName,
+					Percent:      100,
 				},
 			},
 		},

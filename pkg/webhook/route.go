@@ -18,8 +18,8 @@ package webhook
 import (
 	"errors"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/golang/glog"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -62,8 +62,8 @@ func validateTrafficTarget(route *v1alpha1.Route) error {
 
 	percentSum := 0
 	for _, trafficTarget := range route.Spec.Traffic {
-		revisionLen := len(trafficTarget.Revision)
-		configurationLen := len(trafficTarget.Configuration)
+		revisionLen := len(trafficTarget.RevisionName)
+		configurationLen := len(trafficTarget.ConfigurationName)
 		if (revisionLen == 0 && configurationLen == 0) ||
 			(revisionLen != 0 && configurationLen != 0) {
 			return errInvalidRevisions

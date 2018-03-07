@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_binary", "go_library", "go_prefix")
 
-go_prefix("github.com/google/elafros")
+go_prefix("github.com/elafros/elafros")
 
 gazelle(
     name = "gazelle",

@@ -22,7 +22,7 @@ import (
 	"os"
 	"time"
 
-	ela_autoscaler "github.com/google/elafros/pkg/autoscaler"
+	ela_autoscaler "github.com/elafros/elafros/pkg/autoscaler"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"

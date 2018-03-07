@@ -9,7 +9,7 @@ go_library(
         "register.go",
         "zz_generated.deepcopy.go",
     ],
-    importpath = "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1",
+    importpath = "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/cloudbuild:go_default_library",
@@ -28,7 +28,9 @@ sh_test(
     data = [
         ":build_template_types.go",
         ":build_types.go",
+        ":doc.go",
         "@buildcrd//pkg/apis/cloudbuild/v1alpha1:build_template_types.go",
         "@buildcrd//pkg/apis/cloudbuild/v1alpha1:build_types.go",
+        "@buildcrd//pkg/apis/cloudbuild/v1alpha1:doc.go",
     ],
 )

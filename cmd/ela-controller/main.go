@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/controller"
 
 	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
@@ -31,12 +31,12 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
-	"github.com/google/elafros/pkg/controller/configuration"
-	"github.com/google/elafros/pkg/controller/revision"
-	"github.com/google/elafros/pkg/controller/route"
-	"github.com/google/elafros/pkg/signals"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	"github.com/elafros/elafros/pkg/controller/configuration"
+	"github.com/elafros/elafros/pkg/controller/revision"
+	"github.com/elafros/elafros/pkg/controller/route"
+	"github.com/elafros/elafros/pkg/signals"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

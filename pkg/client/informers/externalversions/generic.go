@@ -21,9 +21,9 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	ela_v1alpha1 "github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	v1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
+	v1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	ela_v1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	v1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -54,11 +54,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=cloudbuild.googleapis.com, Version=v1alpha1
+	// Group=build.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("builds"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Cloudbuild().V1alpha1().Builds().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Build().V1alpha1().Builds().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("buildtemplates"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Cloudbuild().V1alpha1().BuildTemplates().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Build().V1alpha1().BuildTemplates().Informer()}, nil
 
 		// Group=config.istio.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithResource("routerules"):

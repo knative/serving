@@ -25,7 +25,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/elafros/pkg/autoscaler"
+	"github.com/elafros/elafros/pkg/autoscaler"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"

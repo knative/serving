@@ -30,12 +30,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 
-	hooks "github.com/google/elafros/pkg/controller/testing"
+	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -51,9 +51,11 @@ func getTestRevision() *v1alpha1.Revision {
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
 			Namespace: "test",
+			Labels: map[string]string{
+				"route": "test-route",
+			},
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Service: "test-service",
 			// corev1.Container has a lot of setting.  We try to pass many
 			// of them here to verify that we pass through the settings to
 			// derived objects.
@@ -132,6 +134,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 	// Look for the namespace.
 	expectedNamespace := rev.Namespace
+	expectedRouteLabel := rev.Labels["route"]
 	h.OnCreate(&kubeClient.Fake, "namespaces", func(obj runtime.Object) hooks.HookResult {
 		ns := obj.(*corev1.Namespace)
 		glog.Infof("checking namespace %s", ns.Name)
@@ -167,8 +170,8 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the ela and autoscaler deployments.
-	expectedDeploymentName := fmt.Sprintf("%s-%s-ela-deployment", rev.Name, rev.Spec.Service)
-	expectedAutoscalerName := fmt.Sprintf("%s-%s-autoscaler", rev.Name, rev.Spec.Service)
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 	h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) hooks.HookResult {
 		d := obj.(*v1beta1.Deployment)
 		glog.Infof("checking d %s", d.Name)
@@ -192,6 +195,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			if !foundQueueProxy {
 				t.Error("Missing queue-proxy")
 			}
+			if routeLabel := d.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
+				t.Errorf("Route label not set correctly on deployment: expected %s got %s.",
+					expectedRouteLabel, routeLabel)
+			}
+			if routeLabel := d.Spec.Template.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
+				t.Errorf("Route label not set correctly in pod template: expected %s got %s.",
+					expectedRouteLabel, routeLabel)
+			}
 		} else if d.Name == expectedAutoscalerName {
 			// Check the autoscaler deployment environment variables
 			foundAutoscaler := false
@@ -212,7 +223,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	})
 
 	// Look for the nginx configmap.
-	expectedConfigMapName := fmt.Sprintf("%s-%s-proxy-configmap", rev.Name, rev.Spec.Service)
+	expectedConfigMapName := fmt.Sprintf("%s-proxy-configmap", rev.Name)
 	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
 		cm := obj.(*corev1.ConfigMap)
 		glog.Infof("checking cm %s", cm.Name)
@@ -294,7 +305,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 		},
 	}
 
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
@@ -349,7 +360,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			}
 
 			// This hangs for some reason:
-			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
 			// Launch this in a goroutine because the OnUpdate logic works a little too
 			// synchronously and this leads to lock re-entrancy.
@@ -377,7 +388,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	})
 
 	// Direct the Revision to wait for this build to complete.
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 
@@ -424,7 +435,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			}
 
 			// This hangs for some reason:
-			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
 			// Launch this in a goroutine because the OnUpdate logic works a little too
 			// synchronously and this leads to lock re-entrancy.
@@ -448,7 +459,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 	})
 
 	// Direct the Revision to wait for this build to complete.
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 
@@ -501,7 +512,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			}
 
 			// This hangs for some reason:
-			// elaClient.CloudbuildV1alpha1().Builds("test").Update(bld)
+			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
 			// so manually trigger the build event.
 			// Launch this in a goroutine because the OnUpdate logic works a little too
 			// synchronously and this leads to lock re-entrancy.
@@ -529,7 +540,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	})
 
 	// Direct the Revision to wait for this build to complete.
-	elaClient.CloudbuildV1alpha1().Builds("test").Create(bld)
+	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 

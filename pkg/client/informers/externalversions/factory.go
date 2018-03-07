@@ -23,11 +23,11 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/google/elafros/pkg/client/clientset/versioned"
-	cloudbuild "github.com/google/elafros/pkg/client/informers/externalversions/cloudbuild"
-	ela "github.com/google/elafros/pkg/client/informers/externalversions/ela"
-	internalinterfaces "github.com/google/elafros/pkg/client/informers/externalversions/internalinterfaces"
-	istio "github.com/google/elafros/pkg/client/informers/externalversions/istio"
+	versioned "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	cloudbuild "github.com/elafros/elafros/pkg/client/informers/externalversions/cloudbuild"
+	ela "github.com/elafros/elafros/pkg/client/informers/externalversions/ela"
+	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
+	istio "github.com/elafros/elafros/pkg/client/informers/externalversions/istio"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -125,12 +125,12 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Cloudbuild() cloudbuild.Interface
+	Build() cloudbuild.Interface
 	Elafros() ela.Interface
 	Config() istio.Interface
 }
 
-func (f *sharedInformerFactory) Cloudbuild() cloudbuild.Interface {
+func (f *sharedInformerFactory) Build() cloudbuild.Interface {
 	return cloudbuild.New(f, f.namespace, f.tweakListOptions)
 }
 

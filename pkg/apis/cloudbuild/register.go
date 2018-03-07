@@ -17,5 +17,5 @@ limitations under the License.
 package cloudbuild
 
 const (
-	GroupName = "cloudbuild.googleapis.com"
+	GroupName = "build.dev"
 )

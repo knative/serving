@@ -37,12 +37,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 
-	hooks "github.com/google/elafros/pkg/controller/testing"
+	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	"k8s.io/client-go/rest"
 
@@ -66,7 +67,6 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Generation: 1,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					Service: "test-service",
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
@@ -101,7 +101,6 @@ func getTestRevision() *v1alpha1.Revision {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Service: "test-service",
 			ContainerSpec: &corev1.Container{
 				Image: "test-image",
 			},
@@ -164,16 +163,12 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		rev := obj.(*v1alpha1.Revision)
 		glog.Infof("checking revision %s", rev.Name)
-		if config.Spec.Template.Spec.Service != rev.Spec.Service {
-			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
-		}
-
 		if diff := cmp.Diff(config.Spec.Template.Spec, rev.Spec); diff != "" {
 			t.Errorf("rev spec != config template spec (-want +got): %v", diff)
 		}
 
-		if rev.Labels[ConfigurationLabelKey] != config.Name {
-			t.Errorf("rev does not have label <%s:%s>", ConfigurationLabelKey, config.Name)
+		if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
+			t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
 		}
 
 		if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
@@ -217,9 +212,6 @@ func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
 	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		rev := obj.(*v1alpha1.Revision)
 		glog.Infof("checking revision %s", rev.Name)
-		if config.Spec.Template.Spec.Service != rev.Spec.Service {
-			t.Errorf("rev service was not %s", config.Spec.Template.Spec.Service)
-		}
 		// TODO(mattmoor): The fake doesn't properly support GenerateName,
 		// so it never looks like the BuildName is populated.
 		// if rev.Spec.BuildName == "" {

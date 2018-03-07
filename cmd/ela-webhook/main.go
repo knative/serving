@@ -17,8 +17,9 @@ package main
 
 import (
 	"flag"
-	"github.com/google/elafros/pkg/signals"
-	"github.com/google/elafros/pkg/webhook"
+
+	"github.com/elafros/elafros/pkg/signals"
+	"github.com/elafros/elafros/pkg/webhook"
 
 	"github.com/golang/glog"
 

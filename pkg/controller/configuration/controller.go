@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/controller"
 
 	"github.com/golang/glog"
 	"github.com/google/uuid"
@@ -39,13 +39,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
-	listers "github.com/google/elafros/pkg/client/listers/ela/v1alpha1"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 )
 
 const controllerAgentName = "configuration-controller"
@@ -53,10 +53,6 @@ const controllerAgentName = "configuration-controller"
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 const (
-	// ConfigurationLabelKey is the label key attached to a Revison indicating by
-	// which Configuration it is created.
-	ConfigurationLabelKey = ela.GroupName + "/configuration"
-
 	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
 	SuccessSynced = "Synced"
 
@@ -308,7 +304,7 @@ func (c *Controller) syncHandler(key string) error {
 			Spec: *config.Spec.Build,
 		}
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
-		created, err := c.elaclientset.CloudbuildV1alpha1().Builds(build.Namespace).Create(build)
+		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
 			return err
@@ -335,7 +331,7 @@ func (c *Controller) syncHandler(key string) error {
 	if rev.ObjectMeta.Labels == nil {
 		rev.ObjectMeta.Labels = make(map[string]string)
 	}
-	rev.ObjectMeta.Labels[ConfigurationLabelKey] = config.Name
+	rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)

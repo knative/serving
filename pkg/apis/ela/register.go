@@ -18,4 +18,12 @@ package ela
 
 const (
 	GroupName = "elafros.dev"
+
+	// ConfigurationLabelKey is the label key attached to a Revison indicating by
+	// which Configuration it is created.
+	ConfigurationLabelKey = GroupName + "/configuration"
+
+	// RouteLabelKey is the label key attached to a Configuration indicating by
+	// which Route it is configured as traffic target.
+	RouteLabelKey = GroupName + "/route"
 )

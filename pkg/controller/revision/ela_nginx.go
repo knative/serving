@@ -19,8 +19,8 @@ package revision
 import (
 	"bytes"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,10 +47,7 @@ func MakeNginxConfigMap(u *v1alpha1.Revision, namespace string) (*corev1.ConfigM
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionNginxConfigMapName(u),
 			Namespace: namespace,
-			Labels: map[string]string{
-				routeLabel:      u.Spec.Service,
-				elaVersionLabel: u.Name,
-			},
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Data: map[string]string{
 			"nginx.conf": nginxConfiguration,

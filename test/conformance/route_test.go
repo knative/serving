@@ -23,31 +23,31 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/onsi/gomega"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/client/clientset/versioned"
-	elatyped "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/client/clientset/versioned"
+	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	apiv1beta1 "k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	"k8s.io/client-go/tools/clientcmd"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiv1beta1 "k8s.io/api/extensions/v1beta1"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
-	namespaceName    = "pizzaplanet"
-	image1       = "pizzaplanetv1"
-	image2       = "pizzaplanetv2"
-	domain       = "weregoingtopizzaplanet.com"
-	configName   = "prod"
-	routeName    = "pizzaplanet"
-	ingressName  = routeName + "-ela-ingress"
+	namespaceName = "pizzaplanet"
+	image1        = "pizzaplanetv1"
+	image2        = "pizzaplanetv2"
+	domain        = "weregoingtopizzaplanet.com"
+	configName    = "prod"
+	routeName     = "pizzaplanet"
+	ingressName   = routeName + "-ela-ingress"
 )
 
 func route() *v1alpha1.Route {
@@ -60,9 +60,9 @@ func route() *v1alpha1.Route {
 			DomainSuffix: domain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:          routeName,
-					Configuration: configName,
-					Percent:       100,
+					Name:              routeName,
+					ConfigurationName: configName,
+					Percent:           100,
 				},
 			},
 		},
@@ -101,7 +101,7 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 func namespace() *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      namespaceName,
+			Name: namespaceName,
 		},
 	}
 }
@@ -119,11 +119,11 @@ func createNamespace(namespaceClient typedcorev1.NamespaceInterface) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route)(bool, error) {
-	return func(r *v1alpha1.Route)(bool, error) {
+func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
+	return func(r *v1alpha1.Route) (bool, error) {
 		if len(r.Status.Traffic) > 0 {
 			Expect(r.Status.Traffic).To(HaveLen(1))
-			if r.Status.Traffic[0].Revision == revisionName {
+			if r.Status.Traffic[0].RevisionName == revisionName {
 				Expect(r.Status.Traffic[0].Percent).To(Equal(100))
 				Expect(r.Status.Traffic[0].Name).To(Equal(routeName))
 				return true, nil
@@ -133,8 +133,8 @@ func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1
 	}
 }
 
-func isRevisionReady(revisionName string) func(r *v1alpha1.Revision)(bool, error) {
-	return func(r *v1alpha1.Revision)(bool, error) {
+func isRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, error) {
+	return func(r *v1alpha1.Revision) (bool, error) {
 		if len(r.Status.Conditions) > 0 {
 			Expect(r.Status.Conditions[0].Type).To(Equal(v1alpha1.RevisionConditionType("Ready")))
 			if r.Status.Conditions[0].Status == "False" {
@@ -152,7 +152,7 @@ func isRevisionReady(revisionName string) func(r *v1alpha1.Revision)(bool, error
 var _ = Describe("Route", func() {
 	var (
 		namespaceClient typedcorev1.NamespaceInterface
-		ingressClient  v1beta1.IngressInterface
+		ingressClient   v1beta1.IngressInterface
 
 		routeClient    elatyped.RouteInterface
 		configClient   elatyped.ConfigurationInterface
@@ -209,7 +209,7 @@ var _ = Describe("Route", func() {
 
 			By("The Configuration will be updated with the Revision after it is created")
 			var revisionName string
-			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error){
+			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
 				if c.Status.LatestCreatedRevisionName != "" {
 					revisionName = c.Status.LatestCreatedRevisionName
 					return true, nil
@@ -221,7 +221,7 @@ var _ = Describe("Route", func() {
 			WaitForRevisionState(revisionClient, revisionName, isRevisionReady(revisionName))
 
 			By("The Configuration will be updated when the Revision is ready to serve traffic")
-			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration)(bool, error){
+			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
 				return c.Status.LatestReadyRevisionName == revisionName, nil
 			})
 
@@ -232,7 +232,7 @@ var _ = Describe("Route", func() {
 			// the ingress manually (i.e. by using the domain directly)
 			var endpoint string
 			By("Wait for the ingress loadbalancer address to be set")
-			WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress)(bool, error) {
+			WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress) (bool, error) {
 				if len(i.Status.LoadBalancer.Ingress) > 0 {
 					endpoint = fmt.Sprintf("http://%s", i.Status.LoadBalancer.Ingress[0].IP)
 					return true, nil
@@ -243,7 +243,7 @@ var _ = Describe("Route", func() {
 			By("Make a request to the Revision that is now deployed and serving traffic")
 			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
 			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
-			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string)(bool, error){
+			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
 
@@ -257,7 +257,7 @@ var _ = Describe("Route", func() {
 
 			By("A new Revision will be made and the Configuration will be updated with it")
 			var newRevisionName string
-			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration)(bool, error){
+			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
 				if c.Status.LatestCreatedRevisionName != revisionName {
 					newRevisionName = c.Status.LatestCreatedRevisionName
 					return true, nil
@@ -269,7 +269,7 @@ var _ = Describe("Route", func() {
 			WaitForRevisionState(revisionClient, revisionName, isRevisionReady(newRevisionName))
 
 			By("The Configuration will be updated to indicate the new revision is ready")
-			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration)(bool, error){
+			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
 				return c.Status.LatestReadyRevisionName == newRevisionName, nil
 			})
 
@@ -277,7 +277,7 @@ var _ = Describe("Route", func() {
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, newRevisionName))
 
 			By("Wait for the ingress to actually start serving traffic from the newly deployed Revision")
-			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string)(bool, error){
+			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string) (bool, error) {
 				if body == "Re-energize yourself with a slice of pepperoni!" {
 					// This is the string we are looking for
 					return true, nil

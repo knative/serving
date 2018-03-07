@@ -5,7 +5,7 @@ This demo is a walk-through example that:
 * Pushes to a private DockerHub repository using a username / password
 * Deploys to Elafros using image pull secrets.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/google/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
 
 ## The resources involved.
 

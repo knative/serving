@@ -105,8 +105,8 @@ load(
 
 private_git_repository(
     name = "buildcrd",
-    commit = "d729e217e09b5e14c92eb77a0b6655e359bd7391",
-    remote = "git@github.com:google/build-crd.git",
+    commit = "f414c7d6f6710598e7b186bf244ce81b2b339df2",
+    remote = "git@github.com:elafros/build-crd.git",
 )
 
 # If you would like to test changes to both repositories,

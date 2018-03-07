@@ -31,11 +31,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
+	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	"github.com/golang/glog"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/apis/istio/v1alpha2"
-	fakeclientset "github.com/google/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
@@ -44,31 +45,24 @@ import (
 	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
 
-	hooks "github.com/google/elafros/pkg/controller/testing"
+	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
 func getTestRoute() *v1alpha1.Route {
-	return &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/routes/test-route",
-			Name:      "test-route",
-			Namespace: "test",
-		},
-		Spec: v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{
-				v1alpha1.TrafficTarget{
-					Revision: "test-rev",
-					Percent:  100,
-				},
+	return getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      100,
 			},
 		},
-	}
+	)
 }
 
-func getTestRouteWithMultipleTargets() *v1alpha1.Route {
+func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/Routes/test-route",
@@ -76,18 +70,62 @@ func getTestRouteWithMultipleTargets() *v1alpha1.Route {
 			Namespace: "test",
 		},
 		Spec: v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{
-				v1alpha1.TrafficTarget{
-					Configuration: "test-config",
-					Percent:       90,
-				},
-				v1alpha1.TrafficTarget{
-					Revision: "test-rev",
-					Percent:  10,
-				},
-			},
+			Traffic: traffic,
 		},
 	}
+}
+
+func getTestRouteWithMultipleTargets() *v1alpha1.Route {
+	return getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           90,
+			},
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
+		},
+	)
+}
+
+func getTestRouteWithDuplicateTargets() *v1alpha1.Route {
+	return getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           30,
+			},
+			v1alpha1.TrafficTarget{
+				ConfigurationName: "test-config",
+				Percent:           20,
+			},
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      5,
+			},
+			v1alpha1.TrafficTarget{
+				Name:         "test-revision-1",
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
+			v1alpha1.TrafficTarget{
+				Name:         "test-revision-1",
+				RevisionName: "test-rev",
+				Percent:      10,
+			},
+			v1alpha1.TrafficTarget{
+				Name:         "test-revision-2",
+				RevisionName: "test-rev",
+				Percent:      15,
+			},
+		},
+	)
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
@@ -135,6 +173,9 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 		SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
 		Name:      "p-deadbeef",
 		Namespace: "test",
+		Labels: map[string]string{
+			ela.ConfigurationLabelKey: config.Name,
+		},
 	}
 	rev.Status = v1alpha1.RevisionStatus{
 		ServiceName: "p-deadbeef-service",
@@ -347,6 +388,178 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRouteWithDuplicateTargets(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithDuplicateTargets()
+	rev := getTestRevision("test-rev")
+	config := getTestConfiguration()
+	h := hooks.NewHooks()
+
+	// Create a Revision when the Configuration is created to simulate the action
+	// of the Configuration controller, which isn't running during this test.
+	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
+		cfgrev := getTestRevisionForConfig(cfg)
+		// This must be a goroutine to avoid deadlocking the Fake fixture
+		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
+		// Set LatestReadyRevisionName to this revision
+		cfg.Status.LatestReadyRevisionName = cfgrev.Name
+		// Return the modified Configuration so the object passed to later reactors
+		// (including the fixture reactor) has our Status mutation
+		return false, cfg, nil
+	})
+
+	// Look for the route.
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
+		rule := obj.(*v1alpha2.RouteRule)
+
+		expectedRouteSpec := v1alpha2.RouteRuleSpec{
+			Destination: v1alpha2.IstioService{
+				Name: "test-route-service",
+			},
+			Route: []v1alpha2.DestinationWeight{
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "p-deadbeef-service.test",
+					},
+					Weight: 50,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 15,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 20,
+				},
+				v1alpha2.DestinationWeight{
+					Destination: v1alpha2.IstioService{
+						Name: "test-rev-service.test",
+					},
+					Weight: 15,
+				},
+			},
+		}
+
+		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+			},
+		},
+	)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels
+		expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      100,
+			},
+		},
+	)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels
+		expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	config := getTestConfiguration()
+	// Set a label which is expected to be deleted.
+	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
+	rev := getTestRevisionForConfig(config)
+	h := hooks.NewHooks()
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Look for the configuration.
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		config := obj.(*v1alpha1.Configuration)
+		// Check labels, should be empty.
+		expectedLabels := map[string]string{}
+		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

@@ -16,7 +16,7 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+	v1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,13 +27,13 @@ import (
 
 // FakeBuilds implements BuildInterface
 type FakeBuilds struct {
-	Fake *FakeCloudbuildV1alpha1
+	Fake *FakeBuildV1alpha1
 	ns   string
 }
 
-var buildsResource = schema.GroupVersionResource{Group: "cloudbuild.googleapis.com", Version: "v1alpha1", Resource: "builds"}
+var buildsResource = schema.GroupVersionResource{Group: "build.dev", Version: "v1alpha1", Resource: "builds"}
 
-var buildsKind = schema.GroupVersionKind{Group: "cloudbuild.googleapis.com", Version: "v1alpha1", Kind: "Build"}
+var buildsKind = schema.GroupVersionKind{Group: "build.dev", Version: "v1alpha1", Kind: "Build"}
 
 // Get takes name of the build, and returns the corresponding build object, and an error if there is any.
 func (c *FakeBuilds) Get(name string, options v1.GetOptions) (result *v1alpha1.Build, err error) {

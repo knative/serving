@@ -1,7 +1,7 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the 
+[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the
 development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/README.md).
 
 ## Getting started
@@ -43,6 +43,8 @@ variables (we recommend adding them to your `.bashrc`):
 1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will work properly.
 1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
 1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development environments should be managed.
+1. `K8S_USER_OVERRIDE`: The Kubernetes user that you use to manage your cluster.  This depends on your cluster setup,
+    please take a look at [cluster setup instruction](./docs/creating-a-kubernetes-cluster.md)
 
 `.bashrc` example:
 
@@ -51,6 +53,7 @@ export GOPATH='~/go'
 export PATH="${PATH}:${GOPATH}/bin"
 export DOCKER_REPO_OVERRIDE='gcr.io/my-gcloud-project-name'
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
+export K8S_USER_OVERRIDE='my-k8s-user'
 ```
 
 (Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authentication) for your
@@ -71,7 +74,7 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to
 
 ### Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/google/elafros` directory
+The Go tools require that you clone the repository to the `src/github.com/elafros/elafros` directory
 in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
@@ -80,11 +83,11 @@ To check out this repository:
   repo](https://help.github.com/articles/fork-a-repo/)
 2. Clone it to your machine:
   ```shell
-  mkdir -p ${GOPATH}/src/github.com/google
-  cd ${GOPATH}/src/github.com/google
+  mkdir -p ${GOPATH}/src/github.com/elafros
+  cd ${GOPATH}/src/github.com/elafros
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
   cd elafros
-  git remote add upstream git@github.com:google/elafros.git
+  git remote add upstream git@github.com:elafros/elafros.git
   git remote set-url --push upstream no_push
   ```
 

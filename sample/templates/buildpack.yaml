@@ -1,0 +1,53 @@
+apiVersion: build.dev/v1alpha1
+kind: BuildTemplate
+metadata:
+  name: buildpack
+spec:
+  parameters:
+  - name: IMAGE
+    description: The name of the image to push
+  - name: DIRECTORY
+    description: The directory containing the app
+    default: /workspace
+  - name: CACHE
+    description: The name of the persistent app cache volume
+    default: app-cache
+
+  steps:
+  # In: a CF app in $DIRECTORY
+  # Out: a CF app droplet in /out
+  # Out: a build cache in /cache
+  - name: build
+    image: packs/cf:build
+    workingdir: "${DIRECTORY}"
+    env:
+    volumeMounts:
+    - name: droplet
+      mountPath: /out
+    - name: "${CACHE}"
+      mountPath: /cache
+
+  # In: a CF app droplet in /in
+  # Out: an image published as $IMAGE
+  - name: export
+    image: packs/cf:export-gcr
+    workingdir: /in
+    args: ["${IMAGE}"]
+    env:
+    - name: DOCKER_CONFIG
+      value: /root/.docker
+    volumeMounts:
+    - name: droplet
+      mountPath: /in
+    - name: docker-socket
+      mountPath: /var/run/docker.sock
+
+  volumes:
+  - name: droplet
+    emptyDir: {}
+  - name: app-cache
+    emptyDir: {}
+  - name: docker-socket
+    hostPath:
+      path: /var/run/docker.sock
+      type: Socket
