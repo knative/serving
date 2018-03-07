@@ -58,6 +58,20 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 
 ## Implementation
 
+This stuff is subject to change as the Elafros implementation changes.  Just FYI.
+
+### Autoscaler
+
 There is a proxy on in the Elafros Pods (`queue-proxy`) who is responsible enforcing request queue parameters, and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see Design Goal #3).  The Elafros controller injects the identity of the Revision into the Pod queue proxy environment variables.  When the queue proxy wakes up, it find the Autoscaler for the revision and establishes a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the currently observed number of concurrent clients.
 
-The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.
+The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.  The Autoscaler has two modes of operation, Panic Mode and Stable Mode.
+
+In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod.  It calculates the current concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to help out and provide a metrics stream).
+
+The Autoscaler evaluates its metrics every 2 seconds.  In addition to the 60-second window it also calculates the average concurrency per Pod over the last 6 second (the panic window).  If the 6-second average concurrency reaches 2 times the desired average, then the Autoscaler transitions to Panic Mode.  In Panic Mode the Autoscaler bases all its decisions off the 6-second window, which makes it much more responsive to increases in traffic.  Every 2 seconds it adjusts the size of the Deployment to achieve the stable, desired average (or a maximum of 10 times the current observed Pod count, whichever is smaller).  To prevent rapid fluctuations in the Pod count, the Autoscaler will only increase Deployment size during Panic Mode, never decrease.  60 seconds after the last Panic Mode increase to the Deployment size, the Autoscaler transistions back to Stable Mode and begins evaluating the 60-second windows again.
+
+When the Autoscaler has observed an average concurrency per pod of 0.0 for 5 minutes, it will transistion the Revision to the Reserve state.  This causes the Deployment and the Autoscaler to be torn down (or scaled to 0) and routes all traffic for the Revision to the Activator.
+
+### Activator
+
+The Activator is a singleton compononent that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see Design Goal #3).  When the Activator get request for a Reserve Revision, it calls the Elafros control plane to transistion the Revision to an Active state.  It will take a few minutes for all the resources to be provisioned, so more requests might arrive at the Activator in the mean time.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  In the meantime, the Elafros control plane will update the Istio route rules to take the Activator back out of the serving path.
