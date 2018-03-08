@@ -419,7 +419,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		// The configuration is already ready and has LatestReadyRevisionName equal
 		// to LatestCreatedRevisionName, so ignore this event.
 		glog.Infof("Configuration %q is is already ready with latest created revision ready", revisionName)
-		// return
+		return
 	}
 
 	// Don't modify the informer's copy.
