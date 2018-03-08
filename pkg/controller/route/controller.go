@@ -58,13 +58,13 @@ var (
 const (
 	controllerAgentName = "route-controller"
 
-	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
+	// SuccessSynced is used as part of the Event 'reason' when a Route is synced
 	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
+	// ErrResourceExists is used as part of the Event 'reason' when a Route fails
 	// to sync due to a Deployment of the same name already existing.
 	ErrResourceExists = "ErrResourceExists"
 
-	// MessageResourceSynced is the message used for an Event fired when a Foo
+	// MessageResourceSynced is the message used for an Event fired when a Route
 	// is synced successfully
 	MessageResourceSynced = "Route synced successfully"
 )
@@ -91,7 +91,7 @@ type Controller struct {
 	kubeclientset kubernetes.Interface
 	elaclientset  clientset.Interface
 
-	// lister indexes properties about Configuration
+	// lister indexes properties about Route
 	lister listers.RouteLister
 	synced cache.InformerSynced
 
@@ -104,6 +104,9 @@ type Controller struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	// don't start the workers until configuration cache have been synced
+	configSynced cache.InformerSynced
 }
 
 func init() {
@@ -125,8 +128,10 @@ func NewController(
 
 	glog.Infof("Route controller Init")
 
-	// obtain a reference to a shared index informer for the Routes type.
+	// obtain references to a shared index informer for the Routes and
+	// Configurations type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Routes()
+	configInformer := elaInformerFactory.Elafros().V1alpha1().Configurations()
 
 	// Create event broadcaster
 	// Add ela types to the default Kubernetes Scheme so Events can be
@@ -143,21 +148,25 @@ func NewController(
 		elaclientset:  elaclientset,
 		lister:        informer.Lister(),
 		synced:        informer.Informer().HasSynced,
+		configSynced:  configInformer.Informer().HasSynced,
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
 		recorder:      recorder,
 	}
 
 	glog.Info("Setting up event handlers")
-	// Set up an event handler for when Configuration resources change
+	// Set up an event handler for when Route resources change
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueRoute,
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueRoute(new)
 		},
 	})
+	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addConfigurationEvent,
+		UpdateFunc: controller.updateConfigurationEvent,
+	})
 
 	return controller
-
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -175,6 +184,12 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	// Wait for the configuration caches to be synced before starting workers
+	glog.Info("Waiting for configuration informer caches to sync")
+	if ok := cache.WaitForCacheSync(stopCh, c.configSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -272,7 +287,7 @@ func (c *Controller) enqueueRoute(obj interface{}) {
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Foo resource
+// converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
 //TODO(grantr): not generic
 func (c *Controller) syncHandler(key string) error {
@@ -323,19 +338,32 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 
-	c.consolidateTrafficTargets(route)
-	configMap, revMap, err := c.getDirectTrafficTargets(route)
+	updated, err := c.syncTrafficTargets(route)
 	if err != nil {
 		return err
 	}
+
+	c.recorder.Event(updated, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	return nil
+}
+
+// syncTrafficTargets attempts to converge the actual state and desired state
+// according to the traffic targets in Spec field for Route resource. It then
+// updates the Status block of the Route and returns the updated one.
+func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route, error) {
+	c.consolidateTrafficTargets(route)
+	configMap, revMap, err := c.getDirectTrafficTargets(route)
+	if err != nil {
+		return nil, err
+	}
 	if err := c.extendConfigurationsWithIndirectTrafficTargets(route, configMap, revMap); err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.setLabelForGivenConfigurations(route, configMap); err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Then create the actual route rules.
@@ -343,10 +371,10 @@ func (c *Controller) syncHandler(key string) error {
 	revisionRoutes, err := c.createOrUpdateRoutes(route, configMap, revMap)
 	if err != nil {
 		glog.Infof("Failed to create Routes: %s", err)
-		return err
+		return nil, err
 	}
 
-	// If routes were configured, update them
+	// If revision routes were configured, update them
 	if revisionRoutes != nil {
 		traffic := []v1alpha1.TrafficTarget{}
 		for _, r := range revisionRoutes {
@@ -361,11 +389,10 @@ func (c *Controller) syncHandler(key string) error {
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
-		return err
+		return nil, err
 	}
 
-	c.recorder.Event(updated, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
-	return nil
+	return updated, nil
 }
 
 func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) error {
@@ -539,6 +566,11 @@ func (c *Controller) computeRevisionRoutes(
 		if tt.ConfigurationName != "" {
 			// Get the configuration's LatestReadyRevisionName
 			revName = configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
+			if revName == "" {
+				glog.Errorf("Configuration %s is not ready. Should skip updating route rules",
+					tt.ConfigurationName)
+				return nil, nil
+			}
 			rev, err = revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
@@ -585,7 +617,7 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 		return nil, nil
 	}
 	for _, rr := range revisionRoutes {
-		glog.Errorf("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
+		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
 	routeRuleName := controller.GetElaIstioRouteRuleName(route)
@@ -596,7 +628,7 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 		}
 		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
 		_, createErr := routeClient.Create(routeRules)
-		return nil, createErr
+		return revisionRoutes, createErr
 	}
 
 	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
@@ -670,4 +702,41 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 		)
 	}
 	u.Spec.Traffic = consolidatedTraffic
+}
+
+func (c *Controller) addConfigurationEvent(obj interface{}) {
+	config := obj.(*v1alpha1.Configuration)
+	configName := config.Name
+	ns := config.Namespace
+
+	// TODO: Add tests for these early returns
+	if config.Status.LatestReadyRevisionName == "" {
+		glog.Infof("Configuration %s is not ready", configName)
+		return
+	}
+
+	routeName, ok := config.Labels[ela.RouteLabelKey]
+	if !ok {
+		glog.Warningf("Configuration %s does not have label %s",
+			configName, ela.RouteLabelKey)
+		return
+	}
+
+	route, err := c.lister.Routes(ns).Get(routeName)
+	if err != nil {
+		glog.Errorf("Error fetching route '%s/%s' upon configuration becoming ready: %v",
+			ns, routeName, err)
+		return
+	}
+
+	// Don't modify the informers copy
+	route = route.DeepCopy()
+	if _, err := c.syncTrafficTargets(route); err != nil {
+		glog.Errorf("Error updating route '%s/%s' upon configuration becoming ready: %v",
+			ns, routeName, err)
+	}
+}
+
+func (c *Controller) updateConfigurationEvent(old, new interface{}) {
+	c.addConfigurationEvent(new)
 }
