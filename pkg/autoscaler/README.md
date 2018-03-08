@@ -56,7 +56,15 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 2. **Make it light**.  Wherever possible the system should be able to figure out the right thing to do without the user's intervention or configuration.
 3. **Make everything better**.  Creating custom components is a short-term strategy to get something working now.  The long-term strategy is to make the underlying components better so that custom code can be replaced with configuration.  E.g. Autoscale should be replaced with the K8s Horizontal Pod Autoscaler and Custom Metrics.
 
-## Implementation
+### Slow Brain / Fast Brain
+
+The Elafros Autoscaler is split into two parts, the
+1. **Fast Brain** that maintains the desired level of concurrent requests per Pod (satisfying Design Goal #1), and the
+2. **Slow Brain** that comes up with the desired level based based on CPU, memory and latency statistics (satisfying Design Goal #2).
+
+*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/elafros/elafros/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
+
+## Fast Brain Implementation
 
 This stuff is subject to change as the Elafros implementation changes.  Just FYI.
 
