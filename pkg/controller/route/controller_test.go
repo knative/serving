@@ -565,3 +565,59 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+			},
+		},
+	)
+	h := hooks.NewHooks()
+
+	// Look for the route.
+	h.OnCreate(&elaClient.Fake, "routes", func(obj runtime.Object) hooks.HookResult {
+		route := obj.(*v1alpha1.Route)
+		// The configuration has no LatestReadyRevisionName, nothing should be changing.
+		var expectedTrafficTargets []v1alpha1.TrafficTarget
+		if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+
+		// Update config to has LatestReadyRevisionName and route label.
+		config.Status.LatestReadyRevisionName = rev.Name
+		config.Labels = map[string]string{
+			ela.RouteLabelKey: route.Name,
+		}
+		go elaClient.ElafrosV1alpha1().Configurations("test").Update(config)
+		return hooks.HookComplete
+	})
+
+	h.OnUpdate(&elaClient.Fake, "routes", func(obj runtime.Object) hooks.HookResult {
+		route := obj.(*v1alpha1.Route)
+		expectedTrafficTargets := []v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      100,
+			},
+		}
+		if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
