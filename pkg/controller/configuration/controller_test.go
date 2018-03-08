@@ -48,7 +48,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
-	//	kubetesting "k8s.io/client-go/testing"
 )
 
 const (
