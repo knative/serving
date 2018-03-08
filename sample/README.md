@@ -18,4 +18,4 @@ functionality.
 * [private repos](./private-repos/) - A sample illustrating private GitHub / DockerHub
 * [telemetrysample](./telemetrysample) - A simple webserver emitting logs and metrics
 * [gitwebhook](./gitwebhook) - A function that listens for git PR changes and updates the title of them
-* [autoscaler](./autoscaler) - A demonstration of revision autoscaling
+* [autoscaler](./autoscale) - A demonstration of revision autoscaling
