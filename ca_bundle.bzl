@@ -6,7 +6,7 @@ def _ca_bundle_impl(ctx):
 
   result = ctx.execute([
       "kubectl", "get", "configmap",
-      "-n", "kube-system",
+      "--namespace=kube-system",
       "extension-apiserver-authentication",
       "-o=jsonpath={.data.client-ca-file}",
       "--cluster=" + cluster])
