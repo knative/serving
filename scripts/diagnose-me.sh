@@ -21,6 +21,7 @@ CLUSTER_VERSION=1.9
 tests=(
   cluster_version
   webhook_running
+  webhook_configuration
   controllers_running
   istio_installed
 )
@@ -50,6 +51,17 @@ run_test() {
       printf "Elafros webhook is installed"
       test_cmd="kubectl get pods -n ela-system -l app=ela-webhook -o jsonpath={.items[].status.phase}"
       expected_result="Running"
+      test_command "$test_cmd" "$expected_result"
+      ;;
+    webhook_configuration)
+      printf "Webhook is configured with correct resources"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].rules[].resources}"
+      expected_result="[configurations routes revisions]"
+      test_command "$test_cmd" "$expected_result"
+
+      printf "Webhook is configured with correct service"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
+      expected_result="ela-webhook"
       test_command "$test_cmd" "$expected_result"
       ;;
     controllers_running)
