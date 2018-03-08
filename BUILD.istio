@@ -1,5 +1,6 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
+load("@//:istio.bzl", "disable_policy")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -38,9 +39,14 @@ k8s_object(
     visibility = ["//visibility:public"],
 )
 
+disable_policy(
+    name = "istio-sidecar-injector-configmap-disabled",
+    template = "istio-sidecar-injector-configmap-release.yaml",
+)
+
 k8s_object(
     name = "istio-sidecar-injector-configmap",
-    template = "istio-sidecar-injector-configmap-release.yaml",
+    template = ":istio-sidecar-injector-configmap-disabled",
 )
 
 sh_binary(
