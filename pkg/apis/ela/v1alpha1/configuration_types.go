@@ -119,6 +119,17 @@ func (configStatus *ConfigurationStatus) IsReady() bool {
 	return false
 }
 
+// IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
+// and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
+// it returns false.
+func (configStatus *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
+	if configStatus.IsReady() &&
+		configStatus.LatestCreatedRevisionName == configStatus.LatestReadyRevisionName {
+		return true
+	}
+	return false
+}
+
 func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
 	for _, cond := range config.Conditions {
 		if cond.Type == t {
