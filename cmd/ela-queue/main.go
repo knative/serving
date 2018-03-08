@@ -147,7 +147,6 @@ func statReporter() {
 
 func concurrencyReporter() {
 	var concurrentRequests int32 = 0
-	var queryCount int32 = 0
 	ticker := time.NewTicker(time.Second).C
 	for {
 		select {
@@ -157,13 +156,10 @@ func concurrencyReporter() {
 				Time:               &now,
 				PodName:            podName,
 				ConcurrentRequests: concurrentRequests,
-				QueryCount:         queryCount,
 			}
-			queryCount = 0
 			statChan <- stat
 		case <-reqInChan:
 			concurrentRequests = concurrentRequests + 1
-			queryCount = queryCount + 1
 		case <-reqOutChan:
 			concurrentRequests = concurrentRequests - 1
 		}
