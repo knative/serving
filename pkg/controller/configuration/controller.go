@@ -388,6 +388,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	revision := obj.(*v1alpha1.Revision)
 	revisionName := revision.Name
 	namespace := revision.Namespace
+	log.Printf("revisionName: %s\n", revisionName)
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
 	configName := lookupRevisionOwner(revision)
@@ -412,7 +413,8 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	if revision.Name != config.Status.LatestCreatedRevisionName {
 		// The revision isn't the latest created one, so ignore this event.
 		glog.Infof("Revision %q is not the latest created one", revisionName)
-		return
+		log.Printf("Revision %q is not the latest created one", revisionName)
+		// return
 	}
 
 	if config.Status.IsLatestReadyRevisionNameUpToDate() {

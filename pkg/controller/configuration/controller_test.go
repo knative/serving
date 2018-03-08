@@ -45,10 +45,10 @@ import (
 
 	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
-	"k8s.io/client-go/rest"
-
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
+	kubetesting "k8s.io/client-go/testing"
 )
 
 const (
@@ -291,36 +291,48 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 }
 
 func TestDoNotSetLatestWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
 	h := hooks.NewHooks()
 
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
-	revision := getTestRevision()
-	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
+	// Create a Revision when the Configuration is created to simulate the action
+	// of the Configuration controller, which isn't running during this test.
+	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		config := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
+		controllerRef := metav1.NewControllerRef(config, controllerKind)
+		revision := getTestRevision()
+		revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
+		revision.Status = v1alpha1.RevisionStatus{
+			Conditions: []v1alpha1.RevisionCondition{{
+				Type:   v1alpha1.RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		}
+		// This must be a goroutine to avoid deadlocking the Fake fixture
+		go elaClient.ElafrosV1alpha1().Revisions(config.Namespace).Create(revision)
+		// Return the modified Configuration so the object passed to later reactors
+		// (including the fixture reactor) has our Status mutation
+		return false, config, nil
+	})
 
-	// Mark the revision ready to trigger an update
-	revision.Status = v1alpha1.RevisionStatus{
-		Conditions: []v1alpha1.RevisionCondition{{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
-		}},
-	}
-	go controller.addRevisionEvent(revision)
-
+	update := 0
 	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
 		config := obj.(*v1alpha1.Configuration)
-		if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
-			t.Errorf("Conditions length diff; got %v, want %v", got, want)
-		}
-		if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
-			t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
+		update = update + 1
+		switch update {
+		case 1:
+			if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
+				t.Errorf("Conditions length diff; got %v, want %v", got, want)
+			}
+			if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
+				t.Errorf("Latest in Status diff; got %v, want %v", got, want)
+			}
+			return hooks.HookIncomplete
 		}
 		return hooks.HookComplete
 	})
 
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(revision)
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
