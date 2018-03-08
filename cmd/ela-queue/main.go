@@ -29,8 +29,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -96,60 +94,28 @@ func init() {
 }
 
 func connectStatSink() {
-	selector := fmt.Sprintf("revision=%s", elaRevision)
-	glog.Info("Revision selector: " + selector)
-	opt := metav1.ListOptions{
-		LabelSelector: selector,
-	}
-
-	// TODO(josephburnett): should we use dns instead?
-	services := kubeClient.CoreV1().Services(elaNamespace)
-	wi, err := services.Watch(opt)
-	if err != nil {
-		glog.Error("Error watching services: %v", err)
-		return
-	}
-	defer wi.Stop()
-	ch := wi.ResultChan()
-	glog.Info("Looking for autoscaler service.")
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
+		elaAutoscaler, elaNamespace, elaAutoscalerPort)
+	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
-		event := <-ch
-		if svc, ok := event.Object.(*corev1.Service); ok {
-			if svc.Name != elaAutoscaler {
-				glog.Infof("This is not the service you're looking for: %v", svc.Name)
-				continue
-			}
-			ip := svc.Spec.ClusterIP
-			glog.Infof("Found autoscaler service %q with IP %q.", svc.Name, ip)
-			if ip == "" {
-				// If IP is not found, continue waiting for it to
-				// be assigned, which will be another event.
-				glog.Info("Continue waiting for IP.")
-				continue
-			}
-			for {
-				// Everything is coming up at the same
-				// time.  We wait a second first to let
-				// the autoscaler start serving.  And we
-				// wait 1 second between attempts to
-				// connect so we don't overwhelm the
-				// autoscaler.
-				time.Sleep(time.Second)
+		// Everything is coming up at the same time.  We wait a
+		// second first to let the autoscaler start serving.  And
+		// we wait 1 second between attempts to connect so we
+		// don't overwhelm the autoscaler.
+		time.Sleep(time.Second)
 
-				dialer := &websocket.Dialer{
-					HandshakeTimeout: 3 * time.Second,
-				}
-				conn, _, err := dialer.Dial("ws://"+ip+":"+elaAutoscalerPort, nil)
-				if err != nil {
-					glog.Error(err)
-				} else {
-					glog.Info("Connected to stat sink.")
-					statSink = conn
-					return
-				}
-				glog.Error("Retrying connection to autoscaler.")
-			}
+		dialer := &websocket.Dialer{
+			HandshakeTimeout: 3 * time.Second,
 		}
+		conn, _, err := dialer.Dial(autoscalerEndpoint, nil)
+		if err != nil {
+			glog.Error(err)
+		} else {
+			glog.Info("Connected to stat sink.")
+			statSink = conn
+			return
+		}
+		glog.Error("Retrying connection to autoscaler.")
 	}
 }
 
