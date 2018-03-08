@@ -181,23 +181,23 @@ func statReporter() {
 
 func concurrencyReporter() {
 	var concurrentRequests int32 = 0
-	var queryCount int32 = 0
+	var totalRequests int32 = 0
 	ticker := time.NewTicker(time.Second).C
 	for {
 		select {
 		case <-ticker:
 			now := time.Now()
 			stat := &autoscaler.Stat{
-				Time:               &now,
-				PodName:            podName,
-				ConcurrentRequests: concurrentRequests,
-				QueryCount:         queryCount,
+				Time:                    &now,
+				PodName:                 podName,
+				ConcurrentRequests:      concurrentRequests,
+				TotalRequestsThisPeriod: totalRequests,
 			}
-			queryCount = 0
+			totalRequests = 0
 			statChan <- stat
 		case <-reqInChan:
 			concurrentRequests = concurrentRequests + 1
-			queryCount = queryCount + 1
+			totalRequests = totalRequests + 1
 		case <-reqOutChan:
 			concurrentRequests = concurrentRequests - 1
 		}

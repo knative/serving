@@ -34,7 +34,7 @@ type Stat struct {
 	ConcurrentRequests int32
 
 	// Number of requests received since last Stat (approximately QPS).
-	QueryCount int32
+	TotalRequestsThisPeriod int32
 }
 
 type statKey struct {
@@ -94,11 +94,8 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	panicCount := float64(0)
 	panicPods := make(map[string]bool)
 
-	// Approximate current QPS
-	currentQps := make(map[string]int32)
-
-	// Approximate current concurrent clients
-	currentConcurrency := make(map[string]int32)
+	// Last stat per Pod
+	lastStat := make(map[string]Stat)
 
 	for key, stat := range a.stats {
 		instant := key.time
@@ -106,19 +103,32 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 			panicTotal = panicTotal + float64(stat.ConcurrentRequests)
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
-
-			currentQps[stat.PodName] = stat.QueryCount
-			currentConcurrency[stat.PodName] = stat.ConcurrentRequests
 		}
 		if instant.Add(stableWindow).After(now) {
 			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
+
+			if _, ok := lastStat[stat.PodName]; !ok {
+				lastStat[stat.PodName] = stat
+			}
+			if lastStat[stat.PodName].Time.Before(*stat.Time) {
+				lastStat[stat.PodName] = stat
+			}
 		} else {
 			// Drop metrics after 60 seconds
 			delete(a.stats, key)
 		}
 	}
+
+	// Log system totals
+	totalCurrentQps := int32(0)
+	totalCurrentConcurrency := int32(0)
+	for _, stat := range lastStat {
+		totalCurrentQps = totalCurrentQps + stat.TotalRequestsThisPeriod
+		totalCurrentConcurrency = totalCurrentConcurrency + stat.ConcurrentRequests
+	}
+	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQps, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(stableWindow).Before(now) {
@@ -150,17 +160,6 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
-
-	// System totals
-	totalCurrentQps := int32(0)
-	for _, qps := range currentQps {
-		totalCurrentQps = totalCurrentQps + qps
-	}
-	totalCurrentConcurrency := int32(0)
-	for _, con := range currentConcurrency {
-		totalCurrentConcurrency = totalCurrentConcurrency + con
-	}
-	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQps, totalCurrentConcurrency)
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {
