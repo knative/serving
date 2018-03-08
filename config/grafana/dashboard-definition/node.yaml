@@ -16,6 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-definition-node
+  namespace: monitoring
 data:
   nodes-dashboard.json: |+
     {

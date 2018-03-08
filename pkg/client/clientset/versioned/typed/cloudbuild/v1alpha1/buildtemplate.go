@@ -16,8 +16,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	scheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	scheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -50,7 +50,7 @@ type buildTemplates struct {
 }
 
 // newBuildTemplates returns a BuildTemplates
-func newBuildTemplates(c *CloudbuildV1alpha1Client, namespace string) *buildTemplates {
+func newBuildTemplates(c *BuildV1alpha1Client, namespace string) *buildTemplates {
 	return &buildTemplates{
 		client: c.RESTClient(),
 		ns:     namespace,

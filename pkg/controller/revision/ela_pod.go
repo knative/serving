@@ -17,8 +17,10 @@ limitations under the License.
 package revision
 
 import (
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/google/elafros/pkg/controller"
+	"strconv"
+
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -26,11 +28,18 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// Each Elafros pod gets 1 cpu.
+	elaContainerCpu     = "400m"
+	queueContainerCpu   = "25m"
+	nginxContainerCpu   = "25m"
+	fluentdContainerCpu = "100m"
+)
+
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	name := u.Name
-	serviceID := u.Spec.Service
-	nginxConfigMapName := name + "-" + serviceID + "-proxy-configmap"
+	nginxConfigMapName := name + "-proxy-configmap"
 
 	elaContainer := u.Spec.ContainerSpec.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
@@ -38,7 +47,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	elaContainer.Name = elaContainerName
 	elaContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse("25m"),
+			corev1.ResourceName("cpu"): resource.MustParse(elaContainerCpu),
 		},
 	}
 	elaContainer.Ports = []corev1.ContainerPort{{
@@ -59,12 +68,12 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	nginxContainer := corev1.Container{
-		Name:  nginxContainerName,
-		Image: nginxSidecarImage,
+	queueContainer := corev1.Container{
+		Name:  queueContainerName,
+		Image: queueSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCpu),
 			},
 		},
 		Ports: []corev1.ContainerPort{
@@ -72,8 +81,53 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 			// certs. Right now, the static nginx.conf file has
 			// been modified to only allow HTTP connections.
 			{
-				Name:          nginxHttpPortName,
-				ContainerPort: int32(nginxHttpPort),
+				Name:          requestQueuePortName,
+				ContainerPort: int32(requestQueuePort),
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "ELA_NAMESPACE",
+				Value: u.Namespace,
+			},
+			{
+				Name:  "ELA_REVISION",
+				Value: u.Name,
+			},
+			{
+				Name:  "ELA_AUTOSCALER",
+				Value: controller.GetRevisionAutoscalerName(u),
+			},
+			{
+				Name:  "ELA_AUTOSCALER_PORT",
+				Value: strconv.Itoa(autoscalerPort),
+			},
+			{
+				Name: "ELA_POD",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+		},
+	}
+
+	nginxContainer := corev1.Container{
+		Name:  nginxContainerName,
+		Image: nginxSidecarImage,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceName("cpu"): resource.MustParse(nginxContainerCpu),
+			},
+		},
+		Ports: []corev1.ContainerPort{
+			// TOOD: HTTPS connections from the Cloud LB require
+			// certs. Right now, the static nginx.conf file has
+			// been modified to only allow HTTP connections.
+			{
+				Name:          nginxHTTPPortName,
+				ContainerPort: int32(nginxHTTPPort),
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -118,7 +172,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Image: fluentdSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCpu),
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
@@ -137,18 +191,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 
 	return &corev1.PodSpec{
 		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{*elaContainer, nginxContainer, fluentdContainer},
-	}
-}
-
-// MakeElaDeploymentLabels constructs the labels we will apply to K8s resources.
-func MakeElaDeploymentLabels(u *v1alpha1.Revision) map[string]string {
-	name := u.Name
-	serviceID := u.Spec.Service
-
-	return map[string]string{
-		routeLabel:      serviceID,
-		elaVersionLabel: name,
+		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
 	}
 }
 
@@ -163,7 +206,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionDeploymentName(u),
 			Namespace: namespace,
-			Labels:    MakeElaDeploymentLabels(u),
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: v1beta1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
@@ -173,7 +216,7 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: MakeElaDeploymentLabels(u),
+					Labels: MakeElaResourceLabels(u),
 				},
 			},
 		},

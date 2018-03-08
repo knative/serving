@@ -36,6 +36,21 @@ type Revision struct {
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
+type RevisionServingStateType string
+
+const (
+	// The revision is ready to serve traffic. It should have Kubernetes
+	// resources, and the Istio route should be pointed to the given resources.
+	RevisionServingStateActive RevisionServingStateType = "Active"
+	// The revision is not currently serving traffic, but could be made to serve
+	// traffic quickly. It should have Kubernetes resources, but the Istio route
+	// should be pointed to the activator.
+	RevisionServingStateReserve RevisionServingStateType = "Reserve"
+	// The revision has been decommissioned and is not needed to serve traffic
+	// anymore. It should not have any Istio routes or Kubernetes resources.
+	RevisionServingStateRetired RevisionServingStateType = "Retired"
+)
+
 // RevisionSpec defines the desired state of Revision
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -44,17 +59,9 @@ type RevisionSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// TODO(grantr): This is used to generate names for sub-resources. Can we
-	// do that a different way that doesn't require this reference to the Route?
-	// Service (Route) this is part of. Points to the Service (Route) in the
-	// namespace.
-	Service string `json:"service"`
-
-	// TODO(vaikas): I think we still need this?
-	// Active says whether k8s resources should be created for this deployment.
-	// When true, controller will make the resources and when false, will delete them
-	// as necessary
-	Active bool `json:"active"`
+	// Desired serving state of the Revision. Used to determine what state the
+	// Kubernetes resources should be in.
+	ServingState RevisionServingStateType `json:"servingState"`
 
 	// The name of the build that is producing the container image that we are deploying.
 	BuildName string `json:"buildName,omitempty"`
@@ -98,10 +105,10 @@ type RevisionStatus struct {
 	// Route.
 	ServiceName string              `json:"serviceName,omitempty"`
 	Conditions  []RevisionCondition `json:"conditions,omitempty"`
-	// ReconciledGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The reconciled generation is updated
+	// ObservedGeneration is the 'Generation' of the Configuration that
+	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
-	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

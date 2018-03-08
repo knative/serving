@@ -24,7 +24,7 @@ function test_build {
   OUR_PATH="${RUNFILES}/pkg/apis/cloudbuild/v1alpha1/build_types.go"
   THEIR_PATH="${RUNFILES}/external/buildcrd/pkg/apis/cloudbuild/v1alpha1/build_types.go"
 
-  if [ "$(cat ${OUR_PATH})" != "$(cat ${THEIR_PATH})" ]; then
+  if ! diff -q "${OUR_PATH}" "${THEIR_PATH}"; then
     echo ERROR: build_types.go does not match the version imported by WORKSPACE.
     diff "${OUR_PATH}" "${THEIR_PATH}"
     exit 1
@@ -35,8 +35,19 @@ function test_build_template {
   OUR_PATH="${RUNFILES}/pkg/apis/cloudbuild/v1alpha1/build_template_types.go"
   THEIR_PATH="${RUNFILES}/external/buildcrd/pkg/apis/cloudbuild/v1alpha1/build_template_types.go"
 
-  if [ "$(cat ${OUR_PATH})" != "$(cat ${THEIR_PATH})" ]; then
+  if ! diff -q "${OUR_PATH}" "${THEIR_PATH}"; then
     echo ERROR: build_template_types.go does not match the version imported by WORKSPACE.
+    diff "${OUR_PATH}" "${THEIR_PATH}"
+    exit 1
+  fi
+}
+
+function test_doc {
+  OUR_PATH="${RUNFILES}/pkg/apis/cloudbuild/v1alpha1/doc.go"
+  THEIR_PATH="${RUNFILES}/external/buildcrd/pkg/apis/cloudbuild/v1alpha1/doc.go"
+
+  if ! diff -q "${OUR_PATH}" "${THEIR_PATH}"; then
+    echo ERROR: doc.go does not match the version imported by WORKSPACE.
     diff "${OUR_PATH}" "${THEIR_PATH}"
     exit 1
   fi
@@ -44,3 +55,4 @@ function test_build_template {
 
 test_build
 test_build_template
+test_doc

@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["telemetrysample.go"],
-    importpath = "github.com/google/elafros/sample/telemetrysample",
+    importpath = "github.com/elafros/elafros/sample/telemetrysample",
     visibility = ["//visibility:private"],
     deps = [
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
@@ -14,7 +14,7 @@ go_library(
 go_binary(
     name = "telemetrysample",
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/sample/telemetrysample",
+    importpath = "github.com/elafros/elafros/sample/telemetrysample",
     pure = "on",
     visibility = ["//visibility:public"],
 )
@@ -37,7 +37,7 @@ k8s_object(
 )
 
 k8s_object(
-    name = "service",
+    name = "route",
     template = ":route.yaml",
 )
 
@@ -56,7 +56,7 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-        ":service",
+        ":route",
         ":configuration",
         ":prometheus-test",
         ":servicemonitor",

@@ -14,8 +14,7 @@ To use a k8s cluster running in GKE:
 
 1.  Create a GCP project (or use an existing project if you've already created
     one) at http://console.cloud.google.com/home/dashboard. Set the ID of the
-    project in an environment variable (e.g. `PROJECT_ID`) along with the email
-    of your GCP user (`GCP_USER`).
+    project in an environment variable (e.g. `PROJECT_ID`).
 
 1.  Enable the k8s API:
 
@@ -60,14 +59,20 @@ To use a k8s cluster running in GKE:
     ```shell
     kubectl create clusterrolebinding gcloud-admin-binding \
       --clusterrole=cluster-admin \
-      --user=$GCP_USER
+      --user=$(gcloud config get-value core/account)
+    ```
+
+1.  Add to your .bashrc:
+    ```shell
+    # When using GKE, the K8s user is your GCP user.
+    export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
     ```
 
 ## Minikube
 
 1.  [Install and configure
     minikube](https://github.com/kubernetes/minikube#minikube) with a [VM
-    driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm` on
+    driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm2` on
     Linux or `xhyve` on macOS.
 
 1.  [Create a cluster](https://github.com/kubernetes/minikube#quickstart) with
@@ -80,7 +85,7 @@ To use a k8s cluster running in GKE:
 ```shell
 minikube start \
   --kubernetes-version=v1.9.0 \
-  --vm-driver=kvm \
+  --vm-driver=kvm2 \
   --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
 ```
 
@@ -164,8 +169,14 @@ necessary if you are not using public Elafros and Build images._
     done
     ```
 
+1.  Add to your .bashrc:
+    ```shell
+    # When using Minikube, the K8s user is your local user.
+    export K8S_USER_OVERRIDE=$USER
+    ```
+
 Use the same procedure to add imagePullSecrets to service accounts in any
 namespace. Use the `default` service account for pods that do not specify a
 service account.
 
-_See also the [private-repo sample README](./../sample/private-repos/README.md).
+See also the [private-repo sample README](./../sample/private-repos/README.md).

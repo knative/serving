@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -29,17 +30,17 @@ import (
 var (
 	requestCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: 	"telemetrysample",
-			Name: 		"requests_total",
-			Help: 		"Total number of requests.",
+			Namespace: "telemetrysample",
+			Name:      "requests_total",
+			Help:      "Total number of requests.",
 		},
 		[]string{"status"},
 	)
 	requestDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: 	"telemetrysample",
-		Name:    	"request_duration_seconds",
-		Help:    	"Histogram of the request duration.",
-		Buckets: []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5},
+		Namespace: "telemetrysample",
+		Name:      "request_duration_seconds",
+		Help:      "Histogram of the request duration.",
+		Buckets:   []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5},
 	})
 )
 
@@ -52,7 +53,7 @@ func main() {
 	flag.Parse()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", rootHandler);
+	mux.HandleFunc("/", rootHandler)
 	mux.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":8080", mux)
 }

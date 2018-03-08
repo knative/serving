@@ -115,7 +115,7 @@ type BuildStatus struct {
 
 type ClusterSpec struct {
 	Namespace string `json:"namespace"`
-	JobName   string `json:"jobName"`
+	PodName   string `json:"podName"`
 }
 
 type GoogleSpec struct {

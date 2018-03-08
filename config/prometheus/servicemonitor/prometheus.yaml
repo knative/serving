@@ -16,6 +16,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: prometheus
+  namespace: monitoring
   labels:
     monitor-category: prometheus
 spec:
@@ -25,7 +26,7 @@ spec:
       prometheus: system
   namespaceSelector:
     matchNames:
-    - default
+    - monitoring
   endpoints:
   - port: web
     interval: 30s

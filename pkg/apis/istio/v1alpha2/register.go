@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/google/elafros/pkg/apis/istio"
+	"github.com/elafros/elafros/pkg/apis/istio"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

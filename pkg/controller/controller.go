@@ -21,8 +21,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 )
 
 type Interface interface {

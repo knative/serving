@@ -16,8 +16,8 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
-	scheme "github.com/google/elafros/pkg/client/clientset/versioned/scheme"
+	v1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
+	scheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

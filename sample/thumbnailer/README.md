@@ -2,7 +2,7 @@
 
 Thumbnailer demo is a walk-through example on how to deploy a 'dockerized' application to the Elafros service. In this demo we will use a sample `golang` application that takes video URL as an input and generates its thumbnail image.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/google/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
 
 ## Sample Code
 

@@ -9,7 +9,7 @@ go_library(
         "route.go",
         "webhook.go",
     ],
-    importpath = "github.com/google/elafros/pkg/webhook",
+    importpath = "github.com/elafros/elafros/pkg/webhook",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela:go_default_library",
@@ -37,7 +37,7 @@ go_test(
         "webhook_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/pkg/webhook",
+    importpath = "github.com/elafros/elafros/pkg/webhook",
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",

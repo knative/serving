@@ -16,33 +16,33 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	"github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
-type CloudbuildV1alpha1Interface interface {
+type BuildV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	BuildsGetter
 	BuildTemplatesGetter
 }
 
-// CloudbuildV1alpha1Client is used to interact with features provided by the cloudbuild.googleapis.com group.
-type CloudbuildV1alpha1Client struct {
+// BuildV1alpha1Client is used to interact with features provided by the build.dev group.
+type BuildV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *CloudbuildV1alpha1Client) Builds(namespace string) BuildInterface {
+func (c *BuildV1alpha1Client) Builds(namespace string) BuildInterface {
 	return newBuilds(c, namespace)
 }
 
-func (c *CloudbuildV1alpha1Client) BuildTemplates(namespace string) BuildTemplateInterface {
+func (c *BuildV1alpha1Client) BuildTemplates(namespace string) BuildTemplateInterface {
 	return newBuildTemplates(c, namespace)
 }
 
-// NewForConfig creates a new CloudbuildV1alpha1Client for the given config.
-func NewForConfig(c *rest.Config) (*CloudbuildV1alpha1Client, error) {
+// NewForConfig creates a new BuildV1alpha1Client for the given config.
+func NewForConfig(c *rest.Config) (*BuildV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -51,12 +51,12 @@ func NewForConfig(c *rest.Config) (*CloudbuildV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CloudbuildV1alpha1Client{client}, nil
+	return &BuildV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new CloudbuildV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new BuildV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *CloudbuildV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *BuildV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -64,9 +64,9 @@ func NewForConfigOrDie(c *rest.Config) *CloudbuildV1alpha1Client {
 	return client
 }
 
-// New creates a new CloudbuildV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *CloudbuildV1alpha1Client {
-	return &CloudbuildV1alpha1Client{c}
+// New creates a new BuildV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *BuildV1alpha1Client {
+	return &BuildV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -84,7 +84,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *CloudbuildV1alpha1Client) RESTClient() rest.Interface {
+func (c *BuildV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

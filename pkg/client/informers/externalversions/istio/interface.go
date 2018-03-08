@@ -19,8 +19,8 @@ limitations under the License.
 package config
 
 import (
-	internalinterfaces "github.com/google/elafros/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/google/elafros/pkg/client/informers/externalversions/istio/v1alpha2"
+	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha2 "github.com/elafros/elafros/pkg/client/informers/externalversions/istio/v1alpha2"
 )
 
 // Interface provides access to each of this group's versions.

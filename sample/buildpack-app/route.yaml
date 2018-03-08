@@ -1,0 +1,10 @@
+apiVersion: elafros.dev/v1alpha1
+kind: Route
+metadata:
+  name: buildpack-sample-app
+  namespace: default
+spec:
+  domainSuffix: buildpack-app.example.com
+  traffic:
+  - configurationName: buildpack-sample-app
+    percent: 100

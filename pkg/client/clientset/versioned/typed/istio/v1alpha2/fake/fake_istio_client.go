@@ -16,7 +16,7 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha2 "github.com/google/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	v1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

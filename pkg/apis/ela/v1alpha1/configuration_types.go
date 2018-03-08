@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
-	build "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
+	build "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,7 +52,7 @@ type ConfigurationSpec struct {
 type ConfigurationConditionType string
 
 const (
-	// RevisionConditionReady is set when the configuration is starting to materialize
+	// ConfigurationConditionReady is set when the configuration is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
 )
@@ -76,17 +76,16 @@ type ConfigurationStatus struct {
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
 	// Latest revision that is ready.
-	LatestReady string `json:"latestReady,omitempty"`
+	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
 
-	// LatestCreated is the last revision that has been created, it might not be
-	// ready yet however. Hence we just keep track of it so that when it's ready
-	// it will get moved to Latest.
-	LatestCreated string `json:"latestCreated,omitempty"`
+	// LatestCreatedRevisionName is the last revision that was created; it might not be
+	// ready yet. When it's ready, it will get moved to LatestReady.
+	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
-	// ReconciledGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The reconciled generation is updated
+	// ObservedGeneration is the 'Generation' of the Configuration that
+	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
-	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -111,7 +110,7 @@ func (r *Configuration) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-// IsReady looks at the conditions and if the Status has a condition
+// IsReady looks at the conditions on the ConfigurationStatus.
 // ConfigurationConditionReady returns true if ConditionStatus is True
 func (configStatus *ConfigurationStatus) IsReady() bool {
 	if c := configStatus.GetCondition(ConfigurationConditionReady); c != nil {

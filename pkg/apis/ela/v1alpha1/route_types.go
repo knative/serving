@@ -51,12 +51,12 @@ type TrafficTarget struct {
 	// One of these is valid...
 	// Revision is the name to a specific revision
 	// +optional
-	Revision string `json:"revision,omitempty"`
+	RevisionName string `json:"revisionName,omitempty"`
 
 	// Configuration is the name to a configuration, rolls out
 	// automatically
 	// +optional
-	Configuration string `json:"configuration,omitempty"`
+	ConfigurationName string `json:"configurationName,omitempty"`
 
 	// Specifies percent of the traffic to this Revision or Configuration
 	Percent int `json:"percent"`
@@ -113,10 +113,10 @@ type RouteStatus struct {
 
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 
-	// ReconciledGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The reconciled generation is updated
+	// ObservedGeneration is the 'Generation' of the Configuration that
+	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
-	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

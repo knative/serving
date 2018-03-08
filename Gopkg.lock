@@ -128,6 +128,18 @@
   version = "v0.2.0"
 
 [[projects]]
+  name = "github.com/google/go-github"
+  packages = ["github"]
+  revision = "e48060a28fac52d0f1cb758bc8b87c07bac4a87d"
+  version = "v15.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/google/go-querystring"
+  packages = ["query"]
+  revision = "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
+
+[[projects]]
   branch = "master"
   name = "github.com/google/gofuzz"
   packages = ["."]
@@ -148,6 +160,12 @@
   ]
   revision = "ee43cbb60db7bd22502942cccbc39059117352ab"
   version = "v0.1.0"
+
+[[projects]]
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  revision = "ea4d1f681babbce9545c9c5f3d5194a789c89f5b"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -413,6 +431,15 @@
   ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
+
+[[projects]]
+  name = "gopkg.in/go-playground/webhooks.v3"
+  packages = [
+    ".",
+    "github"
+  ]
+  revision = "c271ec3e322dab2e93990e8c5287fe5d5d1209ba"
+  version = "v3.8.0"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -722,6 +749,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "91af1777e595398f10351c51e2fff99b08b772dff0aa71a36a0121a347cd36d2"
+  inputs-digest = "be80e965b154f159ff907a022c7620ebcec0e4f4ecf5a0a4fd5e223571d656e0"
   solver-name = "gps-cdcl"
   solver-version = 1
