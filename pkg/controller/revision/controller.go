@@ -615,13 +615,17 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscalerDeployment(rev, ns)
-	if err != nil {
-		log.Printf("Failed to create autoscaler Deployment: %s", err)
-	}
-	err = c.reconcileAutoscalerService(rev, ns)
-	if err != nil {
-		log.Printf("Failed to create autoscaler Service: %s", err)
+	if ns == "default" {
+		// Autoscaling in non-default namespaces is broken:
+		// https://github.com/elafros/elafros/issues/324
+		err = c.reconcileAutoscalerDeployment(rev, ns)
+		if err != nil {
+			log.Printf("Failed to create autoscaler Deployment: %s", err)
+		}
+		err = c.reconcileAutoscalerService(rev, ns)
+		if err != nil {
+			log.Printf("Failed to create autoscaler Service: %s", err)
+		}
 	}
 
 	// Create nginx config
