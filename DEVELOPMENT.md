@@ -49,7 +49,7 @@ variables (we recommend adding them to your `.bashrc`):
 `.bashrc` example:
 
 ```shell
-export GOPATH='~/go'
+export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
 export DOCKER_REPO_OVERRIDE='gcr.io/my-gcloud-project-name'
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
