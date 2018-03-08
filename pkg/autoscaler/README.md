@@ -68,6 +68,12 @@ The Elafros Autoscaler is split into two parts, the
 
 This stuff is subject to change as the Elafros implementation changes.  Just FYI.
 
+### Code
+
+* [Autoscaler Library](autoscaler.go)
+* [Autoscaler Binary](../../cmd/ela-autoscaler/main.go)
+* [Queue Proxy Binary](../../cmd/ela-queue/main.go)
+
 ### Autoscaler
 
 There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see Design Goal #3).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent clients at that moment.
