@@ -709,6 +709,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	configName := config.Name
 	ns := config.Namespace
 
+	// TODO: Add tests for these early returns
 	if config.Status.LatestReadyRevisionName == "" {
 		glog.Infof("Configuration %s is not ready", configName)
 		return
