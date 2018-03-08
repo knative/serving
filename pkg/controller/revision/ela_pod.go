@@ -30,10 +30,9 @@ import (
 
 const (
 	// Each Elafros pod gets 1 cpu.
-	elaContainerCpu     = "400m"
-	queueContainerCpu   = "25m"
-	nginxContainerCpu   = "25m"
-	fluentdContainerCpu = "100m"
+	elaContainerCpu   = "400m"
+	queueContainerCpu = "25m"
+	nginxContainerCpu = "25m"
 )
 
 // MakeElaPodSpec creates a pod spec.
@@ -54,19 +53,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Name:          elaPortName,
 		ContainerPort: int32(elaPort),
 	}}
-	elaContainer.VolumeMounts = []corev1.VolumeMount{
-		{
-			MountPath: elaContainerLogVolumeMountPath,
-			Name:      elaContainerLogVolumeName,
-		},
-	}
-
-	elaContainerLogVolume := corev1.Volume{
-		Name: elaContainerLogVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
 
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
@@ -142,10 +128,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				Name:      nginxConfigMapName,
 				ReadOnly:  true,
 			},
-			{
-				MountPath: nginxLogVolumeMountPath,
-				Name:      nginxLogVolumeName,
-			},
 		},
 	}
 
@@ -160,38 +142,9 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	nginxLogVolume := corev1.Volume{
-		Name: nginxLogVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCpu),
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: nginxLogVolumeMountPath,
-				Name:      nginxLogVolumeName,
-				//ReadOnly:  true,
-			},
-			{
-				MountPath: elaContainerLogVolumeMountPath,
-				Name:      elaContainerLogVolumeName,
-				//ReadOnly:  true,
-			},
-		},
-	}
-
 	return &corev1.PodSpec{
-		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
+		Volumes:    []corev1.Volume{nginxConfigVolume},
+		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer},
 	}
 }
 

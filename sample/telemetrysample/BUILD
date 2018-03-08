@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/elafros/elafros/sample/telemetrysample",
     visibility = ["//visibility:private"],
     deps = [
+        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
     ],

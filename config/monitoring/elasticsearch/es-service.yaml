@@ -12,20 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+apiVersion: v1
+kind: Service
 metadata:
-  name: configuration-example
-  namespace: default
+  name: elasticsearch-logging
+  namespace: monitoring
+  labels:
+    app: elasticsearch-logging
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/name: "Elasticsearch"
 spec:
-  template:
-    spec:
-      serviceType: container
-      containerSpec:
-        image: sample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-        env:
-          - name: TARGET
-            value: shiniestnewestversion
+  ports:
+  - port: 9200
+    protocol: TCP
+    targetPort: db
+  selector:
+    app: elasticsearch-logging

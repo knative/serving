@@ -12,20 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+apiVersion: v1
+kind: Service
 metadata:
-  name: configuration-example
-  namespace: default
+  name: fluentd-es
+  namespace: monitoring
+  labels:
+    app: fluentd-es
 spec:
-  template:
-    spec:
-      serviceType: container
-      containerSpec:
-        image: sample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-        env:
-          - name: TARGET
-            value: shiniestnewestversion
+  selector:
+    app: fluentd-es
+  ports:
+  - name: fluentd-tcp
+    port: 24224
+    protocol: TCP
+    targetPort: 24224
+  - name: fluentd-udp
+    port: 24224
+    protocol: UDP
+    targetPort: 24224

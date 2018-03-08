@@ -12,20 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
-  name: configuration-example
-  namespace: default
+  name: fluentd-es
+  namespace: monitoring
+  labels:
+    monitor-category: ela-system
 spec:
-  template:
-    spec:
-      serviceType: container
-      containerSpec:
-        image: sample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-        env:
-          - name: TARGET
-            value: shiniestnewestversion
+  selector:
+    matchLabels:
+      app: fluentd-es
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+  - port: prometheus-metrics
+    interval: 30s

@@ -12,20 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+apiVersion: v1
+kind: Service
 metadata:
-  name: configuration-example
-  namespace: default
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
 spec:
-  template:
-    spec:
-      serviceType: container
-      containerSpec:
-        image: sample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-        env:
-          - name: TARGET
-            value: shiniestnewestversion
+  type: NodePort
+  ports:
+  - port: 30802
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: grafana

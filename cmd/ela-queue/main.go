@@ -18,6 +18,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -183,6 +184,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
 	if err != nil {
