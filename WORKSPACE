@@ -120,6 +120,6 @@ load("@buildcrd//:deps.bzl", "repositories")
 
 repositories()
 
-load(":ca_bundle.bzl", "ca_bundle")
+load(":ca_bundle.bzl", "cluster_ca_bundle")
 
-ca_bundle(name = "cluster_ca_bundle")
+cluster_ca_bundle(name = "cluster_ca_bundle")

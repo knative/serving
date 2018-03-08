@@ -1,4 +1,4 @@
-def _ca_bundle_impl(ctx):
+def _cluster_ca_bundle_impl(ctx):
   ctx.symlink(Label("//:BUILD.ca_bundle"), "BUILD")
   cluster = ctx.execute([
       "sh", "-c",
@@ -16,6 +16,6 @@ def _ca_bundle_impl(ctx):
     
   ctx.file("client-ca-file", content=result.stdout)
 
-ca_bundle = repository_rule(
-    implementation = _ca_bundle_impl,
+cluster_ca_bundle = repository_rule(
+    implementation = _cluster_ca_bundle_impl,
 )
