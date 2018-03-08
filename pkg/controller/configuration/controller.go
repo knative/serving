@@ -294,7 +294,7 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
-			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to creating Build: %s", build.Name)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build: %s", build.Name)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
@@ -328,7 +328,7 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to creating Revision: %s", rev.Name)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %s", rev.Name)
 		return err
 	}
 	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision: %s", rev.Name)
