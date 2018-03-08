@@ -52,19 +52,6 @@ const controllerAgentName = "configuration-controller"
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
-	SuccessSynced = "Synced"
-
-	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceSynced is the message used for an Event fired when a Foo
-	// is synced successfully
-	MessageResourceSynced = "Configuration synced successfully"
-)
-
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -307,9 +294,11 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to creating Build: %s", build.Name)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build: %s", created.Name)
 		spec.BuildName = created.Name
 	}
 
@@ -339,8 +328,10 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to creating Revision: %s", rev.Name)
 		return err
 	}
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision: %s", rev.Name)
 	glog.Infof("Created Revision:\n%+v", created)
 
 	// Update the Status of the configuration with the latest generation that
@@ -358,8 +349,6 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	// end configuration business logic
-	c.recorder.Event(config, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
@@ -422,6 +411,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
 			namespace, configName, err)
 	}
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready upon Revision '%s' becoming ready", revision.Name)
 	return
 }
 

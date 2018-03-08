@@ -408,7 +408,7 @@ func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 	return false, false
 }
 
-func (c *Controller) markServiceReady(rev *v1alpha1.Revision) error {
+func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q ready", rev.Name)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
@@ -530,10 +530,10 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
-	if err := c.markServiceReady(rev); err != nil {
-		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revName, err)
+	if err := c.markRevisionReady(rev); err != nil {
+		glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
 	} else {
-		c.recorder.Eventf(rev, corev1.EventTypeNormal, "ServiceReady", "Revision becomes ready upon endpoint '%s' becoming ready", endpoint.Name)
+		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint '%s' becoming ready", endpoint.Name)
 	}
 	return
 }
