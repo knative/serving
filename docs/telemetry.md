@@ -17,7 +17,10 @@ Run,
 ```shell
 kubectl proxy
 ```
-Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana) (*it might take a couple of minutes for the proxy to work*)
+Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana) 
+(*it might take a couple of minutes for the proxy to work*). 
+When Kibana is opened the first time, it will ask you to crete an index. Accept the default options as is. As logs get ingested,
+new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
 
 ### Accessing metrics
 
