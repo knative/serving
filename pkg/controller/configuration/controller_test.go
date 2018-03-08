@@ -45,9 +45,10 @@ import (
 
 	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
+	"k8s.io/client-go/rest"
+
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -227,7 +228,7 @@ func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
 	}
 }
 
-func TestMarkReadyWhenRevisionIsReady(t *testing.T) {
+func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
@@ -285,7 +286,7 @@ func TestMarkReadyWhenRevisionIsReady(t *testing.T) {
 	}
 }
 
-func TestDoNotUpdateWhenRevisionIsNotReady(t *testing.T) {
+func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
@@ -317,7 +318,7 @@ func TestDoNotUpdateWhenRevisionIsNotReady(t *testing.T) {
 	}
 }
 
-func TestDoNotUpdateWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
+func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
 	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	// Don't set LatestCreatedRevisionName.
@@ -355,7 +356,7 @@ func TestDoNotUpdateWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
 	}
 }
 
-func TestDoNotUpdateWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
+func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
 	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
