@@ -16,7 +16,7 @@ limitations under the License.
 package fake
 
 import (
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 	elafrosv1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	configv1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

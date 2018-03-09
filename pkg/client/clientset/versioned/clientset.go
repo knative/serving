@@ -16,7 +16,7 @@ limitations under the License.
 package versioned
 
 import (
-	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
 	glog "github.com/golang/glog"
