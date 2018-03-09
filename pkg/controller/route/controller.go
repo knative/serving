@@ -509,7 +509,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 	for _, config := range configMap {
 		if config.Labels == nil {
 			config.Labels = make(map[string]string)
-		} else if _, ok := config.Labels[config.Name]; ok {
+		} else if _, ok := config.Labels[ela.RouteLabelKey]; ok {
 			continue
 		}
 		config.Labels[ela.RouteLabelKey] = route.Name
