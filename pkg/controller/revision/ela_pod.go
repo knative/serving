@@ -167,31 +167,9 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCpu),
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: nginxLogVolumeMountPath,
-				Name:      nginxLogVolumeName,
-				//ReadOnly:  true,
-			},
-			{
-				MountPath: elaContainerLogVolumeMountPath,
-				Name:      elaContainerLogVolumeName,
-				//ReadOnly:  true,
-			},
-		},
-	}
-
 	return &corev1.PodSpec{
 		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
+		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer},
 	}
 }
 
@@ -217,6 +195,9 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Labels: MakeElaResourceLabels(u),
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "true",
+					},
 				},
 			},
 		},

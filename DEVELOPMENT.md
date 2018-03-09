@@ -117,6 +117,22 @@ You can access the Elafros Controller's logs with:
 $ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
 ```
 
+## Enabling Istio Sidecar Injection
+After standing up elafros, perform the following steps to enable automatic
+sidecar injection.
+
+First, create a signed cert for the Istio webhook:
+
+```shell
+bazel run @istio_release//:webhook-create-signed-cert
+```
+
+Second, label namespaces with `istio-injection=enabled`:
+
+```shell
+kubectl label namespace default istio-injection=enabled
+```
+
 ## Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:

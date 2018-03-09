@@ -7,7 +7,7 @@ If you are interested in contributing to `Elafros`, see
 
 ## Getting Started
 
-* [Setup Istio](https://istio.io/docs/setup/kubernetes/quick-start.html)
+* [Setup Istio](https://istio.io/docs/setup/kubernetes/quick-start.html): Make sure to enable automatic sidecar injection for the default namespace (or any other namespace containing Elafros services).
 * [Setup Elafros](#latest-release)
 * [Run samples](./sample/README.md)
 
