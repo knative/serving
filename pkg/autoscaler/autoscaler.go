@@ -32,6 +32,9 @@ type Stat struct {
 
 	// Number of requests currently being handled by this pod.
 	ConcurrentRequests int32
+
+	// Number of requests received since last Stat (approximately QPS).
+	TotalRequestsThisPeriod int32
 }
 
 type statKey struct {
@@ -91,6 +94,9 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	panicCount := float64(0)
 	panicPods := make(map[string]bool)
 
+	// Last stat per Pod
+	lastStat := make(map[string]Stat)
+
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(panicWindow).After(now) {
@@ -102,11 +108,27 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
+
+			if _, ok := lastStat[stat.PodName]; !ok {
+				lastStat[stat.PodName] = stat
+			}
+			if lastStat[stat.PodName].Time.Before(*stat.Time) {
+				lastStat[stat.PodName] = stat
+			}
 		} else {
 			// Drop metrics after 60 seconds
 			delete(a.stats, key)
 		}
 	}
+
+	// Log system totals
+	totalCurrentQps := int32(0)
+	totalCurrentConcurrency := int32(0)
+	for _, stat := range lastStat {
+		totalCurrentQps = totalCurrentQps + stat.TotalRequestsThisPeriod
+		totalCurrentConcurrency = totalCurrentConcurrency + stat.ConcurrentRequests
+	}
+	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQps, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(stableWindow).Before(now) {

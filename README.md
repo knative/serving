@@ -5,69 +5,16 @@ This repository contains an open source specification and implementation of a Ku
 If you are interested in contributing to `Elafros`, see
 [CONTRIBUTING.md](./CONTRIBUTING.md) and [DEVELOPMENT.md](./DEVELOPMENT.md).
 
-* [Setup your development environment](./DEVELOPMENT.md#getting-started)
-* [Starting Elafros](#start-elafros)
+## Getting Started
+
+* [Setup Istio](https://istio.io/docs/setup/kubernetes/quick-start.html): Make sure to enable automatic sidecar injection for the default namespace (or any other namespace containing Elafros services).
+* [Setup Elafros](#latest-release)
 * [Run samples](./sample/README.md)
 
-## Start Elafros
+### Latest Release
 
-Once you've [setup your development
-environment](./DEVELOPMENT.md#getting-started), stand up `Elafros` with:
-
-```shell
-bazel run :everything.apply
-```
-
-This will:
- * Setup Istio.
- * Build the `ela-controller` into a Docker container.
- * Publish the `ela-controller` container to `{DOCKER_REPO_OVERRIDE}/ela-controller:latest`.
- * Create a number of resources, including:
-   * A `Namespace` in which we run Elafros components.
-   * A `ServiceAccount` as which Elafros will authorize requests.
-   * A `ClusterRoleBinding`, which grants the Elafros service account the capability to interact with
-   cluster resources.
-   * The `CustomResourceDefinition`s for Elafros resources.
-   * The `Deployment` running the Elafros controller.
-
-You can see things running with:
-```shell
-$ kubectl -n ela-system get pods
-NAME                                READY     STATUS    RESTARTS   AGE
-ela-controller-77897cc687-vp27q   1/1       Running   0          16s
-ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
-```
-
-You can access the Elafros Controller's logs with:
+You can install the latest release of Elafros via:
 
 ```shell
-$ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
-```
-
-## Enable Istio Sidecar Injection
-After standing up elafros, perform the following steps to enable automatic
-sidecar injection.
-
-First, create a signed cert for the Istio webhook:
-
-```shell
-bazel run @istio_release//:webhook-create-signed-cert
-```
-
-Second, label namespaces with `istio-injection=enabled`:
-
-```shell
-kubectl label namespace default istio-injection=enabled
-```
-
-## Clean up
-
-You can delete all of the service components with:
-```shell
-bazel run :everything.delete
-```
-
-Delete all cached environment variables (e.g. `DOCKER_REPO_OVERRIDE`):
-```shell
-bazel clean
+kubectl apply -f https://storage.googleapis.com/elafros-releases/latest/release.yaml
 ```

@@ -106,14 +106,14 @@ load(
 private_git_repository(
     name = "buildcrd",
     commit = "f414c7d6f6710598e7b186bf244ce81b2b339df2",
-    remote = "git@github.com:elafros/build-crd.git",
+    remote = "git@github.com:elafros/build.git",
 )
 
 # If you would like to test changes to both repositories,
 # you can comment the above and uncomment this:
 # local_repository(
 #    name = "buildcrd",
-#    path = "../build-crd",
+#    path = "../build",
 # )
 
 load("@buildcrd//:deps.bzl", "repositories")

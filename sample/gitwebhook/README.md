@@ -20,7 +20,7 @@ metadata:
 spec:
   domainSuffix: demostuff.aikas.org
   traffic:
-  - configuration: configuration-example
+  - configurationName: configuration-example
     percent: 100
 ```
 
