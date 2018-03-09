@@ -19,7 +19,7 @@ kubectl proxy
 ```
 Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana) 
 (*it might take a couple of minutes for the proxy to work*). 
-When Kibana is opened the first time, it will ask you to crete an index. Accept the default options as is. As logs get ingested,
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
 
 ### Accessing metrics
@@ -47,10 +47,8 @@ Deployment above enables collection of the following logs:
 
 To enable log collection from other containers and destinations, edit fluentd-es-configmap.yaml (search for "fluentd-containers.log" for the starting point). Then run the following:
 ```shell
-kubectl delete -f config/monitoring/fluentd/fluentd-es-ds.yaml
-kubectl delete -f config/monitoring/fluentd/fluentd-es-configmap.yaml
-kubectl apply -f config/monitoring/fluentd/fluentd-es-configmap.yaml
-kubectl apply -f config/monitoring/fluentd/fluentd-es-ds.yaml
+kubectl replace -f config/monitoring/fluentd/fluentd-es-configmap.yaml
+kubectl replace -f config/monitoring/fluentd/fluentd-es-ds.yaml
 ```
 
 Note: We will enable a plugin mechanism to define other logs to collect and this step is a workaround until then.
@@ -188,7 +186,7 @@ definitions is to use Grafana UI (make sure to login with as admin user) and exp
 above to enable Prometheus UI)
 
 ## Generating logs
-Use glog to write logs in your code. In your container spec, add the following args to redirect the logs to stderr:
+Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec, add the following args to redirect the logs to stderr:
 ```yaml
 args:
 - "-logtostderr=true"
