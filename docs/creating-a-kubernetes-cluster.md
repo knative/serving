@@ -29,7 +29,7 @@ To use a k8s cluster running in GKE:
       --cluster-version=1.9.2-gke.1 \
       --zone=us-east1-d \
       --scopes=cloud-platform \
-      --machine-type=n1-standard-2 \
+      --machine-type=n1-standard-4 \
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
       elafros-demo
     ```
