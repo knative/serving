@@ -23,8 +23,8 @@ go_register_toolchains()
 # Pull in rules_docker
 git_repository(
     name = "io_bazel_rules_docker",
-    # HEAD as of 2018-02-13
-    commit = "c7f9eaa63bc3a31acab5e399c72b4e5228ab5ad7",
+    # HEAD as of 2018-03-09
+    commit = "483759bba7be220a1014e7ba1cf989f052fefa2c",
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
@@ -46,8 +46,8 @@ _go_image_repos()
 # Pull in rules_k8s
 git_repository(
     name = "io_bazel_rules_k8s",
-    # HEAD as of 2018-02-09
-    commit = "761ba3bdf864f85cae7d3e65b045197ad208e1a0",
+    # HEAD as of 2018-03-09
+    commit = "4348f8e28b70cf3aff7ca8e008e8dc7ac49bad92",
     remote = "https://github.com/bazelbuild/rules_k8s",
 )
 
@@ -66,6 +66,7 @@ k8s_defaults(
     image_chroot = _REPOSITORY,
 )
 
+# We rewrite things in ./hack/update-deps.sh to use this version.
 go_repository(
     name = "io_k8s_code_generator",
     commit = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c",

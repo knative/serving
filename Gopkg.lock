@@ -697,7 +697,6 @@
   revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
 
 [[projects]]
-  branch = "master"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -720,7 +719,7 @@
     "cmd/lister-gen/generators",
     "pkg/util"
   ]
-  revision = "4a6852c872a81f55289ed21c5aed7995e56b4956"
+  revision = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c"
 
 [[projects]]
   branch = "master"
@@ -749,6 +748,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "be80e965b154f159ff907a022c7620ebcec0e4f4ecf5a0a4fd5e223571d656e0"
+  inputs-digest = "64e820d31ac3e418c3ec6b62affafa09c6bf4f67626c642d8a0f4e2f9a7eb6c1"
   solver-name = "gps-cdcl"
   solver-version = 1
