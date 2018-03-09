@@ -297,8 +297,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
 		config := obj.(*v1alpha1.Configuration)
 		update = update + 1
-		switch update {
-		case 1:
+		if update == 1 {
 			// This update is triggered by the configuration creation.
 			controllerRef := metav1.NewControllerRef(config, controllerKind)
 			revision := getTestRevision()
@@ -307,15 +306,14 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 			go controller.addRevisionEvent(revision)
 			return hooks.HookIncomplete
 		}
-		// This should never happen.
-		return hooks.HookComplete
+		// No more update events.
+		t.Error("Got unexpected configuration update")
+		return hooks.HookIncomplete
 	})
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
-	if err := h.WaitForHooks(time.Second * 3); err == nil {
-		t.Error("Got unexpected configuration update")
-	}
+	time.Sleep(time.Second * 3)
 }
 
 func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
@@ -329,8 +327,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLastestCreated(t *testing
 	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
 		config := obj.(*v1alpha1.Configuration)
 		update = update + 1
-		switch update {
-		case 1:
+		if update == 1 {
 			// This update is triggered by the configuration creation.
 			controllerRef := metav1.NewControllerRef(config, controllerKind)
 			revision := getTestRevision()
@@ -345,15 +342,14 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLastestCreated(t *testing
 			go controller.addRevisionEvent(revision)
 			return hooks.HookIncomplete
 		}
-		// This should never happen.
-		return hooks.HookComplete
+		// No more update events.
+		t.Error("Got unexpected configuration update")
+		return hooks.HookIncomplete
 	})
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
-	if err := h.WaitForHooks(time.Second * 3); err == nil {
-		t.Error("Got unexpected configuration update")
-	}
+	time.Sleep(time.Second * 3)
 }
 
 func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
@@ -377,8 +373,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
 		config := obj.(*v1alpha1.Configuration)
 		update = update + 1
-		switch update {
-		case 1:
+		if update == 1 {
 			// This update is triggered by the configuration creation.
 			controllerRef := metav1.NewControllerRef(config, controllerKind)
 			revision := getTestRevision()
@@ -393,13 +388,12 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 			go controller.addRevisionEvent(revision)
 			return hooks.HookIncomplete
 		}
-		// This should never happen.
-		return hooks.HookComplete
+		// No more update events.
+		t.Error("Got unexpected configuration update")
+		return hooks.HookIncomplete
 	})
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 
-	if err := h.WaitForHooks(time.Second * 3); err == nil {
-		t.Error("Got unexpected configuration update")
-	}
+	time.Sleep(time.Second * 3)
 }
