@@ -54,14 +54,23 @@ run_test() {
       test_command "$test_cmd" "$expected_result"
       ;;
     webhook_configuration)
-      printf "Webhook is configured with correct resources"
-      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].rules[].resources}"
-      expected_result="[configurations routes revisions]"
-      test_command "$test_cmd" "$expected_result"
+      printf "Checking webhook configuration...\n"
+      object=(configuration routes revisions)
+      for obj in ${object[*]}; do
+        printf "* configured with $obj resource"
+        test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].rules[].resources} | grep $obj >/dev/null && echo $?"
+        expected_result=0
+        test_command "$test_cmd" "$expected_result"
+      done
 
-      printf "Webhook is configured with correct service"
+      printf "* configured with correct service"
       test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
       expected_result="ela-webhook"
+      test_command "$test_cmd" "$expected_result"
+
+      printf "* configured with correct namespace"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.namespace}"
+      expected_result="ela-system"
       test_command "$test_cmd" "$expected_result"
       ;;
     controllers_running)
