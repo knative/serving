@@ -5,6 +5,7 @@ go_library(
     srcs = ["helloworld.go"],
     importpath = "github.com/elafros/elafros/sample/helloworld",
     visibility = ["//visibility:private"],
+    deps = ["//vendor/github.com/golang/glog:go_default_library"],
 )
 
 go_binary(

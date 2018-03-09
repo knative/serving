@@ -62,6 +62,11 @@ k8s_object(
     template = "revision.yaml",
 )
 
+k8s_object(
+    name = "controller-service",
+    template = "controller-service.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -89,6 +94,7 @@ k8s_objects(
         ":authz",
         ":crds",
         ":controller",
+        ":controller-service",
         ":webhook",
         ":elawebhookservice",
     ],

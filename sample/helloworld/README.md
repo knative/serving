@@ -91,9 +91,9 @@ p-30e6a938-b28b-4d5e-a791-2cb5fe016d74   10m
 Update `traffic` part in sample/helloworld/route.yaml as:
 ```yaml
 traffic:
-  - revision: <YOUR_FIRST_REVISION_NAME>
+  - revisionName: <YOUR_FIRST_REVISION_NAME>
     percent: 50
-  - revision: <YOUR_SECOND_REVISION_NAME>
+  - revisionName: <YOUR_SECOND_REVISION_NAME>
     percent: 50
 ```
 
