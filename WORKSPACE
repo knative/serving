@@ -96,6 +96,19 @@ new_http_archive(
     url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
 )
 
+# TODO(mattmoor): Create elafros/warm-image to replace this.
+git_repository(
+    name = "io_mattmoor_warmimage",
+    # HEAD as of 2018-03-04
+    commit = "5b5fc20a1c9c47a67f8bbb0d27ad1f73c1f54b58",
+    remote = "https://github.com/mattmoor/warm-image",
+)
+
+# local_repository(
+#     name = "io_mattmoor_warmimage",
+#     path = "../../mattmoor/warm-image",
+# )
+
 # Until the Build repo is public, we must use the Skylark-based git_repository rules
 # per the documentation: https://docs.bazel.build/versions/master/be/workspace.html#git_repository
 load(

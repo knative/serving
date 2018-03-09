@@ -97,8 +97,9 @@ k8s_objects(
 k8s_objects(
     name = "everything",
     objects = [
-        "@istio_release//:istio",  # We depend on Istio.
+        "@istio_release//:istio",
         "@buildcrd//:everything",
+        "@io_mattmoor_warmimage//:release",
         ":elafros",
     ],
 )
