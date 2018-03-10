@@ -29,6 +29,7 @@ To use a k8s cluster running in GKE:
       --cluster-version=1.9.2-gke.1 \
       --zone=us-east1-d \
       --scopes=cloud-platform \
+      --machine-type=n1-standard-4 \
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
       elafros-demo
     ```
@@ -36,6 +37,8 @@ To use a k8s cluster running in GKE:
     *   Version 1.9+ is required
     *   Change this to whichever zone you choose
     *   cloud-platform scope is required to access GCB
+    *   Elafros currently requires 4-cpu nodes to run conformance tests.
+        Changing the machine type from the default may cause failures.
     *   Autoscale from 1 to 3 nodes. Adjust this for your use case
     *   Change this to your preferred cluster name
 
