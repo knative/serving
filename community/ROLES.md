@@ -1,6 +1,8 @@
-# Istio Community Roles
+# Elafros Community Roles
 
-This document describes the set of roles individuals may have within the Istio community, the requirements of each role, and the privileges that each role grants.
+This document describes the set of roles individuals may have within the Elafros
+community, the requirements of each role, and the privileges that each role
+grants.
 
 * [Role Summary](#role-summary)
 * [Collaborator](#collaborator)
@@ -13,7 +15,7 @@ This document describes the set of roles individuals may have within the Istio c
 
 ## Role Summary
 
-Here is the set of roles we use within the Istio community, the general responsibilities expected by individuals in each role, the requirements necessary to join or stay in a given role, and the concrete manifestation of the role in terms of permissions and privileges.
+Here is the set of roles we use within the Elafros community, the general responsibilities expected by individuals in each role, the requirements necessary to join or stay in a given role, and the concrete manifestation of the role in terms of permissions and privileges.
 
 <table>
   <tr>
@@ -23,18 +25,18 @@ Here is the set of roles we use within the Istio community, the general responsi
     <td>Privileges</td>
     <td>Scope</td>
   </tr>
-  
+
   <tr>
     <td>Collaborator</td>
     <td>Casual contributor to the project</td>
     <td>n/a</td>
     <td>
         <p>Can submit PRs</p>
-        <p>Commenting permission on the Istio Team drive</p>
+        <p>Commenting permission on the Elafros Team drive</p>
     </td>
     <td>GitHub Organization</td>
   </tr>
-  
+
   <tr>
     <td>Member</td>
     <td>Regular active contributor in the community</td>
@@ -43,29 +45,23 @@ Here is the set of roles we use within the Istio community, the general responsi
         <p>Has made multiple contributions to the project</p>
     </td>
     <td>
-        <p>Member of the GitHub Istio org</p>
-        <p>Member of the Istio Slack workspace</p>
-        <p>Edit permission on the Istio Team drive</p>
+        <p>Member of the GitHub Elafros org</p>
+        <p>Member of the Elafros Slack workspace</p>
+        <p>Edit permission on the Elafros Team drive</p>
     </td>
     <td>GitHub Organization</td>
   </tr>
-  
-  <tr>
-    <td>Reviewer</td>
-    <td>Review contributions from other members</td>
-    <td>History of review and authorship in an area</td>
-    <td>‘reviewer’ entry in one or more OWNERS file(s) in GitHub</td>
-    <td>GitHub Directory</td>
-  </tr>
-  
+
   <tr>
     <td>Approver</td>
-    <td>Approve contributions from other members</td>
+    <td>
+        <p>Approve contributions from other members</p>
+    </td>
     <td>Highly experienced and active reviewer and contributor to an area</td>
-    <td>‘approver’ entry in one or more OWNERS file in GitHub</td>
+    <td>Entry in one or more CODEOWNERS files in GitHub, and write permissions on one or more repos allowing PRs to be merged.</td>
     <td>GitHub Directory</td>
   </tr>
-  
+
   <tr>
     <td>Lead</td>
     <td>
@@ -74,20 +70,20 @@ Here is the set of roles we use within the Istio community, the general responsi
         <p>Run their working group</p>
     </td>
     <td>Sponsored by the technical oversight committee as documented <a href="./WORKING-GROUP-PROCESSES.md">here</a></td>
-    <td>Write permissions on one or more repos, allowing issues to be manipulated.</td>
+    <td>Write permissions on one or more repos allowing issues to be manipulated.</td>
     <td>Working Group</td>
   </tr>
-  
+
   <tr>
     <td>Administrator</td>
     <td>Manage & control permissions</td>
     <td>Sponsored by the technical oversight committee</td>
     <td>
-        <p>Admin privileges on the GitHub Istio org and all its repos</p>
-        <p>Admin privileges on the Istio Slack workspace</p>
-        <p>Admin privileges on the Istio Team Drive</p>
-        <p>Admin privileges on the Google Search Console for istio.io</p>
-        <p>Admin privilege to the Istio email lists.</p>
+        <p>Admin privileges on the GitHub Elafros org and all its repos</p>
+        <p>Admin privileges on the Elafros Slack workspace</p>
+        <p>Admin privileges on the Elafros Team Drive</p>
+        <p>Admin privileges on the Google Search Console for elafros.dev</p>
+        <p>Admin privilege to the Elafros email lists.</p>
     </td>
     <td>
         <p>GitHub Organization</p>
@@ -95,19 +91,11 @@ Here is the set of roles we use within the Istio community, the general responsi
         <p>Slack</p>
     </td>
   </tr>
-  
-  <tr>
-    <td>Vendor</td>
-    <td>Contribute extensions to the Istio project</td>
-    <td>n/a</td>
-    <td>‘approver’ entry in one or more OWNERS files within the extensions repo</td>
-    <td>GitHub Directory</td>
-  </tr>
 </table>
 
 ## Collaborator
 
-Individuals may be added as an outside collaborator (with READ access) to a repo in the Istio GitHub organization without becoming a member. This allows them to be assigned issues and PRs until they become a member, but will not allow tests to be run against their PRs automatically nor allow them to interact with the PR bot.
+Individuals may be added as an outside collaborator (with READ access) to a repo in the Elafros GitHub organization without becoming a member. This allows them to be assigned issues and PRs until they become a member, but will not allow tests to be run against their PRs automatically nor allow them to interact with the PR bot.
 
 ### Requirements
 
@@ -121,7 +109,12 @@ Established community members are expected to demonstrate their adherence to the
 
 Members are continuously active contributors in the community. They can have issues and PRs assigned to them, participate in working group meetings, and pre-submit tests are automatically run for their PRs. Members are expected to remain active contributors to the community.
 
-All members are encouraged to help with the code review burden, although each PR must be reviewed by an official reviewer.
+All members are encouraged to help with the code review burden, although each PR must be reviewed by an official Approver.
+
+When reviewing, should focus on code quality and correctness, including testing
+and factoring.
+
+May also review for more holistic issues, but not a requirement.
 
 ### Requirements
 
@@ -133,11 +126,12 @@ All members are encouraged to help with the code review burden, although each PR
 
     * Contributing to working group or community discussions
 
-* Subscribed to [istio-dev@googlegroups.com](https://groups.google.com/forum/#!forum/istio-dev)
+* Subscribed to [elafros-dev@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-dev)
 
 * Actively contributing to 1 or more areas.
 
-* Sponsored by 2 reviewers.
+* Sponsored by 1 approver.
+    * Done by adding GitHub user to Elafros organization
 
 ### Responsibilities and privileges
 
@@ -151,51 +145,7 @@ All members are encouraged to help with the code review burden, although each PR
 
     * Addresses bugs or issues discovered after code is accepted
 
-Members who frequently contribute code are expected to proactively perform code reviews and work towards becoming a primary reviewer for the area that they are active in.
-
-## Reviewer
-
-Reviewers are able to review code for quality and correctness on some part of the project. They are knowledgeable about both the codebase and software engineering principles. Reviewer status is scoped to a part of the codebase.
-
-All members are encouraged to help with the code review burden, although each PR must be reviewed by an official reviewer.
-
-Note that acceptance of code contributions requires at least one approver in addition to the assigned reviewers.
-
-### Requirements
-
-The following apply to the part of the codebase for which one would be a reviewer in an OWNERS file:
-
-* Member for at least 3 months
-
-* Primary reviewer for at least 5 PRs to the codebase
-
-* Reviewed or merged at least 20 substantial PRs to the codebase
-
-* Knowledgeable about the codebase
-
-* Sponsored by an area approver
-
-    * With no objections from other approvers
-
-    * Done through PR to update the OWNERS file
-
-* May either self-nominate, be nominated by an approver in this area, or be nominated by a robot
-
-### Responsibilities and privileges
-
-The following apply to the part of the codebase for which one would be a reviewer in an OWNERS file:
-
-* Responsible for project quality control via [code reviews](https://github.com/istio/community/blob/master/REVIEWING.md)
-
-    * Focus on code quality and correctness, including testing and factoring
-
-    * May also review for more holistic issues, but not a requirement
-
-* Expected to be responsive to review requests
-
-* Assigned PRs to review related to area of expertise
-
-* Assigned test bugs related to area of expertise
+Members who frequently contribute code are expected to proactively perform code reviews and work towards becoming an approver for the area that they are active in.
 
 ## Approver
 
@@ -215,21 +165,21 @@ The following apply to the part of the codebase for which one would be an approv
 
     * With no objections from other leads
 
-    * Done through PR to update an OWNERS file
+    * Done through PR to update a CODEOWNERS file
 
 ### Responsibilities and privileges
 
-The following apply to the part of the codebase for which one would be an approver in an OWNERS file:
+The following apply to the part of the codebase for which one would be an approver in an CODEOWNERS file:
 
 * Approver status may be a precondition to accepting large code contributions
 
 * Demonstrate sound technical judgement
 
-* Responsible for project quality control via [code reviews](https://github.com/istio/community/blob/master/REVIEWING.md)
+* Responsible for project quality control via [code reviews](https://github.com/elafros/community/blob/master/REVIEWING.md)
 
     * Focus on holistic acceptance of contribution such as dependencies with other features, backwards / forwards compatibility, API and flag definitions, etc
 
-* Expected to be responsive to review requests as per [community expectations](https://github.com/istio/community/blob/master/REVIEWING.md);
+* Expected to be responsive to review requests as per [community expectations](https://github.com/elafros/community/blob/master/REVIEWING.md);
 
 * Mentor contributors and reviewers
 
@@ -247,7 +197,7 @@ Getting to be a lead of an existing working group:
 
 * Approver for some part of the codebase for at least 3 months
 
-* Member for at least 1 year (relevant as Istio ages a bit more)
+* Member for at least 1 year (relevant as Elafros ages a bit more)
 
 * Primary reviewer for 20 substantial PRs
 
@@ -275,7 +225,7 @@ Establishing the leads for a new working group:
 
 The following apply to the area / component for which one would be an owner.
 
-* Run their working group as outlined in the [Working Group Processes](https://github.com/istio/community/blob/master/WORKING-GROUP-PROCESSES.md) document.
+* Run their working group as outlined in the [Working Group Processes](WORKING-GROUP-PROCESSES.md) document.
 
 * Design/proposal approval authority over the area / component, though escalation to the technical oversight committee is possible.
 
@@ -307,17 +257,17 @@ Administrators are responsible for the bureaucratic aspects of the project.
 
 ### Responsibilities and privileges
 
-* Manage the Istio GitHub repo, including granting membership and controlling repo read/write permissions
+* Manage the Elafros GitHub repo, including granting membership and controlling repo read/write permissions
 
-* Manage the Istio Slack workspace
+* Manage the Elafros Slack workspace
 
-* Manage the Istio Google group forums
+* Manage the Elafros Google group forums
 
-* Manage the Google Search Console settings for istio.io
+* Manage the Google Search Console settings for elafros.dev
 
 ## Vendor
 
-Vendors contribute extensions to the Istio project in the form of new adapters, translated documentation, interesting examples, etc.
+Vendors contribute extensions to the Elafros project in the form of new adapters, translated documentation, interesting examples, etc.
 
 ### Requirements
 

@@ -15,11 +15,11 @@ requirements:
 
 * *Config*: Requires explicit user action to enable (e.g. a config field, config resource, or installation action).
 
-* *Docs*: Reference docs are published on istio.io.
+* *Docs*: Reference docs are published on elafros.dev.
 
-* *Docs*: Basic feature docs are published on istio.io describing what the feature does, how to use it, and any caveats.
+* *Docs*: Basic feature docs are published on elafros.dev describing what the feature does, how to use it, and any caveats.
 
-* *Docs*: A reference to the design doc / issue is published on istio.io.
+* *Docs*: A reference to the design doc / issue is published on elafros.dev.
 
 * *Tests*: Test coverage is 90%.
 
@@ -45,9 +45,9 @@ An Alpha feature can be officially labeled as Beta once it meets the following a
 
 * *Docs*: Performance expectations of the feature are documented, may have caveats.
 
-* *Docs*: Documentation on istio.io includes samples/tutorials
+* *Docs*: Documentation on elafros.dev includes samples/tutorials
 
-* *Docs*: Documentation on istio.io includes appropriate glossary entries
+* *Docs*: Documentation on elafros.dev includes appropriate glossary entries
 
 * *Tests*: Test coverage is 95%
 

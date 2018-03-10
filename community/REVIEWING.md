@@ -1,10 +1,10 @@
-# Reviewing and Merging Pull Requests for Istio
+# Reviewing and Merging Pull Requests for Elafros
 
 As a community we believe in the value of code reviews for all contributions.
 Code reviews increase both the quality and readability of our code base, which
 in turn produces high quality software.
 
-This document provides guidelines for how the project's maintainers review
+This document provides guidelines for how the project's [Members](ROLES.md#member) review
 issues and merge pull requests (PRs).
 
 - [Pull requests welcome](#pull-requests-welcome)
@@ -44,15 +44,15 @@ During a review, PR authors are expected to respond to comments and questions
 made within the PR - updating the proposed change as appropriate.
 
 After a review of the proposed changes, reviewers may either approve
-or reject the PR. To approve they should add a `LGTM` comment to the
-PR. To reject they should add a `NOT LGTM` comment along with a full
+or reject the PR. To approve they should add an "approved" review to the
+PR. To reject they should add a "request changes" review along with a full
 justification for why they are not in favor of the change. If a PR gets
-a `NOT LGTM` vote then this issue should be discussed among
+a "request changes" vote then this issue should be discussed among
 the group to try to resolve their differences.
 
 Because reviewers are often the first points of contact between new members of
 the community and can therefore significantly impact the first impression of the
-Istio community, reviewers are especially important in shaping the
+Elafros community, reviewers are especially important in shaping the
 community. Reviewers are highly encouraged to review the
 [code of conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md)
 and are strongly encouraged to go above and beyond the code of conduct to
@@ -67,24 +67,25 @@ require a rebase are not considered active PRs.
 
 ### Holds
 
-Any maintainer or core contributor who wants to review a PR but does not have
+Any [Approver](ROLES.md#approver) who wants to review a PR but does not have
 time immediately may put a hold on a PR simply by saying so on the PR discussion
 and offering an ETA measured in single-digit days at most. Any PR that has a
 hold shall not be merged until the person who requested the hold acks the
-review, withdraws their hold, or is overruled by a preponderance of maintainers.
+review, withdraws their hold, or is overruled by a preponderance of approvers.
 
-## Project maintainers
+## Approvers
 
-Merging of PRs is done by the project maintainers.
+Merging of PRs is done by [Approvers](ROLES.md#approver).
 
-Like many open source projects, becoming a maintainer is based on contributions
-to the project. Please see our [community roles](https://github.com/istio/community/blob/master/ROLES.md)
+Like many open source projects, becoming an Approver is based on contributions
+to the project. Please see our [community roles](https://github.com/elafros/community/blob/master/ROLES.md)
 document for information on how this is done.
 
 ## Merging PRs
 
 PRs may only be merged after the following criteria are met:
 
-1. It has no `NO LGTM` comment from a reviewer.
-1. It has been `LGTM`-ed by at least one of the maintainers of that repository.
+1. It has no "request changes" review from a reviewer.
+1. It has at least one "approved" review by at least one of the approvers of
+   that repository.
 1. It has all appropriate corresponding documentation and tests.

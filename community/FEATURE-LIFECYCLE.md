@@ -56,15 +56,15 @@ of this information at [Feature Lifecycle Checklist](FEATURE-LIFECYCLE-CHECKLIST
   </tr>
   <tr>
     <td>Availability</td>
-    <td>The feature may or may not be available in the main Istio repo.
-The feature may or may not appear in an Istio release. If it does appear in an Istio release it will be disabled by default.
+    <td>The feature may or may not be available in the main Elafros repo.
+The feature may or may not appear in an Elafros release. If it does appear in an Elafros release it will be disabled by default.
 The feature requires an explicit flag to enable in addition to any configuration required to use the feature, in order to turn on dev features.</td>
-    <td>The feature is committed to the Istio repo
-The feature appears in an official Istio release
+    <td>The feature is committed to the Elafros repo
+The feature appears in an official Elafros release
 The feature requires explicit user action to use, e.g. a flag flip, use of a config resource, an explicit installation action, or an API being called.
 When a feature is disabled it must not affect system stability.
-Note: While Istio is pre-1.0, some alpha features are enabled by default. Post 1.0 alpha features will require explicit action.</td>
-    <td>In official Istio releases
+Note: While Elafros is pre-1.0, some alpha features are enabled by default. Post 1.0 alpha features will require explicit action.</td>
+    <td>In official Elafros releases
 Enabled by default</td>
     <td>Same as Beta</td>
   </tr>
@@ -90,14 +90,14 @@ The API has had a thorough API review and is thought to be complete, though use 
     <td>Dev features are hidden in auto-generated reference docs.</td>
     <td>Alpha features are marked alpha in auto-generated reference docs.
 Basic documentation describing what the feature does, how to enable it, the restrictions and caveats, and a pointer to the issue or design doc the feature is based on.</td>
-    <td>Complete feature documentation published to istio.io
+    <td>Complete feature documentation published to elafros.dev
 In addition to the basic alpha-level documentation, beta documentation includes samples, tutorials, glossary entries, etc.</td>
     <td>Same as Beta</td>
   </tr>
   <tr>
     <td>Upgradeability</td>
     <td>None</td>
-    <td>The schema and semantics of a feature may change in a later software release, without any provision for preserving configuration objects in an existing istio installation
+    <td>The schema and semantics of a feature may change in a later software release, without any provision for preserving configuration objects in an existing elafros installation
 API versions can increment faster than the monthly release cadence and the developer need not maintain multiple versions
 Developers should still increment the API version when schema or semantics change in an incompatible way</td>
     <td>The schema and semantics may change in a later software release
@@ -124,7 +124,7 @@ Test code coverage is at least 95%.</td>
   <tr>
     <td>Reliability</td>
     <td>None</td>
-    <td>Because the feature is relatively new, and may lack complete end-to-end tests, enabling the feature via a flag might expose bugs which destabilize Istio (e.g. a bug in a control loop might rapidly create excessive numbers of objects, exhausting API storage).</td>
+    <td>Because the feature is relatively new, and may lack complete end-to-end tests, enabling the feature via a flag might expose bugs which destabilize Elafros (e.g. a bug in a control loop might rapidly create excessive numbers of objects, exhausting API storage).</td>
     <td>Because the feature has e2e tests, enabling the feature should not create new bugs in unrelated features.
 Because the feature is relatively new, it may have minor bugs.</td>
     <td>High. The feature is well tested and stable and reliable for all uses.</td>
@@ -132,9 +132,9 @@ Because the feature is relatively new, it may have minor bugs.</td>
   <tr>
     <td>Support</td>
     <td>None</td>
-    <td>There is no commitment from Istio to complete the feature
+    <td>There is no commitment from Elafros to complete the feature
 The feature may be dropped entirely in a later software release</td>
-    <td>Istio commits to complete the feature, in some form, in a subsequent Stable version
+    <td>Elafros commits to complete the feature, in some form, in a subsequent Stable version
 Typically this will happen within 3 months, but sometimes longer
 Releases should simultaneously support two consecutive versions (e.g. v1beta1 and v1beta2; or v1beta2 and v1) for at least one supported release cycle (typically 3 months) so that users have enough time to upgrade and migrate resources.</td>
     <td>The feature will continue to be present for many subsequent releases.</td>

@@ -1,6 +1,6 @@
-# Istio Working Group Processes
+# Elafros Working Group Processes
 
-This document describes the processes we use to manage the Istio working groups. This includes how they are formed, how leads
+This document describes the processes we use to manage the Elafros working groups. This includes how they are formed, how leads
 are established, how they are run, etc.
 
 * [Why working groups?](#why-working-groups)
@@ -15,14 +15,14 @@ are established, how they are run, etc.
 
 ## Why working groups?
 
-Istio working groups are organizations responsible for the design and implementation of large architectural aspects of the overall Istio project.
+Elafros working groups are organizations responsible for the design and implementation of large architectural aspects of the overall Elafros project.
 Working groups operate with a fair amount of autonomy within the broader scope of the project. They tend to be long-lived, representing major
-initiatives over Istio’s lifetime.
+initiatives over Elafros’s lifetime.
 
-Some working groups focus on specific technologies. For example, the Integrations working group primarily focuses on Mixer. Other working
-groups are cross-cutting in nature such as the Performance and Scalability working group.
+Some working groups focus on specific technologies. Other working groups are
+cross-cutting in nature.
 
-The technical oversight committee is responsible for the Istio project as a whole. It sets the overall direction of the project,
+The technical oversight committee is responsible for the Elafros project as a whole. It sets the overall direction of the project,
 helps make crosscutting architectural decisions, helps establish and dissolve working groups, and helps ensure all working
 groups are generally rowing in the same direction
 
@@ -42,12 +42,12 @@ consider creating a new working group. To do so, you need to:
 
     * The scope of the working group (topics, subsystems, code repos, areas of responsibility)
 
-* **Nominate an initial set of leads**. The leads set the agenda for the working group and serve as final arbiters on any technical decision. See [below](#heading=h.xodnjuc790rs)
+* **Nominate an initial set of leads**. The leads set the agenda for the working group and serve as final arbiters on any technical decision. See [below](#leads)
 for information on the responsibilities of leads and requirements for nominating them.
 
 * **Prepare a Roadmap**. Create a preliminary 3 month roadmap for what the working group would focus on.
 
-* **Send an Email**. Write up an email with your charter, nominated leads, and roadmap, and send it to [istio-tech-oversight@](mailto:istio-tech-oversight@googlegroups.com).
+* **Send an Email**. Write up an email with your charter, nominated leads, and roadmap, and send it to [elafros-tech-oversight@](mailto:elafros-tech-oversight@googlegroups.com).
 The technical oversight committee will evaluate the request and decide whether the working group should be
 formed, whether it should be merely a subgroup of an existing working group, or whether it should be subsumed by an existing working group.
 
@@ -57,28 +57,28 @@ Once approval has been granted by the technical oversight committee to form a wo
 steps to establish the working group:
 
 * **Create a Google Drive Folder**. Create a folder to hold your working group documents within this parent
-[folder](https://drive.google.com/corp/drive/u/0/folders/0B7huSKYaiUN5LVdBeElXUGt3UGs). Call your folder "GROUP_NAME". 
+[folder](TODO). Call your folder "GROUP_NAME".
 
 * **Create a Meeting Notes Document**. Create a blank document in the above folder and call it "GROUP_NAME Group Meeting Notes".
 
 * **Create a Roadmap Document**. Create a document in the above folder and call it "GROUP_NAME Group Roadmap". Put your initial
 roadmap in the document.
 
-* **Create a Wiki**. Create a wiki page on [GitHub](https://github.com/istio/istio) titled "GROUP_NAME Design Decisions". This page
+* **Create a Wiki**. Create a wiki page on [GitHub](https://github.com/elafros/elafros) titled "GROUP_NAME Design Decisions". This page
 will be used to track important design decisions made by the working group.
 
-* **Create a Public Google Group**. Call the group "istio-*group_name*" (all in lowercase, dashes for spaces). This mailing list
+* **Create a Public Google Group**. Call the group "elafros-*group_name*" (all in lowercase, dashes for spaces). This mailing list
 must be open to all.
 
 * **Schedule a Recurring Meeting**. Create a recurring meeting (weekly or bi-weekly, 30 or 60 minutes) and call the meeting
 GROUP_NAME Group Sync-Up". Attach the meeting notes document to the calendar event. Generally schedule these meetings between
 9:00AM to 2:59PM Pacific Time. Invite the public Google group to the meeting.
 
-* **Register the Working Group**. Go to [WORKING-GROUPS.md](https://github.com/istio/community/blob/master/WORKING-GROUPS.md) and
+* **Register the Working Group**. Go to [WORKING-GROUPS.md](https://github.com/elafros/community/blob/master/WORKING-GROUPS.md) and
 add your working group name, the names of the leads, the working group charter, and a link to the meeting you created.
 
-* **Announce your Working Group**. Send a note to [istio-dev@](mailto:istio-dev@googlegroups.com)
-and [istio-tech-oversight@](mailto:istio-tech-oversight@googlegroups.com) to announce your new
+* **Announce your Working Group**. Send a note to [elafros-dev@](mailto:elafros-dev@googlegroups.com)
+and [elafros-tech-oversight@](mailto:elafros-tech-oversight@googlegroups.com) to announce your new
 working group. Include your charter in the email and provide links to the meeting invitation.
 
 Congratulations, you now have a fully formed working group!
@@ -86,15 +86,15 @@ Congratulations, you now have a fully formed working group!
 ### Dissolving a working group
 
 Some working groups are ephemeral or naturally reach the end of their useful life. Working group leads can petition to dissolve their working
-groups by emailing [istio-tech-oversight@googlegroups.com](mailto:istio-tech-oversight@googlegroups.com). The 
+groups by emailing [elafros-tech-oversight@googlegroups.com](mailto:elafros-tech-oversight@googlegroups.com). The
 technical oversight committee also reserves the right to dissolve or recharter working groups over time as necessary.
 
 ## Leads
 
 Each working group must have 2 or 3 leads, with at least two different organizations represented. Working group leads must be Members of the
-Istio project (that is, have made multiple contributions to the project in the form of code, design, or documentation).
+Elafros project (that is, have made multiple contributions to the project in the form of code, design, or documentation).
 
-Please see the [Community Roles](https://github.com/istio/community/blob/master/ROLES.md) document for a
+Please see the [Community Roles](https://github.com/elafros/community/blob/master/ROLES.md) document for a
 description of a lead’s role and requirements.
 
 ## Running a working group
@@ -141,5 +141,5 @@ Sometimes, different working groups can have conflicting goals or requirements. 
 together and come to an agreeable conclusion.
 
 In all cases, remaining blocking issues can be raised to the [technical oversight committee](TECH-OVERSIGHT-COMMITTEE.md) to help
-resolve the situation. To trigger an escalation, create an issue in the `istio/istio` repo and assign it to the
-istio/tech-oversight-committee team.
+resolve the situation. To trigger an escalation, create an issue in the `elafros/elafros` repo and assign it to the
+**@elafros/tech-oversight-committee** team.

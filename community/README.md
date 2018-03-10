@@ -1,60 +1,59 @@
-# Istio Community
+# Elafros Community
 
-Welcome to the Istio community!
+Welcome to the Elafros community!
 
-This is the starting point for becoming a contributor - improving  code, improving docs, giving talks, etc.
+This is the starting point for becoming a contributor - improving code,
+improving docs, giving talks, etc.
 
 - [Introduction](#introduction)
-- [Istio authors](#istio-authors)
+- [Elafros authors](#elafros-authors)
 - [Community meeting](#community-meeting)
 - [How can I help?](#how-can-i-help-)
 - [Questions and issues](#questions-and-issues)
 
 Other Documents
 
-- [Contributing to Istio](CONTRIBUTING.md) - guidelines and advice on becoming a contributor
+- [Contributing to Elafros](CONTRIBUTING.md) - guidelines and advice on becoming a contributor
 - [Working Groups](WORKING-GROUPS.md) - describes our various working groups
 - [Working Group Processes](WORKING-GROUP-PROCESSES.md) - describes how working groups operate
-- [Technical Oversight Committee](TECH-OVERSIGHT-COMMITTEE.md) - describes our technical oversight steering committee
-- [Commutity Roles](ROLES.md) - describes the roles individuals can assume within the Istio community
-- [Reviewing and Merging Pull Requests for Istio](REVIEWING.md) - how we manage pull requests
+- [Technical Oversight Committee](TECH-OVERSIGHT-COMMITTEE.md) - describes our technical oversight committee
+- [Steering Committee](STEERING-COMMITTEE.md) - describes our steering committee
+- [Community Roles](ROLES.md) - describes the roles individuals can assume within the Elafros community
+- [Reviewing and Merging Pull Requests](REVIEWING.md) - how we manage pull requests
 - [Feature Lifecycle](FEATURE-LIFECYCLE.md) - requirements for features to be labeled Alpha, Beta or Stable
 - [Feature Lifecycle Checklist](FEATURE-LIFECYCLE-CHECKLIST.md) - checklist-form of requirements for features to be labeled Alpha, Beta or Stable
 
 ## Introduction
 
-Istio is an open platform for providing a uniform way to integrate
-microservices, manage traffic flow across microservices, enforce policies
-and aggregate telemetry data. Istio's control plane provides an abstraction
-layer over the underlying cluster management platform, such as Kubernetes,
-Mesos, etc.
+Elafros is an open source specification and implementation of a Kubernetes- and
+Istio-based container platform.
 
-Visit [istio.io](https://istio.io) for in-depth information about using Istio.     
+Visit [elafros.dev](https://elafros.dev) for in-depth information about using Elafros.
 
-## Istio authors
+## Elafros authors
 
-Istio is an open source project with an active development community. The project was started
-by teams from Google and IBM, in partnership with the Envoy team at Lyft.
+Elafros is an open source project with an active development community. The
+project was started by Google.
 
 ## Community meeting
 
-We have [PUBLIC](https://zoom.us/j/986657835) and [RECORDED](https://www.youtube.com/channel/UC-zVlo1F3mUbExQ96fABWcQ) bi-weekly community meetings every other Thursday at 11am US Pacific Time. Meeting agendas and notes can be accessed in the [working doc](http://bit.ly/istiocommunitymeet). 
+We have [PUBLIC](TODO) and [RECORDED](TODO) bi-weekly community meetings every other TODO. Meeting agendas and notes can be accessed in the [working doc](TODO).
 
-Map that to your local time with this [timezone table](https://www.google.com/search?q=1100+am+in+pst).
+Map that to your local time with this [timezone table](https://www.google.com/search?q=TODO).
 
 ## How can I help ?
 
-See our [community page](https://istio.io/community) for ways to get involved
+See our [community page](https://elafros.dev/community) for ways to get involved
 in our community.
 
-To dig deeper, check the [architecture](https://istio.io/docs/concepts/what-is-istio/overview.html#architecture)
+To dig deeper, check the [architecture](https://elafros.dev/docs/concepts/what-is-elafros/overview.html#architecture)
 and read some [design docs](./CONTRIBUTING.md#design-documents).
 
-If you're looking for something to do to get your feet wet working on Istio, look for GitHub issues
+If you're looking for something to do to get your feet wet working on Elafros, look for GitHub issues
 marked with the Help Wanted label:
 
-- [Primary Istio repo](https://github.com/istio/istio/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
-- [Documentation repo](https://github.com/istio/istio.github.io/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
+- [Primary Elafros repo](https://github.com/elafros/elafros/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
+- [Documentation repo](https://github.com/elafros/elafros.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
 
 Of course, even if there's not an issue opened for it, we can always use more
 testing throughout the platform. Similarly, we can always use more docs, richer docs,
@@ -63,7 +62,7 @@ And if you're a web developer, we could use your help in spiffing up our public-
 
 ## Questions and issues
 
-If you've got questions or issues with using Istio, checkout our [help page](https://istio.io/help).
+If you've got questions or issues with using Elafros, checkout our [help page](https://elafros.dev/help).
 
-If you're a developer trying to hack on or use the Istio code, head to
-[istio-dev@](https://groups.google.com/forum/#!forum/istio-dev) for help.
+If you're a developer trying to hack on or use the Elafros code, head to
+[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) for help.

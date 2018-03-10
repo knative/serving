@@ -1,4 +1,4 @@
-# Istio Team Values
+# Elafros Team Values
 
 We want to make sure every member has a shared understanding of the goals and
 values we hold as a team:
@@ -18,7 +18,7 @@ values we hold as a team:
   - Disagreements are welcome and encouraged, but don't use broad
     generalizations, exaggerations, or judgement words that can be taken
     personally. Consider other people’s perspective (including the wide range of
-    applicability of Istio). Empathize with our users. Focus on the specific
+    applicability of Elafros). Empathize with our users. Focus on the specific
     issue at hand, and remember that we all care about the project, first and
     foremost.
   - Emails to the [mailing lists](CONTRIBUTING.md#contributing-a-feature),
@@ -29,7 +29,7 @@ values we hold as a team:
     someone else and cause misunderstanding. To promote clear and precise
     communication, please define the terms you are using in context.
   - See also the
-    [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md)
+    [Code of Conduct](CODE-OF-CONDUCT.md)
     which everyone must abide by.
 
 - Raising issues is great, suggesting solutions is even better
