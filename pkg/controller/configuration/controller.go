@@ -407,11 +407,24 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
 
-	if err := c.markConfigurationReady(config, revision); err != nil {
-		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
+	alreadyReady := config.Status.IsReady()
+	if !alreadyReady {
+		c.markConfigurationReady(config, revision)
+	}
+
+	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q", config.Name, revision.Name)
+	config.Status.LatestReadyRevisionName = revision.Name
+
+	if _, err := c.updateStatus(config); err != nil {
+		glog.Errorf("Error updating configuration '%s/%s': %v",
 			namespace, configName, err)
 	}
+
+	if !alreadyReady {
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready upon Revision '%s' becoming ready", revision.Name)
+	}
 	c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready upon Revision '%s' becoming ready", revision.Name)
+
 	return
 }
 
@@ -431,9 +444,9 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 }
 
 // Mark ConfigurationConditionReady of Configuration ready as the given latest
-// created revision is ready. Also set latest field to the given revision.
+// created revision is ready.
 func (c *Controller) markConfigurationReady(
-	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
+	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
 	glog.Infof("Marking Configuration %q ready", config.Name)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
@@ -441,10 +454,4 @@ func (c *Controller) markConfigurationReady(
 			Status: corev1.ConditionTrue,
 			Reason: "LatestRevisionReady",
 		})
-
-	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q", config.Name, revision.Name)
-	config.Status.LatestReadyRevisionName = revision.Name
-
-	_, err := c.updateStatus(config)
-	return err
 }
