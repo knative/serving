@@ -38,9 +38,9 @@ k8s_objects(
 k8s_objects(
     name = "everything",
     objects = [
+        ":istio-rules",
         ":service",
         ":configmap",
-        ":istio-rules",
         ":ds",
     ],
     visibility = ["//visibility:public"],
@@ -49,9 +49,9 @@ k8s_objects(
 k8s_objects(
     name = "everything-dev",
     objects = [
+        ":istio-rules",
         ":service",
         ":configmap-dev",
-        ":istio",
         ":ds",
     ],
     visibility = ["//visibility:public"],
