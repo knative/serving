@@ -23,6 +23,9 @@ spec:
       serviceType: container
       containerSpec:
         image: sample:latest
+        args:
+        - "-logtostderr=true"
+        - "-stderrthreshold=INFO"
         env:
           - name: TARGET
             value: shiniestnewestversion

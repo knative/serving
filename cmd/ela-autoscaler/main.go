@@ -18,6 +18,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"flag"
 	"net/http"
 	"os"
 	"time"
@@ -170,6 +171,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
 	glog.Info("Autoscaler up")
 	config, err := rest.InClusterConfig()
 	if err != nil {

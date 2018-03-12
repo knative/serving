@@ -18,6 +18,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -122,7 +123,6 @@ func connectStatSink() {
 func statReporter() {
 	for {
 		s := <-statChan
-		glog.Infof("Sending stat: %+v", s)
 		if statSink == nil {
 			glog.Error("Stat sink not connected.")
 			continue
@@ -171,7 +171,6 @@ func concurrencyReporter() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	glog.Info("Request received.")
 	var in struct{}
 	reqInChan <- in
 	defer func() {
@@ -183,6 +182,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
 	if err != nil {

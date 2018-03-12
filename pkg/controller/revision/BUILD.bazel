@@ -6,8 +6,6 @@ go_library(
         "buildtracker.go",
         "controller.go",
         "ela_autoscaler.go",
-        "ela_nginx.go",
-        "ela_nginx_constants.go",
         "ela_pod.go",
         "ela_resource.go",
         "ela_service.go",
