@@ -308,7 +308,6 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
-	config.Status.LatestReadyRevisionName = "another-rev"
 
 	configClient.Create(config)
 	controller.syncHandler(keyOrDie(config))
@@ -319,7 +318,8 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 		t.Fatalf("Couldn't get config: %v", err)
 	}
 
-	// Create a revision
+	// Create a revision owned by this Configuration. Calling IsReady() on this
+	// revision will return false.
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
@@ -327,7 +327,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.addRevisionEvent(revision)
 
-	// Configuration should not have changed
+	// Configuration should not have changed.
 	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config: %v", err)
