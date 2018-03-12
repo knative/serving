@@ -11,6 +11,11 @@ genrule(
     outs = ["istioclusterrolebinding.yaml"],
     cmd = """
 K8S_USER_OVERRIDE=$$(grep STABLE_K8S_USER bazel-out/stable-status.txt | cut -d' ' -f 2)
+if [ -z "$${K8S_USER_OVERRIDE}" ]; then
+  echo "K8S_USER_OVERRIDE is empty or unset.  Please fix and run 'bazel clean' (see README.md)." >&2
+  exit -1
+fi
+
 cat > $(location istioclusterrolebinding.yaml) <<EOF
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
