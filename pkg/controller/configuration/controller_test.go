@@ -338,40 +338,47 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	}
 }
 
-func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLastestCreated(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	// Don't set LatestCreatedRevisionName.
+func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+
 	config := getTestConfiguration()
-	h := hooks.NewHooks()
+	// Don't set LatestCreatedRevisionName.
 
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
-		config := obj.(*v1alpha1.Configuration)
-		update = update + 1
-		if update == 1 {
-			// This update is triggered by the configuration creation.
-			controllerRef := metav1.NewControllerRef(config, controllerKind)
-			revision := getTestRevision()
-			revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-			revision.Status = v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
-					Type:   v1alpha1.RevisionConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-			}
-			// This call should not update configration.
-			go controller.addRevisionEvent(revision)
-			return hooks.HookIncomplete
-		}
-		// No more update events.
-		t.Error("Got unexpected configuration update")
-		return hooks.HookIncomplete
-	})
+	configClient.Create(config)
+	controller.syncHandler(keyOrDie(config))
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Get the configuration after reconciling
+	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config: %v", err)
+	}
 
-	time.Sleep(time.Second * 3)
+	// Create a revision owned by this Configuration. This revision is Ready, but
+	// doesn't match the LatestCreatedRevisionName.
+	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	revision := getTestRevision()
+	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
+	revision.Status = v1alpha1.RevisionStatus{
+		Conditions: []v1alpha1.RevisionCondition{{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+
+	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	controller.addRevisionEvent(revision)
+
+	// Configuration should not have changed
+	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config: %v", err)
+	}
+
+	if diff := cmp.Diff(reconciledConfig, actualConfig); diff != "" {
+		t.Errorf("Unexpected configuration diff (-want +got): %v", diff)
+	}
 }
 
 func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
