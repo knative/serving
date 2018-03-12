@@ -371,7 +371,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 	log.Printf("Namespace %q validated to exist, moving on", ns)
 
-	return printErr(c.reconcileWithImage(rev, namespace))
+	return c.reconcileWithImage(rev, namespace)
 }
 
 // reconcileWithImage handles enqueued messages that have an image.
@@ -396,7 +396,7 @@ func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 	return false, false
 }
 
-func (c *Controller) markServiceReady(rev *v1alpha1.Revision) error {
+func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q ready", rev.Name)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
@@ -417,6 +417,7 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Type:   v1alpha1.RevisionConditionBuildComplete,
 				Status: corev1.ConditionTrue,
 			})
+		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
 		rev.Status.SetCondition(
@@ -426,6 +427,7 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Reason:  bc.Reason,
 				Message: bc.Message,
 			})
+		c.recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
 	}
 	// This will trigger a reconciliation that will cause us to stop tracking the build.
 	_, err := c.updateStatus(rev)
@@ -516,8 +518,10 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
-	if err := c.markServiceReady(rev); err != nil {
-		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revName, err)
+	if err := c.markRevisionReady(rev); err != nil {
+		glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
+	} else {
+		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint '%s' becoming ready", endpoint.Name)
 	}
 	return
 }
@@ -527,8 +531,8 @@ func (c *Controller) updateEndpointsEvent(old, new interface{}) {
 }
 
 // reconcileOnceBuilt handles enqueued messages that have an image.
-func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
-	accessor, err := meta.Accessor(u)
+func (c *Controller) reconcileOnceBuilt(rev *v1alpha1.Revision, ns string) error {
+	accessor, err := meta.Accessor(rev)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err)
 		panic("Failed to get metadata")
@@ -537,13 +541,13 @@ func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	deletionTimestamp := accessor.GetDeletionTimestamp()
 	log.Printf("Check the deletionTimestamp: %s\n", deletionTimestamp)
 
-	elaNS := controller.GetElaNamespaceName(u.Namespace)
+	elaNS := controller.GetElaNamespaceName(rev.Namespace)
 
 	if deletionTimestamp == nil {
-		log.Printf("Creating or reconciling resources for %s\n", u.Name)
-		return c.createK8SResources(u, elaNS)
+		log.Printf("Creating or reconciling resources for %s\n", rev.Name)
+		return c.createK8SResources(rev, elaNS)
 	}
-	return c.deleteK8SResources(u, elaNS)
+	return c.deleteK8SResources(rev, elaNS)
 }
 
 func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error {

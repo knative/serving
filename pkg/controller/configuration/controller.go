@@ -52,19 +52,6 @@ const controllerAgentName = "configuration-controller"
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
-	SuccessSynced = "Synced"
-
-	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceSynced is the message used for an Event fired when a Foo
-	// is synced successfully
-	MessageResourceSynced = "Configuration synced successfully"
-)
-
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -307,9 +294,11 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build: %s", build.Name)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build: %s", created.Name)
 		spec.BuildName = created.Name
 	}
 
@@ -339,8 +328,10 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %s", rev.Name)
 		return err
 	}
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision: %s", rev.Name)
 	glog.Infof("Created Revision:\n%+v", created)
 
 	// Update the Status of the configuration with the latest generation that
@@ -358,8 +349,6 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	// end configuration business logic
-	c.recorder.Event(config, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
@@ -418,10 +407,27 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
 
-	if err := c.markConfigurationReady(config, revision); err != nil {
-		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
+	alreadyReady := config.Status.IsReady()
+	if !alreadyReady {
+		c.markConfigurationReady(config, revision)
+	}
+
+	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
+		config.Name, revision.Name)
+	config.Status.LatestReadyRevisionName = revision.Name
+
+	if _, err := c.updateStatus(config); err != nil {
+		glog.Errorf("Error updating configuration '%s/%s': %v",
 			namespace, configName, err)
 	}
+
+	if !alreadyReady {
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+			"Configuration becomes ready")
+	}
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+		"LatestReadyRevisionName is updated to '%s'", revision.Name)
+
 	return
 }
 
@@ -441,9 +447,9 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 }
 
 // Mark ConfigurationConditionReady of Configuration ready as the given latest
-// created revision is ready. Also set latest field to the given revision.
+// created revision is ready.
 func (c *Controller) markConfigurationReady(
-	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
+	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
 	glog.Infof("Marking Configuration %q ready", config.Name)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
@@ -451,10 +457,4 @@ func (c *Controller) markConfigurationReady(
 			Status: corev1.ConditionTrue,
 			Reason: "LatestRevisionReady",
 		})
-
-	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q", config.Name, revision.Name)
-	config.Status.LatestReadyRevisionName = revision.Name
-
-	_, err := c.updateStatus(config)
-	return err
 }
