@@ -35,6 +35,10 @@ k8s_objects(
     objects = [
         ":everything-common",
         "//config/monitoring/fluentd:everything",
+        # Istio has an issue where deploying metric & logging rules once doesn't work and they need 
+        # to be deployed one more time for istio to pick them up. This second installation is to mitigate
+        # the issue
+        "//config/monitoring/fluentd:istio",
     ],
 )
 
@@ -46,6 +50,10 @@ k8s_objects(
     objects = [
         ":everything-common",
         "//config/monitoring/fluentd:everything-dev",
+        # Istio has an issue where deploying metric & logging rules once doesn't work and they need 
+        # to be deployed one more time for istio to pick them up. This second installation is to mitigate
+        # the issue
+        "//config/monitoring/fluentd:istio",
     ],
 )
 
