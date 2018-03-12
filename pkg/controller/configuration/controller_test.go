@@ -46,6 +46,7 @@ import (
 	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	"k8s.io/client-go/rest"
+	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -382,8 +383,9 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 }
 
 func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+
 	config := getTestConfiguration()
 	config.Status = v1alpha1.ConfigurationStatus{
 		Conditions: []v1alpha1.ConfigurationCondition{
@@ -396,33 +398,29 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		LatestCreatedRevisionName: revName,
 		LatestReadyRevisionName:   revName,
 	}
-	h := hooks.NewHooks()
+	configClient.Create(config)
 
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
-		config := obj.(*v1alpha1.Configuration)
-		update = update + 1
-		if update == 1 {
-			// This update is triggered by the configuration creation.
-			controllerRef := metav1.NewControllerRef(config, controllerKind)
-			revision := getTestRevision()
-			revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-			revision.Status = v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
-					Type:   v1alpha1.RevisionConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-			}
-			// This call should not update configration.
-			go controller.addRevisionEvent(revision)
-			return hooks.HookIncomplete
-		}
-		// No more update events.
-		t.Error("Got unexpected configuration update")
-		return hooks.HookIncomplete
+	// Create a revision owned by this Configuration. This revision is Ready and
+	// matches the Configuration's LatestReadyRevisionName.
+	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	revision := getTestRevision()
+	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
+	revision.Status = v1alpha1.RevisionStatus{
+		Conditions: []v1alpha1.RevisionCondition{{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+
+	// In this case, we can't tell if addRevisionEvent has updated the
+	// Configuration, because it's already in the expected state. Use a reactor
+	// instead to test whether Update() is called.
+	elaClient.Fake.PrependReactor("update", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		t.Error("Configuration was updated unexpectedly")
+		return true, nil, nil
 	})
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
-
-	time.Sleep(time.Second * 3)
+	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	controller.addRevisionEvent(revision)
 }
