@@ -1,4 +1,11 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
+
+k8s_object(
+    name = "namespace",
+    template = "namespace.yaml",
+    visibility = ["//visibility:public"],
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 #
@@ -7,7 +14,7 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything-common",
     objects = [
-        "//config/monitoring/common:everything",
+        ":namespace",
         "//config/monitoring/prometheus-operator:everything",
         "//config/monitoring/prometheus:everything-base",
         "//config/monitoring/prometheus-exporter:everything-common",
@@ -43,12 +50,12 @@ k8s_objects(
 )
 
 #
-# extended set of metrics
+# Extended set of k8s metrics
 #
 k8s_objects(
-    name = "metrics-extended",
+    name = "k8s-metrics",
     objects = [
-        "//config/monitoring/prometheus-servicemonitor:everything-extended",
-        "//config/monitoring/prometheus-exporter:everything-extended",
+        "//config/monitoring/prometheus-servicemonitor:k8s-metrics",
+        "//config/monitoring/prometheus-exporter:k8s-metrics",
     ],
 )

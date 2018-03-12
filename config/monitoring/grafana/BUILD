@@ -30,11 +30,10 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-       ":datasources",
-       ":dashboards",
-       ":service",
-       ":deployment",
+        ":datasources",
+        ":dashboards",
+        ":service",
+        ":deployment",
     ],
     visibility = ["//visibility:public"],
 )
-

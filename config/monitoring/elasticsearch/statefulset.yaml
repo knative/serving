@@ -12,53 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: elasticsearch-logging
-  namespace: monitoring
-  labels:
-    app: elasticsearch-logging
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: elasticsearch-logging
-  labels:
-    app: elasticsearch-logging
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - "services"
-  - "namespaces"
-  - "endpoints"
-  verbs:
-  - "get"
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  namespace: monitoring
-  name: elasticsearch-logging
-  labels:
-    app: elasticsearch-logging
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
-subjects:
-- kind: ServiceAccount
-  name: elasticsearch-logging
-  namespace: monitoring
-  apiGroup: ""
-roleRef:
-  kind: ClusterRole
-  name: elasticsearch-logging
-  apiGroup: ""
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

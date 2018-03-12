@@ -57,6 +57,9 @@ k8s_object(
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
+#
+# Base set of components that we want to collect metrics from
+#
 k8s_objects(
     name = "everything-common",
     objects = [
@@ -70,8 +73,12 @@ k8s_objects(
     visibility = ["//visibility:public"],
 )
 
+#
+# Enable detailed k8s metric collection. 
+# Below is not enabled by default as it installs a large set of k8s metrics.
+#
 k8s_objects(
-    name = "everything-extended",
+    name = "k8s-metrics",
     objects = [
         ":apiserver",
         ":kube-controller-manager",

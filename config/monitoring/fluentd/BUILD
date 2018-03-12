@@ -1,6 +1,5 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
-
 k8s_object(
     name = "configmap",
     template = "configmap.yaml",
@@ -19,7 +18,6 @@ k8s_object(
 k8s_object(
     name = "istio",
     template = "istio.yaml",
-    visibility = ["//visibility:public"],
 )
 
 k8s_object(
@@ -36,6 +34,7 @@ k8s_objects(
         ":configmap",
         ":istio",
         ":ds",
+        ":istio", # There is a bug where applying this once doesn't take effect and it requires this to be installed one more time to start streaming istio metrics. Will follow with istio team on this one.
     ],
     visibility = ["//visibility:public"],
 )
@@ -47,6 +46,7 @@ k8s_objects(
         ":configmap-dev",
         ":istio",
         ":ds",
+        ":istio", # There is a bug where applying this once doesn't take effect and it requires this to be installed one more time to start streaming istio metrics. Will follow with istio team on this one.
     ],
     visibility = ["//visibility:public"],
 )

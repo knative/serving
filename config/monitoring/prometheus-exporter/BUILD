@@ -31,8 +31,12 @@ k8s_objects(
     visibility = ["//visibility:public"],
 )
 
+#
+# Enable detailed k8s metric collection. 
+# Below is not enabled by default as it installs a large set of k8s metrics.
+#
 k8s_objects(
-    name = "everything-extended",
+    name = "k8s-metrics",
     objects = [
         ":kube-controller-metrics",
         ":kube-state-metrics",
