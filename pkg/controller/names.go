@@ -38,10 +38,6 @@ func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
 	return u.Name + "-deployment"
 }
 
-func GetRevisionNginxConfigMapName(u *v1alpha1.Revision) string {
-	return u.Name + "-proxy-configmap"
-}
-
 func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
 }

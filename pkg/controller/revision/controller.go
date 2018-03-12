@@ -68,18 +68,6 @@ const (
 	// queueSidecarName set by -queueSidecarName flag
 	queueHttpPortName string = "queue-http-port"
 
-	nginxContainerName string = "nginx-proxy"
-	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
-	nginxHTTPPortName  string = "nginx-http-port"
-	nginxHTTPPort             = 8180
-
-	nginxConfigMountPath    string = "/tmp/nginx"
-	nginxLogVolumeName      string = "nginx-logs"
-	nginxLogVolumeMountPath string = "/var/log/nginx"
-
-	fluentdContainerName string = "fluentd-logger"
-	fluentdSidecarImage  string = "gcr.io/google_appengine/fluentd-logger:latest"
-
 	requestQueueContainerName string = "request-queue"
 	requestQueuePortName      string = "queue-port"
 	requestQueuePort                 = 8012
@@ -578,12 +566,6 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 	log.Printf("Deleted autoscaler Service")
 
-	err = c.deleteNginxConfig(rev, ns)
-	if err != nil {
-		log.Printf("Failed to delete configmap: %s", err)
-	}
-	log.Printf("Deleted nginx configmap")
-
 	err = c.deleteService(rev, ns)
 	if err != nil {
 		log.Printf("Failed to delete k8s service: %s", err)
@@ -622,12 +604,6 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	err = c.reconcileAutoscalerService(rev, ns)
 	if err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
-	}
-
-	// Create nginx config
-	err = c.reconcileNginxConfig(rev, ns)
-	if err != nil {
-		log.Printf("Failed to create nginx configmap: %s", err)
 	}
 
 	// Create k8s service
@@ -714,54 +690,6 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	log.Printf("Creating Deployment: %q", deployment.Name)
 	_, createErr := dc.Create(deployment)
 	return createErr
-}
-
-func (c *Controller) deleteNginxConfig(rev *v1alpha1.Revision, ns string) error {
-	configMapName := controller.GetRevisionNginxConfigMapName(rev)
-	cmc := c.kubeclientset.Core().ConfigMaps(ns)
-	_, err := cmc.Get(configMapName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
-		return nil
-	}
-
-	log.Printf("Deleting configmap %q", configMapName)
-	tmp := metav1.DeletePropagationForeground
-	err = cmc.Delete(configMapName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
-		log.Printf("configMap.Delete for %q failed: %s", configMapName, err)
-		return err
-	}
-	return nil
-}
-
-func (c *Controller) reconcileNginxConfig(rev *v1alpha1.Revision, ns string) error {
-	cmc := c.kubeclientset.Core().ConfigMaps(ns)
-	configMapName := controller.GetRevisionNginxConfigMapName(rev)
-	_, err := cmc.Get(configMapName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			log.Printf("configmaps.Get for %q failed: %s", configMapName, err)
-			return err
-		}
-		log.Printf("ConfigMap %q doesn't exist, creating", configMapName)
-	} else {
-		log.Printf("Found existing ConfigMap %q", configMapName)
-		return nil
-	}
-
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	configMap, err := MakeNginxConfigMap(rev, ns)
-	if err != nil {
-		glog.Errorf("Error generating nginx config: %v", err)
-		return err
-	}
-
-	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
-	log.Printf("Creating configmap: %q", configMap.Name)
-	_, err = cmc.Create(configMap)
-	return err
 }
 
 func (c *Controller) deleteService(rev *v1alpha1.Revision, ns string) error {

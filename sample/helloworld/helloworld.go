@@ -26,7 +26,7 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	glog.Info("Request received.")
+	glog.Info("Hello world received a request.")
 	target := os.Getenv("TARGET")
 	if target == "" {
 		target = "NOT SPECIFIED"

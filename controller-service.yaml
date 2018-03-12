@@ -12,20 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+apiVersion: v1
+kind: Service
 metadata:
-  name: configuration-example
-  namespace: default
+  labels:
+    app: ela-controller
+    prometheus: ela-controller
+  name: ela-controller
+  namespace: ela-system
 spec:
-  template:
-    spec:
-      serviceType: container
-      containerSpec:
-        image: sample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-        env:
-          - name: TARGET
-            value: updatedversion
+  ports:
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: ela-controller

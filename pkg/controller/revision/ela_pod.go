@@ -32,14 +32,10 @@ const (
 	// Each Elafros pod gets 1 cpu.
 	elaContainerCpu   = "400m"
 	queueContainerCpu = "25m"
-	nginxContainerCpu = "25m"
 )
 
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
-	name := u.Name
-	nginxConfigMapName := name + "-proxy-configmap"
-
 	elaContainer := u.Spec.ContainerSpec.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainerSpec.
@@ -71,6 +67,10 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				ContainerPort: int32(requestQueuePort),
 			},
 		},
+		Args: []string{
+			"-logtostderr=true",
+			"-stderrthreshold=INFO",
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ELA_NAMESPACE",
@@ -99,52 +99,8 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	nginxContainer := corev1.Container{
-		Name:  nginxContainerName,
-		Image: nginxSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(nginxContainerCpu),
-			},
-		},
-		Ports: []corev1.ContainerPort{
-			// TOOD: HTTPS connections from the Cloud LB require
-			// certs. Right now, the static nginx.conf file has
-			// been modified to only allow HTTP connections.
-			{
-				Name:          nginxHTTPPortName,
-				ContainerPort: int32(nginxHTTPPort),
-			},
-		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "CONF_FILE",
-				Value: nginxConfigMountPath + "/nginx.conf",
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: nginxConfigMountPath,
-				Name:      nginxConfigMapName,
-				ReadOnly:  true,
-			},
-		},
-	}
-
-	nginxConfigVolume := corev1.Volume{
-		Name: nginxConfigMapName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: nginxConfigMapName,
-				},
-			},
-		},
-	}
-
 	return &corev1.PodSpec{
-		Volumes:    []corev1.Volume{nginxConfigVolume},
-		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer},
+		Containers: []corev1.Container{*elaContainer, queueContainer},
 	}
 }
 

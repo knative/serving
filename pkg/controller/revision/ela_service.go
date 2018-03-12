@@ -29,8 +29,7 @@ var httpServicePortName = "http"
 var servicePort = 80
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same
-// "revision" label. Traffic is routed to nginx-http-port on those ports.
-// This makes it so that Istio routerules handle the load balancing.
+// "revision" label. Traffic is routed to queue-proxy port.
 func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -45,7 +44,7 @@ func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 				{
 					Name:       httpServicePortName,
 					Port:       int32(servicePort),
-					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: "nginx-http-port"},
+					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: requestQueuePortName},
 				},
 			},
 			Type: "NodePort",
