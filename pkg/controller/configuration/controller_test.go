@@ -311,6 +311,8 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	config.Status.LatestCreatedRevisionName = revName
 
 	configClient.Create(config)
+	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -323,8 +325,6 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.addRevisionEvent(revision)
 
 	// Configuration should not have changed.
@@ -346,6 +346,8 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 	// Don't set LatestCreatedRevisionName.
 
 	configClient.Create(config)
+	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -365,8 +367,6 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 		}},
 	}
 
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.addRevisionEvent(revision)
 
 	// Configuration should not have changed.
@@ -397,6 +397,8 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		LatestReadyRevisionName:   revName,
 	}
 	configClient.Create(config)
+	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Create a revision owned by this Configuration. This revision is Ready and
 	// matches the Configuration's LatestReadyRevisionName.
@@ -418,7 +420,5 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		return true, nil, nil
 	})
 
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.addRevisionEvent(revision)
 }
