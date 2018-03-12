@@ -311,7 +311,6 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	config.Status.LatestCreatedRevisionName = revName
 
 	configClient.Create(config)
-	controller.syncHandler(keyOrDie(config))
 
 	// Get the configuration after reconciling
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -347,7 +346,6 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 	// Don't set LatestCreatedRevisionName.
 
 	configClient.Create(config)
-	controller.syncHandler(keyOrDie(config))
 
 	// Get the configuration after reconciling
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -371,7 +369,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.addRevisionEvent(revision)
 
-	// Configuration should not have changed
+	// Configuration should not have changed.
 	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config: %v", err)
