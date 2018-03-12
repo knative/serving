@@ -412,7 +412,8 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		c.markConfigurationReady(config, revision)
 	}
 
-	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q", config.Name, revision.Name)
+	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
+		config.Name, revision.Name)
 	config.Status.LatestReadyRevisionName = revision.Name
 
 	if _, err := c.updateStatus(config); err != nil {
@@ -421,9 +422,11 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	}
 
 	if !alreadyReady {
-		c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready upon Revision '%s' becoming ready", revision.Name)
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+			"Configuration becomes ready upon Revision '%s' becoming ready", revision.Name)
 	}
-	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName is updated to '%s'", revision.Name)
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+		"LatestReadyRevisionName is updated to '%s'", revision.Name)
 
 	return
 }
