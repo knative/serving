@@ -13,14 +13,14 @@ Elafros Revisions are automatically scaled up and down according incoming traffi
 
 ## Behavior
 
-When a Revision is actively serving requests it will increase and decrease the number of Pods to maintain the desired average concurrent clients per Pod.  When requests are no longer being served, the Revision will be scaled down to 0 Pods.  When the first request arrives, the Revision will be scaled back up again.
-
 Revisions have three autoscaling states which are:
 1. **Active** when they are actively serving requests,
 2. **Reserve** when they are scaled down to 0 Pods but is still in service, and
 3. **Retired** when they will no longer receive traffic.
 
-In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its number of concurrent clients each second to the Autoscaler (how many clients are connected at that moment).
+When a Revision is actively serving requests it will increase and decrease the number of Pods to maintain the desired average concurrent requests per Pod.  When requests are no longer being served, the Revision will be put in a Reserve state.  When the first request arrives, the Revision is put in an Active state, and the request is queued until it becomes ready.
+
+In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its number of concurrent requests each second to the Autoscaler (how many clients are connected at that moment).
 
 In the Reserve state, the Revision has no scheduled Pods and consumes no CPU.  The Istio route rule for the Revision points to the single multi-tenant Activator which will catch traffic for all Reserve Revisions.  When the Activator catches a request for a Reserve Revision, it will flip the Revision to an Active state and then forward requests to the Revision when it ready.
 
@@ -71,11 +71,9 @@ The Elafros Autoscaler is split into two parts:
 1. **Fast Brain** that maintains the desired level of concurrent requests per Pod (satisfying [Design Goal #1](#design-goals)), and the
 2. **Slow Brain** that comes up with the desired level based based on CPU, memory and latency statistics (satisfying [Design Goal #2](#design-goals)).
 
-*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/elafros/elafros/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
-
 ## Fast Brain Implementation
 
-This stuff is subject to change as the Elafros implementation changes.  Just FYI.
+This is subject to change as the Elafros implementation changes.
 
 ### Code
 
@@ -85,7 +83,7 @@ This stuff is subject to change as the Elafros implementation changes.  Just FYI
 
 ### Autoscaler
 
-There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see [Design Goal #3](#design-goals)).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent clients at that moment.
+There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see [Design Goal #3](#design-goals)).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
 
 The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.  The Autoscaler has two modes of operation, Panic Mode and Stable Mode.
 
@@ -104,3 +102,8 @@ When the Autoscaler has observed an average concurrency per pod of 0.0 for some 
 ### Activator
 
 The Activator is a single multi-tenant component that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see [Design Goal #3](#design-goals)).  When the Activator gets a request for a Reserve Revision, it calls the Elafros control plane to transistion the Revision to an Active state.  It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the Activator in the meantime.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  Concurrently, the Elafros control plane will update the Istio route rules to take the Activator back out of the serving path.
+
+## Slow Brain Implementation
+
+*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/elafros/elafros/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
+
