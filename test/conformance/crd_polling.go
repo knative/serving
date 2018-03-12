@@ -33,7 +33,7 @@ import (
 
 const (
 	interval = 1 * time.Second
-	timeout  = 1 * time.Minute
+	timeout  = 2 * time.Minute
 )
 
 // WaitForRouteState polls the status of the Route called name from client every
