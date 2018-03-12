@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang/glog"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -51,6 +53,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	glog.Info("Telemetry sample started.")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", rootHandler)
@@ -79,4 +82,5 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	w.Write([]byte("Hello world!\n"))
+	glog.Infof("Request complete. Status: %v", status)
 }

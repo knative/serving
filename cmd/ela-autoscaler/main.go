@@ -125,7 +125,6 @@ func scaleSerializer() {
 }
 
 func scaleTo(podCount int32) {
-	glog.Infof("Target scale is %v", podCount)
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
 	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
@@ -133,9 +132,10 @@ func scaleTo(podCount int32) {
 		return
 	}
 	if *deployment.Spec.Replicas == podCount {
-		glog.Info("Already at scale.")
 		return
 	}
+
+	glog.Infof("Scaling to %v", podCount)
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
