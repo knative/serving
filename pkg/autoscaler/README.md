@@ -9,7 +9,7 @@ Elafros Revisions are automatically scaled up and down according incoming traffi
 * Kubernetes **Deployment** -- a k8s resource which manages the lifecycle of individual Pods running Containers.  One of these is running user code in each Revision.
 * Elafros **Autoscaler** -- another k8s Deployment (one per Revision) running a single Pod which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
 * Elafros **Activator** -- a k8s Deployment running a single, multi-tenant Pod (one per Cluster for all Revisions) which catches requests for Revisions with no Pods.  It brings up Pods running user code (via the Revision controller) and forwards caught requests.
-* Concurrency per Pod -- the number of requests currently being served by a Pod at a given moment.  More QPS or higher latency for a given Pod means more concurrent requests.
+* **Concurrency** -- the number of requests currently being served at a given moment.  More QPS or higher latency means more concurrent requests.
 
 ## Behavior
 
