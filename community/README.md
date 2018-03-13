@@ -13,6 +13,8 @@ improving docs, giving talks, etc.
 
 Other Documents
 
+-   [Code of Conduct](CODE-OF-CONDUCT.md) - all contributors must abide by the
+    code of conduct
 -   [Contributing to Elafros](CONTRIBUTING.md) - guidelines and advice on
     becoming a contributor
 -   [Working Groups](WORKING-GROUPS.md) - describes our various working groups
