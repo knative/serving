@@ -76,9 +76,9 @@ func main() {
 		log.Fatalf("Unable to create zipkin tracer: %+v\n", err)
 	}
 
-	// Zipkin middleware implements an http.Hander that automatically extracts
+	// Zipkin middleware implements an http.Handler that automatically extracts
 	// traces from HTTP headers and intercepts http.ResponseWriter to
-	// the extracted tracing information to the response.
+	// add the extracted tracing information to the response.
 	zipkinMiddleware := zipkinhttp.NewServerMiddleware(zipkinTracer, zipkinhttp.TagResponseSize(true))
 	zipkinClient, err := zipkinhttp.NewClient(zipkinTracer, zipkinhttp.ClientTrace(true))
 	if err != nil {
@@ -116,7 +116,7 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 		// with different responses.
 		status := statusCodes[rand.Intn(len(statusCodes))]
 
-		// Before existing this method, update requestCount and requestDuration metrics.
+		// Before returning from this function, update requestCount and requestDuration metrics.
 		defer func(start time.Time) {
 			requestCount.With(prometheus.Labels{"status": fmt.Sprint(status)}).Inc()
 			requestDuration.Observe(time.Since(start).Seconds())
@@ -163,10 +163,10 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 
 // Makes an http call with distributed tracing enabled.
 func callWithNewSpan(ctx context.Context, client *zipkinhttp.Client, url string, spanName string) error {
-	// Create a new span to capture a child in the distributed tracing graph.
+	// Create a new span to capture this call as a child of the current call in the trace graph.
 	span := zipkin.SpanFromContext(ctx)
 
-	// Create the http request that we will execute with tracing.
+	// Create the http request that we will execute with tracing enabled.
 	req, err := http.NewRequest("GET", url, strings.NewReader(""))
 	if err != nil {
 		glog.Errorf("Request failed: unable to create a new http request: %v", err)
