@@ -34,7 +34,7 @@ spec:
       labels:
         elafros.dev/type: container
     spec:
-      containerSpec:
+      container:
         image: telemetrysample:latest
         args:
         - "-logtostderr=true"

@@ -36,9 +36,9 @@ const (
 
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
-	elaContainer := u.Spec.ContainerSpec.DeepCopy()
+	elaContainer := u.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
-	// update the validations in pkg/webhook.validateContainerSpec.
+	// update the validations in pkg/webhook.validateContainer.
 	elaContainer.Name = elaContainerName
 	elaContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{

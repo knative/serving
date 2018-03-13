@@ -34,7 +34,7 @@ spec:
       labels:
         elafros.dev/type: container
     spec:
-      containerSpec:
+      container:
         image: docker.io/mchmarny/rester-tester:latest
         env:
           - name: TARGET

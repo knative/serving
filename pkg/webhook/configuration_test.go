@@ -71,7 +71,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 	}
 }
 
-func TestEmptyContainerSpecNotAllowed(t *testing.T) {
+func TestEmptyContainerNotAllowed(t *testing.T) {
 	configuration := v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -81,18 +81,18 @@ func TestEmptyContainerSpecNotAllowed(t *testing.T) {
 			Generation: testGeneration,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &corev1.Container{},
+					Container: &corev1.Container{},
 				},
 			},
 		},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerSpecInTemplate {
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerInTemplate {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
 	}
 }
 
-func TestUnwantedFieldInContainerSpecNotAllowed(t *testing.T) {
+func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 	container := corev1.Container{
 		Name: "Not Allowed",
 		Resources: corev1.ResourceRequirements{
@@ -118,16 +118,16 @@ func TestUnwantedFieldInContainerSpecNotAllowed(t *testing.T) {
 			Generation: testGeneration,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &container,
+					Container: &container,
 				},
 			},
 		},
 	}
 	unwanted := []string{
-		"template.spec.containerSpec.name",
-		"template.spec.containerSpec.resources",
-		"template.spec.containerSpec.ports",
-		"template.spec.containerSpec.volumeMounts",
+		"template.spec.container.name",
+		"template.spec.container.resources",
+		"template.spec.container.ports",
+		"template.spec.container.volumeMounts",
 	}
 	expected := fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted, ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {

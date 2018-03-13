@@ -78,7 +78,7 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &corev1.Container{
+					Container: &corev1.Container{
 						Image: imagePath,
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
