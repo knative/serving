@@ -46,6 +46,10 @@ permission to use and redistribute your contributions as part of the project.
 
 ## Design documents
 
+*Design documents as described here are aspirational. Until these processes are
+implemented, docs should be made public and shared with the
+[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) group.*
+
 Any substantial design deserves a design document. Design documents are written
 with Google Docs and should be shared with the community by adding the doc to
 our [Team Drive](TODO) and sending a note to the appropriate working group to
