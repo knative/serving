@@ -290,7 +290,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 				t.Errorf("Conditions diff; got %v, want %v", got, want)
 			}
 			if got, want := config.Status.LatestReadyRevisionName, revName; got != want {
-				t.Errorf("Latest in Stauts diff; got %v, want %v", got, want)
+				t.Errorf("Latest in Status diff; got %v, want %v", got, want)
 			}
 		}
 		return hooks.HookComplete
