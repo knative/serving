@@ -20,11 +20,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -84,7 +82,6 @@ func main() {
 
 	// Use zipkin middleware to handle traces before receiving calls to our handler
 	mux.Handle("/", zipkinMiddleware((rootHandler(zipkinClient))))
-	mux.Handle("/sleep", zipkinMiddleware(http.HandlerFunc(sleepHandler)))
 
 	// Setup Prometheus handler for metrics
 	mux.Handle("/metrics", promhttp.Handler())
@@ -166,28 +163,4 @@ func callWithNewSpan(ctx context.Context, client *zipkinhttp.Client, url string,
 	}
 	defer res.Body.Close()
 	return nil
-}
-
-func sleepHandler(w http.ResponseWriter, r *http.Request) {
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		glog.Error("Request failed: unable to read the body: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	i, err := strconv.Atoi(string(b))
-	if err != nil {
-		glog.Error("Request failed: unable to convert the body to int: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	sleepTime := time.Duration(i) * time.Millisecond
-	glog.Infof("Sleeping for %v", sleepTime)
-	time.Sleep(sleepTime)
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(http.StatusOK)
 }
