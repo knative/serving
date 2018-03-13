@@ -273,11 +273,21 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	})
 
 	// Look for the event
-	expectedMessage := MessageResourceSynced
+	expectedMessages := map[string]struct{}{
+		"Created service: test-route-service":        struct{}{},
+		"Created Ingress: test-route-ela-ingress":    struct{}{},
+		"Created Istio route rule: test-route-istio": struct{}{},
+		"Updated traffic targets":                    struct{}{},
+	}
+	eventNum := 0
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
-		if e, a := expectedMessage, event.Message; e != a {
-			t.Errorf("unexpected Message: %q expected: %q", a, e)
+		eventNum = eventNum + 1
+		if _, ok := expectedMessages[event.Message]; !ok {
+			t.Errorf("unexpected Message: %q expected one of: %q", event.Message, expectedMessages)
+		}
+		if eventNum < 4 {
+			return hooks.HookIncomplete
 		}
 		return hooks.HookComplete
 	})
@@ -550,7 +560,7 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 			},
 		},
 	)
-	
+
 	// Set config's route label with route name to make sure config's label will not be set
 	// by function setLabelForGivenConfigurations.
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
@@ -567,8 +577,8 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-    // Sleep for 3 seconds to make sure all functions are done.
-    time.Sleep(time.Second * 3)
+	// Sleep for 3 seconds to make sure all functions are done.
+	time.Sleep(time.Second * 3)
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {

@@ -17,13 +17,13 @@ limitations under the License.
 package route
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -297,7 +297,7 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
-		if errors.IsNotFound(err) {
+		if apierrs.IsNotFound(err) {
 			runtime.HandleError(fmt.Errorf("route '%s' in work queue no longer exists", key))
 			return nil
 		}
@@ -491,10 +491,11 @@ func (c *Controller) setLabelForGivenConfigurations(
 	// Validate
 	for _, config := range configMap {
 		if routeName, ok := config.Labels[ela.RouteLabelKey]; ok {
-			// TODO(yanweiguo): add a condition in status for this error
 			if routeName != route.Name {
-				return fmt.Errorf("Configuration %s already has label %s set to %s",
+				errMsg := fmt.Sprintf("Configuration %s already has label %s set to %s",
 					config.Name, ela.RouteLabelKey, routeName)
+				c.recorder.Event(route, corev1.EventTypeWarning, "InvalidConfiguration", errMsg)
+				return errors.New(errMsg)
 			}
 		}
 	}
