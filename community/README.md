@@ -32,8 +32,8 @@ Other Documents
 Elafros is an open source specification and implementation of a Kubernetes- and
 Istio-based container platform.
 
-Visit [elafros.dev](https://elafros.dev) for in-depth information about using
-Elafros.
+<!-- TODO Visit [elafros.dev](https://elafros.dev) for in-depth information about using
+Elafros. -->
 
 ## Elafros authors
 
@@ -51,12 +51,12 @@ table](https://www.google.com/search?q=TODO).
 
 ## How can I help ?
 
-See our [community page](https://elafros.dev/community) for ways to get involved
-in our community.
+<!-- TODO See our [community page](https://elafros.dev/community) for ways to get involved
+in our community. -->
 
-To dig deeper, check the
+<!-- TODO To dig deeper, check the
 [architecture](https://elafros.dev/docs/concepts/what-is-elafros/overview.html#architecture)
-and read some [design docs](./CONTRIBUTING.md#design-documents).
+and read some [design docs](./CONTRIBUTING.md#design-documents). -->
 
 If you're looking for something to do to get your feet wet working on Elafros,
 look for GitHub issues marked with the Help Wanted label:
@@ -73,8 +73,8 @@ we could use your help in spiffing up our public-facing web site.
 
 ## Questions and issues
 
-If you've got questions or issues with using Elafros, checkout our [help
-page](https://elafros.dev/help).
+<!-- TODO If you've got questions or issues with using Elafros, checkout our [help
+page](https://elafros.dev/help). -->
 
 If you're a developer trying to hack on or use the Elafros code, head to
 [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) for help.

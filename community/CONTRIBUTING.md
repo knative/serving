@@ -95,8 +95,9 @@ following steps:
 
 -   Submit PRs to elafros/elafros with your code changes.
 
--   Submit PRs to elafros/elafros.dev with documentation for your feature,
+-   Submit PRs to elafros/elafros with user documentation for your feature,
     including usage examples when possible.
+    <!-- TODO: switch to elafros/elafros.dev) -->
 
 *Note that we prefer bite-sized PRs instead of giant monster PRs. It's therefore
 preferable if you can introduce large features in smaller reviewable changes
