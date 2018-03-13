@@ -627,18 +627,17 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 			return nil, err
 		}
 		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
-		_, createErr := routeClient.Create(routeRules)
-		if createErr != nil {
+		if _, createErr := routeClient.Create(routeRules); createErr != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule: %s", routeRules.Name)
 			return nil, createErr
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule: %s", routeRules.Name)
-		return revisionRoutes, createErr
+		return revisionRoutes, nil
 	}
 
 	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
 	_, err = routeClient.Update(routeRules)
-	if err != nil {
+	if _, err := routeClient.Update(routeRules); err != nil {
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule: %s", routeRules.Name)
 		return nil, err
 	}
