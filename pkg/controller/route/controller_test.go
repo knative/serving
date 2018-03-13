@@ -501,6 +501,7 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 		t.Error(err)
 	}
 }
+
 func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
@@ -534,6 +535,40 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
+	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      100,
+			},
+		},
+	)
+	
+	// Set config's route label with route name to make sure config's label will not be set
+	// by function setLabelForGivenConfigurations.
+	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
+
+	h := hooks.NewHooks()
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
+		// Verify that function setLabelForGivenConfigurations will not update configuration
+		// since we already set the config label.
+		t.Error("There should not update triggered.")
+		return hooks.HookComplete
+	})
+
+    // Sleep for 3 seconds to make sure all functions are done.
+    time.Sleep(time.Second * 3)
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {

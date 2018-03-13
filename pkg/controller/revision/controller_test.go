@@ -22,7 +22,6 @@ package revision
 */
 import (
 	"fmt"
-	"regexp"
 	"testing"
 	"time"
 
@@ -218,31 +217,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			}
 		} else {
 			t.Errorf("Deployment was not named %s or %s. Got %s.", expectedDeploymentName, expectedAutoscalerName, d.Name)
-		}
-		return hooks.HookComplete
-	})
-
-	// Look for the nginx configmap.
-	expectedConfigMapName := fmt.Sprintf("%s-proxy-configmap", rev.Name)
-	h.OnCreate(&kubeClient.Fake, "configmaps", func(obj runtime.Object) hooks.HookResult {
-		cm := obj.(*corev1.ConfigMap)
-		glog.Infof("checking cm %s", cm.Name)
-		if expectedNamespace != cm.Namespace {
-			t.Errorf("configmap namespace was not %s", expectedNamespace)
-		}
-		if expectedConfigMapName != cm.Name {
-			t.Errorf("configmap name was not %s", expectedConfigMapName)
-		}
-		//TODO assert Labels
-		data, ok := cm.Data["nginx.conf"]
-		if !ok {
-			t.Error("expected configmap data to have \"nginx.conf\" key")
-		}
-		matched, err := regexp.Match("upstream queue.*127\\.0\\.0\\.1:8012", []byte(data))
-		if err != nil {
-			t.Error(err)
-		} else if !matched {
-			t.Errorf("expected nginx config string to include appserver upstream with 127.0.0.1:8080, was %q", data)
 		}
 		return hooks.HookComplete
 	})

@@ -34,3 +34,6 @@ spec:
       serviceType: container
       containerSpec:
         image: telemetrysample:latest
+        args:
+        - "-logtostderr=true"
+        - "-stderrthreshold=INFO"

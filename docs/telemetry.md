@@ -1,37 +1,61 @@
-# Collecting and generating telemetry
+# Logs and metrics
 
-Deploy Prometheus, service monitors and Grafana:
+First, deploy monitoring components. You can use two different setups:
+1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
 ```shell
-bazel run config/prometheus:everything.create
-bazel run config/grafana:everything.create
+bazel run config/monitoring:everything.apply
 ```
 
-To see pre-installed dashboards, you have two options:
-1. Forward the Grafana server to your machine:
+2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+```shell
+bazel run config/monitoring:everything-dev.apply
+```
+
+### Accessing logs
+Run, 
+
+```shell
+kubectl proxy
+```
+Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana) 
+(*it might take a couple of minutes for the proxy to work*). 
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
+new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+### Accessing metrics
+
+Run:
 
 ```shell
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then browse to localhost:3000
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000)
 
-2. Deploy grafana-public and open a public IP for the Grafana endpoint:
+## Default metrics
+Following metrics are collected by default:
+* Elafros controller metrics
+* Istio metrics (mixer, envoy and pilot)
+* Node and pod metrics
 
+There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy them using kubectl apply -f.
+
+## Default logs
+Deployment above enables collection of the following logs:
+* stdout & stderr from all ela-container
+* stdout & stderr from build-controller
+
+To enable log collection from other containers and destinations, edit fluentd-es-configmap.yaml (search for "fluentd-containers.log" for the starting point). Then run the following:
 ```shell
-bazel run config/grafana:everything-public.create
-
-# Wait for the load balancer IP creation to finish and get the IP address once done:
-kubectl get service -n monitoring grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+kubectl replace -f config/monitoring/fluentd/fluentd-es-configmap.yaml
+kubectl replace -f config/monitoring/fluentd/fluentd-es-ds.yaml
 ```
 
-Then browse to <IP_ADDRESS>:30802.
+Note: We will enable a plugin mechanism to define other logs to collect and this step is a workaround until then.
 
-**Above installs Grafana with a hard coded admin username (_admin_) and password (_admin_) 
-and exposes it on a public IP. This should only be done in a development environment with no sensitive data.**
+## Metrics troubleshooting
 
-## Troubleshooting
-
-You can use Prometheus web UI to troubleshoot publishing and service discovery issues. 
+You can use Prometheus web UI to troubleshoot publishing and service discovery issues for metrics.
 To access to the web UI, forward the Prometheus server to your machine:
 
 ```shell
@@ -160,3 +184,16 @@ definitions is to use Grafana UI (make sure to login with as admin user) and exp
 
 10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section 
 above to enable Prometheus UI)
+
+## Generating logs
+Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec, add the following args to redirect the logs to stderr:
+```yaml
+args:
+- "-logtostderr=true"
+- "-stderrthreshold=INFO"
+```
+
+See [helloworld](../sample/helloworld/README.md) sample's configuration file as an example.
+
+## Extended metrics & logs
+To be filled.

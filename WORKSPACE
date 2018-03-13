@@ -85,12 +85,12 @@ go_repository(
 )
 
 # Istio
-ISTIO_RELEASE = "0.5.1"
+ISTIO_RELEASE = "0.6.0"
 
 new_http_archive(
     name = "istio_release",
     build_file = "BUILD.istio",
-    sha256 = "f811d29df1b14f71f9e4c14622c949f8b7a1a049ca970e62811933e37a128727",
+    sha256 = "fa9bc2c6a197096812b6f4a5a284d13b38bbdba4ee1fc6586a60c9a63337b4d8",
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
     type = "tar.gz",
     url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
@@ -106,16 +106,20 @@ load(
 private_git_repository(
     name = "buildcrd",
     commit = "f414c7d6f6710598e7b186bf244ce81b2b339df2",
-    remote = "git@github.com:elafros/build-crd.git",
+    remote = "git@github.com:elafros/build.git",
 )
 
 # If you would like to test changes to both repositories,
 # you can comment the above and uncomment this:
 # local_repository(
 #    name = "buildcrd",
-#    path = "../build-crd",
+#    path = "../build",
 # )
 
 load("@buildcrd//:deps.bzl", "repositories")
 
 repositories()
+
+load(":ca_bundle.bzl", "cluster_ca_bundle")
+
+cluster_ca_bundle(name = "cluster_ca_bundle")

@@ -30,17 +30,12 @@ import (
 
 const (
 	// Each Elafros pod gets 1 cpu.
-	elaContainerCpu     = "400m"
-	queueContainerCpu   = "25m"
-	nginxContainerCpu   = "25m"
-	fluentdContainerCpu = "100m"
+	elaContainerCpu   = "400m"
+	queueContainerCpu = "25m"
 )
 
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
-	name := u.Name
-	nginxConfigMapName := name + "-proxy-configmap"
-
 	elaContainer := u.Spec.ContainerSpec.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainerSpec.
@@ -54,19 +49,6 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Name:          elaPortName,
 		ContainerPort: int32(elaPort),
 	}}
-	elaContainer.VolumeMounts = []corev1.VolumeMount{
-		{
-			MountPath: elaContainerLogVolumeMountPath,
-			Name:      elaContainerLogVolumeName,
-		},
-	}
-
-	elaContainerLogVolume := corev1.Volume{
-		Name: elaContainerLogVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
 
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
@@ -84,6 +66,10 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 				Name:          requestQueuePortName,
 				ContainerPort: int32(requestQueuePort),
 			},
+		},
+		Args: []string{
+			"-logtostderr=true",
+			"-stderrthreshold=INFO",
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -113,85 +99,8 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		},
 	}
 
-	nginxContainer := corev1.Container{
-		Name:  nginxContainerName,
-		Image: nginxSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(nginxContainerCpu),
-			},
-		},
-		Ports: []corev1.ContainerPort{
-			// TOOD: HTTPS connections from the Cloud LB require
-			// certs. Right now, the static nginx.conf file has
-			// been modified to only allow HTTP connections.
-			{
-				Name:          nginxHTTPPortName,
-				ContainerPort: int32(nginxHTTPPort),
-			},
-		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "CONF_FILE",
-				Value: nginxConfigMountPath + "/nginx.conf",
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: nginxConfigMountPath,
-				Name:      nginxConfigMapName,
-				ReadOnly:  true,
-			},
-			{
-				MountPath: nginxLogVolumeMountPath,
-				Name:      nginxLogVolumeName,
-			},
-		},
-	}
-
-	nginxConfigVolume := corev1.Volume{
-		Name: nginxConfigMapName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: nginxConfigMapName,
-				},
-			},
-		},
-	}
-
-	nginxLogVolume := corev1.Volume{
-		Name: nginxLogVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCpu),
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				MountPath: nginxLogVolumeMountPath,
-				Name:      nginxLogVolumeName,
-				//ReadOnly:  true,
-			},
-			{
-				MountPath: elaContainerLogVolumeMountPath,
-				Name:      elaContainerLogVolumeName,
-				//ReadOnly:  true,
-			},
-		},
-	}
-
 	return &corev1.PodSpec{
-		Volumes:    []corev1.Volume{elaContainerLogVolume, nginxConfigVolume, nginxLogVolume},
-		Containers: []corev1.Container{*elaContainer, queueContainer, nginxContainer, fluentdContainer},
+		Containers: []corev1.Container{*elaContainer, queueContainer},
 	}
 }
 
@@ -217,6 +126,9 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
 					Labels: MakeElaResourceLabels(u),
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "true",
+					},
 				},
 			},
 		},

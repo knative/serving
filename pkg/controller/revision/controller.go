@@ -68,18 +68,6 @@ const (
 	// queueSidecarName set by -queueSidecarName flag
 	queueHttpPortName string = "queue-http-port"
 
-	nginxContainerName string = "nginx-proxy"
-	nginxSidecarImage  string = "gcr.io/google_appengine/nginx-proxy:latest"
-	nginxHTTPPortName  string = "nginx-http-port"
-	nginxHTTPPort             = 8180
-
-	nginxConfigMountPath    string = "/tmp/nginx"
-	nginxLogVolumeName      string = "nginx-logs"
-	nginxLogVolumeMountPath string = "/var/log/nginx"
-
-	fluentdContainerName string = "fluentd-logger"
-	fluentdSidecarImage  string = "gcr.io/google_appengine/fluentd-logger:latest"
-
 	requestQueueContainerName string = "request-queue"
 	requestQueuePortName      string = "queue-port"
 	requestQueuePort                 = 8012
@@ -383,7 +371,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 	log.Printf("Namespace %q validated to exist, moving on", ns)
 
-	return printErr(c.reconcileWithImage(rev, namespace))
+	return c.reconcileWithImage(rev, namespace)
 }
 
 // reconcileWithImage handles enqueued messages that have an image.
@@ -408,7 +396,7 @@ func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 	return false, false
 }
 
-func (c *Controller) markServiceReady(rev *v1alpha1.Revision) error {
+func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q ready", rev.Name)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
@@ -429,6 +417,7 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Type:   v1alpha1.RevisionConditionBuildComplete,
 				Status: corev1.ConditionTrue,
 			})
+		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
 		rev.Status.SetCondition(
@@ -438,6 +427,7 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Reason:  bc.Reason,
 				Message: bc.Message,
 			})
+		c.recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
 	}
 	// This will trigger a reconciliation that will cause us to stop tracking the build.
 	_, err := c.updateStatus(rev)
@@ -528,8 +518,10 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
-	if err := c.markServiceReady(rev); err != nil {
-		glog.Errorf("Error marking service ready for '%s/%s': %v", namespace, revName, err)
+	if err := c.markRevisionReady(rev); err != nil {
+		glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
+	} else {
+		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint '%s' becoming ready", endpoint.Name)
 	}
 	return
 }
@@ -539,8 +531,8 @@ func (c *Controller) updateEndpointsEvent(old, new interface{}) {
 }
 
 // reconcileOnceBuilt handles enqueued messages that have an image.
-func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
-	accessor, err := meta.Accessor(u)
+func (c *Controller) reconcileOnceBuilt(rev *v1alpha1.Revision, ns string) error {
+	accessor, err := meta.Accessor(rev)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err)
 		panic("Failed to get metadata")
@@ -549,13 +541,13 @@ func (c *Controller) reconcileOnceBuilt(u *v1alpha1.Revision, ns string) error {
 	deletionTimestamp := accessor.GetDeletionTimestamp()
 	log.Printf("Check the deletionTimestamp: %s\n", deletionTimestamp)
 
-	elaNS := controller.GetElaNamespaceName(u.Namespace)
+	elaNS := controller.GetElaNamespaceName(rev.Namespace)
 
 	if deletionTimestamp == nil {
-		log.Printf("Creating or reconciling resources for %s\n", u.Name)
-		return c.createK8SResources(u, elaNS)
+		log.Printf("Creating or reconciling resources for %s\n", rev.Name)
+		return c.createK8SResources(rev, elaNS)
 	}
-	return c.deleteK8SResources(u, elaNS)
+	return c.deleteK8SResources(rev, elaNS)
 }
 
 func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error {
@@ -577,12 +569,6 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 		log.Printf("Failed to delete autoscaler Service: %s", err)
 	}
 	log.Printf("Deleted autoscaler Service")
-
-	err = c.deleteNginxConfig(rev, ns)
-	if err != nil {
-		log.Printf("Failed to delete configmap: %s", err)
-	}
-	log.Printf("Deleted nginx configmap")
 
 	err = c.deleteService(rev, ns)
 	if err != nil {
@@ -622,12 +608,6 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	err = c.reconcileAutoscalerService(rev, ns)
 	if err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
-	}
-
-	// Create nginx config
-	err = c.reconcileNginxConfig(rev, ns)
-	if err != nil {
-		log.Printf("Failed to create nginx configmap: %s", err)
 	}
 
 	// Create k8s service
@@ -714,54 +694,6 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	log.Printf("Creating Deployment: %q", deployment.Name)
 	_, createErr := dc.Create(deployment)
 	return createErr
-}
-
-func (c *Controller) deleteNginxConfig(rev *v1alpha1.Revision, ns string) error {
-	configMapName := controller.GetRevisionNginxConfigMapName(rev)
-	cmc := c.kubeclientset.Core().ConfigMaps(ns)
-	_, err := cmc.Get(configMapName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
-		return nil
-	}
-
-	log.Printf("Deleting configmap %q", configMapName)
-	tmp := metav1.DeletePropagationForeground
-	err = cmc.Delete(configMapName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
-		log.Printf("configMap.Delete for %q failed: %s", configMapName, err)
-		return err
-	}
-	return nil
-}
-
-func (c *Controller) reconcileNginxConfig(rev *v1alpha1.Revision, ns string) error {
-	cmc := c.kubeclientset.Core().ConfigMaps(ns)
-	configMapName := controller.GetRevisionNginxConfigMapName(rev)
-	_, err := cmc.Get(configMapName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			log.Printf("configmaps.Get for %q failed: %s", configMapName, err)
-			return err
-		}
-		log.Printf("ConfigMap %q doesn't exist, creating", configMapName)
-	} else {
-		log.Printf("Found existing ConfigMap %q", configMapName)
-		return nil
-	}
-
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	configMap, err := MakeNginxConfigMap(rev, ns)
-	if err != nil {
-		glog.Errorf("Error generating nginx config: %v", err)
-		return err
-	}
-
-	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
-	log.Printf("Creating configmap: %q", configMap.Name)
-	_, err = cmc.Create(configMap)
-	return err
 }
 
 func (c *Controller) deleteService(rev *v1alpha1.Revision, ns string) error {

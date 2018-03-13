@@ -18,7 +18,7 @@ metadata:
 spec:
   domainSuffix: private-repos.googlecustomer.net
   traffic:
-  - configuration: private-repos
+  - configurationName: private-repos
     percent: 100
 ---
 apiVersion: elafros.dev/v1alpha1
