@@ -95,7 +95,7 @@ working group:
     Google group to the meeting.
 
 *   **Register the Working Group**. Go to
-    [WORKING-GROUPS.md](https://github.com/elafros/community/blob/master/WORKING-GROUPS.md)
+    [WORKING-GROUPS.md](https://github.com/elafros/elafros/blob/master/community/WORKING-GROUPS.md)
     and add your working group name, the names of the leads, the working group
     charter, and a link to the meeting you created.
 
@@ -124,8 +124,8 @@ project (that is, have made multiple contributions to the project in the form of
 code, design, or documentation).
 
 Please see the [Community
-Roles](https://github.com/elafros/community/blob/master/ROLES.md) document for a
-description of a lead’s role and requirements.
+Roles](https://github.com/elafros/elafros/blob/master/community/ROLES.md)
+document for a description of a lead’s role and requirements.
 
 ## Running a working group
 

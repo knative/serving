@@ -41,9 +41,9 @@ product and design decisions.
         community focus
 
     *   Ensure the team adheres to our [code of
-        conduct](https://github.com/elafros/community/blob/master/CONTRIBUTING.md#code-of-conduct)
+        conduct](https://github.com/elafros/elafros/blob/master/community/CONTRIBUTING.md#code-of-conduct)
         and respects our
-        [values](https://github.com/elafros/community/blob/master/VALUES.md).
+        [values](https://github.com/elafros/elafros/blob/master/community/VALUES.md).
 
     *   Foster an environment for a healthy and happy community of developers
         and contributors.

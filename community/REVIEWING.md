@@ -77,8 +77,8 @@ Merging of PRs is done by [Approvers](ROLES.md#approver).
 
 Like many open source projects, becoming an Approver is based on contributions
 to the project. Please see our [community
-roles](https://github.com/elafros/community/blob/master/ROLES.md) document for
-information on how this is done.
+roles](https://github.com/elafros/elafros/blob/master/community/ROLES.md)
+document for information on how this is done.
 
 ## Merging PRs
 
