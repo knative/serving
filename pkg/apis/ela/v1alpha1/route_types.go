@@ -35,14 +35,6 @@ type Route struct {
 	Status RouteStatus `json:"status,omitempty"`
 }
 
-type ServiceType string
-
-const (
-	FunctionService   ServiceType = "function"
-	HttpServerService ServiceType = "httpserver"
-	ContainerService  ServiceType = "container"
-)
-
 type TrafficTarget struct {
 	// Optional name to expose this as an external target
 	// +optional
@@ -71,9 +63,6 @@ type RouteSpec struct {
 	Generation int64 `json:"generation,omitempty"`
 
 	DomainSuffix string `json:"domainSuffix"`
-	// What type of a Service is this
-	//	ServiceType ServiceType `json:"serviceType"`
-	ServiceType string `json:"serviceType"`
 
 	// Specifies the traffic split between Revisions and Configurations
 	Traffic []TrafficTarget `json:"traffic,omitempty"`

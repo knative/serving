@@ -30,8 +30,10 @@ spec:
   #     args: ["echo", "Hello"]
 
   template:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
       containerSpec:
         image: telemetrysample:latest
         args:

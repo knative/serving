@@ -39,7 +39,9 @@ spec:
       - name: IMAGE
         value: &image REPLACE_ME
   template:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
       containerSpec:
         image: *image

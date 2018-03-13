@@ -40,8 +40,10 @@ spec:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/rester-tester
   template:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
       containerSpec:
         image: *image
         env:

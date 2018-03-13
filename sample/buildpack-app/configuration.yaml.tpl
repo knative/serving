@@ -22,7 +22,9 @@ spec:
     #     claimName: buildpack-sample-app-cache
 
   template:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
       containerSpec:
         image: *image
