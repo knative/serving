@@ -20,8 +20,6 @@ Other Documents
 - [Steering Committee](STEERING-COMMITTEE.md) - describes our steering committee
 - [Community Roles](ROLES.md) - describes the roles individuals can assume within the Elafros community
 - [Reviewing and Merging Pull Requests](REVIEWING.md) - how we manage pull requests
-- [Feature Lifecycle](FEATURE-LIFECYCLE.md) - requirements for features to be labeled Alpha, Beta or Stable
-- [Feature Lifecycle Checklist](FEATURE-LIFECYCLE-CHECKLIST.md) - checklist-form of requirements for features to be labeled Alpha, Beta or Stable
 
 ## Introduction
 
