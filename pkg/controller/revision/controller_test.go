@@ -291,7 +291,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 }
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	rev := getTestRevision()
 	h := hooks.NewHooks()
@@ -361,6 +361,18 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 		return hooks.HookComplete
 	})
 
+	// Look for the build failure event
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		if wanted, got := errMessage, event.Message; wanted != got {
+			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
+		}
+		if wanted, got := corev1.EventTypeWarning, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
+		}
+		return hooks.HookComplete
+	})
+
 	// Direct the Revision to wait for this build to complete.
 	elaClient.BuildV1alpha1().Builds("test").Create(bld)
 	rev.Spec.BuildName = bld.Name
@@ -371,11 +383,13 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	}
 }
 
-func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
+	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	rev := getTestRevision()
 	h := hooks.NewHooks()
+
+	completeMessage := "a long human-readable complete message."
 
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
@@ -392,7 +406,7 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 		},
 	}
 
-	// Ensure that the Revision status is updated.\
+	// Ensure that the Revision status i		expectedReason :=s updated.\
 	update := 0
 	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		updatedPr := obj.(*v1alpha1.Revision)
@@ -402,10 +416,13 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			// After the initial update to the revision, we should be
 			// watching for this build to complete, so make it complete.
 			bld.Status = buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
-					Type:   buildv1alpha1.BuildComplete,
-					Status: corev1.ConditionTrue,
-				}},
+				Conditions: []buildv1alpha1.BuildCondition{
+					{
+						Type:    buildv1alpha1.BuildComplete,
+						Status:  corev1.ConditionTrue,
+						Message: completeMessage,
+					},
+				},
 			}
 
 			// This hangs for some reason:
@@ -428,6 +445,18 @@ func TestCreateRevWithCompletedBuildNameFails(t *testing.T) {
 			if want != updatedPr.Status.Conditions[0] {
 				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
 			}
+		}
+		return hooks.HookComplete
+	})
+
+	// Look for the build complete event
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		if wanted, got := "BuildComplete", event.Reason; wanted != got {
+			t.Errorf("unexpected event reason: %q expected: %q", got, wanted)
+		}
+		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
 		}
 		return hooks.HookComplete
 	})
