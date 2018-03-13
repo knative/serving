@@ -17,13 +17,21 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	zipkin "github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
+	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -55,32 +63,131 @@ func main() {
 	flag.Parse()
 	glog.Info("Telemetry sample started.")
 
+	// Zipkin setup
+	reporter := httpreporter.NewReporter("http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans")
+	defer reporter.Close()
+	zipkinEndpoint, err := zipkin.NewEndpoint("TelemetrySample", "localhost:8080")
+	if err != nil {
+		log.Fatalf("Unable to create zipkin local endpoint: %+v\n", err)
+	}
+	zipkinTracer, err := zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(zipkinEndpoint))
+	if err != nil {
+		log.Fatalf("Unable to create zipkin tracer: %+v\n", err)
+	}
+	zipkinMiddleware := zipkinhttp.NewServerMiddleware(zipkinTracer, zipkinhttp.TagResponseSize(true))
+	zipkinClient, err := zipkinhttp.NewClient(zipkinTracer, zipkinhttp.ClientTrace(true))
+	if err != nil {
+		log.Fatalf("Unable to create zipkin HTTP client: %+v\n", err)
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", rootHandler)
+
+	// Use zipkin middleware to handle traces before receiving calls to our handler
+	mux.Handle("/", zipkinMiddleware((rootHandler(zipkinClient))))
+	mux.Handle("/sleep", zipkinMiddleware(http.HandlerFunc(sleepHandler)))
+
+	// Setup Prometheus handler for metrics
 	mux.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":8080", mux)
 }
 
 var statusCodes = [...]int{
 	http.StatusOK,
+	http.StatusCreated,
+	http.StatusAccepted,
 	http.StatusBadRequest,
 	http.StatusUnauthorized,
-	http.StatusInternalServerError,
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	// Pick a random return code
-	status := statusCodes[rand.Intn(len(statusCodes))]
+func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var s string
+		for k, v := range r.Header {
+			s += fmt.Sprintf("[%v: %v], ", k, v)
+		}
+		glog.Infof("TelemetrySample: Request received. Request headers: %v", s)
 
-	defer func(start time.Time) {
-		requestCount.With(prometheus.Labels{"status": fmt.Sprint(status)}).Inc()
-		requestDuration.Observe(time.Since(start).Seconds())
-	}(time.Now())
+		// Pick a random return code
+		status := statusCodes[rand.Intn(len(statusCodes))]
 
-	// Add a random delay to simulate some actual work here
-	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+		defer func(start time.Time) {
+			requestCount.With(prometheus.Labels{"status": fmt.Sprint(status)}).Inc()
+			requestDuration.Observe(time.Since(start).Seconds())
+		}(time.Now())
 
-	w.WriteHeader(status)
-	w.Write([]byte("Hello world!\n"))
-	glog.Infof("Request complete. Status: %v", status)
+		err := callWithNewSpan(
+			r.Context(),
+			client,
+			"http://prometheus-system-np.monitoring.svc.cluster.local:8080",
+			"prometheus")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = callWithNewSpan(
+			r.Context(),
+			client,
+			"http://grafana.monitoring.svc.cluster.local:30802",
+			"grafana")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Ignore this failure!
+		_ = callWithNewSpan(
+			r.Context(),
+			client,
+			"http://invalidurl.svc.cluster.local",
+			"invalid_url")
+
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(status)
+		w.Write([]byte("Hello world!\n"))
+		glog.Infof("Request complete. Status: %v", status)
+	}
+}
+
+func callWithNewSpan(ctx context.Context, client *zipkinhttp.Client, url string, spanName string) error {
+	span := zipkin.SpanFromContext(ctx)
+	req, err := http.NewRequest("GET", url, strings.NewReader(""))
+	if err != nil {
+		glog.Errorf("Request failed: unable to create a new http request: %v", err)
+		return err
+	}
+
+	req = req.WithContext(zipkin.NewContext(req.Context(), span))
+	res, err := client.DoWithAppSpan(req, spanName)
+	if err != nil {
+		glog.Errorf("Request failed: %v", err)
+		return err
+	}
+	defer res.Body.Close()
+	return nil
+}
+
+func sleepHandler(w http.ResponseWriter, r *http.Request) {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		glog.Error("Request failed: unable to read the body: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	i, err := strconv.Atoi(string(b))
+	if err != nil {
+		glog.Error("Request failed: unable to convert the body to int: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	sleepTime := time.Duration(i) * time.Millisecond
+	glog.Infof("Sleeping for %v", sleepTime)
+	time.Sleep(sleepTime)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
 }

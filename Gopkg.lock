@@ -276,6 +276,21 @@
   version = "v1.3.0"
 
 [[projects]]
+  name = "github.com/openzipkin/zipkin-go"
+  packages = [
+    ".",
+    "idgenerator",
+    "middleware/http",
+    "model",
+    "propagation",
+    "propagation/b3",
+    "reporter",
+    "reporter/http"
+  ]
+  revision = "f197ec29e729f226d23370ea60f0e49b8f44ccf4"
+  version = "v0.1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/petar/GoLLRB"
   packages = ["llrb"]
@@ -431,6 +446,12 @@
   ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
+
+[[projects]]
+  name = "google.golang.org/grpc"
+  packages = ["metadata"]
+  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
+  version = "v1.10.0"
 
 [[projects]]
   name = "gopkg.in/go-playground/webhooks.v3"
@@ -749,6 +770,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "be80e965b154f159ff907a022c7620ebcec0e4f4ecf5a0a4fd5e223571d656e0"
+  inputs-digest = "2fc7ad89975e8dd8702f56bfae7659a9fd41fb684cba5da5f29abe8831a6ea40"
   solver-name = "gps-cdcl"
   solver-version = 1
