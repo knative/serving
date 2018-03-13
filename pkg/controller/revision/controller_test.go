@@ -42,6 +42,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	kubetesting "k8s.io/client-go/testing"
 )
 
 func getTestRevision() *v1alpha1.Revision {
@@ -79,13 +80,33 @@ func getTestRevision() *v1alpha1.Revision {
 	}
 }
 
-func newRunningTestController(t *testing.T) (
+func getTestReadyEndpoints(revName string) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-endpoints",
+			Namespace: "test",
+			Labels: map[string]string{
+				"revision": revName,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			corev1.EndpointSubset{
+				Addresses: []corev1.EndpointAddress{
+					corev1.EndpointAddress{
+						IP: "123.456.78.90",
+					},
+				},
+			},
+		},
+	}
+}
+
+func newTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
+	elaInformer informers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -96,18 +117,26 @@ func newRunningTestController(t *testing.T) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
-	// Create a controller and safe cast it to the proper type. This is necessary
-	// because NewController returns controller.Interface.
-	controller, ok := NewController(
+	controller = NewController(
 		kubeClient,
 		elaClient,
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
 	).(*Controller)
-	if !ok {
-		t.Fatal("cast to *Controller failed")
-	}
+
+	return
+}
+
+func newRunningTestController(t *testing.T) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory,
+	stopCh chan struct{}) {
+
+	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
@@ -550,4 +579,95 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
+	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	rev := getTestRevision()
+	h := hooks.NewHooks()
+
+	// Ensure that the Revision status is updated.
+	update := 0
+	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+		updatedPr := obj.(*v1alpha1.Revision)
+		update = update + 1
+		switch update {
+		case 1:
+			// First update, the revision is not ready.
+			want := v1alpha1.RevisionCondition{
+				Type:   "Ready",
+				Status: corev1.ConditionFalse,
+				Reason: "Deploying",
+			}
+			if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
+				t.Errorf("expected conditions to have 1 condition equal to %v", want)
+			}
+
+			endpoints := getTestReadyEndpoints(rev.Name)
+			// Manually trigger the endpoints event.
+			go controller.addEndpointsEvent(endpoints)
+			return hooks.HookIncomplete
+		case 2:
+			// Second update, the revision should be ready.
+			want := v1alpha1.RevisionCondition{
+				Type:   "Ready",
+				Status: corev1.ConditionTrue,
+				Reason: "ServiceReady",
+			}
+			if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
+				t.Errorf("expected conditions to have 1 condition equal to %v", want)
+			}
+		}
+		return hooks.HookComplete
+	})
+
+	// Look for the revision ready event.
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		expectedMessage := "Revision becomes ready upon endpoint 'test-endpoints' becoming ready"
+		if wanted, got := expectedMessage, event.Message; wanted != got {
+			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
+		}
+		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+	// Mark the revision already ready.
+	rev.Status.Conditions = []v1alpha1.RevisionCondition{
+		v1alpha1.RevisionCondition{
+			Type:   "Ready",
+			Status: corev1.ConditionTrue,
+			Reason: "ServiceReady",
+		},
+	}
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	// Create endpoints owned by this Revision.
+	endpoints := getTestReadyEndpoints(rev.Name)
+
+	// No revision updates.
+	elaClient.Fake.PrependReactor("update", "revisions",
+		func(a kubetesting.Action) (bool, runtime.Object, error) {
+			t.Error("Revision was updated unexpectedly")
+			return true, nil, nil
+		},
+	)
+
+	controller.addEndpointsEvent(endpoints)
 }

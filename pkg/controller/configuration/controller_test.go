@@ -197,12 +197,15 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	// Look for the event
+	// Look for the events.
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
 		expectedMessages := "Created Revision:"
 		if !strings.HasPrefix(event.Message, expectedMessages) {
 			t.Errorf("unexpected Message: %q expected beginning with: %q", event.Message, expectedMessages)
+		}
+		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
 		}
 		return hooks.HookComplete
 	})
@@ -322,6 +325,9 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 		}
 		if _, ok := expectedMessages[event.Message]; !ok {
 			t.Errorf("unexpected Message: %q expected one of: %q", event.Message, expectedMessages)
+		}
+		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
 		}
 		// Expect 3 events.
 		if eventNum < 3 {
