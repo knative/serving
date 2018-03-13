@@ -44,6 +44,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
@@ -183,13 +184,12 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 	return rev
 }
 
-func newRunningTestController(t *testing.T) (
+func newTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
+	elaInformer informers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -200,18 +200,26 @@ func newRunningTestController(t *testing.T) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
-	// Create a controller and safe cast it to the proper type. This is necessary
-	// because NewController returns controller.Interface.
-	controller, ok := NewController(
+	controller = NewController(
 		kubeClient,
 		elaClient,
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
 	).(*Controller)
-	if !ok {
-		t.Fatal("cast to *Controller failed")
-	}
+
+	return
+}
+
+func newRunningTestController(t *testing.T) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory,
+	stopCh chan struct{}) {
+
+	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
@@ -227,6 +235,14 @@ func newRunningTestController(t *testing.T) (
 	}()
 
 	return
+}
+
+func keyOrDie(obj interface{}) string {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		panic(err)
+	}
+	return key
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
@@ -286,6 +302,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		if _, ok := expectedMessages[event.Message]; !ok {
 			t.Errorf("unexpected Message: %q expected one of: %q", event.Message, expectedMessages)
 		}
+		// Expect 4 events.
 		if eventNum < 4 {
 			return hooks.HookIncomplete
 		}
@@ -547,9 +564,8 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	}
 }
 
-func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -560,25 +576,73 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 			},
 		},
 	)
+	// Set config's route label with another route name to trigger an error.
+	config.Labels = map[string]string{ela.RouteLabelKey: "another-route"}
 
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := "Configuration test-config already has label elafros.dev/route set to another-route"
+	// No configuration updates.
+	elaClient.Fake.PrependReactor("update", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		t.Error("Configuration was updated unexpectedly")
+		return true, nil, nil
+	})
+
+	// No route updates.
+	elaClient.Fake.PrependReactor("update", "route", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		t.Error("Route was updated unexpectedly")
+		return true, nil, nil
+	})
+
+	// There should be warning event.
+	elaClient.Fake.PrependReactor("create", "events", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		event := a.(kubetesting.CreateActionImpl).Object.(*corev1.Event)
+		if wanted, got := expectedErrMsg, event.Message; wanted != got {
+			t.Errorf("unexpected error: %q expected: %q", got, wanted)
+		}
+		return true, nil, nil
+	})
+
+	// Should return error.
+	err := controller.syncHandler(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+}
+
+func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      100,
+			},
+		},
+	)
 	// Set config's route label with route name to make sure config's label will not be set
 	// by function setLabelForGivenConfigurations.
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
 
-	h := hooks.NewHooks()
 	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
-		// Verify that function setLabelForGivenConfigurations will not update configuration
-		// since we already set the config label.
-		t.Error("There should not update triggered.")
-		return hooks.HookComplete
+	// No configuration updates
+	elaClient.Fake.PrependReactor("update", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		t.Error("Configuration was updated unexpectedly")
+		return true, nil, nil
 	})
 
-	// Sleep for 3 seconds to make sure all functions are done.
-	time.Sleep(time.Second * 3)
+	controller.syncHandler(route.Namespace + "/" + route.Name)
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
