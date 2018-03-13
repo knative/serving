@@ -134,9 +134,11 @@ features try to cover as many variants as reasonably possible. - Modify the
 documentation as necessary. - Verify the entire CI process (building and
 testing) work.
 
-While there may be exceptions, the general rule is that all PRs should be 100%
-complete - meaning they should include all test cases and documentation changes
-related to the change.
+The general rule is that all PRs should be 100% complete - meaning they should
+include all test cases and documentation changes related to the change. A
+significant exception is work-in-progress PRs. These should be indicated by a
+`[WIP]` prefix in the PR title. WIP PRs should not be merged as long as they are
+marked WIP.
 
 When ready, if you have not already done so, sign a [contributor license
 agreement](#contributor-license-agreements) and submit the PR.
