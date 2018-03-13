@@ -389,15 +389,19 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 
 	sc := c.kubeclientset.Core().Services(ns)
 	_, err := sc.Create(service)
+	newlyCreated := true
 	if err != nil {
 		if !apierrs.IsAlreadyExists(err) {
 			glog.Infof("Failed to create service: %s", err)
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service: %s", service.Name)
 			return err
 		}
+		newlyCreated = false
 	}
 	glog.Infof("Created service: %q", service.Name)
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service: %s", service.Name)
+	if newlyCreated {
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service: %s", service.Name)
+	}
 	return nil
 }
 
