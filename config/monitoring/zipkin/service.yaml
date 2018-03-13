@@ -16,6 +16,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: zipkin
+  # istio assumes that zipkin is installed in istio-system namespace - 
+  # we have to install to istio-system until istio allows overriding this behavior.
   namespace: istio-system
 spec:
   ports:

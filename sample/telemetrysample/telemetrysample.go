@@ -62,6 +62,9 @@ func main() {
 	glog.Info("Telemetry sample started.")
 
 	// Zipkin setup
+	// Zipkin is installed in istio-system namespace because istio assumes that zipkin is installed there.
+	// Ideally this value should be config driven, but for demo purposes, we will hardcode it here.
+	// For unit tests, reporter.noopReporter can be used instead of the httpreporter below.
 	reporter := httpreporter.NewReporter("http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans")
 	defer reporter.Close()
 	zipkinEndpoint, err := zipkin.NewEndpoint("TelemetrySample", "localhost:8080")
@@ -72,6 +75,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create zipkin tracer: %+v\n", err)
 	}
+
+	// Zipkin middleware implements an http.Hander that automatically extracts
+	// traces from HTTP headers and intercepts http.ResponseWriter to
+	// the extracted tracing information to the response.
 	zipkinMiddleware := zipkinhttp.NewServerMiddleware(zipkinTracer, zipkinhttp.TagResponseSize(true))
 	zipkinClient, err := zipkinhttp.NewClient(zipkinTracer, zipkinhttp.ClientTrace(true))
 	if err != nil {
@@ -80,10 +87,10 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Use zipkin middleware to handle traces before receiving calls to our handler
+	// Use zipkin middleware to handle traces before receiving calls to our handler.
 	mux.Handle("/", zipkinMiddleware((rootHandler(zipkinClient))))
 
-	// Setup Prometheus handler for metrics
+	// Setup Prometheus handler for metrics.
 	mux.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":8080", mux)
 }
@@ -98,20 +105,27 @@ var statusCodes = [...]int{
 
 func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Write the http request headers to the log for demonstration purposes.
 		var s string
 		for k, v := range r.Header {
 			s += fmt.Sprintf("[%v: %v], ", k, v)
 		}
 		glog.Infof("TelemetrySample: Request received. Request headers: %v", s)
 
-		// Pick a random return code
+		// Pick a random return code - this is used for demonstrating metrics & logs
+		// with different responses.
 		status := statusCodes[rand.Intn(len(statusCodes))]
 
+		// Before existing this method, update requestCount and requestDuration metrics.
 		defer func(start time.Time) {
 			requestCount.With(prometheus.Labels{"status": fmt.Sprint(status)}).Inc()
 			requestDuration.Observe(time.Since(start).Seconds())
 		}(time.Now())
 
+		// Simulate a few extra calls to other services to demostrate the distributed tracing capabilities.
+		// In sequence, call three different other services. For each call, we will create a new span
+		// to track that call in the call graph. See http://opentracing.io/documentation/ for more information
+		// on these concepts.
 		err := callWithNewSpan(
 			r.Context(),
 			client,
@@ -132,7 +146,7 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 			return
 		}
 
-		// Ignore this failure!
+		// Let's call a non-existent URL to demonstrate the failure scenarios in distributed tracing.
 		_ = callWithNewSpan(
 			r.Context(),
 			client,
@@ -147,15 +161,23 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 	}
 }
 
+// Makes an http call with distributed tracing enabled.
 func callWithNewSpan(ctx context.Context, client *zipkinhttp.Client, url string, spanName string) error {
+	// Create a new span to capture a child in the distributed tracing graph.
 	span := zipkin.SpanFromContext(ctx)
+
+	// Create the http request that we will execute with tracing.
 	req, err := http.NewRequest("GET", url, strings.NewReader(""))
 	if err != nil {
 		glog.Errorf("Request failed: unable to create a new http request: %v", err)
 		return err
 	}
 
+	// Change the context of the request to the context from the new span.
 	req = req.WithContext(zipkin.NewContext(req.Context(), span))
+
+	// Make the request using zipkinhttp.Client.DoWithAppSpan.
+	// This wraps http.Client's Do with tracing using the span created above.
 	res, err := client.DoWithAppSpan(req, spanName)
 	if err != nil {
 		glog.Errorf("Request failed: %v", err)
