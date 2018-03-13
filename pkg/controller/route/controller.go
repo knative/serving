@@ -57,16 +57,6 @@ var (
 
 const (
 	controllerAgentName = "route-controller"
-
-	// SuccessSynced is used as part of the Event 'reason' when a Route is synced
-	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a Route fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceSynced is the message used for an Event fired when a Route
-	// is synced successfully
-	MessageResourceSynced = "Route synced successfully"
 )
 
 // RevisionRoute represents a single target to route to.
@@ -338,13 +328,9 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 
-	updated, err := c.syncTrafficTargets(route)
-	if err != nil {
-		return err
-	}
+	_, err = c.syncTrafficTargets(route)
 
-	c.recorder.Event(updated, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
-	return nil
+	return err
 }
 
 // syncTrafficTargets attempts to converge the actual state and desired state
@@ -367,7 +353,7 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 	}
 
 	// Then create the actual route rules.
-	glog.Infof("Creating istio route rules")
+	glog.Infof("Creating Istio route rules")
 	revisionRoutes, err := c.createOrUpdateRoutes(route, configMap, revMap)
 	if err != nil {
 		glog.Infof("Failed to create Routes: %s", err)
@@ -389,15 +375,16 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
+		c.recorder.Event(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update traffic targets")
 		return nil, err
 	}
-
+	c.recorder.Event(route, corev1.EventTypeNormal, "Updated", "Updated traffic targets")
 	return updated, nil
 }
 
-func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) error {
-	service := MakeRouteK8SService(u)
-	serviceRef := metav1.NewControllerRef(u, controllerKind)
+func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) error {
+	service := MakeRouteK8SService(route)
+	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
 
 	sc := c.kubeclientset.Core().Services(ns)
@@ -405,10 +392,12 @@ func (c *Controller) createPlaceholderService(u *v1alpha1.Route, ns string) erro
 	if err != nil {
 		if !apierrs.IsAlreadyExists(err) {
 			glog.Infof("Failed to create service: %s", err)
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service: %s", service.Name)
 			return err
 		}
 	}
 	glog.Infof("Created service: %q", service.Name)
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service: %s", service.Name)
 	return nil
 }
 
@@ -428,8 +417,13 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 			return err
 		}
 		_, createErr := ic.Create(ingress)
+		if createErr != nil {
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %s", ingress.Name)
+			return createErr
+		}
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress: %s", ingress.Name)
 		glog.Infof("Created ingress %q", ingress.Name)
-		return createErr
+		return nil
 	}
 	return nil
 }
@@ -628,14 +622,21 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 		}
 		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
 		_, createErr := routeClient.Create(routeRules)
+		if createErr != nil {
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule: %s", routeRules.Name)
+			return nil, createErr
+		}
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule: %s", routeRules.Name)
 		return revisionRoutes, createErr
 	}
 
 	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
 	_, err = routeClient.Update(routeRules)
 	if err != nil {
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule: %s", routeRules.Name)
 		return nil, err
 	}
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule: %s", routeRules.Name)
 	return revisionRoutes, nil
 }
 
