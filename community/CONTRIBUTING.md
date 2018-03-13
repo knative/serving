@@ -84,10 +84,10 @@ following steps:
 
 -   If the feature is substantial enough:
 
-    -   Working group leads will ask for a design document as outlined in the
-        previous section. Create the design document and add a link to it in the
-        GitHub issue. Don't forget to send a note to the working group to let
-        everyone know your document is ready for review.
+    -   Working group leads will ask for a design document as outlined in
+        [design documents](#design-documents). Create the design document and
+        add a link to it in the GitHub issue. Don't forget to send a note to the
+        working group to let everyone know your document is ready for review.
 
     -   Depending of the breath of the design and how contentious it is, the
         working group leads may decide the feature needs to be discussed in one
