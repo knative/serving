@@ -4,27 +4,32 @@ This document describes the set of roles individuals may have within the Elafros
 community, the requirements of each role, and the privileges that each role
 grants.
 
-* [Role Summary](#role-summary)
-* [Collaborator](#collaborator)
-* [Member](#member)
-* [Reviewer](#reviewer)
-* [Approver](#approver)
-* [Lead](#lead)
-* [Administrator](#administrator)
-* [Vendor](#vendor)
+*   [Role Summary](#role-summary)
+*   [Collaborator](#collaborator)
+*   [Member](#member)
+*   [Reviewer](#reviewer)
+*   [Approver](#approver)
+*   [Lead](#lead)
+*   [Administrator](#administrator)
+*   [Vendor](#vendor)
 
 ## Role Summary
 
-Here is the set of roles we use within the Elafros community, the general responsibilities expected by individuals in each role, the requirements necessary to join or stay in a given role, and the concrete manifestation of the role in terms of permissions and privileges.
+Here is the set of roles we use within the Elafros community, the general
+responsibilities expected by individuals in each role, the requirements
+necessary to join or stay in a given role, and the concrete manifestation of the
+role in terms of permissions and privileges.
 
 <table>
-  <tr>
-    <td>Role</td>
-    <td>Responsibilities</td>
-    <td>Requirements</td>
-    <td>Privileges</td>
-    <td>Scope</td>
-  </tr>
+  <thead>
+    <tr>
+    <th>Role</th>
+    <th>Responsibilities</th>
+    <th>Requirements</th>
+    <th>Privileges</th>
+    <th>Scope</th>
+    </tr>
+  </thead>
 
   <tr>
     <td>Collaborator</td>
@@ -95,21 +100,32 @@ Here is the set of roles we use within the Elafros community, the general respon
 
 ## Collaborator
 
-Individuals may be added as an outside collaborator (with READ access) to a repo in the Elafros GitHub organization without becoming a member. This allows them to be assigned issues and PRs until they become a member, but will not allow tests to be run against their PRs automatically nor allow them to interact with the PR bot.
+Individuals may be added as an outside collaborator (with READ access) to a repo
+in the Elafros GitHub organization without becoming a member. This allows them
+to be assigned issues and PRs until they become a member, but will not allow
+tests to be run against their PRs automatically nor allow them to interact with
+the PR bot.
 
 ### Requirements
 
-* Working on some contribution to the project that would benefit from the ability to have PRs or Issues to be assigned to the contributor
+*   Working on some contribution to the project that would benefit from the
+    ability to have PRs or Issues to be assigned to the contributor
 
-* Sponsored by 1 member
+*   Sponsored by 1 member
 
 ## Member
 
-Established community members are expected to demonstrate their adherence to the principles in this document, familiarity with project organization, roles, policies, procedures, conventions, etc., and technical and/or writing ability.
+Established community members are expected to demonstrate their adherence to the
+principles in this document, familiarity with project organization, roles,
+policies, procedures, conventions, etc., and technical and/or writing ability.
 
-Members are continuously active contributors in the community. They can have issues and PRs assigned to them, participate in working group meetings, and pre-submit tests are automatically run for their PRs. Members are expected to remain active contributors to the community.
+Members are continuously active contributors in the community. They can have
+issues and PRs assigned to them, participate in working group meetings, and
+pre-submit tests are automatically run for their PRs. Members are expected to
+remain active contributors to the community.
 
-All members are encouraged to help with the code review burden, although each PR must be reviewed by an official Approver.
+All members are encouraged to help with the code review burden, although each PR
+must be reviewed by an official Approver.
 
 When reviewing, should focus on code quality and correctness, including testing
 and factoring.
@@ -118,134 +134,157 @@ May also review for more holistic issues, but not a requirement.
 
 ### Requirements
 
-* Has made multiple contributions to the project or community. Contributions may include, but are not limited to:
+*   Has made multiple contributions to the project or community. Contributions
+    may include, but are not limited to:
 
-    * Authoring or reviewing PRs on GitHub
+    *   Authoring or reviewing PRs on GitHub
 
-    * Filing or commenting on issues on GitHub
+    *   Filing or commenting on issues on GitHub
 
-    * Contributing to working group or community discussions
+    *   Contributing to working group or community discussions
 
-* Subscribed to [elafros-dev@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-dev)
+*   Subscribed to
+    [elafros-dev@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-dev)
 
-* Actively contributing to 1 or more areas.
+*   Actively contributing to 1 or more areas.
 
-* Sponsored by 1 approver.
-    * Done by adding GitHub user to Elafros organization
+*   Sponsored by 1 approver.
+
+    *   Done by adding GitHub user to Elafros organization
 
 ### Responsibilities and privileges
 
-* Responsive to issues and PRs assigned to them
+*   Responsive to issues and PRs assigned to them
 
-* Active owner of code they have contributed (unless ownership is explicitly transferred)
+*   Active owner of code they have contributed (unless ownership is explicitly
+    transferred)
 
-    * Code is well tested
+    *   Code is well tested
 
-    * Tests consistently pass
+    *   Tests consistently pass
 
-    * Addresses bugs or issues discovered after code is accepted
+    *   Addresses bugs or issues discovered after code is accepted
 
-Members who frequently contribute code are expected to proactively perform code reviews and work towards becoming an approver for the area that they are active in.
+Members who frequently contribute code are expected to proactively perform code
+reviews and work towards becoming an approver for the area that they are active
+in.
 
 ## Approver
 
-Code approvers are able to both review and approve code contributions. While code review is focused on code quality and correctness, approval is focused on holistic acceptance of a contribution including: backwards / forwards compatibility, adhering to API and flag conventions, subtle performance and correctness issues, interactions with other parts of the system, etc. Approver status is scoped to a part of the codebase.
+Code approvers are able to both review and approve code contributions. While
+code review is focused on code quality and correctness, approval is focused on
+holistic acceptance of a contribution including: backwards / forwards
+compatibility, adhering to API and flag conventions, subtle performance and
+correctness issues, interactions with other parts of the system, etc. Approver
+status is scoped to a part of the codebase.
 
 ### Requirements
 
-The following apply to the part of the codebase for which one would be an approver in an OWNERS file:
+The following apply to the part of the codebase for which one would be an
+approver in an OWNERS file:
 
-* Reviewer of the codebase for at least 3 months
+*   Reviewer of the codebase for at least 3 months
 
-* Primary reviewer for at least 10 substantial PRs to the codebase
+*   Primary reviewer for at least 10 substantial PRs to the codebase
 
-* Reviewed or merged at least 30 PRs to the codebase
+*   Reviewed or merged at least 30 PRs to the codebase
 
-* Nominated by an area lead
+*   Nominated by an area lead
 
-    * With no objections from other leads
+    *   With no objections from other leads
 
-    * Done through PR to update a CODEOWNERS file
+    *   Done through PR to update a CODEOWNERS file
 
 ### Responsibilities and privileges
 
-The following apply to the part of the codebase for which one would be an approver in an CODEOWNERS file:
+The following apply to the part of the codebase for which one would be an
+approver in an CODEOWNERS file:
 
-* Approver status may be a precondition to accepting large code contributions
+*   Approver status may be a precondition to accepting large code contributions
 
-* Demonstrate sound technical judgement
+*   Demonstrate sound technical judgement
 
-* Responsible for project quality control via [code reviews](https://github.com/elafros/community/blob/master/REVIEWING.md)
+*   Responsible for project quality control via [code
+    reviews](https://github.com/elafros/community/blob/master/REVIEWING.md)
 
-    * Focus on holistic acceptance of contribution such as dependencies with other features, backwards / forwards compatibility, API and flag definitions, etc
+    *   Focus on holistic acceptance of contribution such as dependencies with
+        other features, backwards / forwards compatibility, API and flag
+        definitions, etc
 
-* Expected to be responsive to review requests as per [community expectations](https://github.com/elafros/community/blob/master/REVIEWING.md);
+*   Expected to be responsive to review requests as per [community
+    expectations](https://github.com/elafros/community/blob/master/REVIEWING.md);
 
-* Mentor contributors and reviewers
+*   Mentor contributors and reviewers
 
-* May approve code contributions for acceptance
+*   May approve code contributions for acceptance
 
 ## Lead
 
-Working group leads, or just ‘leads’, are approvers of an entire area that have demonstrated good judgement and responsibility. Leads accept design proposals and approve design decisions for their area of ownership.
+Working group leads, or just ‘leads’, are approvers of an entire area that have
+demonstrated good judgement and responsibility. Leads accept design proposals
+and approve design decisions for their area of ownership.
 
 ### Requirements
 
 Getting to be a lead of an existing working group:
 
-* Recognized as having expertise in the group’s subject matter.
+*   Recognized as having expertise in the group’s subject matter.
 
-* Approver for some part of the codebase for at least 3 months
+*   Approver for some part of the codebase for at least 3 months
 
-* Member for at least 1 year (relevant as Elafros ages a bit more)
+*   Member for at least 1 year (relevant as Elafros ages a bit more)
 
-* Primary reviewer for 20 substantial PRs
+*   Primary reviewer for 20 substantial PRs
 
-* Reviewed or merged at least 50 PRs
+*   Reviewed or merged at least 50 PRs
 
-* Sponsored by the technical oversight committee
+*   Sponsored by the technical oversight committee
 
 Establishing the leads for a new working group:
 
-* Originally authored or contributed major functionality to an area
+*   Originally authored or contributed major functionality to an area
 
-* An approver in the top-level OWNERS file for the group’s code
+*   An approver in the top-level OWNERS file for the group’s code
 
-* Approver for some part of the codebase for at least 3 months
+*   Approver for some part of the codebase for at least 3 months
 
-* Member for at least 1 year
+*   Member for at least 1 year
 
-* Primary reviewer for 20 substantial PRs
+*   Primary reviewer for 20 substantial PRs
 
-* Reviewed or merged at least 50 PRs
+*   Reviewed or merged at least 50 PRs
 
-* Sponsored by the technical oversight committee
+*   Sponsored by the technical oversight committee
 
 ### Responsibilities and privileges
 
 The following apply to the area / component for which one would be an owner.
 
-* Run their working group as outlined in the [Working Group Processes](WORKING-GROUP-PROCESSES.md) document.
+*   Run their working group as outlined in the [Working Group
+    Processes](WORKING-GROUP-PROCESSES.md) document.
 
-* Design/proposal approval authority over the area / component, though escalation to the technical oversight committee is possible.
+*   Design/proposal approval authority over the area / component, though
+    escalation to the technical oversight committee is possible.
 
-* Perform issue triage on GitHub.
+*   Perform issue triage on GitHub.
 
-* Apply/remove/create/delete GitHub labels and milestones
+*   Apply/remove/create/delete GitHub labels and milestones
 
-* Write access to repo (assign issues/PRs, add/remove labels and milestones, edit issues and PRs, edit wiki, create/delete labels and milestones)
+*   Write access to repo (assign issues/PRs, add/remove labels and milestones,
+    edit issues and PRs, edit wiki, create/delete labels and milestones)
 
-* Capable of directly applying lgtm + approve labels for any PR
+*   Capable of directly applying lgtm + approve labels for any PR
 
-    * Expected to respect OWNERS files approvals and use standard procedure for merging code
+    *   Expected to respect OWNERS files approvals and use standard procedure
+        for merging code
 
-* Expected to work to holistically maintain the health of the project through:
+*   Expected to work to holistically maintain the health of the project through:
 
-    * Reviewing PRs
+    *   Reviewing PRs
 
-    * Fixing bugs
+    *   Fixing bugs
 
-    * Mentoring and guiding approvers, reviewers, members, and contributors
+    *   Mentoring and guiding approvers, reviewers, members, and contributors
 
 ## Administrator
 
@@ -253,26 +292,30 @@ Administrators are responsible for the bureaucratic aspects of the project.
 
 ### Requirements
 
-* Assigned by technical oversight committee.
+*   Assigned by technical oversight committee.
 
 ### Responsibilities and privileges
 
-* Manage the Elafros GitHub repo, including granting membership and controlling repo read/write permissions
+*   Manage the Elafros GitHub repo, including granting membership and
+    controlling repo read/write permissions
 
-* Manage the Elafros Slack workspace
+*   Manage the Elafros Slack workspace
 
-* Manage the Elafros Google group forums
+*   Manage the Elafros Google group forums
 
-* Manage the Google Search Console settings for elafros.dev
+*   Manage the Google Search Console settings for elafros.dev
 
 ## Vendor
 
-Vendors contribute extensions to the Elafros project in the form of new adapters, translated documentation, interesting examples, etc.
+Vendors contribute extensions to the Elafros project in the form of new
+adapters, translated documentation, interesting examples, etc.
 
 ### Requirements
 
-* Sponsored by a member
+*   Sponsored by a member
 
 ### Responsibilities and privileges
 
-* Each vendor receives access to a subdirectory in the extensions repo, and each directory has got a distinct OWNERS file granting approver & reviewer permissions to the vendor.
+*   Each vendor receives access to a subdirectory in the extensions repo, and
+    each directory has got a distinct OWNERS file granting approver & reviewer
+    permissions to the vendor.

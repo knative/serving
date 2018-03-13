@@ -4,15 +4,15 @@ As a community we believe in the value of code reviews for all contributions.
 Code reviews increase both the quality and readability of our code base, which
 in turn produces high quality software.
 
-This document provides guidelines for how the project's [Members](ROLES.md#member) review
-issues and merge pull requests (PRs).
+This document provides guidelines for how the project's
+[Members](ROLES.md#member) review issues and merge pull requests (PRs).
 
-- [Pull requests welcome](#pull-requests-welcome)
-- [Code reviewers](#code-reviewers)
-- [Reviewing changes](#reviewing-changes)
-  - [Holds](#holds)
-- [Project maintainers](#project-maintainers)
-- [Merging PRs](#merging-prs)
+-   [Pull requests welcome](#pull-requests-welcome)
+-   [Code reviewers](#code-reviewers)
+-   [Reviewing changes](#reviewing-changes)
+    -   [Holds](#holds)
+-   [Project maintainers](#project-maintainers)
+-   [Merging PRs](#merging-prs)
 
 ## Pull requests welcome
 
@@ -22,41 +22,39 @@ Please do not ever hesitate to ask a question or send a PR.
 
 ### Code reviewers
 
-The code review process can introduce latency for contributors
-and additional work for reviewers that can frustrate both parties.
-Consequently, as a community we expect that all active participants in the
-community will also be active reviewers. We ask that active contributors to
-the project participate in the code review process in areas where that
-contributor has expertise.
+The code review process can introduce latency for contributors and additional
+work for reviewers that can frustrate both parties. Consequently, as a community
+we expect that all active participants in the community will also be active
+reviewers. We ask that active contributors to the project participate in the
+code review process in areas where that contributor has expertise.
 
 ## Reviewing changes
 
 Once a PR has been submitted, reviewers should attempt to do an initial review
-to do a quick "triage" (e.g. close duplicates, identify user errors, etc.),
-and potentially identify which maintainers should be the focal points for the
+to do a quick "triage" (e.g. close duplicates, identify user errors, etc.), and
+potentially identify which maintainers should be the focal points for the
 review.
 
-If a PR is closed, without accepting the changes, reviewers are expected
-to provide sufficient feedback to the originator to explain why it is being
-closed.
+If a PR is closed, without accepting the changes, reviewers are expected to
+provide sufficient feedback to the originator to explain why it is being closed.
 
 During a review, PR authors are expected to respond to comments and questions
 made within the PR - updating the proposed change as appropriate.
 
-After a review of the proposed changes, reviewers may either approve
-or reject the PR. To approve they should add an "approved" review to the
-PR. To reject they should add a "request changes" review along with a full
-justification for why they are not in favor of the change. If a PR gets
-a "request changes" vote then this issue should be discussed among
-the group to try to resolve their differences.
+After a review of the proposed changes, reviewers may either approve or reject
+the PR. To approve they should add an "approved" review to the PR. To reject
+they should add a "request changes" review along with a full justification for
+why they are not in favor of the change. If a PR gets a "request changes" vote
+then this issue should be discussed among the group to try to resolve their
+differences.
 
 Because reviewers are often the first points of contact between new members of
 the community and can therefore significantly impact the first impression of the
-Elafros community, reviewers are especially important in shaping the
-community. Reviewers are highly encouraged to review the
-[code of conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md)
-and are strongly encouraged to go above and beyond the code of conduct to
-promote a collaborative and respectful community.
+Elafros community, reviewers are especially important in shaping the community.
+Reviewers are highly encouraged to review the [code of
+conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) and
+are strongly encouraged to go above and beyond the code of conduct to promote a
+collaborative and respectful community.
 
 Reviewers are expected to respond in a timely fashion to PRs that are assigned
 to them. Reviewers are expected to respond to *active* PRs with reasonable
@@ -78,14 +76,15 @@ review, withdraws their hold, or is overruled by a preponderance of approvers.
 Merging of PRs is done by [Approvers](ROLES.md#approver).
 
 Like many open source projects, becoming an Approver is based on contributions
-to the project. Please see our [community roles](https://github.com/elafros/community/blob/master/ROLES.md)
-document for information on how this is done.
+to the project. Please see our [community
+roles](https://github.com/elafros/community/blob/master/ROLES.md) document for
+information on how this is done.
 
 ## Merging PRs
 
 PRs may only be merged after the following criteria are met:
 
-1. It has no "request changes" review from a reviewer.
-1. It has at least one "approved" review by at least one of the approvers of
-   that repository.
-1. It has all appropriate corresponding documentation and tests.
+1.  It has no "request changes" review from a reviewer.
+1.  It has at least one "approved" review by at least one of the approvers of
+    that repository.
+1.  It has all appropriate corresponding documentation and tests.
