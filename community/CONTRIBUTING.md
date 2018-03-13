@@ -89,13 +89,13 @@ following steps:
         add a link to it in the GitHub issue. Don't forget to send a note to the
         working group to let everyone know your document is ready for review.
 
-    -   Depending of the breath of the design and how contentious it is, the
+    -   Depending on the breadth of the design and how contentious it is, the
         working group leads may decide the feature needs to be discussed in one
         or more working group meetings before being approved.
 
     -   Once the major technical issues are resolved and agreed upon, post a
-        note to the working group's mailing list with the design decision and
-        the general execution plan.
+        note with the design decision and the general execution plan to the
+        working group's mailing list and on the feature's issue.
 
 -   Submit PRs to elafros/elafros with your code changes.
 
