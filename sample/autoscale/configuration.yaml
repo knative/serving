@@ -19,7 +19,9 @@ metadata:
   namespace: default
 spec:
   template:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
       containerSpec:
         image: autoscale-sample:latest
