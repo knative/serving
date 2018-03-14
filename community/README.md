@@ -84,4 +84,4 @@ page](https://elafros.dev/help). -->
 
 If you're a developer trying to hack on or use the Elafros code, head to
 [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) or
-[Elafros Slack](#slack-team) for help.
+[Elafros Slack](https://elafros.slack.com) for help.
