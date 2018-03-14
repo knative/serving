@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
-	build "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	build "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
