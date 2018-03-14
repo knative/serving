@@ -31,8 +31,8 @@ Other Documents
 
 ## Introduction
 
-Elafros is an open source specification and implementation of a Kubernetes- and
-Istio-based container platform.
+Elafros is an open source specification and implementation of a serverless
+container platform.
 
 <!-- TODO Visit [elafros.dev](https://elafros.dev) for in-depth information about using
 Elafros. -->
