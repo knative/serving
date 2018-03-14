@@ -23,7 +23,7 @@ OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
 
 function cleanup() {
   export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  bazel clean || true
+  bazel clean --expunge || true
 }
 
 cd ${SCRIPT_ROOT}
@@ -31,7 +31,7 @@ trap cleanup EXIT
 
 # Set the repository to the official one:
 export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
-bazel clean
+bazel clean --expunge
 # TODO(mattmoor): Remove this once we depend on Build CRD releases
 bazel run @buildcrd//:everything > release.yaml
 echo "---" >> release.yaml
