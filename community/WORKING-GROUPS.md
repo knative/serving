@@ -17,7 +17,7 @@ docs and won't need to request access for each of them individually.
 
 The current working groups are:
 
-* [Build & deploy](#build-deploy)
+* [Build & deploy](#build--deploy)
 * [Events](#events)
 * [Scaling](#scaling)
 * [Serving](#serving)
