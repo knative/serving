@@ -36,14 +36,22 @@ import (
 )
 
 var (
+	// Create a counter to keep track of count of incoming requests.
+	// For more information on counters, see https://prometheus.io/docs/concepts/metric_types/
 	requestCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "telemetrysample",
 			Name:      "requests_total",
 			Help:      "Total number of requests.",
 		},
+		// Capture the HTTP response code in a label so that we
+		// can aggregate and visualize this metric based on different
+		// response codes (see count of all 400 vs 200 for example).
 		[]string{"status"},
 	)
+
+	// Create a histogram to observe the request duration in buckets.
+	// For more information on histograms, see https://prometheus.io/docs/concepts/metric_types/
 	requestDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "telemetrysample",
 		Name:      "request_duration_seconds",
@@ -53,6 +61,14 @@ var (
 )
 
 func init() {
+	// Register metrics defined above with the client library.
+	// prometheus.MustRegister doesn't make any external calls to Prometheus.
+	// Instead, it simply validates the correctness of metric definitions and
+	// tells client library to report their values to Promethus during scraping.
+	// If registration fails, MustRegister panics. To prevent a panic, call
+	// Register function instead. However; not failing due to invalid metric
+	// definitions is generally not a good idea as your service will be running
+	// blind without metrics coverage.
 	prometheus.MustRegister(requestCount)
 	prometheus.MustRegister(requestDuration)
 }
@@ -118,7 +134,12 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 
 		// Before returning from this function, update requestCount and requestDuration metrics.
 		defer func(start time.Time) {
+			// Counters only support incrementing. Increment the count by one
+			// to capture the single call.
 			requestCount.With(prometheus.Labels{"status": fmt.Sprint(status)}).Inc()
+
+			// Capture the duration of the call using our histogram metric. Observe will
+			// put the correct values in the correct bucket as configured above.
 			requestDuration.Observe(time.Since(start).Seconds())
 		}(time.Now())
 
