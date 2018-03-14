@@ -52,8 +52,8 @@ Once the `BuildComplete` status becomes `True` the resources will start getting 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
 $ watch kubectl get ing
-NAME                             HOSTS                          ADDRESS    PORTS     AGE
-steren-sample-app-ela-ingress   steren-sample-app.default.demo-domain.net              80        3m
+NAME                             HOSTS                                        ADDRESS    PORTS     AGE
+steren-sample-app-ela-ingress    steren-sample-app.default.demo-domain.net               80        3m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
