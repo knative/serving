@@ -131,10 +131,9 @@ remain active contributors to the community.
 All members are encouraged to help with the code review burden, although each PR
 must be reviewed by an official [Approver](#approver).
 
-When reviewing, should focus on code quality and correctness, including testing
-and factoring.
-
-May also review for more holistic issues, but not a requirement.
+When reviewing, members should focus on code quality and correctness, including
+testing and factoring. Members may also review for more holistic issues, but
+this is not a requirement.
 
 ### Requirements
 
