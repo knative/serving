@@ -44,7 +44,6 @@ const (
 	namespaceName = "pizzaplanet"
 	image1        = "pizzaplanetv1"
 	image2        = "pizzaplanetv2"
-	domain        = "weregoingtopizzaplanet.com"
 	configName    = "prod"
 	routeName     = "pizzaplanet"
 	ingressName   = routeName + "-ela-ingress"
@@ -57,7 +56,6 @@ func route() *v1alpha1.Route {
 			Name:      routeName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			DomainSuffix: domain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
 					Name:              routeName,
@@ -229,7 +227,7 @@ var _ = Describe("Route", func() {
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, revisionName))
 
 			// TODO: The test needs to be able to make a request without needing to retrieve
-			// the ingress manually (i.e. by using the domain directly)
+			// the ingress manually (i.e. by using the host directly)
 			var endpoint string
 			By("Wait for the ingress loadbalancer address to be set")
 			WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress) (bool, error) {
@@ -239,11 +237,13 @@ var _ = Describe("Route", func() {
 				}
 				return false, nil
 			})
-
 			By("Make a request to the Revision that is now deployed and serving traffic")
 			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
 			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
-			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string) (bool, error) {
+			ingress, err := ingressClient.Get(ingressName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			host := ingress.Spec.Rules[0].Host
+			WaitForIngressRequestToHostState(endpoint, host, []int{503, 404}, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
 
@@ -277,7 +277,10 @@ var _ = Describe("Route", func() {
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, newRevisionName))
 
 			By("Wait for the ingress to actually start serving traffic from the newly deployed Revision")
-			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string) (bool, error) {
+			ingress, err = ingressClient.Get(ingressName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			host = ingress.Spec.Rules[0].Host
+			WaitForIngressRequestToHostState(endpoint, host, []int{503, 404}, func(body string) (bool, error) {
 				if body == "Re-energize yourself with a slice of pepperoni!" {
 					// This is the string we are looking for
 					return true, nil

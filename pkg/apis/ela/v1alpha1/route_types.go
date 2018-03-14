@@ -62,8 +62,6 @@ type RouteSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	DomainSuffix string `json:"domainSuffix"`
-
 	// Specifies the traffic split between Revisions and Configurations
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }

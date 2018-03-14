@@ -18,6 +18,7 @@ package route
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"time"
 
@@ -52,6 +53,7 @@ var (
 		Name:      "route_process_item_count",
 		Help:      "Counter to keep track of items in the route work queue",
 	}, []string{"status"})
+	domainSuffix string
 )
 
 const (
@@ -100,6 +102,7 @@ type Controller struct {
 
 func init() {
 	prometheus.MustRegister(routeProcessItemCount)
+	flag.StringVar(&domainSuffix, "domainSuffix", "demo-domain.net", "The domain suffix for routes.")
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -407,7 +410,7 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(route, ns)
+	ingress := MakeRouteIngress(route, ns, domainSuffix)
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 

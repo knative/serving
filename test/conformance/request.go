@@ -36,14 +36,14 @@ const (
 
 // WaitForIngressRequestToDomainState makes requests to address every requestInterval until
 // timeout has passed, or inState returns `true` (indicating it is done) or
-// returns an error. Requests are made with domain spoofed in the `Host` header.
+// returns an error. Requests are made with host spoofed in the `Host` header.
 // Will retry when responses return the HTTP codes in retryableCodes.
-func WaitForIngressRequestToDomainState(address string, domain string, retryableCodes []int, inState func(body string) (bool, error)) {
+func WaitForIngressRequestToHostState(address string, host string, retryableCodes []int, inState func(body string) (bool, error)) {
 	h := http.Client{}
 	req, err := http.NewRequest("GET", address, nil)
 	Expect(err).NotTo(HaveOccurred())
 
-	req.Host = domain
+	req.Host = host
 
 	var body []byte
 	err = wait.PollImmediate(requestInterval, requestTimeout, func() (bool, error) {

@@ -17,6 +17,8 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
+
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -28,12 +30,12 @@ import (
 // MakeRouteIngress creates an ingress rule. This ingress rule targets
 // Istio by using the simple placeholder service name. All the routing actually
 // happens in the route rules.
-func MakeRouteIngress(u *v1alpha1.Route, namespace string) *v1beta1.Ingress {
+func MakeRouteIngress(u *v1alpha1.Route, namespace string, domainSuffix string) *v1beta1.Ingress {
 	// We used to have a distinct service, but in the ela world, use the
 	// name for serviceID too.
 
 	// Construct a hostname that the ingress accepts traffic for.
-	hostRule := u.Spec.DomainSuffix
+	hostRule := fmt.Sprintf("%s.%s.%s", u.Name, u.Namespace, domainSuffix)
 
 	// By default we map to the placeholder service directly.
 	// This would point to 'router' component if we wanted to use

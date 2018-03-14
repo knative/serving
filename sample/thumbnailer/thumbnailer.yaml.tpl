@@ -18,7 +18,6 @@ metadata:
   name: thumb
   namespace: default
 spec:
-  domainSuffix: thumb.googlecustomer.net
   traffic:
   - configurationName: thumbtemplate
     percent: 100

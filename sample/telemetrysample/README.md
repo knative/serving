@@ -3,7 +3,7 @@
 This sample runs a simple web server that makes calls to other in-cluster services
 and responds to requests with "Hello World!".
 The purpose of this sample is to show generating metrics, logs and distributed traces
-(see [Logs and Metrics](../../docs/telemetry.md) for more information). 
+(see [Logs and Metrics](../../docs/telemetry.md) for more information).
 This sample also creates a dedicated Prometheus instances rather than using the one
 that is installed by default as a showcase of installing dedicated Prometheus instances.
 
@@ -42,11 +42,14 @@ telemetrysample-route-ela-ingress   telemetrysample.myhost.net             80   
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.spec.rules[*].host}"`
+
 # Put the Ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
-curl --header 'Host:telemetrysample.myhost.net' http://${SERVICE_IP}
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Hello World!
 ```
 

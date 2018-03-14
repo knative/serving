@@ -141,6 +141,10 @@ kubectl -n default get pods
 The Elafros ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
 
 ```
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get ing thumb-ela-ingress \
+  -o jsonpath="{.spec.rules[*].host}"`
+
 export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
@@ -159,7 +163,7 @@ export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath
 Let's start with a simple `ping` service
 
 ```
-curl -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
+curl -H "Content-Type: application/json" -H "Host: $SERVICE_HOST" \
   http://$SERVICE_IP/ping | jq '.'
 ```
 
@@ -168,14 +172,14 @@ curl -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
 Now the video thumbnail.
 
 ```
-curl -X POST -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
+curl -X POST -H "Content-Type: application/json" -H "Host: $SERVICE_HOST" \
   http://$SERVICE_IP/image -d '{"src":"https://www.youtube.com/watch?v=DjByja9ejTQ"}'  | jq '.'
 ```
 
 You can then download the newly created thumbnail. Make sure to replace the image name with the one returned by the previous service
 
 ```
-curl -H "Host: thumb.googlecustomer.net" \
+curl -H "Host: $SERVICE_HOST" \
   http://$SERVICE_IP/thumb/img_b43ffcc2-0c80-4862-8423-60ec1b4c4926.png > demo.png
 ```
 

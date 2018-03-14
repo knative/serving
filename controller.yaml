@@ -35,6 +35,8 @@ spec:
         - ela-queue:latest
         - "-autoscalerImage"
         - ela-autoscaler:latest
+        - "-domainSuffix"
+        - demo-domain.net
         ports:
         - name: metrics
           containerPort: 9090

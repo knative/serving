@@ -53,11 +53,14 @@ buildpack-sample-app-ela-ingress buildpack-app.example.com                 80   
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get ingress buildpack-sample-app-ela-ingress -o jsonpath="{.spec.rules[*].host}"`
+
 # Put the Ingress IP into an environment variable.
 $ export SERVICE_IP=`kubectl get ingress buildpack-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
-$ curl --header 'Host: buildpack-app.example.com' http://${SERVICE_IP}/
+$ curl --header "Host: $SERVICE_HOST" http://${SERVICE_IP}/
 [response]
 ```
 
