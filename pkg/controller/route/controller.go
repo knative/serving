@@ -636,10 +636,10 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
 	_, err = routeClient.Update(routeRules)
 	if _, err := routeClient.Update(routeRules); err != nil {
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule: %s", routeRules.Name)
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule '%s': %s", routeRules.Name, err)
 		return nil, err
 	}
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule: %s", routeRules.Name)
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule '%s'", routeRules.Name)
 	return revisionRoutes, nil
 }
 
@@ -713,7 +713,6 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	configName := config.Name
 	ns := config.Namespace
 
-	// TODO: Add tests for these early returns
 	if config.Status.LatestReadyRevisionName == "" {
 		glog.Infof("Configuration %s is not ready", configName)
 		return

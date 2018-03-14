@@ -592,7 +592,6 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	expectedErrMsg := "Configuration test-config already has label elafros.dev/route set to another-route"
 	// No configuration updates.
 	elaClient.Fake.PrependReactor("update", "configurations",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
@@ -609,20 +608,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 		},
 	)
 
-	// There should be warning event.
-	elaClient.Fake.PrependReactor("create", "events",
-		func(a kubetesting.Action) (bool, runtime.Object, error) {
-			event := a.(kubetesting.CreateActionImpl).Object.(*corev1.Event)
-			if wanted, got := expectedErrMsg, event.Message; wanted != got {
-				t.Errorf("unexpected error: %q expected: %q", got, wanted)
-			}
-			if wanted, got := corev1.EventTypeWarning, event.Type; wanted != got {
-				t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-			}
-			return true, nil, nil
-		},
-	)
-
+	expectedErrMsg := "Configuration test-config already has label elafros.dev/route set to another-route"
 	// Should return error.
 	err := controller.syncHandler(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
@@ -749,4 +735,45 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+			},
+		},
+	)
+	// If set config.Status.LatestReadyRevisionName = rev.Name, the test should fail.
+	config.Status.LatestCreatedRevisionName = rev.Name
+	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	// No configuration updates
+	elaClient.Fake.PrependReactor("update", "configurations",
+		func(a kubetesting.Action) (bool, runtime.Object, error) {
+			t.Error("Configuration was updated unexpectedly")
+			return true, nil, nil
+		},
+	)
+
+	// No route updates
+	elaClient.Fake.PrependReactor("update", "routes",
+		func(a kubetesting.Action) (bool, runtime.Object, error) {
+			t.Error("Route was updated unexpectedly")
+			return true, nil, nil
+		},
+	)
+
+	controller.addConfigurationEvent(config)
 }
