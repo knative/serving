@@ -6,9 +6,9 @@ Working groups follow the [contributing](CONTRIBUTING.md) guidelines although
 each of these groups may operate a little differently depending on their needs
 and workflow.
 
-When the need arises, a new working group can be created, please contact the
-[elafros-tech-oversight](https://groups.google.com/forum/#!forum/elafros-tech-oversight)
-working group if you think a new group is necessary.
+When the need arises, a new working group can be created. See the [working group
+processes](WORKING-GROUP-PROCESSES.md) for working group proposal and creation
+procedures.
 
 The working groups generate design docs which are kept in a [shared drive](TODO)
 and are available for anyone to read. You have to request access to the drive,
