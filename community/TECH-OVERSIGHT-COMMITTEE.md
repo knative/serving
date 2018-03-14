@@ -86,6 +86,6 @@ the [Steering committee](STEERING-COMMITTEE.md).
 
 &nbsp; | Member | Company | Profile
 ------ | ----- | ------- | -------
-| Matt Moore | Google | [@mattmoor](https://github.com/mattmoor)
-| Ville Aikas | Google | [@vaikas-google](https://github.com/vaikas-google)
-| Evan Anderson | Google | [@evankanderson](https://github.com/evankanderson)
+![Matt Moore](https://github.com/mattmoor.png) | Matt Moore | Google | [@mattmoor](https://github.com/mattmoor)
+![Ville Aikas](https://github.com/vaikas-google.png)| Ville Aikas | Google | [@vaikas-google](https://github.com/vaikas-google)
+![Evan Anderson](https://github.com/evankanderson.png)| Evan Anderson | Google | [@evankanderson](https://github.com/evankanderson)
