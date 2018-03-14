@@ -62,8 +62,9 @@ Reviewers are expected to respond in a timely fashion to PRs that are assigned
 to them. Reviewers are expected to respond to *active* PRs with reasonable
 latency, and if reviewers fail to respond, those PRs may be assigned to other
 reviewers. *Active* PRs are considered those which have a proper CLA (`cla:yes`)
-label and do not need rebase to be merged. PRs that do not have a proper CLA, or
-require a rebase are not considered active PRs.
+label, are not WIP, are passing tests, and do not need rebase to be merged. PRs
+that do not have a proper CLA, are WIP, do not pass tests, or require a rebase
+are not considered active PRs.
 
 ### Holds
 
