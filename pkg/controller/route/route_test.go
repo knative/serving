@@ -73,9 +73,27 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 			Namespace: "test",
 		},
 		Spec: v1alpha1.RouteSpec{
-			Traffic: traffic,
+			DomainSuffix: "example.com",
+			Traffic:      traffic,
 		},
 	}
+}
+
+func getTestRouteWithNamedTargets() *v1alpha1.Route {
+	return getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Name:         "foo",
+				RevisionName: "test-rev",
+				Percent:      50,
+			},
+			v1alpha1.TrafficTarget{
+				Name:              "bar",
+				ConfigurationName: "test-config",
+				Percent:           50,
+			},
+		},
+	)
 }
 
 func getTestRouteWithMultipleTargets() *v1alpha1.Route {
@@ -347,6 +365,15 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 			Destination: v1alpha2.IstioService{
 				Name: "test-route-service",
 			},
+			Match: v1alpha2.Match{
+				Request: v1alpha2.MatchRequest{
+					Headers: v1alpha2.Headers{
+						Authority: v1alpha2.MatchString{
+							Regex: "example.com",
+						},
+					},
+				},
+			},
 			Route: []v1alpha2.DestinationWeight{
 				v1alpha2.DestinationWeight{
 					Destination: v1alpha2.IstioService{
@@ -402,6 +429,15 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		expectedRouteSpec := v1alpha2.RouteRuleSpec{
 			Destination: v1alpha2.IstioService{
 				Name: "test-route-service",
+			},
+			Match: v1alpha2.Match{
+				Request: v1alpha2.MatchRequest{
+					Headers: v1alpha2.Headers{
+						Authority: v1alpha2.MatchString{
+							Regex: "example.com",
+						},
+					},
+				},
 			},
 			Route: []v1alpha2.DestinationWeight{
 				v1alpha2.DestinationWeight{
@@ -462,36 +498,186 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
 		rule := obj.(*v1alpha2.RouteRule)
 
-		expectedRouteSpec := v1alpha2.RouteRuleSpec{
-			Destination: v1alpha2.IstioService{
-				Name: "test-route-service",
-			},
-			Route: []v1alpha2.DestinationWeight{
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "p-deadbeef-service.test",
-					},
-					Weight: 50,
+		// Check the traffic targets are consolidated
+		if rule.Name == "test-route-istio" {
+			expectedRouteSpec := v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
 				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: route.Spec.DomainSuffix,
+							},
+						},
 					},
-					Weight: 15,
 				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "p-deadbeef-service.test",
+						},
+						Weight: 50,
 					},
-					Weight: 20,
-				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 15,
 					},
-					Weight: 15,
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 20,
+					},
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 15,
+					},
 				},
-			},
+			}
+
+			if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+				t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+			}
+		}
+		return hooks.HookComplete
+	})
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRouteWithNamedTargets(t *testing.T) {
+	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithNamedTargets()
+	rev := getTestRevision("test-rev")
+	config := getTestConfiguration()
+	h := hooks.NewHooks()
+
+	// Create a Revision when the Configuration is created to simulate the action
+	// of the Configuration controller, which isn't running during this test.
+	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
+		cfgrev := getTestRevisionForConfig(cfg)
+		// This must be a goroutine to avoid deadlocking the Fake fixture
+		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
+		// Set LatestReadyRevisionName to this revision
+		cfg.Status.LatestReadyRevisionName = cfgrev.Name
+		// Return the modified Configuration so the object passed to later reactors
+		// (including the fixture reactor) has our Status mutation
+		return false, cfg, nil
+	})
+
+	// Ingress is created with the domain suffix and wildcard domain
+	expectedIngressHostnames := []string{"example.com", "*.example.com"}
+	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
+		i := obj.(*v1beta1.Ingress)
+		ingressHostnames := []string{}
+		for _, rule := range i.Spec.Rules {
+			ingressHostnames = append(ingressHostnames, rule.Host)
+		}
+
+		if diff := cmp.Diff(expectedIngressHostnames, ingressHostnames); diff != "" {
+			t.Errorf("Unexpected ingress spec diff (-want +got): %v", diff)
+		}
+		return hooks.HookComplete
+	})
+
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
+		var expectedRouteSpec v1alpha2.RouteRuleSpec
+		rule := obj.(*v1alpha2.RouteRule)
+
+		if rule.Name == "test-route-istio" {
+			// Expects authority header to be the domain suffix
+			expectedRouteSpec = v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
+				},
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: "example.com",
+							},
+						},
+					},
+				},
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 50,
+					},
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "p-deadbeef-service.test",
+						},
+						Weight: 50,
+					},
+				},
+			}
+		} else if rule.Name == "test-route-foo-istio" {
+			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
+			// weights 100% of the traffic to the specified traffic target's revision.
+			expectedRouteSpec = v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
+				},
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: "foo.example.com",
+							},
+						},
+					},
+				},
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 100,
+					},
+				},
+			}
+		} else if rule.Name == "test-route-bar-istio" {
+			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
+			// weights 100% of the traffic to the specified traffic target's revision.
+			expectedRouteSpec = v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
+				},
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: "bar.example.com",
+							},
+						},
+					},
+				},
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "p-deadbeef-service.test",
+						},
+						Weight: 100,
+					},
+				},
+			}
 		}
 
 		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {

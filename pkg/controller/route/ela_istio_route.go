@@ -17,6 +17,8 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
+
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -44,6 +46,15 @@ func MakeRouteIstioSpec(route *v1alpha1.Route, revisionRoutes []RevisionRoute) i
 		Destination: istiov1alpha2.IstioService{
 			Name: placeHolderK8SServiceName,
 		},
+		Match: istiov1alpha2.Match{
+			Request: istiov1alpha2.MatchRequest{
+				Headers: istiov1alpha2.Headers{
+					Authority: istiov1alpha2.MatchString{
+						Regex: u.Spec.DomainSuffix,
+					},
+				},
+			},
+		},
 		Route: destinationWeights,
 	}
 }
@@ -64,4 +75,57 @@ func MakeRouteIstioRoutes(route *v1alpha1.Route, revisionRoutes []RevisionRoute)
 		Spec: MakeRouteIstioSpec(route, revisionRoutes),
 	}
 	return r
+}
+
+// MakeTrafficTargetIstioRoutes creates Istio route for named traffic targets
+func MakeTrafficTargetIstioRoutes(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
+	r := &istiov1alpha2.RouteRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      controller.GetTrafficTargetElaIstioRouteRuleName(u, tt),
+			Namespace: ns,
+			Labels: map[string]string{
+				"route":         u.Name,
+				"traffictarget": tt.Name,
+			},
+		},
+		Spec: MakeTrafficTargetRouteIstioSpec(u, tt, ns, routes),
+	}
+	serviceRef := metav1.NewControllerRef(u, controllerKind)
+	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
+	return r
+}
+
+// MakeTrafficTargetRouteIstioSpec creates Istio route for named traffic targets
+func MakeTrafficTargetRouteIstioSpec(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
+	var istioServiceName string
+
+	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
+	for _, r := range routes {
+		if r.Name == tt.Name {
+			istioServiceName = r.Service
+		}
+	}
+
+	return istiov1alpha2.RouteRuleSpec{
+		Destination: istiov1alpha2.IstioService{
+			Name: placeHolderK8SServiceName,
+		},
+		Match: istiov1alpha2.Match{
+			Request: istiov1alpha2.MatchRequest{
+				Headers: istiov1alpha2.Headers{
+					Authority: istiov1alpha2.MatchString{
+						Regex: fmt.Sprintf("%s.%s", tt.Name, u.Spec.DomainSuffix),
+					},
+				},
+			},
+		},
+		Route: []istiov1alpha2.DestinationWeight{
+			istiov1alpha2.DestinationWeight{
+				Destination: istiov1alpha2.IstioService{
+					Name: istioServiceName,
+				},
+				Weight: 100,
+			},
+		},
+	}
 }

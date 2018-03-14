@@ -614,6 +614,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
+	// Create route rule for domain suffix
 	routeRuleName := controller.GetElaIstioRouteRuleName(route)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 	if err != nil {
@@ -636,6 +637,27 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		return nil, err
 	}
 	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
+
+	// Create route rule for named traffic targets
+	for _, tt := range route.Spec.Traffic {
+		if tt.Name != "" {
+			routeRuleName := controller.GetTrafficTargetElaIstioRouteRuleName(route, tt)
+			routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
+			if err != nil {
+				if !apierrs.IsNotFound(err) {
+					return nil, err
+				}
+				routeRules = MakeTrafficTargetIstioRoutes(route, tt, ns, revisionRoutes)
+				_, createErr := routeClient.Create(routeRules)
+				return revisionRoutes, createErr
+			}
+			routeRules.Spec = MakeTrafficTargetRouteIstioSpec(route, tt, ns, revisionRoutes)
+			_, err = routeClient.Update(routeRules)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return revisionRoutes, nil
 }
 

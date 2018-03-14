@@ -17,6 +17,8 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
+
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -28,7 +30,23 @@ import (
 // MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
 // targets Istio by using the simple placeholder service name. All the routing actually happens in
 // the route rules.
-func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
+func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1beta1.Ingress {
+	// We used to have a distinct service, but in the ela world, use the
+	// name for serviceID too.
+
+	// Construct hostnames the ingress accepts traffic for. If traffic targets
+	// are named, allow the wildcard dns record as well.
+	hostRules := []string{u.Spec.DomainSuffix}
+	appendWildcardDNS := false
+	for _, tt := range u.Spec.Traffic {
+		if tt.Name != "" {
+			appendWildcardDNS = true
+		}
+	}
+	if appendWildcardDNS {
+		hostRules = append(hostRules, fmt.Sprintf("*.%s", u.Spec.DomainSuffix))
+	}
+
 	// By default we map to the placeholder service directly.
 	// This would point to 'router' component if we wanted to use
 	// this method for 0->1 case.
@@ -40,14 +58,26 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 		},
 	}
+<<<<<<< HEAD
 	rules := []v1beta1.IngressRule{v1beta1.IngressRule{
 		Host: route.Status.Domain,
 		IngressRuleValue: v1beta1.IngressRuleValue{
 			HTTP: &v1beta1.HTTPIngressRuleValue{
 				Paths: []v1beta1.HTTPIngressPath{path},
+=======
+
+	rules := []v1beta1.IngressRule{}
+	for _, hostRule := range hostRules {
+		rule := v1beta1.IngressRule{
+			Host: hostRule,
+			IngressRuleValue: v1beta1.IngressRuleValue{
+				HTTP: &v1beta1.HTTPIngressRuleValue{
+					Paths: []v1beta1.HTTPIngressPath{path},
+				},
+>>>>>>> Create routes for named traffic targets
 			},
-		},
-	},
+		}
+		rules = append(rules, rule)
 	}
 
 	return &v1beta1.Ingress{
