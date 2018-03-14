@@ -111,6 +111,9 @@ type Controller struct {
 
 func init() {
 	prometheus.MustRegister(routeProcessItemCount)
+	// Add ela types to the default Kubernetes Scheme so Events can be
+	// logged for ela types.
+	elascheme.AddToScheme(scheme.Scheme)
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -134,9 +137,6 @@ func NewController(
 	configInformer := elaInformerFactory.Elafros().V1alpha1().Configurations()
 
 	// Create event broadcaster
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)

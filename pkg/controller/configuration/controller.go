@@ -52,6 +52,12 @@ const controllerAgentName = "configuration-controller"
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
+func init() {
+	// Add ela types to the default Kubernetes Scheme so Events can be
+	// logged for ela types.
+	elascheme.AddToScheme(scheme.Scheme)
+}
+
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -91,9 +97,6 @@ func NewController(
 	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	// Create event broadcaster
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)

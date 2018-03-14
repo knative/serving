@@ -92,6 +92,9 @@ var (
 func init() {
 	prometheus.MustRegister(revisionProcessItemCount)
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
+	// Add ela types to the default Kubernetes Scheme so Events can be
+	// logged for ela types.
+	elascheme.AddToScheme(scheme.Scheme)
 }
 
 // Helper to make sure we log error messages returned by Reconcile().
@@ -150,9 +153,6 @@ func NewController(
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	// Create event broadcaster
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
