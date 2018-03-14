@@ -11,7 +11,6 @@ grants.
 *   [Approver](#approver)
 *   [Lead](#lead)
 *   [Administrator](#administrator)
-*   [Vendor](#vendor)
 
 ## Role Summary
 
@@ -307,18 +306,3 @@ Administrators are responsible for the bureaucratic aspects of the project.
 *   Manage the Elafros Google group forums
 
 *   Manage the Google Search Console settings for elafros.dev
-
-## Vendor
-
-Vendors contribute extensions to the Elafros project in the form of new
-adapters, translated documentation, interesting examples, etc.
-
-### Requirements
-
-*   Sponsored by a member
-
-### Responsibilities and privileges
-
-*   Each vendor receives access to a subdirectory in the extensions repo, and
-    each directory has got a distinct OWNERS file granting approver & reviewer
-    permissions to the vendor.
