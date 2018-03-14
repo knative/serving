@@ -8,6 +8,7 @@ This document provides guidelines for how the project's
 [Members](ROLES.md#member) review issues and merge pull requests (PRs).
 
 -   [Pull requests welcome](#pull-requests-welcome)
+-   [Code of Conduct](#code-of-conduct)
 -   [Code reviewers](#code-reviewers)
 -   [Reviewing changes](#reviewing-changes)
     -   [Holds](#holds)
@@ -20,7 +21,16 @@ First and foremost: as a potential contributor, your changes and ideas are
 welcome at any hour of the day or night, weekdays, weekends, and holidays.
 Please do not ever hesitate to ask a question or send a PR.
 
-### Code reviewers
+## Code of Conduct
+
+Because reviewers are often the first points of contact between new members of
+the community and can therefore significantly impact the first impression of the
+Elafros community, reviewers are especially important in shaping the community.
+Reviewers are highly encouraged to review the [code of
+conduct](CODE-OF-CONDUCT.md) and are strongly encouraged to go above and beyond
+the code of conduct to promote a collaborative and respectful community.
+
+## Code reviewers
 
 The code review process can introduce latency for contributors and additional
 work for reviewers that can frustrate both parties. Consequently, as a community
@@ -35,7 +45,7 @@ to do a quick "triage" (e.g. close duplicates, identify user errors, etc.), and
 potentially identify which maintainers should be the focal points for the
 review.
 
-If a PR is closed, without accepting the changes, reviewers are expected to
+If a PR is closed without accepting the changes, reviewers are expected to
 provide sufficient feedback to the originator to explain why it is being closed.
 
 During a review, PR authors are expected to respond to comments and questions
@@ -47,14 +57,6 @@ they should add a "request changes" review along with a full justification for
 why they are not in favor of the change. If a PR gets a "request changes" vote
 then this issue should be discussed among the group to try to resolve their
 differences.
-
-Because reviewers are often the first points of contact between new members of
-the community and can therefore significantly impact the first impression of the
-Elafros community, reviewers are especially important in shaping the community.
-Reviewers are highly encouraged to review the [code of
-conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) and
-are strongly encouraged to go above and beyond the code of conduct to promote a
-collaborative and respectful community.
 
 Reviewers are expected to respond in a timely fashion to PRs that are assigned
 to them. Reviewers are expected to respond to *active* PRs with reasonable
