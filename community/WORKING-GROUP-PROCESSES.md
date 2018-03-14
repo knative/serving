@@ -113,8 +113,11 @@ Some working groups are ephemeral or naturally reach the end of their useful
 life. Working group leads can petition to dissolve their working groups by
 emailing
 [elafros-tech-oversight@googlegroups.com](mailto:elafros-tech-oversight@googlegroups.com).
-The technical oversight committee also reserves the right to dissolve or
-recharter working groups over time as necessary.
+The technical oversight committee takes ownership of any artifacts created or
+owned by the dissolved working group. The technical oversight committee also
+reserves the right to dissolve or recharter working groups over time as
+necessary, though they will strive to first discuss this in committee meetings
+and open community discussion.
 
 ## Leads
 
