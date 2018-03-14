@@ -238,11 +238,11 @@ var _ = Describe("Route", func() {
 				return false, nil
 			})
 			By("Make a request to the Revision that is now deployed and serving traffic")
-			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
-			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
 			ingress, err := ingressClient.Get(ingressName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			host := ingress.Spec.Rules[0].Host
+			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
+			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
 			WaitForIngressRequestToHostState(endpoint, host, []int{503, 404}, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
