@@ -84,7 +84,8 @@ Document Folder            | [Folder](TODO)
 The members of the TOC are shown below. Membership in the TOC is determined by
 the [Steering committee](STEERING-COMMITTEE.md).
 
-&nbsp; | Leads | Company | Profile
+&nbsp; | Member | Company | Profile
 ------ | ----- | ------- | -------
-
-TODO
+| Matt Moore | Google | [@mattmoor](https://github.com/mattmoor)
+| Ville Aikas | Google | [@vaikas-google](https://github.com/vaikas-google)
+| Evan Anderson | Google | [@evankanderson](https://github.com/evankanderson)
