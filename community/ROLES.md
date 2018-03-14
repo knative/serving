@@ -129,7 +129,7 @@ pre-submit tests are automatically run for their PRs. Members are expected to
 remain active contributors to the community.
 
 All members are encouraged to help with the code review burden, although each PR
-must be reviewed by an official Approver.
+must be reviewed by an official [Approver](#approver).
 
 When reviewing, should focus on code quality and correctness, including testing
 and factoring.
