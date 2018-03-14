@@ -78,6 +78,15 @@ func main() {
 	glog.Info("Telemetry sample started.")
 
 	// Zipkin setup
+	// If your service only calls services in the local cluster and if those services are
+	// behind istio-proxy (all revisions are behind istio-proxy), then Zipkin setup below
+	// is not needed. All that you need is to extract the following headers from incoming
+	// requests and copy them to your outgoing requests.
+	// x-request-id, x-b3-traceid, x-b3-spanid, x-b3-parentspanid, x-b3-sampled, x-b3-flags, x-ot-span-context
+	//
+	// For richer instrumentation, or to instrument calls that are mad to services not behind
+	// istio-proxy, you can instrument the code using Zipkin's Go client library:
+	//
 	// Zipkin is installed in istio-system namespace because istio assumes that zipkin is installed there.
 	// Ideally this value should be config driven, but for demo purposes, we will hardcode it here.
 	// For unit tests, reporter.noopReporter can be used instead of the httpreporter below.
