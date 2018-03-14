@@ -42,14 +42,18 @@ Elafros. -->
 Elafros is an open source project with an active development community. The
 project was started by Google.
 
-## Community meeting
+## Slack team
+
+Real-time Elafros discussion is available at https://elafros.slack.com.
+
+<!-- TODO ## Community meeting
 
 We have [PUBLIC](TODO) and [RECORDED](TODO) bi-weekly community meetings every
 other TODO. Meeting agendas and notes can be accessed in the [working
 doc](TODO).
 
 Map that to your local time with this [timezone
-table](https://www.google.com/search?q=TODO).
+table](https://www.google.com/search?q=TODO). -->
 
 ## How can I help ?
 
@@ -79,4 +83,5 @@ we could use your help in spiffing up our public-facing web site.
 page](https://elafros.dev/help). -->
 
 If you're a developer trying to hack on or use the Elafros code, head to
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) for help.
+[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) or
+[Elafros Slack](#slack-team) for help.
