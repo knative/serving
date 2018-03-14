@@ -184,7 +184,7 @@ status is scoped to a part of the codebase.
 ### Requirements
 
 The following apply to the part of the codebase for which one would be an
-approver in an OWNERS file:
+approver in a CODEOWNERS file:
 
 *   Reviewer of the codebase for at least 3 months
 
@@ -201,7 +201,7 @@ approver in an OWNERS file:
 ### Responsibilities and privileges
 
 The following apply to the part of the codebase for which one would be an
-approver in an CODEOWNERS file:
+approver in a CODEOWNERS file:
 
 *   Approver status may be a precondition to accepting large code contributions
 
@@ -247,7 +247,7 @@ Establishing the leads for a new working group:
 
 *   Originally authored or contributed major functionality to an area
 
-*   An approver in the top-level OWNERS file for the group’s code
+*   An approver in the CODEOWNERS file for the group’s code
 
 *   Approver for some part of the codebase for at least 3 months
 
@@ -278,8 +278,8 @@ The following apply to the area / component for which one would be an owner.
 
 *   Capable of directly applying lgtm + approve labels for any PR
 
-    *   Expected to respect OWNERS files approvals and use standard procedure
-        for merging code
+    *   Expected to respect CODEOWNERS files approvals and use standard
+        procedure for merging code
 
 *   Expected to work to holistically maintain the health of the project through:
 
