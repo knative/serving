@@ -53,7 +53,7 @@ product and design decisions.
 The TOC’s work includes:
 
 *   Regular committee meetings to discuss hot topics, resulting in a set of
-    published meeting notes.
+    published [meeting notes](TODO).
 
 *   Create, review, approve and publish technical project governance documents.
 
