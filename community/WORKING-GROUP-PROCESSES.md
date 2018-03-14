@@ -121,10 +121,11 @@ and open community discussion.
 
 ## Leads
 
-Each working group must have 2 or 3 leads, with at least two different
-organizations represented. Working group leads must be Members of the Elafros
-project (that is, have made multiple contributions to the project in the form of
-code, design, or documentation).
+Each working group must have at least 2 leads, ideally 3. Working groups should
+strive to include representatives from multiple organizations as both leads and
+members. Working group leads must be Members of the Elafros project (that is,
+have made multiple contributions to the project in the form of code, design, or
+documentation).
 
 Please see the [Community
 Roles](https://github.com/elafros/elafros/blob/master/community/ROLES.md)
