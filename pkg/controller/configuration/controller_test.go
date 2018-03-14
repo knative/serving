@@ -200,7 +200,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	// Look for the events.
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
-		expectedMessages := "Created Revision:"
+		expectedMessages := "Created Revision "
 		if !strings.HasPrefix(event.Message, expectedMessages) {
 			t.Errorf("unexpected Message: %q expected beginning with: %q", event.Message, expectedMessages)
 		}
@@ -319,7 +319,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
 		eventNum = eventNum + 1
-		if strings.HasPrefix(event.Message, "Created Revision:") {
+		if strings.HasPrefix(event.Message, "Created Revision ") {
 			// The first revision created event.
 			return hooks.HookIncomplete
 		}

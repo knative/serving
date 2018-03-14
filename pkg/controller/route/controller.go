@@ -353,8 +353,8 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 	}
 
 	// Then create the actual route rules.
-	glog.Infof("Creating Istio route rules")
-	revisionRoutes, err := c.createOrUpdateRoutes(route, configMap, revMap)
+	glog.Info("Creating Istio route rules")
+	revisionRoutes, err := c.createOrUpdateRouteRules(route, configMap, revMap)
 	if err != nil {
 		glog.Infof("Failed to create Routes: %s", err)
 		return nil, err
@@ -375,10 +375,10 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
-		c.recorder.Event(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update traffic targets")
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route '%s': %s", route.Name, err)
 		return nil, err
 	}
-	c.recorder.Event(route, corev1.EventTypeNormal, "Updated", "Updated traffic targets")
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route '%s'", route.Name)
 	return updated, nil
 }
 
@@ -388,19 +388,19 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
 
 	sc := c.kubeclientset.Core().Services(ns)
-	_, err := sc.Create(service)
+
 	newlyCreated := true
-	if err != nil {
+	if _, err := sc.Create(service); err != nil {
 		if !apierrs.IsAlreadyExists(err) {
 			glog.Infof("Failed to create service: %s", err)
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service: %s", service.Name)
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service '%s': %s", service.Name, err)
 			return err
 		}
 		newlyCreated = false
 	}
 	glog.Infof("Created service: %q", service.Name)
 	if newlyCreated {
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service: %s", service.Name)
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service '%s'", service.Name)
 	}
 	return nil
 }
@@ -415,17 +415,15 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
-	_, err := ic.Get(ingressName, metav1.GetOptions{})
-	if err != nil {
+	if _, err := ic.Get(ingressName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return err
 		}
-		_, createErr := ic.Create(ingress)
-		if createErr != nil {
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %s", ingress.Name)
-			return createErr
+		if _, err := ic.Create(ingress); err != nil {
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress '%s': %s", ingress.Name, err)
+			return err
 		}
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress: %s", ingress.Name)
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress '%s'", ingress.Name)
 		glog.Infof("Created ingress %q", ingress.Name)
 		return nil
 	}
@@ -453,7 +451,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 			revName := tt.RevisionName
 			rev, err := revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
-				glog.Infof("Failed to fetch Revison %s: %s", revName, err)
+				glog.Infof("Failed to fetch Revision %s: %s", revName, err)
 				return nil, nil, err
 			}
 			revMap[revName] = rev
@@ -598,7 +596,7 @@ func (c *Controller) computeRevisionRoutes(
 	return ret, nil
 }
 
-func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	// grab a client that's specific to RouteRule.
 	ns := route.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
@@ -627,11 +625,11 @@ func (c *Controller) createOrUpdateRoutes(route *v1alpha1.Route, configMap map[s
 			return nil, err
 		}
 		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
-		if _, createErr := routeClient.Create(routeRules); createErr != nil {
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule: %s", routeRules.Name)
-			return nil, createErr
+		if _, err := routeClient.Create(routeRules); err != nil {
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule '%s': %s", routeRules.Name, err)
+			return nil, err
 		}
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule: %s", routeRules.Name)
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule '%s'", routeRules.Name)
 		return revisionRoutes, nil
 	}
 

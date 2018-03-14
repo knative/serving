@@ -294,11 +294,11 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
-			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build: %s", build.Name)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build '%s': %s", build.Name, err)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
-		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build: %s", created.Name)
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build '%s'", created.Name)
 		spec.BuildName = created.Name
 	}
 
@@ -328,10 +328,10 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %s", rev.Name)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision '%s': %s", rev.Name, err)
 		return err
 	}
-	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision: %s", rev.Name)
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision '%s'", rev.Name)
 	glog.Infof("Created Revision:\n%+v", created)
 
 	// Update the Status of the configuration with the latest generation that
