@@ -32,14 +32,18 @@ time curl --header 'Host:autoscale.myhost.net' http://${SERVICE_IP?}/primes/4000
 Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
 
 ```shell
-kubectl delete namespace hey --ignore-not-found && kubectl create namespace hey
-for i in `seq 2 2 60`; do
-  kubectl -n hey run hey-$i --image josephburnett/hey --restart Never -- \
-    -n 999999 -c $i -z 2m -host 'autoscale.myhost.net' \
-    "http://${SERVICE_IP?}/primes/40000000"
-  sleep 1
+for i in `seq 10 10 1000`; do
+  kubectl run wrk-$i \
+    --image josephburnett/wrk2:latest \
+    --restart Never \
+    --image-pull-policy=Always \
+    -l "app=wrk" -n wrk \
+    -- \
+    -c10 -t10 -d10m -R1000 -s /wrk2/scripts/points.lua \
+    -H 'Host: autoscale.myhost.net' \
+    "http://${SERVICE_IP}/primes/40000000"
+  sleep 2
 done
-watch kubectl get pods -n hey --show-all
 ```
 
 Watch the Elafros deployment pod count increase.
@@ -51,7 +55,7 @@ watch kubectl get deploy
 Look at the latency, requests/sec and success rate of each pod.
 
 ```shell
-for i in `seq 4 4 120`; do kubectl -n hey logs hey-$i ; done | less
+kubectl logs -n wrk -l "app=wrk" | awk ' /===DATA_POINT===/ { sum[$2] += $3; count[$2]++ } END { for (sec in sum) print sec " " sum[sec] / count[sec] }'
 ```
 
 ## Cleanup
