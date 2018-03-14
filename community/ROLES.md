@@ -305,4 +305,4 @@ Administrators are responsible for the bureaucratic aspects of the project.
 
 *   Manage the Elafros Google group forums
 
-*   Manage the Google Search Console settings for elafros.dev
+<!-- * TODO Manage the Google Search Console settings for elafros.dev -->
