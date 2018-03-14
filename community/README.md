@@ -7,7 +7,7 @@ improving docs, giving talks, etc.
 
 -   [Introduction](#introduction)
 -   [Elafros authors](#elafros-authors)
--   [Community meeting](#community-meeting)
+-   [Slack team](#slack-team)
 -   [How can I help?](#how-can-i-help-)
 -   [Questions and issues](#questions-and-issues)
 
