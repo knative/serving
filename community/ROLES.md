@@ -63,7 +63,9 @@ role in terms of permissions and privileges.
         <p>Approve contributions from other members</p>
     </td>
     <td>Highly experienced and active reviewer and contributor to an area</td>
-    <td>Entry in one or more CODEOWNERS files in GitHub, and write permissions on one or more repos allowing PRs to be merged.</td>
+    <td>Entry in one or more CODEOWNERS files in GitHub, and write permissions
+        on one or more repos allowing PRs to be merged.
+    </td>
     <td>GitHub Directory</td>
   </tr>
 
@@ -74,7 +76,9 @@ role in terms of permissions and privileges.
         <p>Triage incoming issues, set milestones, repo labels</p>
         <p>Run their working group</p>
     </td>
-    <td>Sponsored by the technical oversight committee as documented <a href="./WORKING-GROUP-PROCESSES.md">here</a></td>
+    <td>Sponsored by the technical oversight committee as documented
+        <a href="./WORKING-GROUP-PROCESSES.md">here</a>.
+    </td>
     <td>Write permissions on one or more repos allowing issues to be manipulated.</td>
     <td>Working Group</td>
   </tr>
