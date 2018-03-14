@@ -124,7 +124,7 @@ principles in this document, familiarity with project organization, roles,
 policies, procedures, conventions, etc., and technical and/or writing ability.
 
 Members are continuously active contributors in the community. They can have
-issues and PRs assigned to them, participate in working group meetings, and
+issues and PRs assigned to them, may participate in working group meetings, and
 pre-submit tests are automatically run for their PRs. Members are expected to
 remain active contributors to the community.
 
