@@ -73,8 +73,8 @@ during the community feedback period at the end of each meeting.
 
 Artifact                   | Link
 -------------------------- | ----
-Forum                      | [elafros-tech-oversight@](https://groups.google.com/forum/#!forum/elafros-tech-oversight)
-Community Meeting VC       | [Friday at 10:00 PT - weekly](TODO)
+Google Group               | [elafros-tech-oversight@](https://groups.google.com/forum/#!forum/elafros-tech-oversight)
+Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
 Document Folder            | [Folder](TODO)
