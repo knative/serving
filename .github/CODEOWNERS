@@ -2,6 +2,10 @@
 # Default ownership until delegated
 # * @evankanderson @mattmoor @vaikas-google
 
+# To allow automatic PR merging by prow, update any corresponding
+# OWNERS files in the relevant directories whenever CODEOWNERS is
+# updated.
+
 ### Component-level ownerships
 
 # API governance.
