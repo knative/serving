@@ -277,7 +277,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing %q: %vs", key, err), controller.PromLabelValueFailure
+			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
@@ -471,10 +471,10 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 		namespace, name := splitKey(k)
 		rev, err := c.lister.Revisions(namespace).Get(name)
 		if err != nil {
-			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
+			glog.Errorf("Error fetching revision %q/%q upon build completion: %v", namespace, name, err)
 		}
 		if err := c.markBuildComplete(rev, cond); err != nil {
-			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
+			glog.Errorf("Error marking build completion for %q/%q: %v", namespace, name, err)
 		}
 	}
 
