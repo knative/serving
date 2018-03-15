@@ -312,8 +312,8 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 
 	// Look for the event
 	expectedMessages := map[string]struct{}{
-		"Configuration becomes ready":                        struct{}{},
-		"LatestReadyRevisionName is updated to \"test-rev\"": struct{}{},
+		"Configuration becomes ready":                     struct{}{},
+		"LatestReadyRevisionName updated to \"test-rev\"": struct{}{},
 	}
 	eventNum := 0
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {

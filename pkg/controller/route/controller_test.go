@@ -608,7 +608,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 		},
 	)
 
-	expectedErrMsg := "Configuration test-config already has label elafros.dev/route set to another-route"
+	expectedErrMsg := "Configuration \"test-config\" is already in use by \"another-route\", and cannot be used by \"test-route\""
 	// Should return error.
 	err := controller.syncHandler(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
