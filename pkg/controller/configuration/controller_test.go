@@ -32,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -174,30 +173,12 @@ func keyOrDie(obj interface{}) string {
 }
 
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
-	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	h := hooks.NewHooks()
 
-	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		rev := obj.(*v1alpha1.Revision)
-		glog.Infof("checking revision %s", rev.Name)
-		if diff := cmp.Diff(config.Spec.Template.Spec, rev.Spec); diff != "" {
-			t.Errorf("rev spec != config template spec (-want +got): %v", diff)
-		}
-
-		if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
-			t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
-		}
-
-		if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
-			t.Errorf("expected owner references to have 1 ref with name %s", config.Name)
-		}
-
-		return hooks.HookComplete
-	})
-
-	// Look for the events.
+	// Look for the event. Events are delivered asynchronously so we need to use
+	// hooks here.
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
 		expectedMessages := "Created Revision "
@@ -211,6 +192,31 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	})
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	controller.syncHandler(keyOrDie(config))
+
+	list, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
+
+	if err != nil {
+		t.Fatalf("error listing revisions: %v", err)
+	}
+
+	if got, want := len(list.Items), 1; got != want {
+		t.Fatalf("expected %v revisions, got %v", want, got)
+	}
+
+	rev := list.Items[0]
+	if diff := cmp.Diff(config.Spec.Template.Spec, rev.Spec); diff != "" {
+		t.Errorf("rev spec != config template spec (-want +got): %v", diff)
+	}
+
+	if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
+		t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+	}
+
+	if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
+		t.Errorf("expected owner references to have 1 ref with name %s", config.Name)
+	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
@@ -218,11 +224,8 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 }
 
 func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
-	h := hooks.NewHooks()
-
 	config.Spec.Build = &buildv1alpha1.BuildSpec{
 		Steps: []corev1.Container{{
 			Name:    "nop",
@@ -232,30 +235,29 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 		}},
 	}
 
-	h.OnCreate(&elaClient.Fake, "builds", func(obj runtime.Object) hooks.HookResult {
-		b := obj.(*buildv1alpha1.Build)
-		glog.Infof("checking build %s", b.Name)
-		if config.Spec.Build.Steps[0].Name != b.Spec.Steps[0].Name {
-			t.Errorf("BuildSpec mismatch; want %v, got %v", config.Spec.Build.Steps[0], b.Spec.Steps[0])
-		}
-		return hooks.HookComplete
-	})
-
-	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		rev := obj.(*v1alpha1.Revision)
-		glog.Infof("checking revision %s", rev.Name)
-		// TODO(mattmoor): The fake doesn't properly support GenerateName,
-		// so it never looks like the BuildName is populated.
-		// if rev.Spec.BuildName == "" {
-		// 	t.Error("Missing BuildName; want non-empty, but got empty string")
-		// }
-		return hooks.HookComplete
-	})
-
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	controller.syncHandler(keyOrDie(config))
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	revList, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("error listing revisions: %v", err)
+	}
+	if got, want := len(revList.Items), 1; got != want {
+		t.Fatalf("expected %v revisions, got %v", want, got)
+	}
+
+	buildList, err := elaClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("error listing builds: %v", err)
+	}
+	if got, want := len(buildList.Items), 1; got != want {
+		t.Fatalf("expected %v builds, got %v", want, got)
+	}
+
+	b := buildList.Items[0]
+	if diff := cmp.Diff(config.Spec.Build.Steps, b.Spec.Steps); diff != "" {
+		t.Errorf("Unexpected build steps diff (-want +got): %v", diff)
 	}
 }
 
