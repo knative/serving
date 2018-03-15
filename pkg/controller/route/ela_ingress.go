@@ -29,12 +29,6 @@ import (
 // Istio by using the simple placeholder service name. All the routing actually
 // happens in the route rules.
 func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1beta1.Ingress {
-	// We used to have a distinct service, but in the ela world, use the
-	// name for serviceID too.
-
-	// Construct a hostname that the ingress accepts traffic for.
-	hostRule := domain
-
 	// By default we map to the placeholder service directly.
 	// This would point to 'router' component if we wanted to use
 	// this method for 0->1 case.
@@ -47,7 +41,7 @@ func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1bet
 		},
 	}
 	rules := []v1beta1.IngressRule{v1beta1.IngressRule{
-		Host: hostRule,
+		Host: domain,
 		IngressRuleValue: v1beta1.IngressRuleValue{
 			HTTP: &v1beta1.HTTPIngressRuleValue{
 				Paths: []v1beta1.HTTPIngressPath{path},
