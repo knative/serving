@@ -18,6 +18,7 @@ package route
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -422,7 +423,7 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
-	_, err := ic.Get(ingressName, metav1.GetOptions{})
+	existing, err := ic.Get(ingressName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			return err
@@ -430,6 +431,15 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 		_, createErr := ic.Create(ingress)
 		glog.Infof("Created ingress %q", ingress.Name)
 		return createErr
+	}
+	// Ok, route exists, if the route rules are different, update them.
+	if !reflect.DeepEqual(existing.Spec.Rules, ingress.Spec.Rules) {
+		glog.Infof("Updating routes for %q", ingress.Name)
+		existing.Spec.Rules = ingress.Spec.Rules
+		if _, err = ic.Update(existing); err != nil {
+			glog.Warningf("Failed to update Ingress %q : %s", ingress.Name, err)
+			return err
+		}
 	}
 	return nil
 }
