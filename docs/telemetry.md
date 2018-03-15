@@ -11,7 +11,7 @@ bazel run config/monitoring:everything.apply
 bazel run config/monitoring:everything-dev.apply
 ```
 
-### Accessing logs
+## Accessing logs
 Run, 
 
 ```shell
@@ -22,7 +22,7 @@ Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monit
 When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
 
-### Accessing metrics
+## Accessing metrics
 
 Run:
 
@@ -31,6 +31,19 @@ kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=a
 ```
 
 Then open Grafana UI at [http://localhost:3000](http://localhost:3000)
+
+## Accessing per request traces
+First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.
+
+Next, start the proxy if it is not already running:
+
+```shell
+kubectl proxy
+```
+
+Then open Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application within this UI. Click on a trace to see a detailed view of a specific call.
+
+To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it and explore the traces it generates from Zipkin UI.
 
 ## Default metrics
 Following metrics are collected by default:
@@ -54,7 +67,6 @@ kubectl replace -f config/monitoring/fluentd/fluentd-es-ds.yaml
 Note: We will enable a plugin mechanism to define other logs to collect and this step is a workaround until then.
 
 ## Metrics troubleshooting
-
 You can use Prometheus web UI to troubleshoot publishing and service discovery issues for metrics.
 To access to the web UI, forward the Prometheus server to your machine:
 
@@ -195,5 +207,5 @@ args:
 
 See [helloworld](../sample/helloworld/README.md) sample's configuration file as an example.
 
-## Extended metrics & logs
-To be filled.
+## Distributed tracing with Zipkin
+Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.

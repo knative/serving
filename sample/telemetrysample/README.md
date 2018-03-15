@@ -1,8 +1,11 @@
 # Telemetry Sample
 
-This sample runs a simple web server and responds the requests with "Hello World!" 
-with a random delay up to 1 second. The purpose of this sample is to show creating
-dedicated Prometheus instances and emmitting metrics to it.
+This sample runs a simple web server that makes calls to other in-cluster services
+and responds to requests with "Hello World!".
+The purpose of this sample is to show generating metrics, logs and distributed traces
+(see [Logs and Metrics](../../docs/telemetry.md) for more information). 
+This sample also creates a dedicated Prometheus instances rather than using the one
+that is installed by default as a showcase of installing dedicated Prometheus instances.
 
 ## Prerequisites
 
@@ -11,9 +14,9 @@ dedicated Prometheus instances and emmitting metrics to it.
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+Deploy the sample via:
 ```shell
-bazel run sample/telemetrysample:everything.create
+bazel run sample/telemetrysample:everything.apply
 ```
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
@@ -27,7 +30,6 @@ kubectl get configurations -o yaml
 
 # This will show the Revision that was created by our configuration:
 kubectl get revisions -o yaml
-
 ```
 
 To access this service via `curl`, we first need to determine its ingress address:
@@ -48,8 +50,13 @@ curl --header 'Host:telemetrysample.myhost.net' http://${SERVICE_IP}
 Hello World!
 ```
 
-## Checking Metrics
+## Accessing logs
+You can access to the logs from Kibana UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
 
+## Accessing per request traces
+You can access to per request traces from Zipkin UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
+
+## Accessing metrics on the dedicated Prometheus instance
 First, get the service IP that Prometheus UI is exposed on:
 
 ```shell
