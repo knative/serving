@@ -83,8 +83,8 @@ func main() {
 	// requests and copy them to your outgoing requests.
 	// x-request-id, x-b3-traceid, x-b3-spanid, x-b3-parentspanid, x-b3-sampled, x-b3-flags, x-ot-span-context
 	//
-	// For richer instrumentation, or to instrument calls that are mad to services not behind
-	// istio-proxy, you can instrument the code using Zipkin's Go client library.
+	// For richer instrumentation, or to instrument calls that are made to external services,
+	// you can instrument the code using Zipkin's Go client library as shown below.
 	//
 	// Zipkin is installed in istio-system namespace because istio assumes that zipkin is installed there.
 	// Ideally this value should be config driven, but for demo purposes, we will hardcode it here.
