@@ -43,7 +43,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
 # Put the Ingress Host name into an environment variable.
-export SERVICE_HOST=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.spec.rules[*].host}"`
+export SERVICE_HOST=`kubectl get route telemetrysample-route -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`

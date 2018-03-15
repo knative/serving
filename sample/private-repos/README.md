@@ -157,8 +157,8 @@ of the ingress endpoint:
 
 ```
 # Put the Ingress Host name into an environment variable.
-export SERVICE_HOST=`kubectl get ing private-repos-ela-ingress \
-  -o jsonpath="{.spec.rules[*].host}"`
+export SERVICE_HOST=`kubectl get route private-repos \
+  -o jsonpath="{.status.domain}"`
 
 export SERVICE_IP=`kubectl get ing private-repos-ela-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`

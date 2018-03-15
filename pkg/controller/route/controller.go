@@ -328,7 +328,6 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	_, err = c.syncTrafficTargets(route)
-
 	return err
 }
 
@@ -371,6 +370,7 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 		}
 		route.Status.Traffic = traffic
 	}
+	route.Status.Domain = routeDomain(route)
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
@@ -404,13 +404,17 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 	return nil
 }
 
+func routeDomain(route *v1alpha1.Route) string {
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domainSuffix)
+}
+
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
 	ingressName := controller.GetElaK8SIngressName(route)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(route, ns, domainSuffix)
+	ingress := MakeRouteIngress(route, ns, routeDomain(route))
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 

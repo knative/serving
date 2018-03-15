@@ -225,6 +225,8 @@ var _ = Describe("Route", func() {
 
 			By("Once the Configuration has been updated with the Revision, the Route will be updated to route traffic to the Revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, revisionName))
+			updated_route, err := routeClient.Get(routeName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
 
 			// TODO: The test needs to be able to make a request without needing to retrieve
 			// the ingress manually (i.e. by using the host directly)
@@ -238,12 +240,9 @@ var _ = Describe("Route", func() {
 				return false, nil
 			})
 			By("Make a request to the Revision that is now deployed and serving traffic")
-			ingress, err := ingressClient.Get(ingressName, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			host := ingress.Spec.Rules[0].Host
 			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
 			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
-			WaitForIngressRequestToHostState(endpoint, host, []int{503, 404}, func(body string) (bool, error) {
+			WaitForIngressRequestToDomainState(endpoint, updated_route.Status.Domain, []int{503, 404}, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
 
@@ -275,12 +274,11 @@ var _ = Describe("Route", func() {
 
 			By("The Route will then immediately send all traffic to the new revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, newRevisionName))
+			updated_route, err = routeClient.Get(routeName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for the ingress to actually start serving traffic from the newly deployed Revision")
-			ingress, err = ingressClient.Get(ingressName, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			host = ingress.Spec.Rules[0].Host
-			WaitForIngressRequestToHostState(endpoint, host, []int{503, 404}, func(body string) (bool, error) {
+			WaitForIngressRequestToDomainState(endpoint, updated_route.Status.Domain, []int{503, 404}, func(body string) (bool, error) {
 				if body == "Re-energize yourself with a slice of pepperoni!" {
 					// This is the string we are looking for
 					return true, nil
