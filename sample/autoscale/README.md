@@ -9,58 +9,75 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 ## Setup
 
-Deploy the autoscale app to Elafros from the root directory.
+Deploy a simple 3D tic-tac-toe app with a little CPU and IO.
 
 ```shell
-bazel run sample/autoscale:everything.create
+bazel run //sample/autoscale-kdt3:everything.create
 ```
 
-Export your Ingress IP as SERVICE_IP.
+Export your Ingress IP as SERVICE_IP (or whatever the target cluster ingress is.)
 
 ```shell
 export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
-Request the largest prime less than 40,000,000 from the autoscale app.  Note that it consumes about 1 cpu/sec.
+Hit the app to verify it's running.
 
 ```shell
-time curl --header 'Host:autoscale.myhost.net' http://${SERVICE_IP?}/primes/40000000
+time curl --header 'Host:autoscale-kdt3.myhost.net' http://${SERVICE_IP?}/game/
 ```
 
 ## Running
 
-Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
+Ramp up 1000 concurrent clients.
 
 ```shell
 for i in `seq 10 10 1000`; do
   kubectl run wrk-$i \
     --image josephburnett/wrk2:latest \
-    --restart Never \
-    --image-pull-policy=Always \
-    -l "app=wrk" -n wrk \
-    -- \
-    -c10 -t10 -d10m -R1000 -s /wrk2/scripts/points.lua \
-    -H 'Host: autoscale.myhost.net' \
-    "http://${SERVICE_IP}/primes/40000000"
+    --restart Never --image-pull-policy=Always -l "app=wrk" -n wrk \
+    -- -c10 -t10 -d10m -R1000 -a -s /wrk2/scripts/points.lua \
+       -H 'Host: autoscale-kdt3.myhost.net' \
+       "http://${SERVICE_IP}/game/"
   sleep 2
 done
 ```
 
-Watch the Elafros deployment pod count increase.
+Watch the Elafros deployment pod count increase.  Then return to 1.
 
 ```shell
 watch kubectl get deploy
 ```
 
-Look at the latency, requests/sec and success rate of each pod.
+## Analysis
+
+Calculate average QPS in 10 second increments.
 
 ```shell
-kubectl logs -n wrk -l "app=wrk" | awk ' /===DATA_POINT===/ { sum[$2] += $3; count[$2]++ } END { for (sec in sum) print sec " " sum[sec] / count[sec] }'
+kubectl logs -n wrk -l "app=wrk" | awk '/===STATUS===/ { sec = 10*int($2/10); count[sec]++; } END { for (sec in count) print sec " " count[sec] / 10 }' | sort
+```
+
+Calculate average latency in 10 second increments.
+
+```shell
+kubectl logs -n wrk -l "app=wrk" | awk '/===LATENCY===/ { sec = 10*int($2/10000); sum[sec] += $3; count[sec]++ } END { for (sec in sum) print sec " " sum[sec] / count[sec] / 1000 }' | sort
+```
+
+Calculate average error rate in 10 second increments.
+
+```shell
+kubectl logs -n wrk -l "app=wrk" | awk '/===STATUS===/ { sec = 10*int($2/10); count[sec]++; if ($3 != "200") error[sec]++ } END { for (sec in count) print sec " " error[sec] / count[sec] }' | sort
+```
+
+Calculate the total client count in 10 second increments.
+
+```shell
+kubectl logs -n wrk -l "app=wrk" | awk '/===CLIENT===/' kdt3-fast-c32a32-logs | sort | awk '{ sec = 10*int($2/10); total++; count[sec] = total } END { for (sec in count) print sec " " count[sec] }' | sort
 ```
 
 ## Cleanup
 
 ```shell
-kubectl delete namespace hey
-bazel run sample/autoscale:everything.delete
+kubectl delete namespace wrk
+bazel run sample/autoscale-kdt3:everything.delete
 ```
