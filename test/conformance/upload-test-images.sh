@@ -19,11 +19,11 @@ set -ex
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 DOCKER_REPO_OVERRIDE=${DOCKER_REPO_OVERRIDE?"You must set `DOCKER_REPO_OVERRIDE`, see DEVELOPMENT.md"}
-IMAGE_NAME="${DOCKER_REPO_OVERRIDE}/pizzaplanet"
+IMAGE_NAME="${DOCKER_REPO_OVERRIDE}/ela-conformance-test"
 
 for version in v1 v2;
 do
-    VERSIONED_NAME="${IMAGE_NAME}${version}"
+    VERSIONED_NAME="${IMAGE_NAME}-${version}"
     docker build "$DIR/test_images_node" -f "$DIR/test_images_node/Dockerfile.$version" -t "$VERSIONED_NAME"
     docker push "$VERSIONED_NAME"
 done

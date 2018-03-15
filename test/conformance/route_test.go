@@ -42,8 +42,8 @@ import (
 
 const (
 	namespaceName = "pizzaplanet"
-	image1        = "pizzaplanetv1"
-	image2        = "pizzaplanetv2"
+	image1        = "ela-conformance-test-v1"
+	image2        = "ela-conformance-test-v2"
 	domain        = "weregoingtopizzaplanet.com"
 	configName    = "prod"
 	routeName     = "pizzaplanet"
