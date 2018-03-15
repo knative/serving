@@ -7,13 +7,7 @@ This directory contains tests and testing docs for `Elafros`:
 
 ## Running unit tests
 
-Run unit tests with the [`unit-tests.sh`](./unit-tests.sh) script:
-
-```shell
-./test/unit-tests.sh
-```
-
-The tests can also be run using bazel directly:
+The tests can be run using bazel directly:
 
 ```shell
 bazel test //pkg/... --test_output=errors
