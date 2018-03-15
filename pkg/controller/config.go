@@ -26,7 +26,7 @@ import (
 type Config struct {
 
 	// The suffix of the domain used for routes.
-	DomainSuffix string `json:domainSuffix`
+	DomainSuffix string `json:"domainSuffix"`
 }
 
 type ConfigHolder interface {
