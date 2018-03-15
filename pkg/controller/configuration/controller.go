@@ -352,8 +352,7 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
-	// Just return the UUID.
-	// TODO: consider using a prefix and make sure the length of the
+	// TODO: consider making sure the length of the
 	// string will not cause problems down the stack
 	if u.Spec.Generation == 0 {
 		return "", fmt.Errorf("configuration generation cannot be 0")
