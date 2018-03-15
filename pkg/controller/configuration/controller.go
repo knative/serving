@@ -433,7 +433,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 			"Configuration becomes ready")
 	}
 	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-		"LatestReadyRevisionName is updated to %q", revision.Name)
+		"LatestReadyRevisionName updated to %q", revision.Name)
 
 	return
 }

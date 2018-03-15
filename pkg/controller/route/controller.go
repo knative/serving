@@ -443,7 +443,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 			configName := tt.ConfigurationName
 			config, err := configClient.Get(configName, metav1.GetOptions{})
 			if err != nil {
-				glog.Infof("Failed to fetch Configuration %s: %s", configName, err)
+				glog.Infof("Failed to fetch Configuration %q: %v", configName, err)
 				return nil, nil, err
 			}
 			configMap[configName] = config
@@ -451,7 +451,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 			revName := tt.RevisionName
 			rev, err := revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
-				glog.Infof("Failed to fetch Revision %s: %s", revName, err)
+				glog.Infof("Failed to fetch Revision %q: %v", revName, err)
 				return nil, nil, err
 			}
 			revMap[revName] = rev
@@ -495,9 +495,9 @@ func (c *Controller) setLabelForGivenConfigurations(
 		if routeName, ok := config.Labels[ela.RouteLabelKey]; ok {
 			// TODO(yanweiguo): add a condition in status for this error
 			if routeName != route.Name {
-				errMsg := fmt.Sprintf("Configuration %s already has label %s set to %s",
-					config.Name, ela.RouteLabelKey, routeName)
-				c.recorder.Event(route, corev1.EventTypeWarning, "InvalidConfiguration", errMsg)
+				errMsg := fmt.Sprintf("Configuration %q is already in use by %q, and cannot be used by %q",
+					config.Name, routeName, route.Name)
+				c.recorder.Event(route, corev1.EventTypeWarning, "ConfigurationInUse", errMsg)
 				return errors.New(errMsg)
 			}
 		}

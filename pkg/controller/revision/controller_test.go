@@ -435,7 +435,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		},
 	}
 
-	// Ensure that the Revision status i		expectedReason :=s updated.\
+	// Ensure that the Revision status is updated.
 	update := 0
 	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		updatedPr := obj.(*v1alpha1.Revision)
