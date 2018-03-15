@@ -27,11 +27,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func errMissingField(fieldPath string) error {
+	return fmt.Errorf("Configuration is missing %q", fieldPath)
+}
+
 var (
-	errEmptyContainerInTemplate = errors.New("The configuration template must have a container spec")
-	errEmptySpecInConfiguration     = errors.New("The configuration must have configuration spec")
-	errEmptyTemplateInSpec          = errors.New("The configuration spec must have configuration")
-	errInvalidConfigurationInput    = errors.New("Failed to convert input into configuration")
+	errEmptySpecInConfiguration  = errMissingField("spec")
+	errEmptyTemplateInSpec       = errMissingField("spec.template")
+	errEmptyContainerInTemplate  = errMissingField("spec.template.spec.container")
+	errInvalidConfigurationInput = errors.New(`Failed to convert input into configuration`)
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
