@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["gcs.go"],
+    importpath = "github.com/elafros/elafros/sample/autoscale/kdt3/gcs",
+    visibility = ["//visibility:public"],
+    deps = ["//sample/autoscale/kdt3/model:go_default_library"],
+)

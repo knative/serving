@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "move.go",
+        "win.go",
+    ],
+    importpath = "github.com/elafros/elafros/sample/autoscale/kdt3/engine",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/kdt3/model:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["win_test.go"],
+    embed = [":go_default_library"],
+    importpath = "github.com/elafros/elafros/sample/autoscale/kdt3/engine",
+    deps = ["//vendor/kdt3/model:go_default_library"],
+)

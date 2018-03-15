@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "game.go",
+        "handler.go",
+    ],
+    importpath = "github.com/elafros/elafros/sample/autoscale/kdt3/app",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//sample/autoscale/kdt3/gcs:go_default_library",
+        "//sample/autoscale/kdt3/model:go_default_library",
+        "//sample/autoscale/kdt3/view:go_default_library",
+    ],
+)
