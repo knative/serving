@@ -45,7 +45,6 @@ import (
 	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
@@ -150,9 +149,6 @@ func NewController(
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	// Create event broadcaster
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
