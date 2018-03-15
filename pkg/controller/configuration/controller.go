@@ -209,7 +209,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing %q: %s", key, err.Error())
+			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
@@ -294,7 +294,7 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
-			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %s", build.Name, err)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
@@ -328,7 +328,7 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %s", rev.Name, err)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
 		return err
 	}
 	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)

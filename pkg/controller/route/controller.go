@@ -242,12 +242,12 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing %q: %s", key, err.Error()), controller.PromLabelValueFailure
+			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		glog.Infof("Successfully synced %q", key)
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
@@ -298,7 +298,7 @@ func (c *Controller) syncHandler(key string) error {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if apierrs.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("route '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("route %q in work queue no longer exists", key))
 			return nil
 		}
 
@@ -375,10 +375,10 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route '%s': %s", route.Name, err)
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
 		return nil, err
 	}
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route '%s'", route.Name)
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
 	return updated, nil
 }
 
@@ -393,14 +393,14 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 	if _, err := sc.Create(service); err != nil {
 		if !apierrs.IsAlreadyExists(err) {
 			glog.Infof("Failed to create service: %s", err)
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service '%s': %s", service.Name, err)
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v", service.Name, err)
 			return err
 		}
 		newlyCreated = false
 	}
 	glog.Infof("Created service: %q", service.Name)
 	if newlyCreated {
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service '%s'", service.Name)
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
 	}
 	return nil
 }
@@ -420,10 +420,10 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 			return err
 		}
 		if _, err := ic.Create(ingress); err != nil {
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress '%s': %s", ingress.Name, err)
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
 			return err
 		}
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress '%s'", ingress.Name)
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
 		glog.Infof("Created ingress %q", ingress.Name)
 		return nil
 	}
@@ -626,20 +626,20 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		}
 		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
 		if _, err := routeClient.Create(routeRules); err != nil {
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule '%s': %s", routeRules.Name, err)
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule '%s'", routeRules.Name)
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 		return revisionRoutes, nil
 	}
 
 	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
 	_, err = routeClient.Update(routeRules)
 	if _, err := routeClient.Update(routeRules); err != nil {
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule '%s': %s", routeRules.Name, err)
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
 		return nil, err
 	}
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule '%s'", routeRules.Name)
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	return revisionRoutes, nil
 }
 

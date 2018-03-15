@@ -290,10 +290,10 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	// Look for the event
 	expectedMessages := map[string]struct{}{
-		"Created service 'test-route-service'":        struct{}{},
-		"Created Ingress 'test-route-ela-ingress'":    struct{}{},
-		"Created Istio route rule 'test-route-istio'": struct{}{},
-		"Updated status for route 'test-route'":       struct{}{},
+		"Created service \"test-route-service\"":        struct{}{},
+		"Created Ingress \"test-route-ela-ingress\"":    struct{}{},
+		"Created Istio route rule \"test-route-istio\"": struct{}{},
+		"Updated status for route \"test-route\"":       struct{}{},
 	}
 	eventNum := 0
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {

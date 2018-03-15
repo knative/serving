@@ -625,7 +625,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	// Look for the revision ready event.
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
-		expectedMessage := "Revision becomes ready upon endpoint 'test-endpoints' becoming ready"
+		expectedMessage := "Revision becomes ready upon endpoint \"test-endpoints\" becoming ready"
 		if wanted, got := expectedMessage, event.Message; wanted != got {
 			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
 		}
