@@ -271,25 +271,27 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	h := hooks.NewHooks()
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
-		if got, want := event.Message, "Configuration becomes ready"; got != want {
-			t.Logf("Got an event matching %q", want)
-			if got, want := event.Type, corev1.EventTypeNormal; got != want {
-				t.Errorf("unexpected event Type: %q expected: %q", got, want)
-			}
-			return hooks.HookComplete
+		want := "Configuration becomes ready"
+		if event.Message != want {
+			return hooks.HookIncomplete
 		}
-		return hooks.HookIncomplete
+		t.Logf("Got an event matching %q", want)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
 	})
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
-		if got, want := event.Message, regexp.MustCompile("LatestReadyRevisionName updated to .+"); !want.MatchString(got) {
-			t.Logf("Got an event matching %v", want)
-			if got, want := event.Type, corev1.EventTypeNormal; got != want {
-				t.Errorf("unexpected event Type: %q expected: %q", got, want)
-			}
-			return hooks.HookComplete
+		want := regexp.MustCompile("LatestReadyRevisionName updated to .+")
+		if !want.MatchString(event.Message) {
+			return hooks.HookIncomplete
 		}
-		return hooks.HookIncomplete
+		t.Logf("Got an event matching %v", want)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
 	})
 
 	configClient.Create(config)
