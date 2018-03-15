@@ -72,7 +72,7 @@ kubectl logs -n wrk -l "app=wrk" | awk '/===STATUS===/ { sec = 10*int($2/10); co
 Calculate the total client count in 10 second increments.
 
 ```shell
-kubectl logs -n wrk -l "app=wrk" | awk '/===CLIENT===/' kdt3-fast-c32a32-logs | sort | awk '{ sec = 10*int($2/10); total++; count[sec] = total } END { for (sec in count) print sec " " count[sec] }' | sort
+kubectl logs -n wrk -l "app=wrk" | awk '/===CLIENT===/' | sort | awk '{ sec = 10*int($2/10); total++; count[sec] = total } END { for (sec in count) print sec " " count[sec] }' | sort
 ```
 
 ## Cleanup
