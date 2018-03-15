@@ -277,12 +277,12 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error()), controller.PromLabelValueFailure
+			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		glog.Infof("Successfully synced %q", key)
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
@@ -330,7 +330,7 @@ func (c *Controller) syncHandler(key string) error {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("revision '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
 			return nil
 		}
 		return err
@@ -471,10 +471,10 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 		namespace, name := splitKey(k)
 		rev, err := c.lister.Revisions(namespace).Get(name)
 		if err != nil {
-			glog.Errorf("Error fetching revision '%s/%s' upon build completion: %v", namespace, name, err)
+			glog.Errorf("Error fetching revision %q/%q upon build completion: %v", namespace, name, err)
 		}
 		if err := c.markBuildComplete(rev, cond); err != nil {
-			glog.Errorf("Error marking build completion for '%s/%s': %v", namespace, name, err)
+			glog.Errorf("Error marking build completion for %q/%q: %v", namespace, name, err)
 		}
 	}
 
@@ -521,7 +521,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	if err := c.markRevisionReady(rev); err != nil {
 		glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
 	} else {
-		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint '%s' becoming ready", endpoint.Name)
+		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready", endpoint.Name)
 	}
 	return
 }

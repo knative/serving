@@ -28,6 +28,7 @@ package configuration
 */
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,7 +174,7 @@ func keyOrDie(obj interface{}) string {
 }
 
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
 	h := hooks.NewHooks()
@@ -193,6 +194,19 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 			t.Errorf("expected owner references to have 1 ref with name %s", config.Name)
 		}
 
+		return hooks.HookComplete
+	})
+
+	// Look for the events.
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		expectedMessages := "Created Revision "
+		if !strings.HasPrefix(event.Message, expectedMessages) {
+			t.Errorf("unexpected Message: %q expected beginning with: %q", event.Message, expectedMessages)
+		}
+		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
+		}
 		return hooks.HookComplete
 	})
 
@@ -246,7 +260,7 @@ func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
 }
 
 func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
@@ -292,6 +306,32 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			if got, want := config.Status.LatestReadyRevisionName, revName; got != want {
 				t.Errorf("Latest in Status diff; got %v, want %v", got, want)
 			}
+		}
+		return hooks.HookComplete
+	})
+
+	// Look for the event
+	expectedMessages := map[string]struct{}{
+		"Configuration becomes ready":                     struct{}{},
+		"LatestReadyRevisionName updated to \"test-rev\"": struct{}{},
+	}
+	eventNum := 0
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		eventNum = eventNum + 1
+		if strings.HasPrefix(event.Message, "Created Revision ") {
+			// The first revision created event.
+			return hooks.HookIncomplete
+		}
+		if _, ok := expectedMessages[event.Message]; !ok {
+			t.Errorf("unexpected Message: %q expected one of: %q", event.Message, expectedMessages)
+		}
+		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
+			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
+		}
+		// Expect 3 events.
+		if eventNum < 3 {
+			return hooks.HookIncomplete
 		}
 		return hooks.HookComplete
 	})
