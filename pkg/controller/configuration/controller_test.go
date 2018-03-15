@@ -27,7 +27,7 @@ package configuration
 	Congfiguration.
 */
 import (
-	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -217,7 +217,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	}
 }
 
-func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
+func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
@@ -260,84 +260,98 @@ func TestCreateConfigurationCreatesBuildAndPR(t *testing.T) {
 }
 
 func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
+
+	// Events are delivered asynchronously so we need to use hooks here. Each hook
+	// tests for a specific event.
 	h := hooks.NewHooks()
-
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
-		config := obj.(*v1alpha1.Configuration)
-		update = update + 1
-		switch update {
-		case 1:
-			// This update is triggered by the configuration creation.
-			if got, want := len(config.Status.Conditions), 0; !reflect.DeepEqual(got, want) {
-				t.Errorf("Conditions length diff; got %v, want %v", got, want)
-			}
-			if got, want := config.Status.LatestReadyRevisionName, ""; got != want {
-				t.Errorf("Latest in Status diff; got %v, want %v", got, want)
-			}
-			controllerRef := metav1.NewControllerRef(config, controllerKind)
-			revision := getTestRevision()
-			revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-			revision.Status = v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
-					Type:   v1alpha1.RevisionConditionReady,
-					Status: corev1.ConditionTrue,
-				}},
-			}
-			// This call should update configration.
-			go controller.addRevisionEvent(revision)
-			return hooks.HookIncomplete
-		case 2:
-			// The next update we receive should tell us that the revision is ready.
-			expectedConfigConditions := []v1alpha1.ConfigurationCondition{
-				v1alpha1.ConfigurationCondition{
-					Type:   v1alpha1.ConfigurationConditionReady,
-					Status: corev1.ConditionTrue,
-					Reason: "LatestRevisionReady",
-				},
-			}
-			if got, want := config.Status.Conditions, expectedConfigConditions; !reflect.DeepEqual(got, want) {
-				t.Errorf("Conditions diff; got %v, want %v", got, want)
-			}
-			if got, want := config.Status.LatestReadyRevisionName, revName; got != want {
-				t.Errorf("Latest in Status diff; got %v, want %v", got, want)
-			}
-		}
-		return hooks.HookComplete
-	})
-
-	// Look for the event
-	expectedMessages := map[string]struct{}{
-		"Configuration becomes ready":                     struct{}{},
-		"LatestReadyRevisionName updated to \"test-rev\"": struct{}{},
-	}
-	eventNum := 0
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
 		event := obj.(*corev1.Event)
-		eventNum = eventNum + 1
-		if strings.HasPrefix(event.Message, "Created Revision ") {
-			// The first revision created event.
-			return hooks.HookIncomplete
+		if got, want := event.Message, "Configuration becomes ready"; got != want {
+			t.Logf("Got an event matching %q", want)
+			if got, want := event.Type, corev1.EventTypeNormal; got != want {
+				t.Errorf("unexpected event Type: %q expected: %q", got, want)
+			}
+			return hooks.HookComplete
 		}
-		if _, ok := expectedMessages[event.Message]; !ok {
-			t.Errorf("unexpected Message: %q expected one of: %q", event.Message, expectedMessages)
+		return hooks.HookIncomplete
+	})
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		if got, want := event.Message, regexp.MustCompile("LatestReadyRevisionName updated to .+"); !want.MatchString(got) {
+			t.Logf("Got an event matching %v", want)
+			if got, want := event.Type, corev1.EventTypeNormal; got != want {
+				t.Errorf("unexpected event Type: %q expected: %q", got, want)
+			}
+			return hooks.HookComplete
 		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		// Expect 3 events.
-		if eventNum < 3 {
-			return hooks.HookIncomplete
-		}
-		return hooks.HookComplete
+		return hooks.HookIncomplete
 	})
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	configClient.Create(config)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	controller.syncHandler(keyOrDie(config))
 
+	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config: %v", err)
+	}
+
+	// Config should not have any conditions after reconcile
+	if got, want := len(reconciledConfig.Status.Conditions), 0; got != want {
+		t.Errorf("Conditions length diff; got %v, want %v", got, want)
+	}
+	// Config should not have a latest ready revision
+	if got, want := reconciledConfig.Status.LatestReadyRevisionName, ""; got != want {
+		t.Errorf("Latest in Status diff; got %v, want %v", got, want)
+	}
+
+	// Get the revision created
+	revList, err := elaClient.ElafrosV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("error listing revisions: %v", err)
+	}
+	if got, want := len(revList.Items), 1; got != want {
+		t.Fatalf("expected %d revisions, got %d", want, got)
+	}
+	revision := revList.Items[0]
+
+	// mark the revision as Ready
+	revision.Status = v1alpha1.RevisionStatus{
+		Conditions: []v1alpha1.RevisionCondition{{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
+	controller.addRevisionEvent(&revision)
+
+	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config: %v", err)
+	}
+
+	expectedConfigConditions := []v1alpha1.ConfigurationCondition{
+		v1alpha1.ConfigurationCondition{
+			Type:   v1alpha1.ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+			Reason: "LatestRevisionReady",
+		},
+	}
+	if diff := cmp.Diff(expectedConfigConditions, readyConfig.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+	}
+	if got, want := readyConfig.Status.LatestReadyRevisionName, revision.Name; got != want {
+		t.Errorf("Latest in Status diff; got %v, want %v", got, want)
+	}
+
+	// wait for events to be created
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
 	}
