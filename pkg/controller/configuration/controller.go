@@ -43,7 +43,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 )
@@ -51,12 +50,6 @@ import (
 const controllerAgentName = "configuration-controller"
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-
-func init() {
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
-}
 
 // Controller implements the controller for Configuration resources
 type Controller struct {
