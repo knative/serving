@@ -24,7 +24,6 @@ import (
 	"github.com/elafros/elafros/pkg/controller"
 
 	"github.com/golang/glog"
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -356,8 +355,10 @@ func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 	// Just return the UUID.
 	// TODO: consider using a prefix and make sure the length of the
 	// string will not cause problems down the stack
-	genUUID, err := uuid.NewRandom()
-	return fmt.Sprintf("p-%s", genUUID.String()), err
+	if u.Spec.Generation == 0 {
+		return "", fmt.Errorf("configuration generation cannot be 0")
+	}
+	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation), nil
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
