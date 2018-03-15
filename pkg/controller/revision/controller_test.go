@@ -123,6 +123,7 @@ func newTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
+		nil,
 	).(*Controller)
 
 	return

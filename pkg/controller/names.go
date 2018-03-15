@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
@@ -26,6 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 )
+
+func GetElaConfigFilename(key string) string {
+	return fmt.Sprintf("%s/%s", "/etc/ela-config", key)
+}
 
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {

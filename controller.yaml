@@ -25,9 +25,16 @@ spec:
         app: ela-controller
     spec:
       serviceAccountName: ela-controller
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ela-config
       containers:
       - name: ela-controller
         image: ela-controller:latest
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/ela-config
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
@@ -35,8 +42,7 @@ spec:
         - ela-queue:latest
         - "-autoscalerImage"
         - ela-autoscaler:latest
-        - "-domainSuffix"
-        - demo-domain.net
+        - "-controllerConfigFile=/etc/ela-config/controllerConfig"
         ports:
         - name: metrics
           containerPort: 9090

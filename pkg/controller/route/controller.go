@@ -18,7 +18,6 @@ package route
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"time"
 
@@ -98,11 +97,12 @@ type Controller struct {
 
 	// don't start the workers until configuration cache have been synced
 	configSynced cache.InformerSynced
+
+	elaConfigHolder controller.ConfigHolder
 }
 
 func init() {
 	prometheus.MustRegister(routeProcessItemCount)
-	flag.StringVar(&domainSuffix, "domainSuffix", "demo-domain.net", "The domain suffix for routes.")
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -116,7 +116,8 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config) controller.Interface {
+	config *rest.Config,
+	elaConfigHolder controller.ConfigHolder) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -133,13 +134,14 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		configSynced:  configInformer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
-		recorder:      recorder,
+		kubeclientset:   kubeclientset,
+		elaclientset:    elaclientset,
+		lister:          informer.Lister(),
+		synced:          informer.Informer().HasSynced,
+		configSynced:    configInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
+		recorder:        recorder,
+		elaConfigHolder: elaConfigHolder,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -370,7 +372,7 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 		}
 		route.Status.Traffic = traffic
 	}
-	route.Status.Domain = routeDomain(route)
+	route.Status.Domain = c.routeDomain(route)
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
@@ -404,8 +406,8 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 	return nil
 }
 
-func routeDomain(route *v1alpha1.Route) string {
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domainSuffix)
+func (c *Controller) routeDomain(route *v1alpha1.Route) string {
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.elaConfigHolder.GetConfig().DomainSuffix)
 }
 
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
@@ -414,7 +416,7 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(route, ns, routeDomain(route))
+	ingress := MakeRouteIngress(route, ns, c.routeDomain(route))
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
