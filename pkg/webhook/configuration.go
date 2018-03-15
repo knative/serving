@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	errEmptyContainerSpecInTemplate = errors.New("The configuration template must have a container spec")
+	errEmptyContainerInTemplate = errors.New("The configuration template must have a container spec")
 	errEmptySpecInConfiguration     = errors.New("The configuration must have configuration spec")
 	errEmptyTemplateInSpec          = errors.New("The configuration spec must have configuration")
 	errInvalidConfigurationInput    = errors.New("Failed to convert input into configuration")
@@ -71,15 +71,15 @@ func validateTemplate(template *v1alpha1.Revision) error {
 	if reflect.DeepEqual(*template, v1alpha1.Revision{}) {
 		return errEmptyTemplateInSpec
 	}
-	if err := validateContainerSpec(template.Spec.ContainerSpec); err != nil {
+	if err := validateContainer(template.Spec.Container); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validateContainerSpec(container *corev1.Container) error {
+func validateContainer(container *corev1.Container) error {
 	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
-		return errEmptyContainerSpecInTemplate
+		return errEmptyContainerInTemplate
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
@@ -87,16 +87,16 @@ func validateContainerSpec(container *corev1.Container) error {
 	// overridden.
 	var ignoredFields []string
 	if container.Name != "" {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.name")
+		ignoredFields = append(ignoredFields, "template.spec.container.name")
 	}
 	if !reflect.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.resources")
+		ignoredFields = append(ignoredFields, "template.spec.container.resources")
 	}
 	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.ports")
+		ignoredFields = append(ignoredFields, "template.spec.container.ports")
 	}
 	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "template.spec.containerSpec.volumeMounts")
+		ignoredFields = append(ignoredFields, "template.spec.container.volumeMounts")
 	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.

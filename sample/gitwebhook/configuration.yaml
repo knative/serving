@@ -23,7 +23,7 @@ spec:
       labels:
         elafros.dev/type: container
     spec:
-      containerSpec:
+      container:
         image: git-webhook:latest
         env:
           - name: SECRET_TOKEN

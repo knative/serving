@@ -73,7 +73,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
-					ContainerSpec: &corev1.Container{
+					Container: &corev1.Container{
 						Image:      "gcr.io/repo/image",
 						Command:    []string{"echo"},
 						Args:       []string{"hello", "world"},
@@ -104,7 +104,7 @@ func getTestRevision() *v1alpha1.Revision {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ContainerSpec: &corev1.Container{
+			Container: &corev1.Container{
 				Image: "test-image",
 			},
 		},

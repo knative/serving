@@ -34,7 +34,7 @@ spec:
       labels:
         elafros.dev/type: function
     spec:
-      containerSpec:
+      container:
         image: *image
         env:
         - name: FUNCTION_TRIGGER_TYPE

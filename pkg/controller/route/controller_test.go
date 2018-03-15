@@ -136,7 +136,7 @@ func getTestRevision(name string) *v1alpha1.Revision {
 			Namespace: "test",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ContainerSpec: &corev1.Container{
+			Container: &corev1.Container{
 				Image: "test-image",
 			},
 		},
@@ -158,7 +158,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Generation: 1,
 			Template: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &corev1.Container{
+					Container: &corev1.Container{
 						Image: "test-image",
 					},
 				},

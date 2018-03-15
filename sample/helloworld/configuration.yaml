@@ -23,7 +23,7 @@ spec:
       labels:
         elafros.dev/type: container
     spec:
-      containerSpec:
+      container:
         image: sample:latest
         args:
         - "-logtostderr=true"

@@ -23,5 +23,5 @@ spec:
       labels:
         elafros.dev/type: container
     spec:
-      containerSpec:
+      container:
         image: autoscale-sample:latest
