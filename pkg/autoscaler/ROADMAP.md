@@ -15,7 +15,7 @@ In 2018 we will focus on making autoscaling correct, fast and light.  Not so muc
 ## Areas of Interest and Requirements
 
 1. **Correctness**.  When scaling from 0-to-1, 1-to-N and back down, error rates must not increase.  We must have visibility of correctness over time at small and large scales.
-2. **Performance**.  When scaling from 1-to-N and back down, autoscaling must maintain reasonable latency and cost.  The Elafros implementation of autoscaling must be competitive in its ability to serve variable load.  And, to a lesser degree, match cost to the load.
+2. **Performance**.  When scaling from 1-to-N and back down, autoscaling must maintain reasonable latency.  The Elafros implementation of autoscaling must be competitive in its ability to serve variable load.
 3. **Scale to zero**.  Idle ([Reserve](README.md#behavior)) Revisions must cost nothing.  Reserve Revisions must serve the first request in 1 second or less.
 4. **Development**.  Autoscaler development must follow a clear roadmap.  Getting started as a developer must be easy and the team must scale horizontally.
 
@@ -29,6 +29,7 @@ In 2018 we will focus on making autoscaling correct, fast and light.  Not so muc
 
 1. **Establish canonical load test scenarios** to prove autoscaler performance and guide development.  We need to establish the code to run, the request load to generate, and the performance expected.  This will tell us where we need to improve.
 2. **Reproducable load tests** which can be run by anyone with minimal setup.  These must be transparent and easy to run.  They must be meaningful tests which prove autoscaler performance.
+3. **[Slow Brain](README.md#slow-brain--fast-brain) implementation** to automatically adjust autoscaling parameters to the application's behavior.
 
 ### Scale to Zero
 
