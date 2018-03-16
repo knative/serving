@@ -214,9 +214,9 @@ approver in a CODEOWNERS file:
         definitions, etc
 
 *   Expected to be responsive to review requests as per [community
-    expectations](https://github.com/elafros/elafros/blob/master/community/REVIEWING.md);
+    expectations](https://github.com/elafros/elafros/blob/master/community/REVIEWING.md)
 
-*   Mentor contributors and reviewers
+*   Mentor members and contributors
 
 *   May approve code contributions for acceptance
 
@@ -242,28 +242,18 @@ Getting to be a lead of an existing working group:
 
 *   Sponsored by the technical oversight committee
 
-Establishing the leads for a new working group:
+Additional requirements for leads of a new working group:
 
-*   Originally authored or contributed major functionality to an area
+*   Originally authored or contributed major functionality to the group's area
 
 *   An approver in the CODEOWNERS file for the group’s code
-
-*   Approver for some part of the codebase for at least 3 months
-
-*   Member for at least 1 year
-
-*   Primary reviewer for 20 substantial PRs
-
-*   Reviewed or merged at least 50 PRs
-
-*   Sponsored by the technical oversight committee
 
 ### Responsibilities and privileges
 
 The following apply to the area / component for which one would be an owner.
 
-*   Run their working group as outlined in the [Working Group
-    Processes](WORKING-GROUP-PROCESSES.md) document.
+*   Run their working group as explained in the [Working Group
+    Processes](WORKING-GROUP-PROCESSES.md).
 
 *   Design/proposal approval authority over the area / component, though
     escalation to the technical oversight committee is possible.
@@ -277,8 +267,8 @@ The following apply to the area / component for which one would be an owner.
 
 *   Capable of directly applying lgtm + approve labels for any PR
 
-    *   Expected to respect CODEOWNERS files approvals and use standard
-        procedure for merging code
+    *   Expected to respect CODEOWNERS files approvals and use [standard
+        procedure for merging code](REVIEWING.md#merging-prs).
 
 *   Expected to work to holistically maintain the health of the project through:
 
@@ -286,7 +276,7 @@ The following apply to the area / component for which one would be an owner.
 
     *   Fixing bugs
 
-    *   Mentoring and guiding approvers, reviewers, members, and contributors
+    *   Mentoring and guiding approvers, members, and contributors
 
 ## Administrator
 
@@ -301,8 +291,13 @@ Administrators are responsible for the bureaucratic aspects of the project.
 *   Manage the Elafros GitHub repo, including granting membership and
     controlling repo read/write permissions
 
-*   Manage the Elafros Slack workspace
+*   Manage the Elafros Slack team
 
-*   Manage the Elafros Google group forums
+*   Manage the Elafros Google group forum
+
+*   Manage any additional Elafros technical collaboration assets
+
+*   Expected to be responsive to membership and permission change requests
+    <!-- TODO SLA for admin response -->
 
 <!-- * TODO Manage the Google Search Console settings for elafros.dev -->
