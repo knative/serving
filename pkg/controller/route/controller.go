@@ -289,7 +289,7 @@ func (c *Controller) syncHandler(key string) error {
 
     if route.Status.ObservedGeneration == route.GetGeneration() {
     	glog.Infof("Skipping reconcile route since already reconciled %d == %d", route.GetGeneration(), route.Status.ObservedGeneration)
-		return nil
+    	return nil
     }
 
 	// Don't modify the informers copy
