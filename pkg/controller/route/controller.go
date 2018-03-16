@@ -287,6 +287,12 @@ func (c *Controller) syncHandler(key string) error {
 	// Get the Route resource with this namespace/name
 	route, err := c.lister.Routes(namespace).Get(name)
 
+    if route.Status.ObservedGeneration == route.GetGeneration() {
+    	glog.Infof("Skipping reconcile route since already reconciled %d == %d",
+			route.GetGeneration(), route.Status.ObservedGeneration)
+		return nil
+    }
+
 	// Don't modify the informers copy
 	route = route.DeepCopy()
 
@@ -324,9 +330,20 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 
-	_, err = c.syncTrafficTargets(route)
+	route, err = c.syncTrafficTargets(route)
+	if err != nil {
+    	return err
+    }
 
-	return err
+	route.Status.ObservedGeneration = route.GetGeneration()
+	route, err = c.updateStatus(route)
+	if err != nil {
+		glog.Warningf("Failed to update service status: %s", err)
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
+		return err
+	}
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
+	return nil
 }
 
 // syncTrafficTargets attempts to converge the actual state and desired state
@@ -368,14 +385,7 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 		}
 		route.Status.Traffic = traffic
 	}
-	updated, err := c.updateStatus(route)
-	if err != nil {
-		glog.Warningf("Failed to update service status: %s", err)
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
-		return nil, err
-	}
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
-	return updated, nil
+	return route, nil
 }
 
 func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) error {
@@ -730,10 +740,18 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargets(route); err != nil {
+	if route, err = c.syncTrafficTargets(route); err != nil {
 		glog.Errorf("Error updating route '%s/%s' upon configuration becoming ready: %v",
 			ns, routeName, err)
 	}
+	route, err = c.updateStatus(route)
+	if err != nil {
+		glog.Warningf("Failed to update service status: %s", err)
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
+		return
+	}
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
+	return
 }
 
 func (c *Controller) updateConfigurationEvent(old, new interface{}) {
