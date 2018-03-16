@@ -185,7 +185,8 @@ status is scoped to a part of the codebase.
 The following apply to the part of the codebase for which one would be an
 approver in a CODEOWNERS file:
 
-*   Reviewer of the codebase for at least 3 months
+*   Reviewer of the codebase for at least 3 months or 50% of project lifetime,
+    whichever is shorter
 
 *   Primary reviewer for at least 10 substantial PRs to the codebase
 
@@ -233,7 +234,7 @@ Getting to be a lead of an existing working group:
 
 *   Approver for some part of the codebase for at least 3 months
 
-*   Member for at least 1 year (relevant as Elafros ages a bit more)
+*   Member for at least 1 year or 90% of project lifetime, whichever is shorter
 
 *   Primary reviewer for 20 substantial PRs
 
