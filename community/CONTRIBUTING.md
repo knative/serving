@@ -7,15 +7,15 @@ repositories go through. All changes, regardless of whether they are from
 newcomers to the community or from the core team follow the same process and are
 given the same level of review.
 
--   [Working groups](#working-groups)
--   [Code of conduct](#code-of-conduct)
--   [Team values](#team-values)
--   [Contributor license agreements](#contributor-license-agreements)
--   [Design documents](#design-documents)
--   [Contributing a feature](#contributing-a-feature)
--   [Setting up to contribute to Elafros](#setting-up-to-contribute-to-elafros)
--   [Pull requests](#pull-requests)
--   [Issues](#issues)
+*   [Working groups](#working-groups)
+*   [Code of conduct](#code*of-conduct)
+*   [Team values](#team-values)
+*   [Contributor license agreements](#contributor-license-agreements)
+*   [Design documents](#design-documents)
+*   [Contributing a feature](#contributing-a-feature)
+*   [Setting up to contribute to Elafros](#setting-up-to-contribute-to-elafros)
+*   [Pull requests](#pull-requests)
+*   [Issues](#issues)
 
 ## Working groups
 
@@ -73,33 +73,33 @@ so please forgive any delays.
 In order to contribute a feature to Elafros you'll need to go through the
 following steps:
 
--   Discuss your idea with the appropriate [working groups](WORKING-GROUPS.md)
+*   Discuss your idea with the appropriate [working groups](WORKING-GROUPS.md)
     on the working group's mailing list.
 
--   Once there is general agreement that the feature is useful, create a GitHub
+*   Once there is general agreement that the feature is useful, create a GitHub
     issue to track the discussion. The issue should include information about
     the requirements and use cases that it is trying to address. Include a
     discussion of the proposed design and technical details of the
     implementation in the issue.
 
--   If the feature is substantial enough:
+*   If the feature is substantial enough:
 
-    -   Working group leads will ask for a design document as outlined in
+    *   Working group leads will ask for a design document as outlined in
         [design documents](#design-documents). Create the design document and
         add a link to it in the GitHub issue. Don't forget to send a note to the
         working group to let everyone know your document is ready for review.
 
-    -   Depending on the breadth of the design and how contentious it is, the
+    *   Depending on the breadth of the design and how contentious it is, the
         working group leads may decide the feature needs to be discussed in one
         or more working group meetings before being approved.
 
-    -   Once the major technical issues are resolved and agreed upon, post a
+    *   Once the major technical issues are resolved and agreed upon, post a
         note with the design decision and the general execution plan to the
         working group's mailing list and on the feature's issue.
 
--   Submit PRs to elafros/elafros with your code changes.
+*   Submit PRs to elafros/elafros with your code changes.
 
--   Submit PRs to elafros/elafros with user documentation for your feature,
+*   Submit PRs to elafros/elafros with user documentation for your feature,
     including usage examples when possible.
     <!-- TODO: switch to elafros/elafros.dev) -->
 
@@ -127,12 +127,16 @@ If you're working on an existing issue, simply respond to the issue and express
 interest in working on it. This helps other people know that the issue is
 active, and hopefully prevents duplicated efforts.
 
-To submit a proposed change: - Fork the affected repository. - Create a new
-branch for your changes. - Develop the code/fix. - Add new test cases. In the
-case of a bug fix, the tests should fail without your code changes. For new
-features try to cover as many variants as reasonably possible. - Modify the
-documentation as necessary. - Verify the entire CI process (building and
-testing) work.
+To submit a proposed change:
+
+*   Fork the affected repository.
+*   Create a new branch for your changes.
+*   Develop the code/fix.
+*   Add new test cases. In the case of a bug fix, the tests should fail without
+    your code changes. For new features try to cover as many variants as
+    reasonably possible.
+*   Modify the documentation as necessary.
+*   Verify the entire CI process (building and testing) work.
 
 The general rule is that all PRs should be 100% complete - meaning they should
 include all test cases and documentation changes related to the change. A
@@ -150,8 +154,10 @@ merge process used for Elafros.
 
 GitHub issues can be used to report bugs or submit feature requests.
 
-When reporting a bug please include the following key pieces of information: -
-the version of the project you were using (e.g. version number, git commit,
-...) - operating system you are using - the exact, minimal, steps needed to
-reproduce the issue. Submitting a 5 line script will get a much faster response
-from the team than one that's hundreds of lines long.
+When reporting a bug please include the following key pieces of information:
+
+*   The version of the project you were using (version number, git commit, etc)
+*   Operating system you are using
+*   The exact, minimal, steps needed to reproduce the issue. Submitting a 5 line
+    script will get a much faster response from the team than one that's
+    hundreds of lines long.

@@ -5,28 +5,28 @@ Welcome to the Elafros community!
 This is the starting point for becoming a contributor - improving code,
 improving docs, giving talks, etc.
 
--   [Introduction](#introduction)
--   [Elafros authors](#elafros-authors)
--   [Slack team](#slack-team)
--   [How can I help?](#how-can-i-help-)
--   [Questions and issues](#questions-and-issues)
+*   [Introduction](#introduction)
+*   [Elafros authors](#elafros-authors)
+*   [Slack team](#slack-team)
+*   [How can I help?](#how-can-i-help-)
+*   [Questions and issues](#questions-and-issues)
 
 Other Documents
 
--   [Code of Conduct](CODE-OF-CONDUCT.md) - all contributors must abide by the
+*   [Code of Conduct](CODE-OF-CONDUCT.md) - all contributors must abide by the
     code of conduct
--   [Contributing to Elafros](CONTRIBUTING.md) - guidelines and advice on
+*   [Contributing to Elafros](CONTRIBUTING.md) - guidelines and advice on
     becoming a contributor
--   [Working Groups](WORKING-GROUPS.md) - describes our various working groups
--   [Working Group Processes](WORKING-GROUP-PROCESSES.md) - describes how
+*   [Working Groups](WORKING-GROUPS.md) - describes our various working groups
+*   [Working Group Processes](WORKING-GROUP-PROCESSES.md) - describes how
     working groups operate
--   [Technical Oversight Committee](TECH-OVERSIGHT-COMMITTEE.md) - describes our
+*   [Technical Oversight Committee](TECH-OVERSIGHT-COMMITTEE.md) - describes our
     technical oversight committee
--   [Steering Committee](STEERING-COMMITTEE.md) - describes our steering
+*   [Steering Committee](STEERING-COMMITTEE.md) - describes our steering
     committee
--   [Community Roles](ROLES.md) - describes the roles individuals can assume
+*   [Community Roles](ROLES.md) - describes the roles individuals can assume
     within the Elafros community
--   [Reviewing and Merging Pull Requests](REVIEWING.md) - how we manage pull
+*   [Reviewing and Merging Pull Requests](REVIEWING.md) - how we manage pull
     requests
 
 ## Introduction
@@ -67,9 +67,9 @@ and read some [design docs](./CONTRIBUTING.md#design-documents). -->
 If you're looking for something to do to get your feet wet working on Elafros,
 look for GitHub issues marked with the Help Wanted label:
 
--   [Primary Elafros
+*   [Primary Elafros
     repo](https://github.com/elafros/elafros/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
--   [Documentation
+*   [Documentation
     repo](https://github.com/elafros/elafros.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
 
 Of course, even if there's not an issue opened for it, we can always use more
@@ -83,5 +83,5 @@ we could use your help in spiffing up our public-facing web site.
 page](https://elafros.dev/help). -->
 
 If you're a developer trying to hack on or use the Elafros code, head to
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) or
-[Elafros Slack](https://elafros.slack.com) for help.
+[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) or [Elafros
+Slack](https://elafros.slack.com) for help.

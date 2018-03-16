@@ -206,15 +206,14 @@ approver in a CODEOWNERS file:
 
 *   Demonstrate sound technical judgement
 
-*   Responsible for project quality control via [code
-    reviews](https://github.com/elafros/elafros/blob/master/community/REVIEWING.md)
+*   Responsible for project quality control via [code reviews](REVIEWING.md)
 
     *   Focus on holistic acceptance of contribution such as dependencies with
         other features, backwards / forwards compatibility, API and flag
         definitions, etc
 
 *   Expected to be responsive to review requests as per [community
-    expectations](https://github.com/elafros/elafros/blob/master/community/REVIEWING.md)
+    expectations](REVIEWING.md)
 
 *   Mentor members and contributors
 

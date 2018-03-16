@@ -127,9 +127,8 @@ members. Working group leads must be Members of the Elafros project (that is,
 have made multiple contributions to the project in the form of code, design, or
 documentation).
 
-Please see the [Community
-Roles](https://github.com/elafros/elafros/blob/master/community/ROLES.md)
-document for a description of a lead’s role and requirements.
+Please see the [Community Roles](ROLES.md) document for a description of a
+lead’s role and requirements.
 
 ## Running a working group
 

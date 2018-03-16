@@ -41,8 +41,7 @@ product and design decisions.
         community focus
 
     *   Ensure the team adheres to our [code of
-        conduct](CONTRIBUTING.md#code-of-conduct)
-        and respects our
+        conduct](CONTRIBUTING.md#code-of-conduct) and respects our
         [values](VALUES.md).
 
     *   Foster an environment for a healthy and happy community of developers
@@ -73,7 +72,7 @@ during the community feedback period at the end of each meeting.
 
 Artifact                   | Link
 -------------------------- | ----
-Google Group               | [elafros-tech-oversight@](https://groups.google.com/forum/#!forum/elafros-tech-oversight)
+Google Group               | [elafros-tech-oversight@](TODO)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
@@ -84,8 +83,8 @@ Document Folder            | [Folder](TODO)
 The members of the TOC are shown below. Membership in the TOC is determined by
 the [Steering committee](STEERING-COMMITTEE.md).
 
-&nbsp; | Member | Company | Profile
------- | ----- | ------- | -------
-<img width="30px" src="https://github.com/evankanderson.png">| Evan Anderson | Google | [@evankanderson](https://github.com/evankanderson)
-<img width="30px" src="https://github.com/mattmoor.png"> | Matt Moore | Google | [@mattmoor](https://github.com/mattmoor)
-<img width="30px" src="https://github.com/vaikas-google.png">| Ville Aikas | Google | [@vaikas-google](https://github.com/vaikas-google)
+&nbsp;                                                        | Member        | Company | Profile
+------------------------------------------------------------- | ------------- | ------- | -------
+<img width="30px" src="https://github.com/evankanderson.png"> | Evan Anderson | Google  | [@evankanderson](https://github.com/evankanderson)
+<img width="30px" src="https://github.com/mattmoor.png">      | Matt Moore    | Google  | [@mattmoor](https://github.com/mattmoor)
+<img width="30px" src="https://github.com/vaikas-google.png"> | Ville Aikas   | Google  | [@vaikas-google](https://github.com/vaikas-google)

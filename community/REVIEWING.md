@@ -7,13 +7,13 @@ in turn produces high quality software.
 This document provides guidelines for how the project's
 [Members](ROLES.md#member) review issues and merge pull requests (PRs).
 
--   [Pull requests welcome](#pull-requests-welcome)
--   [Code of Conduct](#code-of-conduct)
--   [Code reviewers](#code-reviewers)
--   [Reviewing changes](#reviewing-changes)
-    -   [Holds](#holds)
--   [Project maintainers](#project-maintainers)
--   [Merging PRs](#merging-prs)
+*   [Pull requests welcome](#pull-requests-welcome)
+*   [Code of Conduct](#code-of-conduct)
+*   [Code reviewers](#code-reviewers)
+*   [Reviewing changes](#reviewing-changes)
+    *   [Holds](#holds)
+*   [Project maintainers](#project-maintainers)
+*   [Merging PRs](#merging-prs)
 
 ## Pull requests welcome
 
@@ -79,9 +79,8 @@ review, withdraws their hold, or is overruled by a preponderance of approvers.
 Merging of PRs is done by [Approvers](ROLES.md#approver).
 
 Like many open source projects, becoming an Approver is based on contributions
-to the project. Please see our [community
-roles](https://github.com/elafros/elafros/blob/master/community/ROLES.md)
-document for information on how this is done.
+to the project. Please see our [community roles](ROLES.md) document for
+information on how this is done.
 
 ## Merging PRs
 
