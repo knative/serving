@@ -28,7 +28,7 @@ import (
 )
 
 // MakeRouteIstioSpec creates an Istio route
-func MakeRouteIstioSpec(route *v1alpha1.Route, revisionRoutes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
+func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute, domain string) istiov1alpha2.RouteRuleSpec {
 	// if either current or next is inactive, target them to proxy instead of
 	// the backend so the 0->1 transition will happen.
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(route)
@@ -50,7 +50,7 @@ func MakeRouteIstioSpec(route *v1alpha1.Route, revisionRoutes []RevisionRoute) i
 			Request: istiov1alpha2.MatchRequest{
 				Headers: istiov1alpha2.Headers{
 					Authority: istiov1alpha2.MatchString{
-						Regex: u.Spec.DomainSuffix,
+						Regex: domain,
 					},
 				},
 			},
@@ -59,8 +59,8 @@ func MakeRouteIstioSpec(route *v1alpha1.Route, revisionRoutes []RevisionRoute) i
 	}
 }
 
-// MakeRouteIstioRoutes creates an Istio route, owned by the provided v1alpha1.Route.
-func MakeRouteIstioRoutes(route *v1alpha1.Route, revisionRoutes []RevisionRoute) *istiov1alpha2.RouteRule {
+// MakeRouteIstioRoutes creates an Istio route
+func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute, domain string) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetElaIstioRouteRuleName(route),
@@ -72,13 +72,13 @@ func MakeRouteIstioRoutes(route *v1alpha1.Route, revisionRoutes []RevisionRoute)
 				*metav1.NewControllerRef(route, controllerKind),
 			},
 		},
-		Spec: MakeRouteIstioSpec(route, revisionRoutes),
+		Spec: MakeRouteIstioSpec(u, ns, routes, domain),
 	}
 	return r
 }
 
 // MakeTrafficTargetIstioRoutes creates Istio route for named traffic targets
-func MakeTrafficTargetIstioRoutes(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
+func MakeTrafficTargetIstioRoutes(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetTrafficTargetElaIstioRouteRuleName(u, tt),
@@ -88,7 +88,7 @@ func MakeTrafficTargetIstioRoutes(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, 
 				"traffictarget": tt.Name,
 			},
 		},
-		Spec: MakeTrafficTargetRouteIstioSpec(u, tt, ns, routes),
+		Spec: MakeTrafficTargetRouteIstioSpec(u, tt, ns, routes, domain),
 	}
 	serviceRef := metav1.NewControllerRef(u, controllerKind)
 	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
@@ -96,7 +96,7 @@ func MakeTrafficTargetIstioRoutes(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, 
 }
 
 // MakeTrafficTargetRouteIstioSpec creates Istio route for named traffic targets
-func MakeTrafficTargetRouteIstioSpec(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
+func MakeTrafficTargetRouteIstioSpec(u *v1alpha1.Route, tt v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) istiov1alpha2.RouteRuleSpec {
 	var istioServiceName string
 
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
@@ -114,7 +114,7 @@ func MakeTrafficTargetRouteIstioSpec(u *v1alpha1.Route, tt v1alpha1.TrafficTarge
 			Request: istiov1alpha2.MatchRequest{
 				Headers: istiov1alpha2.Headers{
 					Authority: istiov1alpha2.MatchString{
-						Regex: fmt.Sprintf("%s.%s", tt.Name, u.Spec.DomainSuffix),
+						Regex: fmt.Sprintf("%s.%s", tt.Name, domain),
 					},
 				},
 			},

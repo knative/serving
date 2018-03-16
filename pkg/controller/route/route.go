@@ -621,7 +621,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeRouteIstioRoutes(route, revisionRoutes)
+		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes, c.routeDomain(route))
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -630,7 +630,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		return revisionRoutes, nil
 	}
 
-	routeRules.Spec = MakeRouteIstioSpec(route, revisionRoutes)
+	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes, c.routeDomain(route))
 	_, err = routeClient.Update(routeRules)
 	if _, err := routeClient.Update(routeRules); err != nil {
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
@@ -640,23 +640,24 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 
 	// Create route rule for named traffic targets
 	for _, tt := range route.Spec.Traffic {
-		if tt.Name != "" {
-			routeRuleName := controller.GetTrafficTargetElaIstioRouteRuleName(route, tt)
-			routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
-			if err != nil {
-				if !apierrs.IsNotFound(err) {
-					return nil, err
-				}
-				routeRules = MakeTrafficTargetIstioRoutes(route, tt, ns, revisionRoutes)
-				_, createErr := routeClient.Create(routeRules)
-				return revisionRoutes, createErr
-			}
-			routeRules.Spec = MakeTrafficTargetRouteIstioSpec(route, tt, ns, revisionRoutes)
-			_, err = routeClient.Update(routeRules)
-			if err != nil {
+		if tt.Name == "" {
+			continue
+		}
+		routeRuleName := controller.GetTrafficTargetElaIstioRouteRuleName(route, tt)
+		routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
+		if err != nil {
+			if !apierrs.IsNotFound(err) {
 				return nil, err
 			}
+			routeRules = MakeTrafficTargetIstioRoutes(route, tt, ns, revisionRoutes, c.routeDomain(route))
+			_, createErr := routeClient.Create(routeRules)
+			return revisionRoutes, createErr
 		}
+		routeRules.Spec = MakeTrafficTargetRouteIstioSpec(route, tt, ns, revisionRoutes, c.routeDomain(route))
+		if _, err := routeClient.Update(routeRules); err != nil {
+			return nil, err
+		}
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	}
 	return revisionRoutes, nil
 }

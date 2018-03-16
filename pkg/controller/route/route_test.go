@@ -73,8 +73,7 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 			Namespace: "test",
 		},
 		Spec: v1alpha1.RouteSpec{
-			DomainSuffix: "example.com",
-			Traffic:      traffic,
+			Traffic: traffic,
 		},
 	}
 }
@@ -268,7 +267,7 @@ func keyOrDie(obj interface{}) string {
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRoute()
 	rev := getTestRevision("test-rev")
@@ -369,7 +368,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				Request: v1alpha2.MatchRequest{
 					Headers: v1alpha2.Headers{
 						Authority: v1alpha2.MatchString{
-							Regex: "example.com",
+							Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix),
 						},
 					},
 				},
@@ -399,7 +398,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithMultipleTargets()
 	rev := getTestRevision("test-rev")
@@ -434,7 +433,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Request: v1alpha2.MatchRequest{
 					Headers: v1alpha2.Headers{
 						Authority: v1alpha2.MatchString{
-							Regex: "example.com",
+							Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix),
 						},
 					},
 				},
@@ -471,7 +470,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithDuplicateTargets()
 	rev := getTestRevision("test-rev")
@@ -508,7 +507,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Request: v1alpha2.MatchRequest{
 						Headers: v1alpha2.Headers{
 							Authority: v1alpha2.MatchString{
-								Regex: route.Spec.DomainSuffix,
+								Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix),
 							},
 						},
 					},
@@ -558,7 +557,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithNamedTargets()
 	rev := getTestRevision("test-rev")
@@ -579,8 +578,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		return false, cfg, nil
 	})
 
-	// Ingress is created with the domain suffix and wildcard domain
-	expectedIngressHostnames := []string{"example.com", "*.example.com"}
+	// Ingress is created with the domain and wildcard domain
+	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix)
+	expectedIngressHostnames := []string{domain, fmt.Sprintf("*.%s", domain)}
 	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
 		i := obj.(*v1beta1.Ingress)
 		ingressHostnames := []string{}
@@ -608,7 +608,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Request: v1alpha2.MatchRequest{
 						Headers: v1alpha2.Headers{
 							Authority: v1alpha2.MatchString{
-								Regex: "example.com",
+								Regex: domain,
 							},
 						},
 					},
@@ -639,7 +639,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Request: v1alpha2.MatchRequest{
 						Headers: v1alpha2.Headers{
 							Authority: v1alpha2.MatchString{
-								Regex: "foo.example.com",
+								Regex: fmt.Sprintf("foo.%s", domain),
 							},
 						},
 					},
@@ -664,7 +664,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					Request: v1alpha2.MatchRequest{
 						Headers: v1alpha2.Headers{
 							Authority: v1alpha2.MatchString{
-								Regex: "bar.example.com",
+								Regex: fmt.Sprintf("bar.%s", domain),
 							},
 						},
 					},

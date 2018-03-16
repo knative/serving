@@ -36,7 +36,7 @@ func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1bet
 
 	// Construct hostnames the ingress accepts traffic for. If traffic targets
 	// are named, allow the wildcard dns record as well.
-	hostRules := []string{u.Spec.DomainSuffix}
+	hostRules := []string{domain}
 	appendWildcardDNS := false
 	for _, tt := range u.Spec.Traffic {
 		if tt.Name != "" {
@@ -44,7 +44,7 @@ func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1bet
 		}
 	}
 	if appendWildcardDNS {
-		hostRules = append(hostRules, fmt.Sprintf("*.%s", u.Spec.DomainSuffix))
+		hostRules = append(hostRules, fmt.Sprintf("*.%s", domain))
 	}
 
 	// By default we map to the placeholder service directly.
