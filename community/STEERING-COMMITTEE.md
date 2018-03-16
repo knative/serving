@@ -12,10 +12,8 @@ work-in-progress.*
 
 * Non-technical project oversight
 
-  * Charter and refine policy for community groups, including [Working
-    Groups](WORKING-GROUPS.md) and Committees. Note that the [Tech Oversight
-    Committee](TECH-OVERSIGHT-COMMITTEE.md) is responsible for defining and
-    approving Working Groups.
+  * Define policy for the creation and administration of community
+    groups, including [Working Groups](WORKING-GROUPS.md) and Committees.
 
   * Define and evolve project governance structures and policies, including
     project role assignment and contributor promotion.
