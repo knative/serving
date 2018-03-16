@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
-kind: Route
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: route-example
-  namespace: default
-spec:
-  traffic:
-  - configurationName: configuration-example
-    percent: 100
+  name: ela-config
+  namespace: ela-system
+data:
+  controllerConfig: |
+    domainSuffix: demo-domain.net

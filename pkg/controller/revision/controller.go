@@ -141,7 +141,8 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config) controller.Interface {
+	config *rest.Config,
+	_ controller.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
