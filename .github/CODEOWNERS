@@ -7,6 +7,9 @@
 # API governance.
 /pkg/apis @evankanderson @mattmoor @vaikas-google
 
+# Build API (imported from elafros/build)
+/pkg/apis/build @mattmoor @ImJasonH
+
 # All groups can review docs.
 /docs/ @elafros/elafros-writers @google/elafros-readers
 
