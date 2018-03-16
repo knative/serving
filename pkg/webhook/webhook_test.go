@@ -49,7 +49,6 @@ const (
 	imageName             = "test-container-image"
 	envVarName            = "envname"
 	envVarValue           = "envvalue"
-	testDomain            = "example.com"
 	testGeneration        = 1
 	testRouteName         = "test-route-name"
 	testRevisionName      = "test-revision"
@@ -418,8 +417,7 @@ func createRoute(generation int64) v1alpha1.Route {
 			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Generation:   generation,
-			DomainSuffix: testDomain,
+			Generation: generation,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
 					Name:         "test-traffic-target",

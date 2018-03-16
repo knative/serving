@@ -52,6 +52,7 @@ var (
 		Name:      "route_process_item_count",
 		Help:      "Counter to keep track of items in the route work queue",
 	}, []string{"status"})
+	domainSuffix string
 )
 
 const (
@@ -96,6 +97,9 @@ type Controller struct {
 
 	// don't start the workers until configuration cache have been synced
 	configSynced cache.InformerSynced
+
+	// Controller configurations.
+	elaConfig controller.Config
 }
 
 func init() {
@@ -113,7 +117,8 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config) controller.Interface {
+	config *rest.Config,
+	elaConfig controller.Config) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -137,6 +142,7 @@ func NewController(
 		configSynced:  configInformer.Informer().HasSynced,
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
 		recorder:      recorder,
+		elaConfig:     elaConfig,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -384,6 +390,7 @@ func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route,
 		}
 		route.Status.Traffic = traffic
 	}
+	route.Status.Domain = c.routeDomain(route)
 	return route, nil
 }
 
@@ -410,13 +417,17 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 	return nil
 }
 
+func (c *Controller) routeDomain(route *v1alpha1.Route) string {
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.elaConfig.DomainSuffix)
+}
+
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
 	ingressName := controller.GetElaK8SIngressName(route)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(route, ns)
+	ingress := MakeRouteIngress(route, ns, c.routeDomain(route))
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 

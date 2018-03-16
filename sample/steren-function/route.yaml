@@ -18,7 +18,6 @@ metadata:
   name: steren-sample-fn
   namespace: default
 spec:
-  domainSuffix: sample-fn.googlecustomer.net
   traffic:
   - configurationName: steren-sample-function
     percent: 100

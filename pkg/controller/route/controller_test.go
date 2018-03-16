@@ -25,6 +25,7 @@ package route
 */
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -207,6 +209,9 @@ func newTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
+		ctrl.Config{
+			DomainSuffix: "test-domain.net",
+		},
 	).(*Controller)
 
 	return
@@ -278,6 +283,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	// Look for the ingress.
 	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
+	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
 	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
 		i := obj.(*v1beta1.Ingress)
 		if e, a := expectedIngressName, i.Name; e != a {
@@ -285,6 +291,9 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		}
 		if e, a := route.Namespace, i.Namespace; e != a {
 			t.Errorf("unexpected ingress namespace: %q expected: %q", a, e)
+		}
+		if !strings.HasPrefix(i.Spec.Rules[0].Host, expectedDomainPrefix) {
+			t.Errorf("Ingress host '%s' must have prefix '%s'", i.Spec.Rules[0].Host, expectedDomainPrefix)
 		}
 		return hooks.HookComplete
 	})
@@ -749,6 +758,10 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 		}
 		if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
 			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
+		expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
+		if !strings.HasPrefix(route.Status.Domain, expectedDomainPrefix) {
+			t.Errorf("Route domain '%s' must have prefix '%s'", route.Status.Domain, expectedDomainPrefix)
 		}
 		return hooks.HookComplete
 	})

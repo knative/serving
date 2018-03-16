@@ -16,7 +16,6 @@ kind: Route
 metadata:
   name: private-repos
 spec:
-  domainSuffix: private-repos.googlecustomer.net
   traffic:
   - configurationName: private-repos
     percent: 100
