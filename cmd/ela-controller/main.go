@@ -77,7 +77,7 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 
-	controllerConfigHolder, err := controller.NewConfigHolder(controllerConfigFile)
+	controllerConfig, err := controller.LoadConfig(controllerConfigFile)
 	if err != nil {
 		glog.Fatalf("Error loading controller config file: %s", err.Error())
 	}
@@ -92,7 +92,7 @@ func main() {
 	controllers := make([]controller.Interface, 0, len(ctors))
 	for _, ctor := range ctors {
 		controllers = append(controllers,
-			ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, controllerConfigHolder))
+			ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig))
 	}
 
 	go kubeInformerFactory.Start(stopCh)

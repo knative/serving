@@ -29,47 +29,15 @@ type Config struct {
 	DomainSuffix string `json:"domainSuffix"`
 }
 
-type ConfigHolder interface {
-
-	// Returns the current value of Config.  It is expected that
-	// subsequent calls may change the value, so clients should be
-	// careful when holding the value.
-	GetConfig() Config
-}
-
-// An implementation of ConfigHolder based on a YAML file.  In this
-// implementation we load the file once and does not check again when
-// its content changes.
-//
-// TODO(nghia)  Improve this ConfigHolder implementation so that
-//              it watches for changes in the config file for updates,
-//              may be using something like github.com/fsnotify/fsnotify.
-type YamlConfigHolder struct {
-	config Config
-}
-
-func (h *YamlConfigHolder) GetConfig() Config {
-	return h.config
-}
-
 // Load the configuration from a YAML file.
-func (h *YamlConfigHolder) Load(filename string) error {
+func LoadConfig(filename string) (*Config, error) {
 	content, err := ioutil.ReadFile(filename)
+	config := Config{}
 	if err != nil {
-		return err
-	}
-	if err = yaml.Unmarshal(content, &h.config); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Load a YAML file and returns a ConfigHolder using the parsed Config.
-// This loads once and does not update with file updates.
-func NewConfigHolder(filename string) (ConfigHolder, error) {
-	h := YamlConfigHolder{}
-	if err := h.Load(filename); err != nil {
 		return nil, err
 	}
-	return &h, nil
+	if err = yaml.Unmarshal(content, &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
 }

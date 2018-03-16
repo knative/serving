@@ -98,7 +98,8 @@ type Controller struct {
 	// don't start the workers until configuration cache have been synced
 	configSynced cache.InformerSynced
 
-	elaConfigHolder controller.ConfigHolder
+	// Controller configurations.
+	elaConfig controller.Config
 }
 
 func init() {
@@ -117,7 +118,7 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	elaConfigHolder controller.ConfigHolder) controller.Interface {
+	elaConfig controller.Config) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -134,14 +135,14 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:   kubeclientset,
-		elaclientset:    elaclientset,
-		lister:          informer.Lister(),
-		synced:          informer.Informer().HasSynced,
-		configSynced:    configInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
-		recorder:        recorder,
-		elaConfigHolder: elaConfigHolder,
+		kubeclientset: kubeclientset,
+		elaclientset:  elaclientset,
+		lister:        informer.Lister(),
+		synced:        informer.Informer().HasSynced,
+		configSynced:  configInformer.Informer().HasSynced,
+		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
+		recorder:      recorder,
+		elaConfig:     elaConfig,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -407,7 +408,7 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.elaConfigHolder.GetConfig().DomainSuffix)
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.elaConfig.DomainSuffix)
 }
 
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {

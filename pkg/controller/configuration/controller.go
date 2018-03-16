@@ -83,7 +83,7 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	_ controller.ConfigHolder) controller.Interface {
+	_ controller.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.

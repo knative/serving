@@ -186,14 +186,6 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 	return rev
 }
 
-type FakeConfigHolder struct {
-	config ctrl.Config
-}
-
-func (f FakeConfigHolder) GetConfig() ctrl.Config {
-	return f.config
-}
-
 func newTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
@@ -216,10 +208,8 @@ func newTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		FakeConfigHolder{
-			config: ctrl.Config{
-				DomainSuffix: "test-domain.net",
-			},
+		ctrl.Config{
+			DomainSuffix: "test-domain.net",
 		},
 	).(*Controller)
 

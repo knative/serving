@@ -25,7 +25,7 @@ import (
 )
 
 func TestLoadNonExistentYamlFile(t *testing.T) {
-	_, err := NewConfigHolder("/i/do/not/exist")
+	_, err := LoadConfig("/i/do/not/exist")
 	if err == nil {
 		t.Error("Expect an error when config file not found")
 	}
@@ -38,7 +38,7 @@ func TestLoadBadYamlFile(t *testing.T) {
 	ioutil.WriteFile(f.Name(), []byte("bad-yaml-data"), 0600)
 
 	// Parse and verify failure.
-	_, err = NewConfigHolder(f.Name())
+	_, err = LoadConfig(f.Name())
 	if err == nil {
 		t.Error("Expect an error when config file not in right format")
 	}
@@ -55,11 +55,11 @@ func TestLoadGoodYamlFile(t *testing.T) {
 	ioutil.WriteFile(f.Name(), []byte("domainSuffix: foo.bar.net"), 0600)
 
 	// Parse and verify.
-	h, err := NewConfigHolder(f.Name())
+	c, err := LoadConfig(f.Name())
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err.Error())
 	}
-	if diff := cmp.Diff(expected, h.GetConfig()); diff != "" {
+	if diff := cmp.Diff(expected, *c); diff != "" {
 		t.Errorf("expected config  != parsed config (-want +got): %v", diff)
 	}
 }
