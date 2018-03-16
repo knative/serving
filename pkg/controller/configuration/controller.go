@@ -24,7 +24,6 @@ import (
 	"github.com/elafros/elafros/pkg/controller"
 
 	"github.com/golang/glog"
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +42,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 )
@@ -83,7 +81,8 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config) controller.Interface {
+	config *rest.Config,
+	_ controller.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
@@ -91,9 +90,6 @@ func NewController(
 	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	// Create event broadcaster
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -209,12 +205,12 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
+			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		glog.Infof("Successfully synced %q", key)
 		return nil
 	}(obj)
 
@@ -259,7 +255,7 @@ func (c *Controller) syncHandler(key string) error {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("configuration '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("configuration %q in work queue no longer exists", key))
 			return nil
 		}
 
@@ -294,11 +290,11 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
-			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build: %s", build.Name)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
-		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build: %s", created.Name)
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
 		spec.BuildName = created.Name
 	}
 
@@ -328,10 +324,10 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %s", rev.Name)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
 		return err
 	}
-	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision: %s", rev.Name)
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
 	glog.Infof("Created Revision:\n%+v", created)
 
 	// Update the Status of the configuration with the latest generation that
@@ -353,11 +349,12 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
-	// Just return the UUID.
-	// TODO: consider using a prefix and make sure the length of the
+	// TODO: consider making sure the length of the
 	// string will not cause problems down the stack
-	genUUID, err := uuid.NewRandom()
-	return fmt.Sprintf("p-%s", genUUID.String()), err
+	if u.Spec.Generation == 0 {
+		return "", fmt.Errorf("configuration generation cannot be 0")
+	}
+	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation), nil
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -433,7 +430,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 			"Configuration becomes ready")
 	}
 	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-		"LatestReadyRevisionName is updated to '%s'", revision.Name)
+		"LatestReadyRevisionName updated to %q", revision.Name)
 
 	return
 }

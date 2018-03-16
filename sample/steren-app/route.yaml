@@ -18,7 +18,6 @@ metadata:
   name: steren-sample-app
   namespace: default
 spec:
-  domainSuffix: sample-app.googlecustomer.net
   traffic:
   - configurationName: steren-sample-app
     percent: 100

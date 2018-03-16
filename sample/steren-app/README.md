@@ -52,13 +52,16 @@ Once the `BuildComplete` status becomes `True` the resources will start getting 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
 $ watch kubectl get ing
-NAME                             HOSTS                          ADDRESS    PORTS     AGE
-steren-sample-app-ela-ingress   sample-app.googlecustomer.net              80        3m
+NAME                             HOSTS                                        ADDRESS    PORTS     AGE
+steren-sample-app-ela-ingress    steren-sample-app.default.demo-domain.net               80        3m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get route steren-sample-app -o jsonpath="{.status.domain}"`
+
 # Put the Ingress IP into an environment variable.
 $ export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
@@ -73,7 +76,7 @@ export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath
 Now curl the service IP as if DNS were properly configured:
 
 ```shell
-$ curl --header 'Host:sample-app.googlecustomer.net' http://${SERVICE_IP}/
+$ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/
 <!DOCTYPE html><html><head><title>Demo</title><link rel="stylesheet" href="/stylesheets/style.css"></head><body><h1>Demo</h1><form action="/messages" method="POST"><input type="text" name="text"><input type="submit"></form><ol></ol></body></html>
 ```
 

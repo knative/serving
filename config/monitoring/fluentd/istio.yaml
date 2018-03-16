@@ -52,6 +52,5 @@ spec:
     responseCode: response.code | 0
     responseSize: response.size | 0
     latency: response.duration | "0ms"
-    # The following two doesn't work until we start injecting Envoy sidecars. Will uncomment once that is done.
-    #destinationService: destination.service | ""
-    #destinationNamespace: destination.namespace | ""
+    destinationService: destination.service | ""
+    destinationNamespace: destination.namespace | ""

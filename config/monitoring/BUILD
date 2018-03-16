@@ -24,6 +24,7 @@ k8s_objects(
         "//config/monitoring/grafana:everything",
         "//config/monitoring/elasticsearch:everything",
         "//config/monitoring/kibana:everything",
+        "//config/monitoring/zipkin:everything",
     ],
 )
 
