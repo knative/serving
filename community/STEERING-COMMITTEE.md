@@ -1,7 +1,8 @@
 # Elafros Steering Committee
 
 The Elafros Steering Committee (SC) defines, evolves, and defends the vision,
-values, mission, and scope of the project.
+values, mission, and scope of the project. *The Steering Committee is a
+work-in-progress.*
 
 *   [Charter](#charter)
 *   [Committee Mechanics](#committee-mechanics)
@@ -37,8 +38,8 @@ values, mission, and scope of the project.
 
 ## Committee Mechanics
 
-*The Steering Committee is a work-in-progress.* Its operation and charter may
-be changed by unanimous consent of committee members.
+The committee's operation and charter may be changed by unanimous consent of
+committee members.
 
 In case of extended absence, an absent member will be considered to be in
 agreement after 8 days have passed since a proposal was accepted by all present
