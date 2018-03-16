@@ -10,31 +10,33 @@ This is what we hope to accomplish in 2018.
   2. *Make it light*
   3. *Make everything better*
 
-## Areas of Interest
+In 2018 we will focus on making autoscaling correct, fast and light.  Not so much on making everything better which is a longer term endeavour.
 
-1. **Correctness**.  When scaling from 0-to-1, 1-to-N and back down, error rates should not increase.
-2. **Performance**.  When scaling from 1-to-N and back down, autoscaling should maintain reasonable latency and cost.
-3. **Scale to zero**.  Idle Revisions ([Reserve](README.md#behavior)) should cost nothing.  Reserve Revisions should serve the first request in 1 second or less.
-4. **Development**.  Autoscaler development should follow a clear roadmap.  Getting started as a developer should be easy and the team should scale horizontally.
+## Areas of Interest and Requirements
+
+1. **Correctness**.  When scaling from 0-to-1, 1-to-N and back down, error rates must not increase.  We must have visibility of correctness over time at small and large scales.
+2. **Performance**.  When scaling from 1-to-N and back down, autoscaling must maintain reasonable latency and cost.  The Elafros implementation of autoscaling must be competitive in its ability to serve variable load.  And, to a lesser degree, match cost to the load.
+3. **Scale to zero**.  Idle ([Reserve](README.md#behavior)) Revisions must cost nothing.  Reserve Revisions must serve the first request in 1 second or less.
+4. **Development**.  Autoscaler development must follow a clear roadmap.  Getting started as a developer must be easy and the team must scale horizontally.
 
 ### Correctness
 
-We must have visibility of our correctness over time to make sure we've covered all the gaps and that regressions don't happen.  There are a few gaps that show up during large scaling events.  And probably some around scaling to zero.
-
-1. **Write autoscaler conformance tests**.  This will cover low-scale regressions, runnable by individual developers before checkin.
-2. **Test error rates at high scale**.  This will cover regressions at larger scales (~1000 QPS and ~1000 clients).
-3. **Test error rates around idle states**.  We need to verify we handle various scale-to-zero edge cases correctly.
+1. **Write autoscaler conformance tests** to cover low-scale regressions, runnable by individual developers before checkin.
+2. **Test error rates at high scale** to cover regressions at larger scales (~1000 QPS and ~1000 clients).
+3. **Test error rates around idle states** to cover various scale-to-zero edge cases.
 
 ### Performance
 
-The Elafros implementation of autoscaling must be competitive in its ability to serve variable load.  And to match cost to the load.
-
-1. **Establish canonical, repeatable load test scenarios**.  We need to establish the code to run, the request load to generate, and the performance expected.  This will tell us where we need to improve.  And help us watch for performance regressions.
+1. **Establish canonical load test scenarios** to prove autoscaler performance and guide development.  We need to establish the code to run, the request load to generate, and the performance expected.  This will tell us where we need to improve.
+2. **Reproducable load tests** which can be run by anyone with minimal setup.  These must be transparent and easy to run.  They must be meaningful tests which prove autoscaler performance.
 
 ### Scale to Zero
 
-1. **Reserve Revision start time**.  We need to focus on bringing the cold-start time of Revisions down from 4 seconds to 1 second or less.
+1. **Reduce Reserve Revision start time** from 4 seconds to 1 second or less.  Maybe we can keep some resources around like the Replica Set or pre-cache images so that Pods are spun up faster.
 
 ### Development
 
-1. **Custom resource definition**.  We can encapsulate the autoscaling implementation in a custom resource definition and controller.  This will let autoscaling evolve independently from the Revision custom resource controller.  This makes development more independent and scalable.
+1. **Custom resource definition and controller** to encapsulate the autoscaling implementation.  This will let autoscaling evolve independently from the Revision custom resource and controller.  This makes development more independent and scalable.
+
+## What We Are Not Doing
+
