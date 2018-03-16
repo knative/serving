@@ -17,13 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -104,15 +102,22 @@ func main() {
 	// traces from HTTP headers and intercepts http.ResponseWriter to
 	// add the extracted tracing information to the response.
 	zipkinMiddleware := zipkinhttp.NewServerMiddleware(zipkinTracer, zipkinhttp.TagResponseSize(true))
-	zipkinClient, err := zipkinhttp.NewClient(zipkinTracer, zipkinhttp.ClientTrace(true))
+
+	// Zipkin transport implements an http.RoundTripper and injects open tracing
+	// headers into outgoing requests. If an outgoing call is made as part of responding
+	// to an incoming call, outgoing request must be created with the incoming request's
+	// context. Otherwise, the transporter will start a new trace id (i.e. a new root span)
+	// rather than attaching to the incoming request's trace id.
+	zipkinTransport, err := zipkinhttp.NewTransport(zipkinTracer)
 	if err != nil {
-		log.Fatalf("Unable to create zipkin HTTP client: %+v\n", err)
+		log.Fatalf("Unable to create Zipkin HTTP transport: %+v\n", err)
 	}
+	client := &http.Client{Transport: zipkinTransport}
 
 	mux := http.NewServeMux()
 
 	// Use zipkin middleware to handle traces before receiving calls to our handler.
-	mux.Handle("/", zipkinMiddleware((rootHandler(zipkinClient))))
+	mux.Handle("/", zipkinMiddleware((rootHandler(client))))
 
 	// Setup Prometheus handler for metrics.
 	mux.Handle("/metrics", promhttp.Handler())
@@ -127,14 +132,10 @@ var statusCodes = [...]int{
 	http.StatusUnauthorized,
 }
 
-func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
+func rootHandler(client *http.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Write the http request headers to the log for demonstration purposes.
-		var s string
-		for k, v := range r.Header {
-			s += fmt.Sprintf("[%v: %v], ", k, v)
-		}
-		glog.Infof("TelemetrySample: Request received. Request headers: %v", s)
+		glog.Infof("TelemetrySample: Request received. Request headers: %v", r.Header)
 
 		// Pick a random return code - this is used for demonstrating metrics & logs
 		// with different responses.
@@ -151,36 +152,45 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 			requestDuration.Observe(time.Since(start).Seconds())
 		}(time.Now())
 
+		getWithContext := func(url string) (*http.Response, error) {
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				glog.Errorf("Failed to create a new request: %v", err)
+				return nil, err
+			}
+			// If we don't attach the incoming request's context, we will end up creating
+			// a new trace id (i.e. a new root span) rather than attaching to the incoming
+			// request's trace id. To ensure the continuity of the trace, use incoming
+			// request's context for the outgoing request.
+			req = req.WithContext(r.Context())
+			return client.Do(req)
+		}
+
 		// Simulate a few extra calls to other services to demostrate the distributed tracing capabilities.
 		// In sequence, call three different other services. For each call, we will create a new span
 		// to track that call in the call graph. See http://opentracing.io/documentation/ for more information
 		// on these concepts.
-		err := callWithNewSpan(
-			r.Context(),
-			client,
-			"http://prometheus-system-np.monitoring.svc.cluster.local:8080",
-			"prometheus")
+		res, err := getWithContext("http://prometheus-system-np.monitoring.svc.cluster.local:8080")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		defer res.Body.Close()
 
-		err = callWithNewSpan(
-			r.Context(),
-			client,
-			"http://grafana.monitoring.svc.cluster.local:30802",
-			"grafana")
+		res, err = getWithContext("http://grafana.monitoring.svc.cluster.local:30802")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		defer res.Body.Close()
 
 		// Let's call a non-existent URL to demonstrate the failure scenarios in distributed tracing.
-		_ = callWithNewSpan(
-			r.Context(),
-			client,
-			"http://invalidurl.svc.cluster.local",
-			"invalid_url")
+		res, err = getWithContext("http://invalidurl.svc.cluster.local")
+		if err != nil {
+			glog.Errorf("Request failed: %v", err)
+		} else {
+			defer res.Body.Close()
+		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -188,30 +198,4 @@ func rootHandler(client *zipkinhttp.Client) http.HandlerFunc {
 		w.Write([]byte("Hello world!\n"))
 		glog.Infof("Request complete. Status: %v", status)
 	}
-}
-
-// Makes an http call with distributed tracing enabled.
-func callWithNewSpan(ctx context.Context, client *zipkinhttp.Client, url string, spanName string) error {
-	// Create a new span to capture this call as a child of the current call in the trace graph.
-	span := zipkin.SpanFromContext(ctx)
-
-	// Create the http request that we will execute with tracing enabled.
-	req, err := http.NewRequest("GET", url, strings.NewReader(""))
-	if err != nil {
-		glog.Errorf("Request failed: unable to create a new http request: %v", err)
-		return err
-	}
-
-	// Change the context of the request to the context from the new span.
-	req = req.WithContext(zipkin.NewContext(req.Context(), span))
-
-	// Make the request using zipkinhttp.Client.DoWithAppSpan.
-	// This wraps http.Client's Do with tracing using the span created above.
-	res, err := client.DoWithAppSpan(req, spanName)
-	if err != nil {
-		glog.Errorf("Request failed: %v", err)
-		return err
-	}
-	defer res.Body.Close()
-	return nil
 }
