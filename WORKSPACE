@@ -106,7 +106,7 @@ load(
 
 private_git_repository(
     name = "buildcrd",
-    commit = "098d36d81cf77ffd77d3743f514f0425b29c9597",
+    commit = "ecc11b19d8b84c597062be05a2a14edd73e1f7bb",
     remote = "git@github.com:elafros/build.git",
 )
 
