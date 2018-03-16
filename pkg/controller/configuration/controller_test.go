@@ -195,6 +195,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	})
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.syncHandler(keyOrDie(config))
 
@@ -239,6 +240,7 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 	}
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.syncHandler(keyOrDie(config))
 
