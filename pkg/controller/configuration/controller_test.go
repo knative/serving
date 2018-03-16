@@ -111,7 +111,7 @@ func getTestRevision() *v1alpha1.Revision {
 	}
 }
 
-func newTestController(t *testing.T) (
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -120,7 +120,10 @@ func newTestController(t *testing.T) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	elaClient = fakeclientset.NewSimpleClientset()
+	// The ability to insert objects here is intended to work around the problem
+	// with watches not firing in client-go 1.9. When we update to client-go 1.10
+	// this can probably be removed.
+	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -138,7 +141,7 @@ func newTestController(t *testing.T) (
 	return
 }
 
-func newRunningTestController(t *testing.T) (
+func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -146,7 +149,7 @@ func newRunningTestController(t *testing.T) (
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
+	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.

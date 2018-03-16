@@ -34,7 +34,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["controller_test.go"],
+    srcs = [
+        "controller_test.go",
+        "queueing_test.go",
+    ],
     embed = [":go_default_library"],
     importpath = "github.com/elafros/elafros/pkg/controller/configuration",
     deps = [
@@ -44,7 +47,6 @@ go_test(
         "//pkg/client/clientset/versioned/fake:go_default_library",
         "//pkg/client/informers/externalversions:go_default_library",
         "//pkg/controller/testing:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/google/go-cmp/cmp:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
