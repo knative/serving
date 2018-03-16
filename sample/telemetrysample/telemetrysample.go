@@ -158,6 +158,10 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 				glog.Errorf("Failed to create a new request: %v", err)
 				return nil, err
 			}
+			// If we don't attach the incoming request's context, we will end up creating
+			// a new trace id (i.e. a new root span) rather than attaching to the incoming
+			// request's trace id. To ensure the continuity of the trace, use incoming
+			// request's context for the outgoing request.
 			req = req.WithContext(r.Context())
 			return client.Do(req)
 		}
