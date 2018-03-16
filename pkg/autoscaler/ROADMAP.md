@@ -22,7 +22,7 @@ In 2018 we will focus on making autoscaling correct, fast and light.  Not so muc
 ### Correctness
 
 1. **Write autoscaler conformance tests** to cover low-scale regressions, runnable by individual developers before checkin.
-2. **Test error rates at high scale** to cover regressions of error rates at larger scales (~1000 QPS and ~1000 clients).
+2. **Test error rates at high scale** to cover regressions at larger scales (~1000 QPS and ~1000 clients).
 3. **Test error rates around idle states** to cover various scale-to-zero edge cases.
 
 ### Performance
