@@ -288,8 +288,7 @@ func (c *Controller) syncHandler(key string) error {
 	route, err := c.lister.Routes(namespace).Get(name)
 
     if route.Status.ObservedGeneration == route.GetGeneration() {
-    	glog.Infof("Skipping reconcile route since already reconciled %d == %d",
-			route.GetGeneration(), route.Status.ObservedGeneration)
+    	glog.Infof("Skipping reconcile route since already reconciled %d == %d", route.GetGeneration(), route.Status.ObservedGeneration)
 		return nil
     }
 
@@ -332,8 +331,8 @@ func (c *Controller) syncHandler(key string) error {
 
 	route, err = c.syncTrafficTargets(route)
 	if err != nil {
-    	return err
-    }
+		return err
+	}
 
 	route.Status.ObservedGeneration = route.GetGeneration()
 	route, err = c.updateStatus(route)
