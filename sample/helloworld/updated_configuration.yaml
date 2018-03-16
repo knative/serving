@@ -26,7 +26,7 @@ spec:
         env:
           - name: TARGET
             value: updatedversion
-        readynessProbe:
+        readinessProbe:
           httpGet:
             path: /
             port: 8080
