@@ -57,8 +57,6 @@ var (
 
 const (
 	controllerAgentName = "route-controller"
-	domainSuffixKey     = "domainSuffix"
-	elaNamespace        = "ela-system"
 )
 
 // RevisionRoute represents a single target to route to.
@@ -99,6 +97,9 @@ type Controller struct {
 
 	// don't start the workers until configuration cache have been synced
 	configSynced cache.InformerSynced
+
+	// suffix used to construct Route domain.
+	controllerConfig controller.Config
 }
 
 func init() {
@@ -116,7 +117,8 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config) controller.Interface {
+	config *rest.Config,
+	controllerConfig controller.Config) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -133,13 +135,14 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		configSynced:  configInformer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
-		recorder:      recorder,
+		kubeclientset:    kubeclientset,
+		elaclientset:     elaclientset,
+		lister:           informer.Lister(),
+		synced:           informer.Informer().HasSynced,
+		configSynced:     configInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
+		recorder:         recorder,
+		controllerConfig: controllerConfig,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -334,6 +337,10 @@ func (c *Controller) syncHandler(key string) error {
 	return err
 }
 
+func (c *Controller) routeDomain(route *v1alpha1.Route) string {
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.controllerConfig.DomainSuffix)
+}
+
 // syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
 // according to the traffic targets in Spec field for Route resource. It then updates the Status
 // block of the Route and returns the updated one.
@@ -373,14 +380,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 		}
 		route.Status.Traffic = traffic
 	}
-	// Since the domainSuffix comes from a ConfigMap, c.routeDomain() may change.
-	// We probably want to avoid updating Status.Domain of an existing Route, so only
-	// populate Status.Domain if it wasn't populated before.
-	if route.Status.Domain == "" {
-		if route.Status.Domain, err = c.routeDomain(route); err != nil {
-			return nil, err
-		}
-	}
+	route.Status.Domain = c.routeDomain(route)
 	updated, err := c.updateStatus(route)
 	if err != nil {
 		glog.Warningf("Failed to update service status: %s", err)
@@ -412,18 +412,6 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
 	}
 	return nil
-}
-
-func (c *Controller) routeDomain(route *v1alpha1.Route) (string, error) {
-	m, err := c.kubeclientset.CoreV1().ConfigMaps(elaNamespace).Get(controller.GetElaConfigMapName(), metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	domainSuffix, ok := m.Data[domainSuffixKey]
-	if !ok {
-		return "", fmt.Errorf("key '%s' not found in ConfigMap '%s/%s'", domainSuffixKey, elaNamespace, controller.GetElaConfigMapName())
-	}
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domainSuffix), nil
 }
 
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
