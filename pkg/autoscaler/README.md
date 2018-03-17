@@ -63,13 +63,13 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 
 1. **Make if fast**.  Revisions should be able to scale from 0 to 1000 concurrent requests in 30 seconds or less.
 2. **Make it light**.  Wherever possible the system should be able to figure out the right thing to do without the user's intervention or configuration.
-3. **Make everything better**.  Creating custom components is a short-term strategy to get something working now.  The long-term strategy is to make the underlying components better so that custom code can be replaced with configuration.  E.g. Autoscaler should be replaced with the K8s Horizontal Pod Autoscaler and Custom Metrics.
+3. **Make everything better**.  Creating custom components is a short-term strategy to get something working now.  The long-term strategy is to make the underlying components better so that custom code can be replaced with configuration.  E.g. Autoscaler should be replaced with the K8s [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) and [Custom Metrics](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#support-for-custom-metrics).
 
 ### Slow Brain / Fast Brain
 
 The Elafros Autoscaler is split into two parts:
 1. **Fast Brain** that maintains the desired level of concurrent requests per Pod (satisfying [Design Goal #1](#design-goals)), and the
-2. **Slow Brain** that comes up with the desired level based based on CPU, memory and latency statistics (satisfying [Design Goal #2](#design-goals)).
+2. **Slow Brain** that comes up with the desired level based on CPU, memory and latency statistics (satisfying [Design Goal #2](#design-goals)).
 
 ## Fast Brain Implementation
 
@@ -83,7 +83,7 @@ This is subject to change as the Elafros implementation changes.
 
 ### Autoscaler
 
-There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use Envoy, that would be great (see [Design Goal #3](#design-goals)).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
+There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use [Envoy](https://www.envoyproxy.io/docs/envoy/latest/), that would be great (see [Design Goal #3](#design-goals)).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
 
 The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.  The Autoscaler has two modes of operation, Panic Mode and Stable Mode.
 
