@@ -202,15 +202,22 @@ func newTestController(t *testing.T) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
+	// The route controller gets its configuration from a ConfigMap.
+	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: elaNamespace,
+			Name:      ctrl.GetElaConfigMapName(),
+		},
+		Data: map[string]string{
+			"domainSuffix": "test-domain.com",
+		},
+	})
 	controller = NewController(
 		kubeClient,
 		elaClient,
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{
-			DomainSuffix: "test-domain.net",
-		},
 	).(*Controller)
 
 	return

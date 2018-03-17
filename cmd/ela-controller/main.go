@@ -47,13 +47,11 @@ const (
 )
 
 var (
-	masterURL            string
-	kubeconfig           string
-	controllerConfigFile string
+	masterURL  string
+	kubeconfig string
 )
 
 func main() {
-	flag.StringVar(&controllerConfigFile, "controllerConfigFile", "", "name of config file for controllers")
 	flag.Parse()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -77,10 +75,6 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 
-	controllerConfig, err := controller.LoadConfig(controllerConfigFile)
-	if err != nil {
-		glog.Fatalf("Error loading controller config file: %s", err.Error())
-	}
 	// Add new controllers here.
 	ctors := []controller.Constructor{
 		configuration.NewController,
@@ -92,7 +86,7 @@ func main() {
 	controllers := make([]controller.Interface, 0, len(ctors))
 	for _, ctor := range ctors {
 		controllers = append(controllers,
-			ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig))
+			ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg))
 	}
 
 	go kubeInformerFactory.Start(stopCh)

@@ -31,7 +31,7 @@ type Interface interface {
 	Run(threadiness int, stopCh <-chan struct{}) error
 }
 
-type Constructor func(kubernetes.Interface, clientset.Interface, kubeinformers.SharedInformerFactory, informers.SharedInformerFactory, *rest.Config, Config) Interface
+type Constructor func(kubernetes.Interface, clientset.Interface, kubeinformers.SharedInformerFactory, informers.SharedInformerFactory, *rest.Config) Interface
 
 func init() {
 	// Add ela types to the default Kubernetes Scheme so Events can be
