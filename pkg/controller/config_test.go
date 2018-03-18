@@ -59,7 +59,7 @@ func TestNewConfig(t *testing.T) {
 	})
 	c, err := NewConfig(kubeClient)
 	if err != nil {
-		t.Error("Unexpected error %v", err)
+		t.Errorf("Unexpected error: %v", err)
 	}
 	if c.DomainSuffix != expectedSuffix {
 		t.Errorf("expected domain suffix %q, got %q", expectedSuffix, c.DomainSuffix)
