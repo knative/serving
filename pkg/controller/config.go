@@ -23,7 +23,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// Contains controller configurations.
 type Config struct {
+	// The suffix of the domain used for routes.
 	DomainSuffix string
 }
 
@@ -39,7 +41,7 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 	}
 	domainSuffix, ok := m.Data[domainSuffixKey]
 	if !ok {
-		return nil, fmt.Errorf("key '%s' not found in ConfigMap '%s/%s'", domainSuffixKey, elaNamespace, GetElaConfigMapName())
+		return nil, fmt.Errorf("key %q not found in ConfigMap %q/%q", domainSuffixKey, elaNamespace, GetElaConfigMapName())
 	}
 	return &Config{DomainSuffix: domainSuffix}, nil
 }

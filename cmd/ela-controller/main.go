@@ -59,17 +59,17 @@ func main() {
 
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeconfig: %s", err.Error())
+		glog.Fatalf("Error building kubeconfig: %v", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		glog.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
 	elaClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %s", err.Error())
+		glog.Fatalf("Error building ela clientset: %v", err)
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
@@ -77,7 +77,7 @@ func main() {
 
 	controllerConfig, err := controller.NewConfig(kubeClient)
 	if err != nil {
-		glog.Fatalf("Error loading controller config: %s", err.Error())
+		glog.Fatalf("Error loading controller config: %v", err)
 	}
 	// Add new controllers here.
 	ctors := []controller.Constructor{
@@ -101,7 +101,7 @@ func main() {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if err := ctrlr.Run(threadsPerController, stopCh); err != nil {
-				glog.Fatalf("Error running controller: %s", err.Error())
+				glog.Fatalf("Error running controller: %v", err)
 			}
 		}(ctrlr)
 	}
@@ -112,7 +112,7 @@ func main() {
 	go func() {
 		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
 		if err := srv.ListenAndServe(); err != nil {
-			glog.Infof("Httpserver: ListenAndServe() finished with error: %s", err)
+			glog.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
 		}
 	}()
 
