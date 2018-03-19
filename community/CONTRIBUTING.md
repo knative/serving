@@ -8,7 +8,7 @@ newcomers to the community or from the core team follow the same process and are
 given the same level of review.
 
 *   [Working groups](#working-groups)
-*   [Code of conduct](#code*of-conduct)
+*   [Code of conduct](#code-of-conduct)
 *   [Team values](#team-values)
 *   [Contributor license agreements](#contributor-license-agreements)
 *   [Design documents](#design-documents)
