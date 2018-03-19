@@ -32,14 +32,16 @@ time curl --header 'Host:autoscale-kdt3.myhost.net' http://${SERVICE_IP?}/game/
 Ramp up 1000 concurrent clients.
 
 ```shell
-for i in `seq 10 10 1000`; do
+CLIENT_COUNT=1000
+RAMP_TIME_SECONDS=200
+for i in `seq 10 10 $CLIENT_COUNT`; do
   kubectl run wrk-$i \
     --image josephburnett/wrk2:latest \
     --restart Never --image-pull-policy=Always -l "app=wrk" -n wrk \
-    -- -c10 -t10 -d10m -R1000 -a -s /wrk2/scripts/points.lua \
+    -- -c10 -t10 -d10m -R10 -a -s /wrk2/scripts/points.lua \
        -H 'Host: autoscale-kdt3.myhost.net' \
        "http://${SERVICE_IP}/game/"
-  sleep 2
+  sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
 done
 ```
 
@@ -47,6 +49,29 @@ Watch the Elafros deployment pod count increase.  Then return to 1.
 
 ```shell
 watch kubectl get deploy
+```
+
+### Other test scenarios
+
+Slower rampup:
+
+```shell
+CLIENT_COUNT=1000
+RAMP_TIME_SECONDS=400
+```
+
+Lower peak:
+
+```shell
+CLIENT_COUNT=100
+RAMP_TIME_SECONDS=200
+```
+
+Ludicrous mode:
+
+```shell
+CLIENT_COUNT=1000
+RAMP_TIME_SECONDS=100
 ```
 
 ## Analysis
@@ -60,7 +85,7 @@ kubectl logs -n wrk -l "app=wrk" | awk '/===STATUS===/ { sec = 10*int($2/10); co
 Calculate average latency in 10 second increments.
 
 ```shell
-kubectl logs -n wrk -l "app=wrk" | awk '/===LATENCY===/ { sec = 10*int($2/10000); sum[sec] += $3; count[sec]++ } END { for (sec in sum) print sec " " sum[sec] / count[sec] / 1000 }' | sort
+kubectl logs -n wrk -l "app=wrk" | awk '/===LATENCY===/ { sec = 10*int($2/10000000); sum[sec] += $3; count[sec]++ } END { for (sec in sum) print sec " " sum[sec] / count[sec] / 1000 }' | sort
 ```
 
 Calculate average error rate in 10 second increments.
@@ -81,3 +106,7 @@ kubectl logs -n wrk -l "app=wrk" | awk '/===CLIENT===/' | sort | awk '{ sec = 10
 kubectl delete namespace wrk
 bazel run sample/autoscale-kdt3:everything.delete
 ```
+
+## References
+
+This load test uses a modified version of `wrk2`.  Source code is [here](https://github.com/josephburnett/wrk2) and can be run directly from the [Dockerhub repo](https://hub.docker.com/r/josephburnett/wrk2/).
