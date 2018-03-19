@@ -69,7 +69,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			//TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
@@ -212,8 +212,8 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	}
 
 	rev := list.Items[0]
-	if diff := cmp.Diff(config.Spec.Template.Spec, rev.Spec); diff != "" {
-		t.Errorf("rev spec != config template spec (-want +got): %v", diff)
+	if diff := cmp.Diff(config.Spec.RevisionTemplate.Spec, rev.Spec); diff != "" {
+		t.Errorf("rev spec != config RevisionTemplate spec (-want +got): %v", diff)
 	}
 
 	if rev.Labels[ela.ConfigurationLabelKey] != config.Name {

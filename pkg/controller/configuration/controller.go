@@ -273,8 +273,8 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
-		config.Name, config, config.Spec.Template)
-	spec := config.Spec.Template.Spec
+		config.Name, config, config.Spec.RevisionTemplate)
+	spec := config.Spec.RevisionTemplate.Spec
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 
 	if config.Spec.Build != nil {
@@ -299,7 +299,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	rev := &v1alpha1.Revision{
-		ObjectMeta: config.Spec.Template.ObjectMeta,
+		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
 		Spec:       spec,
 	}
 	revName, err := generateRevisionName(config)

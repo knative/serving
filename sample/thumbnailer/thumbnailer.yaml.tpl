@@ -38,7 +38,7 @@ spec:
       arguments:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/rester-tester
-  template:
+  revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: container
