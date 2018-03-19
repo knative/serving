@@ -339,6 +339,7 @@ func (c *Controller) syncHandler(key string) error {
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
 		return err
 	}
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
 
 	// Then create the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
@@ -346,8 +347,6 @@ func (c *Controller) syncHandler(key string) error {
 		glog.Infof("Failed to create ingress rule: %s", err)
 		return err
 	}
-	
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
 	return nil
 }
 
