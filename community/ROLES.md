@@ -234,7 +234,7 @@ Getting to be a lead of an existing working group:
 
 *   Approver for some part of the codebase for at least 3 months
 
-*   Member for at least 1 year or 90% of project lifetime, whichever is shorter
+*   Member for at least 1 year or 50% of project lifetime, whichever is shorter
 
 *   Primary reviewer for 20 substantial PRs
 
