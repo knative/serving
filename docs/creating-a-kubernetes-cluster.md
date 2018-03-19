@@ -30,7 +30,7 @@ To use a k8s cluster running in GKE:
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
-      --cluster-version=1.9.2-gke.1 \
+      --cluster-version=1.9.4-gke.1 \
       --zone=us-east1-d \
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
