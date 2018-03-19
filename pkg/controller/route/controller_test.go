@@ -209,9 +209,7 @@ func newTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{
-			DomainSuffix: "test-domain.net",
-		},
+		ctrl.Config{DomainSuffix: "test-domain.net"},
 	).(*Controller)
 
 	return

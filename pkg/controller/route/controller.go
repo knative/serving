@@ -19,6 +19,7 @@ package route
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -52,7 +53,6 @@ var (
 		Name:      "route_process_item_count",
 		Help:      "Counter to keep track of items in the route work queue",
 	}, []string{"status"})
-	domainSuffix string
 )
 
 const (
@@ -98,8 +98,8 @@ type Controller struct {
 	// don't start the workers until configuration cache have been synced
 	configSynced cache.InformerSynced
 
-	// Controller configurations.
-	elaConfig controller.Config
+	// suffix used to construct Route domain.
+	controllerConfig controller.Config
 }
 
 func init() {
@@ -118,7 +118,7 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	elaConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -135,14 +135,14 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		elaclientset:  elaclientset,
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		configSynced:  configInformer.Informer().HasSynced,
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
-		recorder:      recorder,
-		elaConfig:     elaConfig,
+		kubeclientset:    kubeclientset,
+		elaclientset:     elaclientset,
+		lister:           informer.Lister(),
+		synced:           informer.Informer().HasSynced,
+		configSynced:     configInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
+		recorder:         recorder,
+		controllerConfig: controllerConfig,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -241,7 +241,7 @@ func (c *Controller) processNextWorkItem() bool {
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil, controller.PromLabelValueInvalid
 		}
-		// Run the syncHandler, passing it the namespace/name string of the
+		// Run the syncHandler passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
@@ -325,16 +325,8 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	// Then create the Ingress rule for this service
-	glog.Infof("Creating or updating ingress rule")
-	err = c.createOrUpdateIngress(route, namespace)
-	if err != nil {
-		if !apierrs.IsAlreadyExists(err) {
-			glog.Infof("Failed to create ingress rule: %s", err)
-			return err
-		}
-	}
-
+	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
+	// to contain the domain we will use for Ingress creation.
 	route, err = c.syncTrafficTargets(route)
 	if err != nil {
 		return err
@@ -347,11 +339,23 @@ func (c *Controller) syncHandler(key string) error {
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
 		return err
 	}
+
+	// Then create the Ingress rule for this service
+	glog.Infof("Creating or updating ingress rule")
+	if err = c.createOrUpdateIngress(route, namespace); err != nil && !apierrs.IsAlreadyExists(err) {
+		glog.Infof("Failed to create ingress rule: %s", err)
+		return err
+	}
+	
 	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
 	return nil
 }
 
-// syncTrafficTargets attempts to converge the actual state and desired state
+func (c *Controller) routeDomain(route *v1alpha1.Route) string {
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.controllerConfig.DomainSuffix)
+}
+
+// syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
 // according to the traffic targets in Spec field for Route resource.
 func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	c.consolidateTrafficTargets(route)
@@ -416,17 +420,13 @@ func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) 
 	return nil
 }
 
-func (c *Controller) routeDomain(route *v1alpha1.Route) string {
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.elaConfig.DomainSuffix)
-}
-
 func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
 	ingressName := controller.GetElaK8SIngressName(route)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
 
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(route, ns, c.routeDomain(route))
+	ingress := MakeRouteIngress(route, ns, route.Status.Domain)
 	serviceRef := metav1.NewControllerRef(route, controllerKind)
 	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
 
@@ -434,6 +434,7 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 		if !apierrs.IsNotFound(err) {
 			return err
 		}
+		// Ingress not exist, creating.
 		if _, err := ic.Create(ingress); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
 			return err
@@ -664,11 +665,13 @@ func (c *Controller) updateStatus(u *v1alpha1.Route) (*v1alpha1.Route, error) {
 	if err != nil {
 		return nil, err
 	}
-	newu.Status = u.Status
-
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return routeClient.Update(newu)
-	//	return routeClient.UpdateStatus(newu)
+	// Check if there is anything to update.
+	if !reflect.DeepEqual(newu.Status, u.Status) {
+		newu.Status = u.Status
+		// TODO: for CRD there's no updatestatus, so use normal update.
+		return routeClient.Update(newu)
+	}
+	return newu, nil
 }
 
 // consolidateTrafficTargets will consolidate all duplicate revisions

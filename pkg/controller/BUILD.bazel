@@ -33,6 +33,9 @@ go_test(
     embed = [":go_default_library"],
     importpath = "github.com/elafros/elafros/pkg/controller",
     deps = [
-        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
     ],
 )

@@ -17,49 +17,51 @@ limitations under the License.
 package controller
 
 import (
-	"io/ioutil"
-	"syscall"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
-func TestLoadNonExistentYamlFile(t *testing.T) {
-	_, err := LoadConfig("/i/do/not/exist")
+func TestNewConfigMissingConfigMap(t *testing.T) {
+	_, err := NewConfig(fakekubeclientset.NewSimpleClientset())
 	if err == nil {
-		t.Error("Expect an error when config file not found")
+		t.Error("Expect an error when ConfigMap not exists")
 	}
 }
 
-func TestLoadBadYamlFile(t *testing.T) {
-	// Create a temp file to container bad YAML.
-	f, err := ioutil.TempFile("", "bad-yaml-file")
-	defer syscall.Unlink(f.Name())
-	ioutil.WriteFile(f.Name(), []byte("bad-yaml-data"), 0600)
-
-	// Parse and verify failure.
-	_, err = LoadConfig(f.Name())
+func TestNewConfigMissingDomainSuffix(t *testing.T) {
+	kubeClient := fakekubeclientset.NewSimpleClientset()
+	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: elaNamespace,
+			Name:      GetElaConfigMapName(),
+		},
+	})
+	_, err := NewConfig(kubeClient)
 	if err == nil {
 		t.Error("Expect an error when config file not in right format")
 	}
 }
 
-func TestLoadGoodYamlFile(t *testing.T) {
-	expected := Config{
-		DomainSuffix: "foo.bar.net",
-	}
-
-	// Create a temp file to contain good YAML.
-	f, err := ioutil.TempFile("", "good-yaml-file")
-	defer syscall.Unlink(f.Name())
-	ioutil.WriteFile(f.Name(), []byte("domainSuffix: foo.bar.net"), 0600)
-
-	// Parse and verify.
-	c, err := LoadConfig(f.Name())
+func TestNewConfig(t *testing.T) {
+	kubeClient := fakekubeclientset.NewSimpleClientset()
+	expectedSuffix := "test-domain.foo.com"
+	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: elaNamespace,
+			Name:      GetElaConfigMapName(),
+		},
+		Data: map[string]string{
+			domainSuffixKey: expectedSuffix,
+		},
+	})
+	c, err := NewConfig(kubeClient)
 	if err != nil {
-		t.Errorf("Unexpected error: %s", err.Error())
+		t.Errorf("Unexpected error: %v", err)
 	}
-	if diff := cmp.Diff(expected, *c); diff != "" {
-		t.Errorf("expected config  != parsed config (-want +got): %v", diff)
+	if c.DomainSuffix != expectedSuffix {
+		t.Errorf("expected domain suffix %q, got %q", expectedSuffix, c.DomainSuffix)
 	}
 }
