@@ -374,8 +374,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 }
 
 func TestCreateRouteSetObservedGeneration(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
 	route := getTestRoute()
 	rev := getTestRevision("test-rev")
 	h := hooks.NewHooks()
@@ -391,7 +390,12 @@ func TestCreateRouteSetObservedGeneration(t *testing.T) {
  
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
  
+	controller.syncHandler(route.Namespace + "/" + route.Name)
+
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
 	}

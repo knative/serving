@@ -352,8 +352,7 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 // syncTrafficTargets attempts to converge the actual state and desired state
-// according to the traffic targets in Spec field for Route resource. It then
-// updates the Status block of the Route and returns the updated one.
+// according to the traffic targets in Spec field for Route resource.
 func (c *Controller) syncTrafficTargets(route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	c.consolidateTrafficTargets(route)
 	configMap, revMap, err := c.getDirectTrafficTargets(route)
