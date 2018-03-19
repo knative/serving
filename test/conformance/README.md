@@ -73,6 +73,7 @@ To run with logging enabled use `-v` AND `-ginkgo.v`:
 go test -v ./test/conformance -ginkgo.v
 ```
 
+### Using a custom kubeconfig
 By default the tests will use the kubeconfig file at `~./kube/config`.
 You can specify a different config file with the argument `--kubeconfig`.
 
@@ -81,6 +82,16 @@ To run the conformance tests with a non-default kubeconfig file:
 ```bash
 go test ./test/conformance -args --kubeconfig /my/path/kubeconfig
 ```
+### Using a different cluster than the one in your /kube/config's active context
+```bash
+go test ./test/conformance -args --cluster your-cluster-name
+```
+
+The current cluster names can be obtained by runing:
+```bash
+kubectl config get-clusters
+```
+
 
 ### Bazel
 

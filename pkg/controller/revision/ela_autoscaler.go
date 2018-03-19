@@ -59,6 +59,9 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 					Labels: map[string]string{
 						"autoscaler": controller.GetRevisionAutoscalerName(u),
 					},
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "false",
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{

@@ -1,28 +1,13 @@
 # gitwebhook
 
 A simple git webhook handler that demonstrates interacting with
-github. 
+github.
 [Modeled after GCF example](https://cloud.google.com/community/tutorials/github-auto-assign-reviewers-cloud-functions)
 
 ## Prerequisites
 
 1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
 2. [Start Elafros](../../README.md#start-elafros)
-3. Decide on the DNS name that git can then call. Update sample/gitwebhook/route.yaml domainSuffix.
-For example I used demostuff.aikas.org as my hostname, so my route.yaml looks like so:
-
-```yaml
-apiVersion: elafros.dev/v1alpha1
-kind: Route
-metadata:
-  name: git-webhook
-  namespace: default
-spec:
-  domainSuffix: demostuff.aikas.org
-  traffic:
-  - configuration: configuration-example
-    percent: 100
-```
 
 
 ## Running

@@ -18,6 +18,10 @@ bazel run //sample/autoscale/kdt3:everything.create
 Export your Ingress IP as SERVICE_IP (or whatever the target cluster ingress is.)
 
 ```shell
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
+
+# Put the Ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 

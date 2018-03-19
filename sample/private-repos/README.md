@@ -156,6 +156,10 @@ As with the other demos, you can confirm that things work by capturing the IP
 of the ingress endpoint:
 
 ```
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get route private-repos \
+  -o jsonpath="{.status.domain}"`
+
 export SERVICE_IP=`kubectl get ing private-repos-ela-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
@@ -170,7 +174,7 @@ export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath
 Now curl the service IP as if DNS were properly configured:
 
 ```
-curl -H "Host: private-repos.googlecustomer.net" http://$SERVICE_IP
+curl -H "Host: $SERVICE_HOST" http://$SERVICE_IP
 ```
 
 

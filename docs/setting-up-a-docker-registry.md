@@ -78,3 +78,8 @@ Install the following tools:
     environment variable for `bazel` to pick up the change.
 
 That's it, you're done!
+
+## Local registry
+
+This section has yet to be written. If you'd like to write it, see issue
+[#23](https://github.com/elafros/elafros/issues/23).

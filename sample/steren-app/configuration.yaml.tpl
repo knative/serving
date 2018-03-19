@@ -29,8 +29,10 @@ spec:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/sample-app
 
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: *image

@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -44,7 +45,6 @@ const (
 	namespaceName = "pizzaplanet"
 	image1        = "pizzaplanetv1"
 	image2        = "pizzaplanetv2"
-	domain        = "weregoingtopizzaplanet.com"
 	configName    = "prod"
 	routeName     = "pizzaplanet"
 	ingressName   = routeName + "-ela-ingress"
@@ -57,7 +57,6 @@ func route() *v1alpha1.Route {
 			Name:      routeName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			DomainSuffix: domain,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
 					Name:              routeName,
@@ -76,9 +75,9 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 			Name:      configName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &corev1.Container{
+					Container: &corev1.Container{
 						Image: imagePath,
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
@@ -149,6 +148,17 @@ func isRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 	}
 }
 
+func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+	overrides := clientcmd.ConfigOverrides{}
+	// Override the cluster name if provided.
+	if clusterName != "" {
+		overrides.Context.Cluster = clusterName
+	}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfigPath},
+		&overrides).ClientConfig()
+}
+
 var _ = Describe("Route", func() {
 	var (
 		namespaceClient typedcorev1.NamespaceInterface
@@ -160,7 +170,7 @@ var _ = Describe("Route", func() {
 		imagePaths     []string
 	)
 	BeforeSuite(func() {
-		cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+		cfg, err := BuildClientConfig(kubeconfig, cluster)
 		Expect(err).NotTo(HaveOccurred())
 		kubeClientset, err := kubernetes.NewForConfig(cfg)
 		Expect(err).NotTo(HaveOccurred())
@@ -227,9 +237,11 @@ var _ = Describe("Route", func() {
 
 			By("Once the Configuration has been updated with the Revision, the Route will be updated to route traffic to the Revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, revisionName))
+			updated_route, err := routeClient.Get(routeName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
 
 			// TODO: The test needs to be able to make a request without needing to retrieve
-			// the ingress manually (i.e. by using the domain directly)
+			// the ingress manually (i.e. by using the host directly)
 			var endpoint string
 			By("Wait for the ingress loadbalancer address to be set")
 			WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress) (bool, error) {
@@ -239,11 +251,10 @@ var _ = Describe("Route", func() {
 				}
 				return false, nil
 			})
-
 			By("Make a request to the Revision that is now deployed and serving traffic")
 			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
 			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
-			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string) (bool, error) {
+			WaitForIngressRequestToDomainState(endpoint, updated_route.Status.Domain, []int{503, 404}, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
 
@@ -275,9 +286,11 @@ var _ = Describe("Route", func() {
 
 			By("The Route will then immediately send all traffic to the new revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, newRevisionName))
+			updated_route, err = routeClient.Get(routeName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for the ingress to actually start serving traffic from the newly deployed Revision")
-			WaitForIngressRequestToDomainState(endpoint, domain, []int{503, 404}, func(body string) (bool, error) {
+			WaitForIngressRequestToDomainState(endpoint, updated_route.Status.Domain, []int{503, 404}, func(body string) (bool, error) {
 				if body == "Re-energize yourself with a slice of pepperoni!" {
 					// This is the string we are looking for
 					return true, nil

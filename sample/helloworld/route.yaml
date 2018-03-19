@@ -18,7 +18,6 @@ metadata:
   name: route-example
   namespace: default
 spec:
-  domainSuffix: demo.myhost.net
   traffic:
   - configurationName: configuration-example
     percent: 100

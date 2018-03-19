@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	errInvalidRevisions        = errors.New("The route must have exactly one of revision or configuration in traffic field.")
+	errInvalidRevisions        = errors.New("The route must have exactly one of revisionName or configurationName in traffic field.")
 	errInvalidRouteInput       = errors.New("Failed to convert input into Route.")
 	errInvalidTargetPercentSum = errors.New("The route must have traffic percent sum equal to 100.")
 	errNegativeTargetPercent   = errors.New("The route cannot have a negative traffic percent.")
