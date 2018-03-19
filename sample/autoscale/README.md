@@ -12,7 +12,7 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 Deploy a simple 3D tic-tac-toe app with a little CPU and IO.
 
 ```shell
-bazel run //sample/autoscale-kdt3:everything.create
+bazel run //sample/autoscale/kdt3:everything.create
 ```
 
 Export your Ingress IP as SERVICE_IP (or whatever the target cluster ingress is.)
