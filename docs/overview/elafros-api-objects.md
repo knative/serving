@@ -13,6 +13,6 @@
 * Build
   * Executes builds
 
-![Elafros API Objects](./images/api-objects.png =150x)
+![Elafros API Objects](./images/api-objects.png | width=100)
 
 
