@@ -1,4 +1,4 @@
-# Elafros API/Code overview
+# Elafros API/Code Overview
 
 ## What's covered
 
