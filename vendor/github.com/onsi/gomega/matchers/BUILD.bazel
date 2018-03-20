@@ -99,7 +99,6 @@ go_test(
         "succeed_matcher_test.go",
         "with_transform_test.go",
     ],
-    importpath = "github.com/onsi/gomega/matchers_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

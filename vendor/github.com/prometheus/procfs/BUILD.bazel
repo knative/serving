@@ -44,5 +44,4 @@ go_test(
         "xfrm_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/prometheus/procfs",
 )

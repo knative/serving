@@ -37,7 +37,6 @@ filegroup(
 go_test(
     name = "go_default_xtest",
     srcs = ["discovery_test.go"],
-    importpath = "k8s.io/client-go/discovery/fake_test",
     deps = [
         ":go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/version:go_default_library",

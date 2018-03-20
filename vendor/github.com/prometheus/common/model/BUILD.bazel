@@ -31,5 +31,4 @@ go_test(
         "value_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/prometheus/common/model",
 )

@@ -39,7 +39,6 @@ go_test(
         "helper_blackbox_test.go",
         "restmapper_test.go",
     ],
-    importpath = "k8s.io/client-go/discovery_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/gogo/protobuf/proto:go_default_library",

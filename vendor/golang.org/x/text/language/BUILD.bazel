@@ -31,7 +31,6 @@ go_test(
         "parse_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/text/language",
     deps = [
         "//vendor/golang.org/x/text/internal/tag:go_default_library",
         "//vendor/golang.org/x/text/internal/testtext:go_default_library",
@@ -45,6 +44,5 @@ go_test(
         "examples_test.go",
         "httpexample_test.go",
     ],
-    importpath = "golang.org/x/text/language_test",
     deps = [":go_default_library"],
 )

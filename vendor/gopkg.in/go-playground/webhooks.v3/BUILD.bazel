@@ -14,6 +14,5 @@ go_test(
     name = "go_default_test",
     srcs = ["webhooks_test.go"],
     embed = [":go_default_library"],
-    importpath = "gopkg.in/go-playground/webhooks.v3",
     deps = ["//vendor/gopkg.in/go-playground/assert.v1:go_default_library"],
 )

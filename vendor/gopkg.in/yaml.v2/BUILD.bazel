@@ -29,7 +29,6 @@ go_test(
         "example_embedded_test.go",
         "suite_test.go",
     ],
-    importpath = "gopkg.in/yaml.v2_test",
     deps = [
         ":go_default_library",
         "//vendor/gopkg.in/check.v1:go_default_library",

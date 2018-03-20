@@ -23,7 +23,6 @@ go_test(
     srcs = ["exec_test.go"],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
-    importpath = "k8s.io/client-go/plugin/pkg/client/auth/exec",
     deps = [
         "//vendor/k8s.io/client-go/pkg/apis/clientauthentication:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd/api:go_default_library",

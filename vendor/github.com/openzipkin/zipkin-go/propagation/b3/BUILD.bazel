@@ -24,7 +24,6 @@ go_test(
         "grpc_test.go",
         "http_test.go",
     ],
-    importpath = "github.com/openzipkin/zipkin-go/propagation/b3_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go:go_default_library",

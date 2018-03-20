@@ -20,5 +20,4 @@ go_test(
         "tables_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/net/http2/hpack",
 )

@@ -17,5 +17,4 @@ go_test(
         "patch_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/evanphx/json-patch",
 )

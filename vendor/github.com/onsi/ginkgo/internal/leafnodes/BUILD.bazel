@@ -34,7 +34,6 @@ go_test(
         "synchronized_after_suite_node_test.go",
         "synchronized_before_suite_node_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/leafnodes_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

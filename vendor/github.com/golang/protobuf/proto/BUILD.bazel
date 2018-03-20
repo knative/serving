@@ -26,7 +26,6 @@ go_test(
         "size2_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/golang/protobuf/proto",
 )
 
 go_test(
@@ -45,7 +44,6 @@ go_test(
         "text_parser_test.go",
         "text_test.go",
     ],
-    importpath = "github.com/golang/protobuf/proto_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/golang/protobuf/proto/proto3_proto:go_default_library",

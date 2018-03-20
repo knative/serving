@@ -53,7 +53,6 @@ go_test(
         "transport_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/crypto/ssh",
     deps = [
         "//vendor/golang.org/x/crypto/ed25519:go_default_library",
         "//vendor/golang.org/x/crypto/ssh/terminal:go_default_library",
@@ -64,7 +63,6 @@ go_test(
 go_test(
     name = "go_default_xtest",
     srcs = ["example_test.go"],
-    importpath = "golang.org/x/crypto/ssh_test",
     deps = [
         ":go_default_library",
         "//vendor/golang.org/x/crypto/ssh/terminal:go_default_library",

@@ -16,7 +16,6 @@ go_test(
     name = "go_default_test",
     srcs = ["imports_test.go"],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/tools/go/ast/astutil",
 )
 
 go_test(
@@ -25,6 +24,5 @@ go_test(
         "enclosing_test.go",
         "rewrite_test.go",
     ],
-    importpath = "golang.org/x/tools/go/ast/astutil_test",
     deps = [":go_default_library"],
 )

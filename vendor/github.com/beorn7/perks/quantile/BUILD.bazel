@@ -14,12 +14,10 @@ go_test(
         "stream_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/beorn7/perks/quantile",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["example_test.go"],
-    importpath = "github.com/beorn7/perks/quantile_test",
     deps = [":go_default_library"],
 )

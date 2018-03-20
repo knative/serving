@@ -17,7 +17,6 @@ go_test(
         "async_assertion_suite_test.go",
         "async_assertion_test.go",
     ],
-    importpath = "github.com/onsi/gomega/internal/asyncassertion_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

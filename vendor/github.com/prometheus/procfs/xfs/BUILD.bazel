@@ -14,7 +14,6 @@ go_library(
 go_test(
     name = "go_default_xtest",
     srcs = ["parse_test.go"],
-    importpath = "github.com/prometheus/procfs/xfs_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/prometheus/procfs:go_default_library",

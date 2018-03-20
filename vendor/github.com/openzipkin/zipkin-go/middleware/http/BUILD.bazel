@@ -25,7 +25,6 @@ go_test(
         "client_test.go",
         "server_test.go",
     ],
-    importpath = "github.com/openzipkin/zipkin-go/middleware/http_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go:go_default_library",

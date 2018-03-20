@@ -13,7 +13,6 @@ go_test(
         "format_suite_test.go",
         "format_test.go",
     ],
-    importpath = "github.com/onsi/gomega/format_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
