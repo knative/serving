@@ -61,14 +61,6 @@ To use a k8s cluster running in GKE:
     gcloud components install kubectl
     ```
 
-1.  Give your gcloud user cluster-admin privileges:
-
-    ```shell
-    kubectl create clusterrolebinding gcloud-admin-binding \
-      --clusterrole=cluster-admin \
-      --user=$(gcloud config get-value core/account)
-    ```
-
 1.  Add to your .bashrc:
     ```shell
     # When using GKE, the K8s user is your GCP user.
