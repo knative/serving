@@ -315,7 +315,7 @@ func (c *Controller) syncHandler(key string) error {
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
 	glog.Infof("Creating/Updating placeholder k8s services")
-	err = c.createPlaceholderService(route)
+	err = c.ensurePlaceholderServiceExist(route)
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Then create the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	if err = c.createOrUpdateIngress(route); err != nil && !apierrs.IsAlreadyExists(err) {
+	if err = c.ensureIngressExist(route); err != nil && !apierrs.IsAlreadyExists(err) {
 		glog.Infof("Failed to create ingress rule: %s", err)
 		return err
 	}
@@ -391,32 +391,34 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 	return updated, nil
 }
 
-func (c *Controller) createPlaceholderService(route *v1alpha1.Route) error {
+func (c *Controller) ensurePlaceholderServiceExist(route *v1alpha1.Route) error {
 	service := MakeRouteK8SService(route)
-	_, err := c.kubeclientset.Core().Services(route.Namespace).Create(service)
-	if err != nil && !apierrs.IsAlreadyExists(err) {
+	if _, err := c.kubeclientset.Core().Services(route.Namespace).Create(service); err != nil {
+		if apierrs.IsAlreadyExists(err) {
+			// Service already exist.
+			return nil
+		}
 		glog.Infof("Failed to create service: %s", err)
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v", service.Name, err)
 		return err
 	}
 	glog.Infof("Created service: %q", service.Name)
-	if err == nil {
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
-	}
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
 	return nil
 }
 
-func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route) error {
+func (c *Controller) ensureIngressExist(route *v1alpha1.Route) error {
 	ingress := MakeRouteIngress(route)
-	_, err := c.kubeclientset.Extensions().Ingresses(route.Namespace).Create(ingress)
-	if err != nil && !apierrs.IsAlreadyExists(err) {
+	if _, err := c.kubeclientset.Extensions().Ingresses(route.Namespace).Create(ingress); err != nil {
+		if apierrs.IsAlreadyExists(err) {
+			// Ingress already exist.
+			return nil
+		}
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
 		return err
 	}
 	glog.Infof("Created ingress %q", ingress.Name)
-	if err == nil {
-		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
-	}
+	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
 	return nil
 }
 
