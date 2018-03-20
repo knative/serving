@@ -3,16 +3,16 @@
 ![Elafros API Objects](./images/api-objects.png)
 
 * Configuration
- * Desired current state of deployment (#HEAD)
- * Records both code and configuration (separated, ala 12 factor)
- * Stamps out revisions as it is updated
+  * Desired current state of deployment (#HEAD)
+  * Records both code and configuration (separated, ala 12 factor)
+  * Stamps out revisions as it is updated
 * Revision
- * Code and configuration snapshot
- * k8s infra: Deployment, ReplicaSet, Pods, etc
+  * Code and configuration snapshot
+  * k8s infra: Deployment, ReplicaSet, Pods, etc
 * Route
- * Traffic assignment to Revisions (fractional scaling or by name)
- * Built using Istio
+  * Traffic assignment to Revisions (fractional scaling or by name)
+  * Built using Istio
 * Build
- * Executes builds
+  * Executes builds
 
 
