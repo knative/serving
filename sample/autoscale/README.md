@@ -40,9 +40,9 @@ CLIENT_COUNT=1000
 RAMP_TIME_SECONDS=200
 for i in `seq 10 10 $CLIENT_COUNT`; do
   kubectl run wrk-$i \
-    --image josephburnett/wrk2:latest \
+    --image josephburnett/wrk:latest \
     --restart Never --image-pull-policy=Always -l "app=wrk" -n wrk \
-    -- -c10 -t10 -d10m -R10 -a -s /wrk2/scripts/points.lua \
+    -- -c10 -t10 -d10m -a -s /wrk/scripts/points.lua \
        -H 'Host: autoscale-kdt3.myhost.net' \
        "http://${SERVICE_IP}/game/"
   sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
