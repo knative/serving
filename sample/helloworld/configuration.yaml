@@ -18,7 +18,7 @@ metadata:
   name: configuration-example
   namespace: default
 spec:
-  template:
+  revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: container
@@ -31,3 +31,9 @@ spec:
         env:
           - name: TARGET
             value: shiniestnewestversion
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3

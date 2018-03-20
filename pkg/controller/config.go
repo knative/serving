@@ -17,27 +17,31 @@ limitations under the License.
 package controller
 
 import (
-	"io/ioutil"
+	"fmt"
 
-	"github.com/ghodss/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
-// Contains controller configurations.
+// Config contains controller configurations.
 type Config struct {
-
-	// The suffix of the domain used for routes.
-	DomainSuffix string `json:"domainSuffix"`
+	// DomainSuffix contains the suffix of the domain used for routes.
+	DomainSuffix string
 }
 
-// Load the configuration from a YAML file.
-func LoadConfig(filename string) (*Config, error) {
-	content, err := ioutil.ReadFile(filename)
-	config := Config{}
+const (
+	elaNamespace    = "ela-system"
+	domainSuffixKey = "domainSuffix"
+)
+
+func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
+	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(GetElaConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if err = yaml.Unmarshal(content, &config); err != nil {
-		return nil, err
+	domainSuffix, ok := m.Data[domainSuffixKey]
+	if !ok {
+		return nil, fmt.Errorf("key %q not found in ConfigMap %q in namespace %q", domainSuffixKey, GetElaConfigMapName(), elaNamespace)
 	}
-	return &config, nil
+	return &Config{DomainSuffix: domainSuffix}, nil
 }

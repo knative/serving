@@ -29,7 +29,7 @@ spec:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/sample-fn
 
-  template:
+  revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: function

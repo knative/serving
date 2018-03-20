@@ -18,5 +18,4 @@ metadata:
   name: ela-config
   namespace: ela-system
 data:
-  controllerConfig: |
-    domainSuffix: demo-domain.net
+  domainSuffix: demo-domain.com

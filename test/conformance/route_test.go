@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -74,7 +75,7 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 			Name:      configName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: imagePath,
@@ -147,6 +148,17 @@ func isRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 	}
 }
 
+func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
+	overrides := clientcmd.ConfigOverrides{}
+	// Override the cluster name if provided.
+	if clusterName != "" {
+		overrides.Context.Cluster = clusterName
+	}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfigPath},
+		&overrides).ClientConfig()
+}
+
 var _ = Describe("Route", func() {
 	var (
 		namespaceClient typedcorev1.NamespaceInterface
@@ -158,7 +170,7 @@ var _ = Describe("Route", func() {
 		imagePaths     []string
 	)
 	BeforeSuite(func() {
-		cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+		cfg, err := BuildClientConfig(kubeconfig, cluster)
 		Expect(err).NotTo(HaveOccurred())
 		kubeClientset, err := kubernetes.NewForConfig(cfg)
 		Expect(err).NotTo(HaveOccurred())

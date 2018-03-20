@@ -159,7 +159,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
 			Generation: 1,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: "test-image",
@@ -171,19 +171,20 @@ func getTestConfiguration() *v1alpha1.Configuration {
 }
 
 func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision {
-	rev := config.Spec.Template.DeepCopy()
-	rev.ObjectMeta = metav1.ObjectMeta{
-		SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
-		Name:      "p-deadbeef",
-		Namespace: "test",
-		Labels: map[string]string{
-			ela.ConfigurationLabelKey: config.Name,
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
+			Name:      "p-deadbeef",
+			Namespace: "test",
+			Labels: map[string]string{
+				ela.ConfigurationLabelKey: config.Name,
+			},
+		},
+		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: "p-deadbeef-service",
 		},
 	}
-	rev.Status = v1alpha1.RevisionStatus{
-		ServiceName: "p-deadbeef-service",
-	}
-	return rev
 }
 
 func newTestController(t *testing.T) (
@@ -208,9 +209,7 @@ func newTestController(t *testing.T) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{
-			DomainSuffix: "test-domain.net",
-		},
+		ctrl.Config{DomainSuffix: "test-domain.net"},
 	).(*Controller)
 
 	return
