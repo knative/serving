@@ -73,6 +73,7 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 			Namespace: "test",
 		},
 		Spec: v1alpha1.RouteSpec{
+			Generation: 1,
 			Traffic: traffic,
 		},
 	}
@@ -364,6 +365,34 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRouteSetObservedGeneration(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	route := getTestRoute()
+	rev := getTestRevision("test-rev")
+	h := hooks.NewHooks()
+ 
+	h.OnUpdate(&elaClient.Fake, "routes", func(obj runtime.Object) hooks.HookResult {
+		route := obj.(*v1alpha1.Route)
+		if route.Status.ObservedGeneration != route.Spec.Generation {
+			t.Errorf("Unexpected route ObservedGeneration. ObservedGeneration %d, Spec Generation %d",
+				route.Status.ObservedGeneration, route.Spec.Generation)
+		}
+		return hooks.HookComplete
+	})
+ 
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+ 
+	controller.syncHandler(route.Namespace + "/" + route.Name)
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
