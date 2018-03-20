@@ -62,7 +62,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation:       testGeneration,
-			RevisionTemplate: v1alpha1.Revision{},
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{},
 		},
 	}
 
@@ -79,7 +79,7 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: testGeneration,
-			RevisionTemplate: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{},
 				},
@@ -116,7 +116,7 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: testGeneration,
-			RevisionTemplate: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &container,
 				},
