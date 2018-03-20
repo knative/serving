@@ -24,7 +24,6 @@ import (
 	"github.com/elafros/elafros/pkg/controller"
 
 	"github.com/golang/glog"
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,11 +38,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 )
@@ -51,19 +49,6 @@ import (
 const controllerAgentName = "configuration-controller"
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a Foo is synced
-	SuccessSynced = "Synced"
-
-	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceSynced is the message used for an Event fired when a Foo
-	// is synced successfully
-	MessageResourceSynced = "Configuration synced successfully"
-)
 
 // Controller implements the controller for Configuration resources
 type Controller struct {
@@ -96,7 +81,8 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config) controller.Interface {
+	config *rest.Config,
+	controllerConfig controller.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
@@ -104,9 +90,6 @@ func NewController(
 	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	// Create event broadcaster
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -222,12 +205,12 @@ func (c *Controller) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// Foo resource to be synced.
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
+			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		glog.Infof("Successfully synced %q", key)
 		return nil
 	}(obj)
 
@@ -272,7 +255,7 @@ func (c *Controller) syncHandler(key string) error {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("configuration '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("configuration %q in work queue no longer exists", key))
 			return nil
 		}
 
@@ -290,8 +273,8 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
-		config.Name, config, config.Spec.Template)
-	spec := config.Spec.Template.Spec
+		config.Name, config, config.Spec.RevisionTemplate)
+	spec := config.Spec.RevisionTemplate.Spec
 	controllerRef := metav1.NewControllerRef(config, controllerKind)
 
 	if config.Spec.Build != nil {
@@ -307,14 +290,16 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
 		spec.BuildName = created.Name
 	}
 
 	rev := &v1alpha1.Revision{
-		ObjectMeta: config.Spec.Template.ObjectMeta,
+		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
 		Spec:       spec,
 	}
 	revName, err := generateRevisionName(config)
@@ -339,8 +324,10 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
 		return err
 	}
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
 	glog.Infof("Created Revision:\n%+v", created)
 
 	// Update the Status of the configuration with the latest generation that
@@ -358,17 +345,16 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	// end configuration business logic
-	c.recorder.Event(config, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
 func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
-	// Just return the UUID.
-	// TODO: consider using a prefix and make sure the length of the
+	// TODO: consider making sure the length of the
 	// string will not cause problems down the stack
-	genUUID, err := uuid.NewRandom()
-	return fmt.Sprintf("p-%s", genUUID.String()), err
+	if u.Spec.Generation == 0 {
+		return "", fmt.Errorf("configuration generation cannot be 0")
+	}
+	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation), nil
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -415,13 +401,37 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
+	if config.Status.IsLatestReadyRevisionNameUpToDate() {
+		// The configuration is already ready and has LatestReadyRevisionName equal
+		// to LatestCreatedRevisionName, so ignore this event.
+		glog.Infof("Configuration %q is already ready with latest created revision ready", revisionName)
+		return
+	}
+
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
 
-	if err := c.markConfigurationReady(config, revision); err != nil {
-		glog.Errorf("Error marking configuration ready for '%s/%s': %v",
+	alreadyReady := config.Status.IsReady()
+	if !alreadyReady {
+		c.markConfigurationReady(config, revision)
+	}
+
+	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
+		config.Name, revision.Name)
+	config.Status.LatestReadyRevisionName = revision.Name
+
+	if _, err := c.updateStatus(config); err != nil {
+		glog.Errorf("Error updating configuration '%s/%s': %v",
 			namespace, configName, err)
 	}
+
+	if !alreadyReady {
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+			"Configuration becomes ready")
+	}
+	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+		"LatestReadyRevisionName updated to %q", revision.Name)
+
 	return
 }
 
@@ -441,9 +451,9 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 }
 
 // Mark ConfigurationConditionReady of Configuration ready as the given latest
-// created revision is ready. Also set latest field to the given revision.
+// created revision is ready.
 func (c *Controller) markConfigurationReady(
-	config *v1alpha1.Configuration, revision *v1alpha1.Revision) error {
+	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
 	glog.Infof("Marking Configuration %q ready", config.Name)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
@@ -451,10 +461,4 @@ func (c *Controller) markConfigurationReady(
 			Status: corev1.ConditionTrue,
 			Reason: "LatestRevisionReady",
 		})
-
-	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q", config.Name, revision.Name)
-	config.Status.LatestReadyRevisionName = revision.Name
-
-	_, err := c.updateStatus(config)
-	return err
 }

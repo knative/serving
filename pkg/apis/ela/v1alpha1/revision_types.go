@@ -66,7 +66,7 @@ type RevisionSpec struct {
 	// The name of the build that is producing the container image that we are deploying.
 	BuildName string `json:"buildName,omitempty"`
 
-	ContainerSpec *corev1.Container `json:"containerSpec,omitempty"`
+	Container *corev1.Container `json:"container,omitempty"`
 }
 
 // RevisionConditionType represents an Revision condition value

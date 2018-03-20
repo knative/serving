@@ -16,7 +16,6 @@ kind: Route
 metadata:
   name: private-repos
 spec:
-  domainSuffix: private-repos.googlecustomer.net
   traffic:
   - configurationName: private-repos
     percent: 100
@@ -38,8 +37,10 @@ spec:
       arguments:
       - name: IMAGE
         value: &image REPLACE_ME
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: *image

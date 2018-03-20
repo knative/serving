@@ -29,8 +29,13 @@ spec:
   #     image: busybox:latest
   #     args: ["echo", "Hello"]
 
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: telemetrysample:latest
+        args:
+        - "-logtostderr=true"
+        - "-stderrthreshold=INFO"

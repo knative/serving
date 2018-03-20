@@ -27,6 +27,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 )
 
+func GetElaConfigMapName() string {
+	return "ela-config"
+}
+
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
 	// We create resources in the same namespace as the Elafros resources by default.
@@ -36,10 +40,6 @@ func GetElaNamespaceName(ns string) string {
 
 func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
 	return u.Name + "-deployment"
-}
-
-func GetRevisionNginxConfigMapName(u *v1alpha1.Revision) string {
-	return u.Name + "-proxy-configmap"
 }
 
 func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {

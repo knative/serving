@@ -434,7 +434,9 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 
 	if err := cb(&patches, oldObj, newObj); err != nil {
 		glog.Warningf("Failed the resource specific callback: %s", err)
-		return nil, fmt.Errorf("Failed the Resource Specific Callback: %s", err)
+		// Return the error message as-is to give the callback discretion
+		// over (our portion of) the message that the user sees.
+		return nil, err
 	}
 	return json.Marshal(patches)
 }

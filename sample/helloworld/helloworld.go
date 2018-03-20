@@ -17,12 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/golang/glog"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Hello world received a request.")
 	target := os.Getenv("TARGET")
 	if target == "" {
 		target = "NOT SPECIFIED"
@@ -31,6 +35,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
+	glog.Info("Hello world sample started.")
+
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
 }

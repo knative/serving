@@ -49,7 +49,6 @@ const (
 	imageName             = "test-container-image"
 	envVarName            = "envname"
 	envVarValue           = "envvalue"
-	testDomain            = "example.com"
 	testGeneration        = 1
 	testRouteName         = "test-route-name"
 	testRevisionName      = "test-revision"
@@ -156,7 +155,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createConfiguration(testGeneration)
 	new := createConfiguration(testGeneration)
-	new.Spec.Template.Spec.ContainerSpec.Env = []corev1.EnvVar{
+	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
 			Value: "different",
@@ -396,9 +395,9 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.Revision{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &corev1.Container{
+					Container: &corev1.Container{
 						Image: imageName,
 						Env: []corev1.EnvVar{{
 							Name:  envVarName,
@@ -418,8 +417,7 @@ func createRoute(generation int64) v1alpha1.Route {
 			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Generation:   generation,
-			DomainSuffix: testDomain,
+			Generation: generation,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
 					Name:         "test-traffic-target",

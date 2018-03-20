@@ -21,8 +21,10 @@ spec:
     #   persistentVolumeClaim:
     #     claimName: buildpack-sample-app-cache
 
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: *image

@@ -18,7 +18,6 @@ metadata:
   name: telemetrysample-route
   namespace: default
 spec:
-  domainSuffix: telemetrysample.myhost.net
   traffic:
   - configurationName: telemetrysample-configuration
     percent: 100

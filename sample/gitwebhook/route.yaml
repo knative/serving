@@ -18,7 +18,6 @@ metadata:
   name: git-webhook
   namespace: default
 spec:
-  domainSuffix: demostuff.aikas.org
   traffic:
   - configurationName: git-webhook
     percent: 100
