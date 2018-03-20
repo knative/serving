@@ -315,7 +315,7 @@ func (c *Controller) syncHandler(key string) error {
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
 	glog.Infof("Creating/Updating placeholder k8s services")
-	err = c.createPlaceholderService(route, namespace)
+	err = c.createPlaceholderService(route)
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Then create the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	if err = c.createOrUpdateIngress(route, namespace); err != nil && !apierrs.IsAlreadyExists(err) {
+	if err = c.createOrUpdateIngress(route); err != nil && !apierrs.IsAlreadyExists(err) {
 		glog.Infof("Failed to create ingress rule: %s", err)
 		return err
 	}
@@ -391,45 +391,31 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 	return updated, nil
 }
 
-func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) error {
+func (c *Controller) createPlaceholderService(route *v1alpha1.Route) error {
 	service := MakeRouteK8SService(route)
-
-	sc := c.kubeclientset.Core().Services(ns)
-
-	newlyCreated := true
-	if _, err := sc.Create(service); err != nil {
-		if !apierrs.IsAlreadyExists(err) {
-			glog.Infof("Failed to create service: %s", err)
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v", service.Name, err)
-			return err
-		}
-		newlyCreated = false
+	_, err := c.kubeclientset.Core().Services(route.Namespace).Create(service)
+	if err != nil && !apierrs.IsAlreadyExists(err) {
+		glog.Infof("Failed to create service: %s", err)
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v", service.Name, err)
+		return err
 	}
 	glog.Infof("Created service: %q", service.Name)
-	if newlyCreated {
+	if err == nil {
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
 	}
 	return nil
 }
 
-func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) error {
-	ingressName := controller.GetElaK8SIngressName(route)
-
-	ic := c.kubeclientset.Extensions().Ingresses(ns)
-	// Check to see if we need to create or update
-	if _, err := ic.Get(ingressName, metav1.GetOptions{}); err != nil {
-		if !apierrs.IsNotFound(err) {
-			return err
-		}
-		// Ingress not exist, creating.
-		ingress := MakeRouteIngress(route)
-		if _, err := ic.Create(ingress); err != nil {
-			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
-			return err
-		}
+func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route) error {
+	ingress := MakeRouteIngress(route)
+	_, err := c.kubeclientset.Extensions().Ingresses(route.Namespace).Create(ingress)
+	if err != nil && !apierrs.IsAlreadyExists(err) {
+		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
+		return err
+	}
+	glog.Infof("Created ingress %q", ingress.Name)
+	if err == nil {
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
-		glog.Infof("Created ingress %q", ingress.Name)
-		return nil
 	}
 	return nil
 }
@@ -647,25 +633,25 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 	return revisionRoutes, nil
 }
 
-func (c *Controller) updateStatus(u *v1alpha1.Route) (*v1alpha1.Route, error) {
-	routeClient := c.elaclientset.ElafrosV1alpha1().Routes(u.Namespace)
-	newu, err := routeClient.Get(u.Name, metav1.GetOptions{})
+func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
+	routeClient := c.elaclientset.ElafrosV1alpha1().Routes(route.Namespace)
+	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
-	if !reflect.DeepEqual(newu.Status, u.Status) {
-		newu.Status = u.Status
+	if !reflect.DeepEqual(existing.Status, route.Status) {
+		existing.Status = route.Status
 		// TODO: for CRD there's no updatestatus, so use normal update.
-		return routeClient.Update(newu)
+		return routeClient.Update(existing)
 	}
-	return newu, nil
+	return existing, nil
 }
 
 // consolidateTrafficTargets will consolidate all duplicate revisions
 // and configurations. If the traffic target names are unique, the traffic
 // targets will not be consolidated.
-func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
+func (c *Controller) consolidateTrafficTargets(route *v1alpha1.Route) {
 	type trafficTarget struct {
 		name              string
 		revisionName      string
@@ -673,7 +659,7 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 	}
 
 	glog.Infof("Attempting to consolidate traffic targets")
-	trafficTargets := u.Spec.Traffic
+	trafficTargets := route.Spec.Traffic
 	trafficMap := make(map[trafficTarget]int)
 	var order []trafficTarget
 
@@ -711,7 +697,7 @@ func (c *Controller) consolidateTrafficTargets(u *v1alpha1.Route) {
 			},
 		)
 	}
-	u.Spec.Traffic = consolidatedTraffic
+	route.Spec.Traffic = consolidatedTraffic
 }
 
 func (c *Controller) addConfigurationEvent(obj interface{}) {

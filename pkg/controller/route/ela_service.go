@@ -30,13 +30,13 @@ var servicePort = 80
 // MakeRouteK8SService creates a Service that targets nothing, owned by the provided
 // v1alpha1.Route. This is now only a placeholder so that we can route the traffic to Istio and the
 // balance with route rules exclusively to underlying k8s services that represent Revisions.
-func MakeRouteK8SService(u *v1alpha1.Route) *corev1.Service {
+func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetElaK8SServiceName(u),
-			Namespace: u.Namespace,
+			Name:      controller.GetElaK8SServiceName(route),
+			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(u, controllerKind),
+				*metav1.NewControllerRef(route, controllerKind),
 			},
 		},
 		Spec: corev1.ServiceSpec{
