@@ -231,16 +231,16 @@ func newRunningTestController(t *testing.T) (
 
 	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
 
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
 	startCh = make(chan interface{})
 	stopCh = make(chan struct{})
 
-	// Run the controller.
 	go func() {
 		<-startCh
+		// Start the informers. This must happen after the call to NewController,
+		// otherwise there are no informers to be started.
 		kubeInformer.Start(stopCh)
 		elaInformer.Start(stopCh)
+		// Run the controller.
 		if err := controller.Run(2, stopCh); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
