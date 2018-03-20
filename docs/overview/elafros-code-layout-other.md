@@ -1,4 +1,4 @@
-# Other files
+# Code layout - Other files
 
 * ./hack/update-deps.sh
   * Needed when you add new go dependencies
