@@ -12,7 +12,7 @@
   * Built using Istio
 * Build
   * Executes builds
-
-![Elafros API Objects](./images/api-objects.png | width=100)
+  
+<img src="./images/api-objects.png" width="250">
 
 
