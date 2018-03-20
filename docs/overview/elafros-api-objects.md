@@ -1,7 +1,5 @@
 # API Objects
 
-![Elafros API Objects](./images/api-objects.png)
-
 * Configuration
   * Desired current state of deployment (#HEAD)
   * Records both code and configuration (separated, ala 12 factor)
@@ -14,5 +12,7 @@
   * Built using Istio
 * Build
   * Executes builds
+
+![Elafros API Objects](./images/api-objects.png =150x)
 
 
