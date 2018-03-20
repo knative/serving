@@ -315,7 +315,7 @@ func (c *Controller) syncHandler(key string) error {
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
 	glog.Infof("Creating/Updating placeholder k8s services")
-	err = c.ensurePlaceholderServiceExist(route)
+	err = c.reconcilePlaceholderService(route)
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Then create the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	if err = c.ensureIngressExist(route); err != nil && !apierrs.IsAlreadyExists(err) {
+	if err = c.reconcileIngress(route); err != nil && !apierrs.IsAlreadyExists(err) {
 		glog.Infof("Failed to create ingress rule: %s", err)
 		return err
 	}
@@ -391,7 +391,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 	return updated, nil
 }
 
-func (c *Controller) ensurePlaceholderServiceExist(route *v1alpha1.Route) error {
+func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 	service := MakeRouteK8SService(route)
 	if _, err := c.kubeclientset.Core().Services(route.Namespace).Create(service); err != nil {
 		if apierrs.IsAlreadyExists(err) {
@@ -407,7 +407,7 @@ func (c *Controller) ensurePlaceholderServiceExist(route *v1alpha1.Route) error 
 	return nil
 }
 
-func (c *Controller) ensureIngressExist(route *v1alpha1.Route) error {
+func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	ingress := MakeRouteIngress(route)
 	if _, err := c.kubeclientset.Extensions().Ingresses(route.Namespace).Create(ingress); err != nil {
 		if apierrs.IsAlreadyExists(err) {
