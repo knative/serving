@@ -69,7 +69,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			//TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
-			RevisionTemplate: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
