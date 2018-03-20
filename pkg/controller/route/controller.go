@@ -393,8 +393,6 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 
 func (c *Controller) createPlaceholderService(route *v1alpha1.Route, ns string) error {
 	service := MakeRouteK8SService(route)
-	serviceRef := metav1.NewControllerRef(route, controllerKind)
-	service.OwnerReferences = append(service.OwnerReferences, *serviceRef)
 
 	sc := c.kubeclientset.Core().Services(ns)
 
@@ -418,17 +416,13 @@ func (c *Controller) createOrUpdateIngress(route *v1alpha1.Route, ns string) err
 	ingressName := controller.GetElaK8SIngressName(route)
 
 	ic := c.kubeclientset.Extensions().Ingresses(ns)
-
 	// Check to see if we need to create or update
-	ingress := MakeRouteIngress(route, ns, route.Status.Domain)
-	serviceRef := metav1.NewControllerRef(route, controllerKind)
-	ingress.OwnerReferences = append(ingress.OwnerReferences, *serviceRef)
-
 	if _, err := ic.Get(ingressName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return err
 		}
 		// Ingress not exist, creating.
+		ingress := MakeRouteIngress(route)
 		if _, err := ic.Create(ingress); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
 			return err
@@ -634,7 +628,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeRouteIstioRoutes(route, ns, revisionRoutes)
+		routeRules = MakeRouteIstioRoutes(route, revisionRoutes)
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -643,7 +637,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		return revisionRoutes, nil
 	}
 
-	routeRules.Spec = MakeRouteIstioSpec(route, ns, revisionRoutes)
+	routeRules.Spec = MakeRouteIstioSpec(route, revisionRoutes)
 	_, err = routeClient.Update(routeRules)
 	if _, err := routeClient.Update(routeRules); err != nil {
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)

@@ -21,14 +21,14 @@ import (
 	"github.com/elafros/elafros/pkg/controller"
 
 	v1beta1 "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeRouteIngress creates an ingress rule. This ingress rule targets
-// Istio by using the simple placeholder service name. All the routing actually
-// happens in the route rules.
-func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1beta1.Ingress {
+// MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
+// targets Istio by using the simple placeholder service name. All the routing actually happens in
+// the route rules.
+func MakeRouteIngress(u *v1alpha1.Route) *v1beta1.Ingress {
 	// By default we map to the placeholder service directly.
 	// This would point to 'router' component if we wanted to use
 	// this method for 0->1 case.
@@ -41,7 +41,7 @@ func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1bet
 		},
 	}
 	rules := []v1beta1.IngressRule{v1beta1.IngressRule{
-		Host: domain,
+		Host: u.Status.Domain,
 		IngressRuleValue: v1beta1.IngressRuleValue{
 			HTTP: &v1beta1.HTTPIngressRuleValue{
 				Paths: []v1beta1.HTTPIngressPath{path},
@@ -51,11 +51,14 @@ func MakeRouteIngress(u *v1alpha1.Route, namespace string, domain string) *v1bet
 	}
 
 	return &v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetElaK8SIngressName(u),
-			Namespace: namespace,
+			Namespace: u.Namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "istio",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(u, controllerKind),
 			},
 		},
 		Spec: v1beta1.IngressSpec{
