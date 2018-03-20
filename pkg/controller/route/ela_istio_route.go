@@ -26,18 +26,18 @@ import (
 )
 
 // MakeRouteIstioSpec creates an Istio route
-func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
+func MakeRouteIstioSpec(route *v1alpha1.Route, revisionRoutes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
 	// if either current or next is inactive, target them to proxy instead of
 	// the backend so the 0->1 transition will happen.
-	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
+	placeHolderK8SServiceName := controller.GetElaK8SServiceName(route)
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
-	for _, route := range routes {
+	for _, revisionRoute := range revisionRoutes {
 		destinationWeights = append(destinationWeights,
 			istiov1alpha2.DestinationWeight{
 				Destination: istiov1alpha2.IstioService{
-					Name: route.Service,
+					Name: revisionRoute.Service,
 				},
-				Weight: route.Weight,
+				Weight: revisionRoute.Weight,
 			})
 	}
 	return istiov1alpha2.RouteRuleSpec{
@@ -48,19 +48,20 @@ func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) is
 	}
 }
 
-// MakeRouteIstioRoutes creates an Istio route
-func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
+// MakeRouteIstioRoutes creates an Istio route, owned by the provided v1alpha1.Route.
+func MakeRouteIstioRoutes(route *v1alpha1.Route, revisionRoutes []RevisionRoute) *istiov1alpha2.RouteRule {
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetElaIstioRouteRuleName(u),
-			Namespace: ns,
+			Name:      controller.GetElaIstioRouteRuleName(route),
+			Namespace: route.Namespace,
 			Labels: map[string]string{
-				"route": u.Name,
+				"route": route.Name,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(route, controllerKind),
 			},
 		},
-		Spec: MakeRouteIstioSpec(u, ns, routes),
+		Spec: MakeRouteIstioSpec(route, revisionRoutes),
 	}
-	serviceRef := metav1.NewControllerRef(u, controllerKind)
-	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
 	return r
 }
