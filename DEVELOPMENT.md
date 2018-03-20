@@ -152,7 +152,7 @@ redeploy `Elafros`](./README.md#start-elafros).
 
 ## Tests
 
-Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#workflow).
+Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#prow).
 
 For more details about the tests themselves and how to run them, see [the test docs](./test/README.md).
 

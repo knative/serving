@@ -53,9 +53,11 @@ again.
 
 * All PRs must be pulled from [forks](./DEVELOPMENT.md#checkout-your-fork)
 * All PRs must [be reviewed](#code-reviews)
-* All PRs must [pass the tests](./test/README.md)
+* All PRs must [pass the tests](#prow)
 
-The projects uses [prow](https://github.com/kubernetes/test-infra/tree/master/prow) to automatically run tests for every PR, and their failure block merging your changes.
+#### Prow
+
+The projects uses [prow](https://github.com/kubernetes/test-infra/tree/master/prow) to automatically run tests for every PR, and their failure blocks merging your changes.
 
 If necessary, you can rerun the tests by simply adding the comment `/retest` to your PR.
 
