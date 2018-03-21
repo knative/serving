@@ -9,10 +9,11 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 ## Setup
 
-Deploy a simple 3D tic-tac-toe app with a little CPU and IO.
+Deploy the sample apps, a simple 3D tic-tac-toe game and a prime number generator.
 
 ```shell
 bazel run //sample/autoscale/kdt3:everything.create
+bazel run //sample/autoscaler:everything.create
 ```
 
 Export your Ingress IP as SERVICE_IP (or whatever the target cluster ingress is.)
@@ -25,13 +26,14 @@ export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.dom
 export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
-Hit the app to verify it's running.
+Hit the apps to verify they are running.
 
 ```shell
 time curl --header 'Host:autoscale-kdt3.myhost.net' http://${SERVICE_IP?}/game/
+time curl --header 'Host:autoscale.myhost.net' 'http://${SERVICE_IP?}/primes/40000000
 ```
 
-## Running
+## Running a QPS load test
 
 Ramp up 1000 concurrent clients.
 
@@ -104,11 +106,29 @@ Calculate the total client count in 10 second increments.
 kubectl logs -n wrk -l "app=wrk" | awk '/===CLIENT===/' | sort | awk '{ sec = 10*int($2/10); total++; count[sec] = total } END { for (sec in count) print sec " " count[sec] }' | sort
 ```
 
+## Running a batch job load test
+
+Send 1000 requests, each of which consumes about 1 cpu/sec.
+
+```shell
+batch () {
+  for i in `seq 1 1000`
+  do
+    curl -s -o /dev/null -w "%{http_code}\n" \
+      --header 'Host:autoscale.myhost.net' \
+      http://${SERVICE_IP}/primes/40000000 &
+  done
+  wait
+}
+time batch 2>/dev/null | sort | uniq -c
+```
+
 ## Cleanup
 
 ```shell
 kubectl delete namespace wrk
 bazel run sample/autoscale-kdt3:everything.delete
+bazel run sample/autoscale:everything.delete
 ```
 
 ## References
