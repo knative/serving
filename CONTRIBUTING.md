@@ -19,7 +19,7 @@ The Elafros community is open. It is comprised of everyone who uses, wants
 to use, or is just curious about the Elafros project. The members of the
 Elafros community are the future contributors and maintainers of this project.
 
-**Mailing list:** [elafros-users@groups.google.com](https://groups.google.com/forum/#!forum/elafros-users)
+**Mailing list:** [elafros-users@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-users)
 (public, open to everyone)
 
 **Slack channel:** [#community](https://elafros.slack.com#community) (free, but Slack account is required)
@@ -34,7 +34,7 @@ contributors](https://github.com/elafros/elafros/graphs/contributors).
 
 Active contributors will be invited to join [the Elafros Slack team (a paid account)](https://elafros.slack.com).
 
-**Mailing list:** [elafros-dev@groups.google.com](https://groups.google.com/forum/#!forum/elafros-dev)
+**Mailing list:** [elafros-dev@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-dev)
 (public, anyone can use, frequently used)
 
 ### Contributor License Agreement
@@ -82,7 +82,7 @@ issues, CoC violations, etc).
 * [mattmoor@google.com](https://github.com/mattmoor)
 * [argent@google.com ](https://github.com/evankanderson)
 
-**Mailing list:** [elafros-maintainers@groups.google.com](https://groups.google.com/forum/#!forum/elafros-maintainers)
+**Mailing list:** [elafros-maintainers@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-maintainers)
 (private, invite only, rarely used)
 
 **Slack channel:** [#maintainers](https://elafros.slack.com#maintainers) (private)
@@ -103,7 +103,7 @@ for immediate action (2-3 active users maximum).
 * [mchmarny@google.com](https://github.com/mchmarny)
 * [isdal@google.com](https://github.com/isdal)
 
-**Mailing list:** [elafros-admins@groups.google.com](https://groups.google.com/forum/#!forum/elafros-admins)
+**Mailing list:** [elafros-admins@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-admins)
 (private, requires invitation)
 
 **Slack channel:** [#admins](https://elafros.slack.com#admins) (private)
