@@ -152,7 +152,9 @@ redeploy `Elafros`](./README.md#start-elafros).
 
 ## Tests
 
-Running tests as you make changes to the code-base is pretty simple. See [the test docs](./test/README.md).
+Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#prow).
+
+For more details about the tests themselves and how to run them, see [the test docs](./test/README.md).
 
 ## Clean up
 

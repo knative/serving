@@ -71,8 +71,8 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	return nil
 }
 
-func validateTemplate(template *v1alpha1.Revision) error {
-	if reflect.DeepEqual(*template, v1alpha1.Revision{}) {
+func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
+	if reflect.DeepEqual(*template, v1alpha1.RevisionTemplateSpec{}) {
 		return errEmptyRevisionTemplateInSpec
 	}
 	if err := validateContainer(template.Spec.Container); err != nil {

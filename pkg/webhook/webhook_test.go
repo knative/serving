@@ -395,7 +395,7 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
-			RevisionTemplate: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: imageName,

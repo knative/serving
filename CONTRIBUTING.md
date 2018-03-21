@@ -53,7 +53,16 @@ again.
 
 * All PRs must be pulled from [forks](./DEVELOPMENT.md#checkout-your-fork)
 * All PRs must [be reviewed](#code-reviews)
-* All PRs must [pass the tests](./test/README.md)
+* All PRs must [pass the tests](#prow)
+
+#### Prow
+
+The projects uses [prow](https://github.com/kubernetes/test-infra/tree/master/prow) to automatically run tests for every PR, and their failure blocks merging your changes.
+
+If necessary, you can rerun the tests by simply adding the comment `/retest` to your PR.
+
+prow has several other features that make PR management easier, like running the go linter or assigning labels.
+A full list of commands understood by prow can be found in the [command help page](https://prow-internal.gcpnode.com/command-help?repo=elafros%2Felafros).
 
 #### Code reviews
 
