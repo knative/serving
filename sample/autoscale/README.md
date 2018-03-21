@@ -38,13 +38,13 @@ time curl --header 'Host:autoscale.myhost.net' 'http://${SERVICE_IP?}/primes/400
 Ramp up 1000 concurrent clients.
 
 ```shell
-CLIENT_COUNT=1000
-RAMP_TIME_SECONDS=200
+CLIENT_COUNT=500
+RAMP_TIME_SECONDS=100
 for i in `seq 10 10 $CLIENT_COUNT`; do
   kubectl run wrk-$i \
-    --image josephburnett/wrk:latest \
+    --image josephburnett/wrk2:latest \
     --restart Never --image-pull-policy=Always -l "app=wrk" -n wrk \
-    -- -c10 -t10 -d10m -a -s /wrk/scripts/points.lua \
+    -- -c10 -t10 -d10m -R10 -a -s /wrk2/scripts/points.lua \
        -H 'Host: autoscale-kdt3.myhost.net' \
        "http://${SERVICE_IP}/game/"
   sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
@@ -62,7 +62,7 @@ watch kubectl get deploy
 Slower rampup:
 
 ```shell
-CLIENT_COUNT=1000
+CLIENT_COUNT=500
 RAMP_TIME_SECONDS=400
 ```
 
@@ -70,14 +70,14 @@ Lower peak:
 
 ```shell
 CLIENT_COUNT=100
-RAMP_TIME_SECONDS=200
+RAMP_TIME_SECONDS=100
 ```
 
 Ludicrous mode:
 
 ```shell
-CLIENT_COUNT=1000
-RAMP_TIME_SECONDS=100
+CLIENT_COUNT=500
+RAMP_TIME_SECONDS=50
 ```
 
 ## Analysis
