@@ -13,4 +13,3 @@
   * [Controller](./elafros-code-layout-controller.md)
   * [Webhook](./elafros-code-layout-webhook.md)
   * [Other files](./elafros-code-layout-other.md)
-  * [Main resources](./elafros-resources.md)
