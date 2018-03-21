@@ -31,6 +31,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubetesting "k8s.io/client-go/testing"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
@@ -45,7 +46,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/rest"
-	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	hooks "github.com/elafros/elafros/pkg/controller/testing"
@@ -215,24 +215,32 @@ func newTestController(t *testing.T) (
 	return
 }
 
+func startControllerAndWaitForHooks(startCh chan interface{}, h *hooks.Hooks, timeout time.Duration) error {
+	startCh <- "Start the controller and informers"
+	return h.WaitForHooks(timeout)
+}
+
 func newRunningTestController(t *testing.T) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
+	startCh chan interface{},
 	stopCh chan struct{}) {
 
 	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
 
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
+	startCh = make(chan interface{})
 	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
 
-	// Run the controller.
 	go func() {
+		<-startCh
+		// Start the informers. This must happen after the call to NewController,
+		// otherwise there are no informers to be started.
+		kubeInformer.Start(stopCh)
+		elaInformer.Start(stopCh)
+		// Run the controller.
 		if err := controller.Run(2, stopCh); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
@@ -250,7 +258,7 @@ func keyOrDie(obj interface{}) string {
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	kubeClient, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRoute()
 	rev := getTestRevision("test-rev")
@@ -366,13 +374,13 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithMultipleTargets()
 	rev := getTestRevision("test-rev")
@@ -429,13 +437,13 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithDuplicateTargets()
 	rev := getTestRevision("test-rev")
@@ -504,13 +512,13 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -539,13 +547,13 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -574,7 +582,7 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 		return hooks.HookComplete
 	})
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
@@ -658,7 +666,7 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
@@ -684,13 +692,13 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 		},
 	)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, _, _, _, startCh, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -744,7 +752,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
 	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := startControllerAndWaitForHooks(startCh, h, time.Second*3); err != nil {
 		t.Error(err)
 	}
 }
