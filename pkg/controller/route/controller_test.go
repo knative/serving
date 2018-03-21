@@ -38,12 +38,10 @@ import (
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	ctrl "github.com/elafros/elafros/pkg/controller"
-	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -54,23 +52,14 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
-func getTestRoute() *v1alpha1.Route {
-	return getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      100,
-			},
-		},
-	)
-}
+const testNamespace string = "test"
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/Routes/test-route",
 			Name:      "test-route",
-			Namespace: "test",
+			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: traffic,
@@ -78,23 +67,361 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 	}
 }
 
-func getTestRouteWithMultipleTargets() *v1alpha1.Route {
-	return getTestRouteWithTrafficTargets(
+func getTestRevision(name string) *v1alpha1.Revision {
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/test/revisions/%s", name),
+			Name:      name,
+			Namespace: testNamespace,
+		},
+		Spec: v1alpha1.RevisionSpec{
+			Container: &corev1.Container{
+				Image: "test-image",
+			},
+		},
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: fmt.Sprintf("%s-service", name),
+		},
+	}
+}
+
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisiontemplates/test-config",
+			Name:      "test-config",
+			Namespace: testNamespace,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			// This is a workaround for generation initialization
+			Generation: 1,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: &corev1.Container{
+						Image: "test-image",
+					},
+				},
+			},
+		},
+	}
+}
+
+func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision {
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
+			Name:      "p-deadbeef",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				ela.ConfigurationLabelKey: config.Name,
+			},
+		},
+		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: "p-deadbeef-service",
+		},
+	}
+}
+
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory) {
+
+	// Create fake clients
+	kubeClient = fakekubeclientset.NewSimpleClientset()
+	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
+
+	// Create informer factories with fake clients. The second parameter sets the
+	// resync period to zero, disabling it.
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
+
+	controller = NewController(
+		kubeClient,
+		elaClient,
+		kubeInformer,
+		elaInformer,
+		&rest.Config{},
+		ctrl.Config{DomainSuffix: "test-domain.net"},
+	).(*Controller)
+
+	return
+}
+
+func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory,
+	stopCh chan struct{}) {
+
+	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+
+	// Start the informers. This must happen after the call to NewController,
+	// otherwise there are no informers to be started.
+	stopCh = make(chan struct{})
+	kubeInformer.Start(stopCh)
+	elaInformer.Start(stopCh)
+
+	// Run the controller.
+	go func() {
+		if err := controller.Run(2, stopCh); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
+	return
+}
+
+func keyOrDie(obj interface{}) string {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+
+func TestCreateRouteCreatesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+
+	h := hooks.NewHooks()
+	// Look for the events. Events are delivered asynchronously so we need to use
+	// hooks here. Each hook tests for a specific event.
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		want := `Created service "test-route-service"`
+		if event.Message != want {
+			return hooks.HookIncomplete
+		}
+		t.Logf("Got an event matching %q", want)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
+	})
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		want := `Created Ingress "test-route-ela-ingress"`
+		if event.Message != want {
+			return hooks.HookIncomplete
+		}
+		t.Logf("Got an event matching %q", want)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
+	})
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		want := `Created Istio route rule "test-route-istio"`
+		if event.Message != want {
+			return hooks.HookIncomplete
+		}
+		t.Logf("Got an event matching %q", want)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
+	})
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		want := `Updated status for route "test-route"`
+		if event.Message != want {
+			return hooks.HookIncomplete
+		}
+		t.Logf("Got an event matching %q", want)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
+	})
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A route targeting the revision
+	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				ConfigurationName: "test-config",
+				RevisionName: "test-rev",
+				Percent:      100,
+			},
+		},
+	)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.syncHandler(keyOrDie(route))
+
+	// Look for the placeholder service.
+	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("error getting service: %v", err)
+	}
+
+	expectedPorts := []corev1.ServicePort{
+		corev1.ServicePort{
+			Name: "http",
+			Port: 80,
+		},
+	}
+
+	if diff := cmp.Diff(expectedPorts, service.Spec.Ports); diff != "" {
+		t.Errorf("Unexpected service ports diff (-want +got): %v", diff)
+	}
+
+	// Look for the ingress.
+	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
+	ingress, err := kubeClient.ExtensionsV1beta1().Ingresses(testNamespace).Get(expectedIngressName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("error getting ingress: %v", err)
+	}
+
+	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
+	if !strings.HasPrefix(ingress.Spec.Rules[0].Host, expectedDomainPrefix) {
+		t.Errorf("Ingress host '%s' does not have prefix '%s'", ingress.Spec.Rules[0].Host, expectedDomainPrefix)
+	}
+
+	// Look for the route.
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting routerule: %v", err)
+	}
+
+	// Check labels
+	expectedLabels := map[string]string{"route": route.Name}
+	if diff := cmp.Diff(expectedLabels, routerule.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+	}
+
+	// Check owner refs
+	expectedRefs := []metav1.OwnerReference{
+		metav1.OwnerReference{
+			APIVersion: "elafros.dev/v1alpha1",
+			Kind:       "Route",
+			Name:       route.Name,
+		},
+	}
+
+	if diff := cmp.Diff(expectedRefs, routerule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
+	}
+
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: "test-route-service",
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "test-rev-service.test",
+				},
+				Weight: 100,
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
+	}
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateRouteWithMultipleTargets(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A configuration and associated revision. Normally the revision would be
+	// created by the configuration controller.
+	config := getTestConfiguration()
+	cfgrev := getTestRevisionForConfig(config)
+	config.Status.LatestReadyRevisionName = cfgrev.Name
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(cfgrev)
+
+	// A route targeting both the config and standalone revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
 				Percent:           90,
 			},
 			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
+				RevisionName: rev.Name,
 				Percent:      10,
 			},
 		},
 	)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.syncHandler(keyOrDie(route))
+
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting routerule: %v", err)
+	}
+
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: fmt.Sprintf("%s-service", route.Name),
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", cfgrev.Name),
+				},
+				Weight: 90,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", rev.Name),
+				},
+				Weight: 10,
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+	}
+
 }
 
-func getTestRouteWithDuplicateTargets() *v1alpha1.Route {
-	return getTestRouteWithTrafficTargets(
+func TestCreateRouteWithDuplicateTargets(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A configuration and associated revision. Normally the revision would be
+	// created by the configuration controller.
+	config := getTestConfiguration()
+	cfgrev := getTestRevisionForConfig(config)
+	config.Status.LatestReadyRevisionName = cfgrev.Name
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(cfgrev)
+
+	// A route with duplicate targets. These will be deduped.
+	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
 				ConfigurationName: "test-config",
@@ -129,389 +456,56 @@ func getTestRouteWithDuplicateTargets() *v1alpha1.Route {
 			},
 		},
 	)
-}
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-func getTestRevision(name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/test/revisions/%s", name),
-			Name:      name,
-			Namespace: "test",
-		},
-		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
-				Image: "test-image",
-			},
-		},
-		Status: v1alpha1.RevisionStatus{
-			ServiceName: fmt.Sprintf("%s-service", name),
-		},
-	}
-}
+	controller.syncHandler(keyOrDie(route))
 
-func getTestConfiguration() *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisiontemplates/test-config",
-			Name:      "test-config",
-			Namespace: "test",
-		},
-		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization
-			Generation: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
-						Image: "test-image",
-					},
-				},
-			},
-		},
-	}
-}
-
-func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-deadbeef",
-			Name:      "p-deadbeef",
-			Namespace: "test",
-			Labels: map[string]string{
-				ela.ConfigurationLabelKey: config.Name,
-			},
-		},
-		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
-		Status: v1alpha1.RevisionStatus{
-			ServiceName: "p-deadbeef-service",
-		},
-	}
-}
-
-func newTestController(t *testing.T) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory) {
-
-	// Create fake clients
-	kubeClient = fakekubeclientset.NewSimpleClientset()
-	elaClient = fakeclientset.NewSimpleClientset()
-
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
-
-	controller = NewController(
-		kubeClient,
-		elaClient,
-		kubeInformer,
-		elaInformer,
-		&rest.Config{},
-		ctrl.Config{DomainSuffix: "test-domain.net"},
-	).(*Controller)
-
-	return
-}
-
-func newRunningTestController(t *testing.T) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
-
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
-	return
-}
-
-func keyOrDie(obj interface{}) string {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
-		panic(err)
+		t.Fatalf("error getting routerule: %v", err)
 	}
-	return key
-}
 
-func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	route := getTestRoute()
-	rev := getTestRevision("test-rev")
-	h := hooks.NewHooks()
-
-	// Look for the placeholder service to be created.
-	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
-	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) hooks.HookResult {
-		s := obj.(*corev1.Service)
-		glog.Infof("checking service %s", s.Name)
-		if e, a := expectedServiceName, s.Name; e != a {
-			t.Errorf("unexpected service: %q expected: %q", a, e)
-		}
-		if e, a := route.Namespace, s.Namespace; e != a {
-			t.Errorf("unexpected route namespace: %q expected: %q", a, e)
-		}
-
-		expectedPort := corev1.ServicePort{
-			Name: "http",
-			Port: 80,
-		}
-
-		if len(s.Spec.Ports) != 1 || s.Spec.Ports[0] != expectedPort {
-			t.Error("expected a single service port http/80")
-		}
-		return hooks.HookComplete
-	})
-
-	// Look for the ingress.
-	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
-	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
-	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
-		i := obj.(*v1beta1.Ingress)
-		if e, a := expectedIngressName, i.Name; e != a {
-			t.Errorf("unexpected ingress name: %q expected: %q", a, e)
-		}
-		if e, a := route.Namespace, i.Namespace; e != a {
-			t.Errorf("unexpected ingress namespace: %q expected: %q", a, e)
-		}
-		if !strings.HasPrefix(i.Spec.Rules[0].Host, expectedDomainPrefix) {
-			t.Errorf("Ingress host '%s' must have prefix '%s'", i.Spec.Rules[0].Host, expectedDomainPrefix)
-		}
-		return hooks.HookComplete
-	})
-
-	// Look for the event
-	expectedMessages := map[string]struct{}{
-		"Created service \"test-route-service\"":        struct{}{},
-		"Created Ingress \"test-route-ela-ingress\"":    struct{}{},
-		"Created Istio route rule \"test-route-istio\"": struct{}{},
-		"Updated status for route \"test-route\"":       struct{}{},
-	}
-	eventNum := 0
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		eventNum = eventNum + 1
-		if _, ok := expectedMessages[event.Message]; !ok {
-			t.Errorf("unexpected Message: %q expected one of: %q", event.Message, expectedMessages)
-		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		// Expect 4 events.
-		if eventNum < 4 {
-			return hooks.HookIncomplete
-		}
-		return hooks.HookComplete
-	})
-
-	// Look for the route.
-	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
-		rule := obj.(*v1alpha2.RouteRule)
-
-		// Check labels
-		expectedLabels := map[string]string{"route": route.Name}
-		if diff := cmp.Diff(expectedLabels, rule.Labels); diff != "" {
-			t.Errorf("Unexpected label diff (-want +got): %v", diff)
-		}
-
-		// Check owner refs
-		expectedRefs := []metav1.OwnerReference{
-			metav1.OwnerReference{
-				APIVersion: "elafros.dev/v1alpha1",
-				Kind:       "Route",
-				Name:       "test-route",
-			},
-		}
-
-		if diff := cmp.Diff(expectedRefs, rule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
-			t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
-		}
-
-		expectedRouteSpec := v1alpha2.RouteRuleSpec{
-			Destination: v1alpha2.IstioService{
-				Name: "test-route-service",
-			},
-			Route: []v1alpha2.DestinationWeight{
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
-					},
-					Weight: 100,
-				},
-			},
-		}
-
-		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
-			t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
-		}
-		return hooks.HookComplete
-	})
-
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	route := getTestRouteWithMultipleTargets()
-	rev := getTestRevision("test-rev")
-	config := getTestConfiguration()
-	h := hooks.NewHooks()
-
-	// Create a Revision when the Configuration is created to simulate the action
-	// of the Configuration controller, which isn't running during this test.
-	elaClient.Fake.PrependReactor("create", "configurations",
-		func(a kubetesting.Action) (bool, runtime.Object, error) {
-			cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
-			cfgrev := getTestRevisionForConfig(cfg)
-			// This must be a goroutine to avoid deadlocking the Fake fixture
-			go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
-			// Set LatestReadyRevisionName to this revision
-			cfg.Status.LatestReadyRevisionName = cfgrev.Name
-			// Return the modified Configuration so the object passed to later reactors
-			// (including the fixture reactor) has our Status mutation
-			return false, cfg, nil
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: "test-route-service",
 		},
-	)
-
-	// Look for the route.
-	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
-		rule := obj.(*v1alpha2.RouteRule)
-
-		expectedRouteSpec := v1alpha2.RouteRuleSpec{
-			Destination: v1alpha2.IstioService{
-				Name: "test-route-service",
-			},
-			Route: []v1alpha2.DestinationWeight{
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "p-deadbeef-service.test",
-					},
-					Weight: 90,
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "p-deadbeef-service.test",
 				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
-					},
-					Weight: 10,
-				},
+				Weight: 50,
 			},
-		}
-
-		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
-			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
-		}
-		return hooks.HookComplete
-	})
-
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	route := getTestRouteWithDuplicateTargets()
-	rev := getTestRevision("test-rev")
-	config := getTestConfiguration()
-	h := hooks.NewHooks()
-
-	// Create a Revision when the Configuration is created to simulate the action
-	// of the Configuration controller, which isn't running during this test.
-	elaClient.Fake.PrependReactor("create", "configurations",
-		func(a kubetesting.Action) (bool, runtime.Object, error) {
-			cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
-			cfgrev := getTestRevisionForConfig(cfg)
-			// This must be a goroutine to avoid deadlocking the Fake fixture
-			go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
-			// Set LatestReadyRevisionName to this revision
-			cfg.Status.LatestReadyRevisionName = cfgrev.Name
-			// Return the modified Configuration so the object passed to later reactors
-			// (including the fixture reactor) has our Status mutation
-			return false, cfg, nil
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "test-rev-service.test",
+				},
+				Weight: 15,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "test-rev-service.test",
+				},
+				Weight: 20,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "test-rev-service.test",
+				},
+				Weight: 15,
+			},
 		},
-	)
+	}
 
-	// Look for the route.
-	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
-		rule := obj.(*v1alpha2.RouteRule)
-
-		expectedRouteSpec := v1alpha2.RouteRuleSpec{
-			Destination: v1alpha2.IstioService{
-				Name: "test-route-service",
-			},
-			Route: []v1alpha2.DestinationWeight{
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "p-deadbeef-service.test",
-					},
-					Weight: 50,
-				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
-					},
-					Weight: 15,
-				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
-					},
-					Weight: 20,
-				},
-				v1alpha2.DestinationWeight{
-					Destination: v1alpha2.IstioService{
-						Name: "test-rev-service.test",
-					},
-					Weight: 15,
-				},
-			},
-		}
-
-		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
-			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
-		}
-		return hooks.HookComplete
-	})
-
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -522,31 +516,28 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 			},
 		},
 	)
-	h := hooks.NewHooks()
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	controller.syncHandler(keyOrDie(route))
 
-	// Look for the configuration.
-	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
-		config := obj.(*v1alpha1.Configuration)
-		// Check labels
-		expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
-		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-			t.Errorf("Unexpected label diff (-want +got): %v", diff)
-		}
-		return hooks.HookComplete
-	})
+	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting config: %v", err)
+	}
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	// Configuration should be labeled for this route
+	expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
+	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 }
 
 func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -557,25 +548,23 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 			},
 		},
 	)
-	h := hooks.NewHooks()
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	controller.syncHandler(keyOrDie(route))
 
-	// Look for the configuration.
-	h.OnUpdate(&elaClient.Fake, "configurations", func(obj runtime.Object) hooks.HookResult {
-		config := obj.(*v1alpha1.Configuration)
-		// Check labels
-		expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
-		if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-			t.Errorf("Unexpected label diff (-want +got): %v", diff)
-		}
-		return hooks.HookComplete
-	})
+	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting config: %v", err)
+	}
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	// Configuration should be labeled for this route
+	expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
+	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 }
 
@@ -594,9 +583,9 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	// Set config's route label with another route name to trigger an error.
 	config.Labels = map[string]string{ela.RouteLabelKey: "another-route"}
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
@@ -640,9 +629,9 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 	// by function setLabelForGivenConfigurations.
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
@@ -658,40 +647,36 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a label which is expected to be deleted.
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
 	rev := getTestRevisionForConfig(config)
-	h := hooks.NewHooks()
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	controller.syncHandler(keyOrDie(route))
 
-	// Look for the configuration.
-	h.OnUpdate(&elaClient.Fake, "configurations",
-		func(obj runtime.Object) hooks.HookResult {
-			config := obj.(*v1alpha1.Configuration)
-			// Check labels, should be empty.
-			expectedLabels := map[string]string{}
-			if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-				t.Errorf("Unexpected label diff (-want +got): %v", diff)
-			}
-			return hooks.HookComplete
-		},
-	)
+	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting config: %v", err)
+	}
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	// Check labels, should be empty.
+	expectedLabels := map[string]string{}
+	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 }
 
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	routeClient := elaClient.ElafrosV1alpha1().Routes(testNamespace)
+
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -702,51 +687,65 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 			},
 		},
 	)
-	h := hooks.NewHooks()
 
-	// Look for the route.
-	h.OnCreate(&elaClient.Fake, "routes", func(obj runtime.Object) hooks.HookResult {
-		route := obj.(*v1alpha1.Route)
-		// The configuration has no LatestReadyRevisionName, nothing should be changing.
-		var expectedTrafficTargets []v1alpha1.TrafficTarget
-		if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
-			t.Errorf("Unexpected label diff (-want +got): %v", diff)
-		}
+	routeClient.Create(route)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 
-		// Update config to has LatestReadyRevisionName and route label.
-		config.Status.LatestReadyRevisionName = rev.Name
-		config.Labels = map[string]string{
-			ela.RouteLabelKey: route.Name,
-		}
-		go elaClient.ElafrosV1alpha1().Configurations("test").Update(config)
-		return hooks.HookComplete
-	})
+	controller.addConfigurationEvent(config)
 
-	h.OnUpdate(&elaClient.Fake, "routes", func(obj runtime.Object) hooks.HookResult {
-		route := obj.(*v1alpha1.Route)
-		expectedTrafficTargets := []v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      100,
-			},
-		}
-		if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
-			t.Errorf("Unexpected label diff (-want +got): %v", diff)
-		}
-		expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
-		if !strings.HasPrefix(route.Status.Domain, expectedDomainPrefix) {
-			t.Errorf("Route domain '%s' must have prefix '%s'", route.Status.Domain, expectedDomainPrefix)
-		}
-		return hooks.HookComplete
-	})
-
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	route, err := routeClient.Get(route.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get route: %v", err)
 	}
+
+	// The configuration has no LatestReadyRevisionName, so there should be no
+	// routed targets.
+	var expectedTrafficTargets []v1alpha1.TrafficTarget
+	if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+	}
+
+	// Update config to have LatestReadyRevisionName and route label.
+	config.Status.LatestReadyRevisionName = rev.Name
+	config.Labels = map[string]string{
+		ela.RouteLabelKey: route.Name,
+	}
+
+	// We need to update the config in the client since getDirectTrafficTargets
+	// gets the configuration from there
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Update(config)
+	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	controller.addConfigurationEvent(config)
+
+	route, err = routeClient.Get(route.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get route: %v", err)
+	}
+
+	// Now the configuration has a LatestReadyRevisionName, so its revision should
+	// be targeted
+	expectedTrafficTargets = []v1alpha1.TrafficTarget{
+		v1alpha1.TrafficTarget{
+			RevisionName: rev.Name,
+			Percent:      100,
+		},
+	}
+	if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
+		t.Errorf("Unexpected traffic target diff (-want +got): %v", diff)
+	}
+	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
+	if !strings.HasPrefix(route.Status.Domain, expectedDomainPrefix) {
+		t.Errorf("Route domain '%s' must have prefix '%s'", route.Status.Domain, expectedDomainPrefix)
+	}
+
 }
 
 func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) {
@@ -765,9 +764,9 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	config.Status.LatestCreatedRevisionName = rev.Name
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
 
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
