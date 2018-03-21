@@ -1,17 +1,17 @@
 # API Objects
 
 * Configuration
-  * Desired current state of deployment (#HEAD)
-  * Records both code and configuration (separated, ala 12 factor)
-  * Stamps out revisions as it is updated
+  * Desired current state of deployment (#HEAD).
+  * Records the history of the code and configuration separately (following the [12-factor app methodology](https://12factor.net/)).
+  * Stamps out revisions as it is updated.
 * Revision
-  * Code and configuration snapshot
-  * k8s infra: Deployment, ReplicaSet, Pods, etc
+  * Snapshot of the code and configuration.
+  * Uses Kubernetes infrastructure, such as [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/), [ReplicaSet](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/), and [Pods](https://kubernetes.io/docs/concepts/workloads/pods/pod/).
 * Route
-  * Traffic assignment to Revisions (fractional scaling or by name)
-  * Built using Istio
+  * Assigns traffic to Revisions (fractional scaling or by name).
+  * Built using [Istio](https://istio.io/docs/).
 * Build
-  * Executes builds
+  * Executes builds.
   
 <img src="./images/api-objects.png" width="250">
 
