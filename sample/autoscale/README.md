@@ -114,6 +114,7 @@ Send 1000 requests, each of which consumes about 1 cpu/sec.
 batch () {
   for i in `seq 1 1000`
   do
+    sleep 0.02
     curl -s -o /dev/null -w "%{http_code}\n" \
       --header 'Host:autoscale.myhost.net' \
       http://${SERVICE_IP}/primes/40000000 &
