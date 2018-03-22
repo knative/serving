@@ -182,7 +182,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 
 	// Look for the event. Events are delivered asynchronously so we need to use
 	// hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, "Created Revision .+"))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Created Revision .+"))
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
@@ -266,8 +266,8 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	// Events are delivered asynchronously so we need to use hooks here. Each hook
 	// tests for a specific event.
 	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, "Configuration becomes ready"))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, "LatestReadyRevisionName updated to .+"))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Configuration becomes ready"))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "LatestReadyRevisionName updated to .+"))
 
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
