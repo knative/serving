@@ -270,7 +270,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		t.Errorf("Ingress host '%s' does not have prefix '%s'", ingress.Spec.Rules[0].Host, expectedDomainPrefix)
 	}
 
-	// Look for the route.
+	// Look for the route rule.
 	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
