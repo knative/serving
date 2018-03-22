@@ -25,6 +25,7 @@ package route
 */
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -177,6 +178,8 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return
 }
 
+// keyOrDie returns the string key of the Kubernetes object or panics if a key
+// cannot be generated.
 func keyOrDie(obj interface{}) string {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
@@ -185,60 +188,38 @@ func keyOrDie(obj interface{}) string {
 	return key
 }
 
+// ExpectEventDelivery returns a hook function that can be passed to a
+// Hooks.OnCreate() call to verify that an event of type Normal was created
+// matching the given regular expression. For this expectation to be effective
+// the test must also call Hooks.WaitForHooks().
+func expectEventDelivery(t *testing.T, messageRegexp string) hooks.CreateHookFunc {
+	wantRegexp, err := regexp.Compile(messageRegexp)
+	if err != nil {
+		t.Fatalf("Invalid regular expression: %v", err)
+	}
+	return func(obj runtime.Object) hooks.HookResult {
+		event := obj.(*corev1.Event)
+		if !wantRegexp.MatchString(event.Message) {
+			return hooks.HookIncomplete
+		}
+		t.Logf("Got an event message matching %q: %q", wantRegexp, event.Message)
+		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return hooks.HookComplete
+	}
+}
+
 func TestCreateRouteCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 
 	h := hooks.NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		want := `Created service "test-route-service"`
-		if event.Message != want {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event matching %q", want)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	})
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		want := `Created Ingress "test-route-ela-ingress"`
-		if event.Message != want {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event matching %q", want)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	})
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		want := `Created Istio route rule "test-route-istio"`
-		if event.Message != want {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event matching %q", want)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	})
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		want := `Updated status for route "test-route"`
-		if event.Message != want {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event matching %q", want)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	})
+	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Created service "test-route-service"`))
+	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Created Istio route rule "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Updated status for route "test-route"`))
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
