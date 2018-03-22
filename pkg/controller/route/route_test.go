@@ -627,6 +627,53 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	})
 }
 
+func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
+	_, elaClient, controller, _, _ := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           50,
+			},
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+				Name:              "foo",
+			},
+		},
+	)
+	extraRouteRule := &v1alpha2.RouteRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route-extra-istio",
+			Namespace: route.Namespace,
+		},
+	}
+	config.Status.LatestCreatedRevisionName = rev.Name
+	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(extraRouteRule)
+	// Ensure extraRouteRule was created
+	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{}); err != nil {
+		t.Errorf("Unexpected error occured. Expected route rule %s to exist.", extraRouteRule)
+	}
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := controller.removeOutdatedRouteRules(route); err != nil {
+		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
+	}
+
+	expectedErrMsg := fmt.Sprintf("routerules.config.istio.io \"%s\" not found", extraRouteRule.Name)
+	// Expect extraRouteRule to have been deleted
+	_, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{})
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+}
+
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
