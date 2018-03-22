@@ -131,6 +131,12 @@ func scaleTo(podCount int32) {
 		glog.Error("Error getting Deployment %q: %s", elaDeployment, err)
 		return
 	}
+	glog.Infof("===SCALE=== %v %v %v %v %v",
+		time.Now().Unix(),
+		podCount,
+		deployment.Status.Replicas,
+		deployment.Status.AvailableReplicas,
+		deployment.Status.ReadyReplicas)
 	if *deployment.Spec.Replicas == podCount {
 		return
 	}
