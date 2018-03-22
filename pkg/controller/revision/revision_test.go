@@ -352,16 +352,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	h := NewHooks()
 	// Look for the build failure event. Events are delivered asynchronously so
 	// we need to use hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) HookResult {
-		event := obj.(*corev1.Event)
-		if wanted, got := errMessage, event.Message; wanted != got {
-			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
-		}
-		if wanted, got := corev1.EventTypeWarning, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return HookComplete
-	})
+	h.OnCreate(&kubeClient.Fake, "events", ExpectWarningEventDelivery(t, errMessage))
 
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
@@ -586,17 +577,8 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	h := NewHooks()
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) HookResult {
-		event := obj.(*corev1.Event)
-		expectedMessage := "Revision becomes ready upon endpoint \"test-endpoints\" becoming ready"
-		if wanted, got := expectedMessage, event.Message; wanted != got {
-			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
-		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return HookComplete
-	})
+	expectedMessage := "Revision becomes ready upon endpoint \"test-endpoints\" becoming ready"
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
