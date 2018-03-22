@@ -51,6 +51,7 @@ var (
 	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqInChan         = make(chan struct{}, requestCountingQueueLength)
 	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
+	reqCountChan      = make(chan struct{}, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
 	proxy             *httputil.ReverseProxy
@@ -145,37 +146,66 @@ func statReporter() {
 	}
 }
 
-func concurrencyReporter() {
-	var concurrentRequests int32 = 0
-	var totalRequests int32 = 0
-	ticker := time.NewTicker(time.Second).C
+func concurrencyCounter() {
+	var requestCount int32 = 0
+	var concurrentCount int32 = 0
+	buckets := make([]int32, 0)
+	bucketTicker := time.NewTicker(100 * time.Millisecond).C
+	reportTicker := time.NewTicker(time.Second).C
 	for {
 		select {
-		case <-ticker:
+		case <-reqInChan:
+			requestCount = requestCount + 1
+			concurrentCount = concurrentCount + 1
+		case <-bucketTicker:
+			// Calculate average concurrency for the current
+			// 100 ms bucket.
+			buckets = append(buckets, concurrentCount)
+			// Drain the request out channel only after the
+			// bucket statistic has been recorded.  This
+			// ensures that very fast requests are not missed
+			// by making the smallest granularity of
+			// concurrency accounting 100 ms.
+		DrainReqOutChan:
+			for {
+				select {
+				case <-reqOutChan:
+					concurrentCount = concurrentCount - 1
+				default:
+					break DrainReqOutChan
+				}
+			}
+		case <-reportTicker:
+			// Report the average bucket level. Does not
+			// include the current bucket.
+			var total float64 = 0
+			var count float64 = 0
+			for _, val := range buckets {
+				total = total + float64(val)
+				count = count + 1
+			}
 			now := time.Now()
 			stat := &autoscaler.Stat{
-				Time:                    &now,
-				PodName:                 podName,
-				ConcurrentRequests:      concurrentRequests,
-				TotalRequestsThisPeriod: totalRequests,
+				Time:                      &now,
+				PodName:                   podName,
+				AverageConcurrentRequests: total / count,
+				TotalRequestsThisPeriod:   requestCount,
 			}
-			totalRequests = 0
+			// Send the stat to another process to transmit
+			// so we can continue bucketing stats.
 			statChan <- stat
-		case <-reqInChan:
-			concurrentRequests = concurrentRequests + 1
-			totalRequests = totalRequests + 1
-		case <-reqOutChan:
-			concurrentRequests = concurrentRequests - 1
+			// Reset the stat counts which have been reported.
+			requestCount = 0
+			buckets = make([]int32, 0)
 		}
 	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	var in struct{}
-	reqInChan <- in
+	var poke struct{}
+	reqInChan <- poke
 	defer func() {
-		var out struct{}
-		reqOutChan <- out
+		reqOutChan <- poke
 	}()
 	glog.Infof("Forwarding a request to the app container at %v", time.Now().String())
 	proxy.ServeHTTP(w, r)
@@ -195,7 +225,7 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
-	go concurrencyReporter()
+	go concurrencyCounter()
 	defer func() {
 		if statSink != nil {
 			statSink.Close()
