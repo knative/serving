@@ -759,7 +759,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		return
 	}
 	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
-		// Route isn't ready if no having no load-balancer ingress.
+		// Route isn't ready if having no load-balancer ingress.
 		return
 	}
 	for _, i := range ingress.Status.LoadBalancer.Ingress {
@@ -776,17 +776,14 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 			ns, routeName, err)
 		return
 	}
-	for _, rc := range route.Status.Conditions {
-		if rc.Type == v1alpha1.RouteConditionReady && rc.Status == corev1.ConditionTrue {
-			// Route is already ready, moving on.
-			return
-		}
+	if route.Status.IsReady() {
+		return
 	}
 	// Mark route as ready.
-	route.Status.Conditions = []v1alpha1.RouteCondition{{
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
 		Type:   v1alpha1.RouteConditionReady,
 		Status: corev1.ConditionTrue,
-	}}
+	})
 	_, err = routeClient.Update(route)
 	if err != nil {
 		glog.Errorf("Error updating readiness of route '%s/%s' upon ingress becoming: %v",

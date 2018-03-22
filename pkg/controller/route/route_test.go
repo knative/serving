@@ -798,7 +798,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Create an ingress owned by this route.
-	controller.ensureIngressExists(route)
+	controller.reconcileIngress(route)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
