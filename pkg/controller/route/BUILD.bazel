@@ -3,10 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "controller.go",
         "ela_ingress.go",
         "ela_istio_route.go",
         "ela_service.go",
+        "route.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/controller/route",
     visibility = ["//visibility:public"],
@@ -40,7 +40,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["controller_test.go"],
+    srcs = ["route_test.go"],
     embed = [":go_default_library"],
     importpath = "github.com/elafros/elafros/pkg/controller/route",
     deps = [
