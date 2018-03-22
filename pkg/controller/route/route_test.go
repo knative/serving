@@ -25,7 +25,6 @@ package route
 */
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -45,12 +44,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
-
-	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/elafros/elafros/pkg/controller/testing"
 )
 
 const testNamespace string = "test"
@@ -178,48 +176,16 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return
 }
 
-// keyOrDie returns the string key of the Kubernetes object or panics if a key
-// cannot be generated.
-func keyOrDie(obj interface{}) string {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
-// ExpectEventDelivery returns a hook function that can be passed to a
-// Hooks.OnCreate() call to verify that an event of type Normal was created
-// matching the given regular expression. For this expectation to be effective
-// the test must also call Hooks.WaitForHooks().
-func expectEventDelivery(t *testing.T, messageRegexp string) hooks.CreateHookFunc {
-	wantRegexp, err := regexp.Compile(messageRegexp)
-	if err != nil {
-		t.Fatalf("Invalid regular expression: %v", err)
-	}
-	return func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		if !wantRegexp.MatchString(event.Message) {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event message matching %q: %q", wantRegexp, event.Message)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	}
-}
-
 func TestCreateRouteCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 
-	h := hooks.NewHooks()
+	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Created service "test-route-service"`))
-	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
-	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Created Istio route rule "test-route-istio"`))
-	h.OnCreate(&kubeClient.Fake, "events", expectEventDelivery(t, `Updated status for route "test-route"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Created service "test-route-service"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Created Istio route rule "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Updated status for route "test-route"`))
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -238,7 +204,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.updateRouteEvent(keyOrDie(route))
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	// Look for the placeholder service.
 	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
@@ -351,7 +317,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.updateRouteEvent(keyOrDie(route))
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
@@ -441,7 +407,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.updateRouteEvent(keyOrDie(route))
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
@@ -503,7 +469,7 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.updateRouteEvent(keyOrDie(route))
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -535,7 +501,7 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.updateRouteEvent(keyOrDie(route))
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -640,7 +606,7 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	controller.updateRouteEvent(keyOrDie(route))
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
