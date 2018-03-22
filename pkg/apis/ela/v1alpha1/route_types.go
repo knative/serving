@@ -128,28 +128,44 @@ func (r *Route) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-func (ess *RouteStatus) SetCondition(new *RouteCondition) {
+func (rs *RouteStatus) IsReady() bool {
+	if c := rs.GetCondition(RouteConditionReady); c != nil {
+		return c.Status == corev1.ConditionTrue
+	}
+	return false
+}
+
+func (rs *RouteStatus) GetCondition(t RouteConditionType) *RouteCondition {
+	for _, cond := range rs.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
+
+func (rs *RouteStatus) SetCondition(new *RouteCondition) {
 	if new == nil {
 		return
 	}
 
 	t := new.Type
 	var conditions []RouteCondition
-	for _, cond := range ess.Conditions {
+	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
 	conditions = append(conditions, *new)
-	ess.Conditions = conditions
+	rs.Conditions = conditions
 }
 
-func (ess *RouteStatus) RemoveCondition(t RouteConditionType) {
+func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 	var conditions []RouteCondition
-	for _, cond := range ess.Conditions {
+	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	ess.Conditions = conditions
+	rs.Conditions = conditions
 }
