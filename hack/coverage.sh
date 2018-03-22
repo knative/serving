@@ -15,8 +15,8 @@
 # limitations under the License.
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
 
-cd ${SCRIPT_ROOT}
+cd ${SCRIPT_ROOT}/pkg
 
 # TODO(steuhs): get PR number and use that as the file name
-go test pkg/... -coverprofile coverage_profile.txt
+go test ./... -coverprofile coverage_profile.txt
 gsutil cp coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/
