@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// request contains logic to poll an ingress endpoint with host spoofing.
+// request contains logic to make polling HTTP requests against an endpoint with optional host spoofing.
 
 package conformance
 
@@ -34,16 +34,19 @@ const (
 	requestTimeout  = 1 * time.Minute
 )
 
-// WaitForIngressRequestToDomainState makes requests to address every requestInterval until
+// WaitForRequestToDomainState makes requests to address every requestInterval until
 // timeout has passed, or inState returns `true` (indicating it is done) or
-// returns an error. Requests are made with domain spoofed in the `Host` header.
+// returns an error. Requests are made with spoofDomain spoofed in the `Host` header. If
+// spoofDomain is not specified, `Host` will not be spoofed.
 // Will retry when responses return the HTTP codes in retryableCodes.
-func WaitForIngressRequestToDomainState(address string, domain string, retryableCodes []int, inState func(body string) (bool, error)) {
+func WaitForRequestToDomainState(address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) {
 	h := http.Client{}
 	req, err := http.NewRequest("GET", address, nil)
 	Expect(err).NotTo(HaveOccurred())
 
-	req.Host = domain
+	if spoofDomain != "" {
+		req.Host = spoofDomain
+	}
 
 	var body []byte
 	err = wait.PollImmediate(requestInterval, requestTimeout, func() (bool, error) {
