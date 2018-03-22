@@ -191,16 +191,12 @@ var _ = Describe("Route", func() {
 	Context("Deploying an app with a pre-built container", func() {
 		It("Creates a route, serves traffic to it, and serves traffic to subsequent revisions", func() {
 			By("Creating a new Route")
-			createdRoute, err := routeClient.Create(route())
+			_, err := routeClient.Create(route())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(createdRoute.Generation).To(Equal(int64(0)))
-			Expect(createdRoute.Spec.Generation).To(Equal(int64(1)))
 
 			By("Creating Configuration for the Route using the first image")
-			createdConfig, err := configClient.Create(configuration(imagePaths[0]))
+			_, err = configClient.Create(configuration(imagePaths[0]))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(createdConfig.Generation).To(Equal(int64(0)))
-			Expect(createdConfig.Spec.Generation).To(Equal(int64(1)))
 
 			By("The Configuration will be updated with the Revision after it is created")
 			var revisionName string
