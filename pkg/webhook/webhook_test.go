@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/ghodss/yaml"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -125,15 +124,6 @@ func TestUnknownKindFails(t *testing.T) {
 	expectFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
-func TestInvalidNewConfigurationFails(t *testing.T) {
-	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	new := &admissionv1beta1.AdmissionRequest{
-		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
-	}
-	expectFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
-}
-
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateConfiguration())
@@ -187,6 +177,30 @@ func TestValidRouteNoChanges(t *testing.T) {
 	resp := ac.admit(createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+}
+
+func TestInvalidOldRoute(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	new := createRoute(1)
+	newBytes, err := json.Marshal(new)
+	if err != nil {
+		t.Errorf("Marshal(%v) = %v", new, err)
+	}
+	oldBytes := []byte(`{"bad": "field"}`)
+	resp := ac.admit(createUpdateRouteRaw(oldBytes, newBytes))
+	expectFailsWith(t, resp, `unknown field "bad"`)
+}
+
+func TestInvalidNewRoute(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	old := createRoute(1)
+	oldBytes, err := json.Marshal(old)
+	if err != nil {
+		t.Errorf("Marshal(%v) = %v", old, err)
+	}
+	newBytes := []byte(`{"sepc": {}}`)
+	resp := ac.admit(createUpdateRouteRaw(oldBytes, newBytes))
+	expectFailsWith(t, resp, `unknown field "sepc"`)
 }
 
 func TestValidRouteChanges(t *testing.T) {
@@ -246,12 +260,12 @@ func TestUpdatingWebhook(t *testing.T) {
 
 func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateConfiguration()
-	marshaled, err := yaml.Marshal(old)
+	marshaled, err := json.Marshal(old)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
-	marshaledOld, err := yaml.Marshal(new)
+	marshaledOld, err := json.Marshal(new)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -265,7 +279,7 @@ func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
 	config := createConfiguration(0)
-	marshaled, err := yaml.Marshal(config)
+	marshaled, err := json.Marshal(config)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -286,7 +300,7 @@ func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
 	route := createRoute(0)
-	marshaled, err := yaml.Marshal(route)
+	marshaled, err := json.Marshal(route)
 	if err != nil {
 		panic("failed to marshal route")
 	}
@@ -301,19 +315,23 @@ func createBaseUpdateRoute() *admissionv1beta1.AdmissionRequest {
 	}
 }
 
-func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
+func createUpdateRouteRaw(old, new []byte) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateRoute()
-	marshaled, err := yaml.Marshal(old)
-	if err != nil {
-		panic("failed to marshal route")
-	}
-	req.Object.Raw = marshaled
-	marshaledOld, err := yaml.Marshal(new)
-	if err != nil {
-		panic("failed to marshal route")
-	}
-	req.OldObject.Raw = marshaledOld
+	req.Object.Raw = new
+	req.OldObject.Raw = old
 	return req
+}
+
+func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
+	marshaledOld, err := json.Marshal(old)
+	if err != nil {
+		panic("failed to marshal route")
+	}
+	marshaled, err := json.Marshal(new)
+	if err != nil {
+		panic("failed to marshal route")
+	}
+	return createUpdateRouteRaw(marshaledOld, marshaled)
 }
 
 func createDeployment(ac *AdmissionController) {
