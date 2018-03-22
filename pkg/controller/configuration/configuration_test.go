@@ -27,8 +27,6 @@ package configuration
 	Congfiguration.
 */
 import (
-	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -44,14 +42,14 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	ctrl "github.com/elafros/elafros/pkg/controller"
 
-	hooks "github.com/elafros/elafros/pkg/controller/testing"
-
 	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/elafros/elafros/pkg/controller/testing"
 )
 
 const (
@@ -180,21 +178,11 @@ func keyOrDie(obj interface{}) string {
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
-	h := hooks.NewHooks()
+	h := NewHooks()
 
 	// Look for the event. Events are delivered asynchronously so we need to use
 	// hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		expectedMessages := "Created Revision "
-		if !strings.HasPrefix(event.Message, expectedMessages) {
-			t.Errorf("unexpected Message: %q expected beginning with: %q", event.Message, expectedMessages)
-		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return hooks.HookComplete
-	})
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, "Created Revision .+"))
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
@@ -277,31 +265,9 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 
 	// Events are delivered asynchronously so we need to use hooks here. Each hook
 	// tests for a specific event.
-	h := hooks.NewHooks()
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		want := "Configuration becomes ready"
-		if event.Message != want {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event matching %q", want)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	})
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		want := regexp.MustCompile("LatestReadyRevisionName updated to .+")
-		if !want.MatchString(event.Message) {
-			return hooks.HookIncomplete
-		}
-		t.Logf("Got an event matching %v", want)
-		if got, want := event.Type, corev1.EventTypeNormal; got != want {
-			t.Errorf("unexpected event Type: %q expected: %q", got, want)
-		}
-		return hooks.HookComplete
-	})
+	h := NewHooks()
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, "Configuration becomes ready"))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, "LatestReadyRevisionName updated to .+"))
 
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
