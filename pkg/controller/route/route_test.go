@@ -232,8 +232,12 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	}
 
 	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
+	expectedWildcardDomainPrefix := fmt.Sprintf("*.%s", expectedDomainPrefix)
 	if !strings.HasPrefix(ingress.Spec.Rules[0].Host, expectedDomainPrefix) {
 		t.Errorf("Ingress host '%s' does not have prefix '%s'", ingress.Spec.Rules[0].Host, expectedDomainPrefix)
+	}
+	if !strings.HasPrefix(ingress.Spec.Rules[1].Host, expectedWildcardDomainPrefix) {
+		t.Errorf("Ingress host '%s' does not have prefix '%s'", ingress.Spec.Rules[1].Host, expectedWildcardDomainPrefix)
 	}
 
 	// Look for the route rule.
@@ -264,6 +268,15 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name: "test-route-service",
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
+					},
+				},
+			},
 		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
@@ -327,6 +340,15 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name: fmt.Sprintf("%s-service", route.Name),
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
+					},
+				},
+			},
 		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
@@ -418,6 +440,15 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		Destination: v1alpha2.IstioService{
 			Name: "test-route-service",
 		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
+					},
+				},
+			},
+		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
@@ -448,6 +479,146 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+	}
+}
+
+func TestCreateRouteWithNamedTargets(t *testing.T) {
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	defer close(stopCh)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Name:         "foo",
+				RevisionName: "test-rev",
+				Percent:      50,
+			},
+			v1alpha1.TrafficTarget{
+				Name:              "bar",
+				ConfigurationName: "test-config",
+				Percent:           50,
+			},
+		},
+	)
+
+	rev := getTestRevision("test-rev")
+	config := getTestConfiguration()
+	h := NewHooks()
+
+	// Create a Revision when the Configuration is created to simulate the action
+	// of the Configuration controller, which isn't running during this test.
+	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
+		cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
+		cfgrev := getTestRevisionForConfig(cfg)
+		// This must be a goroutine to avoid deadlocking the Fake fixture
+		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
+		// Set LatestReadyRevisionName to this revision
+		cfg.Status.LatestReadyRevisionName = cfgrev.Name
+		// Return the modified Configuration so the object passed to later reactors
+		// (including the fixture reactor) has our Status mutation
+		return false, cfg, nil
+	})
+
+	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix)
+	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) HookResult {
+		var expectedRouteSpec v1alpha2.RouteRuleSpec
+		rule := obj.(*v1alpha2.RouteRule)
+
+		switch rule.Name {
+		case "test-route-istio":
+			// Expects authority header to be the domain suffix
+			expectedRouteSpec = v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
+				},
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: domain,
+							},
+						},
+					},
+				},
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 50,
+					},
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "p-deadbeef-service.test",
+						},
+						Weight: 50,
+					},
+				},
+			}
+		case "test-route-foo-istio":
+			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
+			// weights 100% of the traffic to the specified traffic target's revision.
+			expectedRouteSpec = v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
+				},
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: fmt.Sprintf("foo.%s", domain),
+							},
+						},
+					},
+				},
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "test-rev-service.test",
+						},
+						Weight: 100,
+					},
+				},
+			}
+		case "test-route-bar-istio":
+			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
+			// weights 100% of the traffic to the specified traffic target's revision.
+			expectedRouteSpec = v1alpha2.RouteRuleSpec{
+				Destination: v1alpha2.IstioService{
+					Name: "test-route-service",
+				},
+				Match: v1alpha2.Match{
+					Request: v1alpha2.MatchRequest{
+						Headers: v1alpha2.Headers{
+							Authority: v1alpha2.MatchString{
+								Regex: fmt.Sprintf("bar.%s", domain),
+							},
+						},
+					},
+				},
+				Route: []v1alpha2.DestinationWeight{
+					v1alpha2.DestinationWeight{
+						Destination: v1alpha2.IstioService{
+							Name: "p-deadbeef-service.test",
+						},
+						Weight: 100,
+					},
+				},
+			}
+		default:
+			t.Errorf("Unknown route rule: %s", rule.Name)
+		}
+
+		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
+			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		}
+		return HookComplete
+	})
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
 	}
 }
 

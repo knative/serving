@@ -151,3 +151,24 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSum, err)
 	}
 }
+
+func TestNotAllowedIfTrafficNamesNotUnique(t *testing.T) {
+	route := createRouteWithTraffic(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Name:              "test",
+				ConfigurationName: "test-configuration-1",
+				Percent:           50,
+			},
+			v1alpha1.TrafficTarget{
+				Name:              "test",
+				ConfigurationName: "test-configuration-2",
+				Percent:           50,
+			},
+		})
+
+	if err := ValidateRoute(nil, &route, &route); err != errTrafficTargetsNotUnique {
+		t.Fatalf(
+			"Expected: %s. Failed with: %s.", errTrafficTargetsNotUnique, err)
+	}
+}

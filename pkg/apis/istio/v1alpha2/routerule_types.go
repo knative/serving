@@ -41,6 +41,10 @@ type RouteRule struct {
 //    route:
 //    - destination:
 //        name: revision-service-1
+//      match:
+//        headers:
+//          authority:
+//            regex: foo.example.com
 //      weight: 90
 //    - destination:
 //        name: revision-service-2
@@ -54,8 +58,27 @@ type IstioService struct {
 	Name string `json:"name"`
 }
 
+type Match struct {
+	Request MatchRequest `json:"request"`
+}
+
+type MatchRequest struct {
+	Headers Headers `json:"headers"`
+}
+
+type Headers struct {
+	Authority MatchString `json:"authority"`
+}
+
+type MatchString struct {
+	Exact  string `json:"exact,omitempty"`
+	Regex  string `json:"regex,omitempty"`
+	Prefix string `json:"prefix,omitempty"`
+}
+
 type RouteRuleSpec struct {
 	Destination IstioService        `json:"destination"`
+	Match       Match               `json:"match,omitempty"`
 	Route       []DestinationWeight `json:"route"`
 }
 

@@ -614,28 +614,54 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
-	routeRuleName := controller.GetElaIstioRouteRuleName(route)
+	// Create route rule for the route domain
+	routeRuleName := controller.GetRouteRuleName(route, nil)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeRouteIstioRoutes(route, revisionRoutes)
+		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route))
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
-		return revisionRoutes, nil
+	} else {
+		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route))
+		_, err = routeClient.Update(routeRules)
+		if _, err := routeClient.Update(routeRules); err != nil {
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
+			return nil, err
+		}
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	}
 
-	routeRules.Spec = MakeRouteIstioSpec(route, revisionRoutes)
-	_, err = routeClient.Update(routeRules)
-	if _, err := routeClient.Update(routeRules); err != nil {
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
-		return nil, err
+	// Create route rule for named traffic targets
+	for _, tt := range route.Spec.Traffic {
+		if tt.Name == "" {
+			continue
+		}
+		routeRuleName := controller.GetRouteRuleName(route, &tt)
+		routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
+		if err != nil {
+			if !apierrs.IsNotFound(err) {
+				return nil, err
+			}
+			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route))
+			if _, err := routeClient.Create(routeRules); err != nil {
+				c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
+				return nil, err
+			}
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
+		} else {
+			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route))
+			if _, err := routeClient.Update(routeRules); err != nil {
+				return nil, err
+			}
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
+		}
 	}
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	return revisionRoutes, nil
 }
 
