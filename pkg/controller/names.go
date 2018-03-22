@@ -46,12 +46,11 @@ func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
 }
 
-func GetElaIstioRouteRuleName(u *v1alpha1.Route) string {
+func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
+	if tt != nil {
+		return u.Name + "-" + tt.Name + "-istio"
+	}
 	return u.Name + "-istio"
-}
-
-func GetTrafficTargetElaIstioRouteRuleName(u *v1alpha1.Route, tt v1alpha1.TrafficTarget) string {
-	return u.Name + "-" + tt.Name + "-istio"
 }
 
 func GetElaK8SIngressName(u *v1alpha1.Route) string {

@@ -299,6 +299,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	// Look for the ingress.
 	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
 	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
+	expectedWildcardDomainPrefix := fmt.Sprintf("*.%s", expectedDomainPrefix)
 	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
 		i := obj.(*v1beta1.Ingress)
 		if e, a := expectedIngressName, i.Name; e != a {
@@ -309,6 +310,9 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		}
 		if !strings.HasPrefix(i.Spec.Rules[0].Host, expectedDomainPrefix) {
 			t.Errorf("Ingress host '%s' must have prefix '%s'", i.Spec.Rules[0].Host, expectedDomainPrefix)
+		}
+		if !strings.HasPrefix(i.Spec.Rules[1].Host, expectedWildcardDomainPrefix) {
+			t.Errorf("Ingress host '%s' must have prefix '%s'", i.Spec.Rules[1].Host, expectedWildcardDomainPrefix)
 		}
 		return hooks.HookComplete
 	})
@@ -368,7 +372,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				Request: v1alpha2.MatchRequest{
 					Headers: v1alpha2.Headers{
 						Authority: v1alpha2.MatchString{
-							Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix),
+							Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
 						},
 					},
 				},
@@ -433,7 +437,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Request: v1alpha2.MatchRequest{
 					Headers: v1alpha2.Headers{
 						Authority: v1alpha2.MatchString{
-							Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix),
+							Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
 						},
 					},
 				},
@@ -507,7 +511,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 					Request: v1alpha2.MatchRequest{
 						Headers: v1alpha2.Headers{
 							Authority: v1alpha2.MatchString{
-								Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix),
+								Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
 							},
 						},
 					},
@@ -557,7 +561,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
+	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
 	defer close(stopCh)
 	route := getTestRouteWithNamedTargets()
 	rev := getTestRevision("test-rev")
@@ -578,27 +582,13 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		return false, cfg, nil
 	})
 
-	// Ingress is created with the domain and wildcard domain
-	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.elaConfig.DomainSuffix)
-	expectedIngressHostnames := []string{domain, fmt.Sprintf("*.%s", domain)}
-	h.OnCreate(&kubeClient.Fake, "ingresses", func(obj runtime.Object) hooks.HookResult {
-		i := obj.(*v1beta1.Ingress)
-		ingressHostnames := []string{}
-		for _, rule := range i.Spec.Rules {
-			ingressHostnames = append(ingressHostnames, rule.Host)
-		}
-
-		if diff := cmp.Diff(expectedIngressHostnames, ingressHostnames); diff != "" {
-			t.Errorf("Unexpected ingress spec diff (-want +got): %v", diff)
-		}
-		return hooks.HookComplete
-	})
-
+	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix)
 	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) hooks.HookResult {
 		var expectedRouteSpec v1alpha2.RouteRuleSpec
 		rule := obj.(*v1alpha2.RouteRule)
 
-		if rule.Name == "test-route-istio" {
+		switch rule.Name {
+		case "test-route-istio":
 			// Expects authority header to be the domain suffix
 			expectedRouteSpec = v1alpha2.RouteRuleSpec{
 				Destination: v1alpha2.IstioService{
@@ -628,7 +618,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				},
 			}
-		} else if rule.Name == "test-route-foo-istio" {
+		case "test-route-foo-istio":
 			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
 			// weights 100% of the traffic to the specified traffic target's revision.
 			expectedRouteSpec = v1alpha2.RouteRuleSpec{
@@ -653,7 +643,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				},
 			}
-		} else if rule.Name == "test-route-bar-istio" {
+		case "test-route-bar-istio":
 			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
 			// weights 100% of the traffic to the specified traffic target's revision.
 			expectedRouteSpec = v1alpha2.RouteRuleSpec{
@@ -678,6 +668,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 					},
 				},
 			}
+		default:
+			t.Errorf("Unknown route rule: %s", rule.Name)
 		}
 
 		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
