@@ -483,8 +483,23 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A configuration and associated revision. Normally the revision would be
+	// created by the configuration controller.
+	config := getTestConfiguration()
+	cfgrev := getTestRevisionForConfig(config)
+	config.Status.LatestReadyRevisionName = cfgrev.Name
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(cfgrev)
+
+	// A route targeting both the config and standalone revision with named
+	// targets
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
@@ -500,126 +515,105 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		},
 	)
 
-	rev := getTestRevision("test-rev")
-	config := getTestConfiguration()
-	h := NewHooks()
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	// Create a Revision when the Configuration is created to simulate the action
-	// of the Configuration controller, which isn't running during this test.
-	elaClient.Fake.PrependReactor("create", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
-		cfg := a.(kubetesting.CreateActionImpl).Object.(*v1alpha1.Configuration)
-		cfgrev := getTestRevisionForConfig(cfg)
-		// This must be a goroutine to avoid deadlocking the Fake fixture
-		go elaClient.ElafrosV1alpha1().Revisions(cfg.Namespace).Create(cfgrev)
-		// Set LatestReadyRevisionName to this revision
-		cfg.Status.LatestReadyRevisionName = cfgrev.Name
-		// Return the modified Configuration so the object passed to later reactors
-		// (including the fixture reactor) has our Status mutation
-		return false, cfg, nil
-	})
+	controller.updateRouteEvent(KeyOrDie(route))
 
 	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix)
-	h.OnCreate(&elaClient.Fake, "routerules", func(obj runtime.Object) HookResult {
-		var expectedRouteSpec v1alpha2.RouteRuleSpec
-		rule := obj.(*v1alpha2.RouteRule)
 
-		switch rule.Name {
-		case "test-route-istio":
-			// Expects authority header to be the domain suffix
-			expectedRouteSpec = v1alpha2.RouteRuleSpec{
-				Destination: v1alpha2.IstioService{
-					Name: "test-route-service",
-				},
-				Match: v1alpha2.Match{
-					Request: v1alpha2.MatchRequest{
-						Headers: v1alpha2.Headers{
-							Authority: v1alpha2.MatchString{
-								Regex: domain,
-							},
-						},
-					},
-				},
-				Route: []v1alpha2.DestinationWeight{
-					v1alpha2.DestinationWeight{
-						Destination: v1alpha2.IstioService{
-							Name: "test-rev-service.test",
-						},
-						Weight: 50,
-					},
-					v1alpha2.DestinationWeight{
-						Destination: v1alpha2.IstioService{
-							Name: "p-deadbeef-service.test",
-						},
-						Weight: 50,
-					},
-				},
-			}
-		case "test-route-foo-istio":
-			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
-			// weights 100% of the traffic to the specified traffic target's revision.
-			expectedRouteSpec = v1alpha2.RouteRuleSpec{
-				Destination: v1alpha2.IstioService{
-					Name: "test-route-service",
-				},
-				Match: v1alpha2.Match{
-					Request: v1alpha2.MatchRequest{
-						Headers: v1alpha2.Headers{
-							Authority: v1alpha2.MatchString{
-								Regex: fmt.Sprintf("foo.%s", domain),
-							},
-						},
-					},
-				},
-				Route: []v1alpha2.DestinationWeight{
-					v1alpha2.DestinationWeight{
-						Destination: v1alpha2.IstioService{
-							Name: "test-rev-service.test",
-						},
-						Weight: 100,
-					},
-				},
-			}
-		case "test-route-bar-istio":
-			// Expects authority header to have the traffic target name prefixed to the domain suffix. Also
-			// weights 100% of the traffic to the specified traffic target's revision.
-			expectedRouteSpec = v1alpha2.RouteRuleSpec{
-				Destination: v1alpha2.IstioService{
-					Name: "test-route-service",
-				},
-				Match: v1alpha2.Match{
-					Request: v1alpha2.MatchRequest{
-						Headers: v1alpha2.Headers{
-							Authority: v1alpha2.MatchString{
-								Regex: fmt.Sprintf("bar.%s", domain),
-							},
-						},
-					},
-				},
-				Route: []v1alpha2.DestinationWeight{
-					v1alpha2.DestinationWeight{
-						Destination: v1alpha2.IstioService{
-							Name: "p-deadbeef-service.test",
-						},
-						Weight: 100,
-					},
-				},
-			}
-		default:
-			t.Errorf("Unknown route rule: %s", rule.Name)
+	expectRouteSpec := func(t *testing.T, name string, expectedSpec v1alpha2.RouteRuleSpec) {
+		routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("error getting routerule: %v", err)
 		}
-
-		if diff := cmp.Diff(expectedRouteSpec, rule.Spec); diff != "" {
-			t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+		if diff := cmp.Diff(expectedSpec, routerule.Spec); diff != "" {
+			t.Errorf("Unexpected routerule spec diff (-want +got): %v", diff)
 		}
-		return HookComplete
-	})
-	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
 	}
+
+	// Expects authority header to be the domain suffix
+	expectRouteSpec(t, "test-route-istio", v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: "test-route-service",
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: domain,
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "test-rev-service.test",
+				},
+				Weight: 50,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "p-deadbeef-service.test",
+				},
+				Weight: 50,
+			},
+		},
+	})
+
+	// Expects authority header to have the traffic target name prefixed to the
+	// domain suffix. Also weights 100% of the traffic to the specified traffic
+	// target's revision.
+	expectRouteSpec(t, "test-route-foo-istio", v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: "test-route-service",
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: fmt.Sprintf("foo.%s", domain),
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "test-rev-service.test",
+				},
+				Weight: 100,
+			},
+		},
+	})
+
+	// Expects authority header to have the traffic target name prefixed to the
+	// domain suffix. Also weights 100% of the traffic to the specified traffic
+	// target's revision.
+	expectRouteSpec(t, "test-route-bar-istio", v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: "test-route-service",
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: fmt.Sprintf("bar.%s", domain),
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: "p-deadbeef-service.test",
+				},
+				Weight: 100,
+			},
+		},
+	})
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
