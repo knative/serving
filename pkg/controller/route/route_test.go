@@ -235,10 +235,10 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		},
 	)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.syncHandler(keyOrDie(route))
+	controller.updateRouteEvent(keyOrDie(route))
 
 	// Look for the placeholder service.
 	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
@@ -330,7 +330,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.LatestReadyRevisionName = cfgrev.Name
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(cfgrev)
 
@@ -348,10 +348,10 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		},
 	)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.syncHandler(keyOrDie(route))
+	controller.updateRouteEvent(keyOrDie(route))
 
 	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
@@ -397,7 +397,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.LatestReadyRevisionName = cfgrev.Name
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(cfgrev)
 
@@ -438,10 +438,10 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		},
 	)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.syncHandler(keyOrDie(route))
+	controller.updateRouteEvent(keyOrDie(route))
 
 	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
@@ -501,9 +501,9 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.syncHandler(keyOrDie(route))
+	controller.updateRouteEvent(keyOrDie(route))
 
 	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -533,9 +533,9 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.syncHandler(keyOrDie(route))
+	controller.updateRouteEvent(keyOrDie(route))
 
 	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -567,7 +567,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	// No configuration updates.
@@ -588,7 +588,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 
 	expectedErrMsg := "Configuration \"test-config\" is already in use by \"another-route\", and cannot be used by \"test-route\""
 	// Should return error.
-	err := controller.syncHandler(route.Namespace + "/" + route.Name)
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
 		t.Errorf("unexpected error: %q expected: %q", got, wanted)
 	}
@@ -613,7 +613,7 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	// No configuration updates
@@ -624,7 +624,7 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 		},
 	)
 
-	controller.syncHandler(route.Namespace + "/" + route.Name)
+	controller.updateRouteEvent(route.Namespace + "/" + route.Name)
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
@@ -637,10 +637,10 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	controller.syncHandler(keyOrDie(route))
+	controller.updateRouteEvent(keyOrDie(route))
 
 	config, err := elaClient.ElafrosV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -670,7 +670,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	)
 
 	routeClient.Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	// Since addConfigurationEvent looks in the lister, we need to add it to the
@@ -748,7 +748,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	// No configuration updates
@@ -768,4 +768,44 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	)
 
 	controller.addConfigurationEvent(config)
+}
+
+func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
+	kubeClient, elaClient, controller, _, _ := newTestController(t)
+
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			{
+				RevisionName: "test-rev",
+				Percent:      100,
+			},
+		},
+	)
+	// Create a route.
+	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
+	routeClient.Create(route)
+	// Create an ingress owned by this route.
+	controller.reconcileIngress(route)
+	// Before ingress has an IP address, route isn't marked as Ready.
+	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
+	controller.updateIngressEvent(nil, ingress)
+	route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+	if nil != route.Status.Conditions {
+		t.Errorf("Route Status.Conditions should be nil, saw %v", route.Status.Conditions)
+	}
+	// Update the Ingress IP.
+	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
+		IP: "127.0.0.1",
+	}}
+	controller.updateIngressEvent(nil, ingress)
+	// Verify now that Route.Status.Conditions is set correctly.
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:   v1alpha1.RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	}}
+	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
 }
