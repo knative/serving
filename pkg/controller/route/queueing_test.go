@@ -23,10 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-
-	hooks "github.com/elafros/elafros/pkg/controller/testing"
-
 	corev1 "k8s.io/api/core/v1"
+
+	. "github.com/elafros/elafros/pkg/controller/testing"
 )
 
 /* TODO tests:
@@ -56,14 +55,14 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	kubeClient, _, _, _, _, stopCh := newRunningTestController(t, rev, route)
 	defer close(stopCh)
 
-	h := hooks.NewHooks()
+	h := NewHooks()
 
 	// Check for service created as a signal that syncHandler ran
-	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) hooks.HookResult {
+	h.OnCreate(&kubeClient.Fake, "services", func(obj runtime.Object) HookResult {
 		service := obj.(*corev1.Service)
 		t.Logf("service created: %q", service.Name)
 
-		return hooks.HookComplete
+		return HookComplete
 	})
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
