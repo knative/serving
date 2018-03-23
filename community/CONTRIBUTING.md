@@ -104,8 +104,8 @@ following steps:
     <!-- TODO: switch to elafros/elafros.dev) -->
 
 *Note that we prefer bite-sized PRs instead of giant monster PRs. It's therefore
-preferable if you can introduce large features in smaller reviewable changes
-that build on top of one another.*
+preferable if you can introduce large features in small, individually-reviewable
+PRs that build on top of one another.*
 
 If you would like to skip the process of submitting an issue and instead would
 prefer to just submit a pull request with your desired code changes then that's
