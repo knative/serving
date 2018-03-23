@@ -213,6 +213,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
 			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
+			break
 		}
 	}
 	if !foundQueueProxy {
@@ -260,6 +261,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			foundAutoscaler = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
+			break
 		}
 	}
 	if !foundAutoscaler {
