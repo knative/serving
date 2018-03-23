@@ -136,7 +136,7 @@ To submit a proposed change:
     your code changes. For new features try to cover as many variants as
     reasonably possible.
 *   Modify the documentation as necessary.
-*   Verify the entire CI process (building and testing) work.
+*   Verify all CI status checks pass, and work to make them pass if failing.
 
 The general rule is that all PRs should be 100% complete - meaning they should
 include all test cases and documentation changes related to the change. A
