@@ -18,7 +18,6 @@ metadata:
   name: autoscale-kdt3-route
   namespace: default
 spec:
-  domainSuffix: autoscale-kdt3.myhost.net
   traffic:
-  - configuration: autoscale-kdt3-configuration
+  - configurationName: autoscale-kdt3-configuration
     percent: 100

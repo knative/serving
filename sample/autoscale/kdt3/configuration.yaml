@@ -18,10 +18,12 @@ metadata:
   name: autoscale-kdt3-configuration
   namespace: default
 spec:
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: autoscale-kdt3-sample:latest
         env:
           - name: RESOURCES_URL
