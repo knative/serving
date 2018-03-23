@@ -18,6 +18,7 @@ package route
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
@@ -45,7 +46,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 			Request: istiov1alpha2.MatchRequest{
 				Headers: istiov1alpha2.Headers{
 					Authority: istiov1alpha2.MatchString{
-						Regex: domain,
+						Regex: regexp.QuoteMeta(domain),
 					},
 				},
 			},
