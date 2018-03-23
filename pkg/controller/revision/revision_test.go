@@ -30,27 +30,29 @@ import (
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	ctrl "github.com/elafros/elafros/pkg/controller"
-	"github.com/golang/glog"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	hooks "github.com/elafros/elafros/pkg/controller/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 
-	"k8s.io/api/extensions/v1beta1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	kubetesting "k8s.io/client-go/testing"
+
+	. "github.com/elafros/elafros/pkg/controller/testing"
 )
+
+const testNamespace string = "test"
 
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
-			Namespace: "test",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				"route": "test-route",
 			},
@@ -84,7 +86,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-endpoints",
-			Namespace: "test",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				"revision": revName,
 			},
@@ -101,7 +103,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 	}
 }
 
-func newTestController(t *testing.T) (
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -110,7 +112,7 @@ func newTestController(t *testing.T) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	elaClient = fakeclientset.NewSimpleClientset()
+	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -129,7 +131,7 @@ func newTestController(t *testing.T) (
 	return
 }
 
-func newRunningTestController(t *testing.T) (
+func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -137,7 +139,7 @@ func newRunningTestController(t *testing.T) (
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t)
+	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
@@ -156,23 +158,17 @@ func newRunningTestController(t *testing.T) (
 }
 
 func TestCreateRevCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
-	h := hooks.NewHooks()
 
-	// Look for the namespace.
-	expectedNamespace := rev.Namespace
-	expectedRouteLabel := rev.Labels["route"]
-	h.OnCreate(&kubeClient.Fake, "namespaces", func(obj runtime.Object) hooks.HookResult {
-		ns := obj.(*corev1.Namespace)
-		glog.Infof("checking namespace %s", ns.Name)
-		if expectedNamespace != ns.Name {
-			t.Errorf("namespace was not named %s", expectedNamespace)
-		}
-		return hooks.HookComplete
-	})
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
+	controller.syncHandler(KeyOrDie(rev))
+
+	// This function is used to verify pass through of container environment
+	// variables.
 	checkEnv := func(env []corev1.EnvVar, name, value, fieldPath string) {
 		nameFound := false
 		for _, e := range env {
@@ -198,105 +194,116 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		}
 	}
 
-	// Look for the ela and autoscaler deployments.
+	// Look for the revision deployment.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
+		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+	}
+
+	// Check the revision deployment queue proxy environment variables
+	foundQueueProxy := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "queue-proxy" {
+			foundQueueProxy = true
+			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
+			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
+			break
+		}
+	}
+	if !foundQueueProxy {
+		t.Error("Missing queue-proxy container")
+	}
+
+	expectedRouteLabel := rev.Labels["route"]
+	if routeLabel := deployment.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
+		t.Errorf("Route label not set correctly on deployment: expected %s got %s.",
+			expectedRouteLabel, routeLabel)
+	}
+	if routeLabel := deployment.Spec.Template.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
+		t.Errorf("Route label not set correctly in pod template: expected %s got %s.",
+			expectedRouteLabel, routeLabel)
+	}
+
+	// Look for the revision service.
+	expectedServiceName := fmt.Sprintf("%s-service", rev.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler service: %v", err)
+	}
+	// The revision service should be owned by rev.
+	expectedRefs := []metav1.OwnerReference{
+		metav1.OwnerReference{
+			APIVersion: "elafros.dev/v1alpha1",
+			Kind:       "Revision",
+			Name:       rev.Name,
+		},
+	}
+	if diff := cmp.Diff(expectedRefs, service.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
+	}
+
+	// Look for the autoscaler deployment.
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-	h.OnCreate(&kubeClient.Fake, "deployments", func(obj runtime.Object) hooks.HookResult {
-		d := obj.(*v1beta1.Deployment)
-		glog.Infof("checking d %s", d.Name)
-		if expectedNamespace != d.Namespace {
-			t.Errorf("Deployment namespace was not %s. Got %s.", expectedNamespace, d.Namespace)
+	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
+	}
+	// Check the autoscaler deployment environment variables
+	foundAutoscaler := false
+	for _, container := range asDeployment.Spec.Template.Spec.Containers {
+		if container.Name == "autoscaler" {
+			foundAutoscaler = true
+			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
+			checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
+			break
 		}
-		if len(d.OwnerReferences) != 1 && rev.Name != d.OwnerReferences[0].Name {
-			t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
-		}
-		if d.Name == expectedDeploymentName {
-			// Check the ela deployment queue proxy environment variables
-			foundQueueProxy := false
-			for _, container := range d.Spec.Template.Spec.Containers {
-				if container.Name == "queue-proxy" {
-					foundQueueProxy = true
-					checkEnv(container.Env, "ELA_NAMESPACE", "test", "")
-					checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
-					checkEnv(container.Env, "ELA_POD", "", "metadata.name")
-				}
-			}
-			if !foundQueueProxy {
-				t.Error("Missing queue-proxy")
-			}
-			if routeLabel := d.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
-				t.Errorf("Route label not set correctly on deployment: expected %s got %s.",
-					expectedRouteLabel, routeLabel)
-			}
-			if routeLabel := d.Spec.Template.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
-				t.Errorf("Route label not set correctly in pod template: expected %s got %s.",
-					expectedRouteLabel, routeLabel)
-			}
-		} else if d.Name == expectedAutoscalerName {
-			// Check the autoscaler deployment environment variables
-			foundAutoscaler := false
-			for _, container := range d.Spec.Template.Spec.Containers {
-				if container.Name == "autoscaler" {
-					foundAutoscaler = true
-					checkEnv(container.Env, "ELA_NAMESPACE", "test", "")
-					checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
-				}
-			}
-			if !foundAutoscaler {
-				t.Error("Missing autoscaler")
-			}
-		} else {
-			t.Errorf("Deployment was not named %s or %s. Got %s.", expectedDeploymentName, expectedAutoscalerName, d.Name)
-		}
-		return hooks.HookComplete
-	})
+	}
+	if !foundAutoscaler {
+		t.Error("Missing autoscaler")
+	}
+
+	// Look for the autoscaler service.
+	asService, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler service: %v", err)
+	}
+	// The autoscaler service should also be owned by rev.
+	if diff := cmp.Diff(expectedRefs, asService.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
+	}
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
 
 	// Ensure that the Revision status is updated.
-	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		updatedPr := obj.(*v1alpha1.Revision)
-		glog.Infof("updated rev %v", updatedPr)
-		want := v1alpha1.RevisionCondition{
+	want := []v1alpha1.RevisionCondition{
+		{
 			Type:   "Ready",
 			Status: corev1.ConditionFalse,
 			Reason: "Deploying",
-		}
-		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
-			t.Errorf("expected conditions to have 1 condition equal to %v", want)
-		}
-		return hooks.HookComplete
-	})
-
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+		},
 	}
+	if diff := cmp.Diff(want, rev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
+
 }
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	rev := getTestRevision()
-	h := hooks.NewHooks()
-
-	// Ensure that the Revision status is updated.
-	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		updatedPr := obj.(*v1alpha1.Revision)
-		glog.Infof("updated rev %v", updatedPr)
-		want := v1alpha1.RevisionCondition{
-			Type:   "BuildComplete",
-			Status: corev1.ConditionFalse,
-			Reason: "Building",
-		}
-		if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
-			t.Errorf("expected conditions to have 1 condition equal to %v", want)
-		}
-		return hooks.HookComplete
-	})
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
+			Namespace: testNamespace,
 			Name:      "foo",
 		},
 		Spec: buildv1alpha1.BuildSpec{
@@ -308,30 +315,50 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 			}},
 		},
 	}
+	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
-	elaClient.BuildV1alpha1().Builds("test").Create(bld)
-
+	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+	controller.syncHandler(KeyOrDie(rev))
+
+	waitRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// Ensure that the Revision status is updated.
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:   "BuildComplete",
+			Status: corev1.ConditionFalse,
+			Reason: "Building",
+		},
+	}
+	if diff := cmp.Diff(want, waitRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 }
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
-	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	rev := getTestRevision()
-	h := hooks.NewHooks()
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
 
+	h := NewHooks()
+	// Look for the build failure event. Events are delivered asynchronously so
+	// we need to use hooks here.
+	h.OnCreate(&kubeClient.Fake, "events", ExpectWarningEventDelivery(t, errMessage))
+
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
+			Namespace: testNamespace,
 			Name:      "foo",
 		},
 		Spec: buildv1alpha1.BuildSpec{
@@ -343,144 +370,67 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			}},
 		},
 	}
+	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
-	// Ensure that the Revision status is updated.
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		updatedPr := obj.(*v1alpha1.Revision)
-		update = update + 1
-		switch update {
-		case 1:
-			// After the initial update to the revision, we should be
-			// watching for this build to complete, so make it complete, but
-			// with a failure.
-			bld.Status = buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
-					Type:    buildv1alpha1.BuildFailed,
-					Status:  corev1.ConditionTrue,
-					Reason:  reason,
-					Message: errMessage,
-				}},
-			}
+	rev := getTestRevision()
+	// Direct the Revision to wait for this build to complete.
+	rev.Spec.BuildName = bld.Name
+	revClient.Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-			// This hangs for some reason:
-			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
-			// so manually trigger the build event.
-			// Launch this in a goroutine because the OnUpdate logic works a little too
-			// synchronously and this leads to lock re-entrancy.
-			go controller.addBuildEvent(bld)
-			return hooks.HookIncomplete
+	controller.syncHandler(KeyOrDie(rev))
 
-		case 2:
-			// The next update we receive should tell us that the build failed,
-			// and surface the reason and message from that failure in our own
-			// status.
-			want := v1alpha1.RevisionCondition{
-				Type:    "BuildFailed",
+	// After the initial update to the revision, we should be
+	// watching for this build to complete, so make it complete, but
+	// with a failure.
+	bld.Status = buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{
+			{
+				Type:    buildv1alpha1.BuildFailed,
 				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: errMessage,
-			}
-			if len(updatedPr.Status.Conditions) != 1 {
-				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
-			}
-			if want != updatedPr.Status.Conditions[0] {
-				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
-			}
-		}
-		return hooks.HookComplete
-	})
+			},
+		},
+	}
 
-	// Look for the build failure event
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		if wanted, got := errMessage, event.Message; wanted != got {
-			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
-		}
-		if wanted, got := corev1.EventTypeWarning, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return hooks.HookComplete
-	})
+	controller.addBuildEvent(bld)
 
-	// Direct the Revision to wait for this build to complete.
-	elaClient.BuildV1alpha1().Builds("test").Create(bld)
-	rev.Spec.BuildName = bld.Name
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
 
+	// The next update we receive should tell us that the build failed,
+	// and surface the reason and message from that failure in our own
+	// status.
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:    "BuildFailed",
+			Status:  corev1.ConditionTrue,
+			Reason:  reason,
+			Message: errMessage,
+		},
+	}
+	if diff := cmp.Diff(want, failedRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
+
+	// Wait for events to be delivered.
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	rev := getTestRevision()
-	h := hooks.NewHooks()
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
-	completeMessage := "a long human-readable complete message."
-
-	bld := &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
-			Name:      "foo",
-		},
-		Spec: buildv1alpha1.BuildSpec{
-			Steps: []corev1.Container{{
-				Name:    "nop",
-				Image:   "busybox:latest",
-				Command: []string{"/bin/sh"},
-				Args:    []string{"-c", "echo Hello"},
-			}},
-		},
-	}
-
-	// Ensure that the Revision status is updated.
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		updatedPr := obj.(*v1alpha1.Revision)
-		update = update + 1
-		switch update {
-		case 1:
-			// After the initial update to the revision, we should be
-			// watching for this build to complete, so make it complete.
-			bld.Status = buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{
-					{
-						Type:    buildv1alpha1.BuildComplete,
-						Status:  corev1.ConditionTrue,
-						Message: completeMessage,
-					},
-				},
-			}
-
-			// This hangs for some reason:
-			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
-			// so manually trigger the build event.
-			// Launch this in a goroutine because the OnUpdate logic works a little too
-			// synchronously and this leads to lock re-entrancy.
-			go controller.addBuildEvent(bld)
-			return hooks.HookIncomplete
-
-		case 2:
-			// The next update we receive should tell us that the build completed.
-			want := v1alpha1.RevisionCondition{
-				Type:   "BuildComplete",
-				Status: corev1.ConditionTrue,
-			}
-			if len(updatedPr.Status.Conditions) != 1 {
-				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
-			}
-			if want != updatedPr.Status.Conditions[0] {
-				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
-			}
-		}
-		return hooks.HookComplete
-	})
-
-	// Look for the build complete event
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
+	h := NewHooks()
+	// Look for the build complete event. Events are delivered asynchronously so
+	// we need to use hooks here.
+	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) HookResult {
 		event := obj.(*corev1.Event)
 		if wanted, got := "BuildComplete", event.Reason; wanted != got {
 			t.Errorf("unexpected event reason: %q expected: %q", got, wanted)
@@ -488,31 +438,82 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
 			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
 		}
-		return hooks.HookComplete
+		return HookComplete
 	})
 
-	// Direct the Revision to wait for this build to complete.
-	elaClient.BuildV1alpha1().Builds("test").Create(bld)
-	rev.Spec.BuildName = bld.Name
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	completeMessage := "a long human-readable complete message."
 
+	bld := &buildv1alpha1.Build{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      "foo",
+		},
+		Spec: buildv1alpha1.BuildSpec{
+			Steps: []corev1.Container{{
+				Name:    "nop",
+				Image:   "busybox:latest",
+				Command: []string{"/bin/sh"},
+				Args:    []string{"-c", "echo Hello"},
+			}},
+		},
+	}
+	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+
+	rev := getTestRevision()
+	// Direct the Revision to wait for this build to complete.
+	rev.Spec.BuildName = bld.Name
+	revClient.Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	controller.syncHandler(KeyOrDie(rev))
+
+	// After the initial update to the revision, we should be
+	// watching for this build to complete, so make it complete.
+	bld.Status = buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{
+			{
+				Type:    buildv1alpha1.BuildComplete,
+				Status:  corev1.ConditionTrue,
+				Message: completeMessage,
+			},
+		},
+	}
+
+	controller.addBuildEvent(bld)
+
+	completedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// The next update we receive should tell us that the build completed.
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:   "BuildComplete",
+			Status: corev1.ConditionTrue,
+		},
+	}
+	if diff := cmp.Diff(want, completedRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
+
+	// Wait for events to be delivered.
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
-	_, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
-	rev := getTestRevision()
-	h := hooks.NewHooks()
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
 
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
+			Namespace: testNamespace,
 			Name:      "foo",
 		},
 		Spec: buildv1alpha1.BuildSpec{
@@ -525,119 +526,105 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 		},
 	}
 
-	// Ensure that the Revision status is updated.\
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		updatedPr := obj.(*v1alpha1.Revision)
-		update = update + 1
-		switch update {
-		case 1:
-			// After the initial update to the revision, we should be
-			// watching for this build to complete, so make it complete, but
-			// with a validation failure.
-			bld.Status = buildv1alpha1.BuildStatus{
-				Conditions: []buildv1alpha1.BuildCondition{{
-					Type:    buildv1alpha1.BuildInvalid,
-					Status:  corev1.ConditionTrue,
-					Reason:  reason,
-					Message: errMessage,
-				}},
-			}
+	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
-			// This hangs for some reason:
-			// elaClient.BuildV1alpha1().Builds("test").Update(bld)
-			// so manually trigger the build event.
-			// Launch this in a goroutine because the OnUpdate logic works a little too
-			// synchronously and this leads to lock re-entrancy.
-			go controller.addBuildEvent(bld)
-			return hooks.HookIncomplete
+	rev := getTestRevision()
+	// Direct the Revision to wait for this build to complete.
+	rev.Spec.BuildName = bld.Name
+	revClient.Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	controller.syncHandler(KeyOrDie(rev))
 
-		case 2:
-			// The next update we receive should tell us that the build failed,
-			// and surface the reason and message from that failure in our own
-			// status.
-			want := v1alpha1.RevisionCondition{
-				Type:    "BuildFailed",
+	// After the initial update to the revision, we should be
+	// watching for this build to complete, so make it complete, but
+	// with a validation failure.
+	bld.Status = buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{
+			{
+				Type:    buildv1alpha1.BuildInvalid,
 				Status:  corev1.ConditionTrue,
 				Reason:  reason,
 				Message: errMessage,
-			}
-			if len(updatedPr.Status.Conditions) != 1 {
-				t.Errorf("want 1 condition, got %d", len(updatedPr.Status.Conditions))
-			}
-			if want != updatedPr.Status.Conditions[0] {
-				t.Errorf("wanted %v, got %v", want, updatedPr.Status.Conditions[0])
-			}
-		}
-		return hooks.HookComplete
-	})
-
-	// Direct the Revision to wait for this build to complete.
-	elaClient.BuildV1alpha1().Builds("test").Create(bld)
-	rev.Spec.BuildName = bld.Name
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
-
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
-		t.Error(err)
+			},
+		},
 	}
+
+	controller.addBuildEvent(bld)
+
+	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:    "BuildFailed",
+			Status:  corev1.ConditionTrue,
+			Reason:  reason,
+			Message: errMessage,
+		},
+	}
+	if diff := cmp.Diff(want, failedRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
+
 }
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, _, stopCh := newRunningTestController(t)
-	defer close(stopCh)
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
-	h := hooks.NewHooks()
 
-	// Ensure that the Revision status is updated.
-	update := 0
-	h.OnUpdate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
-		updatedPr := obj.(*v1alpha1.Revision)
-		update = update + 1
-		switch update {
-		case 1:
-			// First update, the revision is not ready.
-			want := v1alpha1.RevisionCondition{
-				Type:   "Ready",
-				Status: corev1.ConditionFalse,
-				Reason: "Deploying",
-			}
-			if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
-				t.Errorf("expected conditions to have 1 condition equal to %v", want)
-			}
+	h := NewHooks()
+	// Look for the revision ready event. Events are delivered asynchronously so
+	// we need to use hooks here.
+	expectedMessage := "Revision becomes ready upon endpoint \"test-endpoints\" becoming ready"
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
-			endpoints := getTestReadyEndpoints(rev.Name)
-			// Manually trigger the endpoints event.
-			go controller.addEndpointsEvent(endpoints)
-			return hooks.HookIncomplete
-		case 2:
-			// Second update, the revision should be ready.
-			want := v1alpha1.RevisionCondition{
-				Type:   "Ready",
-				Status: corev1.ConditionTrue,
-				Reason: "ServiceReady",
-			}
-			if len(updatedPr.Status.Conditions) != 1 || want != updatedPr.Status.Conditions[0] {
-				t.Errorf("expected conditions to have 1 condition equal to %v", want)
-			}
-		}
-		return hooks.HookComplete
-	})
+	revClient.Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	controller.syncHandler(KeyOrDie(rev))
 
-	// Look for the revision ready event.
-	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) hooks.HookResult {
-		event := obj.(*corev1.Event)
-		expectedMessage := "Revision becomes ready upon endpoint \"test-endpoints\" becoming ready"
-		if wanted, got := expectedMessage, event.Message; wanted != got {
-			t.Errorf("unexpected Message: %q expected: %q", got, wanted)
-		}
-		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
-			t.Errorf("unexpected event Type: %q expected: %q", got, wanted)
-		}
-		return hooks.HookComplete
-	})
+	deployingRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
 
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	// The revision is not marked ready until an endpoint is created.
+	deployingConditions := []v1alpha1.RevisionCondition{
+		{
+			Type:   "Ready",
+			Status: corev1.ConditionFalse,
+			Reason: "Deploying",
+		},
+	}
+	if diff := cmp.Diff(deployingConditions, deployingRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
 
+	endpoints := getTestReadyEndpoints(rev.Name)
+	controller.addEndpointsEvent(endpoints)
+
+	readyRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// After reconciling the endpoint, the revision should be ready.
+	readyConditions := []v1alpha1.RevisionCondition{
+		{
+			Type:   "Ready",
+			Status: corev1.ConditionTrue,
+			Reason: "ServiceReady",
+		},
+	}
+	if diff := cmp.Diff(readyConditions, readyRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
+
+	// Wait for events to be delivered.
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
 	}
@@ -648,14 +635,14 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 	rev := getTestRevision()
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
-		v1alpha1.RevisionCondition{
+		{
 			Type:   "Ready",
 			Status: corev1.ConditionTrue,
 			Reason: "ServiceReady",
 		},
 	}
 
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 

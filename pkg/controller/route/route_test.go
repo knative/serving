@@ -182,10 +182,10 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Created service "test-route-service"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Created Istio route rule "test-route-istio"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectEventDelivery(t, `Updated status for route "test-route"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Istio route rule "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")

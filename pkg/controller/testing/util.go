@@ -36,11 +36,11 @@ func KeyOrDie(obj interface{}) string {
 	return key
 }
 
-// ExpectEventDelivery returns a hook function that can be passed to a
+// ExpectNormalEventDelivery returns a hook function that can be passed to a
 // Hooks.OnCreate() call to verify that an event of type Normal was created
 // matching the given regular expression. For this expectation to be effective
 // the test must also call Hooks.WaitForHooks().
-func ExpectEventDelivery(t *testing.T, messageRegexp string) CreateHookFunc {
+func ExpectNormalEventDelivery(t *testing.T, messageRegexp string) CreateHookFunc {
 	wantRegexp, err := regexp.Compile(messageRegexp)
 	if err != nil {
 		t.Fatalf("Invalid regular expression: %v", err)
@@ -52,6 +52,28 @@ func ExpectEventDelivery(t *testing.T, messageRegexp string) CreateHookFunc {
 		}
 		t.Logf("Got an event message matching %q: %q", wantRegexp, event.Message)
 		if got, want := event.Type, corev1.EventTypeNormal; got != want {
+			t.Errorf("unexpected event Type: %q expected: %q", got, want)
+		}
+		return HookComplete
+	}
+}
+
+// ExpectWarningEventDelivery returns a hook function that can be passed to a
+// Hooks.OnCreate() call to verify that an event of type Warning was created
+// matching the given regular expression. For this expectation to be effective
+// the test must also call Hooks.WaitForHooks().
+func ExpectWarningEventDelivery(t *testing.T, messageRegexp string) CreateHookFunc {
+	wantRegexp, err := regexp.Compile(messageRegexp)
+	if err != nil {
+		t.Fatalf("Invalid regular expression: %v", err)
+	}
+	return func(obj runtime.Object) HookResult {
+		event := obj.(*corev1.Event)
+		if !wantRegexp.MatchString(event.Message) {
+			return HookIncomplete
+		}
+		t.Logf("Got an event message matching %q: %q", wantRegexp, event.Message)
+		if got, want := event.Type, corev1.EventTypeWarning; got != want {
 			t.Errorf("unexpected event Type: %q expected: %q", got, want)
 		}
 		return HookComplete
