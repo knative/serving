@@ -105,7 +105,7 @@ func validateUniqueTrafficTarget(route *v1alpha1.Route) error {
 			configuration: trafficTarget.ConfigurationName,
 		}
 
-		if trafficMap[trafficTarget.Name] == (tt{}) {
+		if _, ok := trafficMap[trafficTarget.Name]; !ok {
 			trafficMap[trafficTarget.Name] = traffic
 		} else if trafficMap[trafficTarget.Name] != traffic {
 			return errTrafficTargetsNotUnique
