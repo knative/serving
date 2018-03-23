@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -126,6 +127,7 @@ func NewController(
 	// Configurations type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Routes()
 	configInformer := elaInformerFactory.Elafros().V1alpha1().Configurations()
+	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 
 	// Create event broadcaster
 	glog.V(4).Info("Creating event broadcaster")
@@ -157,7 +159,9 @@ func NewController(
 		AddFunc:    controller.addConfigurationEvent,
 		UpdateFunc: controller.updateConfigurationEvent,
 	})
-
+	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: controller.updateIngressEvent,
+	})
 	return controller
 }
 
@@ -208,7 +212,7 @@ func (c *Controller) runWorker() {
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
-// attempt to process it, by calling the syncHandler.
+// attempt to process it, by calling the updateRouteEvent.
 //TODO(grantr): generic
 func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
@@ -241,9 +245,9 @@ func (c *Controller) processNextWorkItem() bool {
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil, controller.PromLabelValueInvalid
 		}
-		// Run the syncHandler passing it the namespace/name string of the
+		// Run the updateRouteEvent passing it the namespace/name string of the
 		// Foo resource to be synced.
-		if err := c.syncHandler(key); err != nil {
+		if err := c.updateRouteEvent(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
 		// Finally, if no error occurs we Forget this item so it does not
@@ -278,11 +282,11 @@ func (c *Controller) enqueueRoute(obj interface{}) {
 	c.workqueue.AddRateLimited(key)
 }
 
-// syncHandler compares the actual state with the desired, and attempts to
+// updateRouteEvent compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
 //TODO(grantr): not generic
-func (c *Controller) syncHandler(key string) error {
+func (c *Controller) updateRouteEvent(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -736,4 +740,54 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 func (c *Controller) updateConfigurationEvent(old, new interface{}) {
 	c.addConfigurationEvent(new)
+}
+
+func (c *Controller) findOwningRouteName(ingress *v1beta1.Ingress) string {
+	for _, owner := range ingress.ObjectMeta.OwnerReferences {
+		if owner.Kind == controllerKind.Kind {
+			return owner.Name
+		}
+	}
+	return ""
+}
+
+func (c *Controller) updateIngressEvent(old, new interface{}) {
+	ingress := new.(*v1beta1.Ingress)
+	// If ingress isn't owned by a route, no route update is required.
+	routeName := c.findOwningRouteName(ingress)
+	if routeName == "" {
+		return
+	}
+	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
+		// Route isn't ready if having no load-balancer ingress.
+		return
+	}
+	for _, i := range ingress.Status.LoadBalancer.Ingress {
+		if i.IP == "" {
+			// Route isn't ready if some load balancer ingress doesn't have an IP.
+			return
+		}
+	}
+	ns := ingress.Namespace
+	routeClient := c.elaclientset.ElafrosV1alpha1().Routes(ns)
+	route, err := routeClient.Get(routeName, metav1.GetOptions{})
+	if err != nil {
+		glog.Errorf("Error fetching route '%s/%s' upon ingress becoming: %v",
+			ns, routeName, err)
+		return
+	}
+	if route.Status.IsReady() {
+		return
+	}
+	// Mark route as ready.
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:   v1alpha1.RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
+	_, err = routeClient.Update(route)
+	if err != nil {
+		glog.Errorf("Error updating readiness of route '%s/%s' upon ingress becoming: %v",
+			ns, routeName, err)
+		return
+	}
 }
