@@ -72,7 +72,6 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 }
 
 func TestEmptyContainerNotAllowed(t *testing.T) {
-
 	configuration := v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
