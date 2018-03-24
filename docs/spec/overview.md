@@ -14,7 +14,7 @@ The primary resources in the Elafros API are Routes, Revisions, and Configuratio
 
 **Route** provides a network endpoint for a user's service (which
 consists of a series of software and configuration Revisions over
-time). A kubernetes namespace may have multiple routes. The route
+time). A kubernetes namespace can have multiple routes. The route
 provides a long-lived, stable, named, HTTP-addressable endpoint that
 is backed by one or more **Revisions**. The default configuration is
 for the route to automatically route traffic to the latest revision
@@ -27,18 +27,18 @@ traffic split. The route can optionally assign addressable subdomains
 to any or all backing revisions.
 
 **Revision** is an immutable snapshot of code and configuration. A
-revision may have been created from a pre-built container image or
-built from source. While there is a history of previous revisions,
-only those currently referenced by a Route are addressable or
-routable. Older inactive revisions need not be backed by underlying
-resources, they may exist only as the revision metadata in
-storage. Revisions are created by updates to a **Configuration**.
+revision can be created from a pre-built container image or built from
+source. While there is a history of previous revisions, only those
+currently referenced by a Route are addressable or routable. Older
+inactive revisions need not be backed by underlying resources, they
+exist only as the revision metadata in storage. Revisions are created
+by updates to a **Configuration**.
 
 A **Configuration** describes the desired latest Revision state, and
 creates and tracks the status of Revisions as the desired state is
-updated. A configuration may include instructions on how to transform
+updated. A configuration might include instructions on how to transform
 a source package (either git repo or archive) into a container by
-referencing a [Build](https://github.com/elafros/build-crd), or may
+referencing a [Build](https://github.com/elafros/build), or might
 simply reference a container image and associated execution metadata
 needed by the Revision. On updates to a Configuration, a new build
 and/or deployment (creating a Revision) may be performed; the
@@ -53,7 +53,7 @@ Configuration provides:
 * a single referenceable resource for the route to perform automated
   rollouts
 
-* a single resource that can be watched to see a history of all
+* a single resource that can be watched to see a history of all the
   revisions created
 
 * (but doesn’t mandate) PATCH semantics for new revisions to be done
