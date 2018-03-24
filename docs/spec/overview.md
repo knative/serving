@@ -56,10 +56,10 @@ Configuration provides:
 * a single resource that can be watched to see a history of all
   revisions created
 
-* enables (but doesn’t mandate) PATCH semantics for new revisions to
-  be done on the server, minimizing read-modify-write implemented
-  across multiple clients, which could result in optimistic
-  concurrency errors
+* (but doesn’t mandate) PATCH semantics for new revisions to be done
+  on the server, minimizing read-modify-write implemented across
+  multiple clients, which could result in optimistic concurrency
+  errors
 
 * the ability to rollback to a known good configuration
 

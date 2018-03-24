@@ -184,8 +184,8 @@ status:
   - revisionName: def
     percent: 25
   conditions:
-  - type: RolloutInProgress
-    status: True
+  - type: RolloutComplete
+    status: False
 ```
 
 And once reconciled, revision def serves 100% of the traffic :
@@ -210,8 +210,8 @@ status:
   - revisionName: def
     percent: 100
   conditions:
-  - type: RolloutInProgress
-    status: False
+  - type: RolloutComplete
+    status: True
   ...
 ```
 
@@ -413,8 +413,8 @@ status:
     percent: 100
 
   conditions:
-  - type: RolloutInProgress
-    status: False
+  - type: RolloutComplete
+    status: True
 
   observedGeneration: 2145
 ```
@@ -602,8 +602,8 @@ status:
     name: next # addressable as next.my-service.default.mydomain.com
     percent: 0
   conditions:
-  - type: RolloutInProgress
-    status: False  # Underlying routes as set in config.
+  - type: RolloutComplete
+    status: True
   ...
 ```
 
@@ -654,9 +654,7 @@ status:
     name: next
     percent: 100
   conditions:
-  - type: RolloutInProgress
-    status: False
-  - type: RolloutAtTargetPercentage
+  - type: RolloutComplete
     status: True
   ...
 ```

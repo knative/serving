@@ -54,16 +54,15 @@ metadata:
   selfLink: ...
   ...
 spec:
-  rollout:
-    traffic:
-    # list of oneof configurationName | revisionName.
-    #  configurationName watches configurations to address latest latestReadyRevisionName
-    #  revisionName pins a specific revision
-    - configurationName: ...
-      name: ...  # +optional. Access as {name}.${status.domain},
-                 #  e.g. oss: current.my-service.default.mydomain.com
-      percent: 100  # list percentages must add to 100. 0 is a valid list value
-    - ...
+  traffic:
+  # list of oneof configurationName | revisionName.
+  #  configurationName watches configurations to address latest latestReadyRevisionName
+  #  revisionName pins a specific revision
+  - configurationName: ...
+    name: ...  # +optional. Access as {name}.${status.domain},
+               #  e.g. oss: current.my-service.default.mydomain.com
+    percent: 100  # list percentages must add to 100. 0 is a valid list value
+  - ...
 
 status:
   # domain: The hostname used to access the default (traffic-split)
@@ -110,24 +109,26 @@ spec:
   # +optional. composable Build spec, if omitted provide image directly
   build:  # This is a build.dev/v1alpha1.BuildTemplateSpec
     source:
-      # oneof archive|manifest|repository:
+      # oneof git|gcs|custom: 
       
       # +optional.
-      archive:
-        url: https://...
-        sha: ...
-
-      # +optional. A manifest file containing a list of file paths,
-      #   backing URLs, and sha checksums. Manifest may be a more
-	  #   efficient mechanism for a client to perform partial upload.
-      manifest
-        url: https://...
-        sha: ...
-
-      # +optional.
-      repository:
+      git:
         url: https://github.com/jrandom/myrepo
-        commit: deadbeef
+		commit: deadbeef  # Or branch, tag, ref
+
+      # +optional. A zip archive or a manifest file in Google Cloud
+      # Storage. A manifest file is a file containing a list of file
+      # paths, backing URLs, and sha checksums. Manifest may be a more
+      # efficient mechanism for a client to perform partial upload.
+      gcs:
+        location: https://...
+        type: 'archive'  # Or 'manifest'
+
+      # +optional. Custom specifies a container which will be run as
+      # the first build step to fetch the source.
+	  custom:  # is a core.v1.Container
+        image: gcr.io/cloud-builders/git:latest
+        args: [ "clone", "https://...", "other-place" ]
 
     template:  # build template reference and arguments.
       name: go_1_9_fn  # builder name. Functions may have custom builders
