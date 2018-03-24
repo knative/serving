@@ -8,6 +8,8 @@ The primary resources in the Elafros API are Routes, Revisions, and Configuratio
 
 * **Configuration**, which acts as a stream of environments for Revisions.
 
+![Object model](images/object_model.png)
+
 ## Route
 
 **Route** provides a network endpoint for a user's service (which
