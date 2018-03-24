@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	internalinterfaces "github.com/google/elafros/pkg/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

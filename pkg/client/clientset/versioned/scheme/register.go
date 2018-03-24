@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@ limitations under the License.
 package scheme
 
 import (
-	cloudbuildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	elafrosv1alpha1 "github.com/google/elafros/pkg/apis/ela/v1alpha1"
-	configv1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	elafrosv1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	configv1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,7 +49,7 @@ func init() {
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
-	cloudbuildv1alpha1.AddToScheme(scheme)
+	buildv1alpha1.AddToScheme(scheme)
 	elafrosv1alpha1.AddToScheme(scheme)
 	configv1alpha2.AddToScheme(scheme)
 

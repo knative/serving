@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ package v1alpha2
 import (
 	time "time"
 
-	istio_v1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
-	versioned "github.com/google/elafros/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/google/elafros/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/google/elafros/pkg/client/listers/istio/v1alpha2"
+	istio_v1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
+	versioned "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha2 "github.com/elafros/elafros/pkg/client/listers/istio/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

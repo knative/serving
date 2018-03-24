@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,4 +18,12 @@ package ela
 
 const (
 	GroupName = "elafros.dev"
+
+	// ConfigurationLabelKey is the label key attached to a Revison indicating by
+	// which Configuration it is created.
+	ConfigurationLabelKey = GroupName + "/configuration"
+
+	// RouteLabelKey is the label key attached to a Configuration indicating by
+	// which Route it is configured as traffic target.
+	RouteLabelKey = GroupName + "/route"
 )

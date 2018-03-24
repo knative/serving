@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,20 +17,84 @@ limitations under the License.
 package route
 
 import (
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"fmt"
 
-	istiov1alpha2 "github.com/google/elafros/pkg/apis/istio/v1alpha2"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
+
+	istiov1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/google/elafros/pkg/controller/util"
 )
 
-// MakeRouteIstioSpec creates an Istio route
-func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) istiov1alpha2.RouteRuleSpec {
+// makeIstioRouteSpec creates an Istio route
+func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) istiov1alpha2.RouteRuleSpec {
 	// if either current or next is inactive, target them to proxy instead of
 	// the backend so the 0->1 transition will happen.
-	placeHolderK8SServiceName := util.GetElaK8SServiceName(u)
+	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
+	destinationWeights := calculateDestinationWeights(u, tt, routes)
+	if tt != nil {
+		domain = fmt.Sprintf("%s.%s", tt.Name, domain)
+	}
+
+	return istiov1alpha2.RouteRuleSpec{
+		Destination: istiov1alpha2.IstioService{
+			Name: placeHolderK8SServiceName,
+		},
+		Match: istiov1alpha2.Match{
+			Request: istiov1alpha2.MatchRequest{
+				Headers: istiov1alpha2.Headers{
+					Authority: istiov1alpha2.MatchString{
+						Regex: domain,
+					},
+				},
+			},
+		},
+		Route: destinationWeights,
+	}
+}
+
+// MakeIstioRoutes creates an Istio route
+func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) *istiov1alpha2.RouteRule {
+	labels := map[string]string{"route": u.Name}
+	if tt != nil {
+		labels["traffictarget"] = tt.Name
+	}
+
+	r := &istiov1alpha2.RouteRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      controller.GetRouteRuleName(u, tt),
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Spec: makeIstioRouteSpec(u, tt, ns, routes, domain),
+	}
+	serviceRef := metav1.NewControllerRef(u, controllerKind)
+	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
+	return r
+}
+
+// calculateDestinationWeights returns the destination weights for
+// the istio route rule.
+func calculateDestinationWeights(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, routes []RevisionRoute) []istiov1alpha2.DestinationWeight {
+	var istioServiceName string
+
+	if tt != nil {
+		for _, r := range routes {
+			if r.Name == tt.Name {
+				istioServiceName = r.Service
+			}
+		}
+		return []istiov1alpha2.DestinationWeight{
+			istiov1alpha2.DestinationWeight{
+				Destination: istiov1alpha2.IstioService{
+					Name: istioServiceName,
+				},
+				Weight: 100,
+			},
+		}
+	}
+
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
 	for _, route := range routes {
 		destinationWeights = append(destinationWeights,
@@ -41,27 +105,5 @@ func MakeRouteIstioSpec(u *v1alpha1.Route, ns string, routes []RevisionRoute) is
 				Weight: route.Weight,
 			})
 	}
-	return istiov1alpha2.RouteRuleSpec{
-		Destination: istiov1alpha2.IstioService{
-			Name: placeHolderK8SServiceName,
-		},
-		Route: destinationWeights,
-	}
-}
-
-// MakeRouteIstioRoute creates an Istio route
-func MakeRouteIstioRoutes(u *v1alpha1.Route, ns string, routes []RevisionRoute) *istiov1alpha2.RouteRule {
-	r := &istiov1alpha2.RouteRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GetElaIstioRouteRuleName(u),
-			Namespace: ns,
-			Labels: map[string]string{
-				"route": u.Name,
-			},
-		},
-		Spec: MakeRouteIstioSpec(u, ns, routes),
-	}
-	serviceRef := metav1.NewControllerRef(u, serviceKind)
-	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
-	return r
+	return destinationWeights
 }

@@ -1,0 +1,42 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compare.go",
+        "options.go",
+        "path.go",
+        "reporter.go",
+        "unsafe_reflect.go",
+    ],
+    importpath = "github.com/google/go-cmp/cmp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/go-cmp/cmp/internal/diff:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/internal/function:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/internal/value:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["options_test.go"],
+    embed = [":go_default_library"],
+    importpath = "github.com/google/go-cmp/cmp",
+    deps = ["//vendor/github.com/google/go-cmp/cmp/internal/teststructs:go_default_library"],
+)
+
+go_test(
+    name = "go_default_xtest",
+    srcs = [
+        "compare_test.go",
+        "example_test.go",
+    ],
+    importpath = "github.com/google/go-cmp/cmp_test",
+    deps = [
+        ":go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/cmpopts:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/internal/testprotos:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/internal/teststructs:go_default_library",
+    ],
+)

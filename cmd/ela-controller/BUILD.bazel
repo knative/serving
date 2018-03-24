@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/google/elafros/cmd/ela-controller",
+    importpath = "github.com/elafros/elafros/cmd/ela-controller",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/client/clientset/versioned:go_default_library",
@@ -14,6 +14,7 @@ go_library(
         "//pkg/controller/route:go_default_library",
         "//pkg/signals:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/k8s.io/client-go/informers:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/plugin/pkg/client/auth/gcp:go_default_library",
@@ -24,7 +25,7 @@ go_library(
 go_binary(
     name = "ela-controller",
     embed = [":go_default_library"],
-    importpath = "github.com/google/elafros/cmd/ela-controller",
+    importpath = "github.com/elafros/elafros/cmd/ela-controller",
     pure = "on",
     visibility = ["//visibility:public"],
 )

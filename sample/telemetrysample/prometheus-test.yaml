@@ -1,0 +1,87 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-test
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: prometheus-test
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-test
+subjects:
+- kind: ServiceAccount
+  name: prometheus-test
+  namespace: default
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: test
+  labels:
+    prometheus: test
+spec:
+  replicas: 1
+  version: v2.1.0
+  serviceAccountName: prometheus-test
+  serviceMonitorSelector:
+    matchExpressions:
+    - {key: app, operator: In, values: [telemetrysample]}
+  ruleSelector:
+    matchLabels:
+      role: prometheus-test-rulefiles
+      prometheus: test
+  resources:
+    requests:
+      memory: 400Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-test-web
+  namespace: default
+  labels:
+    prometheus: test
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 30800
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    prometheus: test

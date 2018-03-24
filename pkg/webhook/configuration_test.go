@@ -16,9 +16,13 @@ limitations under the License.
 package webhook
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -57,12 +61,86 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: testGeneration,
-			Template:   v1alpha1.Revision{},
+			Generation:       testGeneration,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{},
 		},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyTemplateInSpec {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptyTemplateInSpec, err)
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyRevisionTemplateInSpec {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
+	}
+}
+
+func TestEmptyContainerNotAllowed(t *testing.T) {
+	configuration := v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testConfigurationName,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: testGeneration,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: &corev1.Container{},
+				},
+			},
+		},
+	}
+
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerInRevisionTemplate {
+		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
+	}
+}
+
+func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
+	container := corev1.Container{
+		Name: "Not Allowed",
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceName("cpu"): resource.MustParse("25m"),
+			},
+		},
+		Ports: []corev1.ContainerPort{{
+			Name:          "http",
+			ContainerPort: 8080,
+		}},
+		VolumeMounts: []corev1.VolumeMount{{
+			MountPath: "mount/path",
+			Name:      "name",
+		}},
+	}
+	configuration := v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testConfigurationName,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: testGeneration,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: &container,
+				},
+			},
+		},
+	}
+	unwanted := []string{
+		"revisionTemplate.spec.container.name",
+		"revisionTemplate.spec.container.resources",
+		"revisionTemplate.spec.container.ports",
+		"revisionTemplate.spec.container.volumeMounts",
+	}
+	expected := fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted, ", "))
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+		t.Fatalf("Expected: %s. Failed with %s", expected, err)
+	}
+	container.Name = ""
+	expected = fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted[1:], ", "))
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+		t.Fatalf("Expected: %s. Failed with %s", expected, err)
+	}
+	container.Resources = corev1.ResourceRequirements{}
+	expected = fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted[2:], ", "))
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 }

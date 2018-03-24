@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	"strings"
 	"sync"
 
-	buildv1alpha1 "github.com/google/elafros/pkg/apis/cloudbuild/v1alpha1"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 )
 
 type key string

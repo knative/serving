@@ -22,10 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"time"
 
-	"github.com/google/elafros/pkg/apis/ela"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
@@ -306,20 +307,32 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 	// Set the owner to our deployment
 	deployment, err := ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Get(elaWebhookDeployment, metav1.GetOptions{})
 	if err != nil {
-		glog.Fatalf("Failed to fetch our deployment: %s", err)
-		return err
+		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}
 	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
 
-	// Try to create the webhook and if it already exists, use it.
+	// Try to create the webhook and if it already exists validate webhook rules
 	_, err = client.Create(webhook)
 	if err != nil {
 		if !apierrors.IsAlreadyExists(err) {
-			glog.Fatalf("Failed to create a webhook: %s", err)
-			return err
+			return fmt.Errorf("Failed to create a webhook: %s", err)
 		}
 		glog.Infof("Webhook already exists")
+		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("Error retrieving webhook: %s", err)
+		}
+		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
+			glog.Infof("Updating webhook")
+			// Set the ResourceVersion as required by update.
+			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
+			if _, err := client.Update(webhook); err != nil {
+				return fmt.Errorf("Failed to update webhook: %s", err)
+			}
+		} else {
+			glog.Infof("Webhook is already valid")
+		}
 	} else {
 		glog.Infof("Created a webhook")
 	}
@@ -421,7 +434,9 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 
 	if err := cb(&patches, oldObj, newObj); err != nil {
 		glog.Warningf("Failed the resource specific callback: %s", err)
-		return nil, fmt.Errorf("Failed the Resource Specific Callback: %s", err)
+		// Return the error message as-is to give the callback discretion
+		// over (our portion of) the message that the user sees.
+		return nil, err
 	}
 	return json.Marshal(patches)
 }

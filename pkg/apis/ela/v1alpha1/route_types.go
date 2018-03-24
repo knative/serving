@@ -35,14 +35,6 @@ type Route struct {
 	Status RouteStatus `json:"status,omitempty"`
 }
 
-type ServiceType string
-
-const (
-	FunctionService   ServiceType = "function"
-	HttpServerService ServiceType = "httpserver"
-	ContainerService  ServiceType = "container"
-)
-
 type TrafficTarget struct {
 	// Optional name to expose this as an external target
 	// +optional
@@ -51,12 +43,12 @@ type TrafficTarget struct {
 	// One of these is valid...
 	// Revision is the name to a specific revision
 	// +optional
-	Revision string `json:"revision,omitempty"`
+	RevisionName string `json:"revisionName,omitempty"`
 
 	// Configuration is the name to a configuration, rolls out
 	// automatically
 	// +optional
-	Configuration string `json:"configuration,omitempty"`
+	ConfigurationName string `json:"configurationName,omitempty"`
 
 	// Specifies percent of the traffic to this Revision or Configuration
 	Percent int `json:"percent"`
@@ -69,11 +61,6 @@ type RouteSpec struct {
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
-
-	DomainSuffix string `json:"domainSuffix"`
-	// What type of a Service is this
-	//	ServiceType ServiceType `json:"serviceType"`
-	ServiceType string `json:"serviceType"`
 
 	// Specifies the traffic split between Revisions and Configurations
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
@@ -113,10 +100,10 @@ type RouteStatus struct {
 
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 
-	// ReconciledGeneration is the 'Generation' of the Configuration that
-	// was last processed by the controller. The reconciled generation is updated
+	// ObservedGeneration is the 'Generation' of the Configuration that
+	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
-	ReconciledGeneration int64 `json:"reconciledGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -141,28 +128,44 @@ func (r *Route) GetSpecJSON() ([]byte, error) {
 	return json.Marshal(r.Spec)
 }
 
-func (ess *RouteStatus) SetCondition(new *RouteCondition) {
+func (rs *RouteStatus) IsReady() bool {
+	if c := rs.GetCondition(RouteConditionReady); c != nil {
+		return c.Status == corev1.ConditionTrue
+	}
+	return false
+}
+
+func (rs *RouteStatus) GetCondition(t RouteConditionType) *RouteCondition {
+	for _, cond := range rs.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
+
+func (rs *RouteStatus) SetCondition(new *RouteCondition) {
 	if new == nil {
 		return
 	}
 
 	t := new.Type
 	var conditions []RouteCondition
-	for _, cond := range ess.Conditions {
+	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
 	conditions = append(conditions, *new)
-	ess.Conditions = conditions
+	rs.Conditions = conditions
 }
 
-func (ess *RouteStatus) RemoveCondition(t RouteConditionType) {
+func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 	var conditions []RouteCondition
-	for _, cond := range ess.Conditions {
+	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	ess.Conditions = conditions
+	rs.Conditions = conditions
 }

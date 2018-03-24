@@ -8,7 +8,7 @@ go_library(
         "revision.go",
         "route.go",
     ],
-    importpath = "github.com/google/elafros/pkg/client/listers/ela/v1alpha1",
+    importpath = "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",

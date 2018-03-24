@@ -1,0 +1,108 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+      - name: grafana
+        image: quay.io/coreos/monitoring-grafana:5.0.0-beta1
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /data
+        - name: grafana-datasources
+          mountPath: /grafana/conf/provisioning/datasources
+        - name: grafana-dashboards
+          mountPath: /grafana/conf/provisioning/dashboards
+        - name: grafana-dashboard-definition-deployment
+          mountPath: /grafana-dashboard-definition/deployment
+        - name: grafana-dashboard-definition-etcd
+          mountPath: /grafana-dashboard-definition/etcd
+        - name: grafana-dashboard-definition-k8s
+          mountPath: /grafana-dashboard-definition/k8s
+        - name: grafana-dashboard-definition-node
+          mountPath: /grafana-dashboard-definition/node
+        - name: grafana-dashboard-definition-pod
+          mountPath: /grafana-dashboard-definition/pod
+        - name: grafana-dashboard-definition-statefulset
+          mountPath: /grafana-dashboard-definition/statefulset
+        - name: grafana-dashboard-definition-ela-controller
+          mountPath: /grafana-dashboard-definition/ela-controller
+        - name: grafana-dashboard-definition-istio
+          mountPath: /grafana-dashboard-definition/istio
+        - name: grafana-dashboard-definition-istio-mixer
+          mountPath: /grafana-dashboard-definition/istio-mixer
+        - name: grafana-dashboard-definition-istio-pilot
+          mountPath: /grafana-dashboard-definition/istio-pilot
+        ports:
+        - name: web
+          containerPort: 3000
+        resources:
+          requests:
+            memory: 100Mi
+            cpu: 100m
+          limits:
+            memory: 200Mi
+            cpu: 200m
+      volumes:
+      - name: grafana-storage
+        emptyDir: {}
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+      - name: grafana-dashboard-definition-deployment
+        configMap:
+          name: grafana-dashboard-definition-deployment
+      - name: grafana-dashboard-definition-etcd
+        configMap:
+          name: grafana-dashboard-definition-etcd
+      - name: grafana-dashboard-definition-k8s
+        configMap:
+          name: grafana-dashboard-definition-k8s
+      - name: grafana-dashboard-definition-node
+        configMap:
+          name: grafana-dashboard-definition-node
+      - name: grafana-dashboard-definition-pod
+        configMap:
+          name: grafana-dashboard-definition-pod
+      - name: grafana-dashboard-definition-statefulset
+        configMap:
+          name: grafana-dashboard-definition-statefulset
+      - name: grafana-dashboard-definition-ela-controller
+        configMap:
+          name: grafana-dashboard-definition-ela-controller
+      - name: grafana-dashboard-definition-istio
+        configMap:
+          name: grafana-dashboard-definition-istio
+      - name: grafana-dashboard-definition-istio-mixer
+        configMap:
+          name: grafana-dashboard-definition-istio-mixer
+      - name: grafana-dashboard-definition-istio-pilot
+        configMap:
+          name: grafana-dashboard-definition-istio-pilot

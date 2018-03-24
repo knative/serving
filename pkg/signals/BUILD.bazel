@@ -40,6 +40,6 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importpath = "github.com/google/elafros/pkg/signals",
+    importpath = "github.com/elafros/elafros/pkg/signals",
     visibility = ["//visibility:public"],
 )

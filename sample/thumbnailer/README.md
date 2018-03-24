@@ -2,11 +2,11 @@
 
 Thumbnailer demo is a walk-through example on how to deploy a 'dockerized' application to the Elafros service. In this demo we will use a sample `golang` application that takes video URL as an input and generates its thumbnail image.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/google/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
 
 ## Sample Code
 
-In this demo we are going to use a simple `golang` REST app called [rester-tester](https://github.com/mchmarny/rester-tester). It's important to point out that this application doesn't use any 'special' Elafros components nor does it have any Elafros SDK dependencies. 
+In this demo we are going to use a simple `golang` REST app called [rester-tester](https://github.com/mchmarny/rester-tester). It's important to point out that this application doesn't use any 'special' Elafros components nor does it have any Elafros SDK dependencies.
 
 ### App code
 
@@ -38,10 +38,10 @@ You can now run the `rester-tester` application locally in `go` or using Docker
 
 **Local**
 
-> Note: to run the application locally in `go` you will need [FFmpeg](https://www.ffmpeg.org/) in your path. 
+> Note: to run the application locally in `go` you will need [FFmpeg](https://www.ffmpeg.org/) in your path.
 
 ```
-go build 
+go build
 ./rester-tester
 ```
 
@@ -97,8 +97,8 @@ INFO: Build completed successfully, 2 total actions
 Then you can simply issue the following `kubectl` commands:
 
 ```shell
-# First, be sure you have the latest docker-build template installed with:
-kubectl apply -f sample/templates/docker-build.yaml
+# First, be sure you have the latest docker-build-helper template installed with:
+kubectl apply -f sample/templates/docker-build-helper.yaml
 
 # From the root of this repository
 kubectl apply -f bazel-genfiles/sample/thumbnailer/thumbnailer.yaml
@@ -135,14 +135,24 @@ kubectl get ing
 Sometimes the newly deployed app may take few seconds to initialize. You can check its status like this
 
 ```
-kubectl -n default-ela get pods
+kubectl -n default get pods
 ```
 
 The Elafros ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
 
 ```
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get route thumb -o jsonpath="{.status.domain}"`
+
 export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
-  -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"` 
+  -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+```
+
+If your cluster is running outside a cloud provider (for example on Minikube),
+your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
+
+```shell
+export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
 ```
 
 > To make the JSON service responses more readable consider installing [jq](https://stedolan.github.io/jq/), makes JSON pretty
@@ -152,28 +162,26 @@ export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
 Let's start with a simple `ping` service
 
 ```
-curl -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
+curl -H "Content-Type: application/json" -H "Host: $SERVICE_HOST" \
   http://$SERVICE_IP/ping | jq '.'
 ```
 
 ### Video Thumbnail
 
-Now the video thumbnail. 
+Now the video thumbnail.
 
 ```
-curl -X POST -H "Content-Type: application/json" -H "Host: thumb.googlecustomer.net" \
+curl -X POST -H "Content-Type: application/json" -H "Host: $SERVICE_HOST" \
   http://$SERVICE_IP/image -d '{"src":"https://www.youtube.com/watch?v=DjByja9ejTQ"}'  | jq '.'
 ```
 
 You can then download the newly created thumbnail. Make sure to replace the image name with the one returned by the previous service
 
 ```
-curl -H "Host: thumb.googlecustomer.net" \
+curl -H "Host: $SERVICE_HOST" \
   http://$SERVICE_IP/thumb/img_b43ffcc2-0c80-4862-8423-60ec1b4c4926.png > demo.png
 ```
 
 ## Final Thoughts
 
-While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables. 
-
-
+While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables.

@@ -18,9 +18,8 @@ metadata:
   name: thumb
   namespace: default
 spec:
-  domainSuffix: thumb.googlecustomer.net
   traffic:
-  - configuration: thumbtemplate
+  - configurationName: thumbtemplate
     percent: 100
 ---
 apiVersion: elafros.dev/v1alpha1
@@ -35,14 +34,16 @@ spec:
         url: https://github.com/mchmarny/rester-tester
         branch: master
     template:
-      name: docker-build-push
+      name: docker-build-push-helper
       arguments:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/rester-tester
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: *image
         env:
           - name: TARGET

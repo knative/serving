@@ -40,11 +40,24 @@ route-example-ela-ingress   demo.myhost.net             80        14s
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
-# Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get route route-example -o jsonpath="{.status.domain}"`
 
-# Curl the Ingress IP "as-if" DNS were properly configured.
-$ curl --header 'Host:demo.myhost.net' http://${SERVICE_IP}
+# Put the Ingress IP into an environment variable.
+export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+```
+
+If your cluster is running outside a cloud provider (for example on Minikube),
+your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
+
+```shell
+export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
+```
+
+Now curl the service IP as if DNS were properly configured:
+
+```shell
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Hello World: shiniestnewestversion!
 ```
 
@@ -64,7 +77,7 @@ kubectl get route -o yaml
 
 Or curling the service:
 ```
-$ curl --header 'Host:demo.myhost.net' http://${SERVICE_IP}
+$ curl --header 'Host:$SERVICE_HOST http://${SERVICE_IP}
 Hello World: nextversion!
 ```
 
@@ -81,9 +94,9 @@ p-30e6a938-b28b-4d5e-a791-2cb5fe016d74   10m
 Update `traffic` part in sample/helloworld/route.yaml as:
 ```yaml
 traffic:
-  - revision: <YOUR_FIRST_REVISION_NAME>
+  - revisionName: <YOUR_FIRST_REVISION_NAME>
     percent: 50
-  - revision: <YOUR_SECOND_REVISION_NAME>
+  - revisionName: <YOUR_SECOND_REVISION_NAME>
     percent: 50
 ```
 

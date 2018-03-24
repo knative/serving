@@ -17,14 +17,18 @@ package webhook
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/ghodss/yaml"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
@@ -45,7 +49,6 @@ const (
 	imageName             = "test-container-image"
 	envVarName            = "envname"
 	envVarValue           = "envvalue"
-	testDomain            = "example.com"
 	testGeneration        = 1
 	testRouteName         = "test-route-name"
 	testRevisionName      = "test-revision"
@@ -119,7 +122,7 @@ func TestUnknownKindFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Garbage"},
 	}
 
-	assertFailsWith(t, ac.admit(&req), "unhandled kind")
+	expectFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
 func TestInvalidNewConfigurationFails(t *testing.T) {
@@ -128,15 +131,15 @@ func TestInvalidNewConfigurationFails(t *testing.T) {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	assertFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
+	expectFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
 }
 
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateConfiguration())
-	assertAllowed(t, resp)
+	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
 func TestValidConfigurationNoChanges(t *testing.T) {
@@ -144,23 +147,23 @@ func TestValidConfigurationNoChanges(t *testing.T) {
 	old := createConfiguration(testGeneration)
 	new := createConfiguration(testGeneration)
 	resp := ac.admit(createUpdateConfiguration(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createConfiguration(testGeneration)
 	new := createConfiguration(testGeneration)
-	new.Spec.Template.Spec.ContainerSpec.Env = []corev1.EnvVar{
+	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
 			Value: "different",
 		},
 	}
 	resp := ac.admit(createUpdateConfiguration(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
@@ -172,9 +175,9 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateRoute())
-	assertAllowed(t, resp)
+	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
 }
 
 func TestValidRouteNoChanges(t *testing.T) {
@@ -182,8 +185,8 @@ func TestValidRouteNoChanges(t *testing.T) {
 	old := createRoute(1)
 	new := createRoute(1)
 	resp := ac.admit(createUpdateRoute(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidRouteChanges(t *testing.T) {
@@ -192,19 +195,53 @@ func TestValidRouteChanges(t *testing.T) {
 	new := createRoute(1)
 	new.Spec.Traffic = []v1alpha1.TrafficTarget{
 		v1alpha1.TrafficTarget{
-			Revision: testRevisionName,
-			Percent:  100,
+			RevisionName: testRevisionName,
+			Percent:      100,
 		},
 	}
 	resp := ac.admit(createUpdateRoute(&old, &new))
-	assertAllowed(t, resp)
-	assertPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
 			Value:     2,
 		},
 	})
+}
+
+func TestValidWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	createDeployment(ac)
+	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create webhook: %s", err)
+	}
+}
+
+func TestUpdatingWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ac.options.WebhookName,
+		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{
+			{
+				Name:         ac.options.WebhookName,
+				Rules:        []admissionregistrationv1beta1.RuleWithOperations{{}},
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+			},
+		},
+	}
+
+	createDeployment(ac)
+	createWebhook(ac, webhook)
+	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
+		t.Fatalf("Expected webhook to be updated")
+	}
 }
 
 func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
@@ -227,8 +264,8 @@ func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	rt := createConfiguration(0)
-	marshaled, err := yaml.Marshal(rt)
+	config := createConfiguration(0)
+	marshaled, err := yaml.Marshal(config)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -248,8 +285,8 @@ func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	rt := createRoute(0)
-	marshaled, err := yaml.Marshal(rt)
+	route := createRoute(0)
+	marshaled, err := yaml.Marshal(route)
 	if err != nil {
 		panic("failed to marshal route")
 	}
@@ -279,22 +316,41 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 	return req
 }
 
-func assertAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
-	if !resp.Allowed {
-		t.Fatalf("Expected allowed, but failed with %+v", resp.Result)
+func createDeployment(ac *AdmissionController) {
+	deployment := &v1beta1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      elaWebhookDeployment,
+			Namespace: elaSystemNamespace,
+		},
+	}
+	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+}
+
+func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
+	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
+	_, err := client.Create(webhook)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create test webhook: %s", err))
 	}
 }
 
-func assertFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
+func expectAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
+	if !resp.Allowed {
+		t.Errorf("Expected allowed, but failed with %+v", resp.Result)
+	}
+}
+
+func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
 	if resp.Allowed {
-		t.Fatalf("expected denial, got allowed")
+		t.Errorf("expected denial, got allowed")
+		return
 	}
 	if !strings.Contains(resp.Result.Message, contains) {
-		t.Fatalf("expected failure containing %q got %q", contains, resp.Result.Message)
+		t.Errorf("expected failure containing %q got %q", contains, resp.Result.Message)
 	}
 }
 
-func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
+func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 	var actual []jsonpatch.JsonPatchOperation
 	// Keep track of the patches we've found
 	foundExpected := make([]bool, len(e))
@@ -302,10 +358,11 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 
 	err := json.Unmarshal(a, &actual)
 	if err != nil {
-		t.Fatalf("failed to unmarshal patches: %s", err)
+		t.Errorf("failed to unmarshal patches: %s", err)
+		return
 	}
 	if len(actual) != len(e) {
-		t.Fatalf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
+		t.Errorf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
 	}
 	// Make sure all the expected patches are found
 	for i, expectedPatch := range e {
@@ -314,18 +371,18 @@ func assertPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 				foundExpected[i] = true
 				foundActual[j] = true
 			} else {
-				t.Fatalf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
+				t.Errorf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
 			}
 		}
 	}
 	for i, f := range foundExpected {
 		if !f {
-			t.Fatalf("did not find %+v in actual patches: %q", e[i], actual)
+			t.Errorf("did not find %+v in actual patches: %q", e[i], actual)
 		}
 	}
 	for i, f := range foundActual {
 		if !f {
-			t.Fatalf("Extra patch found %+v in expected patches: %q", a[i], e)
+			t.Errorf("Extra patch found %+v in expected patches: %q", a[i], e)
 		}
 	}
 }
@@ -338,9 +395,9 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
-			Template: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					ContainerSpec: &corev1.Container{
+					Container: &corev1.Container{
 						Image: imageName,
 						Env: []corev1.EnvVar{{
 							Name:  envVarName,
@@ -360,13 +417,12 @@ func createRoute(generation int64) v1alpha1.Route {
 			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Generation:   generation,
-			DomainSuffix: testDomain,
+			Generation: generation,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:     "test-traffic-target",
-					Revision: testRevisionName,
-					Percent:  100,
+					Name:         "test-traffic-target",
+					RevisionName: testRevisionName,
+					Percent:      100,
 				},
 			},
 		},

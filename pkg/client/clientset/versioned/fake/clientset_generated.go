@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	cloudbuildv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1"
-	fakecloudbuildv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1/fake"
-	elafrosv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
-	fakeelafrosv1alpha1 "github.com/google/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
-	configv1alpha2 "github.com/google/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
-	fakeconfigv1alpha2 "github.com/google/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1"
+	fakebuildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1/fake"
+	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	fakeelafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
+	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	fakeconfigv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -63,14 +63,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// CloudbuildV1alpha1 retrieves the CloudbuildV1alpha1Client
-func (c *Clientset) CloudbuildV1alpha1() cloudbuildv1alpha1.CloudbuildV1alpha1Interface {
-	return &fakecloudbuildv1alpha1.FakeCloudbuildV1alpha1{Fake: &c.Fake}
+// BuildV1alpha1 retrieves the BuildV1alpha1Client
+func (c *Clientset) BuildV1alpha1() buildv1alpha1.BuildV1alpha1Interface {
+	return &fakebuildv1alpha1.FakeBuildV1alpha1{Fake: &c.Fake}
 }
 
-// Cloudbuild retrieves the CloudbuildV1alpha1Client
-func (c *Clientset) Cloudbuild() cloudbuildv1alpha1.CloudbuildV1alpha1Interface {
-	return &fakecloudbuildv1alpha1.FakeCloudbuildV1alpha1{Fake: &c.Fake}
+// Build retrieves the BuildV1alpha1Client
+func (c *Clientset) Build() buildv1alpha1.BuildV1alpha1Interface {
+	return &fakebuildv1alpha1.FakeBuildV1alpha1{Fake: &c.Fake}
 }
 
 // ElafrosV1alpha1 retrieves the ElafrosV1alpha1Client

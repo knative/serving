@@ -18,20 +18,22 @@ metadata:
   name: configuration-example
   namespace: default
 spec:
-  # Uncomment this to test running a nop Build (the image is from Bazel).
-  # This is disabled until we stand up the Build components as part of
-  # everything, which necessitates vendoring.
-  # build:
-  #   steps:
-  #   - name: blah
-  #     image: busybox:latest
-  #     args: ["echo", "Hello"]
-
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: container
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: sample:latest
+        args:
+        - "-logtostderr=true"
+        - "-stderrthreshold=INFO"
         env:
           - name: TARGET
             value: shiniestnewestversion
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3

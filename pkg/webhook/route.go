@@ -18,16 +18,17 @@ package webhook
 import (
 	"errors"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/golang/glog"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
 var (
-	errInvalidRevisions        = errors.New("The route must has exactly one of revision or configuration in traffic field")
-	errInvalidRouteInput       = errors.New("Failed to convert input into Route")
-	errInvalidTargetPercentSum = errors.New("The route must has traffic percent sum equal to 100")
-	errNegativeTargetPercent   = errors.New("The route cannot has negative traffic percent")
+	errInvalidRevisions        = errors.New("The route must have exactly one of revisionName or configurationName in traffic field.")
+	errInvalidRouteInput       = errors.New("Failed to convert input into Route.")
+	errInvalidTargetPercentSum = errors.New("The route must have traffic percent sum equal to 100.")
+	errNegativeTargetPercent   = errors.New("The route cannot have a negative traffic percent.")
+	errTrafficTargetsNotUnique = errors.New("The traffic targets must be unique.")
 )
 
 // ValidateRoute is Route resource specific validation and mutation handler
@@ -50,6 +51,9 @@ func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new 
 	if err := validateTrafficTarget(newRoute); err != nil {
 		return err
 	}
+	if err := validateUniqueTrafficTarget(newRoute); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -62,8 +66,8 @@ func validateTrafficTarget(route *v1alpha1.Route) error {
 
 	percentSum := 0
 	for _, trafficTarget := range route.Spec.Traffic {
-		revisionLen := len(trafficTarget.Revision)
-		configurationLen := len(trafficTarget.Configuration)
+		revisionLen := len(trafficTarget.RevisionName)
+		configurationLen := len(trafficTarget.ConfigurationName)
 		if (revisionLen == 0 && configurationLen == 0) ||
 			(revisionLen != 0 && configurationLen != 0) {
 			return errInvalidRevisions
@@ -77,6 +81,35 @@ func validateTrafficTarget(route *v1alpha1.Route) error {
 
 	if percentSum != 100 {
 		return errInvalidTargetPercentSum
+	}
+	return nil
+}
+
+func validateUniqueTrafficTarget(route *v1alpha1.Route) error {
+	if route.Spec.Traffic == nil {
+		return nil
+	}
+
+	type tt struct {
+		revision      string
+		configuration string
+	}
+	trafficMap := make(map[string]tt)
+	for _, trafficTarget := range route.Spec.Traffic {
+		if trafficTarget.Name == "" {
+			continue
+		}
+
+		traffic := tt{
+			revision:      trafficTarget.RevisionName,
+			configuration: trafficTarget.ConfigurationName,
+		}
+
+		if trafficMap[trafficTarget.Name] == (tt{}) {
+			trafficMap[trafficTarget.Name] = traffic
+		} else if trafficMap[trafficTarget.Name] != traffic {
+			return errTrafficTargetsNotUnique
+		}
 	}
 	return nil
 }

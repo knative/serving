@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: cloudbuild.googleapis.com/v1alpha1
+apiVersion: build.dev/v1alpha1
 kind: BuildTemplate
 metadata:
   name: docker-build-push
@@ -25,31 +25,23 @@ spec:
 
   steps:
   - name: docker-build
-    # This should move to cloud-builders once this lands:
-    # https://github.com/GoogleCloudPlatform/cloud-builders/pull/209
-    image: gcr.io/mattmoor-public/docker
+    image: gcr.io/cloud-builders/docker
     workingdir: "${DIRECTORY}"
     args: ["build", "--no-cache", "-t", "${IMAGE}", "."]
     # We change HOME, so we must redirect docker to load its
     # configuration to use the credential helper.
     env:
-    - name: DOCKER_CONFIG
-      value: /root/.docker
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock
 
   - name: docker-push
-    # This should move to cloud-builders once this lands:
-    # https://github.com/GoogleCloudPlatform/cloud-builders/pull/209
-    image: gcr.io/mattmoor-public/docker
+    image: gcr.io/cloud-builders/docker
     workingdir: "${DIRECTORY}"
     args: ["push", "${IMAGE}"]
     # We change HOME, so we must redirect docker to load its
     # configuration to use the credential helper.
     env:
-    - name: DOCKER_CONFIG
-      value: /root/.docker
     volumeMounts:
     - name: docker-socket
       mountPath: /var/run/docker.sock

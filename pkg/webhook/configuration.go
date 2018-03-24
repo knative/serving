@@ -17,17 +17,25 @@ package webhook
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/golang/glog"
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
+	corev1 "k8s.io/api/core/v1"
 )
 
+func errMissingField(fieldPath string) error {
+	return fmt.Errorf("Configuration is missing %q", fieldPath)
+}
+
 var (
-	errEmptySpecInConfiguration  = errors.New("The configuration must have configuration spec")
-	errEmptyTemplateInSpec       = errors.New("The configuration spec must have configuration")
-	errInvalidConfigurationInput = errors.New("Failed to convert input into configuration")
+	errEmptySpecInConfiguration         = errMissingField("spec")
+	errEmptyRevisionTemplateInSpec      = errMissingField("spec.revisionTemplate")
+	errEmptyContainerInRevisionTemplate = errMissingField("spec.revisionTemplate.spec.container")
+	errInvalidConfigurationInput        = errors.New(`Failed to convert input into configuration`)
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
@@ -57,10 +65,46 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	// TODO: add validation for configuration.Spec.Template, after we add a
-	// validation for Revision.
-	if reflect.DeepEqual(configuration.Spec.Template, v1alpha1.Revision{}) {
-		return errEmptyTemplateInSpec
+	if err := validateTemplate(&configuration.Spec.RevisionTemplate); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
+	if reflect.DeepEqual(*template, v1alpha1.RevisionTemplateSpec{}) {
+		return errEmptyRevisionTemplateInSpec
+	}
+	if err := validateContainer(template.Spec.Container); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateContainer(container *corev1.Container) error {
+	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
+		return errEmptyContainerInRevisionTemplate
+	}
+	// Some corev1.Container fields are set by Elafros controller.  We disallow them
+	// here to avoid silently overwriting these fields and causing confusions for
+	// the users.  See pkg/controller/revision.MakeElaPodSpec for the list of fields
+	// overridden.
+	var ignoredFields []string
+	if container.Name != "" {
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.name")
+	}
+	if !reflect.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.resources")
+	}
+	if len(container.Ports) > 0 {
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.ports")
+	}
+	if len(container.VolumeMounts) > 0 {
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.volumeMounts")
+	}
+	if len(ignoredFields) > 0 {
+		// Complain about all ignored fields so that user can remove them all at once.
+		return fmt.Errorf("The configuration spec must not set the field(s) %s", strings.Join(ignoredFields, ", "))
 	}
 	return nil
 }

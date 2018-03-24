@@ -18,7 +18,7 @@ package webhook
 import (
 	"testing"
 
-	"github.com/google/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,9 +29,8 @@ func createRouteWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alpha1.Ro
 			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Generation:   testGeneration,
-			DomainSuffix: testDomain,
-			Traffic:      trafficTargets,
+			Generation: testGeneration,
+			Traffic:    trafficTargets,
 		},
 	}
 }
@@ -40,12 +39,12 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-1",
-				Percent:       50,
+				ConfigurationName: "test-configuration-1",
+				Percent:           50,
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-2",
-				Percent:       50,
+				ConfigurationName: "test-configuration-2",
+				Percent:           50,
 			},
 		})
 
@@ -108,9 +107,9 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision:      testRevisionName,
-				Configuration: testConfigurationName,
-				Percent:       100,
+				RevisionName:      testRevisionName,
+				ConfigurationName: testConfigurationName,
+				Percent:           100,
 			},
 		})
 
@@ -124,8 +123,8 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Revision: testRevisionName,
-				Percent:  -20,
+				RevisionName: testRevisionName,
+				Percent:      -20,
 			},
 		})
 
@@ -139,16 +138,37 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 	route := createRouteWithTraffic(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-1",
+				ConfigurationName: "test-configuration-1",
 			},
 			v1alpha1.TrafficTarget{
-				Configuration: "test-configuration-2",
-				Percent:       50,
+				ConfigurationName: "test-configuration-2",
+				Percent:           50,
 			},
 		})
 
 	if err := ValidateRoute(nil, &route, &route); err != errInvalidTargetPercentSum {
 		t.Fatalf(
 			"Expected: %s. Failed with: %s.", errInvalidTargetPercentSum, err)
+	}
+}
+
+func TestNotAllowedIfTrafficNamesNotUnique(t *testing.T) {
+	route := createRouteWithTraffic(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				Name:              "test",
+				ConfigurationName: "test-configuration-1",
+				Percent:           50,
+			},
+			v1alpha1.TrafficTarget{
+				Name:              "test",
+				ConfigurationName: "test-configuration-2",
+				Percent:           50,
+			},
+		})
+
+	if err := ValidateRoute(nil, &route, &route); err != errTrafficTargetsNotUnique {
+		t.Fatalf(
+			"Expected: %s. Failed with: %s.", errTrafficTargetsNotUnique, err)
 	}
 }

@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_binary", "go_library", "go_prefix")
 
-go_prefix("github.com/google/elafros")
+go_prefix("github.com/elafros/elafros")
 
 gazelle(
     name = "gazelle",
@@ -10,9 +10,16 @@ gazelle(
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
+    name = "elaconfig",
+    template = "elaconfig.yaml",
+)
+
+k8s_object(
     name = "controller",
     images = {
         "ela-controller:latest": "//cmd/ela-controller:image",
+        "ela-queue:latest": "//cmd/ela-queue:image",
+        "ela-autoscaler:latest": "//cmd/ela-autoscaler:image",
     },
     template = "controller.yaml",
 )
@@ -61,8 +68,8 @@ k8s_object(
 )
 
 k8s_object(
-    name = "istio",
-    template = "@istio_release//:istio.yaml",
+    name = "controllerservice",
+    template = "controller-service.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
@@ -91,7 +98,9 @@ k8s_objects(
         ":namespace",
         ":authz",
         ":crds",
+        ":elaconfig",
         ":controller",
+        ":controllerservice",
         ":webhook",
         ":elawebhookservice",
     ],
@@ -100,7 +109,7 @@ k8s_objects(
 k8s_objects(
     name = "everything",
     objects = [
-        ":istio",  # We depend on Istio.
+        "@istio_release//:istio",  # We depend on Istio.
         "@buildcrd//:everything",
         ":elafros",
     ],

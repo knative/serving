@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"net/http"
 	"time"
 
-	"github.com/google/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/controller"
 
 	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
@@ -29,16 +31,19 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	clientset "github.com/google/elafros/pkg/client/clientset/versioned"
-	informers "github.com/google/elafros/pkg/client/informers/externalversions"
-	"github.com/google/elafros/pkg/controller/revision"
-	"github.com/google/elafros/pkg/controller/configuration"
-	"github.com/google/elafros/pkg/controller/route"
-	"github.com/google/elafros/pkg/signals"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	"github.com/elafros/elafros/pkg/controller/configuration"
+	"github.com/elafros/elafros/pkg/controller/revision"
+	"github.com/elafros/elafros/pkg/controller/route"
+	"github.com/elafros/elafros/pkg/signals"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
 	threadsPerController = 2
+	metricsScrapeAddr    = ":9090"
+	metricsScrapePath    = "/metrics"
 )
 
 var (
@@ -54,22 +59,26 @@ func main() {
 
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeconfig: %s", err.Error())
+		glog.Fatalf("Error building kubeconfig: %v", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		glog.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
 	elaClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %s", err.Error())
+		glog.Fatalf("Error building ela clientset: %v", err)
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 
+	controllerConfig, err := controller.NewConfig(kubeClient)
+	if err != nil {
+		glog.Fatalf("Error loading controller config: %v", err)
+	}
 	// Add new controllers here.
 	ctors := []controller.Constructor{
 		configuration.NewController,
@@ -80,8 +89,7 @@ func main() {
 	// Build all of our controllers, with the clients constructed above.
 	controllers := make([]controller.Interface, 0, len(ctors))
 	for _, ctor := range ctors {
-		controllers = append(controllers,
-			ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg))
+		controllers = append(controllers, ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig))
 	}
 
 	go kubeInformerFactory.Start(stopCh)
@@ -93,12 +101,28 @@ func main() {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if err := ctrlr.Run(threadsPerController, stopCh); err != nil {
-				glog.Fatalf("Error running controller: %s", err.Error())
+				glog.Fatalf("Error running controller: %v", err)
 			}
 		}(ctrlr)
 	}
 
+	// Start the endpoint that Prometheus scraper talks to
+	srv := &http.Server{Addr: metricsScrapeAddr}
+	http.Handle(metricsScrapePath, promhttp.Handler())
+	go func() {
+		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
+		if err := srv.ListenAndServe(); err != nil {
+			glog.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
+		}
+	}()
+
 	<-stopCh
+
+	// Close the http server gracefully
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
+
 	glog.Flush()
 }
 
