@@ -51,7 +51,7 @@ $ elafros deploy --service my-service
 * A new Revision is created, and automatically rolled out to 100% once
   ready
 
-![Automatic Rollout](auto_rollout.png)
+![Automatic Rollout](images/auto_rollout.png)
 
 
 After the initial Route and Configuration have been created (which is
@@ -247,7 +247,7 @@ $ elafros deploy --service my-service --region us-central1
 * The route begins serving traffic to the revision that was created by
   the configuration
 
-![Initial Creation](initial_creation.png)
+![Initial Creation](images/initial_creation.png)
 
 
 The previous example assumed an existing Route and Configuration to
@@ -471,7 +471,7 @@ current,next  100%     v3   2018-01-19 12:16    user1         64d79ce
   completing the rollout, the next revision is now the current
   revision
 
-![Manual rollout](manual_rollout.png)
+![Manual rollout](images/manual_rollout.png)
 
 
 In the previous examples, the route referenced a Configuration for
@@ -713,7 +713,7 @@ $ elafros deploy --service my-service
   build and a new revision based on the template, and can be rolled
   out per earlier examples
 
-![Build Example](build_example.png)
+![Build Example](images/build_example.png)
 
 
 Previous examples demonstrated configurations created with pre-built
@@ -863,7 +863,7 @@ $ elafros deploy --function index --service my-function
   based on the template build and spec which can be rolled out per
   previous examples
 
-![Build Function](build_function.png)
+![Build Function](images/build_function.png)
 
 
 Previous examples illustrated creating and deploying revisions in the
