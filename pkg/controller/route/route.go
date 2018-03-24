@@ -54,11 +54,6 @@ var (
 		Name:      "route_process_item_count",
 		Help:      "Counter to keep track of items in the route work queue",
 	}, []string{"status"})
-	routeSyncCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "elafros",
-		Name:      "route_sync_count",
-		Help:      "Counter to keep track of times of ",
-	}, []string{"times, status"})
 )
 
 const (
