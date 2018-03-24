@@ -17,6 +17,6 @@ infrastructure, it should be possible to build consistent toolkits
 that provide a richer experience than updating yaml files with
 `kubectl`.
 
-The Elafos APIs consist of Compute API (these documents),
+The Elafros APIs consist of Compute API (these documents),
 [Build API](https://github.com/elafros/build) and
 [Eventing API](https://github.com/elafros/eventing).

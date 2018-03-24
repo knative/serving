@@ -6,20 +6,14 @@ building from the smallest, most frequent operations.
 
 Examples in this section illustrate:
 
-* Creating a first route to deploy a first revision from a pre-built
-  container
-
-* Automatic and manual rollout options for deploying subsequent
-  revisions
-
-* Creating a revision from source
-
-* Creating a function
-
-Additional common scenarios, including rollback and listing resources,
-are shown in [Appendix A](additional_examples.md). More sophisticated
-rollout scenarios that the API may support, including n-way traffic
-splitting, are shown in [Appendix B](complex_examples.md).
+* [Automatic rollout of a new Revision to an existing Service with a
+  pre-built container](#1--automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
+* [Creating a first route to deploy a first revision from a pre-built
+  container](#2--creating-route-and-deploying-first-revision---pre-built-container)
+* [Configuration changes and manual rollout
+  options](#3--manual-rollout-of-a-new-revision---config-change-only)
+* [Creating a revision from source](#4--deploy-a-revision-from-source)
+* [Creating a function from source](#5--deploy-a-function)
 
 Note that these API operations are identical for both app and function
 based services. (to see the full resource definitions, see the
@@ -80,7 +74,7 @@ new container image, inheriting previous configuration from the
 configuration:
 
 ```http
-PATCH /apis/elafros.dev/namespaces/default/configurations/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -94,11 +88,11 @@ spec:
         image: gcr.io/...  # new image
 ```
 
-The update to the configuration triggers a new revision being created,
-and the configuration is updated to reflect the new revision:
+The update to the Configuration triggers a new revision being created,
+and the Configuration is updated to reflect the new Revision:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/configurations/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -122,7 +116,7 @@ new generation of the configuration (1235), indicating the provenance
 of the revision:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/revisions/def
+GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/def
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -159,7 +153,7 @@ to it. During reconciliation, traffic may be routed to both existing
 revision `abc` and new revision `def`:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -191,7 +185,7 @@ status:
 And once reconciled, revision def serves 100% of the traffic :
 
 ```http
-GET /apis/elafros.dev/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -275,7 +269,7 @@ The client creates the route and configuration, which by convention
 share the same name:
 
 ```http
-POST /apis/elafros.dev/namespaces/default/routes
+POST /apis/elafros.dev/v1alpha1/namespaces/default/routes
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -290,7 +284,7 @@ spec:
 ```
 
 ```http
-POST /apis/elafros.dev/namespaces/default/configurations
+POST /apis/elafros.dev/v1alpha1/namespaces/default/configurations
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -318,7 +312,7 @@ Revision, generating its name, and applying the spec and metadata from
 the configuration, as well as new metadata labels:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/revisions/abc
+GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -344,7 +338,7 @@ resources have been fully materialized, the configuration is updated
 with latestCreatedRevisionName:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/configurations/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -365,7 +359,7 @@ The configuration watches the revision, and when the revision is
 updated as Ready (to serve), the latestReadyRevisionName is updated:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/configurations/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -390,7 +384,7 @@ new revision `abc`, addressable as
 `my-service.default.mydomain.com`. Once reconciled:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -433,8 +427,8 @@ $ elafros deploy --service my-service --env HELLO="blurg"
 [...]
 
 $ elafros revisions list --service my-service
-Name    Traffic  Id   Date                Deployer     Git sha
-next     0%      v3   2018-01-19 12:16    user1        64d79ce
+Name    Traffic  Id   Date                Deployer     Git SHA
+next     0%      v3   2018-01-19 12:16    user1        a6f92d1
 current  100%    v2   2018-01-18 20:34    user1        a6f92d1
                  v1   2018-01-17 10:32    user1        33643fc
 
@@ -446,8 +440,8 @@ $ elafros rollout finish
 [...]
 
 $ elafros revisions list --service my-service
-Name          Traffic  Id   Date                Deployer      Git sha
-current,next  100%     v3   2018-01-19 12:16    user1         64d79ce
+Name          Traffic  Id   Date                Deployer      Git SHA
+current,next  100%     v3   2018-01-19 12:16    user1         a6f92d1
                        v2   2018-01-18 20:34    user1         a6f92d1
                        v1   2018-01-17 10:32    user1         33643fc
 ```
@@ -486,7 +480,7 @@ semi-automatic variation of manual rollouts).
 The client updates the route to pin the current revision:
 
 ```http
-PATCH /apis/elafros.dev/namespaces/default/routes/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -505,7 +499,7 @@ the creation of a new revision, in this case updating the container
 image but keeping the same config:
 
 ```http
-PATCH /apis/elafros.dev/namespaces/default/configurations/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -525,7 +519,7 @@ A new revision `ghi` is created that has the same code as the previous
 revision `def`, but different config:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/revisions/ghi
+GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/ghi
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -557,7 +551,7 @@ revision at 0% traffic but making it addressable through subdomain
 `next`:
 
 ```http
-PATCH /apis/elafros.dev/namespaces/default/routes/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -582,7 +576,7 @@ the names current/next have semantic meaning, they are convention
 only; blue/green, or any other subdomain names could be configured.
 
 ```http
-GET /apis/elafros.dev/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -613,7 +607,7 @@ After testing the new revision at
 totaling 100%):
 
 ```http
-PATCH /apis/elafros.dev/namespaces/default/routes/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -634,7 +628,7 @@ spec:
 After reconciliation, all traffic has been shifted to the new version:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -665,7 +659,7 @@ left addressing the same revision as current so that
 `next.my-service.default.mydomain.com` is always addressable.
 
 ```http
-PATCH /apis/elafros.dev/namespaces/default/routes/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -735,7 +729,7 @@ The client creates the configuration inlining a build spec for an
 archive based source build, and referencing a nodejs build template:
 
 ```http
-POST /apis/elafros.dev/namespaces/default/configurations
+POST /apis/elafros.dev/v1alpha1/namespaces/default/configurations
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -745,10 +739,10 @@ metadata:
 spec:
   build:  # build.dev/v1alpha1.BuildTemplateSpec
     source:
-      # oneof archive|manifest|repository:
-      archive:
+      # oneof git|gcs|custom:
+      git:
         url: https://...
-        sha: ...
+        commit: ...
     template:  # defines build template
       name: nodejs_8_9_4 # builder name
       namespace: build-templates
@@ -776,8 +770,9 @@ updating the `revisionTemplate.spec.container.image` at the completion
 of the build, an update to both source and config could result in the
 creation of two Revisions, one with the config change, and the other
 with the new code deployment. It is expected that Revision will wait
-for the `revisionTemplate.spec.container.image` to be live before
-marking the Revision as "ready".
+for the `buildName` to be complete and the
+`revisionTemplate.spec.container.image` to be live before marking the
+Revision as "ready".
 
 Upon creating/updating the configuration's build field, the system
 creates a new revision. The configuration controller will initiate a
@@ -787,7 +782,7 @@ controller observes through the build reference, the high-level state
 of the build is mirrored into conditions in the Revision’s status:
 
 ```http
-GET /apis/elafros.dev/namespaces/default/revisions/abc
+GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -885,7 +880,7 @@ not a core function of the compute API.
 Creating the configuration with build and function metadata:
 
 ```http
-POST /apis/elafros.dev/namespaces/default/configurations
+POST /apis/elafros.dev/v1alpha1/namespaces/default/configurations
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -895,10 +890,10 @@ metadata:
 spec:
   build:  # build.dev/v1alpha1.BuildTemplateSpec
     source:
-      # oneof archive|manifest|repository:
-      archive:
+      # oneof git|gcs|custom
+      git:
         url: https://...
-        sha: ...
+        commit: ...
     template:  # defines build template
       name: go_1_9_fn  # function builder
       namespace: build-templates

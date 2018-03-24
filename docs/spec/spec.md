@@ -78,9 +78,9 @@ status:
     percent: ...  # percentages add to 100. 0 is a valid list value
   - ...
 
-  conditions:
-  - type: RolloutInProgress
-    status: False
+  conditions:  # See also the [error conditions documentation](errors.md)
+  - type: RolloutComplete
+    status: True
   - type: TrafficDropped
     status: False
   - ...
@@ -150,10 +150,12 @@ spec:
       buildName: ...
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
-      container: 
+      container:
         # image either provided as pre-built container, or built by Elafros from
         # source. When built by elafros, set to the same as build template, e.g. 
-        # build.template.arguments[_IMAGE], as the "promise" of a future build
+        # build.template.arguments[_IMAGE], as the "promise" of a future build.
+		# If buildName is provided, it is expected that this image will be
+		# present when the referenced build is complete.
         image: gcr.io/...
         command: ['run']
         args: []
@@ -178,7 +180,7 @@ status:
   latestReadyRevisionName: abc
   # latest created revision, may still be in the process of being materialized
   latestCreatedRevisionName: def
-  conditions:
+  conditions:  # See also the [error conditions documentation](errors.md)
   - type: LatestRevisionReady
     status: False
     reason: ContainerMissing
@@ -233,7 +235,7 @@ status:
   # the provenance of the revision, from the container
   imageSource:
     archive|manifest|repository: ...
-  conditions:
+  conditions:  # See also the [error conditions documentation](errors.md)
    - type: Ready
      status: False
      message: "Starting Instances"

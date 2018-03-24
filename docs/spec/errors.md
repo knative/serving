@@ -41,7 +41,7 @@ from the `Ready` condition on the Revision.
 ...
 status:
   latestReadyRevisionName: abc
-  latestCreatedRevisionName: bcd  # Hasn't become became "Ready"
+  latestCreatedRevisionName: bcd  # Hasn't become "Ready"
   conditions:
   - type: LatestRevisionReady
     status: False
@@ -68,9 +68,7 @@ status:
   # Link to log stream; could be ELK or Stackdriver, for example
   buildLogsLink: "http://logging.infra.mycompany.com/...?filter=..."
   conditions:
-  - type: Complete
-    status: True
-  - type: BuildFailed
+  - type: Failed
     status: True
     reason: BuildStepFailed  # could also be SourceMissing, etc
     # reason is a short status, message provides error details
@@ -92,7 +90,7 @@ status:
   - type: BuildFailed
     status: True
     reason: BuildStepFailed
-    # reason is for machine consumption, message is for human consumption
+    # reason is a short status, message provides error details
     message: "Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
@@ -123,7 +121,7 @@ status:
   - type: TrafficDropped
     status: True
     reason: RevisionMissing
-    # reason is for machine consumption, message is for human consumption
+    # reason is a short status, message provides error details
     message: "Revision 'qyzz' referenced in rollout.traffic not found"
 ```
 
@@ -151,7 +149,7 @@ status:
   - type: TrafficDropped
     status: True
     reason: ConfigurationMissing
-    # reason is for machine consumption, message is for human consumption
+    # reason is a short status, message provides error details
     message: "Revision 'my-service' referenced in rollout.traffic not found"
 ```
 
@@ -175,6 +173,11 @@ spec:
   ...
 status:
   latestCreatedRevision: abc
+  conditions:
+  - type: LatestRevisionReady
+    status: False
+	reason: RevisionMissing
+	message: "The latest Revision appears to have been deleted."
   observedGeneration: 1234
 ```
 
@@ -254,7 +257,7 @@ status:
   - type: RolloutInProgress
     status: True
     reason: ProgressDeadlineExceeded
-    # reason is for machine consumption, message is for human consumption
+    # reason is a short status, message provides error details
     message: "Unable to update traffic split for more than 120 seconds."
 ```
 
@@ -282,6 +285,10 @@ status:
   conditions:
   - type: Ready
     status: False
+    reason: ContainerMissing
+    message: "Unable to fetch image 'gcr.io/...': <literal error>"
+  - type: Failed
+    status: True
     reason: ContainerMissing
     message: "Unable to fetch image 'gcr.io/...': <literal error>"
 ```

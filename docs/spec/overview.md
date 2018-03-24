@@ -19,12 +19,12 @@ provides a long-lived, stable, named, HTTP-addressable endpoint that
 is backed by one or more **Revisions**. The default configuration is
 for the route to automatically route traffic to the latest revision
 created by a **Configuration**. For more complex scenarios, the API
-supports splitting traffic based on a percentage basis, and CI tools
-could maintain multiple configurations for a single route
-(e.g. "golden path" and “experiments”) or reference multiple revisions
-directly to pin revisions during an incremental rollout and n-way
-traffic split. The route can optionally assign addressable subdomains
-to any or all backing revisions.
+supports splitting traffic on a percentage basis, and CI tools could
+maintain multiple configurations for a single route (e.g. "golden
+path" and “experiments”) or reference multiple revisions directly to
+pin revisions during an incremental rollout and n-way traffic
+split. The route can optionally assign addressable subdomains to any
+or all backing revisions.
 
 **Revision** is an immutable snapshot of code and configuration. A
 revision can be created from a pre-built container image or built from
@@ -52,15 +52,12 @@ Configuration provides:
 
 * a single referenceable resource for the route to perform automated
   rollouts
-
 * a single resource that can be watched to see a history of all the
   revisions created
-
 * (but doesn’t mandate) PATCH semantics for new revisions to be done
   on the server, minimizing read-modify-write implemented across
   multiple clients, which could result in optimistic concurrency
   errors
-
 * the ability to rollback to a known good configuration
 
 In the conventional single live revision scenario, a route has a
@@ -70,7 +67,6 @@ operations on the configuration enable scenarios such as:
 * *"Push code, keep config":* Specifying a new revision with updated
   source, inheriting configuration such as env vars from the
   configuration.
-
 * *"Update config, keep code"*: Specifying a new revision as just a
   change to configuration, such as updating an env variable,
   inheriting all other configuration and source/image.
