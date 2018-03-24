@@ -70,7 +70,7 @@ k8s_defaults(
 # We rewrite things in ./hack/update-deps.sh to use this version.
 go_repository(
     name = "io_k8s_code_generator",
-    tag = "kubernetes-1.10.0-rc.1",
+    commit = "0bb431833bd68f0e569ac8d4ed8f3f2472f8d044",
     importpath = "k8s.io/code-generator",
 )
 

@@ -37,7 +37,7 @@ sed -i 's|//vendor/k8s.io/code-generator/|@io_k8s_code_generator//|g' \
 
 # Fix up a case in k8s' client-go where non-testdata relies on files
 # in testdata (and so breaks after pruning).
-sed -i 's|.*".*dontUseThisKey.pem",||g' vendor/k8s.io/client-go/util/cert/BUILD
+sed -i 's|.*".*dontUseThisKey.pem",||g' vendor/k8s.io/client-go/util/cert/BUILD.bazel
 
 # Patch the Kubernetes client to fix panics in fake watches. This patch is from
 # https://github.com/kubernetes/kubernetes/pull/61195 and can be removed once
