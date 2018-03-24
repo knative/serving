@@ -1,30 +1,41 @@
 # Error Conditions and Reporting
 
-The standard kubernetes API pattern for reporting configuration errors
-and current state of the system is to use the status section to report
-the state of the system observed by the controller. There are two
-mechanisms commonly used in status:
+Elafros uses the standard Kubernetes API pattern for reporting
+configuration errors and current state of the system by writing the
+report in the `status` section. There are two mechanisms commonly used
+in status:
 
 * conditions represent true/false statements about the current state
   of the resource.
 
-* other fields may provide status on the most-recently retrieved state
-  of the world as it relates to the resource (example: number of
+* other fields may provide status on the most recently retrieved state
+  of the system as it relates to the resource (example: number of
   replicas or traffic assignments).
 
-Both of these mechanisms will often include additional data from the
+Both of these mechanisms often include additional data from the
 controller such as `observedGeneration` (to determine whether the
-controller has seen the latest updates to the spec). Below are some
-example error scenarios (either due to user or system error), along
-with how the status would be presented to CLI and UI tools via the
-API:
+controller has seen the latest updates to the spec). Example user and
+system error scenarios are included below along with how the status is
+presented to CLI and UI tools via the API.
+
+* [Revision failed to become Ready](#revision-failed-to-become-ready)
+* [Build failed](#build-failed)
+* [Revision not found by Route](#revision-not-found-by-route)
+* [Configuration not found by Route](#configuration-not-found-by-route)
+* [Latest Revision of a Configuration deleted](#latest-revision-of-a-configuration-deleted)
+* [Resource exhausted while creating a revision](#resource-exhausted-while-creating-a-revision)
+* [Deployment progressing slowly/stuck](#deployment-progressing-slowly-stuck)
+* [Traffic shift progressing slowly/stuck](#traffic-shift-progressing-slowly-stuck)
+* [Container image not present in repository](#container-image-not-present-in-repository)
+* [Container image fails at startup on Revision](#container-image-fails-at-startup-on-revision)
+
 
 ## Revision failed to become Ready
 
-If the latest Revision fails to become "Ready" within some reasonable
-timeframe (for whatever reason), the Configuration should signal this
-with the `LatestRevisionReady` status, copying the reason and message
-from the Ready condition on the Revision.
+If the latest Revision fails to become `Ready` for any reason within some reasonable
+timeframe, the Configuration should signal this
+with the `LatestRevisionReady` status, copying the reason and the message
+from the `Ready` condition on the Revision.
 
 ```yaml
 ...
@@ -41,12 +52,12 @@ status:
 
 ## Build failed
 
-If the Build steps failed while creating a Revision, this would be
-detectable by examining the Failed condition on the Build or the
-BuildFailed condition on the Revision (which copies the value from the
-build referenced by `spec.buildName`). In addition, the Build resource
-(but not the Revision) should have a status field to link to the log
-output of the build.
+If the Build steps failed while creating a Revision, you can examine
+the `Failed` condition on the Build or the `BuildFailed` condition on
+the Revision (which copies the value from the build referenced by
+`spec.buildName`). In addition, the Build resource (but not the
+Revision) should have a status field to link to the log output of the
+build.
 
 ```http
 GET /apis/build.dev/v1alpha1/namespaces/default/builds/build-1acub3
@@ -62,7 +73,7 @@ status:
   - type: BuildFailed
     status: True
     reason: BuildStepFailed  # could also be SourceMissing, etc
-    # reason is for machine consumption, message is for human consumption
+    # reason is a short status, message provides error details
     message: "Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
@@ -89,8 +100,8 @@ status:
 ## Revision not found by Route
 
 If a Revision is referenced in the Route's `spec.rollout.traffic`, the
-corresponding entry in the `status.traffic` list will be set to the name
-"Not found", and the `TrafficDropped` condition would be marked as True,
+corresponding entry in the `status.traffic` list will be set to "Not
+found", and the `TrafficDropped` condition will be marked as True,
 with a reason of `RevisionMissing`.
 
 ```http
@@ -121,8 +132,8 @@ status:
 
 If a Route references the `latestReadyRevisionName` of a Configuration
 and the Configuration cannot be found, the corresponding entry in
-`status.traffic` list will be set to the name "Not found", and the
-`TrafficDropped` condition would be marked as True with a reason of
+`status.traffic` list will be set to "Not found", and the
+`TrafficDropped` condition will be marked as True with a reason of
 `ConfigurationMissing`.
 
 ```http
@@ -149,7 +160,7 @@ status:
 
 If the most recent (or most recently ready) Revision is deleted, the
 Configuration will clear the `latestReadyRevisionName`. If the
-Configuration is referenced by a Route, then the Route will set the
+Configuration is referenced by a Route, the Route will set the
 `TrafficDropped` condition with reason `RevisionMissing`, as above.
 
 ```http
@@ -171,10 +182,10 @@ status:
 ## Resource exhausted while creating a revision
 
 Since a Revision is only metadata, the Revision will be created, but
-may have a condition indicating the underlying failure, possibly
-including the associated underlying resource. In a multitenant
-environment, the customer may not have have access or visibility into
-the underlying resources in the hosting environment.
+will have a condition indicating the underlying failure, possibly
+indicating the failed underlying resource. In a multitenant
+environment, the customer might not have have access or visibility
+into the underlying resources in the hosting environment.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -194,17 +205,17 @@ status:
 
 See
 [the kubernetes documentation for how this is handled for Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#failed-deployment). For
-Revisions, we would start by assuming a single timeout for deployment
+Revisions, we will start by assuming a single timeout for deployment
 (rather than configurable), and report that the Revision was not
-Ready, with a reason `ProgressDeadlineExceeded`. Note that we would only
-report `ProgressDeadlineExceeded` if we could not determine another
-reason (such as quota failures, missing build, or container execution
-failures).
+Ready, with a reason `ProgressDeadlineExceeded`. Note that we will
+only report `ProgressDeadlineExceeded` if we could not determine
+another reason (such as quota failures, missing build, or container
+execution failures).
 
 Kubernetes controllers will continue attempting to make progress
 (possibly at a less-aggressive rate) when they encounter a case where
 the desired status cannot match the actual status, so if the
-underlying deployment is slow, it may eventually finish after
+underlying deployment is slow, it might eventually finish after
 reporting `ProgressDeadlineExceeded`.
 
 ```http
@@ -224,9 +235,9 @@ status:
 ## Traffic shift progressing slowly/stuck
 
 Similar to deployment slowness, if the transfer of traffic (either via
-gradual rollout or knife-switch) takes longer than a certain timeout
-to complete/update, the `RolloutInProgress` condition would remain at
-true, but the reason would be set to `ProgressDeadlineExceeded`.
+gradual or abrupt rollout) takes longer than a certain timeout to
+complete/update, the `RolloutInProgress` condition will remain at
+True, but the reason will be set to `ProgressDeadlineExceeded`.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/abc
@@ -250,17 +261,17 @@ status:
 
 ## Container image not present in repository
 
-We expect that Revisions may be created while a Build is still
-creating the container image or uploading it to the repository. If the
-build is being performed by a CRD in the cluster, the spec.buildName
-attribute will be set (and see the "Build failed" example). In other
-cases when the build is not supplied, the container image referenced
-may not be present in the registry (either because of a typo or
-because it was deleted). In this case, the Ready condition will be set
-to False with a reason of ContainerMissing. This condition could be
-corrected if the image becomes available at a later time. We may also
-make a defensive copy of the container image (e.g. in Riptide) to
-avoid this error due to deleted source container.
+Revisions might be created while a Build is still creating the
+container image or uploading it to the repository. If the build is
+being performed by a CRD in the cluster, the spec.buildName attribute
+will be set (and see the [Build failed](#build-failed) example). In
+other cases when the build is not supplied, the container image
+referenced might not be present in the registry (either because of a
+typo or because it was deleted). In this case, the Ready condition
+will be set to False with a reason of ContainerMissing. This condition
+could be corrected if the image becomes available at a later time. We
+can also make a defensive copy of the container image to avoid this
+error due to deleted source container.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
