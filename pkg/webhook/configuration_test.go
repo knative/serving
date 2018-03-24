@@ -72,6 +72,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 }
 
 func TestEmptyContainerNotAllowed(t *testing.T) {
+
 	configuration := v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
@@ -89,6 +90,31 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerInRevisionTemplate {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
+	}
+}
+
+func TestServingStateNotAllowed(t *testing.T) {
+	container := corev1.Container {
+		Name: "test",
+	}
+	configuration := v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testConfigurationName,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: testGeneration,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					ServingState: "ACTIVE",
+					Container: &container,
+				},
+			},
+		},
+	}
+	expected := fmt.Sprintf("The configuration spec must not set the field(s) revisionTemplate.spec.servingState")
+	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 }
 
