@@ -37,6 +37,9 @@ specific fields.
 
 ## Route
 
+For a high-level description of Routes,
+[see the overview](overview.md#route).
+
 ```yaml
 apiVersion: elafros.dev/v1alpha1
 kind: Route
@@ -91,6 +94,10 @@ status:
 
 ## Configuration
 
+For a high-level description of Configurations,
+[see the overview](overview.md#configuration).
+
+
 ```yaml
 apiVersion: elafros.dev/v1alpha1
 kind: Configuration
@@ -114,7 +121,7 @@ spec:
       # +optional.
       git:
         url: https://github.com/jrandom/myrepo
-		commit: deadbeef  # Or branch, tag, ref
+        commit: deadbeef  # Or branch, tag, ref
 
       # +optional. A zip archive or a manifest file in Google Cloud
       # Storage. A manifest file is a file containing a list of file
@@ -126,7 +133,7 @@ spec:
 
       # +optional. Custom specifies a container which will be run as
       # the first build step to fetch the source.
-	  custom:  # is a core.v1.Container
+      custom:  # is a core.v1.Container
         image: gcr.io/cloud-builders/git:latest
         args: [ "clone", "https://...", "other-place" ]
 
@@ -154,8 +161,8 @@ spec:
         # image either provided as pre-built container, or built by Elafros from
         # source. When built by elafros, set to the same as build template, e.g. 
         # build.template.arguments[_IMAGE], as the "promise" of a future build.
-		# If buildName is provided, it is expected that this image will be
-		# present when the referenced build is complete.
+        # If buildName is provided, it is expected that this image will be
+        # present when the referenced build is complete.
         image: gcr.io/...
         command: ['run']
         args: []
@@ -190,6 +197,9 @@ status:
 
 
 ## Revision
+
+For a high-level description of Revisions,
+[see the overview](overview.md#revision).
 
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -231,11 +241,12 @@ spec:
   serviceAccountName: ...  # Name of the service account the code should run as.
   ... 
 status:
-  # This is a copy of metadata from the container image or grafeas, indicating
-  # the provenance of the revision, from the container
+  # This is a copy of metadata from the container image or grafeas,
+  # indicating the provenance of the revision. This is based on the
+  # container image, but may need further clarification.  
   imageSource:
-    archive|manifest|repository: ...
-  conditions:  # See also the [error conditions documentation](errors.md)
+    git|gcs: ...
+  conditions:  # See also the documentation in errors.md
    - type: Ready
      status: False
      message: "Starting Instances"

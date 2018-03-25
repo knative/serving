@@ -176,8 +176,8 @@ status:
   conditions:
   - type: LatestRevisionReady
     status: False
-	reason: RevisionMissing
-	message: "The latest Revision appears to have been deleted."
+    reason: RevisionMissing
+    message: "The latest Revision appears to have been deleted."
   observedGeneration: 1234
 ```
 
