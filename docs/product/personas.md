@@ -1,7 +1,7 @@
 # Elafros Personas
 
 When discussing user actions, it is often helpful to [define specific
-user roles](http://www.agilemodeling.com/artifacts/personas.htm) who
+user roles](https://en.wikipedia.org/wiki/Persona_(user_experience)) who
 might want to do the action.
 
 
@@ -93,3 +93,4 @@ User stories:
 * Run tests
 * View test status
 * Run performance tests
+
