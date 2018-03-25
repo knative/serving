@@ -26,6 +26,8 @@ pin revisions during an incremental rollout and n-way traffic
 split. The route can optionally assign addressable subdomains to any
 or all backing revisions.
 
+## Revision
+
 **Revision** is an immutable snapshot of code and configuration. A
 revision can be created from a pre-built container image or built from
 source. While there is a history of previous revisions, only those
@@ -33,6 +35,8 @@ currently referenced by a Route are addressable or routable. Older
 inactive revisions need not be backed by underlying resources, they
 exist only as the revision metadata in storage. Revisions are created
 by updates to a **Configuration**.
+
+## Configuration
 
 A **Configuration** describes the desired latest Revision state, and
 creates and tracks the status of Revisions as the desired state is
@@ -45,6 +49,9 @@ and/or deployment (creating a Revision) may be performed; the
 Configuration's controller will track the status of created Revisions
 and makes both the most recently created and most recently *ready*
 (i.e. healthy) Revision available in the status section.
+
+
+# Orchestration
 
 The system will be configured to not allow customer mutations to
 Revisions. Instead, the creation of immutable Revisions through a
