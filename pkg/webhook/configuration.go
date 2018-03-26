@@ -32,7 +32,7 @@ func errMissingField(fieldPath string) error {
 }
 
 func errDisallowedFields(fieldPaths string) error {
-	return fmt.Errorf("The configuration spec must not set the field(s) %s", fieldPaths)
+	return fmt.Errorf("The configuration spec must not set the field(s): %s", fieldPaths)
 }
 
 var (

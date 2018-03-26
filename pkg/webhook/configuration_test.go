@@ -105,15 +105,15 @@ func TestServingStateNotAllowed(t *testing.T) {
 			Generation: testGeneration,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					ServingState: "ACTIVE",
+					ServingState: v1alpha1.RevisionServingStateActive,
 					Container: &container,
 				},
 			},
 		},
 	}
-	expected := fmt.Sprintf("The configuration spec must not set the field(s) revisionTemplate.spec.servingState")
+	expected := fmt.Sprintf("The configuration spec must not set the field(s): revisionTemplate.spec.servingState")
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
-		t.Fatalf("Expected: %s. Failed with %s", expected, err)
+		t.Fatalf("Result of ValidateConfiguration function: %s. Expected: %s.", err, expected)
 	}
 }
 
@@ -154,17 +154,17 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 		"revisionTemplate.spec.container.ports",
 		"revisionTemplate.spec.container.volumeMounts",
 	}
-	expected := fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted, ", "))
+	expected := fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted, ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	container.Name = ""
-	expected = fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted[1:], ", "))
+	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[1:], ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	container.Resources = corev1.ResourceRequirements{}
-	expected = fmt.Sprintf("The configuration spec must not set the field(s) %s", strings.Join(unwanted[2:], ", "))
+	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[2:], ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
