@@ -739,7 +739,7 @@ func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route) error {
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
 		glog.Errorf("Failed to create resource client")
-		return fmt.Errorf("Couldn't get a routeClient")
+		return errors.New("Couldn't get a routeClient")
 	}
 
 	routeRuleList, err := routeClient.List(metav1.ListOptions{})
@@ -747,22 +747,24 @@ func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route) error {
 		return err
 	}
 
-	routeRuleNames := map[string]bool{}
-	routeRuleNames[controller.GetRouteRuleName(u, nil)] = true
+	routeRuleNames := map[string]struct{}{}
+	routeRuleNames[controller.GetRouteRuleName(u, nil)] = struct{}{}
 	for _, tt := range u.Spec.Traffic {
 		if tt.Name == "" {
 			continue
 		}
-		routeRuleNames[controller.GetRouteRuleName(u, &tt)] = true
+		routeRuleNames[controller.GetRouteRuleName(u, &tt)] = struct{}{}
 	}
 
 	for _, r := range routeRuleList.Items {
-		if routeRuleNames[r.Name] == true {
+		if _, ok := routeRuleNames[r.Name]; ok {
 			continue
 		}
 		glog.Info("Deleting outdated route: %s", r.Name)
 		if err := routeClient.Delete(r.Name, nil); err != nil {
-			return err
+			if !apierrs.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 	return nil
