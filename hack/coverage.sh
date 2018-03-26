@@ -14,17 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -o errexit
 
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
 
 cd ${SCRIPT_ROOT}/pkg
 
-# Run go test on current directory and sub-directories recursively and store the
-# test profile as txt
+# Generate the coverage profile for all tests, and store it in the GCS bucket.
 # TODO(steuhs): get PR number and use that as the file name
 go test ./... -coverprofile coverage_profile.txt
-
-# Upload the profile, which will be served as the input of the Test Coverage 
-# App, to GCS bucket 
 gsutil cp coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/
