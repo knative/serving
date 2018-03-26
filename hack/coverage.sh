@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 # Copyright 2018 Google, Inc. All rights reserved.
 #
@@ -13,10 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+set -e
+
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
 
 cd ${SCRIPT_ROOT}/pkg
 
+# Run go test on current directory and sub-directories recursively and store the
+# test profile as txt
 # TODO(steuhs): get PR number and use that as the file name
 go test ./... -coverprofile coverage_profile.txt
+
+# Upload the profile, which will be served as the input of the Test Coverage 
+# App, to GCS bucket 
 gsutil cp coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/
