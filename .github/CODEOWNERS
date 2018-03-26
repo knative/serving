@@ -18,7 +18,7 @@
 /docs/ @elafros/elafros-writers @google/elafros-readers
 
 # Tests.
-/test/ @adrcunha @srinivashegde86 @steuhs
+/test/ @adrcunha @srinivashegde86 @steuhs @bobcatfish
 /test/conformance/ @bobcatfish @adrcunha
 
 ### To request CODEOWNERS on a subdirectory, propose it above
