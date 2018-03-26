@@ -643,14 +643,13 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
-	_, err := dc.Get(deploymentName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
+	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
 
 	log.Printf("Deleting Deployment %q", deploymentName)
 	tmp := metav1.DeletePropagationForeground
-	err = dc.Delete(deploymentName, &metav1.DeleteOptions{
+	err := dc.Delete(deploymentName, &metav1.DeleteOptions{
 		PropagationPolicy: &tmp,
 	})
 	if err != nil && !apierrs.IsNotFound(err) {
@@ -664,11 +663,10 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
 	// https://kubernetes.io/docs/reference/workloads-18-19.
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
-
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
-	_, err := dc.Get(deploymentName, metav1.GetOptions{})
-	if err != nil {
+
+	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			log.Printf("deployments.Get for %q failed: %s", deploymentName, err)
 			return err
@@ -712,8 +710,8 @@ func (c *Controller) deleteService(rev *v1alpha1.Revision, ns string) error {
 func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string, error) {
 	sc := c.kubeclientset.Core().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
-	_, err := sc.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
+
+	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			log.Printf("services.Get for %q failed: %s", serviceName, err)
 			return "", err
@@ -730,20 +728,19 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 	service := MakeRevisionK8sService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating service: %q", service.Name)
-	_, err = sc.Create(service)
+	_, err := sc.Create(service)
 	return serviceName, err
 }
 
 func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	sc := c.kubeclientset.Core().Services(ns)
-	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
+	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
 	log.Printf("Deleting autoscaler Service %q", autoscalerName)
 	tmp := metav1.DeletePropagationForeground
-	err = sc.Delete(autoscalerName, &metav1.DeleteOptions{
+	err := sc.Delete(autoscalerName, &metav1.DeleteOptions{
 		PropagationPolicy: &tmp,
 	})
 	if err != nil && !apierrs.IsNotFound(err) {

@@ -319,26 +319,26 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
 	glog.Infof("Creating/Updating placeholder k8s services")
-	err = c.reconcilePlaceholderService(route)
-	if err != nil {
+
+	if err = c.reconcilePlaceholderService(route); err != nil {
 		return err
 	}
 
 	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
-	_, err = c.syncTrafficTargetsAndUpdateRouteStatus(route)
-	if err != nil {
+
+	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(route); err != nil {
 		return err
 	}
 
 	// Then create the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	if err = c.reconcileIngress(route); err != nil && !apierrs.IsAlreadyExists(err) {
+	if err = c.reconcileIngress(route); err != nil {
 		glog.Infof("Failed to create ingress rule: %s", err)
 		return err
 	}
 
-	return err
+	return nil
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
@@ -629,7 +629,6 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 	} else {
 		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route))
-		_, err = routeClient.Update(routeRules)
 		if _, err := routeClient.Update(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -810,8 +809,8 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		Type:   v1alpha1.RouteConditionReady,
 		Status: corev1.ConditionTrue,
 	})
-	_, err = routeClient.Update(route)
-	if err != nil {
+
+	if _, err = routeClient.Update(route); err != nil {
 		glog.Errorf("Error updating readiness of route '%s/%s' upon ingress becoming: %v",
 			ns, routeName, err)
 		return
