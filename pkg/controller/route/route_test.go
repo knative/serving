@@ -25,6 +25,7 @@ package route
 */
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -273,7 +274,9 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 			Request: v1alpha2.MatchRequest{
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
-						Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, controller.controllerConfig.DomainSuffix}, "."),
+						),
 					},
 				},
 			},
@@ -345,7 +348,9 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			Request: v1alpha2.MatchRequest{
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
-						Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, controller.controllerConfig.DomainSuffix}, "."),
+						),
 					},
 				},
 			},
@@ -444,7 +449,9 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Request: v1alpha2.MatchRequest{
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
-						Regex: fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix),
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, controller.controllerConfig.DomainSuffix}, "."),
+						),
 					},
 				},
 			},
@@ -542,7 +549,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Request: v1alpha2.MatchRequest{
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
-						Regex: domain,
+						Regex: regexp.QuoteMeta(domain),
 					},
 				},
 			},
@@ -574,7 +581,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Request: v1alpha2.MatchRequest{
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
-						Regex: fmt.Sprintf("foo.%s", domain),
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{"foo", domain}, "."),
+						),
 					},
 				},
 			},
@@ -600,7 +609,9 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Request: v1alpha2.MatchRequest{
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
-						Regex: fmt.Sprintf("bar.%s", domain),
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{"bar", domain}, "."),
+						),
 					},
 				},
 			},
