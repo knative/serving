@@ -148,6 +148,7 @@ func statReporter() {
 func concurrencyCounter() {
 	var requestCount int32 = 0
 	var concurrentCount int32 = 0
+	var bucketedRequestCount int32 = 0
 	buckets := make([]int32, 0)
 	bucketTicker := time.NewTicker(100 * time.Millisecond).C
 	reportTicker := time.NewTicker(time.Second).C
@@ -160,6 +161,10 @@ func concurrencyCounter() {
 			// Calculate average concurrency for the current
 			// 100 ms bucket.
 			buckets = append(buckets, concurrentCount)
+			// Count the number of requests during bucketed
+			// period
+			bucketedRequestCount = bucketedRequestCount + requestCount
+			requestCount = 0
 			// Drain the request out channel only after the
 			// bucket statistic has been recorded.  This
 			// ensures that very fast requests are not missed
@@ -188,13 +193,13 @@ func concurrencyCounter() {
 				Time:                      &now,
 				PodName:                   podName,
 				AverageConcurrentRequests: total / count,
-				TotalRequestsThisPeriod:   requestCount,
+				RequestCount:              bucketedRequestCount,
 			}
 			// Send the stat to another process to transmit
 			// so we can continue bucketing stats.
 			statChan <- stat
 			// Reset the stat counts which have been reported.
-			requestCount = 0
+			bucketedRequestCount = 0
 			buckets = make([]int32, 0)
 		}
 	}

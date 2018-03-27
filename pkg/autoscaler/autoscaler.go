@@ -34,7 +34,7 @@ type Stat struct {
 	AverageConcurrentRequests float64
 
 	// Number of requests received since last Stat (approximately QPS).
-	TotalRequestsThisPeriod int32
+	RequestCount int32
 }
 
 type statKey struct {
@@ -125,7 +125,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	totalCurrentQps := int32(0)
 	totalCurrentConcurrency := float64(0)
 	for _, stat := range lastStat {
-		totalCurrentQps = totalCurrentQps + stat.TotalRequestsThisPeriod
+		totalCurrentQps = totalCurrentQps + stat.RequestCount
 		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
 	}
 	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQps, totalCurrentConcurrency)
