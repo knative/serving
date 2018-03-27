@@ -39,7 +39,7 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength   = 10
-	requestCountingQueueLength = 10
+	requestCountingQueueLength = 100
 )
 
 var (
