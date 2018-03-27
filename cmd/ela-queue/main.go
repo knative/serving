@@ -201,13 +201,13 @@ func concurrencyCounter() {
 	}
 }
 
+var poke struct{}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	var poke struct{}
 	reqInChan <- poke
 	defer func() {
 		reqOutChan <- poke
 	}()
-	glog.Infof("Forwarding a request to the app container at %v", time.Now().String())
 	proxy.ServeHTTP(w, r)
 }
 
