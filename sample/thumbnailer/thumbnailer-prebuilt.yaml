@@ -18,7 +18,6 @@ metadata:
   name: thumb
   namespace: default
 spec:
-  domainSuffix: thumb.googlecustomer.net
   traffic:
   - configurationName: thumbtemplate
     percent: 100
@@ -29,10 +28,12 @@ metadata:
   name: thumbtemplate
   namespace: default
 spec:
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: app
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: docker.io/mchmarny/rester-tester:latest
         env:
           - name: TARGET

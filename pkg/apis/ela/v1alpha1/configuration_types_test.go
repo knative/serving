@@ -187,3 +187,71 @@ func TestConfigurationConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }
+
+func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
+	cases := []struct {
+		name           string
+		status         ConfigurationStatus
+		isUpdateToDate bool
+	}{
+		{
+			name: "Not ready status should not be up-to-date",
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
+					{
+						Type:   ConfigurationConditionReady,
+						Status: corev1.ConditionFalse,
+					},
+				},
+			},
+			isUpdateToDate: false,
+		},
+		{
+			name: "Missing LatestReadyRevisionName should not be up-to-date",
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
+					{
+						Type:   ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+				LatestCreatedRevisionName: "rev-1",
+			},
+			isUpdateToDate: false,
+		},
+		{
+			name: "Different revision names should not be up-to-date",
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
+					{
+						Type:   ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+				LatestCreatedRevisionName: "rev-2",
+				LatestReadyRevisionName:   "rev-1",
+			},
+			isUpdateToDate: false,
+		},
+		{
+			name: "Same revision names and ready status should be up-to-date",
+			status: ConfigurationStatus{
+				Conditions: []ConfigurationCondition{
+					{
+						Type:   ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+				LatestCreatedRevisionName: "rev-1",
+				LatestReadyRevisionName:   "rev-1",
+			},
+			isUpdateToDate: true,
+		},
+	}
+
+	for _, tc := range cases {
+		if e, a := tc.isUpdateToDate, tc.status.IsLatestReadyRevisionNameUpToDate(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}

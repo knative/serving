@@ -24,10 +24,11 @@ import (
 )
 
 var (
-	errInvalidRevisions        = errors.New("The route must have exactly one of revision or configuration in traffic field.")
+	errInvalidRevisions        = errors.New("The route must have exactly one of revisionName or configurationName in traffic field.")
 	errInvalidRouteInput       = errors.New("Failed to convert input into Route.")
 	errInvalidTargetPercentSum = errors.New("The route must have traffic percent sum equal to 100.")
 	errNegativeTargetPercent   = errors.New("The route cannot have a negative traffic percent.")
+	errTrafficTargetsNotUnique = errors.New("The traffic targets must be unique.")
 )
 
 // ValidateRoute is Route resource specific validation and mutation handler
@@ -48,6 +49,9 @@ func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new 
 	glog.Infof("ValidateRoute: NEW Route is\n%+v", newRoute)
 
 	if err := validateTrafficTarget(newRoute); err != nil {
+		return err
+	}
+	if err := validateUniqueTrafficTarget(newRoute); err != nil {
 		return err
 	}
 
@@ -77,6 +81,35 @@ func validateTrafficTarget(route *v1alpha1.Route) error {
 
 	if percentSum != 100 {
 		return errInvalidTargetPercentSum
+	}
+	return nil
+}
+
+func validateUniqueTrafficTarget(route *v1alpha1.Route) error {
+	if route.Spec.Traffic == nil {
+		return nil
+	}
+
+	type tt struct {
+		revision      string
+		configuration string
+	}
+	trafficMap := make(map[string]tt)
+	for _, trafficTarget := range route.Spec.Traffic {
+		if trafficTarget.Name == "" {
+			continue
+		}
+
+		traffic := tt{
+			revision:      trafficTarget.RevisionName,
+			configuration: trafficTarget.ConfigurationName,
+		}
+
+		if _, ok := trafficMap[trafficTarget.Name]; !ok {
+			trafficMap[trafficTarget.Name] = traffic
+		} else if trafficMap[trafficTarget.Name] != traffic {
+			return errTrafficTargetsNotUnique
+		}
 	}
 	return nil
 }

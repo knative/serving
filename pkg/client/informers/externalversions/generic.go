@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	v1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 	ela_v1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	v1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

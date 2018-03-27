@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,28 +17,33 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
+
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
 	v1beta1 "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeRouteIngress creates an ingress rule. This ingress rule targets
-// Istio by using the simple placeholder service name. All the routing actually
-// happens in the route rules.
-func MakeRouteIngress(u *v1alpha1.Route, namespace string) *v1beta1.Ingress {
+// MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
+// targets Istio by using the simple placeholder service name. All the routing actually happens in
+// the route rules.
+func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 	// We used to have a distinct service, but in the ela world, use the
 	// name for serviceID too.
 
-	// Construct a hostname that the ingress accepts traffic for.
-	hostRule := u.Spec.DomainSuffix
+	// Construct hostnames the ingress accepts traffic for.
+	hostRules := []string{
+		route.Status.Domain,
+		fmt.Sprintf("*.%s", route.Status.Domain),
+	}
 
 	// By default we map to the placeholder service directly.
 	// This would point to 'router' component if we wanted to use
 	// this method for 0->1 case.
-	serviceName := controller.GetElaK8SServiceName(u)
+	serviceName := controller.GetElaK8SServiceName(route)
 
 	path := v1beta1.HTTPIngressPath{
 		Backend: v1beta1.IngressBackend{
@@ -46,22 +51,29 @@ func MakeRouteIngress(u *v1alpha1.Route, namespace string) *v1beta1.Ingress {
 			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 		},
 	}
-	rules := []v1beta1.IngressRule{v1beta1.IngressRule{
-		Host: hostRule,
-		IngressRuleValue: v1beta1.IngressRuleValue{
-			HTTP: &v1beta1.HTTPIngressRuleValue{
-				Paths: []v1beta1.HTTPIngressPath{path},
+
+	rules := []v1beta1.IngressRule{}
+	for _, hostRule := range hostRules {
+		rule := v1beta1.IngressRule{
+			Host: hostRule,
+			IngressRuleValue: v1beta1.IngressRuleValue{
+				HTTP: &v1beta1.HTTPIngressRuleValue{
+					Paths: []v1beta1.HTTPIngressPath{path},
+				},
 			},
-		},
-	},
+		}
+		rules = append(rules, rule)
 	}
 
 	return &v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetElaK8SIngressName(u),
-			Namespace: namespace,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      controller.GetElaK8SIngressName(route),
+			Namespace: route.Namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "istio",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(route, controllerKind),
 			},
 		},
 		Spec: v1beta1.IngressSpec{

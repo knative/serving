@@ -3,12 +3,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     testonly = True,
-    srcs = ["hooks.go"],
+    srcs = [
+        "hooks.go",
+        "util.go",
+    ],
     importpath = "github.com/elafros/elafros/pkg/controller/testing",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
 

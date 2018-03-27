@@ -1,37 +1,73 @@
-# Collecting and generating telemetry
+# Logs and metrics
 
-Deploy Prometheus, service monitors and Grafana:
+First, deploy monitoring components. You can use two different setups:
+1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
 ```shell
-bazel run config/prometheus:everything.create
-bazel run config/grafana:everything.create
+bazel run config/monitoring:everything.apply
 ```
 
-To see pre-installed dashboards, you have two options:
-1. Forward the Grafana server to your machine:
+2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+```shell
+bazel run config/monitoring:everything-dev.apply
+```
+
+## Accessing logs
+Run,
+
+```shell
+kubectl proxy
+```
+Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
+(*it might take a couple of minutes for the proxy to work*).
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
+new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+## Accessing metrics
+
+Run:
 
 ```shell
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then browse to localhost:3000
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000)
 
-2. Deploy grafana-public and open a public IP for the Grafana endpoint:
+## Accessing per request traces
+First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.
+
+Next, start the proxy if it is not already running:
 
 ```shell
-bazel run config/grafana:everything-public.create
-
-# Wait for the load balancer IP creation to finish and get the IP address once done:
-kubectl get service -n monitoring grafana-public -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
+kubectl proxy
 ```
 
-Then browse to <IP_ADDRESS>:30802.
+Then open Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application within this UI. Click on a trace to see a detailed view of a specific call.
 
-**Above installs Grafana with a hard coded admin username (_admin_) and password (_admin_) 
-and exposes it on a public IP. This should only be done in a development environment with no sensitive data.**
+To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it and explore the traces it generates from Zipkin UI.
 
-## Troubleshooting
+## Default metrics
+Following metrics are collected by default:
+* Elafros controller metrics
+* Istio metrics (mixer, envoy and pilot)
+* Node and pod metrics
 
-You can use Prometheus web UI to troubleshoot publishing and service discovery issues. 
+There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy them using kubectl apply -f.
+
+## Default logs
+Deployment above enables collection of the following logs:
+* stdout & stderr from all ela-container
+* stdout & stderr from build-controller
+
+To enable log collection from other containers and destinations, edit fluentd-es-configmap.yaml (search for "fluentd-containers.log" for the starting point). Then run the following:
+```shell
+kubectl replace -f config/monitoring/fluentd/fluentd-es-configmap.yaml
+kubectl replace -f config/monitoring/fluentd/fluentd-es-ds.yaml
+```
+
+Note: We will enable a plugin mechanism to define other logs to collect and this step is a workaround until then.
+
+## Metrics troubleshooting
+You can use Prometheus web UI to troubleshoot publishing and service discovery issues for metrics.
 To access to the web UI, forward the Prometheus server to your machine:
 
 ```shell
@@ -44,25 +80,25 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-See [Telemetry Sample](../sample/telemetrysample/README.md) for deploying a dedicated instance of Prometheus 
+See [Telemetry Sample](../sample/telemetrysample/README.md) for deploying a dedicated instance of Prometheus
 and emitting metrics to it.
 
-If you want to generate metrics within Elafros services and send them to shared instance of Prometheus, 
+If you want to generate metrics within Elafros services and send them to shared instance of Prometheus,
 follow the steps below. We will create a counter metric below:
-1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/) 
-and read [Data model](https://prometheus.io/docs/concepts/data_model/) and 
+1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
+and read [Data model](https://prometheus.io/docs/concepts/data_model/) and
 [Metric types](https://prometheus.io/docs/concepts/metric_types/) sections.
 2. Create a top level variable in your go file and initialize it in init() - example:
 
 ```go
     import "github.com/prometheus/client_golang/prometheus"
-    
+
     var myCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
         Namespace: "elafros",
         Name:      "mycomponent_something_count",
         Help:      "Counter to keep track of something in my component",
     }, []string{"status"})
-    
+
     func init() {
         prometheus.MustRegister(myCounter)
     }
@@ -77,13 +113,13 @@ and read [Data model](https://prometheus.io/docs/concepts/data_model/) and
         myCounter.With(prometheus.Labels{"status": "failure"}).Inc()
     }
 ```
-4. Start an http listener to serve as the metrics endpoint for Prometheus scraping (_this step and onwards are needed 
+4. Start an http listener to serve as the metrics endpoint for Prometheus scraping (_this step and onwards are needed
 only once in a service. ela-controller is already setup for metrics scraping and you can skip rest of these steps
 if you are targeting ela-controller_):
 
 ```go
     import "github.com/prometheus/client_golang/prometheus/promhttp"
-    
+
     // In your main() func
     srv := &http.Server{Addr: ":9090"}
     http.Handle("/metrics", promhttp.Handler())
@@ -134,7 +170,7 @@ metadata:
   namespace: monitoring
   labels:
     monitor-category: ela-system # Shared Prometheus instance only targets 'k8s', 'istio', 'node',
-                                 # 'prometheus' or 'ela-system' - if you pick something else, 
+                                 # 'prometheus' or 'ela-system' - if you pick something else,
                                  # you need to deploy your own Prometheus instance or edit shared
                                  # instance to target the new category
 spec:
@@ -150,13 +186,26 @@ spec:
     interval: 30s
 ```
 
-7. Add a dashboard for your metrics - you can see examples of it under 
-config/grafana/dashboard-definition folder. An easy way to generate JSON 
-definitions is to use Grafana UI (make sure to login with as admin user) and export JSON from it.
+7. Add a dashboard for your metrics - you can see examples of it under
+config/grafana/dashboard-definition folder. An easy way to generate JSON
+definitions is to use Grafana UI (make sure to login with as admin user) and [export JSON](http://docs.grafana.org/reference/export_import) from it.
 
 8. Add the YAML files to BUILD files.
 
 9. Deploy changes with bazel.
 
-10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section 
+10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
 above to enable Prometheus UI)
+
+## Generating logs
+Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec, add the following args to redirect the logs to stderr:
+```yaml
+args:
+- "-logtostderr=true"
+- "-stderrthreshold=INFO"
+```
+
+See [helloworld](../sample/helloworld/README.md) sample's configuration file as an example.
+
+## Distributed tracing with Zipkin
+Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.

@@ -10,6 +10,11 @@ gazelle(
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
+    name = "elaconfig",
+    template = "elaconfig.yaml",
+)
+
+k8s_object(
     name = "controller",
     images = {
         "ela-controller:latest": "//cmd/ela-controller:image",
@@ -62,6 +67,11 @@ k8s_object(
     template = "revision.yaml",
 )
 
+k8s_object(
+    name = "controllerservice",
+    template = "controller-service.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -88,7 +98,9 @@ k8s_objects(
         ":namespace",
         ":authz",
         ":crds",
+        ":elaconfig",
         ":controller",
+        ":controllerservice",
         ":webhook",
         ":elawebhookservice",
     ],

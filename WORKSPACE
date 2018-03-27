@@ -23,8 +23,8 @@ go_register_toolchains()
 # Pull in rules_docker
 git_repository(
     name = "io_bazel_rules_docker",
-    # HEAD as of 2018-02-13
-    commit = "c7f9eaa63bc3a31acab5e399c72b4e5228ab5ad7",
+    # HEAD as of 2018-03-09
+    commit = "483759bba7be220a1014e7ba1cf989f052fefa2c",
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
@@ -46,8 +46,8 @@ _go_image_repos()
 # Pull in rules_k8s
 git_repository(
     name = "io_bazel_rules_k8s",
-    # HEAD as of 2018-02-09
-    commit = "761ba3bdf864f85cae7d3e65b045197ad208e1a0",
+    # HEAD as of 2018-03-09
+    commit = "4348f8e28b70cf3aff7ca8e008e8dc7ac49bad92",
     remote = "https://github.com/bazelbuild/rules_k8s",
 )
 
@@ -66,6 +66,7 @@ k8s_defaults(
     image_chroot = _REPOSITORY,
 )
 
+# We rewrite things in ./hack/update-deps.sh to use this version.
 go_repository(
     name = "io_k8s_code_generator",
     commit = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c",
@@ -85,12 +86,12 @@ go_repository(
 )
 
 # Istio
-ISTIO_RELEASE = "0.5.1"
+ISTIO_RELEASE = "0.6.0"
 
 new_http_archive(
     name = "istio_release",
     build_file = "BUILD.istio",
-    sha256 = "f811d29df1b14f71f9e4c14622c949f8b7a1a049ca970e62811933e37a128727",
+    sha256 = "fa9bc2c6a197096812b6f4a5a284d13b38bbdba4ee1fc6586a60c9a63337b4d8",
     strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
     type = "tar.gz",
     url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
@@ -105,7 +106,7 @@ load(
 
 private_git_repository(
     name = "buildcrd",
-    commit = "f414c7d6f6710598e7b186bf244ce81b2b339df2",
+    commit = "098d36d81cf77ffd77d3743f514f0425b29c9597",
     remote = "git@github.com:elafros/build.git",
 )
 
@@ -119,3 +120,7 @@ private_git_repository(
 load("@buildcrd//:deps.bzl", "repositories")
 
 repositories()
+
+load(":ca_bundle.bzl", "cluster_ca_bundle")
+
+cluster_ca_bundle(name = "cluster_ca_bundle")

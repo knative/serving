@@ -1,0 +1,7 @@
+genrule(
+    name = "gen-ca-bundle",
+    srcs = ["client-ca-file"],
+    outs = ["ca-bundle"],
+    cmd = "base64 <$< | tr -d '\n' >$@",
+    visibility = ["//visibility:public"],
+)

@@ -18,13 +18,17 @@ bazel run sample/autoscale:everything.create
 Export your Ingress IP as SERVICE_IP.
 
 ```shell
+# Put the Ingress Host name into an environment variable.
+export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
+
+# Put the Ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 Request the largest prime less than 40,000,000 from the autoscale app.  Note that it consumes about 1 cpu/sec.
 
 ```shell
-time curl --header 'Host:autoscale.myhost.net' http://${SERVICE_IP?}/primes/40000000
+time curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP?}/primes/40000000
 ```
 
 ## Running
@@ -35,7 +39,7 @@ Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
 kubectl delete namespace hey --ignore-not-found && kubectl create namespace hey
 for i in `seq 2 2 60`; do
   kubectl -n hey run hey-$i --image josephburnett/hey --restart Never -- \
-    -n 999999 -c $i -z 2m -host 'autoscale.myhost.net' \
+    -n 999999 -c $i -z 2m -host $SERVICE_HOST \
     "http://${SERVICE_IP?}/primes/40000000"
   sleep 1
 done

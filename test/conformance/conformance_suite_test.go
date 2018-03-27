@@ -30,10 +30,22 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-var kubeconfig string
-var dockerRepo string
+var (
+	cluster          string
+	dockerRepo       string
+	kubeconfig       string
+	resolvableDomain bool
+)
 
 func init() {
+	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
+	flag.StringVar(&cluster, "cluster", defaultCluster,
+		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
+
+	defaultRepo := os.Getenv("DOCKER_REPO_OVERRIDE")
+	flag.StringVar(&dockerRepo, "dockerrepo", defaultRepo,
+		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
+
 	flag.StringVar(&kubeconfig, "kubeconfig", "",
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
 
@@ -42,10 +54,10 @@ func init() {
 		kubeconfig = path.Join(usr.HomeDir, ".kube/config")
 	}
 
-	defaultRepo := os.Getenv("DOCKER_REPO_OVERRIDE")
-	flag.StringVar(&dockerRepo, "dockerrepo", defaultRepo,
-		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
+	flag.BoolVar(&resolvableDomain, "resolvabledomain", false,
+		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 }
+
 func TestConformance(t *testing.T) {
 	testing.Verbose()
 	RegisterFailHandler(Fail)

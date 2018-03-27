@@ -2,16 +2,23 @@
 # Default ownership until delegated
 # * @evankanderson @mattmoor @vaikas-google
 
+# To allow automatic PR merging by prow, update any corresponding
+# OWNERS files in the relevant directories whenever CODEOWNERS is
+# updated.
+
 ### Component-level ownerships
 
 # API governance.
 /pkg/apis @evankanderson @mattmoor @vaikas-google
 
+# Build API (imported from elafros/build)
+/pkg/apis/build @mattmoor @ImJasonH
+
 # All groups can review docs.
 /docs/ @elafros/elafros-writers @google/elafros-readers
 
 # Tests.
-/test/ @adrcunha @srinivashegde86 @steuhs
+/test/ @adrcunha @srinivashegde86 @steuhs @bobcatfish
 /test/conformance/ @bobcatfish @adrcunha
 
 ### To request CODEOWNERS on a subdirectory, propose it above

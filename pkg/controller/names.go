@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,6 +27,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 )
 
+func GetElaConfigMapName() string {
+	return "ela-config"
+}
+
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
 	// We create resources in the same namespace as the Elafros resources by default.
@@ -38,15 +42,14 @@ func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
 	return u.Name + "-deployment"
 }
 
-func GetRevisionNginxConfigMapName(u *v1alpha1.Revision) string {
-	return u.Name + "-proxy-configmap"
-}
-
 func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
 }
 
-func GetElaIstioRouteRuleName(u *v1alpha1.Route) string {
+func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
+	if tt != nil {
+		return u.Name + "-" + tt.Name + "-istio"
+	}
 	return u.Name + "-istio"
 }
 

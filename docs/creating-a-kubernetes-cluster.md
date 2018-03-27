@@ -16,6 +16,10 @@ To use a k8s cluster running in GKE:
     one) at http://console.cloud.google.com/home/dashboard. Set the ID of the
     project in an environment variable (e.g. `PROJECT_ID`).
 
+    _If you are a new GCP user, you might be eligible for a trial credit making
+    your GKE cluster and other resources free for a short time. Otherwise, any
+    GCP resources you create will cost money._
+
 1.  Enable the k8s API:
 
     ```shell
@@ -26,9 +30,10 @@ To use a k8s cluster running in GKE:
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
-      --cluster-version=1.9.2-gke.1 \
+      --cluster-version=1.9.4-gke.1 \
       --zone=us-east1-d \
       --scopes=cloud-platform \
+      --machine-type=n1-standard-4 \
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
       elafros-demo
     ```
@@ -36,6 +41,8 @@ To use a k8s cluster running in GKE:
     *   Version 1.9+ is required
     *   Change this to whichever zone you choose
     *   cloud-platform scope is required to access GCB
+    *   Elafros currently requires 4-cpu nodes to run conformance tests.
+        Changing the machine type from the default may cause failures.
     *   Autoscale from 1 to 3 nodes. Adjust this for your use case
     *   Change this to your preferred cluster name
 
@@ -54,14 +61,6 @@ To use a k8s cluster running in GKE:
     gcloud components install kubectl
     ```
 
-1.  Give your gcloud user cluster-admin privileges:
-
-    ```shell
-    kubectl create clusterrolebinding gcloud-admin-binding \
-      --clusterrole=cluster-admin \
-      --user=$(gcloud config get-value core/account)
-    ```
-
 1.  Add to your .bashrc:
     ```shell
     # When using GKE, the K8s user is your GCP user.
@@ -72,7 +71,7 @@ To use a k8s cluster running in GKE:
 
 1.  [Install and configure
     minikube](https://github.com/kubernetes/minikube#minikube) with a [VM
-    driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm` on
+    driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm2` on
     Linux or `xhyve` on macOS.
 
 1.  [Create a cluster](https://github.com/kubernetes/minikube#quickstart) with
@@ -82,11 +81,18 @@ To use a k8s cluster running in GKE:
     default](https://github.com/kubernetes/minikube/pull/2547),the
     MutatingAdmissionWebhook plugin must be manually enabled._
 
+    _Until minikube [makes this the
+    default](https://github.com/kubernetes/minikube/issues/1647), the
+    certificate controller must be told where to find the cluster CA certs on
+    the VM._
+
 ```shell
 minikube start \
   --kubernetes-version=v1.9.0 \
-  --vm-driver=kvm \
-  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook
+  --vm-driver=kvm2 \
+  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook \
+  --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
+  --extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key"
 ```
 
 ### Minikube with GCR

@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -58,6 +58,9 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 				ObjectMeta: meta_v1.ObjectMeta{
 					Labels: map[string]string{
 						"autoscaler": controller.GetRevisionAutoscalerName(u),
+					},
+					Annotations: map[string]string{
+						"sidecar.istio.io/inject": "false",
 					},
 				},
 				Spec: corev1.PodSpec{

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package fake
 
 import (
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1"
-	fakebuildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/cloudbuild/v1alpha1/fake"
+	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1"
+	fakebuildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1/fake"
 	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	fakeelafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
 	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"

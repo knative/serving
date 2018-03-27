@@ -5,21 +5,30 @@ of the Elafros API to ensure the API has been implemented consistently.
 Passing these tests indicates that apps and functions deployed to
 this implementation could be ported to other implementations as well.
 
-_The precedent for these tests is the k8s conformance tests which k8s
-vendors use to prove they have ["certified kubernetes"
-deployments](https://github.com/cncf/k8s-conformance#certified-kubernetes)._
+_The precedent for these tests is [the k8s conformance tests](https://github.com/cncf/k8s-conformance)._
 
 ## Environment requirements
 
-These test require:
+These tests require:
 
-* A running `Elafros` cluster up. The tests will use a
-  [kubeconfig file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-  to determine what `Elafros` cluster to connect to (the `current-context`).
+* **A running `Elafros` cluster.** Specify which cluster to test against using
+  [`--kubeconfig`](#specifying-kubeconfig) and/or [`--cluster`](#specifying-cluster).
   _See [getting started docs](../../DEVELOPMENT.md#getting-started) to set up
   an `Elafros` environment._
-* A docker repo at [`DOCKER_REPO_OVERRIDE`](../../DEVELOPMENT.md#environment-setup)
-  that contains [the conformance test images](#conformance-test-images).
+* **The namespace `pizzaplanet` to exist in the cluster.** To create the namespace:
+
+  ```bash
+  cat <<EOF |
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: pizzaplanet
+  EOF
+  kubectl create -f -
+  ```
+
+* **[`DOCKER_REPO_OVERRIDE`](../../DEVELOPMENT.md#environment-setup)
+  to contain [the conformance test images](#conformance-test-images).**
   _You will need [`docker`](https://docs.docker.com/install/) to build [the conformance test
   images](#conformance-test-images)._
 
@@ -27,10 +36,7 @@ These test require:
 
 The configuration for the images used for the existing conformance tests lives in
 [`test_images_node`](./test_images_node). The images contain a node.js webserver that
-will by default listens on port `8080` and expose:
-
-* A service at `/`
-* A healthcheck at `/healthz` which can be used for [liveness and readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)
+will by default listens on port `8080` and expose a service at `/`.
 
 The two versions of the image ([`Dockerfile.v1`](./test_images_node/Dockerfile.v1),
 [`Dockerfile.v2`](./test_images_node/Dockerfile.v2)) differ in the message they return
@@ -44,7 +50,7 @@ docker images. It requires:
   `DOCKER_REPO_OVERRIDE`](../../docs/setting-up-a-docker-registry.md)
 * [`docker`](https://docs.docker.com/install/) to be installed
 
-Run it with:
+To run the script:
 
 ```bash
 ./test/conformance/upload-test-images.sh
@@ -52,13 +58,11 @@ Run it with:
 
 ## Running conformance tests
 
-All conformance tests can be triggered via `go test`. (You can also use
-[the ginkgo cli](https://onsi.github.io/ginkgo/#the-ginkgo-cli).)
-
 You need to have a running environment that meets [the conformance test
 environment requirements](#environment-requirements).
 
-To run the conformance tests against the current cluster in `~/.kube/config`:
+To run the conformance tests against the current cluster in `~/.kube/config`
+using `go test`:
 
 ```bash
 go test ./test/conformance
@@ -73,7 +77,19 @@ To run with logging enabled use `-v` AND `-ginkgo.v`:
 go test -v ./test/conformance -ginkgo.v
 ```
 
-By default the tests will use the kubeconfig file at `~./kube/config`.
+### Flags
+
+The conformance tests recognize these flags:
+
+* [`--kubeconfig`](#specifying-kubeconfig)
+* [`--cluster`](#specifying-cluster)
+* [`--resolvabledomain`](#using-a-resolvable-domain)
+
+#### Specifying kubeconfig
+
+By default the tests will use the [kubeconfig
+file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+at `~./kube/config`.
 You can specify a different config file with the argument `--kubeconfig`.
 
 To run the conformance tests with a non-default kubeconfig file:
@@ -81,6 +97,33 @@ To run the conformance tests with a non-default kubeconfig file:
 ```bash
 go test ./test/conformance -args --kubeconfig /my/path/kubeconfig
 ```
+
+#### Specifying cluster
+
+The `--cluster` argument lets you use a different cluster than [your specified
+kubeconfig's](#specifying-kubeconfig) active context:
+
+```bash
+go test ./test/conformance -args --cluster your-cluster-name
+```
+
+The current cluster names can be obtained by runing:
+
+```bash
+kubectl config get-clusters
+```
+
+#### Using a resolvable domain
+
+If you setup your cluster using [the getting started
+docs](../../DEVELOPMENT.md#getting-started), `Route`s created in the test will use the
+domain `demo-domain.com`.  Since this domain will not be resolvable to deployments in
+your test cluster, in order to make a request against the endpoint, the test use the
+IP addsigned to the istio `*-ela-ingress` and spoof the `Host` in the header.
+
+If you have configured your cluster to use a resolvable domain, you can use the
+`--resolvabledomain` flag to indicate that the test should make requests directly against
+`Route.Status.Domain` and does not need to spoof the `Host`.
 
 ### Bazel
 
@@ -109,7 +152,7 @@ bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=-
 
 The conformance tests should **ONLY** cover:
 
-  * Functionality that applies to any implementation of the API
+* Functionality that applies to any implementation of the API
 
 The tests must **NOT** require any specific file system permissions to run or
 require any additional binaries to be installed in the target environment before

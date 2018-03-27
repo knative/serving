@@ -18,8 +18,10 @@ metadata:
   name: autoscale-configuration
   namespace: default
 spec:
-  template:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: app
     spec:
-      serviceType: container
-      containerSpec:
+      container:
         image: autoscale-sample:latest

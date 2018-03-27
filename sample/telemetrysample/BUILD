@@ -6,6 +6,10 @@ go_library(
     importpath = "github.com/elafros/elafros/sample/telemetrysample",
     visibility = ["//visibility:private"],
     deps = [
+        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/openzipkin/zipkin-go:go_default_library",
+        "//vendor/github.com/openzipkin/zipkin-go/middleware/http:go_default_library",
+        "//vendor/github.com/openzipkin/zipkin-go/reporter/http:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
     ],

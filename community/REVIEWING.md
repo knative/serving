@@ -90,3 +90,16 @@ PRs may only be merged after the following criteria are met:
 1.  It has at least one "approved" review by at least one of the approvers of
     that repository.
 1.  It has all appropriate corresponding documentation and tests.
+
+## Prow
+
+This project uses
+[Prow](https://github.com/kubernetes/test-infra/tree/master/prow) to
+automatically run tests for every PR. PRs with failing tests may not be merged.
+If necessary, you can rerun the tests by simply adding the comment `/retest` to
+your PR.
+
+Prow has several other features that make PR management easier, like running the
+go linter or assigning labels. A full list of commands understood by Prow can be
+found in the [command help
+page](https://prow-internal.gcpnode.com/command-help?repo=elafros%2Felafros).

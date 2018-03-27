@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
-	build "github.com/elafros/elafros/pkg/apis/cloudbuild/v1alpha1"
+	build "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,9 +43,9 @@ type ConfigurationSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
-	Generation int64            `json:"generation,omitempty"`
-	Build      *build.BuildSpec `json:"build,omitempty"`
-	Template   Revision         `json:"template"`
+	Generation       int64                `json:"generation,omitempty"`
+	Build            *build.BuildSpec     `json:"build,omitempty"`
+	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
 // ConfigurationConditionType represents a Configuration condition value
@@ -117,6 +117,14 @@ func (configStatus *ConfigurationStatus) IsReady() bool {
 		return c.Status == corev1.ConditionTrue
 	}
 	return false
+}
+
+// IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
+// and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
+// it returns false.
+func (configStatus *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
+	return configStatus.IsReady() &&
+		configStatus.LatestCreatedRevisionName == configStatus.LatestReadyRevisionName
 }
 
 func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
