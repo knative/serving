@@ -27,7 +27,7 @@ import (
 )
 
 func TestValidConfigurationAllowed(t *testing.T) {
-	configuration := createConfiguration(testGeneration)
+	configuration := createConfiguration(testGeneration, testConfigurationName)
 
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err != nil {
 		t.Fatalf("Expected allowed. Failed with %s", err)
@@ -93,7 +93,7 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 }
 
 func TestServingStateNotAllowed(t *testing.T) {
-	container := corev1.Container {
+	container := corev1.Container{
 		Name: "test",
 	}
 	configuration := v1alpha1.Configuration{
@@ -106,7 +106,7 @@ func TestServingStateNotAllowed(t *testing.T) {
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServingState: v1alpha1.RevisionServingStateActive,
-					Container: &container,
+					Container:    &container,
 				},
 			},
 		},

@@ -134,6 +134,31 @@ func TestInvalidNewConfigurationFails(t *testing.T) {
 	expectFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
 }
 
+func TestInvalidNewConfigurationNameFails(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
+	}
+	invalidName := "configuration.example"
+	config := createConfiguration(0, invalidName)
+	marshaled, err := yaml.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal configuration: %s", err)
+	}
+	req.Object.Raw = marshaled
+	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+
+	invalidName = strings.Repeat("a", 64)
+	config = createConfiguration(0, invalidName)
+	marshaled, err = yaml.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal configuration: %s", err)
+	}
+	req.Object.Raw = marshaled
+	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+}
+
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateConfiguration())
@@ -144,8 +169,8 @@ func TestValidNewConfigurationObject(t *testing.T) {
 
 func TestValidConfigurationNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createConfiguration(testGeneration)
-	new := createConfiguration(testGeneration)
+	old := createConfiguration(testGeneration, testConfigurationName)
+	new := createConfiguration(testGeneration, testConfigurationName)
 	resp := ac.admit(createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
@@ -153,8 +178,8 @@ func TestValidConfigurationNoChanges(t *testing.T) {
 
 func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createConfiguration(testGeneration)
-	new := createConfiguration(testGeneration)
+	old := createConfiguration(testGeneration, testConfigurationName)
+	new := createConfiguration(testGeneration, testConfigurationName)
 	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
@@ -172,6 +197,31 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	})
 }
 
+func TestInvalidNewRouteNameFails(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Route"},
+	}
+	invalidName := "configuration.example"
+	config := createRoute(0, invalidName)
+	marshaled, err := yaml.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal configuration: %s", err)
+	}
+	req.Object.Raw = marshaled
+	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+
+	invalidName = strings.Repeat("a", 64)
+	config = createRoute(0, invalidName)
+	marshaled, err = yaml.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal configuration: %s", err)
+	}
+	req.Object.Raw = marshaled
+	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+}
+
 func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(createValidCreateRoute())
@@ -182,8 +232,8 @@ func TestValidNewRouteObject(t *testing.T) {
 
 func TestValidRouteNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRoute(1)
-	new := createRoute(1)
+	old := createRoute(1, testRouteName)
+	new := createRoute(1, testRouteName)
 	resp := ac.admit(createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
@@ -191,8 +241,8 @@ func TestValidRouteNoChanges(t *testing.T) {
 
 func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRoute(1)
-	new := createRoute(1)
+	old := createRoute(1, testRouteName)
+	new := createRoute(1, testRouteName)
 	new.Spec.Traffic = []v1alpha1.TrafficTarget{
 		v1alpha1.TrafficTarget{
 			RevisionName: testRevisionName,
@@ -264,7 +314,7 @@ func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	config := createConfiguration(0)
+	config := createConfiguration(0, testConfigurationName)
 	marshaled, err := yaml.Marshal(config)
 	if err != nil {
 		panic("failed to marshal configuration")
@@ -285,7 +335,7 @@ func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	route := createRoute(0)
+	route := createRoute(0, testRouteName)
 	marshaled, err := yaml.Marshal(route)
 	if err != nil {
 		panic("failed to marshal route")
@@ -387,11 +437,11 @@ func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 	}
 }
 
-func createConfiguration(generation int64) v1alpha1.Configuration {
+func createConfiguration(generation int64, configurationName string) v1alpha1.Configuration {
 	return v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      testConfigurationName,
+			Name:      configurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			Generation: generation,
@@ -410,11 +460,11 @@ func createConfiguration(generation int64) v1alpha1.Configuration {
 	}
 }
 
-func createRoute(generation int64) v1alpha1.Route {
+func createRoute(generation int64, routeName string) v1alpha1.Route {
 	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
-			Name:      testRouteName,
+			Name:      routeName,
 		},
 		Spec: v1alpha1.RouteSpec{
 			Generation: generation,
