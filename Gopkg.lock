@@ -629,8 +629,8 @@
     "util/retry",
     "util/workqueue"
   ]
-  revision = "5e04b0f75003ecfbd8d5b98d028e05300a461eb1"
-  version = "kubernetes-1.10.0-rc.1"
+  revision = "23781f4d6632d88e869066eaebb743857aa1ef9b"
+  version = "kubernetes-1.10.0"
 
 [[projects]]
   name = "k8s.io/code-generator"
@@ -682,6 +682,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3ae542615641729265f5715ae5a407f36ae54c9192d6e0c15bb29c7e0d266f37"
+  inputs-digest = "6459866c41e1f96060526ba7f7b716be5047673d2f53cf7ee747dc2b8edf4d75"
   solver-name = "gps-cdcl"
   solver-version = 1
