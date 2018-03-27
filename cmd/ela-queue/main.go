@@ -51,7 +51,6 @@ var (
 	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqInChan         = make(chan struct{}, requestCountingQueueLength)
 	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
-	reqCountChan      = make(chan struct{}, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
 	proxy             *httputil.ReverseProxy
