@@ -21,6 +21,5 @@ go_test(
         "plural_namer_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/gengo/namer",
     deps = ["//vendor/k8s.io/gengo/types:go_default_library"],
 )

@@ -14,7 +14,6 @@ go_test(
         "failer_suite_test.go",
         "failer_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/failer_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

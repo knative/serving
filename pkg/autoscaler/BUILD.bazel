@@ -17,6 +17,5 @@ go_test(
     name = "go_default_test",
     srcs = ["autoscaler_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/pkg/autoscaler",
     deps = ["//vendor/github.com/golang/glog:go_default_library"],
 )

@@ -24,7 +24,6 @@ go_test(
         "bidirule_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/text/secure/bidirule",
     deps = [
         "//vendor/golang.org/x/text/internal/testtext:go_default_library",
         "//vendor/golang.org/x/text/transform:go_default_library",

@@ -11,7 +11,6 @@ go_library(
 go_test(
     name = "go_default_xtest",
     srcs = ["idgenerator_test.go"],
-    importpath = "github.com/openzipkin/zipkin-go/idgenerator_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go/model:go_default_library",

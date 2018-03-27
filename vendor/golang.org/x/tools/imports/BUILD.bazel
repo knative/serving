@@ -63,5 +63,4 @@ go_test(
         "fix_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/tools/imports",
 )

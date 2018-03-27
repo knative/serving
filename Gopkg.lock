@@ -8,18 +8,6 @@
   version = "v0.17.0"
 
 [[projects]]
-  name = "github.com/PuerkitoBio/purell"
-  packages = ["."]
-  revision = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4"
-  version = "v1.1.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/PuerkitoBio/urlesc"
-  packages = ["."]
-  revision = "de5bf2ad457846296e2031421a34e2568e304e35"
-
-[[projects]]
   branch = "master"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -32,15 +20,6 @@
   version = "v1.1.0"
 
 [[projects]]
-  name = "github.com/emicklei/go-restful"
-  packages = [
-    ".",
-    "log"
-  ]
-  revision = "2dd44038f0b95ae693b266c5f87593b5d2fdd78d"
-  version = "v2.5.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/evanphx/json-patch"
   packages = ["."]
@@ -51,30 +30,6 @@
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
   version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/go-openapi/jsonpointer"
-  packages = ["."]
-  revision = "779f45308c19820f1a69e9a4cd965f496e0da10f"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/go-openapi/jsonreference"
-  packages = ["."]
-  revision = "36d33bfe519efae5632669801b180bf1a245da3b"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/go-openapi/spec"
-  packages = ["."]
-  revision = "fa03337d7da5735229ee8f5e9d5d0b996014b7f8"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/go-openapi/swag"
-  packages = ["."]
-  revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -108,12 +63,6 @@
     "ptypes/timestamp"
   ]
   revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/google/btree"
-  packages = ["."]
-  revision = "316fb6d3f031ae8f4d457c6c5186b9e3ded70435"
 
 [[projects]]
   name = "github.com/google/go-cmp"
@@ -163,15 +112,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/gregjones/httpcache"
-  packages = [
-    ".",
-    "diskcache"
-  ]
-  revision = "2bcd89a1743fd4b373f7370ce8ddc14dfbd18229"
-
-[[projects]]
-  branch = "master"
   name = "github.com/hashicorp/golang-lru"
   packages = [
     ".",
@@ -196,22 +136,6 @@
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
   version = "1.0.4"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/juju/ratelimit"
-  packages = ["."]
-  revision = "59fac5042749a5afb9af70e813da1dd5474f0167"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mailru/easyjson"
-  packages = [
-    "buffer",
-    "jlexer",
-    "jwriter"
-  ]
-  revision = "32fa128f234d041f196a9f3e0fea5ac9772c08e1"
 
 [[projects]]
   branch = "master"
@@ -283,18 +207,6 @@
   ]
   revision = "f197ec29e729f226d23370ea60f0e49b8f44ccf4"
   version = "v0.1.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/petar/GoLLRB"
-  packages = ["llrb"]
-  revision = "53be0d36a84c2a886ca057d34b6aa4468df9ccb4"
-
-[[projects]]
-  name = "github.com/peterbourgon/diskv"
-  packages = ["."]
-  revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
-  version = "v2.0.1"
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
@@ -410,10 +322,15 @@
     "unicode/bidi",
     "unicode/cldr",
     "unicode/norm",
-    "unicode/rangetable",
-    "width"
+    "unicode/rangetable"
   ]
   revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/time"
+  packages = ["rate"]
+  revision = "26559e0f760e39c24d730d3224364aef164ee23f"
 
 [[projects]]
   branch = "master"
@@ -469,7 +386,7 @@
   revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
 
 [[projects]]
-  branch = "release-1.9"
+  branch = "release-1.10"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -502,10 +419,10 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "006a217681ae70cbacdd66a5e2fca1a61a8ff28e"
+  revision = "c699ec51538f0cfd4afa8bfcfe1e0779cafbe666"
 
 [[projects]]
-  branch = "release-1.9"
+  branch = "release-1.10"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -516,7 +433,7 @@
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
-    "pkg/apis/meta/v1alpha1",
+    "pkg/apis/meta/v1beta1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
     "pkg/fields",
@@ -553,10 +470,10 @@
     "third_party/forked/golang/json",
     "third_party/forked/golang/reflect"
   ]
-  revision = "68f9c3a1feb3140df59c67ced62d3a5df8e6c9c2"
+  revision = "54101a56dda9a0962bc48751c058eb4c546dcbb9"
 
 [[projects]]
-  branch = "release-6.0"
+  branch = "release-7.0"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -684,7 +601,10 @@
     "listers/storage/v1",
     "listers/storage/v1alpha1",
     "listers/storage/v1beta1",
+    "pkg/apis/clientauthentication",
+    "pkg/apis/clientauthentication/v1alpha1",
     "pkg/version",
+    "plugin/pkg/client/auth/exec",
     "plugin/pkg/client/auth/gcp",
     "rest",
     "rest/watch",
@@ -707,9 +627,10 @@
     "util/homedir",
     "util/integer",
     "util/jsonpath",
+    "util/retry",
     "util/workqueue"
   ]
-  revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
+  revision = "fd2b358bbeefe267f7c60dbfcfde02c85a47366c"
 
 [[projects]]
   name = "k8s.io/code-generator"
@@ -734,7 +655,7 @@
     "cmd/lister-gen/generators",
     "pkg/util"
   ]
-  revision = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c"
+  revision = "0bb431833bd68f0e569ac8d4ed8f3f2472f8d044"
 
 [[projects]]
   branch = "master"
@@ -754,15 +675,12 @@
 [[projects]]
   branch = "master"
   name = "k8s.io/kube-openapi"
-  packages = [
-    "pkg/common",
-    "pkg/util/proto"
-  ]
+  packages = ["pkg/util/proto"]
   revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1b6ff3393a4884b7732fd32d8eacd32c6627a238da82b409dde0cc5acf082362"
+  inputs-digest = "a4e3ea303bfe84f1e11cb67ba6381b0ac5f57170677762dd3f3293f3a826eab4"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -17,7 +17,6 @@ go_test(
         "container_node_suite_test.go",
         "container_node_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/containernode_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

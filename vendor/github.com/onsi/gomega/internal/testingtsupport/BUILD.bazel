@@ -11,6 +11,5 @@ go_library(
 go_test(
     name = "go_default_xtest",
     srcs = ["testing_t_support_test.go"],
-    importpath = "github.com/onsi/gomega/internal/testingtsupport_test",
     deps = ["//vendor/github.com/onsi/gomega:go_default_library"],
 )

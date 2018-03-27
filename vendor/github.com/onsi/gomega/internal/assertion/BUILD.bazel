@@ -14,7 +14,6 @@ go_test(
         "assertion_suite_test.go",
         "assertion_test.go",
     ],
-    importpath = "github.com/onsi/gomega/internal/assertion_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

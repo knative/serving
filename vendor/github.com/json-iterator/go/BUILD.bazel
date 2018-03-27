@@ -94,7 +94,6 @@ go_test(
         "unmarshal_input_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/json-iterator/go",
     deps = [
         "//vendor/github.com/google/gofuzz:go_default_library",
         "//vendor/github.com/stretchr/testify/require:go_default_library",

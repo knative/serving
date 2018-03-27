@@ -14,7 +14,6 @@ go_test(
         "code_location_suite_test.go",
         "code_location_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/codelocation_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

@@ -10,7 +10,8 @@ http_archive(
 # Pull in rules_go
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "737df20c53499fd84b67f04c6ca9ccdee2e77089",
+    # HEAD as of 2018-03-20
+    commit = "63cd14e0e7db10411bc64a4c870398608435a23d",
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -69,13 +70,13 @@ k8s_defaults(
 # We rewrite things in ./hack/update-deps.sh to use this version.
 go_repository(
     name = "io_k8s_code_generator",
-    commit = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c",
+    commit = "0bb431833bd68f0e569ac8d4ed8f3f2472f8d044",
     importpath = "k8s.io/code-generator",
 )
 
 go_repository(
     name = "io_k8s_gengo",
-    commit = "1ef560bbde5195c01629039ad3b337ce63e7b321",
+    commit = "01a732e01d00cb9a81bb0ca050d3e6d2b947927b",
     importpath = "k8s.io/gengo",
 )
 
@@ -106,7 +107,8 @@ load(
 
 private_git_repository(
     name = "buildcrd",
-    commit = "098d36d81cf77ffd77d3743f514f0425b29c9597",
+    # HEAD as of 2018/03/22
+    commit = "cfd4cfa3d0a462dfa48381d04dab2018eca31fb0",
     remote = "git@github.com:elafros/build.git",
 )
 

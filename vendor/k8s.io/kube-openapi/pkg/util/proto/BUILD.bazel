@@ -21,7 +21,6 @@ go_test(
         "openapi_suite_test.go",
         "openapi_test.go",
     ],
-    importpath = "k8s.io/kube-openapi/pkg/util/proto_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

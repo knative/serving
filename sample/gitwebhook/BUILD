@@ -17,7 +17,6 @@ go_library(
 go_binary(
     name = "gitwebhook",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/gitwebhook",
     pure = "on",
     visibility = ["//visibility:public"],
 )

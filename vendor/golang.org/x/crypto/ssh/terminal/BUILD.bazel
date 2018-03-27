@@ -75,5 +75,4 @@ go_test(
     name = "go_default_test",
     srcs = ["terminal_test.go"],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/crypto/ssh/terminal",
 )

@@ -25,7 +25,6 @@ go_test(
         "suite_suite_test.go",
         "suite_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/suite_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

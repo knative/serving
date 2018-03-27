@@ -25,12 +25,10 @@ go_test(
         "punycode_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/net/idna",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["example_test.go"],
-    importpath = "golang.org/x/net/idna_test",
     deps = [":go_default_library"],
 )

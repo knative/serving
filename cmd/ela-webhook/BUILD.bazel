@@ -17,7 +17,6 @@ go_library(
 go_binary(
     name = "ela-webhook",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/cmd/ela-webhook",
     pure = "on",
     visibility = ["//visibility:public"],
 )
