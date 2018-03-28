@@ -91,6 +91,10 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 									Value: strconv.Itoa(autoscalerPort),
 								},
 							},
+							Args: []string{
+								"-logtostderr=true",
+								"-stderrthreshold=INFO",
+							},
 						},
 					},
 					ServiceAccountName: "ela-autoscaler",
