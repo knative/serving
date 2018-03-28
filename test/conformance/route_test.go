@@ -33,10 +33,7 @@ import (
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -75,47 +72,15 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 			Name:      configName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			RevisionTemplate: v1alpha1.Revision{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: &corev1.Container{
 						Image: imagePath,
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/healthz",
-									Port: intstr.IntOrString{
-										Type:   intstr.Int,
-										IntVal: 8080,
-									},
-								},
-							},
-						},
 					},
 				},
 			},
 		},
 	}
-}
-
-func namespace() *corev1.Namespace {
-	return &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespaceName,
-		},
-	}
-}
-
-func createNamespace(namespaceClient typedcorev1.NamespaceInterface) {
-	// A previous test run may have created this namespace already. We aren't cleaning it up
-	// because it can take up to 3 minutes to delete.
-	n, err := namespaceClient.List(metav1.ListOptions{})
-	for _, item := range n.Items {
-		if item.Name == namespaceName {
-			return
-		}
-	}
-	_, err = namespaceClient.Create(namespace())
-	Expect(err).NotTo(HaveOccurred())
 }
 
 func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
@@ -148,6 +113,33 @@ func isRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 	}
 }
 
+func waitForEndpointState(clientset *kubernetes.Clientset, namespace string, domain string, ingressName string, inState func(body string) (bool, error)) {
+	var endpoint, spoofDomain string
+
+	// If the domain that the Route controller is configured to assign to Route.Status.Domain
+	// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
+	// spoof the Host in our requests.
+	if !resolvableDomain {
+		ingressClient := clientset.ExtensionsV1beta1().Ingresses(namespace)
+		By("Wait for the ingress loadbalancer address to be set")
+		WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress) (bool, error) {
+			if len(i.Status.LoadBalancer.Ingress) > 0 {
+				endpoint = fmt.Sprintf("http://%s", i.Status.LoadBalancer.Ingress[0].IP)
+				return true, nil
+			}
+			return false, nil
+		})
+		spoofDomain = domain
+		// If the domain is resolvable, we can use it directly when we make requests
+	} else {
+		endpoint = domain
+	}
+
+	By("Wait for the endpoint to be up and handling requests")
+	// TODO(#348): The ingress endpoint tends to return 503's and 404's
+	WaitForRequestToDomainState(endpoint, spoofDomain, []int{503, 404}, inState)
+}
+
 func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config, error) {
 	overrides := clientcmd.ConfigOverrides{}
 	// Override the cluster name if provided.
@@ -161,9 +153,7 @@ func BuildClientConfig(kubeConfigPath string, clusterName string) (*rest.Config,
 
 var _ = Describe("Route", func() {
 	var (
-		namespaceClient typedcorev1.NamespaceInterface
-		ingressClient   v1beta1.IngressInterface
-
+		kubeClientset  *kubernetes.Clientset
 		routeClient    elatyped.RouteInterface
 		configClient   elatyped.ConfigurationInterface
 		revisionClient elatyped.RevisionInterface
@@ -172,13 +162,8 @@ var _ = Describe("Route", func() {
 	BeforeSuite(func() {
 		cfg, err := BuildClientConfig(kubeconfig, cluster)
 		Expect(err).NotTo(HaveOccurred())
-		kubeClientset, err := kubernetes.NewForConfig(cfg)
+		kubeClientset, err = kubernetes.NewForConfig(cfg)
 		Expect(err).NotTo(HaveOccurred())
-
-		namespaceClient = kubeClientset.CoreV1().Namespaces()
-		createNamespace(namespaceClient)
-
-		ingressClient = kubeClientset.ExtensionsV1beta1().Ingresses(namespaceName)
 
 		clientset, err := versioned.NewForConfig(cfg)
 		Expect(err).NotTo(HaveOccurred())
@@ -206,16 +191,12 @@ var _ = Describe("Route", func() {
 	Context("Deploying an app with a pre-built container", func() {
 		It("Creates a route, serves traffic to it, and serves traffic to subsequent revisions", func() {
 			By("Creating a new Route")
-			createdRoute, err := routeClient.Create(route())
+			_, err := routeClient.Create(route())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(createdRoute.Generation).To(Equal(int64(0)))
-			Expect(createdRoute.Spec.Generation).To(Equal(int64(1)))
 
 			By("Creating Configuration for the Route using the first image")
-			createdConfig, err := configClient.Create(configuration(imagePaths[0]))
+			_, err = configClient.Create(configuration(imagePaths[0]))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(createdConfig.Generation).To(Equal(int64(0)))
-			Expect(createdConfig.Spec.Generation).To(Equal(int64(1)))
 
 			By("The Configuration will be updated with the Revision after it is created")
 			var revisionName string
@@ -237,24 +218,11 @@ var _ = Describe("Route", func() {
 
 			By("Once the Configuration has been updated with the Revision, the Route will be updated to route traffic to the Revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, revisionName))
-			updated_route, err := routeClient.Get(routeName, metav1.GetOptions{})
+			updatedRoute, err := routeClient.Get(routeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			// TODO: The test needs to be able to make a request without needing to retrieve
-			// the ingress manually (i.e. by using the host directly)
-			var endpoint string
-			By("Wait for the ingress loadbalancer address to be set")
-			WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress) (bool, error) {
-				if len(i.Status.LoadBalancer.Ingress) > 0 {
-					endpoint = fmt.Sprintf("http://%s", i.Status.LoadBalancer.Ingress[0].IP)
-					return true, nil
-				}
-				return false, nil
-			})
 			By("Make a request to the Revision that is now deployed and serving traffic")
-			// TODO: The ingress endpoint tends to return 503's and 404's after an initial deployment of a Revision.
-			// Open a bug for this? We're even using readinessProbe, seems like this shouldn't happen.
-			WaitForIngressRequestToDomainState(endpoint, updated_route.Status.Domain, []int{503, 404}, func(body string) (bool, error) {
+			waitForEndpointState(kubeClientset, namespaceName, updatedRoute.Status.Domain, ingressName, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
 
@@ -286,11 +254,11 @@ var _ = Describe("Route", func() {
 
 			By("The Route will then immediately send all traffic to the new revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, newRevisionName))
-			updated_route, err = routeClient.Get(routeName, metav1.GetOptions{})
+			updatedRoute, err = routeClient.Get(routeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for the ingress to actually start serving traffic from the newly deployed Revision")
-			WaitForIngressRequestToDomainState(endpoint, updated_route.Status.Domain, []int{503, 404}, func(body string) (bool, error) {
+			waitForEndpointState(kubeClientset, namespaceName, updatedRoute.Status.Domain, ingressName, func(body string) (bool, error) {
 				if body == "Re-energize yourself with a slice of pepperoni!" {
 					// This is the string we are looking for
 					return true, nil

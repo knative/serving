@@ -117,6 +117,20 @@ You can access the Elafros Controller's logs with:
 $ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
 ```
 
+## Enable log and metric collection
+You can use two different setups for collecting logs and metrics:
+1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+```shell
+bazel run config/monitoring:everything.apply
+```
+
+2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+```shell
+bazel run config/monitoring:everything-dev.apply
+```
+
+Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
+
 ## Enabling Istio Sidecar Injection
 After standing up elafros, perform the following steps to enable automatic
 sidecar injection.
@@ -152,7 +166,9 @@ redeploy `Elafros`](./README.md#start-elafros).
 
 ## Tests
 
-Running tests as you make changes to the code-base is pretty simple. See [the test docs](./test/README.md).
+Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#prow).
+
+For more details about the tests themselves and how to run them, see [the test docs](./test/README.md).
 
 ## Clean up
 
