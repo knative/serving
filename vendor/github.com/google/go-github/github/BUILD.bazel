@@ -165,12 +165,10 @@ go_test(
         "users_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/google/go-github/github",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["examples_test.go"],
-    importpath = "github.com/google/go-github/github_test",
     deps = [":go_default_library"],
 )

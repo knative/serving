@@ -20,5 +20,4 @@ go_test(
         "types_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/gengo/types",
 )

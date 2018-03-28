@@ -14,13 +14,11 @@ go_test(
     name = "go_default_test",
     srcs = ["format_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/google/go-cmp/cmp/internal/value",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["sort_test.go"],
-    importpath = "github.com/google/go-cmp/cmp/internal/value_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/google/go-cmp/cmp:go_default_library",

@@ -14,12 +14,10 @@ go_test(
     name = "go_default_test",
     srcs = ["fuzz_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/google/gofuzz",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["example_test.go"],
-    importpath = "github.com/google/gofuzz_test",
     deps = [":go_default_library"],
 )

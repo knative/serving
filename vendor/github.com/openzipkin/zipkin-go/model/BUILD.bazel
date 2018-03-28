@@ -23,12 +23,10 @@ go_test(
         "traceid_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/openzipkin/zipkin-go/model",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["endpoint_test.go"],
-    importpath = "github.com/openzipkin/zipkin-go/model_test",
     deps = [":go_default_library"],
 )

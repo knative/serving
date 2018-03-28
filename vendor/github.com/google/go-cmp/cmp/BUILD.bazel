@@ -22,7 +22,6 @@ go_test(
     name = "go_default_test",
     srcs = ["options_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/google/go-cmp/cmp",
     deps = ["//vendor/github.com/google/go-cmp/cmp/internal/teststructs:go_default_library"],
 )
 
@@ -32,7 +31,6 @@ go_test(
         "compare_test.go",
         "example_test.go",
     ],
-    importpath = "github.com/google/go-cmp/cmp_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/google/go-cmp/cmp/cmpopts:go_default_library",

@@ -37,7 +37,6 @@ go_test(
         "queueing_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/pkg/controller/configuration",
     deps = [
         "//pkg/apis/build/v1alpha1:go_default_library",
         "//pkg/apis/ela:go_default_library",

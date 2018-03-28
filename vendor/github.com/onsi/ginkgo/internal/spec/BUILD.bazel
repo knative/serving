@@ -22,7 +22,6 @@ go_test(
         "spec_test.go",
         "specs_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/spec_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

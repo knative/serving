@@ -428,7 +428,6 @@ go_test(
         "//conditions:default": [],
     }),
     embed = [":go_default_library"],
-    importpath = "golang.org/x/sys/unix",
 )
 
 go_test(
@@ -493,7 +492,6 @@ go_test(
         ],
         "//conditions:default": [],
     }),
-    importpath = "golang.org/x/sys/unix_test",
     deps = select({
         "@io_bazel_rules_go//go/platform:darwin": [
             ":go_default_library",

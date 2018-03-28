@@ -18,6 +18,5 @@ go_test(
     name = "go_default_test",
     srcs = ["charset_test.go"],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/net/html/charset",
     deps = ["//vendor/golang.org/x/text/transform:go_default_library"],
 )

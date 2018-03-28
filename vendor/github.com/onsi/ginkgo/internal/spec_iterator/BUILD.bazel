@@ -23,7 +23,6 @@ go_test(
         "sharded_parallel_spec_iterator_test.go",
         "spec_iterator_suite_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/spec_iterator_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

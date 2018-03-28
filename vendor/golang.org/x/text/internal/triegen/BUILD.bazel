@@ -18,6 +18,5 @@ go_test(
         "example_compact_test.go",
         "example_test.go",
     ],
-    importpath = "golang.org/x/text/internal/triegen_test",
     deps = [":go_default_library"],
 )

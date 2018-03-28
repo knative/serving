@@ -19,6 +19,5 @@ go_test(
     name = "go_default_test",
     srcs = ["deepcopy_test.go"],
     embed = [":go_default_library"],
-    importpath = "k8s.io/gengo/examples/deepcopy-gen/generators",
     deps = ["//vendor/k8s.io/gengo/types:go_default_library"],
 )

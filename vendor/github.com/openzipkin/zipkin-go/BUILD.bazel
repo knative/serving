@@ -33,7 +33,6 @@ go_test(
         "tracer_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/openzipkin/zipkin-go",
     deps = [
         "//vendor/github.com/openzipkin/zipkin-go/idgenerator:go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go/model:go_default_library",
@@ -51,7 +50,6 @@ go_test(
         "example_test.go",
         "sample_test.go",
     ],
-    importpath = "github.com/openzipkin/zipkin-go_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/gorilla/mux:go_default_library",

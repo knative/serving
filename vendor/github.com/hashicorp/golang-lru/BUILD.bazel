@@ -20,5 +20,4 @@ go_test(
         "lru_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/hashicorp/golang-lru",
 )

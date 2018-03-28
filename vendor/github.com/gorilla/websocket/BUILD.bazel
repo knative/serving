@@ -36,12 +36,10 @@ go_test(
         "util_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/gorilla/websocket",
 )
 
 go_test(
     name = "go_default_xtest",
     srcs = ["example_test.go"],
-    importpath = "github.com/gorilla/websocket_test",
     deps = [":go_default_library"],
 )

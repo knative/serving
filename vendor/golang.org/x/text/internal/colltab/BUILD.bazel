@@ -32,7 +32,6 @@ go_test(
         "weighter_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "golang.org/x/text/internal/colltab",
     deps = [
         "//vendor/golang.org/x/text/internal/testtext:go_default_library",
         "//vendor/golang.org/x/text/language:go_default_library",
@@ -42,7 +41,6 @@ go_test(
 go_test(
     name = "go_default_xtest",
     srcs = ["collate_test.go"],
-    importpath = "golang.org/x/text/internal/colltab_test",
     deps = [
         "//vendor/golang.org/x/text/collate:go_default_library",
         "//vendor/golang.org/x/text/language:go_default_library",

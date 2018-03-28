@@ -21,7 +21,6 @@ go_library(
 go_binary(
     name = "gnostic",
     embed = [":go_default_library"],
-    importpath = "github.com/googleapis/gnostic",
     visibility = ["//visibility:public"],
 )
 
@@ -29,5 +28,4 @@ go_test(
     name = "go_default_test",
     srcs = ["gnostic_test.go"],
     embed = [":go_default_library"],
-    importpath = "github.com/googleapis/gnostic",
 )

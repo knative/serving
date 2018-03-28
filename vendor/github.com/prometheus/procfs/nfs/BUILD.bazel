@@ -19,6 +19,5 @@ go_test(
         "parse_nfs_test.go",
         "parse_nfsd_test.go",
     ],
-    importpath = "github.com/prometheus/procfs/nfs_test",
     deps = [":go_default_library"],
 )

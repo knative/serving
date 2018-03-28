@@ -168,7 +168,6 @@ go_test(
         "remote_suite_test.go",
         "server_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/remote_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

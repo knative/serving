@@ -16,7 +16,6 @@ go_test(
         "writer_suite_test.go",
         "writer_test.go",
     ],
-    importpath = "github.com/onsi/ginkgo/internal/writer_test",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
