@@ -30,7 +30,7 @@ import (
 	"github.com/elafros/elafros/pkg/client/clientset/versioned"
 	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	apiv1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -83,6 +83,12 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 	}
 }
 
+func routeIsReady() func(r *v1alpha1.Route) (bool, error) {
+	return func(r *v1alpha1.Route) (bool, error) {
+		return r.Status.IsReady(), nil
+	}
+}
+
 func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
 	return func(r *v1alpha1.Route) (bool, error) {
 		if len(r.Status.Traffic) > 0 {
@@ -113,22 +119,14 @@ func isRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 	}
 }
 
-func waitForEndpointState(clientset *kubernetes.Clientset, namespace string, domain string, ingressName string, inState func(body string) (bool, error)) {
+func waitForEndpointState(domain string, ingress *v1beta1.Ingress, inState func(body string) (bool, error)) {
 	var endpoint, spoofDomain string
 
 	// If the domain that the Route controller is configured to assign to Route.Status.Domain
 	// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
 	// spoof the Host in our requests.
 	if !resolvableDomain {
-		ingressClient := clientset.ExtensionsV1beta1().Ingresses(namespace)
-		By("Wait for the ingress loadbalancer address to be set")
-		WaitForIngressState(ingressClient, ingressName, func(i *apiv1beta1.Ingress) (bool, error) {
-			if len(i.Status.LoadBalancer.Ingress) > 0 {
-				endpoint = fmt.Sprintf("http://%s", i.Status.LoadBalancer.Ingress[0].IP)
-				return true, nil
-			}
-			return false, nil
-		})
+		endpoint = fmt.Sprintf("http://%s", ingress.Status.LoadBalancer.Ingress[0].IP)
 		spoofDomain = domain
 		// If the domain is resolvable, we can use it directly when we make requests
 	} else {
@@ -218,11 +216,18 @@ var _ = Describe("Route", func() {
 
 			By("Once the Configuration has been updated with the Revision, the Route will be updated to route traffic to the Revision")
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, revisionName))
+
+			By("Once the Route Ingress has an IP, the Route will be marked as Ready.")
+			WaitForRouteState(routeClient, routeName, routeIsReady())
 			updatedRoute, err := routeClient.Get(routeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
+			ingress, err := kubeClientset.ExtensionsV1beta1().Ingresses(namespaceName).Get(ingressName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ingress.Status.LoadBalancer.Ingress[0].IP).NotTo(Equal(""))
+
 			By("Make a request to the Revision that is now deployed and serving traffic")
-			waitForEndpointState(kubeClientset, namespaceName, updatedRoute.Status.Domain, ingressName, func(body string) (bool, error) {
+			waitForEndpointState(updatedRoute.Status.Domain, ingress, func(body string) (bool, error) {
 				return body == "What a spaceport!", nil
 			})
 
@@ -258,7 +263,7 @@ var _ = Describe("Route", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for the ingress to actually start serving traffic from the newly deployed Revision")
-			waitForEndpointState(kubeClientset, namespaceName, updatedRoute.Status.Domain, ingressName, func(body string) (bool, error) {
+			waitForEndpointState(updatedRoute.Status.Domain, ingress, func(body string) (bool, error) {
 				if body == "Re-energize yourself with a slice of pepperoni!" {
 					// This is the string we are looking for
 					return true, nil
