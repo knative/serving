@@ -42,7 +42,7 @@ User stories:
 * Apply policy / RBAC
 * Control or charge back for resource usage
 * Choose logging or monitoring plugins
-- Audit or patch running Revisions
+* Audit or patch running Revisions
 
 
 ## Elafros Build
