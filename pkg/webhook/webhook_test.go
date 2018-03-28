@@ -203,11 +203,11 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	invalidName := "configuration.example"
+	invalidName := "route.example"
 	config := createRoute(0, invalidName)
 	marshaled, err := yaml.Marshal(config)
 	if err != nil {
-		t.Fatalf("Failed to marshal configuration: %s", err)
+		t.Fatalf("Failed to marshal route: %s", err)
 	}
 	req.Object.Raw = marshaled
 	expectFailsWith(t, ac.admit(req), "Invalid resource name")
@@ -216,7 +216,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 	config = createRoute(0, invalidName)
 	marshaled, err = yaml.Marshal(config)
 	if err != nil {
-		t.Fatalf("Failed to marshal configuration: %s", err)
+		t.Fatalf("Failed to marshal route: %s", err)
 	}
 	req.Object.Raw = marshaled
 	expectFailsWith(t, ac.admit(req), "Invalid resource name")
@@ -258,6 +258,34 @@ func TestValidRouteChanges(t *testing.T) {
 			Value:     2,
 		},
 	})
+}
+
+func TestInvalidNewRevisionNameFails(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Revision"},
+	}
+
+	invalidName := "revision.example"
+	revision := createRevision(invalidName)
+	marshaled, err := yaml.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.Object.Raw = marshaled
+	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+
+	invalidName = strings.Repeat("a", 64)
+	revision = createRevision(invalidName)
+
+	marshaled, err = yaml.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.Object.Raw = marshaled
+	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+
 }
 
 func TestValidWebhook(t *testing.T) {
@@ -474,6 +502,20 @@ func createRoute(generation int64, routeName string) v1alpha1.Route {
 					RevisionName: testRevisionName,
 					Percent:      100,
 				},
+			},
+		},
+	}
+}
+
+func createRevision(revName string) v1alpha1.Revision {
+	return v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      revName,
+			Namespace: testNamespace,
+		},
+		Spec: v1alpha1.RevisionSpec{
+			Container: &corev1.Container{
+				Image: "test-image",
 			},
 		},
 	}
