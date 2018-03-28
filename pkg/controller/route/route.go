@@ -738,11 +738,13 @@ func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route) error {
 	ns := u.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
-		glog.Errorf("Failed to create resource client")
+		glog.Error("Failed to create resource client")
 		return errors.New("Couldn't get a routeClient")
 	}
 
-	routeRuleList, err := routeClient.List(metav1.ListOptions{})
+	routeRuleList, err := routeClient.List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("route=%s", u.Name),
+	})
 	if err != nil {
 		return err
 	}
