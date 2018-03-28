@@ -443,14 +443,14 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		return nil, err
 	}
 
-	if err := validateMetadata(oldObj, newObj); err != nil {
+	if err := validateMetadata(newObj); err != nil {
 		glog.Warningf("Failed to validate : %s", err)
 		return nil, fmt.Errorf("Failed to validate: %s", err)
 	}
 	return json.Marshal(patches)
 }
 
-func validateMetadata(old GenericCRD, new GenericCRD) error {
+func validateMetadata(new GenericCRD) error {
 	name := new.GetObjectMeta().GetName()
 
 	if strings.Contains(name, ".") {
