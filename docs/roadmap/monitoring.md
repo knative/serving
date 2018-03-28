@@ -3,7 +3,7 @@
 This document captures what we hope to accomplish in 2018 in Monitoring and Logging areas for Elafros.
 
 ## Capabilities
-Provide two distinct experiences - one catered towards [operator persona](../product/personas.md#operator-personas) and other towards [developer persona](../product/personas.md#developer-personas). As a general rule of thumb, we will make sure to collaborate and align with Kubernetes team on their roadmap in monitoring and logging area.
+Provide two distinct experiences - one catered towards [operator persona](../product/personas.md#operator-personas) and other towards [developer persona](../product/personas.md#developer-personas). As a general rule of thumb, we will make sure to collaborate and align with Kubernetes team on their roadmap in monitoring and logging areas.
 
 ### For the operator persona
 * View logs and metrics related to cluster operations and health
@@ -15,7 +15,7 @@ Provide two distinct experiences - one catered towards [operator persona](../pro
 ### For the developer persona
 * View application and function logs, metrics and request traces
 * Provide default out of the box logs, metrics, alerts, traces and dashboards for applications and functions
-* Allow creating application and function specific alerting rules to get notified for application health issues
+* Allow creating application and function specific alerting rules to get notified for application and function health issues
 * Ability to create shared dashboards for logs and metrics for applications and functions
 
 ## Out of scope for 2018
@@ -23,7 +23,7 @@ Provide two distinct experiences - one catered towards [operator persona](../pro
     * Per namespace access control
     * Per namespace ingestion quotas
     * Per namespace query quotas
-    * Ingestion and query throttling at the namespace level to isolate bursty namespace
+    * Ingestion and query throttling to keep bursty behavior under control
 * Supporting log, metric and tracing backends other than the pre-installed ones
 * Exporting logs, metrics and traces to different type of backends outside the cluster
 * Customized log parsing and normalization per namespace
@@ -45,7 +45,7 @@ Logs from the following locations will be collected:
 * Build logs
 
 Following metrics will be collected:
-* Envoy (per request metrics), Istio Mixer, Istio Pilot
+* Envoy, Istio Mixer (per request metrics), Istio Pilot
 * Node metrics (CPU, Memory & Disk)
 * Elafros metrics
 
