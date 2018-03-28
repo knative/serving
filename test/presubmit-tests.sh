@@ -21,7 +21,7 @@
 set -o errexit
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
+ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
 OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
 OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
 OG_K8S_USER="${K8S_USER_OVERRIDE}"
@@ -43,7 +43,7 @@ function header() {
   echo "================================================="
 }
 
-cd ${SCRIPT_ROOT}
+cd ${ELAFROS_ROOT}
 
 # Set the required env vars to dummy values to satisfy bazel.
 export DOCKER_REPO_OVERRIDE=REPO_NOT_SET

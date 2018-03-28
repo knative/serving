@@ -18,9 +18,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
+ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
 
-pushd ${SCRIPT_ROOT}
+pushd ${ELAFROS_ROOT}
 trap popd EXIT
 
 # Ensure we have everything we need under vendor/
@@ -33,7 +33,7 @@ bazel run //:gazelle -- -proto=disable
 # Rewrite the code-generator imports, which we pull in through WORKSPACE,
 # since it's hard to vendor.
 sed -i 's|//vendor/k8s.io/code-generator/|@io_k8s_code_generator//|g' \
-    $(find ${SCRIPT_ROOT}/vendor -type f -name '*' | xargs grep k8s.io/code-generator | cut -d':' -f 1 | uniq)
+    $(find ${ELAFROS_ROOT}/vendor -type f -name '*' | xargs grep k8s.io/code-generator | cut -d':' -f 1 | uniq)
 
 # Fix up a case in k8s' client-go where non-testdata relies on files
 # in testdata (and so breaks after pruning).
@@ -42,4 +42,4 @@ sed -i 's|.*".*dontUseThisKey.pem",||g' vendor/k8s.io/client-go/util/cert/BUILD
 # Patch the Kubernetes client to fix panics in fake watches. This patch is from
 # https://github.com/kubernetes/kubernetes/pull/61195 and can be removed once
 # that PR makes it here.
-git apply $SCRIPT_ROOT/hack/61195.patch
+git apply $ELAFROS_ROOT/hack/61195.patch
