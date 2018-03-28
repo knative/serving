@@ -85,7 +85,7 @@ func getTestRevision() *v1alpha1.Revision {
 func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-endpoints",
+			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
 				"revision": revName,
@@ -98,6 +98,44 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 						IP: "123.456.78.90",
 					},
 				},
+			},
+		},
+	}
+}
+
+func getTestAuxiliaryReadyEndpoints(revName string) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-auxiliary", revName),
+			Namespace: "test",
+			Labels: map[string]string{
+				"revision": revName,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			corev1.EndpointSubset{
+				Addresses: []corev1.EndpointAddress{
+					corev1.EndpointAddress{
+						IP: "123.456.78.90",
+					},
+				},
+			},
+		},
+	}
+}
+
+func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-service", revName),
+			Namespace: "test",
+			Labels: map[string]string{
+				"revision": revName,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			corev1.EndpointSubset{
+				Addresses: []corev1.EndpointAddress{},
 			},
 		},
 	}
@@ -579,7 +617,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	h := NewHooks()
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
-	expectedMessage := "Revision becomes ready upon endpoint \"test-endpoints\" becoming ready"
+	expectedMessage := "Revision becomes ready upon endpoint \"test-rev-service\" becoming ready"
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	revClient.Create(rev)
@@ -648,6 +686,95 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 
 	// Create endpoints owned by this Revision.
 	endpoints := getTestReadyEndpoints(rev.Name)
+
+	// No revision updates.
+	elaClient.Fake.PrependReactor("update", "revisions",
+		func(a kubetesting.Action) (bool, runtime.Object, error) {
+			t.Error("Revision was updated unexpectedly")
+			return true, nil, nil
+		},
+	)
+
+	controller.addEndpointsEvent(endpoints)
+}
+
+func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+	// Mark the revision already ready.
+	rev.Status.Conditions = []v1alpha1.RevisionCondition{
+		v1alpha1.RevisionCondition{
+			Type:   "Failed",
+			Status: corev1.ConditionTrue,
+			Reason: "ExceededReadinessChecks",
+		},
+	}
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	// Create endpoints owned by this Revision.
+	endpoints := getTestReadyEndpoints(rev.Name)
+
+	// No revision updates.
+	elaClient.Fake.PrependReactor("update", "revisions",
+		func(a kubetesting.Action) (bool, runtime.Object, error) {
+			t.Error("Revision was updated unexpectedly")
+			return true, nil, nil
+		},
+	)
+
+	controller.addEndpointsEvent(endpoints)
+}
+
+func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	creationTime := time.Now().Add(-10 * time.Minute)
+	rev.ObjectMeta.CreationTimestamp = metav1.NewTime(creationTime)
+	rev.Status.Conditions = []v1alpha1.RevisionCondition{
+		v1alpha1.RevisionCondition{
+			Type:   "Ready",
+			Status: corev1.ConditionFalse,
+			Reason: "Deploying",
+		},
+	}
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	// Create endpoints owned by this Revision.
+	endpoints := getTestNotReadyEndpoints(rev.Name)
+
+	controller.addEndpointsEvent(endpoints)
+
+	currentRev, _ := elaClient.ElafrosV1alpha1().Revisions("test").Get(rev.Name, metav1.GetOptions{})
+
+	want := v1alpha1.RevisionCondition{
+		Type:    "Failed",
+		Status:  corev1.ConditionTrue,
+		Reason:  "ServiceTimeout",
+		Message: "Timed out waiting for a service endpoint to become ready",
+	}
+
+	if len(currentRev.Status.Conditions) != 1 || want != currentRev.Status.Conditions[0] {
+		t.Errorf("expected conditions to have 1 condition equal to %v", want)
+	}
+}
+
+func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	// Create endpoints owned by this Revision.
+	endpoints := getTestAuxiliaryReadyEndpoints(rev.Name)
 
 	// No revision updates.
 	elaClient.Fake.PrependReactor("update", "revisions",
