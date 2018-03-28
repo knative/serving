@@ -15,22 +15,42 @@
 # limitations under the License.
 
 set -o errexit
-set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
+readonly ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
+readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
+readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
+
+function header() {
+  echo "*************************************************"
+  echo "** $1"
+  echo "*************************************************"
+}
 
 function cleanup() {
   export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
+  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
+  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
   bazel clean --expunge || true
 }
 
-cd ${SCRIPT_ROOT}
+cd ${ELAFROS_ROOT}
 trap cleanup EXIT
+
+header "TEST PHASE"
+
+# Run tests.
+./test/presubmit-tests.sh
+
+header "BUILD PHASE"
 
 # Set the repository to the official one:
 export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
+# Build should not try to push anything, use a bogus value for cluster.
+export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
+export K8S_USER_OVERRIDE=USER_NOT_SET
+
 bazel clean --expunge
 # TODO(mattmoor): Remove this once we depend on Build CRD releases
 bazel run @buildcrd//:everything > release.yaml
