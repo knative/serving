@@ -18,20 +18,45 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
+// LabelSelector represents map of {key,value} pairs. A single {key,value} in the
+// map is equivalent to a requirement key == value. The requirements are ANDed.
+type LabelSelector struct {
+	Selector map[string]string `json:"selector,omitempty"`
+}
+
+func (s *LabelSelector) specificity() int {
+	return len(s.Selector)
+}
+
+// Matches() returns whether the given labels meet the requirement of the selector.
+func (s *LabelSelector) Matches(labels map[string]string) bool {
+	for label, expectedValue := range s.Selector {
+		value, ok := labels[label]
+		if !ok || expectedValue != value {
+			return false
+		}
+	}
+	return true
+}
+
 // Config contains controller configurations.
 type Config struct {
-	// DomainSuffix contains the suffix of the domain used for routes.
-	DomainSuffix string
+	// Domains maps from domain to label selector.  If if a route has
+	// labels matching a particular selector, it will use the
+	// corresponding domain.  If multiple selectors match, we choose
+	// the most specific selector.
+	Domains map[string]*LabelSelector
 }
 
 const (
-	elaNamespace    = "ela-system"
-	domainSuffixKey = "domainSuffix"
+	elaNamespace = "ela-system"
 )
 
 func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
@@ -39,9 +64,42 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	domainSuffix, ok := m.Data[domainSuffixKey]
-	if !ok {
-		return nil, fmt.Errorf("key %q not found in ConfigMap %q in namespace %q", domainSuffixKey, GetElaConfigMapName(), elaNamespace)
+	c := Config{Domains: map[string]*LabelSelector{}}
+	hasDefault := false
+	for k, v := range m.Data {
+		labelSelector := LabelSelector{}
+		err := yaml.Unmarshal([]byte(v), &labelSelector)
+		if err != nil {
+			return nil, err
+		}
+		c.Domains[k] = &labelSelector
+		if len(labelSelector.Selector) == 0 {
+			hasDefault = true
+		}
 	}
-	return &Config{DomainSuffix: domainSuffix}, nil
+	if !hasDefault {
+		return nil, fmt.Errorf("Config %#v must have a default domain", m.Data)
+	}
+	return &c, nil
+}
+
+// LookupDomainForLabels() returns a domain given a set of labels.
+// Since we reject configuration without a default domain, this should
+// always return a value.
+func (c *Config) LookupDomainForLabels(labels map[string]string) string {
+	domain := ""
+	specificity := -1
+
+	for k, selector := range c.Domains {
+		// Ignore if selector doesn't match, or decrease the specificity.
+		if !selector.Matches(labels) || selector.specificity() < specificity {
+			continue
+		}
+		if selector.specificity() > specificity || strings.Compare(k, domain) < 0 {
+			domain = k
+			specificity = selector.specificity()
+		}
+	}
+
+	return domain
 }

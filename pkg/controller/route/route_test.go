@@ -53,6 +53,8 @@ import (
 )
 
 const testNamespace string = "test"
+const defaultDomainSuffix string = "test-domain.dev"
+const prodDomainSuffix string = "prod-domain.com"
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
@@ -145,7 +147,16 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{DomainSuffix: "test-domain.net"},
+		ctrl.Config{
+			Domains: map[string]*ctrl.LabelSelector{
+				defaultDomainSuffix: &ctrl.LabelSelector{},
+				prodDomainSuffix: &ctrl.LabelSelector{
+					Selector: map[string]string{
+						"app": "prod",
+					},
+				},
+			},
+		},
 	).(*Controller)
 
 	return
@@ -235,10 +246,10 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
 	expectedWildcardDomainPrefix := fmt.Sprintf("*.%s", expectedDomainPrefix)
 	if !strings.HasPrefix(ingress.Spec.Rules[0].Host, expectedDomainPrefix) {
-		t.Errorf("Ingress host '%s' does not have prefix '%s'", ingress.Spec.Rules[0].Host, expectedDomainPrefix)
+		t.Errorf("Ingress host %q does not have prefix %q", ingress.Spec.Rules[0].Host, expectedDomainPrefix)
 	}
 	if !strings.HasPrefix(ingress.Spec.Rules[1].Host, expectedWildcardDomainPrefix) {
-		t.Errorf("Ingress host '%s' does not have prefix '%s'", ingress.Spec.Rules[1].Host, expectedWildcardDomainPrefix)
+		t.Errorf("Ingress host %q does not have prefix %q", ingress.Spec.Rules[1].Host, expectedWildcardDomainPrefix)
 	}
 
 	// Look for the route rule.
@@ -275,7 +286,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
 						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, controller.controllerConfig.DomainSuffix}, "."),
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
 						),
 					},
 				},
@@ -349,7 +360,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
 						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, controller.controllerConfig.DomainSuffix}, "."),
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
 						),
 					},
 				},
@@ -450,7 +461,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Headers: v1alpha2.Headers{
 					Authority: v1alpha2.MatchString{
 						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, controller.controllerConfig.DomainSuffix}, "."),
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
 						),
 					},
 				},
@@ -528,7 +539,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, controller.controllerConfig.DomainSuffix)
+	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, defaultDomainSuffix)
 
 	expectRouteSpec := func(t *testing.T, name string, expectedSpec v1alpha2.RouteRuleSpec) {
 		routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(name, metav1.GetOptions{})
@@ -796,6 +807,55 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 	}
 }
 
+func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
+	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+
+	// Create a route.
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	routeClient.Create(route)
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	// Confirms that by default the route get the defaultDomainSuffix.
+	expectations := []struct {
+		labels       map[string]string
+		domainSuffix string
+	}{
+		{labels: map[string]string{}, domainSuffix: defaultDomainSuffix},
+		{labels: map[string]string{"app": "notprod"}, domainSuffix: defaultDomainSuffix},
+		{labels: map[string]string{"unrelated": "unrelated"}, domainSuffix: defaultDomainSuffix},
+		{labels: map[string]string{"app": "prod"}, domainSuffix: prodDomainSuffix},
+		{labels: map[string]string{"app": "prod", "unrelated": "whocares"}, domainSuffix: prodDomainSuffix},
+	}
+	for _, expectation := range expectations {
+		route.ObjectMeta.Labels = expectation.labels
+		elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+		routeClient.Update(route)
+		controller.updateRouteEvent(KeyOrDie(route))
+
+		// Confirms that the new route get the correct domain.
+		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.domainSuffix)
+		if route.Status.Domain != expectedDomain {
+			t.Errorf("For labels %v, expected domain %q but saw %q", expectation.labels, expectedDomain, route.Status.Domain)
+		}
+
+		// Confirms that the ingress is updated in tandem with the route.
+		ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
+
+		expectedHost := route.Status.Domain
+		expectedWildcardHost := fmt.Sprintf("*.%s", route.Status.Domain)
+		if ingress.Spec.Rules[0].Host != expectedHost {
+			t.Errorf("For labels %v, expected ingress host %q but saw %q", expectation.labels, expectedHost, ingress.Spec.Rules[0].Host)
+		}
+		if ingress.Spec.Rules[1].Host != expectedWildcardHost {
+			t.Errorf("For labels %v, expected ingress host %q but saw %q", expectation.labels, expectedWildcardHost, ingress.Spec.Rules[1].Host)
+		}
+	}
+}
+
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	routeClient := elaClient.ElafrosV1alpha1().Routes(testNamespace)
@@ -866,7 +926,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	}
 	expectedDomainPrefix := fmt.Sprintf("%s.%s.", route.Name, route.Namespace)
 	if !strings.HasPrefix(route.Status.Domain, expectedDomainPrefix) {
-		t.Errorf("Route domain '%s' must have prefix '%s'", route.Status.Domain, expectedDomainPrefix)
+		t.Errorf("Route domain %q must have prefix %q", route.Status.Domain, expectedDomainPrefix)
 	}
 
 }
