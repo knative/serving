@@ -63,6 +63,7 @@ fi
 # Step 1: Build relevant packages to ensure nothing is broken.
 header "Building phase"
 bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
+bazel build :everything
 
 # Step 2: Run tests.
 header "Testing phase"
