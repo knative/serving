@@ -1,5 +1,4 @@
 def _cluster_ca_bundle_impl(ctx):
-  ctx.symlink(Label("//:BUILD.ca_bundle"), "BUILD")
   cluster = ctx.execute([
       "sh", "-c",
       "grep STABLE_K8S_CLUSTER bazel-out/stable-status.txt | cut -d' ' -f 2"]).stdout
