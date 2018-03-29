@@ -16,6 +16,7 @@ limitations under the License.
 package webhook
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -29,7 +30,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -420,12 +420,22 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	oldObj := handler.Factory.DeepCopyObject().(GenericCRD)
 	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
 
-	if err := yaml.Unmarshal(newBytes, &newObj); err != nil {
-		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+	if len(newBytes) != 0 {
+		glog.Errorf("Got NEW bytes: %v", string(newBytes))
+		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
+		newDecoder.DisallowUnknownFields()
+		if err := newDecoder.Decode(&newObj); err != nil {
+			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+		}
 	}
 
-	if err := yaml.Unmarshal(oldBytes, &oldObj); err != nil {
-		return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+	if len(oldBytes) != 0 {
+		glog.Errorf("Got OLD bytes: %v", string(oldBytes))
+		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
+		oldDecoder.DisallowUnknownFields()
+		if err := oldDecoder.Decode(&oldObj); err != nil {
+			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+		}
 	}
 
 	var patches []jsonpatch.JsonPatchOperation
