@@ -18,7 +18,6 @@ go_library(
 go_binary(
     name = "telemetrysample",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/telemetrysample",
     pure = "on",
     visibility = ["//visibility:public"],
 )

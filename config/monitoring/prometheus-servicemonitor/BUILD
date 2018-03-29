@@ -74,7 +74,7 @@ k8s_objects(
 )
 
 #
-# Enable detailed k8s metric collection. 
+# Enable detailed k8s metric collection.
 # Below is not enabled by default as it installs a large set of k8s metrics.
 #
 k8s_objects(

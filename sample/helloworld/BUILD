@@ -11,7 +11,6 @@ go_library(
 go_binary(
     name = "helloworld",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/helloworld",
     pure = "on",
     visibility = ["//visibility:public"],
 )

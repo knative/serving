@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -6,18 +6,8 @@ go_library(
         "github.go",
         "payload.go",
     ],
+    importmap = "elafros/vendor/gopkg.in/go-playground/webhooks.v3/github",
     importpath = "gopkg.in/go-playground/webhooks.v3/github",
     visibility = ["//visibility:public"],
     deps = ["//vendor/gopkg.in/go-playground/webhooks.v3:go_default_library"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["github_test.go"],
-    embed = [":go_default_library"],
-    importpath = "gopkg.in/go-playground/webhooks.v3/github",
-    deps = [
-        "//vendor/gopkg.in/go-playground/assert.v1:go_default_library",
-        "//vendor/gopkg.in/go-playground/webhooks.v3:go_default_library",
-    ],
 )
