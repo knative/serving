@@ -10,8 +10,8 @@ go_library(
     srcs = ["generator_for_scheme.go"],
     importpath = "k8s.io/code-generator/cmd/client-gen/generators/scheme",
     deps = [
-        "@io_k8s_code_generator//cmd/client-gen/path:go_default_library",
-        "@io_k8s_code_generator//cmd/client-gen/types:go_default_library",
+        "//vendor/k8s.io/code-generator/cmd/client-gen/path:go_default_library",
+        "//vendor/k8s.io/code-generator/cmd/client-gen/types:go_default_library",
         "//vendor/k8s.io/gengo/generator:go_default_library",
         "//vendor/k8s.io/gengo/namer:go_default_library",
         "//vendor/k8s.io/gengo/types:go_default_library",

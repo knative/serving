@@ -16,8 +16,8 @@ go_library(
     importpath = "k8s.io/code-generator/cmd/client-gen/args",
     deps = [
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "@io_k8s_code_generator//cmd/client-gen/types:go_default_library",
-        "@io_k8s_code_generator//pkg/util:go_default_library",
+        "//vendor/k8s.io/code-generator/cmd/client-gen/types:go_default_library",
+        "//vendor/k8s.io/code-generator/pkg/util:go_default_library",
         "//vendor/k8s.io/gengo/args:go_default_library",
     ],
 )
@@ -42,6 +42,6 @@ go_test(
     importpath = "k8s.io/code-generator/cmd/client-gen/args",
     deps = [
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "@io_k8s_code_generator//cmd/client-gen/types:go_default_library",
+        "//vendor/k8s.io/code-generator/cmd/client-gen/types:go_default_library",
     ],
 )
