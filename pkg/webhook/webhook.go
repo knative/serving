@@ -93,8 +93,9 @@ type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
-	Factory  runtime.Object
-	Callback ResourceCallback
+	Factory   runtime.Object
+	Defaultor ResourceCallback
+	Validator ResourceCallback
 }
 
 // AdmissionController implements the external admission webhook for validation of
@@ -196,9 +197,9 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		client:  client,
 		options: options,
 		handlers: map[string]GenericCRDHandler{
-			"Revision":      GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
-			"Configuration": GenericCRDHandler{Factory: &v1alpha1.Configuration{}, Callback: ValidateConfiguration},
-			"Route":         GenericCRDHandler{Factory: &v1alpha1.Route{}, Callback: ValidateRoute},
+			"Revision":      GenericCRDHandler{Factory: &v1alpha1.Revision{}, Defaultor: SetRevisionDefaults, Validator: ValidateRevision},
+			"Configuration": GenericCRDHandler{Factory: &v1alpha1.Configuration{}, Validator: ValidateConfiguration},
+			"Route":         GenericCRDHandler{Factory: &v1alpha1.Route{}, Validator: ValidateRoute},
 		},
 	}, nil
 }
@@ -416,7 +417,6 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
 
-	cb := handler.Callback
 	oldObj := handler.Factory.DeepCopyObject().(GenericCRD)
 	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
 
@@ -436,10 +436,19 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	if err := cb(&patches, oldObj, newObj); err != nil {
-		glog.Warningf("Failed the resource specific callback: %s", err)
-		// Return the error message as-is to give the callback discretion
-		// over (our portion of) the message that the user sees.
+	if defaultor := handler.Defaultor; defaultor != nil {
+		if err := defaultor(&patches, oldObj, newObj); err != nil {
+			glog.Warningf("Failed the resource specific defaultor: %s", err)
+			// Return the error message as-is to give the defaultor callback
+			// discretion over (our portion of) the message that the user sees.
+			return nil, err
+		}
+	}
+
+	if err := handler.Validator(&patches, oldObj, newObj); err != nil {
+		glog.Warningf("Failed the resource specific validation: %s", err)
+		// Return the error message as-is to give the validation callback
+		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
 
