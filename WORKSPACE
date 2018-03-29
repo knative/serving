@@ -69,13 +69,13 @@ k8s_defaults(
 # We rewrite things in ./hack/update-deps.sh to use this version.
 go_repository(
     name = "io_k8s_code_generator",
-    commit = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c",
+    tag = "kubernetes-1.10.0",
     importpath = "k8s.io/code-generator",
 )
 
 go_repository(
     name = "io_k8s_gengo",
-    commit = "1ef560bbde5195c01629039ad3b337ce63e7b321",
+    commit = "01a732e01d00cb9a81bb0ca050d3e6d2b947927b",
     importpath = "k8s.io/gengo",
 )
 

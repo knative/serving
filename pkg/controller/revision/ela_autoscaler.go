@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -90,6 +90,10 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 									Name:  "ELA_AUTOSCALER_PORT",
 									Value: strconv.Itoa(autoscalerPort),
 								},
+							},
+							Args: []string{
+								"-logtostderr=true",
+								"-stderrthreshold=INFO",
 							},
 						},
 					},

@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
+
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -29,6 +31,15 @@ import (
 // targets Istio by using the simple placeholder service name. All the routing actually happens in
 // the route rules.
 func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
+	// We used to have a distinct service, but in the ela world, use the
+	// name for serviceID too.
+
+	// Construct hostnames the ingress accepts traffic for.
+	hostRules := []string{
+		route.Status.Domain,
+		fmt.Sprintf("*.%s", route.Status.Domain),
+	}
+
 	// By default we map to the placeholder service directly.
 	// This would point to 'router' component if we wanted to use
 	// this method for 0->1 case.
@@ -40,14 +51,18 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 		},
 	}
-	rules := []v1beta1.IngressRule{v1beta1.IngressRule{
-		Host: route.Status.Domain,
-		IngressRuleValue: v1beta1.IngressRuleValue{
-			HTTP: &v1beta1.HTTPIngressRuleValue{
-				Paths: []v1beta1.HTTPIngressPath{path},
+
+	rules := []v1beta1.IngressRule{}
+	for _, hostRule := range hostRules {
+		rule := v1beta1.IngressRule{
+			Host: hostRule,
+			IngressRuleValue: v1beta1.IngressRuleValue{
+				HTTP: &v1beta1.HTTPIngressRuleValue{
+					Paths: []v1beta1.HTTPIngressPath{path},
+				},
 			},
-		},
-	},
+		}
+		rules = append(rules, rule)
 	}
 
 	return &v1beta1.Ingress{

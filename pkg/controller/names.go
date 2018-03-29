@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2018 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -46,7 +46,10 @@ func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
 }
 
-func GetElaIstioRouteRuleName(u *v1alpha1.Route) string {
+func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
+	if tt != nil {
+		return u.Name + "-" + tt.Name + "-istio"
+	}
 	return u.Name + "-istio"
 }
 

@@ -4,11 +4,11 @@ go_library(
     name = "go_default_library",
     srcs = [
         "buildtracker.go",
-        "controller.go",
         "ela_autoscaler.go",
         "ela_pod.go",
         "ela_resource.go",
         "ela_service.go",
+        "revision.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/controller/revision",
     visibility = ["//visibility:public"],
@@ -43,7 +43,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["controller_test.go"],
+    srcs = [
+        "queueing_test.go",
+        "revision_test.go",
+    ],
     embed = [":go_default_library"],
     importpath = "github.com/elafros/elafros/pkg/controller/revision",
     deps = [
@@ -53,9 +56,9 @@ go_test(
         "//pkg/client/informers/externalversions:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/controller/testing:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/cmpopts:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/client-go/informers:go_default_library",

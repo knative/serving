@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
@@ -107,6 +108,8 @@ type AdmissionController struct {
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
 type GenericCRD interface {
+	// GetObjectMeta return the object metadata
+	GetObjectMeta() metav1.Object
 	// GetGeneration returns the current Generation of the object
 	GetGeneration() int64
 	// SetGeneration sets the Generation of the object
@@ -426,6 +429,7 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	}
 
 	var patches []jsonpatch.JsonPatchOperation
+
 	err := updateGeneration(&patches, oldObj, newObj)
 	if err != nil {
 		glog.Warningf("Failed to update generation : %s", err)
@@ -438,7 +442,25 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		// over (our portion of) the message that the user sees.
 		return nil, err
 	}
+
+	if err := validateMetadata(newObj); err != nil {
+		glog.Warningf("Failed to validate : %s", err)
+		return nil, fmt.Errorf("Failed to validate: %s", err)
+	}
 	return json.Marshal(patches)
+}
+
+func validateMetadata(new GenericCRD) error {
+	name := new.GetObjectMeta().GetName()
+
+	if strings.Contains(name, ".") {
+		return errors.New("Invalid resource name: special character . must not be present")
+	}
+
+	if len(name) > 63 {
+		return errors.New("Invalid resource name: length must be no more than 63 characters")
+	}
+	return nil
 }
 
 // updateGeneration sets the generation by following this logic:

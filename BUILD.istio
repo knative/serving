@@ -1,6 +1,7 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
-load("@//:istio.bzl", "disable_policy")
+load("@cluster_ca_bundle//:bundle.bzl", "CA_BUNDLE")
+load("@//:istio.bzl", "disable_policy", "subst_ca_bundle")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -64,19 +65,15 @@ sh_binary(
     ],
 )
 
-genrule(
-    name = "gen-istio-sidecar-injector-with-ca-bundle",
-    srcs = [
-        "@cluster_ca_bundle//:ca-bundle",
-        "istio-sidecar-injector.yaml",
-    ],
-    outs = ["istio-sidecar-injector-with-ca-bundle.yaml"],
-    cmd = "CA_BUNDLE=$$(< $(location @cluster_ca_bundle//:ca-bundle)) envsubst <$(location istio-sidecar-injector.yaml) >$@",
+subst_ca_bundle(
+    name = "istio-sidecar-injector-with-ca-bundle",
+    template = "istio-sidecar-injector.yaml",
+    ca_bundle = CA_BUNDLE,
 )
 
 k8s_object(
-    name = "istio-sidecar-injector-with-ca-bundle",
-    template = "istio-sidecar-injector-with-ca-bundle.yaml",
+    name = "istio-sidecar-injector",
+    template = ":istio-sidecar-injector-with-ca-bundle",
 )
 
 k8s_objects(
@@ -85,6 +82,6 @@ k8s_objects(
         ":istioclusterrolebinding",
         ":istio-core",
         ":istio-sidecar-injector-configmap",
-        ":istio-sidecar-injector-with-ca-bundle",
+        ":istio-sidecar-injector",
     ],
 )
