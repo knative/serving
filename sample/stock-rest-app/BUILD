@@ -14,7 +14,6 @@ go_library(
 go_binary(
     name = "stock",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/stock",
     pure = "on",
     visibility = ["//visibility:public"],
 )
@@ -70,6 +69,5 @@ k8s_objects(
 go_binary(
     name = "stock-rest-app",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/stock-rest-app",
     visibility = ["//visibility:public"],
 )

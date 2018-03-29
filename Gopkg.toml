@@ -18,10 +18,8 @@
 # [[override]]
 #  name = "github.com/x/y"
 #  version = "2.4.0"
-#
 
-#TODO(grantr): Can we have Bazel generate these binaries so there's no need to
-# go get?
+# Required for Bazel
 required = [
   "k8s.io/apimachinery/pkg/util/sets/types",
   "k8s.io/apimachinery/pkg/apimachinery/registered",
@@ -46,7 +44,6 @@ required = [
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  # Must match WORKSPACE!
   version = "kubernetes-1.10.0"
 
 [[constraint]]

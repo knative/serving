@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -6,13 +6,7 @@ go_library(
         "context.go",
         "doc.go",
     ],
+    importmap = "elafros/vendor/github.com/gorilla/context",
     importpath = "github.com/gorilla/context",
     visibility = ["//visibility:public"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["context_test.go"],
-    embed = [":go_default_library"],
-    importpath = "github.com/gorilla/context",
 )
