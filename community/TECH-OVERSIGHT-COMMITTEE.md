@@ -72,7 +72,7 @@ during the community feedback period at the end of each meeting.
 
 Artifact                   | Link
 -------------------------- | ----
-Google Group               | [elafros-tech-oversight@](TODO)
+Google Group               | [elafros-tech-oversight@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-tech-oversight)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
