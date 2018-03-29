@@ -421,7 +421,6 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
 
 	if len(newBytes) != 0 {
-		glog.Errorf("Got NEW bytes: %v", string(newBytes))
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
 		newDecoder.DisallowUnknownFields()
 		if err := newDecoder.Decode(&newObj); err != nil {
@@ -430,7 +429,6 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	}
 
 	if len(oldBytes) != 0 {
-		glog.Errorf("Got OLD bytes: %v", string(oldBytes))
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
 		oldDecoder.DisallowUnknownFields()
 		if err := oldDecoder.Decode(&oldObj); err != nil {
