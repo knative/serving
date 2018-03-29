@@ -28,6 +28,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
+    importmap = "elafros/vendor/github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty",
     importpath = "github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty",
     visibility = ["//visibility:public"],
     deps = select({

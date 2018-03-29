@@ -27,19 +27,14 @@ trap popd EXIT
 dep ensure
 dep prune
 
-# Make sure that BUILD files are up to date (the above removes them).
-bazel run //:gazelle -- -proto=disable
-
-# Rewrite the code-generator imports, which we pull in through WORKSPACE,
-# since it's hard to vendor.
-sed -i 's|//vendor/k8s.io/code-generator/|@io_k8s_code_generator//|g' \
-    $(find ${SCRIPT_ROOT}/vendor -type f -name '*' | xargs grep k8s.io/code-generator | cut -d':' -f 1 | uniq)
-
-# Fix up a case in k8s' client-go where non-testdata relies on files
-# in testdata (and so breaks after pruning).
-sed -i 's|.*".*dontUseThisKey.pem",||g' vendor/k8s.io/client-go/util/cert/BUILD
-
 # Patch the Kubernetes client to fix panics in fake watches. This patch is from
 # https://github.com/kubernetes/kubernetes/pull/61195 and can be removed once
 # that PR makes it here.
 git apply $SCRIPT_ROOT/hack/61195.patch
+
+rm -rf $(find vendor/ -name 'BUILD')
+rm -rf $(find vendor/ -name 'BUILD.bazel')
+rm -rf $(find vendor/ -name '*_test.go')
+
+# Make sure that BUILD files are up to date (the above removes them).
+bazel run //:gazelle -- -proto=disable
