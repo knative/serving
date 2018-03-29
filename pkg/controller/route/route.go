@@ -661,6 +661,9 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 		}
 	}
+	if err := c.removeOutdatedRouteRules(route); err != nil {
+		return nil, err
+	}
 	return revisionRoutes, nil
 }
 
@@ -729,6 +732,44 @@ func (c *Controller) consolidateTrafficTargets(route *v1alpha1.Route) {
 		)
 	}
 	route.Spec.Traffic = consolidatedTraffic
+}
+
+func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route) error {
+	ns := u.Namespace
+	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
+	if routeClient == nil {
+		glog.Error("Failed to create resource client")
+		return errors.New("Couldn't get a routeClient")
+	}
+
+	routeRuleList, err := routeClient.List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("route=%s", u.Name),
+	})
+	if err != nil {
+		return err
+	}
+
+	routeRuleNames := map[string]struct{}{}
+	routeRuleNames[controller.GetRouteRuleName(u, nil)] = struct{}{}
+	for _, tt := range u.Spec.Traffic {
+		if tt.Name == "" {
+			continue
+		}
+		routeRuleNames[controller.GetRouteRuleName(u, &tt)] = struct{}{}
+	}
+
+	for _, r := range routeRuleList.Items {
+		if _, ok := routeRuleNames[r.Name]; ok {
+			continue
+		}
+		glog.Info("Deleting outdated route: %s", r.Name)
+		if err := routeClient.Delete(r.Name, nil); err != nil {
+			if !apierrs.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Controller) addConfigurationEvent(obj interface{}) {

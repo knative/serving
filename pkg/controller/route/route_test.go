@@ -60,6 +60,9 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/Routes/test-route",
 			Name:      "test-route",
 			Namespace: testNamespace,
+			Labels: map[string]string{
+				"route": "test-route",
+			},
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: traffic,
@@ -625,6 +628,74 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
+	_, elaClient, controller, _, _ := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           50,
+			},
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+				Name:              "foo",
+			},
+		},
+	)
+	extraRouteRule := &v1alpha2.RouteRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route-extra-istio",
+			Namespace: route.Namespace,
+			Labels: map[string]string{
+				"route": route.Name,
+			},
+		},
+	}
+
+	// A route rule without the expected ela route label.
+	independentRouteRule := &v1alpha2.RouteRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route-independent-istio",
+			Namespace: route.Namespace,
+		},
+	}
+
+	config.Status.LatestCreatedRevisionName = rev.Name
+	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
+
+	elaClient.ElafrosV1alpha1().Configurations("test").Create(config)
+	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(extraRouteRule)
+	elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(independentRouteRule)
+
+	// Ensure extraRouteRule was created
+	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{}); err != nil {
+		t.Errorf("Unexpected error occured. Expected route rule %s to exist.", extraRouteRule.Name)
+	}
+	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(independentRouteRule.Name, metav1.GetOptions{}); err != nil {
+		t.Errorf("Unexpected error occured. Expected route rule %s to exist.", independentRouteRule.Name)
+	}
+	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
+
+	if err := controller.removeOutdatedRouteRules(route); err != nil {
+		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
+	}
+
+	expectedErrMsg := fmt.Sprintf("routerules.config.istio.io \"%s\" not found", extraRouteRule.Name)
+	// expect extraRouteRule to have been deleted
+	_, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{})
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("Unexpected error: %q expected: %q", got, wanted)
+	}
+	// expect independentRouteRule not to have been deleted
+	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(independentRouteRule.Name, metav1.GetOptions{}); err != nil {
+		t.Errorf("Error occurred fetching route rule: %s. Expected route rule to exist.", independentRouteRule.Name)
+	}
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
