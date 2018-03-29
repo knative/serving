@@ -41,6 +41,10 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
+
+	labels := MakeElaResourceLabels(u)
+	labels["autoscaler"] = controller.GetRevisionAutoscalerName(u)
+
 	replicas := int32(1)
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -56,9 +60,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: map[string]string{
-						"autoscaler": controller.GetRevisionAutoscalerName(u),
-					},
+					Labels: labels,
 					Annotations: map[string]string{
 						"sidecar.istio.io/inject": "false",
 					},

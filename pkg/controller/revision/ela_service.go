@@ -35,9 +35,7 @@ func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetElaK8SServiceNameForRevision(u),
 			Namespace: ns,
-			Labels: map[string]string{
-				"revision": u.Name,
-			},
+			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
