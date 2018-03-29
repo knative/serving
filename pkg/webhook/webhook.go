@@ -94,7 +94,7 @@ type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
 	Factory   runtime.Object
-	Defaultor ResourceCallback
+	Defaulter ResourceCallback
 	Validator ResourceCallback
 }
 
@@ -197,9 +197,19 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		client:  client,
 		options: options,
 		handlers: map[string]GenericCRDHandler{
-			"Revision":      GenericCRDHandler{Factory: &v1alpha1.Revision{}, Defaultor: SetRevisionDefaults, Validator: ValidateRevision},
-			"Configuration": GenericCRDHandler{Factory: &v1alpha1.Configuration{}, Validator: ValidateConfiguration},
-			"Route":         GenericCRDHandler{Factory: &v1alpha1.Route{}, Validator: ValidateRoute},
+			"Revision": GenericCRDHandler{
+				Factory:   &v1alpha1.Revision{},
+				Defaulter: SetRevisionDefaults,
+				Validator: ValidateRevision,
+			},
+			"Configuration": GenericCRDHandler{
+				Factory:   &v1alpha1.Configuration{},
+				Validator: ValidateConfiguration,
+			},
+			"Route": GenericCRDHandler{
+				Factory:   &v1alpha1.Route{},
+				Validator: ValidateRoute,
+			},
 		},
 	}, nil
 }
@@ -436,10 +446,10 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	if defaultor := handler.Defaultor; defaultor != nil {
-		if err := defaultor(&patches, oldObj, newObj); err != nil {
-			glog.Warningf("Failed the resource specific defaultor: %s", err)
-			// Return the error message as-is to give the defaultor callback
+	if defaulter := handler.Defaulter; defaulter != nil {
+		if err := defaulter(&patches, oldObj, newObj); err != nil {
+			glog.Warningf("Failed the resource specific defaulter: %s", err)
+			// Return the error message as-is to give the defaulter callback
 			// discretion over (our portion of) the message that the user sees.
 			return nil, err
 		}

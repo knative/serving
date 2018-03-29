@@ -283,7 +283,7 @@ func TestValidNewRevisionObject(t *testing.T) {
 		},
 		jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/serving_state",
+			Path:      "/spec/servingState",
 			Value:     v1alpha1.RevisionServingStateActive,
 		},
 	})

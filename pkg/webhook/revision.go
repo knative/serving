@@ -42,7 +42,7 @@ func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD
 	if newR.Spec.ServingState == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/serving_state",
+			Path:      "/spec/servingState",
 			Value:     v1alpha1.RevisionServingStateActive,
 		})
 	}
