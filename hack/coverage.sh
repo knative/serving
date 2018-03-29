@@ -23,4 +23,4 @@ cd ${ELAFROS_ROOT}/pkg
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
 # TODO(steuhs): get PR number and use that as the file name
 go test ./... -coverprofile coverage_profile.txt
-gsutil cp -a project-private coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/$PULL_PULL_SHA
+gsutil cp -a project-private coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/profiles/$PULL_PULL_SHA
