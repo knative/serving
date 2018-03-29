@@ -66,6 +66,12 @@ bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
 
 # Step 2: Run tests.
 header "Testing phase"
-# Run relevant go tests as well to workaround https://github.com/elafros/elafros/issues/525
-go test ./pkg/...
 bazel test //cmd/... //pkg/...
+
+# Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
+# Create a GOPATH to satisfy go test under prow
+if [[ $USER == "prow" ]]; then
+  export GOPATH=/tmp/go
+  ln -s "$(git rev-parse --show-toplevel)/../../../.." ${GOPATH}
+fi
+go test ./cmd/... ./pkg/...
