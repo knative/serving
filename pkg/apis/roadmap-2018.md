@@ -1,13 +1,18 @@
 # 2018 API Core Roadmap
 
-This is what we hope to accomplish in 2018.
+The purpose of the API Core group is to implement the control plane API for the
+Elafros project.  This includes the API governance process as well as
+implementation and supporting documentation.
+
+This roadmap is what we hope to accomplish in 2018.
+
 
 ## References
 
 * [Resource Overview](../../docs/spec/overview.md)
 * [Conformance Tests](../../test/conformance/README.md)
 
-In 2018, we will largely focus on curating and achieving the Elafros resource
+In 2018, we will largely focus on curating and implementing the Elafros resource
 specification.
 
 ## Areas of Interest and Requirements
@@ -32,7 +37,7 @@ specification.
 1. **Complete our implementation** of the initial API specification.
 
 1. **Track changes** to our API specification (according to our process) over
-  time.
+  time, including the versioning of API resources.
 
 1. **Triage drift** of our implementation from the API specification.
 
