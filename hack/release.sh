@@ -51,7 +51,7 @@ export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 
-# If this is a pro job, authenticate against GCR.
+# If this is a prow job, authenticate against GCR.
 if [[ $USER == "prow" ]]; then
   docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
 fi
