@@ -18,7 +18,7 @@ metadata:
   name: ela-config
   namespace: ela-system
 data:
-  # These are examples settings of domain.
+  # These are example settings of domain.
   # prod-domain.com will be used for routes having app=prod.
   prod-domain.com: |
     selector:
