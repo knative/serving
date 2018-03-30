@@ -581,13 +581,13 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 	log.Printf("Deleted deployment")
 
-	err = c.deleteAutoscalerDeployment(rev, ns)
+	err = c.deleteAutoscalerDeployment(rev)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Deployment: %s", err)
 	}
 	log.Printf("Deleted autoscaler Deployment")
 
-	err = c.deleteAutoscalerService(rev, ns)
+	err = c.deleteAutoscalerService(rev)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Service: %s", err)
 	}
@@ -624,11 +624,11 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscalerDeployment(rev, ns)
+	err = c.reconcileAutoscalerDeployment(rev)
 	if err != nil {
 		log.Printf("Failed to create autoscaler Deployment: %s", err)
 	}
-	err = c.reconcileAutoscalerService(rev, ns)
+	err = c.reconcileAutoscalerService(rev)
 	if err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
@@ -758,9 +758,9 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 	return serviceName, err
 }
 
-func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -776,9 +776,9 @@ func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) 
 	return nil
 }
 
-func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -792,16 +792,16 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns strin
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	service := MakeElaAutoscalerService(rev, ns)
+	service := MakeElaAutoscalerService(rev)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
 	_, err = sc.Create(service)
 	return err
 }
 
-func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -818,9 +818,9 @@ func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns strin
 	return nil
 }
 
-func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -834,7 +834,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns st
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	deployment := MakeElaAutoscalerDeployment(rev, ns)
+	deployment := MakeElaAutoscalerDeployment(rev)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)

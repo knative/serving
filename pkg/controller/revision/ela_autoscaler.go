@@ -31,13 +31,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// AutoscalerNamespace needs to match the service account, which needs to
+// be a single, known namespace. This ensures that projects created in
+// non-default namespaces continue to work with autoscaling.
+const AutoscalerNamespace = "ela-system"
+
 var autoscalerImage string
 
 func init() {
 	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }
 
-func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployment {
+func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
@@ -50,7 +55,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: namespace,
+			Namespace: AutoscalerNamespace,
 			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: v1beta1.DeploymentSpec{
@@ -107,11 +112,11 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 	}
 }
 
-func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Service {
+func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: namespace,
+			Namespace: AutoscalerNamespace,
 			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: corev1.ServiceSpec{

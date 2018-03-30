@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/elafros/elafros/pkg/autoscaler"
+	"github.com/elafros/elafros/pkg/controller/revision"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -44,7 +45,6 @@ const (
 
 var (
 	podName           string
-	elaNamespace      string
 	elaRevision       string
 	elaAutoscaler     string
 	elaAutoscalerPort string
@@ -62,12 +62,6 @@ func init() {
 		glog.Fatal("No ELA_POD provided.")
 	}
 	glog.Infof("ELA_POD=%v", podName)
-
-	elaNamespace = os.Getenv("ELA_NAMESPACE")
-	if elaNamespace == "" {
-		glog.Fatal("No ELA_NAMESPACE provided.")
-	}
-	glog.Infof("ELA_NAMESPACE=%v", elaNamespace)
 
 	elaRevision = os.Getenv("ELA_REVISION")
 	if elaRevision == "" {
@@ -96,7 +90,7 @@ func init() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, elaNamespace, elaAutoscalerPort)
+		elaAutoscaler, revision.AutoscalerNamespace, elaAutoscalerPort)
 	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
