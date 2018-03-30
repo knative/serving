@@ -21,35 +21,53 @@ import (
 	"regexp"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
-
 	istiov1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
-
+	"github.com/elafros/elafros/pkg/controller"
+	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // makeIstioRouteSpec creates an Istio route
 func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) istiov1alpha2.RouteRuleSpec {
+	destinationWeights := []istiov1alpha2.DestinationWeight{}
+	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
 	// if either current or next is inactive, target them to proxy instead of
 	// the backend so the 0->1 transition will happen.
-	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
-	destinationWeights := calculateDestinationWeights(u, tt, routes)
-	if tt != nil {
-		domain = fmt.Sprintf("%s.%s", tt.Name, domain)
-	}
+	if !enableActivatorExperiment {
+		destinationWeights = calculateDestinationWeights(u, tt, routes)
+		if tt != nil {
+			domain = fmt.Sprintf("%s.%s", tt.Name, domain)
+		}
 
-	return istiov1alpha2.RouteRuleSpec{
-		Destination: istiov1alpha2.IstioService{
-			Name: placeHolderK8SServiceName,
-		},
-		Match: istiov1alpha2.Match{
-			Request: istiov1alpha2.MatchRequest{
-				Headers: istiov1alpha2.Headers{
-					Authority: istiov1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(domain),
+		return istiov1alpha2.RouteRuleSpec{
+			Destination: istiov1alpha2.IstioService{
+				Name: placeHolderK8SServiceName,
+			},
+			Match: istiov1alpha2.Match{
+				Request: istiov1alpha2.MatchRequest{
+					Headers: istiov1alpha2.Headers{
+						Authority: istiov1alpha2.MatchString{
+							Regex: regexp.QuoteMeta(domain),
+						},
 					},
 				},
 			},
+			Route: destinationWeights,
+		}
+	}
+
+	glog.Info("using activator-service as the destination")
+	placeHolderK8SServiceName = controller.GetElaK8SActivatorServiceName()
+	destinationWeights = append(destinationWeights,
+		istiov1alpha2.DestinationWeight{
+			Destination: istiov1alpha2.IstioService{
+				Name: placeHolderK8SServiceName,
+			},
+			Weight: 100,
+		})
+	return istiov1alpha2.RouteRuleSpec{
+		Destination: istiov1alpha2.IstioService{
+			Name: placeHolderK8SServiceName,
 		},
 		Route: destinationWeights,
 	}
