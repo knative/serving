@@ -21,18 +21,25 @@
 set -o errexit
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-OG_K8S_USER="${K8S_USER_OVERRIDE}"
+# Useful environment variables
+readonly ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+[[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
+readonly IS_PROW
 
-set -o nounset
+# Save *_OVERRIDE variables in case a cleanup is required.
+readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
+readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
+readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
 
-function cleanup() {
-  header "Cleanup (teardown)"
+function restore_env() {
   export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
   export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
   export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
+}
+
+function cleanup() {
+  header "Cleanup (teardown)"
+  restore_env
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge || true
 }
@@ -43,7 +50,7 @@ function header() {
   echo "================================================="
 }
 
-cd ${SCRIPT_ROOT}
+cd ${ELAFROS_ROOT}
 
 # Set the required env vars to dummy values to satisfy bazel.
 export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
@@ -51,7 +58,7 @@ export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 
 # For local runs, cleanup before and after the tests.
-if [[ ! $USER == "prow" ]]; then
+if (( ! IS_PROW )); then
   trap cleanup EXIT
   header "Cleanup (setup)"
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
@@ -70,4 +77,8 @@ header "Testing phase"
 bazel test //cmd/... //pkg/...
 
 # Step 3: Run end-to-end tests.
+if (( ! IS_PROW )); then
+  # Restore environment variables, as they are needed when running locally.
+  restore_env
+fi
 ./test/e2e-tests.sh
