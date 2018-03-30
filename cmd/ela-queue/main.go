@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/elafros/elafros/pkg/autoscaler"
+	"github.com/elafros/elafros/pkg/queue"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -49,8 +50,8 @@ var (
 	elaAutoscaler     string
 	elaAutoscalerPort string
 	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan         = make(chan struct{}, requestCountingQueueLength)
-	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
+	reqInChan         = make(chan queue.Poke, requestCountingQueueLength)
+	reqOutChan        = make(chan queue.Poke, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
 	proxy             *httputil.ReverseProxy
@@ -145,72 +146,10 @@ func statReporter() {
 	}
 }
 
-func concurrencyCounter() {
-	var requestCount int32 = 0
-	var concurrentCount int32 = 0
-	var bucketedRequestCount int32 = 0
-	buckets := make([]int32, 0)
-	bucketTicker := time.NewTicker(100 * time.Millisecond).C
-	reportTicker := time.NewTicker(time.Second).C
-	for {
-		select {
-		case <-reqInChan:
-			requestCount = requestCount + 1
-			concurrentCount = concurrentCount + 1
-		case <-bucketTicker:
-			// Calculate average concurrency for the current
-			// 100 ms bucket.
-			buckets = append(buckets, concurrentCount)
-			// Count the number of requests during bucketed
-			// period
-			bucketedRequestCount = bucketedRequestCount + requestCount
-			requestCount = 0
-			// Drain the request out channel only after the
-			// bucket statistic has been recorded.  This
-			// ensures that very fast requests are not missed
-			// by making the smallest granularity of
-			// concurrency accounting 100 ms.
-		DrainReqOutChan:
-			for {
-				select {
-				case <-reqOutChan:
-					concurrentCount = concurrentCount - 1
-				default:
-					break DrainReqOutChan
-				}
-			}
-		case <-reportTicker:
-			// Report the average bucket level. Does not
-			// include the current bucket.
-			var total float64 = 0
-			var count float64 = 0
-			for _, val := range buckets {
-				total = total + float64(val)
-				count = count + 1
-			}
-			now := time.Now()
-			stat := &autoscaler.Stat{
-				Time:                      &now,
-				PodName:                   podName,
-				AverageConcurrentRequests: total / count,
-				RequestCount:              bucketedRequestCount,
-			}
-			// Send the stat to another process to transmit
-			// so we can continue bucketing stats.
-			statChan <- stat
-			// Reset the stat counts which have been reported.
-			bucketedRequestCount = 0
-			buckets = make([]int32, 0)
-		}
-	}
-}
-
-var poke struct{}
-
 func handler(w http.ResponseWriter, r *http.Request) {
-	reqInChan <- poke
+	reqInChan <- queue.Poke{}
 	defer func() {
-		reqOutChan <- poke
+		reqOutChan <- queue.Poke{}
 	}()
 	proxy.ServeHTTP(w, r)
 }
@@ -229,7 +168,15 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
-	go concurrencyCounter()
+	bucketTicker := time.NewTicker(100 * time.Millisecond).C
+	reportTicker := time.NewTicker(time.Second).C
+	queue.NewStats(podName, queue.Channels{
+		ReqInChan:        reqInChan,
+		ReqOutChan:       reqOutChan,
+		QuantizationChan: bucketTicker,
+		ReportChan:       reportTicker,
+		StatChan:         statChan,
+	})
 	defer func() {
 		if statSink != nil {
 			statSink.Close()
