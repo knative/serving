@@ -29,7 +29,7 @@ We will provide distinct experiences for [operator personas](../product/personas
 for different loggings and metrics stores (e.g. StackDriver).
 
 ## Basics
-### Delivery Milestones: M3 and M4
+### Milestones: M3 and M4
 In this phase, we will enable a shared infrastructure where everyone has access to all data. 
 No personas specific experience or access will be provided.
 
@@ -56,7 +56,7 @@ Following metrics will be collected:
 Request logs from Istio proxy, user applications and user functions will be collected by Zipkin.
 
 ## Developer Contracts
-### Delivery Milestones: M4 and M5
+### Milestones: M4 and M5
 In this phase, we will define and implement features for the developer persona.
 * [M4 & M5] Define and implement developer contracts for logging, metrics, alerting and tracing.
 * [M4] Write step-by-step guidelines for developers to debug issues throughout the lifecycle of their applications and functions.
@@ -64,7 +64,7 @@ In this phase, we will define and implement features for the developer persona.
 * [M5] Implement the developer CLI to list components and tail logs, metrics and traces.
 
 ## Operator Contracts
-### Delivery Milestones: M6 and M7
+### Milestones: M6 and M7
 In this phase, we will define and implement features for the operator persona.
 * [M6 & M7] Define and implement operator contracts.
 * [M6] Write step-by-step guidelines for operators to debug issues in the cluster.
@@ -72,12 +72,12 @@ In this phase, we will define and implement features for the operator persona.
 * [M7] Implement the operator CLI to list components and tail logs and metrics.
 
 ## Contributor Contracts
-### Delivery Milestones: M8
+### Milestones: M8
 In this phase, we will define and implement the features for the contributor persona.
-* [M7] Define and implement contracts for plugging in custom logging, metrics, alerting and tracing backends. 
+* [M8] Define and implement contracts for plugging in custom logging, metrics, alerting and tracing backends. 
 We will not provide maintenance, rollout processes, etc for third-party monitoring, logging, or tracing extensions, 
 though we may maintain a "contrib" directory for such contributions.
-* [M7] Add an extension for one managed solution (e.g. Stack Driver).
+* [M8] Add an extension for one managed solution (e.g. Stack Driver).
 
 ## M9 and Onwards
 * Allow namespace specific instances of default backends for namespace level access control.
