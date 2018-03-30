@@ -59,11 +59,15 @@ Now curl the service IP as if DNS were properly configured:
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Welcome to the stock app!
+```
 
+```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/stock
 stock ticker not found!, require /stock/{ticker}
+```
 
-curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/stocks/<ticker>
+```shell
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/stock/<ticker>
 stock price for ticker <ticker>  is  <price>
 ```
 
@@ -82,13 +86,18 @@ kubectl get route -o yaml
 ```
 
 Or curling the service:
-```
+
+```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Welcome to the share app!
+```
 
+```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/share
 share ticker not found!, require /share/{ticker}
+```
 
+```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/share/<ticker>
 share price for ticker <ticker>  is  <price>
 ```
@@ -97,13 +106,15 @@ share price for ticker <ticker>  is  <price>
 
 You can manually split traffic to specific revisions. Get your revisions names via:
 ```shell
-$ kubectl get revisions
+
+kubectl get revisions
+
 NAME                                AGE
 stock-configuration-example-00001   11m
 stock-configuration-example-00002   4m
 ```
 
-Update `traffic` part in sample/stock/route.yaml as:
+Update `traffic` part in sample/stock-rest-app/route.yaml as:
 ```yaml
 traffic:
   - revisionName: <YOUR_FIRST_REVISION_NAME>
