@@ -226,8 +226,12 @@ if (( USING_EXISTING_CLUSTER )); then
   bazel run //:everything.delete  # ignore if not running
 fi
 if (( IS_PROW )); then
-  # If this is a prow job, authenticate against GCR.
-  docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
+  echo "Authenticating to GCR"
+  # kubekins-e2e images lack docker-credential-gcr, install it manually.
+  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
+  gcloud components install docker-credential-gcr
+  docker-credential-gcr configure-docker
+  echo "Successfully authenticated"
 fi
 
 bazel run //:everything.apply
