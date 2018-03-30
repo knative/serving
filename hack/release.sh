@@ -47,9 +47,14 @@ header "BUILD PHASE"
 
 # Set the repository to the official one:
 export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
-# Build should not try to push anything, use a bogus value for cluster.
+# Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
+
+# If this is a pro job, authenticate against GCR.
+if [[ $USER == "prow" ]]; then
+  docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
+fi
 
 bazel clean --expunge
 # TODO(mattmoor): Remove this once we depend on Build CRD releases
