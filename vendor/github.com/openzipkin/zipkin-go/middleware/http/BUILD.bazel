@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -10,25 +10,12 @@ go_library(
         "spantrace.go",
         "transport.go",
     ],
+    importmap = "elafros/vendor/github.com/openzipkin/zipkin-go/middleware/http",
     importpath = "github.com/openzipkin/zipkin-go/middleware/http",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/openzipkin/zipkin-go:go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go/model:go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go/propagation/b3:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_xtest",
-    srcs = [
-        "client_test.go",
-        "server_test.go",
-    ],
-    importpath = "github.com/openzipkin/zipkin-go/middleware/http_test",
-    deps = [
-        ":go_default_library",
-        "//vendor/github.com/openzipkin/zipkin-go:go_default_library",
-        "//vendor/github.com/openzipkin/zipkin-go/reporter/recorder:go_default_library",
     ],
 )
