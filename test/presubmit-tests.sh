@@ -65,6 +65,9 @@ header "Building phase"
 bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
 bazel build :everything
 
-# Step 2: Run tests.
+# Step 2: Run unit tests.
 header "Testing phase"
 bazel test //cmd/... //pkg/...
+
+# Step 3: Run end-to-end tests.
+./test/e2e-tests.sh
