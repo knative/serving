@@ -3,26 +3,40 @@
 This document captures what we hope to accomplish in 2018 in Monitoring and Logging areas for Elafros. 
 
 ## Overview
-We will provide to distinct experiences, one for the [operator persona](../product/personas.md#operator-personas) and one for the [developer persona](../product/personas.md#developer-personas).
+We will provide distinct experiences for [operator personas](../product/personas.md#operator-personas), 
+[developer personas](../product/personas.md#developer-personas) and [contributors](../product/personas.md#contributors).
 
 ### Operator Capabilities
 * Provide default collection of cluster logs and metrics from infrastructure components such as Kubernetes.
 * Provide default dashboards and interfaces for viewing cluster logs and metrics.
-* Allow setting custom alerts on cluster events.
-* Auto-scale the default logging, metrics, alerting and tracing backends.
-* Allow fine tuning of scale, performance and features of the default logging, metrics, alerting and tracing backends.
+* Auto-scale, upgrade and maintain the default logging, metrics, alerting and tracing backends.
+* Operators can set custom alerts on cluster events.
+* Operators can fine tune of scale, performance and features of the default logging, metrics, alerting and tracing backends.
+* Operators can retrieve a list of all components emitting logs or metrics using a CLI.
+* Operators can "tail" logs and metrics using a CLI for a specific component.
+* Operators can install extensions that forward logs and metrics to different backends (e.g. Stack Driver).
 
 ### Developer Capabilities
 * Provide default collection of logs, metrics, and request traces.
 * Provide default dashboards and interfaces for viewing logs, metrics and traces, and for setting alerts on the same.
-* Allow setting custom application and function alerts.
-* Allow creating shared dashboards for logs and metrics for applications and functions.
+* Developers can set custom application and function alerts.
+* Developers can create shared dashboards for logs and metrics for applications and functions.
+* Developers can retrieve a list of all components they have access to that are emitting logs and/or metrics using a CLI.
+* Developers can "tail" logs and metrics using a CLI for any component they have access to.
 
-## M3 Deliverables (Due by March 31, 2018) - Basics
-In this phase, we will enable a shared infrastructure where everyone has access to all data. No personas specific experience or access will be provided.
+### Contributor Capabilities
+* Contributors can write extensions and translate logs and metrics into the format 
+for different loggings and metrics stores (e.g. StackDriver).
 
-The following items will be installed and secured in a cluster by default, but we will provide the ability to replace or remove these in a later milestone.
+## Basics
+### Delivery Milestones: M3 and M4
+In this phase, we will enable a shared infrastructure where everyone has access to all data. 
+No personas specific experience or access will be provided.
+
+The following items will be installed and secured in a cluster by default, 
+but we will provide the ability to replace or remove these in a later milestone.
 * Prometheus
+* Alert Manager
 * Prometheus Operator
 * Grafana
 * ElasticSearch
@@ -41,24 +55,31 @@ Following metrics will be collected:
 
 Request logs from Istio proxy, user applications and user functions will be collected by Zipkin.
 
-## M4 Deliverables (Due by April 30, 2018) - Developer Contracts
+## Developer Contracts
+### Delivery Milestones: M4 and M5
 In this phase, we will define and implement features for the developer persona.
-* Define and implement developer contracts for logging, metrics, alerting and tracing.
-* Write step-by-step guidelines for developers to debug issues throughout the lifecycle of their applications and functions.
-* Provide developer samples written in Golang. Support for other languages will come in a later phase.
+* [M4 & M5] Define and implement developer contracts for logging, metrics, alerting and tracing.
+* [M4] Write step-by-step guidelines for developers to debug issues throughout the lifecycle of their applications and functions.
+* [M4] Provide developer samples written in Golang. Support for other languages will come in a later phase.
+* [M5] Implement the developer CLI to list components and tail logs, metrics and traces.
 
-## M5 Deliverables (Due by May 31, 2018) - Operator Contracts
+## Operator Contracts
+### Delivery Milestones: M6 and M7
 In this phase, we will define and implement features for the operator persona.
-* Define and implement operator contracts for customizing default logging, metrics and alerting backends.
-* Deploy operator specific instances of the default backends to separate access of operators vs developers.
-* Write step-by-step guidelines for operators to debug issues in the cluster.
+* [M6 & M7] Define and implement operator contracts.
+* [M6] Write step-by-step guidelines for operators to debug issues in the cluster.
+* [M7] Deploy operator specific instances of the default backends to separate access of operators vs developers.
+* [M7] Implement the operator CLI to list components and tail logs and metrics.
 
-## M6 Deliverables (Due by June 30, 2018) - Operator Contracts Continued
-* Define and implement operator contracts for plugging in custom logging, metrics, alerting and tracing backends. We will not provide maintenance, rollout processes, etc for third-party monitoring, logging, or tracing extensions, though we may maintain a "contrib" directory for such contributions.
+## Contributor Contracts
+### Delivery Milestones: M8
+In this phase, we will define and implement the features for the contributor persona.
+* [M7] Define and implement contracts for plugging in custom logging, metrics, alerting and tracing backends. 
+We will not provide maintenance, rollout processes, etc for third-party monitoring, logging, or tracing extensions, 
+though we may maintain a "contrib" directory for such contributions.
+* [M7] Add an extension for one managed solution (e.g. Stack Driver).
 
-* Add support for one managed solution like StackDriver.
-
-## M7 and Onwards
+## M9 and Onwards
 * Allow namespace specific instances of default backends for namespace level access control.
 * Implement auto-scaling of the default backends.
 * Implement upgrading of the default backends.
