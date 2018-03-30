@@ -28,10 +28,11 @@
 
 # Test cluster parameters and location of generated test images
 readonly E2E_CLUSTER_ZONE=us-east1-d
-readonly E2E_CLUSTER_NODES=2
-readonly E2E_CLUSTER_MACHINE=n1-standard-2
+readonly E2E_CLUSTER_NODES=3
+readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly GKE_VERSION=v1.9.4-gke.1
 readonly E2E_DOCKER_BASE=gcr.io/elafros-e2e-tests
+readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
 # Unique identifier for this test execution
 # uuidgen is not available in kubekins images
@@ -106,6 +107,35 @@ function run_conformance_tests() {
   go test -v ./test/conformance -ginkgo.v -dockerrepo ${E2E_DOCKER_BASE}/ela-conformance-test
 }
 
+function run_hello_world() {
+  header "Running hello world"
+  bazel run sample/helloworld:everything.create || return 1
+  local service_host=""
+  local service_ip=""
+  for i in {1..150}; do  # timeout after 5 minutes
+    echo "Waiting for Ingress to come up"
+    if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
+      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
+      service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+      echo -e -n "Ingress is at $service_ip / $service_host"
+      break
+    fi
+    sleep 2
+  done
+  if [[ -z $service_ip || -z $service_host ]]; then
+    echo -e "\nERROR: timeout waiting for Ingress to come up"
+    return 1
+  fi
+  local output=$(curl --header "Host:$service_host" http://${service_ip})
+  local result=0
+  if [[ $output != "Hello World: shiniestnewestversion!" ]]; then
+    echo "ERROR: unexpected output [$output]"
+    result=1
+  fi
+  bazel run sample/helloworld:everything.delete  # ignore errors
+  return $result
+}
+
 # Script entry point.
 
 cd ${SCRIPT_ROOT}
@@ -144,13 +174,15 @@ if [[ -z $1 ]]; then
   # be a writeable docker repo.
   export K8S_USER_OVERRIDE=
   export K8S_CLUSTER_OVERRIDE=
+  # Assume test failed (see more details at the end of this script).
+  echo -n "1"> ${TEST_RESULT_FILE}
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
     --extract "${GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
-  exit
+  exit $(cat ${TEST_RESULT_FILE})
 fi
 
 # --run-tests passed as first argument, run the tests.
@@ -193,13 +225,24 @@ if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Elafros instance"
   bazel run //:everything.delete  # ignore if not running
 fi
+if (( IS_PROW )); then
+  # If this is a prow job, authenticate against GCR.
+  docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
+fi
 
 bazel run //:everything.apply
 wait_for_elafros || exit 1
 
 # Run the tests
 
-run_conformance_tests
+run_hello_world
 test_result=$?
+
+# kubetest teardown might fail and thus incorrectly report failure of the
+# script, even if the tests pass.
+# Store the real test result to return it later, ignoring any teardown failure
+# in kubetest.
+# TODO(adrcunha): Get rid of this workaround.
+echo -n "${test_result}"> ${TEST_RESULT_FILE}
 
 exit ${test_result}
