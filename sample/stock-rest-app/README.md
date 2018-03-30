@@ -58,17 +58,17 @@ Now curl the service IP as if DNS were properly configured:
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
-Welcome to the stock app!
+# Welcome to the stock app!
 ```
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/stock
-stock ticker not found!, require /stock/{ticker}
+# stock ticker not found!, require /stock/{ticker}
 ```
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/stock/<ticker>
-stock price for ticker <ticker>  is  <price>
+# stock price for ticker <ticker>  is  <price>
 ```
 
 ## Updating
@@ -89,17 +89,17 @@ Or curling the service:
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
-Welcome to the share app!
+# Welcome to the share app!
 ```
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/share
-share ticker not found!, require /share/{ticker}
+# share ticker not found!, require /share/{ticker}
 ```
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/share/<ticker>
-share price for ticker <ticker>  is  <price>
+# share price for ticker <ticker>  is  <price>
 ```
 
 ## Manual traffic splitting
