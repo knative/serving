@@ -117,7 +117,9 @@ You can manually split traffic to specific revisions. Get your revisions names v
 ```shell
 
 kubectl get revisions
+```
 
+```
 NAME                                AGE
 stock-configuration-example-00001   11m
 stock-configuration-example-00002   4m
