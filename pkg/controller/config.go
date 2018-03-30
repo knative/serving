@@ -48,7 +48,7 @@ func (s *LabelSelector) Matches(labels map[string]string) bool {
 
 // Config contains controller configurations.
 type Config struct {
-	// Domains maps from domain to label selector.  If if a route has
+	// Domains map from domain to label selector.  If a route has
 	// labels matching a particular selector, it will use the
 	// corresponding domain.  If multiple selectors match, we choose
 	// the most specific selector.

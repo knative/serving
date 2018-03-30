@@ -3,8 +3,8 @@
 ## Serving multiple domains:
 
 Different domain suffixes can be configured based on the route labels.  In order
-to do this, update the config map named "ela-config" in the namespace
-"ela-system".
+to do this, update the config map named `ela-config` in the namespace
+`ela-system`.
 
 In that config map, each entry maps a domain name to an equality-based label
 selector.  If your route has labels that meet all requirement of the selector it
