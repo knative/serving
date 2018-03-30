@@ -37,6 +37,11 @@ kubectl get revisions -o yaml
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
 watch kubectl get ingress
+```
+
+When the ingress is ready, you'll see an IP address in the ADDRESS field:
+
+```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
 stock-route-example-ela-ingress   stock-route-example.default.demo-domain.com   35.185.44.102   80        1m
 ```
