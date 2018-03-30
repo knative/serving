@@ -7,6 +7,14 @@ Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 ### Added
+* Basic API resources Revision, Configuration, and Route.
+* Integration with the Build API for on-demand container builds.
+* Autoscaling of Revision deployments.
+* Integration with Istio ingress routing and naming.
+* Integration with Istio proxy sidecar.
+* Tracing via Zipkin.
+* Logging via Fluentd with log indexing via Elasticsearch.
+* Metrics via Prometheus.
 
 ### Changed
 
