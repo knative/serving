@@ -282,7 +282,7 @@ func TestValidNewRevisionObject(t *testing.T) {
 	}
 
 	revision := createRevision(testRevisionName)
-	marshaled, err := yaml.Marshal(revision)
+	marshaled, err := json.Marshal(revision)
 	if err != nil {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
