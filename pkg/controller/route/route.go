@@ -55,7 +55,7 @@ var (
 		Help:      "Counter to keep track of items in the route work queue",
 	}, []string{"status"})
 	// The experiment flag to turn on activator feature. If set to true, the traffic
-	// will be directed to activator-service.
+	// will always be directed to the activator.
 	enableActivatorExperiment = false
 )
 
