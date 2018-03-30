@@ -21,10 +21,14 @@ Once deployed, you can inspect the created resources with `kubectl` commands:
 ```shell
 # This will show the route that we created:
 kubectl get route -o yaml
+```
 
+```shell
 # This will show the configuration that we created:
 kubectl get configurations -o yaml
+```
 
+```shell
 # This will show the Revision that was created by our configuration:
 kubectl get revisions -o yaml
 
@@ -32,7 +36,12 @@ kubectl get revisions -o yaml
 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
-$ watch kubectl get ingress
+watch kubectl get ingress
+```
+
+When the ingress is ready, you'll see an IP address in the ADDRESS field:
+
+```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
 route-example-ela-ingress   demo.myhost.net             80        14s
 ```
@@ -58,7 +67,7 @@ Now curl the service IP as if DNS were properly configured:
 
 ```shell
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
-Hello World: shiniestnewestversion!
+# Hello World: shiniestnewestversion!
 ```
 
 ## Updating
@@ -76,16 +85,19 @@ kubectl get route -o yaml
 ```
 
 Or curling the service:
-```
-$ curl --header 'Host:$SERVICE_HOST http://${SERVICE_IP}
-Hello World: nextversion!
+```shell
+curl --header 'Host:$SERVICE_HOST http://${SERVICE_IP}
+# Hello World: nextversion!
 ```
 
 ## Manual traffic splitting
 
 You can manually split traffic to specific revisions. Get your revisions names via:
 ```shell
-$ kubectl get revisions
+kubectl get revisions
+```
+
+```
 NAME                                     AGE
 p-1552447d-0690-4b15-96c9-f085e310e98d   22m
 p-30e6a938-b28b-4d5e-a791-2cb5fe016d74   10m
