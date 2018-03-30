@@ -26,7 +26,9 @@ should follow these patterns:
    `ContainerNotRunnable`, or `ContainerDeadlineExceeded`.
 2. Where it makes sense, resources should define a **single** "happy
    state" condition which indicates that the resource is set up
-   correctly and ready to serve. This should be named `Ready`.
+   correctly and ready to serve. This is typically named `Ready` (but
+   note that Configuration copies the `Ready` status of the latest
+   created Revision in `LatestRevisionReady`).
 3. Terminal failure conditions should only have the states `Unknown`
    (indicated by not applying the failure state) and `True`. Terminal
    failure conditions should also supply additional details about the
