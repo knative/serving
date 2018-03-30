@@ -54,7 +54,10 @@ export K8S_USER_OVERRIDE=USER_NOT_SET
 # If this is a prow job, authenticate against GCR.
 if [[ $USER == "prow" ]]; then
   echo "Authenticating to GCR"
-  docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
+  key="$(cat /etc/service-account/service-account.json)"
+  echo $key
+  docker login -u _json_key -p "$key" https://gcr.io
+  echo "Authenticated"
 fi
 
 echo "Cleaning up"
