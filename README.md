@@ -11,6 +11,9 @@ If you are interested in contributing to `Elafros`, see
 * [Setup Elafros](#latest-release): See `Latest Release` below.
 * [Run samples](./sample/README.md)
 
+## Configuring Elafros
+See [CONFIG.md](./install/CONFIG.md).
+
 ### Latest Release
 
 You can install the latest release of Elafros via:

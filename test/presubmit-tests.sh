@@ -75,6 +75,8 @@ bazel build :everything
 # Step 2: Run unit tests.
 header "Testing phase"
 bazel test //cmd/... //pkg/...
+# Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
+go test ./cmd/... ./pkg/...
 
 # Step 3: Run end-to-end tests.
 if (( ! IS_PROW )); then
