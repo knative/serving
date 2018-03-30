@@ -53,15 +53,26 @@ export K8S_USER_OVERRIDE=USER_NOT_SET
 
 # If this is a prow job, authenticate against GCR.
 if [[ $USER == "prow" ]]; then
-  docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
+  echo "Authenticating to GCR"
+  # kubekins-e2e images lack docker-credential-gcr, install it manually.
+  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
+  gcloud components install docker-credential-gcr
+  docker-credential-gcr configure-docker
+  echo "Successfully authenticated"
 fi
 
+echo "Cleaning up"
 bazel clean --expunge
 # TODO(mattmoor): Remove this once we depend on Build CRD releases
+echo "Building build-crd"
 bazel run @buildcrd//:everything > release.yaml
 echo "---" >> release.yaml
+echo "Building Elafros"
 bazel run :elafros >> release.yaml
 
+echo "Publishing release.yaml"
 gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+
+echo "New release published successfully"
 
 # TODO(mattmoor): Create other aliases?
