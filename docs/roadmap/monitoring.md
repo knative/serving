@@ -62,7 +62,7 @@ In this phase, we will define and implement features for the operator persona.
 * Allow namespace specific instances of default backends for namespace level access control.
 * Implement auto-scaling of the default backends.
 * Implement upgrading of the default backends.
-* Implement maintenance the default backends such as data retention.
+* Implement maintenance of the default backends (data retention, daily index creations, etc).
 * Provide developer samples written in Node.js, Java, Python, PHP, .Net and Ruby.
 
 ## Out of Scope for 2018
