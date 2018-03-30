@@ -331,10 +331,10 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 
-	// Then create the Ingress rule for this service
+	// Then create or update the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
 	if err = c.reconcileIngress(route); err != nil {
-		glog.Infof("Failed to create ingress rule: %s", err)
+		glog.Infof("Failed to create or update ingress rule: %s", err)
 		return err
 	}
 
@@ -342,7 +342,8 @@ func (c *Controller) updateRouteEvent(key string) error {
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.controllerConfig.DomainSuffix)
+	domain := c.controllerConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
 }
 
 // syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
@@ -413,16 +414,26 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 
 func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	ingress := MakeRouteIngress(route)
-	if _, err := c.kubeclientset.Extensions().Ingresses(route.Namespace).Create(ingress); err != nil {
-		if apierrs.IsAlreadyExists(err) {
-			// Ingress already exist.
-			return nil
+	ingressClient := c.kubeclientset.Extensions().Ingresses(route.Namespace)
+	existing, err := ingressClient.Get(controller.GetElaK8SIngressName(route), metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			if _, err = ingressClient.Create(ingress); err == nil {
+				glog.Infof("Created ingress %q", ingress.Name)
+				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
+			}
 		}
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
 		return err
 	}
-	glog.Infof("Created ingress %q", ingress.Name)
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
+	// Check if there is anything to update.
+	if !reflect.DeepEqual(existing.Spec, ingress.Spec) {
+		existing.Spec = ingress.Spec
+		if _, err = ingressClient.Update(existing); err == nil {
+			glog.Infof("Updated ingress %q", ingress.Name)
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q", ingress.Name)
+		}
+		return err
+	}
 	return nil
 }
 

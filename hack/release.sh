@@ -47,16 +47,32 @@ header "BUILD PHASE"
 
 # Set the repository to the official one:
 export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
-# Build should not try to push anything, use a bogus value for cluster.
+# Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 
+# If this is a prow job, authenticate against GCR.
+if [[ $USER == "prow" ]]; then
+  echo "Authenticating to GCR"
+  # kubekins-e2e images lack docker-credential-gcr, install it manually.
+  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
+  gcloud components install docker-credential-gcr
+  docker-credential-gcr configure-docker
+  echo "Successfully authenticated"
+fi
+
+echo "Cleaning up"
 bazel clean --expunge
 # TODO(mattmoor): Remove this once we depend on Build CRD releases
+echo "Building build-crd"
 bazel run @buildcrd//:everything > release.yaml
 echo "---" >> release.yaml
+echo "Building Elafros"
 bazel run :elafros >> release.yaml
 
+echo "Publishing release.yaml"
 gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+
+echo "New release published successfully"
 
 # TODO(mattmoor): Create other aliases?
