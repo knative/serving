@@ -21,10 +21,14 @@ Once deployed, you can inspect the created resources with `kubectl` commands:
 ```shell
 # This will show the route that we created:
 kubectl get route -o yaml
+```
 
+```shell
 # This will show the configuration that we created:
 kubectl get configurations -o yaml
+```
 
+```shell
 # This will show the Revision that was created by our configuration:
 kubectl get revisions -o yaml
 
@@ -32,7 +36,7 @@ kubectl get revisions -o yaml
 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
-$ watch kubectl get ingress
+watch kubectl get ingress
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
 stock-route-example-ela-ingress   stock-route-example.default.demo-domain.com   35.185.44.102   80        1m
 ```
