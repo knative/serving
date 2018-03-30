@@ -55,7 +55,7 @@ export K8S_USER_OVERRIDE=USER_NOT_SET
 if [[ $USER == "prow" ]]; then
   echo "Authenticating to GCR"
   # kubekins-e2e images lack docker-credential-gcr, install it manually.
-  # TODO(adrcunha): Remove the install once docker-credential-gcr is available.
+  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
   gcloud components install docker-credential-gcr
   docker-credential-gcr configure-docker
   echo "Successfully authenticated"
