@@ -53,15 +53,22 @@ export K8S_USER_OVERRIDE=USER_NOT_SET
 
 # If this is a prow job, authenticate against GCR.
 if [[ $USER == "prow" ]]; then
+  echo "Authenticating to GCR"
   docker login -u _json_key -p "$(cat /etc/service-account/service-account.json)" https://gcr.io
 fi
 
+echo "Cleaning up"
 bazel clean --expunge
 # TODO(mattmoor): Remove this once we depend on Build CRD releases
+echo "Building build-crd"
 bazel run @buildcrd//:everything > release.yaml
 echo "---" >> release.yaml
+echo "Building Elafros"
 bazel run :elafros >> release.yaml
 
+echo "Publishing release.yaml"
 gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+
+echo "New release published successfully"
 
 # TODO(mattmoor): Create other aliases?
