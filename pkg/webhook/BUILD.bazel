@@ -14,7 +14,6 @@ go_library(
     deps = [
         "//pkg/apis/ela:go_default_library",
         "//pkg/apis/ela/v1alpha1:go_default_library",
-        "//vendor/github.com/ghodss/yaml:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/mattbaird/jsonpatch:go_default_library",
         "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
@@ -37,10 +36,8 @@ go_test(
         "webhook_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/pkg/webhook",
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",
-        "//vendor/github.com/ghodss/yaml:go_default_library",
         "//vendor/github.com/mattbaird/jsonpatch:go_default_library",
         "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",

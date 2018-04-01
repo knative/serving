@@ -74,6 +74,8 @@ const (
 	controllerAgentName = "revision-controller"
 
 	autoscalerPort = 8080
+
+	serviceTimeoutDuration = 5 * time.Minute
 )
 
 var (
@@ -405,6 +407,20 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 	return err
 }
 
+func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
+	glog.Infof("Marking Revision %q failed", rev.Name)
+	rev.Status.RemoveCondition(v1alpha1.RevisionConditionReady)
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:    v1alpha1.RevisionConditionFailed,
+			Status:  corev1.ConditionTrue,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		})
+	_, err := c.updateStatus(rev)
+	return err
+}
+
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
@@ -493,33 +509,46 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	if !getIsServiceReady(endpoint) {
-		// The service isn't ready, so ignore this event.
-		glog.Infof("Endpoint %q is not ready", eName)
-		return
-	}
-	glog.Infof("Endpoint %q is ready", eName)
-
 	rev, err := c.lister.Revisions(namespace).Get(revName)
 	if err != nil {
-		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revName, err)
+		glog.Errorf("Error fetching revision '%s/%s': %v", namespace, revName, err)
 		return
 	}
 
-	// Check to see if the revision has already been marked as ready and if
-	// it is, then there's no need to do anything to it.
-	if rev.Status.IsReady() {
+	// Check to see if endpoint is the service endpoint
+	if eName != controller.GetElaK8SServiceNameForRevision(rev) {
+		return
+	}
+
+	// Check to see if the revision has already been marked as ready or failed
+	// and if it is, then there's no need to do anything to it.
+	if rev.Status.IsReady() || rev.Status.IsFailed() {
 		return
 	}
 
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
-	if err := c.markRevisionReady(rev); err != nil {
-		glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
-	} else {
+	if getIsServiceReady(endpoint) {
+		glog.Infof("Endpoint %q is ready", eName)
+		if err := c.markRevisionReady(rev); err != nil {
+			glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
+			return
+		}
 		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready", endpoint.Name)
+		return
 	}
+
+	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
+	if revisionAge < serviceTimeoutDuration {
+		return
+	}
+
+	if err := c.markRevisionFailed(rev); err != nil {
+		glog.Errorf("Error marking revision failed for '%s/%s': %v", namespace, revName, err)
+		return
+	}
+	c.recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
 }
 

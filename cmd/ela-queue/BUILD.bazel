@@ -17,7 +17,6 @@ go_library(
 go_binary(
     name = "ela-queue",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/cmd/ela-queue",
     pure = "on",
     visibility = ["//visibility:public"],
 )
