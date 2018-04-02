@@ -243,7 +243,7 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 		t.Fatalf("expected %v revisions, got %v", want, got)
 	}
 	if got, want := revList.Items[0].Spec.ServiceAccountName, "test-account"; got != want {
-		t.Fatal("expected service account name %s, got %s", want, got)
+		t.Fatalf("expected service account name %v, got %v", want, got)
 	}
 
 	buildList, err := elaClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
