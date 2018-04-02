@@ -42,7 +42,7 @@ readonly UUID=$(cat /proc/sys/kernel/random/uuid)
 [[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
-readonly SCRIPT_ROOT="$(dirname ${SCRIPT_CANONICAL_PATH})/.."
+readonly ELAFROS_ROOT="$(dirname ${SCRIPT_CANONICAL_PATH})/.."
 
 # Save *_OVERRIDE variables in case a bazel cleanup if required.
 readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
@@ -138,7 +138,7 @@ function run_hello_world() {
 
 # Script entry point.
 
-cd ${SCRIPT_ROOT}
+cd ${ELAFROS_ROOT}
 
 # Show help if bad arguments are passed.
 if [[ -n $1 && $1 != "--run-tests" ]]; then
