@@ -27,9 +27,10 @@
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
 # Test cluster parameters and location of generated test images
+readonly E2E_CLUSTER_NAME=ela-e2e-cluster
 readonly E2E_CLUSTER_ZONE=us-east1-d
-readonly E2E_CLUSTER_NODES=3
-readonly E2E_CLUSTER_MACHINE=n1-standard-4
+readonly E2E_CLUSTER_NODES=2
+readonly E2E_CLUSTER_MACHINE=n1-standard-2
 readonly GKE_VERSION=v1.9.4-gke.1
 readonly E2E_DOCKER_BASE=gcr.io/elafros-e2e-tests
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
@@ -83,7 +84,8 @@ function wait_for_elafros() {
   echo -n "Waiting for Elafros to come up"
   for i in {1..150}; do  # timeout after 5 minutes
     if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 2 ]]; then
-      echo -e "\nElafros is up"
+      echo -e "\nElafros is up:"
+      kubectl -n ela-system get pods
       return 0
     fi
     echo -n "."
@@ -101,6 +103,12 @@ function delete_elafros_images() {
   gcloud -q container images delete ${all_images}
 }
 
+function exit_if_test_failed() {
+  [[ $? -ne 0 ]] && exit 1
+}
+
+# End-to-end tests
+
 function run_conformance_tests() {
   header "Running conformance tests"
   echo -e "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: pizzaplanet" | kubectl create -f -
@@ -109,7 +117,15 @@ function run_conformance_tests() {
 
 function run_hello_world() {
   header "Running hello world"
-  bazel run sample/helloworld:everything.create || return 1
+  bazel run //sample/helloworld:everything.create && return 0
+  echo "Route:"
+  kubectl get route -o yaml
+  echo "Configuration:"
+  kubectl get configurations -o yaml
+  echo "Revision:"
+  kubectl get revisions -o yaml
+  echo "Pods:"
+  kubectl get pods
   local service_host=""
   local service_ip=""
   for i in {1..150}; do  # timeout after 5 minutes
@@ -132,7 +148,7 @@ function run_hello_world() {
     echo "ERROR: unexpected output [$output]"
     result=1
   fi
-  bazel run sample/helloworld:everything.delete  # ignore errors
+  bazel run //sample/helloworld:everything.delete  # ignore errors
   return $result
 }
 
@@ -157,17 +173,17 @@ if [[ -z $1 ]]; then
     --provider=gke
     --deployment=gke
     --gcp-node-image=cos
-    --cluster=ela-e2e-cluster
+    --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
     --gcp-network=ela-e2e-net
     --gke-environment=prod
   )
   if (( ! IS_PROW )); then
-    if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-      : ${DOCKER_REPO_OVERRIDE:?"DOCKER_REPO_OVERRIDE must be set to  writeable docker repo."}
-      return 1
-    fi
     CLUSTER_CREATION_ARGS+=(--gcp-project=${PROJECT_ID:?"PROJECT_ID must be set to the GCP project where the tests are run."})
+  else
+    # On prow, set bogus SSH keys for kubetest, we're not using them.
+    touch $HOME/.ssh/google_compute_engine.pub
+    touch $HOME/.ssh/google_compute_engine
   fi
   # Clear user and cluster variables, so they'll be set to the test cluster.
   # DOCKER_REPO_OVERRIDE is not touched because when running locally it must
@@ -198,14 +214,18 @@ if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
   USING_EXISTING_CLUSTER=0
   export K8S_CLUSTER_OVERRIDE=$(kubectl config current-context)
   # Fresh new test cluster, set cluster-admin.
-  kubectl create clusterrolebinding cluster-admin-binding \
+  # Get the password of the admin and use it, as the service account (or the user)
+  # might not have the necessary permission.
+  passwd=$(gcloud container clusters describe ${E2E_CLUSTER_NAME} --zone=${E2E_CLUSTER_ZONE} | \
+    grep password | cut -d' ' -f4)
+  kubectl --username=admin --password=$passwd create clusterrolebinding cluster-admin-binding \
     --clusterrole=cluster-admin \
     --user=${K8S_USER_OVERRIDE}
 fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=${E2E_DOCKER_BASE}/ela-images-e2e-${UUID}
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)
 fi
 readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
@@ -237,16 +257,21 @@ fi
 bazel run //:everything.apply
 wait_for_elafros || exit 1
 
+# Enable Istio sidecar injection
+bazel run @istio_release//:webhook-create-signed-cert
+kubectl label namespace default istio-injection=enabled
+
 # Run the tests
 
 run_hello_world
-test_result=$?
+exit_if_test_failed
+#run_conformance_tests
+#exit_if_test_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
-# Store the real test result to return it later, ignoring any teardown failure
-# in kubetest.
+# We store the real test result to return it later, ignoring any teardown
+# failure in kubetest.
 # TODO(adrcunha): Get rid of this workaround.
-echo -n "${test_result}"> ${TEST_RESULT_FILE}
-
-exit ${test_result}
+echo -n "0"> ${TEST_RESULT_FILE}
+exit 0
