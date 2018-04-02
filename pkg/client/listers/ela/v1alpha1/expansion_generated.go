@@ -41,3 +41,11 @@ type RouteListerExpansion interface{}
 // RouteNamespaceListerExpansion allows custom methods to be added to
 // RouteNamespaceLister.
 type RouteNamespaceListerExpansion interface{}
+
+// ServiceListerExpansion allows custom methods to be added to
+// ServiceLister.
+type ServiceListerExpansion interface{}
+
+// ServiceNamespaceListerExpansion allows custom methods to be added to
+// ServiceNamespaceLister.
+type ServiceNamespaceListerExpansion interface{}

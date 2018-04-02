@@ -71,6 +71,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Revisions().Informer()}, nil
 	case ela_v1alpha1.SchemeGroupVersion.WithResource("routes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Routes().Informer()}, nil
+	case ela_v1alpha1.SchemeGroupVersion.WithResource("services"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Services().Informer()}, nil
 
 	}
 

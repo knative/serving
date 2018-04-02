@@ -30,6 +30,8 @@ type Interface interface {
 	Revisions() RevisionInformer
 	// Routes returns a RouteInformer.
 	Routes() RouteInformer
+	// Services returns a ServiceInformer.
+	Services() ServiceInformer
 }
 
 type version struct {
@@ -56,4 +58,9 @@ func (v *version) Revisions() RevisionInformer {
 // Routes returns a RouteInformer.
 func (v *version) Routes() RouteInformer {
 	return &routeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Services returns a ServiceInformer.
+func (v *version) Services() ServiceInformer {
+	return &serviceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
