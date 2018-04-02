@@ -68,6 +68,12 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			//TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"test-label":                   "test",
+						"example.com/namespaced-label": "test",
+					},
+				},
 				Spec: v1alpha1.RevisionSpec{
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
@@ -206,6 +212,12 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 
 	if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
 		t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+	}
+
+	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Labels {
+		if rev.Labels[k] != v {
+			t.Errorf("revisionTemplate label %s=%s not passed to revision", k, v)
+		}
 	}
 
 	if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
