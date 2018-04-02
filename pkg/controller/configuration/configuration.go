@@ -318,6 +318,11 @@ func (c *Controller) syncHandler(key string) error {
 	}
 	rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
 
+	if rev.ObjectMeta.Annotations == nil {
+		rev.ObjectMeta.Annotations = make(map[string]string)
+	}
+	rev.ObjectMeta.Annotations[ela.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
+
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
 

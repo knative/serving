@@ -27,6 +27,7 @@ package configuration
 	Congfiguration.
 */
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -211,7 +212,11 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	}
 
 	if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
-		t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+		t.Errorf("rev does not have configuration label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+	}
+
+	if rev.Annotations[ela.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Spec.Generation) {
+		t.Errorf("rev does not have generation annotation <%s:%s>", ela.ConfigurationGenerationAnnotationKey, config.Name)
 	}
 
 	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Labels {
