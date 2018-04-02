@@ -4,7 +4,7 @@ The purpose of this checklist is to outline must-have items required to open the
 
 ## Blockers to making project public 
 
-The following tasks that must be completed prior to making repository public.
+The tasks we would like to complete prior to making repository public, are:
 
 - [x] Migrate code to github.com/elafros organization  
 - [ ] Set up billing for Slack, Github, etc.
@@ -17,12 +17,14 @@ The following tasks that must be completed prior to making repository public.
 - [ ] Validate all sample apps
 - [ ] Upgrade Operator/Developer user guide (fully manual ok for now)
 
+
+
 ## After project is public 
 
-Additional items, still important but not blockers to opening the repo, are:
+Additional items, that while still important can be completed after opening the repository, are:
 
 - [ ] Configure @elafros Twitter account profile 
-- [ ] Configure social Stackoverflow label(s)
+- [ ] Configure social Stack Overflow label(s)
 - [ ] Clean up GitHub landing page (pin repos, update description & links, seed community)
 - [ ] Team Drive and mailing lists created
 - [ ] Finalize logo design and apply it in Slack/GitHub
