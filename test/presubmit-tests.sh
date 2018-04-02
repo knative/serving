@@ -79,8 +79,6 @@ bazel test //cmd/... //pkg/...
 go test ./cmd/... ./pkg/...
 
 # Step 3: Run end-to-end tests.
-if (( ! IS_PROW )); then
-  # Restore environment variables, as they are needed when running locally.
-  restore_env
-fi
+# Restore environment variables, let e2e-tests.sh handle them.
+restore_env
 ./test/e2e-tests.sh
