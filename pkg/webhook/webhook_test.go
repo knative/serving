@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/ghodss/yaml"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -125,15 +124,6 @@ func TestUnknownKindFails(t *testing.T) {
 	expectFailsWith(t, ac.admit(&req), "unhandled kind")
 }
 
-func TestInvalidNewConfigurationFails(t *testing.T) {
-	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	new := &admissionv1beta1.AdmissionRequest{
-		Operation: admissionv1beta1.Create,
-		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
-	}
-	expectFailsWith(t, ac.admit(new), errInvalidConfigurationInput.Error())
-}
-
 func TestInvalidNewConfigurationNameFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	req := &admissionv1beta1.AdmissionRequest{
@@ -142,7 +132,7 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 	}
 	invalidName := "configuration.example"
 	config := createConfiguration(0, invalidName)
-	marshaled, err := yaml.Marshal(config)
+	marshaled, err := json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal configuration: %s", err)
 	}
@@ -151,7 +141,7 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 
 	invalidName = strings.Repeat("a", 64)
 	config = createConfiguration(0, invalidName)
-	marshaled, err = yaml.Marshal(config)
+	marshaled, err = json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal configuration: %s", err)
 	}
@@ -205,7 +195,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 	}
 	invalidName := "route.example"
 	config := createRoute(0, invalidName)
-	marshaled, err := yaml.Marshal(config)
+	marshaled, err := json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal route: %s", err)
 	}
@@ -214,7 +204,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 
 	invalidName = strings.Repeat("a", 64)
 	config = createRoute(0, invalidName)
-	marshaled, err = yaml.Marshal(config)
+	marshaled, err = json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal route: %s", err)
 	}
@@ -239,6 +229,30 @@ func TestValidRouteNoChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
+func TestInvalidOldRoute(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	new := createRoute(1, testRouteName)
+	newBytes, err := json.Marshal(new)
+	if err != nil {
+		t.Errorf("Marshal(%v) = %v", new, err)
+	}
+	oldBytes := []byte(`{"bad": "field"}`)
+	resp := ac.admit(createUpdateRouteRaw(oldBytes, newBytes))
+	expectFailsWith(t, resp, `unknown field "bad"`)
+}
+
+func TestInvalidNewRoute(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	old := createRoute(1, testRouteName)
+	oldBytes, err := json.Marshal(old)
+	if err != nil {
+		t.Errorf("Marshal(%v) = %v", old, err)
+	}
+	newBytes := []byte(`{"sepc": {}}`)
+	resp := ac.admit(createUpdateRouteRaw(oldBytes, newBytes))
+	expectFailsWith(t, resp, `unknown field "sepc"`)
+}
+
 func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1, testRouteName)
@@ -260,6 +274,35 @@ func TestValidRouteChanges(t *testing.T) {
 	})
 }
 
+func TestValidNewRevisionObject(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Revision"},
+	}
+
+	revision := createRevision(testRevisionName)
+	marshaled, err := json.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.Object.Raw = marshaled
+	resp := ac.admit(req)
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+		jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/generation",
+			Value:     1,
+		},
+		jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/servingState",
+			Value:     v1alpha1.RevisionServingStateActive,
+		},
+	})
+}
+
 func TestInvalidNewRevisionNameFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	req := &admissionv1beta1.AdmissionRequest{
@@ -269,7 +312,7 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 
 	invalidName := "revision.example"
 	revision := createRevision(invalidName)
-	marshaled, err := yaml.Marshal(revision)
+	marshaled, err := json.Marshal(revision)
 	if err != nil {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
@@ -279,13 +322,12 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 	invalidName = strings.Repeat("a", 64)
 	revision = createRevision(invalidName)
 
-	marshaled, err = yaml.Marshal(revision)
+	marshaled, err = json.Marshal(revision)
 	if err != nil {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
 	expectFailsWith(t, ac.admit(req), "Invalid resource name")
-
 }
 
 func TestValidWebhook(t *testing.T) {
@@ -324,12 +366,12 @@ func TestUpdatingWebhook(t *testing.T) {
 
 func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateConfiguration()
-	marshaled, err := yaml.Marshal(old)
+	marshaled, err := json.Marshal(old)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
-	marshaledOld, err := yaml.Marshal(new)
+	marshaledOld, err := json.Marshal(new)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -343,7 +385,7 @@ func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
 	config := createConfiguration(0, testConfigurationName)
-	marshaled, err := yaml.Marshal(config)
+	marshaled, err := json.Marshal(config)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -364,7 +406,7 @@ func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
 	route := createRoute(0, testRouteName)
-	marshaled, err := yaml.Marshal(route)
+	marshaled, err := json.Marshal(route)
 	if err != nil {
 		panic("failed to marshal route")
 	}
@@ -379,19 +421,23 @@ func createBaseUpdateRoute() *admissionv1beta1.AdmissionRequest {
 	}
 }
 
-func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
+func createUpdateRouteRaw(old, new []byte) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateRoute()
-	marshaled, err := yaml.Marshal(old)
-	if err != nil {
-		panic("failed to marshal route")
-	}
-	req.Object.Raw = marshaled
-	marshaledOld, err := yaml.Marshal(new)
-	if err != nil {
-		panic("failed to marshal route")
-	}
-	req.OldObject.Raw = marshaledOld
+	req.Object.Raw = new
+	req.OldObject.Raw = old
 	return req
+}
+
+func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequest {
+	marshaledOld, err := json.Marshal(old)
+	if err != nil {
+		panic("failed to marshal route")
+	}
+	marshaled, err := json.Marshal(new)
+	if err != nil {
+		panic("failed to marshal route")
+	}
+	return createUpdateRouteRaw(marshaledOld, marshaled)
 }
 
 func createDeployment(ac *AdmissionController) {
@@ -448,8 +494,6 @@ func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 			if actualPatch.Json() == expectedPatch.Json() {
 				foundExpected[i] = true
 				foundActual[j] = true
-			} else {
-				t.Errorf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
 			}
 		}
 	}

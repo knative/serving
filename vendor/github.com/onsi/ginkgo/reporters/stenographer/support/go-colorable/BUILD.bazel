@@ -40,6 +40,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
+    importmap = "elafros/vendor/github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable",
     importpath = "github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable",
     visibility = ["//visibility:public"],
     deps = select({
