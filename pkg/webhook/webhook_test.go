@@ -274,6 +274,35 @@ func TestValidRouteChanges(t *testing.T) {
 	})
 }
 
+func TestValidNewRevisionObject(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Revision"},
+	}
+
+	revision := createRevision(testRevisionName)
+	marshaled, err := json.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.Object.Raw = marshaled
+	resp := ac.admit(req)
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+		jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/generation",
+			Value:     1,
+		},
+		jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/servingState",
+			Value:     v1alpha1.RevisionServingStateActive,
+		},
+	})
+}
+
 func TestInvalidNewRevisionNameFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	req := &admissionv1beta1.AdmissionRequest{
@@ -299,7 +328,6 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 	expectFailsWith(t, ac.admit(req), "Invalid resource name")
-
 }
 
 func TestValidWebhook(t *testing.T) {
@@ -466,8 +494,6 @@ func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 			if actualPatch.Json() == expectedPatch.Json() {
 				foundExpected[i] = true
 				foundActual[j] = true
-			} else {
-				t.Errorf("Values don't match: %+v vs %+v", actualPatch.Value, expectedPatch.Value)
 			}
 		}
 	}

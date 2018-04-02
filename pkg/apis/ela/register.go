@@ -26,4 +26,12 @@ const (
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
 	RouteLabelKey = GroupName + "/route"
+
+	// RevisionLabelKey is the label key attached to a Revision indicating by
+	// which Revision deployment it is created.
+	RevisionLabelKey = GroupName + "/revision"
+
+	// AutoscalerLabelKey is the label key attached to a autoscaler pod indicating by
+	// which Autoscaler deployment it is created.
+	AutoscalerLabelKey = GroupName + "/autoscaler"
 )
