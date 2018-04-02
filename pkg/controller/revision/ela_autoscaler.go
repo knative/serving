@@ -20,6 +20,7 @@ import (
 	"flag"
 	"strconv"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -43,7 +44,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 	}
 
 	labels := MakeElaResourceLabels(u)
-	labels["autoscaler"] = controller.GetRevisionAutoscalerName(u)
+	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(u)
 
 	replicas := int32(1)
 	return &v1beta1.Deployment{

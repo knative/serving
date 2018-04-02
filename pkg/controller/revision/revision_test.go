@@ -27,6 +27,7 @@ import (
 	"time"
 
 	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
@@ -55,9 +56,9 @@ func getTestRevision() *v1alpha1.Revision {
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"testLabel1": "foo",
-				"testLabel2": "bar",
-				"route":      "test-route",
+				"testLabel1":      "foo",
+				"testLabel2":      "bar",
+				ela.RouteLabelKey: "test-route",
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{
@@ -262,10 +263,10 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	expectedLabels := map[string]string{
-		"testLabel1": "foo",
-		"testLabel2": "bar",
-		"route":      "test-route",
-		"revision":   rev.Name,
+		"testLabel1":         "foo",
+		"testLabel2":         "bar",
+		ela.RouteLabelKey:    "test-route",
+		ela.RevisionLabelKey: rev.Name,
 	}
 	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Labels not set correctly on deployment: expected %v got %v.",
@@ -302,11 +303,11 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	// Look for the autoscaler deployment.
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 	expectedAutoscalerLabels := map[string]string{
-		"testLabel1": "foo",
-		"testLabel2": "bar",
-		"route":      "test-route",
-		"revision":   rev.Name,
-		"autoscaler": expectedAutoscalerName,
+		"testLabel1":           "foo",
+		"testLabel2":           "bar",
+		ela.RouteLabelKey:      "test-route",
+		ela.RevisionLabelKey:   rev.Name,
+		ela.AutoscalerLabelKey: expectedAutoscalerName,
 	}
 
 	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})

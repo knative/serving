@@ -70,7 +70,8 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"test-label": "test",
+						"test-label":                   "test",
+						"example.com/namespaced-label": "test",
 					},
 				},
 				Spec: v1alpha1.RevisionSpec{
