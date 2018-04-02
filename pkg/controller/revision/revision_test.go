@@ -311,7 +311,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		ela.AutoscalerLabelKey: expectedAutoscalerName,
 	}
 
-	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
