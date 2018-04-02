@@ -11,6 +11,7 @@ The following tasks that must be completed prior to making repository public.
 - [x] Migrate project roles document to the CONTRIBUTING.md
 - [ ] Review project roles & governance changes
 - [x] Elafros design/API documents posted to repo and reviewed 
+- [ ] Implement Service CRD in the compute/serving repo
 - [ ] Seed initial project roadmap docs (e.g. API, Build, Autoscaling, Eventing)
 - [ ] Validated no-build deployment ([Elafros Easy](https://github.com/elafros/install)) for GKE and non-GKE k8s cluster
 - [ ] Validate all sample apps
