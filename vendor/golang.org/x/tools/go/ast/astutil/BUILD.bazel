@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -8,23 +8,7 @@ go_library(
         "rewrite.go",
         "util.go",
     ],
+    importmap = "elafros/vendor/golang.org/x/tools/go/ast/astutil",
     importpath = "golang.org/x/tools/go/ast/astutil",
     visibility = ["//visibility:public"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["imports_test.go"],
-    embed = [":go_default_library"],
-    importpath = "golang.org/x/tools/go/ast/astutil",
-)
-
-go_test(
-    name = "go_default_xtest",
-    srcs = [
-        "enclosing_test.go",
-        "rewrite_test.go",
-    ],
-    importpath = "golang.org/x/tools/go/ast/astutil_test",
-    deps = [":go_default_library"],
 )

@@ -10,7 +10,6 @@ go_library(
 go_binary(
     name = "autoscale",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/autoscale",
     pure = "on",
     visibility = ["//visibility:public"],
 )

@@ -42,9 +42,10 @@ type RouteRule struct {
 //    - destination:
 //        name: revision-service-1
 //      match:
-//        headers:
-//          authority:
-//            regex: foo.example.com
+//        request:
+//          headers:
+//            authority:
+//              regex: foo.example.com
 //      weight: 90
 //    - destination:
 //        name: revision-service-2

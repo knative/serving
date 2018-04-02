@@ -339,8 +339,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	log.Printf("Updating the configuration status:\n%+v", config)
 
-	_, err = c.updateStatus(config)
-	if err != nil {
+	if _, err = c.updateStatus(config); err != nil {
 		log.Printf("Failed to update the configuration %s", err)
 		return err
 	}
