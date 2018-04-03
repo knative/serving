@@ -20,7 +20,7 @@ import (
   "encoding/json"
 
   corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
@@ -32,17 +32,17 @@ type Service struct {
   metav1.ObjectMeta    `json:"metadata,omitempty"`
 
   Spec   ServiceSpec   `json:"spec,omitempty"`
-	Status ServiceStatus `json:"status,omitempty"`
+  Status ServiceStatus `json:"status,omitempty"`
 }
 
 // ServiceSpec represents the configuration for the Service object.
 // Exeactly one of its members (other than Generation) must be specified.
 type ServiceSpec struct {
   // TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
-	Generation int64 `json:"generation,omitempty"`
+  // by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
+  // So, we add Generation here. Once that gets fixed, remove this and use
+  // ObjectMeta.Generation instead.
+  Generation int64 `json:"generation,omitempty"`
 
   // RunLatest defines a simple Service. It will autometically
   // configurate a route that keeps the latest ready revision
@@ -75,22 +75,22 @@ type ServiceCondition struct {
 
   Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
-	// +optional
-	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
-	// +optional
-	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+  // +optional
+  Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
+  // +optional
+  Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
 // ServiceConditionType represents an Service condition value
 type ServiceConditionType string
 
 const (
-	// ServiceConditionReady is set when the service is configured
-	// and has available backends ready to receive traffic.
-	ServiceConditionReady ServiceConditionType = "Ready"
-	// ServiceConditionFailed is set when the service is not configured
-	// properly or has no available backends ready to receive traffic.
-	ServiceConditionFailed ServiceConditionType = "Failed"
+  // ServiceConditionReady is set when the service is configured
+  // and has available backends ready to receive traffic.
+  ServiceConditionReady ServiceConditionType = "Ready"
+  // ServiceConditionFailed is set when the service is not configured
+  // properly or has no available backends ready to receive traffic.
+  ServiceConditionFailed ServiceConditionType = "Failed"
 )
 
 
@@ -106,10 +106,10 @@ type ServiceStatus struct {
 
 // ServiceList is a list of Service resources
 type ServiceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
+  metav1.TypeMeta `json:",inline"`
+  metav1.ListMeta `json:"metadata"`
 
-	Items []Service `json:"items"`
+  Items []Service `json:"items"`
 }
 
 func (s *Service) GetGeneration() int64 {
@@ -125,43 +125,43 @@ func (s *Service) GetSpecJSON() ([]byte, error) {
 }
 
 func (ss *ServiceStatus) IsReady() bool {
-	if c := ss.GetCondition(ServiceConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
+  if c := ss.GetCondition(ServiceConditionReady); c != nil {
+    return c.Status == corev1.ConditionTrue
+  }
+  return false
 }
 
 func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition {
-	for _, cond := range ss.Conditions {
-		if cond.Type == t {
-			return &cond
-		}
-	}
-	return nil
+  for _, cond := range ss.Conditions {
+    if cond.Type == t {
+      return &cond
+    }
+  }
+  return nil
 }
 
 func (ss *ServiceStatus) SetCondition(new *ServiceCondition) {
-	if new == nil {
-		return
-	}
+  if new == nil {
+    return
+  }
 
-	t := new.Type
-	var conditions []ServiceCondition
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	conditions = append(conditions, *new)
-	ss.Conditions = conditions
+  t := new.Type
+  var conditions []ServiceCondition
+  for _, cond := range ss.Conditions {
+    if cond.Type != t {
+      conditions = append(conditions, cond)
+    }
+  }
+  conditions = append(conditions, *new)
+  ss.Conditions = conditions
 }
 
 func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
-	var conditions []ServiceCondition
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	ss.Conditions = conditions
+  var conditions []ServiceCondition
+  for _, cond := range ss.Conditions {
+    if cond.Type != t {
+      conditions = append(conditions, cond)
+    }
+  }
+  ss.Conditions = conditions
 }
