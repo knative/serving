@@ -13,7 +13,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"testing"
+  "testing"
 
   corev1 "k8s.io/api/core/v1"
 )
@@ -33,113 +33,113 @@ func TestServiceGeneration(t *testing.T) {
 
 func TestServiceIsReady(t *testing.T) {
   cases := []struct {
-		name    string
-		status  ServiceStatus
-		isReady bool
-	}{
-		{
-			name:    "empty status should not be ready",
-			status:  ServiceStatus{},
-			isReady: false,
-		},
-		{
-			name: "Different condition type should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: false,
-		},
-		{
-			name: "False condition status should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
-		},
-		{
-			name: "Unknown condition status should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					},
-				},
-			},
-			isReady: false,
-		},
-		{
-			name: "Missing condition status should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type: ServiceConditionReady,
-					},
-				},
-			},
-			isReady: false,
-		},
-		{
-			name: "True condition status should be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
-		},
-		{
-			name: "Multiple conditions with ready status should be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
-		},
-		{
-			name: "Multiple conditions with ready status false should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
-		},
-	}
+    name    string
+    status  ServiceStatus
+    isReady bool
+  }{
+    {
+      name:    "empty status should not be ready",
+      status:  ServiceStatus{},
+      isReady: false,
+    },
+    {
+      name: "Different condition type should not be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type:   "Foo",
+            Status: corev1.ConditionTrue,
+          },
+        },
+      },
+      isReady: false,
+    },
+    {
+      name: "False condition status should not be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type:   ServiceConditionReady,
+            Status: corev1.ConditionFalse,
+          },
+        },
+      },
+      isReady: false,
+    },
+    {
+      name: "Unknown condition status should not be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type:   ServiceConditionReady,
+            Status: corev1.ConditionUnknown,
+          },
+        },
+      },
+      isReady: false,
+    },
+    {
+      name: "Missing condition status should not be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type: ServiceConditionReady,
+          },
+        },
+      },
+      isReady: false,
+    },
+    {
+      name: "True condition status should be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type:   ServiceConditionReady,
+            Status: corev1.ConditionTrue,
+          },
+        },
+      },
+      isReady: true,
+    },
+    {
+      name: "Multiple conditions with ready status should be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type:   "Foo",
+            Status: corev1.ConditionTrue,
+          },
+          {
+            Type:   ServiceConditionReady,
+            Status: corev1.ConditionTrue,
+          },
+        },
+      },
+      isReady: true,
+    },
+    {
+      name: "Multiple conditions with ready status false should not be ready",
+      status: ServiceStatus{
+        Conditions: []ServiceCondition{
+          {
+            Type:   "Foo",
+            Status: corev1.ConditionTrue,
+          },
+          {
+            Type:   ServiceConditionReady,
+            Status: corev1.ConditionFalse,
+          },
+        },
+      },
+      isReady: false,
+    },
+  }
 
-	for _, tc := range cases {
-		if e, a := tc.isReady, tc.status.IsReady(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
-	}
+  for _, tc := range cases {
+    if e, a := tc.isReady, tc.status.IsReady(); e != a {
+      t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+    }
+  }
 }
 
 func TestServiceConditions(t *testing.T) {
