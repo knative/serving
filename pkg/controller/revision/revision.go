@@ -22,6 +22,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
+
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
@@ -880,8 +882,8 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 // TODO: Consider using OwnerReferences.
 // https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
 func lookupServiceOwner(endpoint *corev1.Endpoints) string {
-	// see if there's a 'revision' label on this object marking it as ours.
-	if revisionName, ok := endpoint.Labels["revision"]; ok {
+	// see if there's a label on this object marking it as ours.
+	if revisionName, ok := endpoint.Labels[ela.RevisionLabelKey]; ok {
 		return revisionName
 	}
 	return ""
