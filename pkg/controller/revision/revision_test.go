@@ -93,7 +93,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"revision": revName,
+				ela.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -114,7 +114,7 @@ func getTestAuxiliaryReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-auxiliary", revName),
 			Namespace: "test",
 			Labels: map[string]string{
-				"revision": revName,
+				ela.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -135,7 +135,7 @@ func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: "test",
 			Labels: map[string]string{
-				"revision": revName,
+				ela.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
