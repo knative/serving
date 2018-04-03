@@ -209,8 +209,9 @@ metadata:
   namespace: default
   labels:
     elafros.dev/configuration: ...  # to list configurations/revisions by service
-    elafros.dev/configurationGeneration: ...  # generation of configuration that created this Revision
     elafros.dev/type: "function"  # convention, one of "function" or "app"
+  annotations:
+    elafros.dev/configurationGeneration: ...  # generation of configuration that created this Revision
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
