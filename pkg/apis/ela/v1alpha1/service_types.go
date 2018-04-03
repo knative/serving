@@ -36,7 +36,7 @@ type Service struct {
 }
 
 // ServiceSpec represents the configuration for the Service object.
-// Exeactly one of its members (other than Generation) must be specified.
+// Exactly one of its members (other than Generation) must be specified.
 type ServiceSpec struct {
   // TODO: Generation does not work correctly with CRD. They are scrubbed
   // by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
@@ -44,8 +44,8 @@ type ServiceSpec struct {
   // ObjectMeta.Generation instead.
   Generation int64 `json:"generation,omitempty"`
 
-  // RunLatest defines a simple Service. It will autometically
-  // configurate a route that keeps the latest ready revision
+  // RunLatest defines a simple Service. It will automatically
+  // configure a route that keeps the latest ready revision
   // from the supplied configuration running.
   // +optional
   RunLatest *RunLatestType `json:"runLatest,omitempty"`
@@ -53,7 +53,7 @@ type ServiceSpec struct {
   // Pins this service to a specific revision name. The revision must
   // be owned by the configuration provided.
   // +optional
-  Pinned *PinnedType `json:"pined,omitempty"`
+  Pinned *PinnedType `json:"pinned,omitempty"`
 }
 
 type RunLatestType struct {
@@ -63,7 +63,7 @@ type RunLatestType struct {
 
 type PinnedType struct {
   // The revision name to pin this service to until changed
-  // to a differnt service type.
+  // to a different service type.
   RevisionName string `json:"revisionName,omitempty"`
 
   // The configuration for this service.
