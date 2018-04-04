@@ -28,7 +28,7 @@ import (
 
 // Service
 type Service struct {
-	metav1.TypeMeta   `json",inline"`
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   ServiceSpec   `json:"spec,omitempty"`
