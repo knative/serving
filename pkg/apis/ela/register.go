@@ -23,6 +23,10 @@ const (
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"
 
+	// ConfigurationGenerationAnnotationKey is the annotation key attached to a Revision indicating the
+	// generation of the Configuration that created this revision
+	ConfigurationGenerationAnnotationKey = GroupName + "/configurationGeneration"
+
 	// RouteLabelKey is the label key attached to a Configuration indicating by
 	// which Route it is configured as traffic target.
 	RouteLabelKey = GroupName + "/route"
