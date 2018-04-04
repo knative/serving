@@ -59,7 +59,7 @@ func NewStats(podName string, channels Channels) *Stats {
 						break DrainReqOutChan
 					}
 				}
-			case <-s.ch.ReportChan:
+			case now := <-s.ch.ReportChan:
 				// Report the average bucket level. Does not
 				// include the current bucket.
 				var total float64 = 0
@@ -68,7 +68,6 @@ func NewStats(podName string, channels Channels) *Stats {
 					total = total + float64(val)
 					count = count + 1
 				}
-				now := time.Now()
 				var avg float64 = 0
 				if count != 0 {
 					avg = total / count
