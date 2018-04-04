@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_library", "go_prefix")
+load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_prefix")
 
 go_prefix("github.com/elafros/elafros")
 
@@ -118,16 +118,5 @@ k8s_objects(
         "@istio_release//:istio",  # We depend on Istio.
         "@buildcrd//:everything",
         ":elafros",
-    ],
-)
-
-go_library(
-    name = "go_default_library",
-    srcs = ["flow_types_new-6dbd918aa0a06f5024f203beb7072fb1.go"],
-    importpath = "github.com/elafros/elafros",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
