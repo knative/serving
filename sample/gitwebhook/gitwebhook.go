@@ -20,10 +20,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
-	"github.com/golang/glog"
 	"golang.org/x/oauth2"
 	webhooks "gopkg.in/go-playground/webhooks.v3"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -49,13 +49,13 @@ type GithubHandler struct {
 
 // HandlePullRequest is invoked whenever a PullRequest is modified (created, updated, etc.)
 func (handler *GithubHandler) HandlePullRequest(payload interface{}, header webhooks.Header) {
-	glog.Info("Handling Pull Request")
+	log.Print("Handling Pull Request")
 
 	pl := payload.(github.PullRequestPayload)
 
 	// Do whatever you want from here...
 	title := pl.PullRequest.Title
-	glog.Infof("GOT PR with Title: %q", title)
+	log.Printf("GOT PR with Title: %q", title)
 
 	// Check the title and if it contains 'looks pretty legit' leave it alone
 	if strings.Contains(title, titleSuffix) {
@@ -69,20 +69,19 @@ func (handler *GithubHandler) HandlePullRequest(payload interface{}, header webh
 	}
 	newPR, response, err := handler.client.PullRequests.Edit(handler.ctx, pl.Repository.Owner.Login, pl.Repository.Name, int(pl.Number), &updatedPR)
 	if err != nil {
-		glog.Warningf("Failed to update PR: %s\n%s", err, response)
+		log.Printf("Failed to update PR: %s\n%s", err, response)
 		return
 	}
 	if newPR.Title != nil {
-		glog.Infof("New PR Title: %q", *newPR.Title)
+		log.Printf("New PR Title: %q", *newPR.Title)
 	} else {
-		glog.Infof("New PR title is nil")
+		log.Print("New PR title is nil")
 	}
 }
 
 func main() {
 	flag.Parse()
-	// set the logs to stderr so kube will see them.
-	flag.Lookup("logtostderr").Value.Set("true")
+	log.Print("gitwebhook sample started.")
 	accessToken := os.Getenv(accessTokenKey)
 	secretToken := os.Getenv(secretTokenKey)
 

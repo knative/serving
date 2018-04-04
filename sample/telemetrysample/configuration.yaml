@@ -36,6 +36,3 @@ spec:
     spec:
       container:
         image: telemetrysample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
