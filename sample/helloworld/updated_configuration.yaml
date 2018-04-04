@@ -25,9 +25,6 @@ spec:
     spec:
       container:
         image: sample:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
         env:
           - name: TARGET
             value: updatedversion

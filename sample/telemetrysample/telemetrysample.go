@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/glog"
 	zipkin "github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
@@ -73,7 +72,8 @@ func init() {
 
 func main() {
 	flag.Parse()
-	glog.Info("Telemetry sample started.")
+	log.SetPrefix("TelemetrySample: ")
+	log.Print("Telemetry sample started.")
 
 	// Zipkin setup
 	// If your service only calls other Elafros revisions, then Zipkin setup below
@@ -135,7 +135,7 @@ var statusCodes = [...]int{
 func rootHandler(client *http.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Write the http request headers to the log for demonstration purposes.
-		glog.Infof("TelemetrySample: Request received. Request headers: %v", r.Header)
+		log.Printf("Request received. Request headers: %v", r.Header)
 
 		// Pick a random return code - this is used for demonstrating metrics & logs
 		// with different responses.
@@ -155,7 +155,7 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 		getWithContext := func(url string) (*http.Response, error) {
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
-				glog.Errorf("Failed to create a new request: %v", err)
+				log.Printf("Failed to create a new request: %v", err)
 				return nil, err
 			}
 			// If we don't attach the incoming request's context, we will end up creating
@@ -187,7 +187,7 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 		// Let's call a non-existent URL to demonstrate the failure scenarios in distributed tracing.
 		res, err = getWithContext("http://invalidurl.svc.cluster.local")
 		if err != nil {
-			glog.Errorf("Request failed: %v", err)
+			log.Printf("Request failed: %v", err)
 		} else {
 			defer res.Body.Close()
 		}
@@ -196,6 +196,6 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(status)
 		w.Write([]byte("Hello world!\n"))
-		glog.Infof("Request complete. Status: %v", status)
+		log.Printf("Request complete. Status: %v", status)
 	}
 }
