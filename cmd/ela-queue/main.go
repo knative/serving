@@ -28,6 +28,7 @@ import (
 
 	"github.com/elafros/elafros/pkg/autoscaler"
 	"github.com/elafros/elafros/pkg/controller/revision"
+	"github.com/elafros/elafros/pkg/queue"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -39,8 +40,11 @@ const (
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
-	statReportingQueueLength   = 10
-	requestCountingQueueLength = 10
+	statReportingQueueLength = 10
+	// Add enough buffer to keep track of as many requests as can
+	// be handled in a quantum of time. Because the request out
+	// channel isn't drained until the end of a quantum of time.
+	requestCountingQueueLength = 100
 )
 
 var (
@@ -49,8 +53,8 @@ var (
 	elaAutoscaler     string
 	elaAutoscalerPort string
 	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan         = make(chan struct{}, requestCountingQueueLength)
-	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
+	reqInChan         = make(chan queue.Poke, requestCountingQueueLength)
+	reqOutChan        = make(chan queue.Poke, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
 	proxy             *httputil.ReverseProxy
@@ -139,39 +143,11 @@ func statReporter() {
 	}
 }
 
-func concurrencyReporter() {
-	var concurrentRequests int32 = 0
-	var totalRequests int32 = 0
-	ticker := time.NewTicker(time.Second).C
-	for {
-		select {
-		case <-ticker:
-			now := time.Now()
-			stat := &autoscaler.Stat{
-				Time:                    &now,
-				PodName:                 podName,
-				ConcurrentRequests:      concurrentRequests,
-				TotalRequestsThisPeriod: totalRequests,
-			}
-			totalRequests = 0
-			statChan <- stat
-		case <-reqInChan:
-			concurrentRequests = concurrentRequests + 1
-			totalRequests = totalRequests + 1
-		case <-reqOutChan:
-			concurrentRequests = concurrentRequests - 1
-		}
-	}
-}
-
 func handler(w http.ResponseWriter, r *http.Request) {
-	var in struct{}
-	reqInChan <- in
+	reqInChan <- queue.Poke{}
 	defer func() {
-		var out struct{}
-		reqOutChan <- out
+		reqOutChan <- queue.Poke{}
 	}()
-	glog.Infof("Forwarding a request to the app container at %v", time.Now().String())
 	proxy.ServeHTTP(w, r)
 }
 
@@ -189,7 +165,20 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
-	go concurrencyReporter()
+	// The ratio between reportTicker and bucketTicker durations determines
+	// the maximum QPS the autoscaler will target for very short requests.
+	// The bucketTicker duration is a quantum of time so only so many can
+	// fit into a given duration.  And the autoscaler targets 1.0 average
+	// concurrency on average.
+	bucketTicker := time.NewTicker(100 * time.Millisecond).C
+	reportTicker := time.NewTicker(time.Second).C
+	queue.NewStats(podName, queue.Channels{
+		ReqInChan:        reqInChan,
+		ReqOutChan:       reqOutChan,
+		QuantizationChan: bucketTicker,
+		ReportChan:       reportTicker,
+		StatChan:         statChan,
+	})
 	defer func() {
 		if statSink != nil {
 			statSink.Close()
