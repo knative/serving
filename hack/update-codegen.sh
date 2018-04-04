@@ -18,8 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SCRIPT_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${ELAFROS_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -28,7 +28,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SCRIPT_ROOT}; ls -d -1 ./vendor/k8s.io/code-ge
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/elafros/elafros/pkg/client github.com/elafros/elafros/pkg/apis \
   "ela:v1alpha1 istio:v1alpha2 build:v1alpha1" \
-  --go-header-file ${SCRIPT_ROOT}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file ${ELAFROS_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Make sure our dependencies are up-to-date
-${SCRIPT_ROOT}/hack/update-deps.sh
+${ELAFROS_ROOT}/hack/update-deps.sh

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -8,22 +8,7 @@ go_library(
         "merge.go",
         "mergo.go",
     ],
+    importmap = "elafros/vendor/github.com/imdario/mergo",
     importpath = "github.com/imdario/mergo",
     visibility = ["//visibility:public"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "issue17_test.go",
-        "issue23_test.go",
-        "issue33_test.go",
-        "issue38_test.go",
-        "issue50_test.go",
-        "issue52_test.go",
-        "mergo_test.go",
-    ],
-    embed = [":go_default_library"],
-    importpath = "github.com/imdario/mergo",
-    deps = ["//vendor/gopkg.in/yaml.v2:go_default_library"],
 )

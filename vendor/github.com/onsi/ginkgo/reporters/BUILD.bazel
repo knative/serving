@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -9,31 +9,12 @@ go_library(
         "reporter.go",
         "teamcity_reporter.go",
     ],
+    importmap = "elafros/vendor/github.com/onsi/ginkgo/reporters",
     importpath = "github.com/onsi/ginkgo/reporters",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/onsi/ginkgo/config:go_default_library",
         "//vendor/github.com/onsi/ginkgo/reporters/stenographer:go_default_library",
         "//vendor/github.com/onsi/ginkgo/types:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_xtest",
-    srcs = [
-        "default_reporter_test.go",
-        "junit_reporter_test.go",
-        "reporters_suite_test.go",
-        "teamcity_reporter_test.go",
-    ],
-    importpath = "github.com/onsi/ginkgo/reporters_test",
-    deps = [
-        ":go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/config:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/internal/codelocation:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/reporters/stenographer:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/types:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

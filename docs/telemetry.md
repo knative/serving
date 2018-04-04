@@ -12,13 +12,13 @@ bazel run config/monitoring:everything-dev.apply
 ```
 
 ## Accessing logs
-Run, 
+Run,
 
 ```shell
 kubectl proxy
 ```
-Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana) 
-(*it might take a couple of minutes for the proxy to work*). 
+Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
+(*it might take a couple of minutes for the proxy to work*).
 When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
 
@@ -80,25 +80,25 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-See [Telemetry Sample](../sample/telemetrysample/README.md) for deploying a dedicated instance of Prometheus 
+See [Telemetry Sample](../sample/telemetrysample/README.md) for deploying a dedicated instance of Prometheus
 and emitting metrics to it.
 
-If you want to generate metrics within Elafros services and send them to shared instance of Prometheus, 
+If you want to generate metrics within Elafros services and send them to shared instance of Prometheus,
 follow the steps below. We will create a counter metric below:
-1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/) 
-and read [Data model](https://prometheus.io/docs/concepts/data_model/) and 
+1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
+and read [Data model](https://prometheus.io/docs/concepts/data_model/) and
 [Metric types](https://prometheus.io/docs/concepts/metric_types/) sections.
 2. Create a top level variable in your go file and initialize it in init() - example:
 
 ```go
     import "github.com/prometheus/client_golang/prometheus"
-    
+
     var myCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
         Namespace: "elafros",
         Name:      "mycomponent_something_count",
         Help:      "Counter to keep track of something in my component",
     }, []string{"status"})
-    
+
     func init() {
         prometheus.MustRegister(myCounter)
     }
@@ -113,13 +113,13 @@ and read [Data model](https://prometheus.io/docs/concepts/data_model/) and
         myCounter.With(prometheus.Labels{"status": "failure"}).Inc()
     }
 ```
-4. Start an http listener to serve as the metrics endpoint for Prometheus scraping (_this step and onwards are needed 
+4. Start an http listener to serve as the metrics endpoint for Prometheus scraping (_this step and onwards are needed
 only once in a service. ela-controller is already setup for metrics scraping and you can skip rest of these steps
 if you are targeting ela-controller_):
 
 ```go
     import "github.com/prometheus/client_golang/prometheus/promhttp"
-    
+
     // In your main() func
     srv := &http.Server{Addr: ":9090"}
     http.Handle("/metrics", promhttp.Handler())
@@ -170,7 +170,7 @@ metadata:
   namespace: monitoring
   labels:
     monitor-category: ela-system # Shared Prometheus instance only targets 'k8s', 'istio', 'node',
-                                 # 'prometheus' or 'ela-system' - if you pick something else, 
+                                 # 'prometheus' or 'ela-system' - if you pick something else,
                                  # you need to deploy your own Prometheus instance or edit shared
                                  # instance to target the new category
 spec:
@@ -186,15 +186,15 @@ spec:
     interval: 30s
 ```
 
-7. Add a dashboard for your metrics - you can see examples of it under 
-config/grafana/dashboard-definition folder. An easy way to generate JSON 
-definitions is to use Grafana UI (make sure to login with as admin user) and export JSON from it.
+7. Add a dashboard for your metrics - you can see examples of it under
+config/grafana/dashboard-definition folder. An easy way to generate JSON
+definitions is to use Grafana UI (make sure to login with as admin user) and [export JSON](http://docs.grafana.org/reference/export_import) from it.
 
 8. Add the YAML files to BUILD files.
 
 9. Deploy changes with bazel.
 
-10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section 
+10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
 above to enable Prometheus UI)
 
 ## Generating logs

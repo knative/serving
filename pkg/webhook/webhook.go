@@ -16,6 +16,7 @@ limitations under the License.
 package webhook
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -23,12 +24,12 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -92,8 +93,9 @@ type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
-	Factory  runtime.Object
-	Callback ResourceCallback
+	Factory   runtime.Object
+	Defaulter ResourceCallback
+	Validator ResourceCallback
 }
 
 // AdmissionController implements the external admission webhook for validation of
@@ -107,6 +109,8 @@ type AdmissionController struct {
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
 type GenericCRD interface {
+	// GetObjectMeta return the object metadata
+	GetObjectMeta() metav1.Object
 	// GetGeneration returns the current Generation of the object
 	GetGeneration() int64
 	// SetGeneration sets the Generation of the object
@@ -193,9 +197,19 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		client:  client,
 		options: options,
 		handlers: map[string]GenericCRDHandler{
-			"Revision":      GenericCRDHandler{Factory: &v1alpha1.Revision{}, Callback: ValidateRevision},
-			"Configuration": GenericCRDHandler{Factory: &v1alpha1.Configuration{}, Callback: ValidateConfiguration},
-			"Route":         GenericCRDHandler{Factory: &v1alpha1.Route{}, Callback: ValidateRoute},
+			"Revision": GenericCRDHandler{
+				Factory:   &v1alpha1.Revision{},
+				Defaulter: SetRevisionDefaults,
+				Validator: ValidateRevision,
+			},
+			"Configuration": GenericCRDHandler{
+				Factory:   &v1alpha1.Configuration{},
+				Validator: ValidateConfiguration,
+			},
+			"Route": GenericCRDHandler{
+				Factory:   &v1alpha1.Route{},
+				Validator: ValidateRoute,
+			},
 		},
 	}, nil
 }
@@ -413,32 +427,67 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
 
-	cb := handler.Callback
 	oldObj := handler.Factory.DeepCopyObject().(GenericCRD)
 	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
 
-	if err := yaml.Unmarshal(newBytes, &newObj); err != nil {
-		return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+	if len(newBytes) != 0 {
+		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
+		newDecoder.DisallowUnknownFields()
+		if err := newDecoder.Decode(&newObj); err != nil {
+			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+		}
 	}
 
-	if err := yaml.Unmarshal(oldBytes, &oldObj); err != nil {
-		return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+	if len(oldBytes) != 0 {
+		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
+		oldDecoder.DisallowUnknownFields()
+		if err := oldDecoder.Decode(&oldObj); err != nil {
+			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+		}
 	}
 
 	var patches []jsonpatch.JsonPatchOperation
+
 	err := updateGeneration(&patches, oldObj, newObj)
 	if err != nil {
 		glog.Warningf("Failed to update generation : %s", err)
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	if err := cb(&patches, oldObj, newObj); err != nil {
-		glog.Warningf("Failed the resource specific callback: %s", err)
-		// Return the error message as-is to give the callback discretion
-		// over (our portion of) the message that the user sees.
+	if defaulter := handler.Defaulter; defaulter != nil {
+		if err := defaulter(&patches, oldObj, newObj); err != nil {
+			glog.Warningf("Failed the resource specific defaulter: %s", err)
+			// Return the error message as-is to give the defaulter callback
+			// discretion over (our portion of) the message that the user sees.
+			return nil, err
+		}
+	}
+
+	if err := handler.Validator(&patches, oldObj, newObj); err != nil {
+		glog.Warningf("Failed the resource specific validation: %s", err)
+		// Return the error message as-is to give the validation callback
+		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
+
+	if err := validateMetadata(newObj); err != nil {
+		glog.Warningf("Failed to validate : %s", err)
+		return nil, fmt.Errorf("Failed to validate: %s", err)
+	}
 	return json.Marshal(patches)
+}
+
+func validateMetadata(new GenericCRD) error {
+	name := new.GetObjectMeta().GetName()
+
+	if strings.Contains(name, ".") {
+		return errors.New("Invalid resource name: special character . must not be present")
+	}
+
+	if len(name) > 63 {
+		return errors.New("Invalid resource name: length must be no more than 63 characters")
+	}
+	return nil
 }
 
 // updateGeneration sets the generation by following this logic:

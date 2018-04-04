@@ -31,6 +31,10 @@ func errMissingField(fieldPath string) error {
 	return fmt.Errorf("Configuration is missing %q", fieldPath)
 }
 
+func errDisallowedFields(fieldPaths string) error {
+	return fmt.Errorf("The configuration spec must not set the field(s): %s", fieldPaths)
+}
+
 var (
 	errEmptySpecInConfiguration         = errMissingField("spec")
 	errEmptyRevisionTemplateInSpec      = errMissingField("spec.revisionTemplate")
@@ -75,6 +79,9 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 	if reflect.DeepEqual(*template, v1alpha1.RevisionTemplateSpec{}) {
 		return errEmptyRevisionTemplateInSpec
 	}
+	if template.Spec.ServingState != "" {
+		return errDisallowedFields("revisionTemplate.spec.servingState")
+	}
 	if err := validateContainer(template.Spec.Container); err != nil {
 		return err
 	}
@@ -104,7 +111,7 @@ func validateContainer(container *corev1.Container) error {
 	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
-		return fmt.Errorf("The configuration spec must not set the field(s) %s", strings.Join(ignoredFields, ", "))
+		return errDisallowedFields(strings.Join(ignoredFields, ", "))
 	}
 	return nil
 }
