@@ -103,7 +103,7 @@ func newTestStats() *testStats {
 	reportBiChan := make(chan time.Time)
 	ch := Channels{
 		ReqInChan:        make(chan Poke),
-		ReqOutChan:       make(chan Poke, 100), // Buffer because ReqOutChan isn't drained until quanization.
+		ReqOutChan:       make(chan Poke, 100), // Buffer because ReqOutChan isn't drained until quantization.
 		QuantizationChan: (<-chan time.Time)(quanitzationBiChan),
 		ReportChan:       (<-chan time.Time)(reportBiChan),
 		StatChan:         make(chan *autoscaler.Stat),
