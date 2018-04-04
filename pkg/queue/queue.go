@@ -69,10 +69,14 @@ func NewStats(podName string, channels Channels) *Stats {
 					count = count + 1
 				}
 				now := time.Now()
+				var avg float64 = 0
+				if count != 0 {
+					avg = total / count
+				}
 				stat := &autoscaler.Stat{
 					Time:                      &now,
 					PodName:                   s.podName,
-					AverageConcurrentRequests: total / count,
+					AverageConcurrentRequests: avg,
 					RequestCount:              bucketedRequestCount,
 				}
 				// Send the stat to another process to transmit
