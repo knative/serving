@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["autoscale.go"],
-    importpath = "github.com/elafros/elafros/sample/autoscale",
+    importpath = "github.com/elafros/elafros/sample/autoscale/primes",
     visibility = ["//visibility:private"],
 )
 
