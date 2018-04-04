@@ -125,6 +125,7 @@ metadata:
   name: def
   labels:
     elafros.dev/configuration: my-service
+  annotations:
     elafros.dev/configurationGeneration: 1235
   ...
 spec:
@@ -322,6 +323,7 @@ metadata:
   labels:
     # name and generation of the configuration that created the revision
     elafros.dev/configuration: my-service
+  annotations:
     elafros.dev/configurationGeneration: 1234
   ...  # uid, resourceVersion, creationTimestamp, generation, selfLink, etc
 spec:
@@ -791,6 +793,7 @@ metadata:
   name: abc
   labels:
     elafros.dev/configuration: my-service
+  annotations:
     elafros.dev/configurationGeneration: 1234
   ...
 spec:
