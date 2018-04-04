@@ -24,7 +24,7 @@ spec:
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: container
+        elafros.dev/type: app
     spec:
       container:
         image: *image

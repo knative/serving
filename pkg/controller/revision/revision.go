@@ -22,6 +22,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
+
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
@@ -53,9 +55,6 @@ import (
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
 
 const (
-	routeLabel      string = "route"
-	elaVersionLabel string = "revision"
-
 	elaContainerName string = "ela-container"
 	elaPortName      string = "ela-port"
 	elaPort                 = 8080
@@ -74,6 +73,8 @@ const (
 	controllerAgentName = "revision-controller"
 
 	autoscalerPort = 8080
+
+	serviceTimeoutDuration = 5 * time.Minute
 )
 
 var (
@@ -405,6 +406,20 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 	return err
 }
 
+func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
+	glog.Infof("Marking Revision %q failed", rev.Name)
+	rev.Status.RemoveCondition(v1alpha1.RevisionConditionReady)
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:    v1alpha1.RevisionConditionFailed,
+			Status:  corev1.ConditionTrue,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		})
+	_, err := c.updateStatus(rev)
+	return err
+}
+
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
@@ -493,33 +508,46 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	if !getIsServiceReady(endpoint) {
-		// The service isn't ready, so ignore this event.
-		glog.Infof("Endpoint %q is not ready", eName)
-		return
-	}
-	glog.Infof("Endpoint %q is ready", eName)
-
 	rev, err := c.lister.Revisions(namespace).Get(revName)
 	if err != nil {
-		glog.Errorf("Error fetching revision '%s/%s' upon service becoming ready: %v", namespace, revName, err)
+		glog.Errorf("Error fetching revision '%s/%s': %v", namespace, revName, err)
 		return
 	}
 
-	// Check to see if the revision has already been marked as ready and if
-	// it is, then there's no need to do anything to it.
-	if rev.Status.IsReady() {
+	// Check to see if endpoint is the service endpoint
+	if eName != controller.GetElaK8SServiceNameForRevision(rev) {
+		return
+	}
+
+	// Check to see if the revision has already been marked as ready or failed
+	// and if it is, then there's no need to do anything to it.
+	if rev.Status.IsReady() || rev.Status.IsFailed() {
 		return
 	}
 
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
-	if err := c.markRevisionReady(rev); err != nil {
-		glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
-	} else {
+	if getIsServiceReady(endpoint) {
+		glog.Infof("Endpoint %q is ready", eName)
+		if err := c.markRevisionReady(rev); err != nil {
+			glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
+			return
+		}
 		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready", endpoint.Name)
+		return
 	}
+
+	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
+	if revisionAge < serviceTimeoutDuration {
+		return
+	}
+
+	if err := c.markRevisionFailed(rev); err != nil {
+		glog.Errorf("Error marking revision failed for '%s/%s': %v", namespace, revName, err)
+		return
+	}
+	c.recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
 }
 
@@ -555,13 +583,13 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 	log.Printf("Deleted deployment")
 
-	err = c.deleteAutoscalerDeployment(rev, ns)
+	err = c.deleteAutoscalerDeployment(rev)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Deployment: %s", err)
 	}
 	log.Printf("Deleted autoscaler Deployment")
 
-	err = c.deleteAutoscalerService(rev, ns)
+	err = c.deleteAutoscalerService(rev)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Service: %s", err)
 	}
@@ -598,11 +626,11 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscalerDeployment(rev, ns)
+	err = c.reconcileAutoscalerDeployment(rev)
 	if err != nil {
 		log.Printf("Failed to create autoscaler Deployment: %s", err)
 	}
-	err = c.reconcileAutoscalerService(rev, ns)
+	err = c.reconcileAutoscalerService(rev)
 	if err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
@@ -643,14 +671,13 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
-	_, err := dc.Get(deploymentName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
+	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
 
 	log.Printf("Deleting Deployment %q", deploymentName)
 	tmp := metav1.DeletePropagationForeground
-	err = dc.Delete(deploymentName, &metav1.DeleteOptions{
+	err := dc.Delete(deploymentName, &metav1.DeleteOptions{
 		PropagationPolicy: &tmp,
 	})
 	if err != nil && !apierrs.IsNotFound(err) {
@@ -664,11 +691,10 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
 	// https://kubernetes.io/docs/reference/workloads-18-19.
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
-
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
-	_, err := dc.Get(deploymentName, metav1.GetOptions{})
-	if err != nil {
+
+	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			log.Printf("deployments.Get for %q failed: %s", deploymentName, err)
 			return err
@@ -712,8 +738,8 @@ func (c *Controller) deleteService(rev *v1alpha1.Revision, ns string) error {
 func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string, error) {
 	sc := c.kubeclientset.Core().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
-	_, err := sc.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
+
+	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			log.Printf("services.Get for %q failed: %s", serviceName, err)
 			return "", err
@@ -730,20 +756,19 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 	service := MakeRevisionK8sService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating service: %q", service.Name)
-	_, err = sc.Create(service)
+	_, err := sc.Create(service)
 	return serviceName, err
 }
 
-func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(ns)
-	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
+	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
+	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
 	log.Printf("Deleting autoscaler Service %q", autoscalerName)
 	tmp := metav1.DeletePropagationForeground
-	err = sc.Delete(autoscalerName, &metav1.DeleteOptions{
+	err := sc.Delete(autoscalerName, &metav1.DeleteOptions{
 		PropagationPolicy: &tmp,
 	})
 	if err != nil && !apierrs.IsNotFound(err) {
@@ -753,9 +778,9 @@ func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) 
 	return nil
 }
 
-func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -769,16 +794,16 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns strin
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	service := MakeElaAutoscalerService(rev, ns)
+	service := MakeElaAutoscalerService(rev)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
 	_, err = sc.Create(service)
 	return err
 }
 
-func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -795,9 +820,9 @@ func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns strin
 	return nil
 }
 
-func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -811,7 +836,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns st
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	deployment := MakeElaAutoscalerDeployment(rev, ns)
+	deployment := MakeElaAutoscalerDeployment(rev)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)
@@ -857,8 +882,8 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 // TODO: Consider using OwnerReferences.
 // https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
 func lookupServiceOwner(endpoint *corev1.Endpoints) string {
-	// see if there's a 'revision' label on this object marking it as ours.
-	if revisionName, ok := endpoint.Labels["revision"]; ok {
+	// see if there's a label on this object marking it as ours.
+	if revisionName, ok := endpoint.Labels[ela.RevisionLabelKey]; ok {
 		return revisionName
 	}
 	return ""

@@ -10,7 +10,8 @@ http_archive(
 # Pull in rules_go
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "737df20c53499fd84b67f04c6ca9ccdee2e77089",
+    # HEAD as of 2018-03-29
+    commit = "7de345ea707a8cb29b489f5f4d9a381ba8a98f1a",
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
@@ -66,25 +67,6 @@ k8s_defaults(
     image_chroot = _REPOSITORY,
 )
 
-# We rewrite things in ./hack/update-deps.sh to use this version.
-go_repository(
-    name = "io_k8s_code_generator",
-    commit = "3c1fe2637f4efce271f1e6f50e039b2a0467c60c",
-    importpath = "k8s.io/code-generator",
-)
-
-go_repository(
-    name = "io_k8s_gengo",
-    commit = "1ef560bbde5195c01629039ad3b337ce63e7b321",
-    importpath = "k8s.io/gengo",
-)
-
-go_repository(
-    name = "com_github_spf13_pflag",
-    commit = "4c012f6dcd9546820e378d0bdda4d8fc772cdfea",
-    importpath = "github.com/spf13/pflag",
-)
-
 # Istio
 ISTIO_RELEASE = "0.6.0"
 
@@ -106,7 +88,8 @@ load(
 
 private_git_repository(
     name = "buildcrd",
-    commit = "098d36d81cf77ffd77d3743f514f0425b29c9597",
+    # HEAD as of 2018-03-29
+    commit = "f43fbe2f385b7a54b1cbf635b18fa5e16b1ceba1",
     remote = "git@github.com:elafros/build.git",
 )
 

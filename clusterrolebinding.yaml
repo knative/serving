@@ -32,7 +32,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: ela-autoscaler
-    namespace: default
+    namespace: ela-system
 roleRef:
   kind: ClusterRole
   name: cluster-admin

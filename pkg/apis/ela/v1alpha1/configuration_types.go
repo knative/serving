@@ -55,6 +55,9 @@ const (
 	// ConfigurationConditionReady is set when the configuration is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
+	// ConfigurationConditionLatestRevisionReady is set to indicate the status of the latest
+	// revision of the configuration when it has not become ready yet
+	ConfigurationConditionLatestRevisionReady ConfigurationConditionType = "LatestRevisionReady"
 )
 
 // ConfigurationCondition defines a readiness condition for a Configuration.

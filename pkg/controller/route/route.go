@@ -319,30 +319,31 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
 	glog.Infof("Creating/Updating placeholder k8s services")
-	err = c.reconcilePlaceholderService(route)
-	if err != nil {
+
+	if err = c.reconcilePlaceholderService(route); err != nil {
 		return err
 	}
 
 	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
-	_, err = c.syncTrafficTargetsAndUpdateRouteStatus(route)
-	if err != nil {
+
+	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(route); err != nil {
 		return err
 	}
 
-	// Then create the Ingress rule for this service
+	// Then create or update the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	if err = c.reconcileIngress(route); err != nil && !apierrs.IsAlreadyExists(err) {
-		glog.Infof("Failed to create ingress rule: %s", err)
+	if err = c.reconcileIngress(route); err != nil {
+		glog.Infof("Failed to create or update ingress rule: %s", err)
 		return err
 	}
 
-	return err
+	return nil
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
-	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, c.controllerConfig.DomainSuffix)
+	domain := c.controllerConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
+	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
 }
 
 // syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
@@ -413,16 +414,26 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 
 func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	ingress := MakeRouteIngress(route)
-	if _, err := c.kubeclientset.Extensions().Ingresses(route.Namespace).Create(ingress); err != nil {
-		if apierrs.IsAlreadyExists(err) {
-			// Ingress already exist.
-			return nil
+	ingressClient := c.kubeclientset.Extensions().Ingresses(route.Namespace)
+	existing, err := ingressClient.Get(controller.GetElaK8SIngressName(route), metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			if _, err = ingressClient.Create(ingress); err == nil {
+				glog.Infof("Created ingress %q", ingress.Name)
+				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
+			}
 		}
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress %q: %v", ingress.Name, err)
 		return err
 	}
-	glog.Infof("Created ingress %q", ingress.Name)
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
+	// Check if there is anything to update.
+	if !reflect.DeepEqual(existing.Spec, ingress.Spec) {
+		existing.Spec = ingress.Spec
+		if _, err = ingressClient.Update(existing); err == nil {
+			glog.Infof("Updated ingress %q", ingress.Name)
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q", ingress.Name)
+		}
+		return err
+	}
 	return nil
 }
 
@@ -614,28 +625,56 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
-	routeRuleName := controller.GetElaIstioRouteRuleName(route)
+	// Create route rule for the route domain
+	routeRuleName := controller.GetRouteRuleName(route, nil)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeRouteIstioRoutes(route, revisionRoutes)
+		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route))
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
-		return revisionRoutes, nil
+	} else {
+		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route))
+		if _, err := routeClient.Update(routeRules); err != nil {
+			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
+			return nil, err
+		}
+		c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	}
 
-	routeRules.Spec = MakeRouteIstioSpec(route, revisionRoutes)
-	_, err = routeClient.Update(routeRules)
-	if _, err := routeClient.Update(routeRules); err != nil {
-		c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
+	// Create route rule for named traffic targets
+	for _, tt := range route.Spec.Traffic {
+		if tt.Name == "" {
+			continue
+		}
+		routeRuleName := controller.GetRouteRuleName(route, &tt)
+		routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
+		if err != nil {
+			if !apierrs.IsNotFound(err) {
+				return nil, err
+			}
+			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route))
+			if _, err := routeClient.Create(routeRules); err != nil {
+				c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
+				return nil, err
+			}
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
+		} else {
+			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route))
+			if _, err := routeClient.Update(routeRules); err != nil {
+				return nil, err
+			}
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
+		}
+	}
+	if err := c.removeOutdatedRouteRules(route); err != nil {
 		return nil, err
 	}
-	c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	return revisionRoutes, nil
 }
 
@@ -704,6 +743,44 @@ func (c *Controller) consolidateTrafficTargets(route *v1alpha1.Route) {
 		)
 	}
 	route.Spec.Traffic = consolidatedTraffic
+}
+
+func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route) error {
+	ns := u.Namespace
+	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
+	if routeClient == nil {
+		glog.Error("Failed to create resource client")
+		return errors.New("Couldn't get a routeClient")
+	}
+
+	routeRuleList, err := routeClient.List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("route=%s", u.Name),
+	})
+	if err != nil {
+		return err
+	}
+
+	routeRuleNames := map[string]struct{}{}
+	routeRuleNames[controller.GetRouteRuleName(u, nil)] = struct{}{}
+	for _, tt := range u.Spec.Traffic {
+		if tt.Name == "" {
+			continue
+		}
+		routeRuleNames[controller.GetRouteRuleName(u, &tt)] = struct{}{}
+	}
+
+	for _, r := range routeRuleList.Items {
+		if _, ok := routeRuleNames[r.Name]; ok {
+			continue
+		}
+		glog.Info("Deleting outdated route: %s", r.Name)
+		if err := routeClient.Delete(r.Name, nil); err != nil {
+			if !apierrs.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Controller) addConfigurationEvent(obj interface{}) {
@@ -784,8 +861,8 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		Type:   v1alpha1.RouteConditionReady,
 		Status: corev1.ConditionTrue,
 	})
-	_, err = routeClient.Update(route)
-	if err != nil {
+
+	if _, err = routeClient.Update(route); err != nil {
 		glog.Errorf("Error updating readiness of route '%s/%s' upon ingress becoming: %v",
 			ns, routeName, err)
 		return

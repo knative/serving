@@ -20,3 +20,5 @@ type ConfigurationExpansion interface{}
 type RevisionExpansion interface{}
 
 type RouteExpansion interface{}
+
+type ServiceExpansion interface{}
