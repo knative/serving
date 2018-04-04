@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/elafros/elafros/pkg/autoscaler"
+	"github.com/google/go-cmp/cmp"
 )
 
 const (
@@ -15,12 +16,17 @@ func TestNoData(t *testing.T) {
 	s := newTestStats()
 	now := time.Now()
 
-	stat := s.report(now)
+	got := s.report(now)
 
-	assertTime(t, stat, now)
-	assertPodName(t, stat)
-	assertConcurrency(t, stat, 0.0)
-	assertQps(t, stat, 0)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 0.0,
+		RequestCount:              0,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
 }
 
 func TestOneRequestOneBucket(t *testing.T) {
@@ -30,12 +36,17 @@ func TestOneRequestOneBucket(t *testing.T) {
 	s.requestStart()
 	s.requestEnd()
 	s.quantize(now)
-	stat := s.report(now)
+	got := s.report(now)
 
-	assertTime(t, stat, now)
-	assertPodName(t, stat)
-	assertConcurrency(t, stat, 1.0)
-	assertQps(t, stat, 1)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
 }
 
 func TestLongRequest(t *testing.T) {
@@ -47,12 +58,17 @@ func TestLongRequest(t *testing.T) {
 	now = now.Add(100 * time.Millisecond)
 	s.quantize(now)
 	s.requestEnd()
-	stat := s.report(now)
+	got := s.report(now)
 
-	assertTime(t, stat, now)
-	assertPodName(t, stat)
-	assertConcurrency(t, stat, 1.0)
-	assertQps(t, stat, 1)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
 }
 
 func TestOneRequestMultipleBuckets(t *testing.T) {
@@ -66,12 +82,17 @@ func TestOneRequestMultipleBuckets(t *testing.T) {
 		now = now.Add(100 * time.Millisecond)
 		s.quantize(now)
 	}
-	stat := s.report(now)
+	got := s.report(now)
 
-	assertTime(t, stat, now)
-	assertPodName(t, stat)
-	assertConcurrency(t, stat, 0.1)
-	assertQps(t, stat, 1)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 0.1,
+		RequestCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
 }
 
 func TestManyRequestsOneBucket(t *testing.T) {
@@ -83,12 +104,17 @@ func TestManyRequestsOneBucket(t *testing.T) {
 		s.requestEnd()
 	}
 	s.quantize(now)
-	stat := s.report(now)
+	got := s.report(now)
 
-	assertTime(t, stat, now)
-	assertPodName(t, stat)
-	assertConcurrency(t, stat, 10.0)
-	assertQps(t, stat, 10)
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 10.0,
+		RequestCount:              10,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
 }
 
 // Test type to hold the bi-directional time channels
@@ -102,8 +128,9 @@ func newTestStats() *testStats {
 	quanitzationBiChan := make(chan time.Time)
 	reportBiChan := make(chan time.Time)
 	ch := Channels{
-		ReqInChan:        make(chan Poke),
-		ReqOutChan:       make(chan Poke, 100), // Buffer because ReqOutChan isn't drained until quantization.
+		ReqInChan: make(chan Poke),
+		// Buffer because ReqOutChan isn't drained until quantization.
+		ReqOutChan:       make(chan Poke, 100),
 		QuantizationChan: (<-chan time.Time)(quanitzationBiChan),
 		ReportChan:       (<-chan time.Time)(reportBiChan),
 		StatChan:         make(chan *autoscaler.Stat),

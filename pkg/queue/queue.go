@@ -6,14 +6,22 @@ import (
 	"github.com/elafros/elafros/pkg/autoscaler"
 )
 
+// Poke is a token to push onto Stats Channels for recording requests stats.
 type Poke struct{}
 
+// Channels is a structure for holding the channels for driving Stats.
+// It's just to make the NewStats signature easier to read.
 type Channels struct {
-	ReqInChan        chan Poke             // Ticks with every request arrived
-	ReqOutChan       chan Poke             // Ticks with every request completed
-	QuantizationChan <-chan time.Time      // Ticks at every quantization interval
-	ReportChan       <-chan time.Time      // Ticks with every stat report request
-	StatChan         chan *autoscaler.Stat // Stat reporting channel
+	// Ticks with every request arrived
+	ReqInChan chan Poke
+	// Ticks with every request completed
+	ReqOutChan chan Poke
+	// Ticks at every quantization interval
+	QuantizationChan <-chan time.Time
+	// Ticks with every stat report request
+	ReportChan <-chan time.Time
+	// Stat reporting channel
+	StatChan chan *autoscaler.Stat
 }
 
 type Stats struct {
@@ -39,7 +47,7 @@ func NewStats(podName string, channels Channels) *Stats {
 				concurrentCount = concurrentCount + 1
 			case <-s.ch.QuantizationChan:
 				// Calculate average concurrency for the current
-				// 100 ms bucket.
+				// quantum of time (bucket).
 				buckets = append(buckets, concurrentCount)
 				// Count the number of requests during bucketed
 				// period
@@ -49,7 +57,7 @@ func NewStats(podName string, channels Channels) *Stats {
 				// bucket statistic has been recorded.  This
 				// ensures that very fast requests are not missed
 				// by making the smallest granularity of
-				// concurrency accounting 100 ms.
+				// concurrency one quantum of time.
 			DrainReqOutChan:
 				for {
 					select {
@@ -78,7 +86,7 @@ func NewStats(podName string, channels Channels) *Stats {
 					AverageConcurrentRequests: avg,
 					RequestCount:              bucketedRequestCount,
 				}
-				// Send the stat to another process to transmit
+				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
 				s.ch.StatChan <- stat
 				// Reset the stat counts which have been reported.

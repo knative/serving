@@ -27,8 +27,8 @@ import (
 	"time"
 
 	"github.com/elafros/elafros/pkg/autoscaler"
-	"github.com/elafros/elafros/pkg/queue"
 	"github.com/elafros/elafros/pkg/controller/revision"
+	"github.com/elafros/elafros/pkg/queue"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -40,7 +40,10 @@ const (
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
-	statReportingQueueLength   = 10
+	statReportingQueueLength = 10
+	// Add enough buffer to keep track of as many requests as can
+	// be handled in a quantum of time. Because the request out
+	// channel isn't drained until the end of a quantum of time.
 	requestCountingQueueLength = 100
 )
 
@@ -162,6 +165,11 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
+	// The ratio between reportTicker and bucketTicker durations determines
+	// the maximum QPS the autoscaler will target for very short requests.
+	// The bucketTicker duration is a quantum of time so only so many can
+	// fit into a given duration.  And the autoscaler targets 1.0 average
+	// concurrency on average.
 	bucketTicker := time.NewTicker(100 * time.Millisecond).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
