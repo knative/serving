@@ -12,6 +12,7 @@ go_library(
         "//pkg/controller/configuration:go_default_library",
         "//pkg/controller/revision:go_default_library",
         "//pkg/controller/route:go_default_library",
+        "//pkg/controller/service:go_default_library",
         "//pkg/signals:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
