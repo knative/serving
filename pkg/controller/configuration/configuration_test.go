@@ -76,6 +76,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 					},
 				},
 				Spec: v1alpha1.RevisionSpec{
+					ServiceAccountName: "test-account",
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
@@ -257,6 +258,9 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 	}
 	if got, want := len(revList.Items), 1; got != want {
 		t.Fatalf("expected %v revisions, got %v", want, got)
+	}
+	if got, want := revList.Items[0].Spec.ServiceAccountName, "test-account"; got != want {
+		t.Fatalf("expected service account name %v, got %v", want, got)
 	}
 
 	buildList, err := elaClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})

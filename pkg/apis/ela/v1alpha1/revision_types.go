@@ -71,6 +71,10 @@ type RevisionSpec struct {
 	// Kubernetes resources should be in.
 	ServingState RevisionServingStateType `json:"servingState"`
 
+	// Name of the service account the code should run as.
+	// TODO(ZhiminXiang): verify the corresponding service account exists.
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// The name of the build that is producing the container image that we are deploying.
 	BuildName string `json:"buildName,omitempty"`
 
