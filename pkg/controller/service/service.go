@@ -160,7 +160,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 // runWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
-//TODO(grantr): generic
 func (c *Controller) runWorker() {
 	for c.processNextWorkItem() {
 	}
@@ -168,7 +167,7 @@ func (c *Controller) runWorker() {
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the updateServiceEvent.
-//TODO(grantr): generic
+//TODO(vaikas): generic
 func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
@@ -240,7 +239,6 @@ func (c *Controller) enqueueService(obj interface{}) {
 // updateServiceEvent compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
-//TODO(grantr): not generic
 func (c *Controller) updateServiceEvent(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -268,20 +266,35 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 	glog.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
+	if err = c.reconcileConfiguration(service); err != nil {
+		return err
+	}
+
+	return c.reconcileRoute(service)
+
 	return nil
 }
 
-func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
-	routeClient := c.elaclientset.ElafrosV1alpha1().Services(route.Namespace)
-	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
+func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
+	serviceClient := c.elaclientset.ElafrosV1alpha1().Services(service.Namespace)
+	existing, err := serviceClient.Get(service.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
-	if !reflect.DeepEqual(existing.Status, route.Status) {
-		existing.Status = route.Status
+	if !reflect.DeepEqual(existing.Status, service.Status) {
+		existing.Status = service.Status
 		// TODO: for CRD there's no updatestatus, so use normal update.
-		return routeClient.Update(existing)
+		return serviceClient.Update(existing)
 	}
 	return existing, nil
+}
+
+func (c *Controller) reconcileConfiguration(service *v1alpha1.Service) error {
+	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(service.Namespace)
+
+	r, err := c.createConfiguration()
+}
+
+func (c *Controller) reconcileRoute(service *v1alpha1.Service) error {
 }
