@@ -12,20 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: Use a Deployment which is scaled to 1.
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1beta1
+kind: Deployment
 metadata:
   name: ela-activator
   namespace: ela-system
-  labels:
-    app: ela-activator
 spec:
-  serviceAccountName: ela-controller
-  containers:
-  - name: ela-activator
-    image: ela-activator:latest
-    ports:
-    - name: http
-      containerPort: 8080
-      
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ela-activator
+        role: ela-activator
+    spec:
+      serviceAccountName: ela-controller
+      containers:
+      - name: ela-activator
+        image: ela-activator:latest
+        ports:
+        - name: http
+          containerPort: 8080
+        args:
+        - "-logtostderr=true"
+        - "-stderrthreshold=INFO"
+        

@@ -18,6 +18,7 @@ package route
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"reflect"
 	"time"
@@ -54,9 +55,9 @@ var (
 		Name:      "route_process_item_count",
 		Help:      "Counter to keep track of items in the route work queue",
 	}, []string{"status"})
-	// The experiment flag to turn on activator feature. If set to true, the traffic
-	// will always be directed to the activator.
-	enableActivatorExperiment = false
+	// The experiment flag in controller.yaml to turn on activator feature. The default is false.
+	// If it's true, the traffic will always be directed to the activator.
+	enableActivatorExperiment bool
 )
 
 const (
@@ -108,6 +109,7 @@ type Controller struct {
 
 func init() {
 	prometheus.MustRegister(routeProcessItemCount)
+	flag.BoolVar(&enableActivatorExperiment, "enableActivatorExperiment", false, "The experiment flag to turn on activator feature.")
 }
 
 // NewController initializes the controller and is called by the generated code

@@ -31,8 +31,6 @@ import (
 func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) istiov1alpha2.RouteRuleSpec {
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
-	// if either current or next is inactive, target them to proxy instead of
-	// the backend so the 0->1 transition will happen.
 	if !enableActivatorExperiment {
 		destinationWeights = calculateDestinationWeights(u, tt, routes)
 		if tt != nil {
@@ -56,6 +54,8 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		}
 	}
 
+	// if enableActivatorExperiment flag is on, and there are reserved revisions,
+	// define the corresponding istio route rules.
 	glog.Info("using activator-service as the destination")
 	placeHolderK8SServiceName = controller.GetElaK8SActivatorServiceName()
 	destinationWeights = append(destinationWeights,
@@ -65,11 +65,16 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 			},
 			Weight: 100,
 		})
+
+	appendHeaders := make(map[string]string)
+	appendHeaders["revision"] = "configuration-example-00001"
+	appendHeaders["hello"] = "world"
 	return istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
 			Name: placeHolderK8SServiceName,
 		},
-		Route: destinationWeights,
+		Route:         destinationWeights,
+		AppendHeaders: appendHeaders,
 	}
 }
 

@@ -1,3 +1,16 @@
+/*
+Copyright 2018 Google Inc. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package activator
 
 import (
@@ -6,7 +19,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -19,19 +31,21 @@ import (
 
 // Activator that can activate revisions in reserve state or redirect traffic to active revisions.
 type Activator struct {
-	kubeClient kubernetes.Interface
-	elaClient  clientset.Interface
+	kubeClient      kubernetes.Interface
+	elaClient       clientset.Interface
+	retryingTripper RetryingRoundTripperInterface
 }
 
 // NewActivator returns an Activator.
-func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) (*Activator, error) {
+func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, retryingTripper RetryingRoundTripperInterface) (*Activator, error) {
 	return &Activator{
-		kubeClient: kubeClient,
-		elaClient:  elaClient,
+		kubeClient:      kubeClient,
+		elaClient:       elaClient,
+		retryingTripper: retryingTripper,
 	}, nil
 }
 
-func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string) {
+func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string, tripper RetryingRoundTripperInterface) {
 	glog.Info("Sending a proxy request to ", targetURL)
 	target, err := url.Parse(targetURL)
 	if err != nil {
@@ -40,15 +54,13 @@ func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string) {
 		return
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = retryingRoundTripper{
-		MaxRetries:     100,
-		InitialTimeout: 50 * time.Millisecond,
-	}
+	proxy.Transport = tripper
 	proxy.ServeHTTP(w, r)
 	glog.Info("End proxy request")
 }
 
-func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
+// GetRevisionTargetURL calculates the target URL
+func (a *Activator) GetRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
 	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
 	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
 	if err != nil {
@@ -76,11 +88,19 @@ func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
 	return nil
 }
 
-func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
+// Handler directs traffic to the right revision.
+func (a *Activator) Handler(w http.ResponseWriter, r *http.Request) {
+	// TODO!!!
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions("default")
-	// TODO: find the revision to be activated.
-	// https://github.com/elafros/elafros/issues/552
-	revision, err := revisionClient.Get("configuration-example-00001", metav1.GetOptions{})
+	glog.Infof("request headers: %v", r.Header)
+	glog.Infof("request : %v", r)
+	glog.Infof("Trailer : %v", r.Trailer)
+	glog.Infof("Body : %v", r.Body)
+	glog.Infof("RequestURI: %s", r.RequestURI)
+	revisionName := r.Header.Get("revision")
+
+	glog.Info("Revision name to be activated: ", revisionName)
+	revision, err := revisionClient.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		http.Error(w, "Unable to get revision.", http.StatusNotFound)
 		return
@@ -90,14 +110,14 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 	switch revision.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
 		// The revision is already active. Forward the request to k8s deployment.
-		serviceURL, err := a.getRevisionTargetURL(revision)
+		serviceURL, err := a.GetRevisionTargetURL(revision)
 		if err != nil {
 			http.Error(w, "Failed to forward request.", http.StatusServiceUnavailable)
 			return
 		}
 
 		glog.Info("The revision is active. Forwarding request to service at ", serviceURL)
-		proxyRequest(w, r, serviceURL)
+		proxyRequest(w, r, serviceURL, a.retryingTripper)
 	case v1alpha1.RevisionServingStateReserve:
 		// The revision is inactive. Enqueue the request and activate the revision
 		glog.Info("the revision is inactive. Activating it and enqueuing reqfretryinguest")
@@ -108,11 +128,11 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		glog.Info("Waiting for revision to come online")
-		if serviceURL, err := a.getRevisionTargetURL(revision); err != nil {
+		if serviceURL, err := a.GetRevisionTargetURL(revision); err != nil {
 			http.Error(w, "Unable to get service URL of revision.", http.StatusServiceUnavailable)
 		} else {
 			glog.Info("Forwarding request to service at ", serviceURL)
-			proxyRequest(w, r, serviceURL)
+			proxyRequest(w, r, serviceURL, a.retryingTripper)
 		}
 	case v1alpha1.RevisionServingStateRetired:
 		glog.Info("revision is retired. do nothing.")
@@ -127,7 +147,7 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 func (a *Activator) Run(stopCh <-chan struct{}) error {
 	glog.Info("Started Activator")
 
-	http.HandleFunc("/", a.handler)
+	http.HandleFunc("/", a.Handler)
 	http.ListenAndServe(":8080", nil)
 	<-stopCh
 	glog.Info("Shutting down Activator")

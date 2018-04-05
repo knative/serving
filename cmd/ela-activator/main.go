@@ -14,6 +14,9 @@ limitations under the License.
 package main
 
 import (
+	"flag"
+	"time"
+
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/signals"
@@ -23,6 +26,7 @@ import (
 )
 
 func main() {
+	flag.Parse()
 	glog.Info("Starting the elafros activator...")
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -40,7 +44,11 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
-	a, err := activator.NewActivator(kubeClient, elaClient)
+	tripper := activator.RetryingRoundTripper{
+		MaxRetries:     100,
+		InitialTimeout: 50 * time.Millisecond,
+	}
+	a, err := activator.NewActivator(kubeClient, elaClient, tripper)
 	if err != nil {
 		glog.Fatalf("Failed to create an activator: %v", err)
 	}

@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    srcs = ["activator_test.go"],
+    embed = ["//pkg/activator:go_default_library"],
+    deps = [
+        "//pkg/client/clientset/versioned/fake:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
+        "//pkg/apis/ela:go_default_library",
+        "//pkg/activator:go_default_library",
+        "//pkg/activator/fake:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
+    ]
+)
