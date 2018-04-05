@@ -210,6 +210,10 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 				Factory:   &v1alpha1.Route{},
 				Validator: ValidateRoute,
 			},
+			"Service": GenericCRDHandler{
+				Factory:   &v1alpha1.Service{},
+				Validator: ValidateService,
+			},
 		},
 	}, nil
 }
@@ -287,7 +291,7 @@ func (ac *AdmissionController) unregister(client clientadmissionregistrationv1be
 // configuration types.
 
 func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	resources := []string{"configurations", "routes", "revisions"}
+	resources := []string{"configurations", "routes", "revisions", "services"}
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{

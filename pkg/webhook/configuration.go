@@ -69,7 +69,11 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	if err := validateTemplate(&configuration.Spec.RevisionTemplate); err != nil {
+	return validateConfigurationSpec(&configuration.Spec)
+}
+
+func validateConfigurationSpec(configurationSpec *v1alpha1.ConfigurationSpec) error {
+	if err := validateTemplate(&configurationSpec.RevisionTemplate); err != nil {
 		return err
 	}
 	return nil
