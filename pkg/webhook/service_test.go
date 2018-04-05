@@ -47,6 +47,22 @@ func TestRunLatest(t *testing.T) {
 	}
 }
 
+func TestRunLatestWithMissingConfiguration(t *testing.T) {
+	s := v1alpha1.Service{
+		Spec: v1alpha1.ServiceSpec{
+			RunLatest: &v1alpha1.RunLatestType{},
+		},
+	}
+	err := ValidateService(nil, &s, &s)
+	if err == nil {
+		t.Errorf("Expected failure, but succeeded with: %+v", s)
+	}
+
+	if e, a := errServiceMissingField("spec.runLatest.configuration").Error(), err.Error(); e != a {
+		t.Errorf("Expected %s got %s", e, a)
+	}
+}
+
 func TestPinned(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{
