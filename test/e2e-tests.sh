@@ -32,7 +32,6 @@ readonly E2E_CLUSTER_ZONE=us-east1-d
 readonly E2E_CLUSTER_NODES=2
 readonly E2E_CLUSTER_MACHINE=n1-standard-2
 readonly GKE_VERSION=v1.9.4-gke.1
-readonly E2E_DOCKER_BASE=gcr.io/elafros-e2e-tests
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
 # Unique identifier for this test execution
@@ -112,12 +111,12 @@ function exit_if_test_failed() {
 function run_conformance_tests() {
   header "Running conformance tests"
   echo -e "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: pizzaplanet" | kubectl create -f -
-  go test -v ./test/conformance -ginkgo.v -dockerrepo ${E2E_DOCKER_BASE}/ela-conformance-test
+  go test -v ./test/conformance -ginkgo.v -dockerrepo gcr.io/elafros-e2e-tests/ela-conformance-test
 }
 
 function run_hello_world() {
   header "Running hello world"
-  bazel run //sample/helloworld:everything.create && return 0
+  bazel run //sample/helloworld:everything.create || return 1
   echo "Route:"
   kubectl get route -o yaml
   echo "Configuration:"
@@ -221,6 +220,8 @@ if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
   kubectl --username=admin --password=$passwd create clusterrolebinding cluster-admin-binding \
     --clusterrole=cluster-admin \
     --user=${K8S_USER_OVERRIDE}
+  # Make sure we're in the default namespace
+  kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
 fi
 readonly USING_EXISTING_CLUSTER
 
@@ -235,6 +236,8 @@ echo "================================================="
 echo "* Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "* User is ${K8S_USER_OVERRIDE}"
 echo "* Docker is ${DOCKER_REPO_OVERRIDE}"
+echo "*** Project info ***"
+gcloud compute project-info describe
 
 header "Building and starting Elafros"
 trap teardown EXIT
@@ -265,8 +268,8 @@ kubectl label namespace default istio-injection=enabled
 
 run_hello_world
 exit_if_test_failed
-#run_conformance_tests
-#exit_if_test_failed
+run_conformance_tests
+exit_if_test_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
