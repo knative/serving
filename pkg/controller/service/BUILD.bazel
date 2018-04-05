@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "service.go",
+        "service_configuration.go",
+        "service_route.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/controller/service",
     visibility = ["//visibility:public"],

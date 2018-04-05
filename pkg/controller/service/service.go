@@ -266,13 +266,20 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 	glog.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
-	if err = c.reconcileConfiguration(service); err != nil {
+	config := MakeServiceConfiguration(service)
+	if err = c.reconcileConfiguration(config); err != nil {
 		return err
 	}
 
-	return c.reconcileRoute(service)
+	// TODO: If revision is specified, check that the revision is ready before
+	// switching routes to it.
 
-	return nil
+	revisionName := ""
+	if service.Spec.Pinned != nil {
+		revisionName = service.Spec.Pinned.RevisionName
+	}
+	route := MakeServiceRoute(service, config.Name, revisionName)
+	return c.reconcileRoute(route)
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
@@ -290,11 +297,38 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 	return existing, nil
 }
 
-func (c *Controller) reconcileConfiguration(service *v1alpha1.Service) error {
-	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(service.Namespace)
+func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) error {
+	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(config.Namespace)
 
-	r, err := c.createConfiguration()
+	existing, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			_, err := configClient.Create(config)
+			return err
+		}
+	}
+	config.SetGeneration(existing.GetGeneration())
+
+	copy := existing.DeepCopy()
+	copy.Spec = config.Spec
+	_, err = configClient.Update(copy)
+	return err
 }
 
-func (c *Controller) reconcileRoute(service *v1alpha1.Service) error {
+func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
+	routeClient := c.elaclientset.ElafrosV1alpha1().Routes(route.Namespace)
+
+	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			_, err := routeClient.Create(route)
+			return err
+		}
+	}
+	route.SetGeneration(existing.GetGeneration())
+
+	copy := existing.DeepCopy()
+	copy.Spec = route.Spec
+	_, err = routeClient.Update(copy)
+	return err
 }
