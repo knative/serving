@@ -26,7 +26,7 @@ details.
 <!-- To create a new release:
 
 1. Change [Unreleased] to the released version number and add a release date.
-   Example: ## [1.0.0] - 2018-04-01
+   Example: ## [0.1.0] - 2018-04-01
 
 2. Copy the following template above the just released version:
 
