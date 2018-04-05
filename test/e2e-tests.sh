@@ -28,7 +28,7 @@
 
 # Test cluster parameters and location of generated test images
 readonly E2E_CLUSTER_NAME=ela-e2e-cluster
-readonly E2E_CLUSTER_ZONE=us-east1-d
+readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=2
 readonly E2E_CLUSTER_MACHINE=n1-standard-2
 readonly GKE_VERSION=v1.9.4-gke.1
@@ -220,7 +220,8 @@ if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
   kubectl --username=admin --password=$passwd create clusterrolebinding cluster-admin-binding \
     --clusterrole=cluster-admin \
     --user=${K8S_USER_OVERRIDE}
-  # Make sure we're in the default namespace
+  # Make sure we're in the default namespace. Currently kubetest switches to
+  # test-pods namespace when creating the cluster.
   kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
 fi
 readonly USING_EXISTING_CLUSTER
