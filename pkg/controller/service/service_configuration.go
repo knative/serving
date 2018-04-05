@@ -35,9 +35,9 @@ func MakeServiceConfiguration(service *v1alpha1.Service) *v1alpha1.Configuration
 	}
 
 	if service.Spec.RunLatest != nil {
-		c.Spec = *service.Spec.RunLatest.Configuration
+		c.Spec = service.Spec.RunLatest.Configuration
 	} else {
-		c.Spec = *service.Spec.Pinned.Configuration
+		c.Spec = service.Spec.Pinned.Configuration
 	}
 	return c
 }

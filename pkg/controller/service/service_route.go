@@ -35,11 +35,12 @@ func MakeServiceRoute(service *v1alpha1.Service, configName string, revisionName
 	}
 
 	tt := v1alpha1.TrafficTarget{
-		Percent:           100,
-		ConfigurationName: configName,
+		Percent: 100,
 	}
 	if len(revisionName) != 0 {
 		tt.RevisionName = revisionName
+	} else {
+		tt.ConfigurationName = configName
 	}
 	c.Spec.Traffic = append(c.Spec.Traffic, tt)
 	return c

@@ -272,7 +272,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 	}
 
 	// TODO: If revision is specified, check that the revision is ready before
-	// switching routes to it.
+	// switching routes to it. Though route controller might just do the right thing?
 
 	revisionName := ""
 	if service.Spec.Pinned != nil {
