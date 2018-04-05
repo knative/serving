@@ -31,8 +31,8 @@ const (
 	// which Route it is configured as traffic target.
 	RouteLabelKey = GroupName + "/route"
 
-	// RevisionLabelKey is the label key attached to a Revision indicating by
-	// which Revision deployment it is created.
+	// RevisionLabelKey is the label key attached to k8s resources to indicate
+	// which Revision triggered their creation.
 	RevisionLabelKey = GroupName + "/revision"
 
 	// AutoscalerLabelKey is the label key attached to a autoscaler pod indicating by
