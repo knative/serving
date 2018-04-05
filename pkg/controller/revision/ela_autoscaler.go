@@ -129,7 +129,7 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				"autoscaler": controller.GetRevisionAutoscalerName(u),
+				ela.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(u),
 			},
 		},
 	}
