@@ -59,7 +59,7 @@ func TestRouteRunLatest(t *testing.T) {
 }
 
 func TestRoutePinned(t *testing.T) {
-	s := createServiceWithRunLatest()
+	s := createServiceWithPinned()
 	r := MakeServiceRoute(s, testConfigName)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
@@ -85,7 +85,7 @@ func TestRoutePinned(t *testing.T) {
 	if got, want := len(r.Labels), 2; got != want {
 		t.Errorf("expected %d labels got %d", want, got)
 	}
-	if got, want := r.Labels[testLabelKey], testLabelValueRunLatest; got != want {
+	if got, want := r.Labels[testLabelKey], testLabelValuePinned; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
 	if got, want := r.Labels[ela.ServiceLabelKey], testServiceName; got != want {
