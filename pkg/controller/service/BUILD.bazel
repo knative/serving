@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "ela_resource.go",
         "service.go",
         "service_configuration.go",
         "service_route.go",
@@ -10,6 +11,7 @@ go_library(
     importpath = "github.com/elafros/elafros/pkg/controller/service",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apis/ela:go_default_library",
         "//pkg/apis/ela/v1alpha1:go_default_library",
         "//pkg/client/clientset/versioned:go_default_library",
         "//pkg/client/informers/externalversions:go_default_library",
@@ -36,7 +38,15 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "service_configuration_test.go",
+        "service_route_test.go",
         "service_test.go",
     ],
     embed = [":go_default_library"],
+    deps = [
+        "//pkg/apis/ela:go_default_library",
+        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
 )

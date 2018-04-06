@@ -16,6 +16,7 @@ package service
 import (
 	"testing"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,9 @@ const (
 	testRevisionName           string = "test-revision-name"
 	testContainerNameRunLatest string = "test-container-run-latest"
 	testContainerNamePinned    string = "test-container-pinned"
+	testLabelKey               string = "test-label-key"
+	testLabelValuePinned       string = "test-label-value-pinned"
+	testLabelValueRunLatest    string = "test-label-value-run-latest"
 )
 
 func createConfiguration(containerName string) v1alpha1.ConfigurationSpec {
@@ -57,6 +61,8 @@ func createServiceWithRunLatest() *v1alpha1.Service {
 			Configuration: createConfiguration(testContainerNameRunLatest),
 		},
 	}
+	s.Labels = make(map[string]string, 2)
+	s.Labels[testLabelKey] = testLabelValueRunLatest
 	return s
 }
 
@@ -68,6 +74,8 @@ func createServiceWithPinned() *v1alpha1.Service {
 			Configuration: createConfiguration(testContainerNamePinned),
 		},
 	}
+	s.Labels = make(map[string]string, 2)
+	s.Labels[testLabelKey] = testLabelValuePinned
 	return s
 }
 
@@ -84,6 +92,16 @@ func TestRunLatest(t *testing.T) {
 		t.Errorf("expected %q for container name got %q", want, got)
 	}
 	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
+
+	if got, want := len(c.Labels), 2; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := c.Labels[testLabelKey], testLabelValueRunLatest; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := c.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
 }
 
 func TestPinned(t *testing.T) {
@@ -99,6 +117,16 @@ func TestPinned(t *testing.T) {
 		t.Errorf("expected %q for container name got %q", want, got)
 	}
 	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
+
+	if got, want := len(c.Labels), 2; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := c.Labels[testLabelKey], testLabelValuePinned; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := c.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
 }
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
