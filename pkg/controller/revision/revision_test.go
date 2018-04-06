@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -84,6 +85,11 @@ func getTestRevision() *v1alpha1.Revision {
 					TimeoutSeconds: 42,
 				},
 				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "health",
+						},
+					},
 					TimeoutSeconds: 43,
 				},
 				TerminationMessagePath: "/dev/null",
@@ -300,21 +306,39 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
 	}
 
-	// Check the revision deployment queue proxy environment variables
 	foundQueueProxy := false
+	foundElaContainer := false
+	expectedPreStop := &corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(RequestQueueAdminPort),
+			Path: RequestQueueQuitPath,
+		},
+	}
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == "queue-proxy" {
 			foundQueueProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
 			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
-			break
+			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
+				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
+			}
+		}
+		if container.Name == elaContainerName {
+			foundElaContainer = true
+			// verify that the ReadinessProbe has our port.
+			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(RequestQueuePort) {
+				t.Errorf("Expect ReadinessProbe handler to have port %d, saw %v",
+					RequestQueuePort, container.ReadinessProbe.Handler.HTTPGet.Port)
+			}
+			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
+				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
+			}
 		}
 	}
 	if !foundQueueProxy {
 		t.Error("Missing queue-proxy container")
 	}
-
 	// Check the revision deployment fluentd proxy environment variables
 	foundFluentdProxy := false
 	for _, container := range deployment.Spec.Template.Spec.Containers {
@@ -331,7 +355,9 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if !foundFluentdProxy {
 		t.Error("Missing fluentd-proxy container")
 	}
-
+	if !foundElaContainer {
+		t.Errorf("Missing %q container", elaContainerName)
+	}
 	expectedLabels := sumMaps(
 		rev.Labels,
 		map[string]string{ela.RevisionLabelKey: rev.Name},
