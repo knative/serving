@@ -15,6 +15,8 @@ package service
 
 import (
 	"testing"
+
+	"github.com/elafros/elafros/pkg/apis/ela"
 )
 
 const (
@@ -44,6 +46,16 @@ func TestRouteRunLatest(t *testing.T) {
 		t.Errorf("expected %q configurationname got %q", want, got)
 	}
 	expectOwnerReferencesSetCorrectly(t, r.OwnerReferences)
+
+	if got, want := len(r.Labels), 2; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := r.Labels[testLabelKey], testLabelValueRunLatest; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := r.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
 }
 
 func TestRoutePinned(t *testing.T) {
@@ -69,4 +81,14 @@ func TestRoutePinned(t *testing.T) {
 		t.Errorf("expected %q configurationname got %q", want, got)
 	}
 	expectOwnerReferencesSetCorrectly(t, r.OwnerReferences)
+
+	if got, want := len(r.Labels), 2; got != want {
+		t.Errorf("expected %d labels got %d", want, got)
+	}
+	if got, want := r.Labels[testLabelKey], testLabelValueRunLatest; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
+	if got, want := r.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+		t.Errorf("expected %q labels got %q", want, got)
+	}
 }
