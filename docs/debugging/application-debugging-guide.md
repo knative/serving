@@ -1,9 +1,7 @@
-# Application Debugging step by step Guide
+# Application Debugging Guide
 
 This document provides instructions for how to debug your applications deployed
 to Elafros.
-
-`NOTE`: It needs to be updated once relative new features are added to Elafros.
 
 ## Failures during Deployment
 
@@ -26,7 +24,7 @@ saying that you should have route traffic percent summing to 100.
 
 ## Failures during reconciling
 
-After your application is deployed to Elafros, you need to wait for tens of
+After your application is deployed to Elafros, you may need to wait for tens of
 seconds until the latest created `Revision` to become ready and get traffic
 shifted to. However sometimes it fails to happen. In such situation you can use
 the following methods to debug:
@@ -75,4 +73,3 @@ steps:
 
 1. Click `Discover` on the left side bar.
 1. Choose `zipkin*` index pattern on the left top.
-
