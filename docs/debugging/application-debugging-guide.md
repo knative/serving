@@ -40,7 +40,8 @@ kubectl describe <resource-type>/<route-name>
 ```
 
 Look up the meaning of the status in Elafro
-[Error Conditions and Reporting](../spec/errors.md).
+[Error Conditions and Reporting](../spec/errors.md)(currently some of them
+are implemented yet).
 
 ### Search logs
 
