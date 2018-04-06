@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -83,7 +85,7 @@ func configuration(imagePath string) *v1alpha1.Configuration {
 	}
 }
 
-func routeIsReady() func(r *v1alpha1.Route) (bool, error) {
+func isRouteReady() func(r *v1alpha1.Route) (bool, error) {
 	return func(r *v1alpha1.Route) (bool, error) {
 		return r.Status.IsReady(), nil
 	}
@@ -103,15 +105,17 @@ func allRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1
 	}
 }
 
-func isRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, error) {
+func isRevisionReady(confGen string) func(r *v1alpha1.Revision) (bool, error) {
 	return func(r *v1alpha1.Revision) (bool, error) {
 		if len(r.Status.Conditions) > 0 {
 			Expect(r.Status.Conditions[0].Type).To(Equal(v1alpha1.RevisionConditionType("Ready")))
-			if r.Status.Conditions[0].Status == "False" {
+			if r.Status.Conditions[0].Status == corev1.ConditionStatus("False") {
 				Expect(r.Status.Conditions[0].Reason).To(Equal("Deploying"))
 			} else {
 				Expect(r.Status.Conditions[0].Status).To(Equal(corev1.ConditionStatus("True")))
 				Expect(r.Status.Conditions[0].Reason).To(Equal("ServiceReady"))
+				Expect(r.Annotations).To(HaveKey(ela.ConfigurationGenerationAnnotationKey))
+				Expect(r.Annotations[ela.ConfigurationGenerationAnnotationKey]).To(Equal(confGen))
 				return true, nil
 			}
 		}
@@ -207,7 +211,7 @@ var _ = Describe("Route", func() {
 			})
 
 			By("The Revision will be updated when it is ready to serve traffic")
-			WaitForRevisionState(revisionClient, revisionName, isRevisionReady(revisionName))
+			WaitForRevisionState(revisionClient, revisionName, isRevisionReady("1"))
 
 			By("The Configuration will be updated when the Revision is ready to serve traffic")
 			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
@@ -218,7 +222,7 @@ var _ = Describe("Route", func() {
 			WaitForRouteState(routeClient, routeName, allRouteTrafficAtRevision(routeName, revisionName))
 
 			By("Once the Route Ingress has an IP, the Route will be marked as Ready.")
-			WaitForRouteState(routeClient, routeName, routeIsReady())
+			WaitForRouteState(routeClient, routeName, isRouteReady())
 			updatedRoute, err := routeClient.Get(routeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -250,7 +254,7 @@ var _ = Describe("Route", func() {
 			})
 
 			By("The new Revision will be updated when it is ready to serve traffic")
-			WaitForRevisionState(revisionClient, revisionName, isRevisionReady(newRevisionName))
+			WaitForRevisionState(revisionClient, newRevisionName, isRevisionReady("2"))
 
 			By("The Configuration will be updated to indicate the new revision is ready")
 			WaitForConfigurationState(configClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
