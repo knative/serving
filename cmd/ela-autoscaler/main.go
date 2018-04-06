@@ -105,7 +105,7 @@ func autoscaler() {
 			if ok {
 				scaleChan <- scale
 
-				// Start tearing down the autoscaler if we scale to 0.
+				// Stop the autoscaler from doing any more work.
 				if scale == 0 {
 					return
 				}
