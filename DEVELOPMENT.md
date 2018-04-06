@@ -117,6 +117,10 @@ You can access the Elafros Controller's logs with:
 $ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
 ```
 
+If you're using a GCP project to host your Kubernetes cluster, it's good to check the
+[Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
+page to ensure that all services are up and running (and not blocked by a quota issue, for example).
+
 ## Enable log and metric collection
 You can use two different setups for collecting logs and metrics:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
