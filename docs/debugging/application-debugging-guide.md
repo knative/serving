@@ -10,7 +10,7 @@ deployment process was terminated, there should be error message showing up in
 the output and describing the reason why the deployment failed.
 
 This kind of failures is most likely due to either misconfigured manifest or wrong
-command. For example, the following output says that you should have route
+command. For example, the following output says that you should configure route
 traffic percent summing to 100:
 
 ```
@@ -24,8 +24,8 @@ ERROR: Non-zero return code '1' from command: Process exited with status 1
 
 ## Check Route status
 
-Run the following command to get `status` of the `Route` you deployed your
-application to:
+Run the following command to get `status` of the `Route` with which you deployed
+your application:
 
 ```shell
 kubectl get route <route-name> -o yaml
@@ -55,7 +55,7 @@ Then run
 kebuctl get revision <revision-name> -o yaml
 ```
 
-A ready `Revision` should has the following condition in status:
+A ready `Revision` should has the following condition in `status`:
 
 ```yaml
 conditions:
@@ -76,17 +76,17 @@ If you see other conditions, to debug further:
      are not implemented yet. An alternation is to
      [check Pod status](#check-pod-status).
   1. If you are using `BUILD` to deploy and the `BuidComplete` condition is not
-     `True`, [check BUILD status](#check-build-status)
+     `True`, [check BUILD status](#check-build-status).
 
 ## Check Pod status
 
-To get the `Pod` for all your deployments:
+To get the `Pod`s for all your deployments:
 
 ```shell
 kubectl get pods
 ```
 
-This should list all pods with a brief status. For example:
+This should list all `Pod`s with brief status. For example:
 
 ```
 NAME                                                      READY     STATUS             RESTARTS   AGE
@@ -94,8 +94,8 @@ configuration-example-00001-deployment-659747ff99-9bvr4   2/2       Running     
 configuration-example-00002-deployment-5f475b7849-gxcht   1/2       CrashLoopBackOff   2          36s
 ```
 
-Choose one and use the following command to see detailed information for `status`.
-Some useful fields are `conditions` and `containerStatuses`:
+Choose one and use the following command to see detailed information for its
+`status`. Some useful fields are `conditions` and `containerStatuses`:
 
 ```shell
 kubectl get pod <pod-name> -o yaml
