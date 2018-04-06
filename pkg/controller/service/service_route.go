@@ -23,7 +23,7 @@ import (
 )
 
 // MakeServiceRoute creates a Route from a Service object.
-func MakeServiceRoute(service *v1alpha1.Service, configName string, revisionName string) *v1alpha1.Route {
+func MakeServiceRoute(service *v1alpha1.Service, configName string) *v1alpha1.Route {
 	c := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
@@ -38,10 +38,12 @@ func MakeServiceRoute(service *v1alpha1.Service, configName string, revisionName
 	tt := v1alpha1.TrafficTarget{
 		Percent: 100,
 	}
-	if len(revisionName) != 0 {
-		tt.RevisionName = revisionName
-	} else {
+	// If there's RunLatest, use the configName, otherwise pin to a specific Revision
+	// as specified in the Pinned section of the Service spec.
+	if service.Spec.RunLatest != nil {
 		tt.ConfigurationName = configName
+	} else {
+		tt.RevisionName = service.Spec.Pinned.RevisionName
 	}
 	c.Spec.Traffic = append(c.Spec.Traffic, tt)
 	return c

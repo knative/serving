@@ -45,8 +45,8 @@ import (
 )
 
 var (
-	controllerKind        = v1alpha1.SchemeGroupVersion.WithKind("Service")
-	routeProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	controllerKind          = v1alpha1.SchemeGroupVersion.WithKind("Service")
+	serviceProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "elafros",
 		Name:      "service_process_item_count",
 		Help:      "Counter to keep track of items in the service work queue",
@@ -80,7 +80,7 @@ type Controller struct {
 }
 
 func init() {
-	prometheus.MustRegister(routeProcessItemCount)
+	prometheus.MustRegister(serviceProcessItemCount)
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -96,7 +96,7 @@ func NewController(
 
 	glog.Infof("Service controller Init")
 
-	// obtain references to a shared index informer for the Services and
+	// obtain references to a shared index informer for the Services.
 	informer := elaInformerFactory.Elafros().V1alpha1().Services()
 
 	// Create event broadcaster
@@ -211,7 +211,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	routeProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
+	serviceProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
 
 	if err != nil {
 		runtime.HandleError(err)
@@ -274,12 +274,10 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// TODO: If revision is specified, check that the revision is ready before
 	// switching routes to it. Though route controller might just do the right thing?
 
-	revisionName := ""
-	if service.Spec.Pinned != nil {
-		revisionName = service.Spec.Pinned.RevisionName
-	}
-	route := MakeServiceRoute(service, config.Name, revisionName)
+	route := MakeServiceRoute(service, config.Name)
 	return c.reconcileRoute(route)
+
+	// TODO: update status appropriately.
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
@@ -307,8 +305,7 @@ func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) erro
 			return err
 		}
 	}
-	config.SetGeneration(existing.GetGeneration())
-
+	// TODO(vaikas): Perhaps only update if there are actual changes.
 	copy := existing.DeepCopy()
 	copy.Spec = config.Spec
 	_, err = configClient.Update(copy)
@@ -325,8 +322,7 @@ func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
 			return err
 		}
 	}
-	route.SetGeneration(existing.GetGeneration())
-
+	// TODO(vaikas): Perhaps only update if there are actual changes.
 	copy := existing.DeepCopy()
 	copy.Spec = route.Spec
 	_, err = routeClient.Update(copy)

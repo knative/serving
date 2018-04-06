@@ -48,17 +48,17 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 
 ```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-route-example-ela-ingress   demo.myhost.net             80        14s
+service-example-ela-ingress   demo.myhost.net             80        14s
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
 # Put the Ingress Host name into an environment variable.
-export SERVICE_HOST=`kubectl get route route-example -o jsonpath="{.status.domain}"`
+export SERVICE_HOST=`kubectl get route service-example -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress service-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),

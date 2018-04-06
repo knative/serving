@@ -25,7 +25,7 @@ const (
 
 func TestRouteRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
-	r := MakeServiceRoute(s, testConfigName, "")
+	r := MakeServiceRoute(s, testConfigName)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -60,7 +60,7 @@ func TestRouteRunLatest(t *testing.T) {
 
 func TestRoutePinned(t *testing.T) {
 	s := createServiceWithRunLatest()
-	r := MakeServiceRoute(s, testConfigName, testRevisionName)
+	r := MakeServiceRoute(s, testConfigName)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}

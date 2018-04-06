@@ -18,5 +18,6 @@ import (
 )
 
 func testNothing(t *testing.T) {
+	// TODO(vaikas): Implement controller tests
 	return
 }
