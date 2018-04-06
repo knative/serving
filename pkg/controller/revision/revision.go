@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +53,7 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-)
+	)
 
 const (
 	elaContainerName string = "ela-container"
@@ -78,9 +79,11 @@ const (
 
 	autoscalerPort = 8080
 
-	serviceTimeoutDuration = 5 * time.Minute
+	serviceTimeoutDuration  = 5 * time.Minute
 
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	//TODO (arvtiwar): this should be a config option.
+	progressDeadlineSeconds int32 = 120
 )
 
 var (
@@ -161,6 +164,7 @@ func NewController(
 	// Endpoint type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	deploymentInformer :=  kubeInformerFactory.Apps().V1().Deployments()
 
 	// Create event broadcaster
 	glog.V(4).Info("Creating event broadcaster")
@@ -202,6 +206,11 @@ func NewController(
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addEndpointsEvent,
 		UpdateFunc: controller.updateEndpointsEvent,
+	})
+
+	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.addDeploymentProgressEvent,
+		UpdateFunc: controller.updateDeploymentProgressEvent,
 	})
 
 	return controller
@@ -505,12 +514,31 @@ func getIsServiceReady(e *corev1.Endpoints) bool {
 	return false
 }
 
+
 func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
 	condCount := len(r.Status.Conditions)
 	if condCount == 0 {
 		return r.CreationTimestamp.Time
 	}
 	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
+}
+
+func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.DeploymentCondition  {
+
+	//as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
+
+	for _, cond := range deployment.Status.Conditions{
+		// Look for Deployment with status False
+		if cond.Status != corev1.ConditionTrue {
+			continue
+		}
+		// with Type Progressing and Reason Timeout
+		//TODO (arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
+		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
+			return &cond
+		}
+	}
+	return nil
 }
 
 func (c *Controller) addBuildEvent(obj interface{}) {
@@ -540,6 +568,49 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 
 func (c *Controller) updateBuildEvent(old, new interface{}) {
 	c.addBuildEvent(new)
+}
+
+func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
+	deployment := obj.(*appsv1.Deployment)
+	cond := getDeploymentProgressCondition(deployment)
+
+	if cond == nil {
+		return
+	}
+
+	//Get the handle of Revision in context/
+	revName := deployment.Name
+	namespace := deployment.Namespace
+
+	rev, err := c.lister.Revisions(namespace).Get(revName)
+
+	if err != nil {
+		glog.Errorf("Error fetching revision '%s/%s': %v", namespace, revName, err)
+		return
+	}
+
+	//Set the revision condition reason to ProgressDeadlineExceeded
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "ProgressDeadlineExceeded",
+			Message: fmt.Sprintf("Unable to create pods for more than %d seconds.", progressDeadlineSeconds),
+
+		})
+
+	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)
+
+	if _, err := c.updateStatus(rev); err != nil {
+		log.Printf("Error recording revision completion: %s", err)
+		return
+	}
+	c.recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout", revName)
+	return
+}
+
+func (c *Controller) updateDeploymentProgressEvent(old, new interface{}) {
+	c.addDeploymentProgressEvent(new)
 }
 
 func (c *Controller) addEndpointsEvent(obj interface{}) {
@@ -715,7 +786,7 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 
 func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 	deploymentName := controller.GetRevisionDeploymentName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.AppsV1().Deployments(ns)
 	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -735,7 +806,7 @@ func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) error {
 	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
 	// https://kubernetes.io/docs/reference/workloads-18-19.
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.AppsV1().Deployments(ns)
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
@@ -759,8 +830,13 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
 
+	//Set the ProgressDeadlineSeconds
+	deployment.Spec.ProgressDeadlineSeconds = new(int32)
+	*deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
+
 	log.Printf("Creating Deployment: %q", deployment.Name)
 	_, createErr := dc.Create(deployment)
+
 	return createErr
 }
 
@@ -871,6 +947,8 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 
 func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
+	//TODO (arvtiwar) migrate this to AppsV1 when it goes GA. See
+	// https://kubernetes.io/docs/reference/workloads-18-19.
 	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
