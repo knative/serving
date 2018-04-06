@@ -85,7 +85,6 @@ func init() {
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
-//TODO(vaikas): somewhat generic (generic behavior)
 func NewController(
 	kubeclientset kubernetes.Interface,
 	elaclientset clientset.Interface,
@@ -130,7 +129,6 @@ func NewController(
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-//TODO(grantr): generic
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
@@ -145,7 +143,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	glog.Info("Starting workers")
-	// Launch two workers to process Service resources
+	// Launch threadiness workers to process Service resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
@@ -167,7 +165,6 @@ func (c *Controller) runWorker() {
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the updateServiceEvent.
-//TODO(vaikas): generic
 func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
@@ -304,6 +301,7 @@ func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) erro
 			_, err := configClient.Create(config)
 			return err
 		}
+		return err
 	}
 	// TODO(vaikas): Perhaps only update if there are actual changes.
 	copy := existing.DeepCopy()
@@ -321,6 +319,7 @@ func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
 			_, err := routeClient.Create(route)
 			return err
 		}
+		return err
 	}
 	// TODO(vaikas): Perhaps only update if there are actual changes.
 	copy := existing.DeepCopy()
