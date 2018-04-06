@@ -10,7 +10,7 @@ to Elafros.
 This kind of failures is most likely due to either misconfigured manifest or wrong
 command. It terminates the deployment process and shows some error message to
 you. The error message should describe the reason why this error happens. For
-example, if you change the traffic `percent` in [route.yaml](../../sample/helloworld/route.yaml)
+example, if you change the traffic `percent` in [route.yaml](../../sample/helloworld/route.yaml#L23)
 of sample helloworld app to 50 then deploy, you will get the following message:
 
 ```
@@ -41,8 +41,8 @@ kubectl describe <resource-type>/<route-name>
 # example: kubectl describe route/route-example
 ```
 
-Look up the meaning of the status in
-[Elafro Error Conditions and Reporting](../spec/errors.md)
+Look up the meaning of the status in Elafro
+[Error Conditions and Reporting](../spec/errors.md).
 
 ### Search logs
 
@@ -63,14 +63,14 @@ to search for logs.
 ### Stdout/stderr logs
 
 You can find the logs emitted to `stdout/stderr` from your application on
-`Kibana` UI by following steps:
+Kibana UI by following steps:
 
 1. Click `Discover` on the left side bar.
 1. Choose `logstash-*` index pattern on the left top.
 
 ### Request logs
 
-You can find the request logs of your application on `Kibana` UI by following
+You can find the request logs of your application on Kibana UI by following
 steps:
 
 1. Click `Discover` on the left side bar.
