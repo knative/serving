@@ -1,15 +1,17 @@
 # Application Debugging Guide
 
-This document provides instructions for how to debug your applications deployed
-to Elafros.
+You deployed your app to Elafros but it is not working as expected. Go through
+this step by step guide to understand what failed.
 
-## Failures during Deployment
+## Check command line output
+
+Check your deploy command output to see whether it succeeded or not. If your
+deployment process was terminated, there should be error message showing up in
+the output and describing the reason why the deployment failed.
 
 This kind of failures is most likely due to either misconfigured manifest or wrong
-command. It terminates the deployment process and shows error message to
-you. The error message should describe the reason why this error happens. For
-example, if you change the traffic `percent` in [route.yaml](../../sample/helloworld/route.yaml#L23)
-of sample helloworld app to 50 then deploy, you will get the following message:
+command. For example, the following output says that you should have route
+traffic percent summing to 100:
 
 ```
 Error from server (InternalError): error when applying patch:
@@ -20,40 +22,98 @@ for: "STDIN": Internal error occurred: admission webhook "webhook.elafros.dev" d
 ERROR: Non-zero return code '1' from command: Process exited with status 1
 ```
 
-saying that you should have route traffic percent summing to 100.
+## Check Route status
 
-## Failures during reconciling
+Run the following command to get `status` of the `Route` you deployed your
+application to:
 
-After your application is deployed to Elafros, you may need to wait for tens of
-seconds until the latest created `Revision` to become ready and get traffic
-shifted to. However sometimes it fails to happen. In such situation you can use
-the following methods to debug:
-
-### Check Elafro resources
-
-You can run the following command to see Elafro resource status:
-
-```
-kubectl describe <resource-type>/<route-name>
-
-# example: kubectl describe route/route-example
+```shell
+kubectl get route <route-name> -o yaml
 ```
 
-Look up the meaning of the status in Elafro
+The `conditions` in `status` provide the reason if there is any failure. For
+details, see Elafro
 [Error Conditions and Reporting](../spec/errors.md)(currently some of them
-are implemented yet).
+are not implemented yet).
 
-### Check logs
+## Check revision status
 
-See [Debug with logs](#debug-with-logs) section below.
+If you configure your `Route` with `Configuration`, run the following command to
+get the name of the `Revision` created for you deployment(look up the
+configuration name in the `Route` yaml file):
 
+```shell
+kubectl get configuration <configuration-name> -o jsonpath="{.status.latestCreatedRevisionName}"
+```
 
-## Failures during serving
+If you configure your `Route` with `Revision` directly, look up the revision
+name in the `Route` yaml file.
 
-If you get unexpected request results from your application, you can use the
-application logs for debugging. See below.
+Then run
 
-## Debug with logs
+```shell
+kebuctl get revision <revision-name> -o yaml
+```
+
+A ready `Revision` should has the following condition in status:
+
+```yaml
+conditions:
+  - reason: ServiceReady
+    status: "True"
+    type: Ready
+```
+
+If you see this condition, to debug further:
+
+  1. [Check Pod status](#check-pod-status)
+  1. [Check application logs](#check-application-logs)
+
+If you see other conditions, to debug further:
+
+  1. Look up the meaning of the conditions in Elafro
+     [Error Conditions and Reporting](../spec/errors.md). Note: some of them
+     are not implemented yet. An alternation is to
+     [check Pod status](#check-pod-status).
+  1. If you are using `BUILD` to deploy and the `BuidComplete` condition is not
+     `True`, [check BUILD status](#check-build-status)
+
+## Check Pod status
+
+To get the `Pod` for all your deployments:
+
+```shell
+kubectl get pods
+```
+
+This should list all pods with a brief status. For example:
+
+```
+NAME                                                      READY     STATUS             RESTARTS   AGE
+configuration-example-00001-deployment-659747ff99-9bvr4   2/2       Running            0          3h
+configuration-example-00002-deployment-5f475b7849-gxcht   1/2       CrashLoopBackOff   2          36s
+```
+
+Choose one and use the following command to see detailed information for `status`.
+Some useful fields are `conditions` and `containerStatuses`:
+
+```shell
+kubectl get pod <pod-name> -o yaml
+
+```
+
+## Check Build status
+
+If you are using Build to deploy, run the following command to get the Build for
+your `Revision`:
+
+```shell
+kubectl get build $(kubectl get revision <revision-name> -o jsonpath="{.spec.buildName}") -o yaml
+```
+
+The `conditions` in `status` provide the reason if there is any failure.
+
+## Check application logs
 
 Elafros provides default out-of-box logs for your application. You can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
@@ -66,6 +126,7 @@ Kibana UI by following steps:
 
 1. Click `Discover` on the left side bar.
 1. Choose `logstash-*` index pattern on the left top.
+1. Input `tag: kubernetes*` in the top search bar then search.
 
 ### Request logs
 
@@ -73,4 +134,6 @@ You can find the request logs of your application on Kibana UI by following
 steps:
 
 1. Click `Discover` on the left side bar.
-1. Choose `zipkin*` index pattern on the left top.
+1. Choose `logstash-*` index pattern on the left top.
+1. Input `tag: "requestlog.logentry.istio-system"` in the top search bar then
+   search.
