@@ -222,7 +222,8 @@ func (c *Controller) processNextWorkItem() bool {
 // converts it into a namespace/name string which is then put onto the work
 // queue. This method should *not* be passed resources of any type other than
 // Service.
-//TODO(grantr): generic
+// TODO(grantr): generic
+// TODO: assert the object passed in is of the correct type.
 func (c *Controller) enqueueService(obj interface{}) {
 	var key string
 	var err error
@@ -246,10 +247,6 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 	// Get the Service resource with this namespace/name
 	service, err := c.lister.Services(namespace).Get(name)
-
-	// Don't modify the informers copy
-	service = service.DeepCopy()
-
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -260,6 +257,9 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 		return err
 	}
+
+	// Don't modify the informers copy
+	service = service.DeepCopy()
 
 	glog.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
