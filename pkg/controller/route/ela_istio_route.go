@@ -67,8 +67,9 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		})
 
 	appendHeaders := make(map[string]string)
-	appendHeaders["revision"] = "configuration-example-00001"
-	appendHeaders["hello"] = "world"
+	if len(u.Status.Traffic) > 0 {
+		appendHeaders["revision"] = u.Status.Traffic[0].RevisionName
+	}
 	return istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
 			Name: placeHolderK8SServiceName,

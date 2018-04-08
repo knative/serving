@@ -10,15 +10,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package activator_test
+package activator
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/elafros/elafros/pkg/activator"
-	faketripper "github.com/elafros/elafros/pkg/activator/fake"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
@@ -33,6 +33,25 @@ const (
 	testNamespace string = "default"
 	testPort             = 1234
 )
+
+// FakeRoundTripper serves as a fake transport
+type FakeRoundTripper struct{}
+
+// RoundTrip returns a response with status 200.
+func (rrt FakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	body := "everything works fine."
+	return &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		ContentLength: int64(len(body)),
+		Request:       req,
+		Header:        make(http.Header, 0),
+	}, nil
+}
 
 func getHTTPRequest(t *testing.T) *http.Request {
 	req, err := http.NewRequest("GET", "/api/projects", nil)
@@ -77,7 +96,7 @@ func getTestRevision(servingState v1alpha1.RevisionServingStateType) *v1alpha1.R
 	}
 }
 
-func getActivator(t *testing.T, rev *v1alpha1.Revision) *activator.Activator {
+func getActivator(t *testing.T, rev *v1alpha1.Revision) *Activator {
 	// Create fake clients
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	elaClient := fakeclientset.NewSimpleClientset()
@@ -106,18 +125,19 @@ func getActivator(t *testing.T, rev *v1alpha1.Revision) *activator.Activator {
 		)
 	}
 
-	tripper := faketripper.FakeRetryingRoundTripper{}
-	a, err := activator.NewActivator(kubeClient, elaClient, tripper)
+	tripper := FakeRoundTripper{}
+	a, err := NewActivator(kubeClient, elaClient, tripper)
 	if err != nil {
 		t.Fatal("Failed to create an activator!")
 	}
+
 	return a
 }
 
 func TestGetRevisionTargetURL(t *testing.T) {
 	reservedRev := getTestRevision(v1alpha1.RevisionServingStateReserve)
 	a := getActivator(t, reservedRev)
-	targetURL, err := a.GetRevisionTargetURL(reservedRev)
+	targetURL, err := a.getRevisionTargetURL(reservedRev)
 	if err != nil {
 		t.Errorf("Error in getRevisionTargetURL %v", err)
 	}
@@ -134,7 +154,7 @@ func testHandler_revision(t *testing.T, servingState v1alpha1.RevisionServingSta
 	req := getHTTPRequest(t)
 	// response recorder to record the response
 	responseRecorder := httptest.NewRecorder()
-	handler := http.HandlerFunc(a.Handler)
+	handler := http.HandlerFunc(a.handler)
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
 	handler.ServeHTTP(responseRecorder, req)
@@ -151,14 +171,17 @@ func TestHandler_reserveRevision(t *testing.T) {
 	testHandler_revision(t, v1alpha1.RevisionServingStateReserve, http.StatusOK)
 }
 
+// Test for a revision with active status.
 func TestHandler_activeRevision(t *testing.T) {
 	testHandler_revision(t, v1alpha1.RevisionServingStateActive, http.StatusOK)
 }
 
+// Test for a revision with reretired status.
 func TestHandler_retiredRevision(t *testing.T) {
 	testHandler_revision(t, v1alpha1.RevisionServingStateRetired, http.StatusServiceUnavailable)
 }
 
+// Test for a revision with unknown status.
 func TestHandler_unknowRevision(t *testing.T) {
 	testHandler_revision(t, "Unknown", http.StatusServiceUnavailable)
 }

@@ -31,21 +31,21 @@ import (
 
 // Activator that can activate revisions in reserve state or redirect traffic to active revisions.
 type Activator struct {
-	kubeClient      kubernetes.Interface
-	elaClient       clientset.Interface
-	retryingTripper RetryingRoundTripperInterface
+	kubeClient kubernetes.Interface
+	elaClient  clientset.Interface
+	tripper    http.RoundTripper
 }
 
 // NewActivator returns an Activator.
-func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, retryingTripper RetryingRoundTripperInterface) (*Activator, error) {
+func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, tripper http.RoundTripper) (*Activator, error) {
 	return &Activator{
-		kubeClient:      kubeClient,
-		elaClient:       elaClient,
-		retryingTripper: retryingTripper,
+		kubeClient: kubeClient,
+		elaClient:  elaClient,
+		tripper:    tripper,
 	}, nil
 }
 
-func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string, tripper RetryingRoundTripperInterface) {
+func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string, tripper http.RoundTripper) {
 	glog.Info("Sending a proxy request to ", targetURL)
 	target, err := url.Parse(targetURL)
 	if err != nil {
@@ -59,8 +59,8 @@ func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string, trip
 	glog.Info("End proxy request")
 }
 
-// GetRevisionTargetURL calculates the target URL
-func (a *Activator) GetRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
+//getRevisionTargetURL calculates the target URL
+func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
 	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
 	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
 	if err != nil {
@@ -88,15 +88,9 @@ func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
 	return nil
 }
 
-// Handler directs traffic to the right revision.
-func (a *Activator) Handler(w http.ResponseWriter, r *http.Request) {
-	// TODO!!!
+func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
+	// TODO: Use the namespace from the header.
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions("default")
-	glog.Infof("request headers: %v", r.Header)
-	glog.Infof("request : %v", r)
-	glog.Infof("Trailer : %v", r.Trailer)
-	glog.Infof("Body : %v", r.Body)
-	glog.Infof("RequestURI: %s", r.RequestURI)
 	revisionName := r.Header.Get("revision")
 
 	glog.Info("Revision name to be activated: ", revisionName)
@@ -110,17 +104,17 @@ func (a *Activator) Handler(w http.ResponseWriter, r *http.Request) {
 	switch revision.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
 		// The revision is already active. Forward the request to k8s deployment.
-		serviceURL, err := a.GetRevisionTargetURL(revision)
+		serviceURL, err := a.getRevisionTargetURL(revision)
 		if err != nil {
 			http.Error(w, "Failed to forward request.", http.StatusServiceUnavailable)
 			return
 		}
 
 		glog.Info("The revision is active. Forwarding request to service at ", serviceURL)
-		proxyRequest(w, r, serviceURL, a.retryingTripper)
+		proxyRequest(w, r, serviceURL, a.tripper)
 	case v1alpha1.RevisionServingStateReserve:
 		// The revision is inactive. Enqueue the request and activate the revision
-		glog.Info("the revision is inactive. Activating it and enqueuing reqfretryinguest")
+		glog.Info("the revision is inactive. Activating it and enqueuing the request")
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		if err := a.updateRevision(revision); err != nil {
 			http.Error(w, "Unable to update revision.", http.StatusExpectationFailed)
@@ -128,11 +122,12 @@ func (a *Activator) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		glog.Info("Waiting for revision to come online")
-		if serviceURL, err := a.GetRevisionTargetURL(revision); err != nil {
+		if serviceURL, err := a.getRevisionTargetURL(revision); err != nil {
 			http.Error(w, "Unable to get service URL of revision.", http.StatusServiceUnavailable)
 		} else {
+			// TODO: wait for the service to be online.
 			glog.Info("Forwarding request to service at ", serviceURL)
-			proxyRequest(w, r, serviceURL, a.retryingTripper)
+			proxyRequest(w, r, serviceURL, a.tripper)
 		}
 	case v1alpha1.RevisionServingStateRetired:
 		glog.Info("revision is retired. do nothing.")
@@ -147,7 +142,7 @@ func (a *Activator) Handler(w http.ResponseWriter, r *http.Request) {
 func (a *Activator) Run(stopCh <-chan struct{}) error {
 	glog.Info("Started Activator")
 
-	http.HandleFunc("/", a.Handler)
+	http.HandleFunc("/", a.handler)
 	http.ListenAndServe(":8080", nil)
 	<-stopCh
 	glog.Info("Shutting down Activator")

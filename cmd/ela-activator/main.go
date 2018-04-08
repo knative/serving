@@ -15,7 +15,7 @@ package main
 
 import (
 	"flag"
-	"time"
+	"net/http"
 
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -44,11 +44,7 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
-	tripper := activator.RetryingRoundTripper{
-		MaxRetries:     100,
-		InitialTimeout: 50 * time.Millisecond,
-	}
-	a, err := activator.NewActivator(kubeClient, elaClient, tripper)
+	a, err := activator.NewActivator(kubeClient, elaClient, http.DefaultTransport.(*http.Transport))
 	if err != nil {
 		glog.Fatalf("Failed to create an activator: %v", err)
 	}
