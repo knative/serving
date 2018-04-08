@@ -30,11 +30,11 @@ type Stat struct {
 	// are contributing to the metrics.
 	PodName string
 
-	// Number of requests currently being handled by this pod.
-	ConcurrentRequests int32
+	// Average number of requests currently being handled by this pod.
+	AverageConcurrentRequests float64
 
 	// Number of requests received since last Stat (approximately QPS).
-	TotalRequestsThisPeriod int32
+	RequestCount int32
 }
 
 type statKey struct {
@@ -100,12 +100,12 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(panicWindow).After(now) {
-			panicTotal = panicTotal + float64(stat.ConcurrentRequests)
+			panicTotal = panicTotal + stat.AverageConcurrentRequests
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
 		}
 		if instant.Add(stableWindow).After(now) {
-			stableTotal = stableTotal + float64(stat.ConcurrentRequests)
+			stableTotal = stableTotal + stat.AverageConcurrentRequests
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
 
@@ -123,10 +123,10 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	// Log system totals
 	totalCurrentQps := int32(0)
-	totalCurrentConcurrency := int32(0)
+	totalCurrentConcurrency := float64(0)
 	for _, stat := range lastStat {
-		totalCurrentQps = totalCurrentQps + stat.TotalRequestsThisPeriod
-		totalCurrentConcurrency = totalCurrentConcurrency + stat.ConcurrentRequests
+		totalCurrentQps = totalCurrentQps + stat.RequestCount
+		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
 	}
 	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQps, totalCurrentConcurrency)
 

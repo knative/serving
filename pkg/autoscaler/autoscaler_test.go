@@ -249,9 +249,9 @@ func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time
 		for j := 1; j <= s.podCount; j++ {
 			t = t.Add(time.Millisecond)
 			stat := Stat{
-				Time:               &t,
-				PodName:            fmt.Sprintf("pod-%v", j),
-				ConcurrentRequests: point,
+				Time:                      &t,
+				PodName:                   fmt.Sprintf("pod-%v", j),
+				AverageConcurrentRequests: float64(point),
 			}
 			a.Record(stat)
 		}

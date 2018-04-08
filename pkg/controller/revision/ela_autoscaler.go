@@ -20,6 +20,7 @@ import (
 	"flag"
 	"strconv"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -30,22 +31,31 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// AutoscalerNamespace needs to match the service account, which needs to
+// be a single, known namespace. This ensures that projects created in
+// non-default namespaces continue to work with autoscaling.
+const AutoscalerNamespace = "ela-system"
+
 var autoscalerImage string
 
 func init() {
 	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }
 
-func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployment {
+func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
+
+	labels := MakeElaResourceLabels(u)
+	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(u)
+
 	replicas := int32(1)
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: namespace,
+			Namespace: AutoscalerNamespace,
 			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: v1beta1.DeploymentSpec{
@@ -56,9 +66,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: map[string]string{
-						"autoscaler": controller.GetRevisionAutoscalerName(u),
-					},
+					Labels: labels,
 					Annotations: map[string]string{
 						"sidecar.istio.io/inject": "false",
 					},
@@ -104,11 +112,11 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 	}
 }
 
-func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Service {
+func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: namespace,
+			Namespace: AutoscalerNamespace,
 			Labels:    MakeElaResourceLabels(u),
 		},
 		Spec: corev1.ServiceSpec{
@@ -121,7 +129,7 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Se
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				"autoscaler": controller.GetRevisionAutoscalerName(u),
+				ela.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(u),
 			},
 		},
 	}

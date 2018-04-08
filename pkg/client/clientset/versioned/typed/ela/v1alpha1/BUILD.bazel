@@ -9,6 +9,7 @@ go_library(
         "generated_expansion.go",
         "revision.go",
         "route.go",
+        "service.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1",
     visibility = ["//visibility:public"],

@@ -81,6 +81,11 @@ k8s_object(
 )
 
 k8s_object(
+    name = "service",
+    template = "service.yaml",
+)
+
+k8s_object(
     name = "controllerservice",
     template = "controller-service.yaml",
 )
@@ -101,6 +106,7 @@ k8s_objects(
         ":route",
         ":configuration",
         ":revision",
+        ":service",
     ],
 )
 

@@ -37,6 +37,10 @@ func (c *FakeElafrosV1alpha1) Routes(namespace string) v1alpha1.RouteInterface {
 	return &FakeRoutes{c, namespace}
 }
 
+func (c *FakeElafrosV1alpha1) Services(namespace string) v1alpha1.ServiceInterface {
+	return &FakeServices{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeElafrosV1alpha1) RESTClient() rest.Interface {

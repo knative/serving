@@ -22,10 +22,12 @@ package revision
 */
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
@@ -54,7 +56,9 @@ func getTestRevision() *v1alpha1.Revision {
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"route": "test-route",
+				"testLabel1":      "foo",
+				"testLabel2":      "bar",
+				ela.RouteLabelKey: "test-route",
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{
@@ -89,7 +93,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"revision": revName,
+				ela.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -110,7 +114,7 @@ func getTestAuxiliaryReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-auxiliary", revName),
 			Namespace: "test",
 			Labels: map[string]string{
-				"revision": revName,
+				ela.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -131,7 +135,7 @@ func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: "test",
 			Labels: map[string]string{
-				"revision": revName,
+				ela.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -259,21 +263,26 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Error("Missing queue-proxy container")
 	}
 
-	expectedRouteLabel := rev.Labels["route"]
-	if routeLabel := deployment.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
-		t.Errorf("Route label not set correctly on deployment: expected %s got %s.",
-			expectedRouteLabel, routeLabel)
+	expectedLabels := map[string]string{
+		"testLabel1":         "foo",
+		"testLabel2":         "bar",
+		ela.RouteLabelKey:    "test-route",
+		ela.RevisionLabelKey: rev.Name,
 	}
-	if routeLabel := deployment.Spec.Template.ObjectMeta.Labels["route"]; routeLabel != expectedRouteLabel {
-		t.Errorf("Route label not set correctly in pod template: expected %s got %s.",
-			expectedRouteLabel, routeLabel)
+	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Labels not set correctly on deployment: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	if labels := deployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly in pod template: expected %v got %v.",
+			expectedLabels, labels)
 	}
 
 	// Look for the revision service.
 	expectedServiceName := fmt.Sprintf("%s-service", rev.Name)
 	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Couldn't get autoscaler service: %v", err)
+		t.Fatalf("Couldn't get revision service: %v", err)
 	}
 	// The revision service should be owned by rev.
 	expectedRefs := []metav1.OwnerReference{
@@ -283,15 +292,32 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			Name:       rev.Name,
 		},
 	}
+
 	if diff := cmp.Diff(expectedRefs, service.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
+	}
+	if labels := service.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly for revision service: expected %v got %v.",
+			expectedLabels, labels)
 	}
 
 	// Look for the autoscaler deployment.
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	expectedAutoscalerLabels := map[string]string{
+		"testLabel1":           "foo",
+		"testLabel2":           "bar",
+		ela.RouteLabelKey:      "test-route",
+		ela.RevisionLabelKey:   rev.Name,
+		ela.AutoscalerLabelKey: expectedAutoscalerName,
+	}
+
+	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
+	}
+	if labels := asDeployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
+		t.Errorf("Label not set correctly in autoscaler pod template: expected %v got %v.",
+			expectedAutoscalerLabels, labels)
 	}
 	// Check the autoscaler deployment environment variables
 	foundAutoscaler := false
@@ -308,13 +334,17 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
 	// The autoscaler service should also be owned by rev.
 	if diff := cmp.Diff(expectedRefs, asService.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
+	}
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
+			expectedLabels, labels)
 	}
 
 	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})

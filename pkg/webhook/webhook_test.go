@@ -51,6 +51,7 @@ const (
 	testGeneration        = 1
 	testRouteName         = "test-route-name"
 	testRevisionName      = "test-revision"
+	testServiceName       = "test-service-name"
 )
 
 func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) (
@@ -282,7 +283,7 @@ func TestValidNewRevisionObject(t *testing.T) {
 	}
 
 	revision := createRevision(testRevisionName)
-	marshaled, err := yaml.Marshal(revision)
+	marshaled, err := json.Marshal(revision)
 	if err != nil {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
@@ -328,6 +329,36 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+}
+
+func TestValidNewServicePinned(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	resp := ac.admit(createValidCreateServicePinned())
+	expectAllowed(t, resp)
+	p := incrementGenerationPatch(0)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+}
+
+func TestValidNewServiceRunLatest(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	resp := ac.admit(createValidCreateServiceRunLatest())
+	expectAllowed(t, resp)
+	p := incrementGenerationPatch(0)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+}
+
+func TestInvalidNewServiceNoSpecs(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	svc := createServicePinned(0, testServiceName)
+	svc.Spec.Pinned = nil
+	expectFailsWith(t, ac.admit(createCreateService(svc)), "exactly one of runLatest or pinned")
+}
+
+func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	svc := createServicePinned(0, testServiceName)
+	svc.Spec.Pinned.RevisionName = ""
+	expectFailsWith(t, ac.admit(createCreateService(svc)), "spec.pinned.revisionName")
 }
 
 func TestValidWebhook(t *testing.T) {
@@ -450,6 +481,27 @@ func createDeployment(ac *AdmissionController) {
 	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
 }
 
+func createCreateService(service v1alpha1.Service) *admissionv1beta1.AdmissionRequest {
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Service"},
+	}
+	marshaled, err := json.Marshal(service)
+	if err != nil {
+		panic("failed to marshal service")
+	}
+	req.Object.Raw = marshaled
+	return req
+}
+
+func createValidCreateServicePinned() *admissionv1beta1.AdmissionRequest {
+	return createCreateService(createServicePinned(0, testServiceName))
+}
+
+func createValidCreateServiceRunLatest() *admissionv1beta1.AdmissionRequest {
+	return createCreateService(createServiceRunLatest(0, testServiceName))
+}
+
 func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
 	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
 	_, err := client.Create(webhook)
@@ -560,6 +612,37 @@ func createRevision(revName string) v1alpha1.Revision {
 		Spec: v1alpha1.RevisionSpec{
 			Container: &corev1.Container{
 				Image: "test-image",
+			},
+		},
+	}
+}
+
+func createServicePinned(generation int64, serviceName string) v1alpha1.Service {
+	return v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      serviceName,
+		},
+		Spec: v1alpha1.ServiceSpec{
+			Generation: generation,
+			Pinned: &v1alpha1.PinnedType{
+				RevisionName:  testRevisionName,
+				Configuration: createConfiguration(generation, "config").Spec,
+			},
+		},
+	}
+}
+
+func createServiceRunLatest(generation int64, serviceName string) v1alpha1.Service {
+	return v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      serviceName,
+		},
+		Spec: v1alpha1.ServiceSpec{
+			Generation: generation,
+			RunLatest: &v1alpha1.RunLatestType{
+				Configuration: createConfiguration(generation, "config").Spec,
 			},
 		},
 	}

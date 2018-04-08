@@ -16,11 +16,18 @@
 
 set -o errexit
 
+if [[ $# -eq 0 ]] ; then
+  echo "using commit id as profile object name"
+  OBJECT_FILE_NAME=$PULL_PULL_SHA
+else 
+  echo "using pre-defined profile object name: " + $1
+  OBJECT_FILE_NAME=$1
+fi
+
 ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
 
 cd ${ELAFROS_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
-# TODO(steuhs): get PR number and use that as the file name
 go test ./... -coverprofile coverage_profile.txt
-gsutil cp -a project-private coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/profiles/$PULL_PULL_SHA
+gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/profiles/$OBJECT_FILE_NAME
