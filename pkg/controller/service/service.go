@@ -264,7 +264,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 	glog.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
 	config := MakeServiceConfiguration(service)
-	if err = c.reconcileConfiguration(config); err != nil {
+	if err := c.reconcileConfiguration(config); err != nil {
 		return err
 	}
 
