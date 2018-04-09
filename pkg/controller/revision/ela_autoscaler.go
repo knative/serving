@@ -95,6 +95,10 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 									Value: controller.GetRevisionDeploymentName(u),
 								},
 								{
+									Name:  "ELA_REVISION",
+									Value: u.Name,
+								},
+								{
 									Name:  "ELA_AUTOSCALER_PORT",
 									Value: strconv.Itoa(autoscalerPort),
 								},
