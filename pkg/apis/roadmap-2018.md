@@ -19,9 +19,11 @@ specification.
 
 1. **Process**.  It must be clear to contributors how to drive changes to the
   Elafros API.
-1. **Schema**.  The Elafros API [schema](./ela/) matches our implementation.
+1. **Schema**.  [The Elafros API schema](../../docs/spec/spec.md) matches
+  [our implementation.](./ela/).
 1. **Semantics**.  The [semantics](../controller/) of Elafros API interactions
-  match our specification, and are well covered by conformance testing.
+  match [our specification](../../docs/spec/normative_examples.md), and are well
+  covered by [conformance testing](../../test/conformance/README.md).
 
 <!-- TODO(mattmoor): Should this cover Infrastructure as well? -->
 
@@ -59,6 +61,8 @@ specification.
 <!-- TODO(mattmoor): https://github.com/elafros/elafros/issues/234 -->
 <!-- TODO(mattmoor): https://github.com/elafros/elafros/issues/492 -->
 
+1. **Operator Extensions**.  Guidelines for how operators can/should customize
+an Elafros installation (e.g. runtime contract) are captured in documentation.
 
 <!-- ## What We Are Not Doing -->
 
