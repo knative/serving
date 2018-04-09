@@ -114,6 +114,7 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 		proxyRequest(w, r, serviceURL, a.tripper)
 	case v1alpha1.RevisionServingStateReserve:
 		// The revision is inactive. Enqueue the request and activate the revision
+		// TODO: https://github.com/elafros/elafros/issues/552
 		glog.Info("the revision is inactive. Activating it and enqueuing the request")
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		if err := a.updateRevision(revision); err != nil {
