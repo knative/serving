@@ -68,6 +68,7 @@ If you see this condition, to debug further:
 
   1. [Check Pod status](#check-pod-status)
   1. [Check application logs](#check-application-logs)
+  1. [Check Istio routing](#check-istio-routing)
 
 If you see other conditions, to debug further:
 
@@ -139,3 +140,7 @@ steps:
 1. Choose `logstash-*` index pattern on the left top.
 1. Input `tag: "requestlog.logentry.istio-system"` in the top search bar then
    search.
+
+## Check Istio routing
+
+TBD.
