@@ -115,9 +115,11 @@ The `conditions` in `status` provide the reason if there is any failure.
 
 ## Check application logs
 
-Elafros provides default out-of-box logs for your application. You can go to the
+Elafros provides default out-of-box logs for your application. After executing
+`kubectl proxy`, you can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
-to search for logs.
+to search for logs. You need to do create an index when you open Kibana for the
+first time. See this [instruction](../telemetry.md) for details.
 
 ### Stdout/stderr logs
 
