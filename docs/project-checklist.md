@@ -14,7 +14,7 @@ The tasks we would like to complete prior to making repository public, are:
 - [ ] Seed initial project roadmap docs (e.g. API, Build, Autoscaling, Eventing)
 - [ ] Validated no-build deployment ([Elafros Easy](https://github.com/elafros/install)) for GKE and non-GKE k8s cluster
 - [ ] Validate all sample apps against elafros/install deployed cluster
-- [ ] Upgrade Operator/Developer user guide (fully manual ok for now)
+- [ ] Operator/Developer upgrade user guide (fully manual ok for now)
 
 
 
