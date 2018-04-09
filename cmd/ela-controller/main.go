@@ -36,6 +36,7 @@ import (
 	"github.com/elafros/elafros/pkg/controller/configuration"
 	"github.com/elafros/elafros/pkg/controller/revision"
 	"github.com/elafros/elafros/pkg/controller/route"
+	"github.com/elafros/elafros/pkg/controller/service"
 	"github.com/elafros/elafros/pkg/signals"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -84,6 +85,7 @@ func main() {
 		configuration.NewController,
 		revision.NewController,
 		route.NewController,
+		service.NewController,
 	}
 
 	// Build all of our controllers, with the clients constructed above.

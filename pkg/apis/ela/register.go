@@ -19,7 +19,7 @@ package ela
 const (
 	GroupName = "elafros.dev"
 
-	// ConfigurationLabelKey is the label key attached to a Revison indicating by
+	// ConfigurationLabelKey is the label key attached to a Revision indicating by
 	// which Configuration it is created.
 	ConfigurationLabelKey = GroupName + "/configuration"
 
@@ -38,4 +38,8 @@ const (
 	// AutoscalerLabelKey is the label key attached to a autoscaler pod indicating by
 	// which Autoscaler deployment it is created.
 	AutoscalerLabelKey = GroupName + "/autoscaler"
+
+	// ServiceLabelKey is the label key attached to a Route and Configuration indicating by
+	// which Service they are created.
+	ServiceLabelKey = GroupName + "/service"
 )
