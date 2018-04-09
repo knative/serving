@@ -19,6 +19,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -26,14 +27,23 @@ import (
 	"github.com/golang/glog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/workqueue"
 )
 
 // Activator that can activate revisions in reserve state or redirect traffic to active revisions.
 type Activator struct {
-	kubeClient kubernetes.Interface
-	elaClient  clientset.Interface
-	tripper    http.RoundTripper
+	kubeClient  kubernetes.Interface
+	elaClient   clientset.Interface
+	tripper     http.RoundTripper
+	revisionMap sync.Map
+}
+
+// revisionStatus contains a workqueue and a watch for each unique revision
+type revisionStatus struct {
+	queueObj workqueue.RateLimitingInterface
+	watchObj watch.Interface
 }
 
 // NewActivator returns an Activator.
@@ -43,6 +53,10 @@ func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface
 		elaClient:  elaClient,
 		tripper:    tripper,
 	}, nil
+}
+
+func getRevisionKey(rev *v1alpha1.Revision) string {
+	return rev.GetNamespace() + "/" + rev.GetName()
 }
 
 func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string, tripper http.RoundTripper) {
@@ -88,23 +102,30 @@ func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
 	return nil
 }
 
-func (a *Activator) waitForReady(revision *v1alpha1.Revision) error {
-	// services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
-	// svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
-	// if err != nil {
-	// 	return err
-	// }
+func (a *Activator) waitForReady(revision *v1alpha1.Revision, readyCh chan bool) error {
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace())
-
-	// opts := metav1.ListOptions{
-
-	// }
-	wi, err := revisionClient.Watch(metav1.ListOptions{})
-	if err != nil {
-		return err
+	key := getRevisionKey(revision)
+	var wi watch.Interface
+	var err error
+	var queue workqueue.RateLimitingInterface
+	if revStatus, ok := a.revisionMap.Load(key); !ok {
+		wi, err = revisionClient.Watch(metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("namespace=%s", revision.GetNamespace()),
+		})
+		if err != nil {
+			return err
+		}
+		queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), key)
+		revStatus = revisionStatus{
+			watchObj: wi,
+			queueObj: queue,
+		}
+		a.revisionMap.Store(key, revStatus)
 	}
 
 	defer wi.Stop()
+	defer queue.ShutDown()
+
 	ch := wi.ResultChan()
 	for {
 		event := <-ch
@@ -115,6 +136,7 @@ func (a *Activator) waitForReady(revision *v1alpha1.Revision) error {
 			if !rev.Status.IsReady() {
 				continue
 			}
+			readyCh <- true
 			return nil
 		}
 	}
@@ -145,23 +167,36 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 		glog.Info("The revision is active. Forwarding request to service at ", serviceURL)
 		proxyRequest(w, r, serviceURL, a.tripper)
 	case v1alpha1.RevisionServingStateReserve:
-		// The revision is inactive. Enqueue the request and activate the revision
-		// TODO: https://github.com/elafros/elafros/issues/552
-		glog.Info("the revision is inactive. Activating it and enqueuing the request")
-		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-		if err := a.updateRevision(revision); err != nil {
-			http.Error(w, "Unable to update revision.", http.StatusExpectationFailed)
-			return
-		}
-
-		glog.Info("Waiting for revision to come online")
 		if serviceURL, err := a.getRevisionTargetURL(revision); err != nil {
 			http.Error(w, "Unable to get service URL of revision.", http.StatusServiceUnavailable)
 		} else {
-			// TODO: wait for the service to be online.
-			a.waitForReady(revision)
-			glog.Info("Forwarding request to service at ", serviceURL)
-			proxyRequest(w, r, serviceURL, a.tripper)
+			glog.Infof("Activating the revision and enqueuing the requests")
+			revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
+			if err := a.updateRevision(revision); err != nil {
+				http.Error(w, "Unable to update revision.", http.StatusExpectationFailed)
+				return
+			}
+			readyCh := make(chan bool)
+			a.waitForReady(revision, readyCh)
+			<-readyCh
+			key := getRevisionKey(revision)
+			glog.Info("Forwarding requests to service at ", serviceURL)
+			for {
+				revStatusObj, ok := a.revisionMap.Load(key)
+				if !ok {
+					http.Error(w, "Unable to load the revision in the revision map.", http.StatusInternalServerError)
+					return
+				}
+				revStatus := revStatusObj.(revisionStatus)
+				obj, shutdown := revStatus.queueObj.Get()
+				if shutdown {
+					revStatus.queueObj.Done(revStatus.queueObj)
+					revStatus.watchObj.Stop()
+					a.revisionMap.Delete(key)
+					return
+				}
+				proxyRequest(w, obj.(*http.Request), serviceURL, a.tripper)
+			}
 		}
 	case v1alpha1.RevisionServingStateRetired:
 		glog.Info("revision is retired. do nothing.")
