@@ -32,7 +32,7 @@ spec:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
         # The flag to turn on the activator.
-        - "-enableActivatorExperiment=false"
+        - "-enableActivatorExperiment=true"
         - "-queueSidecarImage"
         - ela-queue:latest
         - "-autoscalerImage"

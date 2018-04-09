@@ -568,7 +568,7 @@ func (c *Controller) reconcileOnceBuilt(rev *v1alpha1.Revision, ns string) error
 
 	elaNS := controller.GetElaNamespaceName(rev.Namespace)
 
-	if deletionTimestamp == nil {
+	if deletionTimestamp == nil && rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
 		log.Printf("Creating or reconciling resources for %s\n", rev.Name)
 		return c.createK8SResources(rev, elaNS)
 	}

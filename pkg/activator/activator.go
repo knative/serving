@@ -84,8 +84,40 @@ func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
 		glog.Errorf("Failed to update the revision: %s", revision.GetName())
 		return err
 	}
-	glog.Info("Updated the revision: %s", revision.GetName())
+	glog.Infof("Updated the revision: %s", revision.GetName())
 	return nil
+}
+
+func (a *Activator) waitForReady(revision *v1alpha1.Revision) error {
+	// services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
+	// svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
+	// if err != nil {
+	// 	return err
+	// }
+	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace())
+
+	// opts := metav1.ListOptions{
+
+	// }
+	wi, err := revisionClient.Watch(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	defer wi.Stop()
+	ch := wi.ResultChan()
+	for {
+		event := <-ch
+		if rev, ok := event.Object.(*v1alpha1.Revision); ok {
+			if rev.GetName() != revision.GetName() {
+				continue
+			}
+			if !rev.Status.IsReady() {
+				continue
+			}
+			return nil
+		}
+	}
 }
 
 func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +159,7 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Unable to get service URL of revision.", http.StatusServiceUnavailable)
 		} else {
 			// TODO: wait for the service to be online.
+			a.waitForReady(revision)
 			glog.Info("Forwarding request to service at ", serviceURL)
 			proxyRequest(w, r, serviceURL, a.tripper)
 		}
