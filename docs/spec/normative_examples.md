@@ -7,13 +7,13 @@ building from the smallest, most frequent operations.
 Examples in this section illustrate:
 
 * [Automatic rollout of a new Revision to an existing Service with a
-  pre-built container](#1--automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
+  pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
 * [Creating a first route to deploy a first revision from a pre-built
-  container](#2--creating-route-and-deploying-first-revision---pre-built-container)
+  container](#2-creating-route-and-deploying-first-revision---pre-built-container)
 * [Configuration changes and manual rollout
-  options](#3--manual-rollout-of-a-new-revision---config-change-only)
-* [Creating a revision from source](#4--deploy-a-revision-from-source)
-* [Creating a function from source](#5--deploy-a-function)
+  options](#3-manual-rollout-of-a-new-revision---config-change-only)
+* [Creating a revision from source](#4-deploy-a-revision-from-source)
+* [Creating a function from source](#5-deploy-a-function)
 
 Note that these API operations are identical for both app and function
 based services. (to see the full resource definitions, see the
