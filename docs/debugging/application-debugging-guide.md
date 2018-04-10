@@ -112,15 +112,16 @@ your `Revision`:
 kubectl get build $(kubectl get revision <revision-name> -o jsonpath="{.spec.buildName}") -o yaml
 ```
 
-The `conditions` in `status` provide the reason if there is any failure.
+The `conditions` in `status` provide the reason if there is any failure. To investigate build logs, within the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana), use any of the following filters. See [telemetry guide](../telemetry.md) to get started on logging features of Elafros.
+* All build logs: `_exists_:"kubernetes.labels.build-name"`
+* Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
+* Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`
 
 ## Check application logs
-
 Elafros provides default out-of-box logs for your application. After executing
 `kubectl proxy`, you can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
-to search for logs. You need to do create an index when you open Kibana for the
-first time. See this [instruction](../telemetry.md) for details.
+to search for logs. See [telemetry guide](../telemetry.md) to get started on logging features of Elafros.
 
 ### Stdout/stderr logs
 
