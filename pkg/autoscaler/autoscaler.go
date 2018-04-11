@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 )
 
 type Stat struct {
@@ -42,16 +43,18 @@ type statKey struct {
 	time    time.Time
 }
 
-const (
-	scaleToZeroThreshold time.Duration = 5 * time.Minute
-	stableWindowSeconds  float64       = 60
-	stableWindow         time.Duration = 60 * time.Second
-	panicWindowSeconds   float64       = 6
-	panicWindow          time.Duration = 6 * time.Second
-	maxScaleUpRate       float64       = 10
+var (
+	stableWindow    time.Duration = 60 * time.Second
+	panicWindow     time.Duration = 6 * time.Second
+	maxScaleUpRate  float64       = 10
+	lastRequestTime               = time.Now()
 )
 
-var lastRequestTime = time.Now()
+func init() {
+	stableWindow = DurationFlag("autoscale.stable-window", nil, k8sflag.Required).Get()
+	panicWindow = DurationFlag("autoscale.panic-window", nil, k8sflag.Required).Get()
+	scaleToZeroThreshold = DurationFlag("autoscale.scale-to-zero-threshold", nil, k8sflag.Required).Get()
+}
 
 type Autoscaler struct {
 	stableConcurrencyPerPod         float64
@@ -168,9 +171,9 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, stableWindowSeconds, stableCount, len(stablePods))
+		observedStableConcurrency, stableWindow, stableCount, len(stablePods))
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, panicWindowSeconds, panicCount, len(panicPods))
+		observedPanicConcurrency, panicWindow, panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {

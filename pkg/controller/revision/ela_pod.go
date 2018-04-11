@@ -100,7 +100,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	}
 
 	return &corev1.PodSpec{
-		Containers: []corev1.Container{*elaContainer, queueContainer},
+		Containers:         []corev1.Container{*elaContainer, queueContainer},
 		ServiceAccountName: u.Spec.ServiceAccountName,
 	}
 }

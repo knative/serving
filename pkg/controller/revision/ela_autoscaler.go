@@ -54,6 +54,7 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 	annotations[sidecarIstioInjectAnnotation] = "false"
 
 	replicas := int32(1)
+
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(u),
@@ -111,6 +112,15 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 						},
 					},
 					ServiceAccountName: "ela-autoscaler",
+					Volumes: []Volume{
+						Volume{
+							Name: "config-volume",
+							ConfigMap: &ConfigMapVolumeSource{
+								Name: "ela-config",
+							},
+							MountPath: "/etc/config",
+						},
+					},
 				},
 			},
 		},
