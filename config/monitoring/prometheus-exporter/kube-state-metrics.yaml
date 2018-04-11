@@ -56,6 +56,8 @@ metadata:
 rules:
 - apiGroups: [""]
   resources:
+  - configmaps
+  - secrets
   - nodes
   - pods
   - services
@@ -95,7 +97,7 @@ rules:
   - subjectaccessreviews
   verbs: ["create"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1beta1 
 kind: ClusterRoleBinding
 metadata:
   name: kube-state-metrics
@@ -128,7 +130,7 @@ spec:
         runAsUser: 65534
       containers:
       - name: kube-rbac-proxy-main
-        image: quay.io/brancz/kube-rbac-proxy:v0.2.0
+        image: quay.io/coreos/kube-rbac-proxy:v0.3.0
         args:
         - "--secure-listen-address=:8443"
         - "--upstream=http://127.0.0.1:8081/"
@@ -143,7 +145,7 @@ spec:
             memory: 40Mi
             cpu: 20m
       - name: kube-rbac-proxy-self
-        image: quay.io/brancz/kube-rbac-proxy:v0.2.0
+        image: quay.io/coreos/kube-rbac-proxy:v0.3.0
         args:
         - "--secure-listen-address=:9443"
         - "--upstream=http://127.0.0.1:8082/"
@@ -158,14 +160,14 @@ spec:
             memory: 40Mi
             cpu: 20m
       - name: kube-state-metrics
-        image: quay.io/coreos/kube-state-metrics:v1.2.0
+        image: quay.io/coreos/kube-state-metrics:v1.3.0
         args:
         - "--host=127.0.0.1"
         - "--port=8081"
         - "--telemetry-host=127.0.0.1"
         - "--telemetry-port=8082"
       - name: addon-resizer
-        image: gcr.io/google_containers/addon-resizer:1.0
+        image: k8s.gcr.io/addon-resizer:1.7
         resources:
           limits:
             cpu: 100m
@@ -186,9 +188,9 @@ spec:
           - /pod_nanny
           - --container=kube-state-metrics
           - --cpu=100m
-          - --extra-cpu=2m
-          - --memory=150Mi
-          - --extra-memory=30Mi
+          - --extra-cpu=1m
+          - --memory=100Mi
+          - --extra-memory=2Mi
           - --threshold=5
           - --deployment=kube-state-metrics
 ---

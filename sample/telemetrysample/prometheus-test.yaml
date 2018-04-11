@@ -62,26 +62,6 @@ spec:
   serviceMonitorSelector:
     matchExpressions:
     - {key: app, operator: In, values: [telemetrysample]}
-  ruleSelector:
-    matchLabels:
-      role: prometheus-test-rulefiles
-      prometheus: test
   resources:
     requests:
       memory: 400Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus-test-web
-  namespace: default
-  labels:
-    prometheus: test
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 30800
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    prometheus: test
