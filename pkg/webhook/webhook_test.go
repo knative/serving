@@ -571,7 +571,7 @@ func createConfiguration(generation int64, configurationName string) v1alpha1.Co
 			Generation: generation,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{
+					Container: corev1.Container{
 						Image: imageName,
 						Env: []corev1.EnvVar{{
 							Name:  envVarName,
@@ -610,7 +610,7 @@ func createRevision(revName string) v1alpha1.Revision {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			Container: corev1.Container{
 				Image: "test-image",
 			},
 		},

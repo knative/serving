@@ -440,6 +440,8 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
+	} else {
+		newObj = nil
 	}
 
 	if len(oldBytes) != 0 {
@@ -448,6 +450,8 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
+	} else {
+		oldObj = nil
 	}
 
 	var patches []jsonpatch.JsonPatchOperation

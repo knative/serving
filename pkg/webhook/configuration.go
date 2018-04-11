@@ -86,7 +86,7 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 	if template.Spec.ServingState != "" {
 		return errDisallowedFields("revisionTemplate.spec.servingState")
 	}
-	if err := validateContainer(template.Spec.Container); err != nil {
+	if err := validateContainer(&template.Spec.Container); err != nil {
 		return err
 	}
 	return nil
