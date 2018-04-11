@@ -50,11 +50,13 @@ permission to use and redistribute your contributions as part of the project.
 implemented, docs should be made public and shared with the
 [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) group.*
 
-Any substantial design deserves a design document. Design documents are written
-with Google Docs and should be shared with the community by adding the doc to
-our [Team Drive](TODO) and sending a note to the appropriate working group to
-let people know the doc is there. To get write access to the drive, you'll need
-to be a [member](ROLES.md#member) of the Elafros organization.
+Any substantial design deserves a design document. Design documents
+are written with Google Docs and should be shared with the community
+by adding the doc to our
+[Team Drive](https://drive.google.com/corp/drive/folders/0APnJ_hRs30R2Uk9PVA)
+and sending a note to the appropriate working group to let people know
+the doc is there. To get write access to the drive, you'll need to be
+a [member](ROLES.md#member) of the Elafros organization.
 
 We have a common [design document template](TODO). Just open the template and
 select "Make Copy" from the File menu in order to bootstrap your document.

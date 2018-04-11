@@ -10,10 +10,12 @@ When the need arises, a new working group can be created. See the [working group
 processes](WORKING-GROUP-PROCESSES.md) for working group proposal and creation
 procedures.
 
-The working groups generate design docs which are kept in a [shared drive](TODO)
-and are available for anyone to read. You have to request access to the drive,
-something we're stuck with sadly, but once you do you'll have access to all the
-docs and won't need to request access for each of them individually.
+The working groups generate design docs which are kept in a
+[shared drive](https://drive.google.com/corp/drive/folders/0APnJ_hRs30R2Uk9PVA)
+and are available for anyone to read. You have to request access to
+the drive, something we're stuck with sadly, but once you do you'll
+have access to all the docs and won't need to request access for each
+of them individually.
 
 The current working groups are:
 
@@ -33,7 +35,7 @@ Forum                      | [elafros-dev@](https://groups.google.com/forum/#!fo
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
-Document Folder            | [Folder](TODO)
+Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1ov16HvPam-v_FXAGEaUdHok6_hUAoIoe)
 Slack Channel              | [#build-crd](https://elafros.slack.com)
 
 &nbsp;                                                   | Leads      | Company | Profile
@@ -50,7 +52,7 @@ Forum                      | [elafros-dev@](https://groups.google.com/forum/#!fo
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
-Document Folder            | [Folder](TODO)
+Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1S22YmGl6B1ppYApwa1j5j9Nc6rEChlPo)
 Slack Channel              | [#events](https://elafros.slack.com)
 
 &nbsp;                                                        | Leads       | Company | Profile
@@ -67,7 +69,7 @@ Forum                      | [elafros-dev@](https://groups.google.com/forum/#!fo
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
-Document Folder            | [Folder](TODO)
+Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1qpGIPXVGoMm6IXb74gPrrHkudV_bjIZ9)
 Slack Channel              | [#autoscaling](https://elafros.slack.com)
 
 &nbsp;                                                        | Leads          | Company | Profile
@@ -85,7 +87,7 @@ Forum                      | [elafros-dev@](https://groups.google.com/forum/#!fo
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
-Document Folder            | [Folder](TODO)
+Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1pfcc6z8oQl6S7bOl1MnfZJ2o32FtgvRB)
 Slack Channel              | [#metrics](https://elafros.slack.com)
 
 &nbsp;                                                    | Leads            | Company | Profile
