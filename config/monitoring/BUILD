@@ -57,14 +57,3 @@ k8s_objects(
         "//config/monitoring/fluentd:istio",
     ],
 )
-
-#
-# Extended set of k8s metrics
-#
-k8s_objects(
-    name = "k8s-metrics",
-    objects = [
-        "//config/monitoring/prometheus-servicemonitor:k8s-metrics",
-        "//config/monitoring/prometheus-exporter:k8s-metrics",
-    ],
-)
