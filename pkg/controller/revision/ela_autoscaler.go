@@ -112,8 +112,8 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 						},
 					},
 					ServiceAccountName: "ela-autoscaler",
-					Volumes: []Volume{
-						Volume{
+					Volumes: []corev1.Volume{
+						corev1.Volume{
 							Name: "config-volume",
 							ConfigMap: &ConfigMapVolumeSource{
 								Name: "ela-config",

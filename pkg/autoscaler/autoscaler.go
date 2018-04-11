@@ -44,17 +44,12 @@ type statKey struct {
 }
 
 var (
-	stableWindow    time.Duration = 60 * time.Second
-	panicWindow     time.Duration = 6 * time.Second
-	maxScaleUpRate  float64       = 10
-	lastRequestTime               = time.Now()
+	stableWindow                 = k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required).Get()
+	panicWindow                  = k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required).Get()
+	maxScaleUpRate       float64 = 10
+	scaleToZeroThreshold         = k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required).Get()
+	lastRequestTime              = time.Now()
 )
-
-func init() {
-	stableWindow = DurationFlag("autoscale.stable-window", nil, k8sflag.Required).Get()
-	panicWindow = DurationFlag("autoscale.panic-window", nil, k8sflag.Required).Get()
-	scaleToZeroThreshold = DurationFlag("autoscale.scale-to-zero-threshold", nil, k8sflag.Required).Get()
-}
 
 type Autoscaler struct {
 	stableConcurrencyPerPod         float64
@@ -105,12 +100,12 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	for key, stat := range a.stats {
 		instant := key.time
-		if instant.Add(panicWindow).After(now) {
+		if instant.Add(*panicWindow).After(now) {
 			panicTotal = panicTotal + stat.AverageConcurrentRequests
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
 		}
-		if instant.Add(stableWindow).After(now) {
+		if instant.Add(*stableWindow).After(now) {
 			stableTotal = stableTotal + stat.AverageConcurrentRequests
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
@@ -130,7 +125,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		}
 	}
 
-	if lastRequestTime.Add(scaleToZeroThreshold).Before(now) {
+	if lastRequestTime.Add(*scaleToZeroThreshold).Before(now) {
 		glog.Info("Threshold passed with no new requests. Scaling to 0.")
 		return 0, true
 	}
@@ -145,7 +140,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
-	if a.panicking && a.panicTime.Add(stableWindow).Before(now) {
+	if a.panicking && a.panicTime.Add(*stableWindow).Before(now) {
 		glog.Info("Un-panicking.")
 		a.panicking = false
 		a.panicTime = nil
