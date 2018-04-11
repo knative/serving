@@ -304,6 +304,65 @@ func TestValidNewRevisionObject(t *testing.T) {
 	})
 }
 
+func TestValidRevisionUpdates(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Revision"},
+	}
+
+	revision := createRevision(testRevisionName)
+	marshaled, err := json.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.OldObject.Raw = marshaled
+
+	// Change fields we are allowed to change:
+	revision.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+
+	marshaled, err = json.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.Object.Raw = marshaled
+	resp := ac.admit(req)
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+		jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/generation",
+			Value:     1,
+		},
+	})
+}
+
+func TestInvalidRevisionUpdate(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	req := &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Create,
+		Kind:      metav1.GroupVersionKind{Kind: "Revision"},
+	}
+
+	revision := createRevision(testRevisionName)
+	marshaled, err := json.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.OldObject.Raw = marshaled
+
+	// Change fields we are allowed to change:
+	revision.Spec.Container.Image = "yikes"
+
+	marshaled, err = json.Marshal(revision)
+	if err != nil {
+		t.Fatalf("Failed to marshal revision: %s", err)
+	}
+	req.Object.Raw = marshaled
+
+	expectFailsWith(t, ac.admit(req), "Revision spec should not change")
+}
+
 func TestInvalidNewRevisionNameFails(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	req := &admissionv1beta1.AdmissionRequest{
