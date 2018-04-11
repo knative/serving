@@ -66,10 +66,10 @@ gcs_profile_path=${gcs_profile_dir}${object_file_name}
 cd ${ELAFROS_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
-#go test ./... -covermode=count -coverprofile $COVERAGE_FILE_NAME
+go test ./... -covermode=count -coverprofile $COVERAGE_FILE_NAME
 gsutil cp -a public-read $COVERAGE_FILE_NAME $gcs_profile_path/$COVERAGE_FILE_NAME
 echo "Test coverage profiling completed successfully"
-#rm $COVERAGE_FILE_NAME
+rm $COVERAGE_FILE_NAME
 
 # Record the commit id and master commit id of the latest build
 commit_record="$PULL_PULL_SHA $PULL_BASE_SHA `date +%s%N`"
