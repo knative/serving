@@ -75,6 +75,8 @@ const (
 	autoscalerPort = 8080
 
 	serviceTimeoutDuration = 5 * time.Minute
+
+	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 )
 
 var (

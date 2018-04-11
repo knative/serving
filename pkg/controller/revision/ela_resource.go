@@ -15,3 +15,11 @@ func MakeElaResourceLabels(u *v1alpha1.Revision) map[string]string {
 	}
 	return labels
 }
+
+func MakeElaResourceAnnotations(u *v1alpha1.Revision) map[string]string {
+	annotations := make(map[string]string, len(u.ObjectMeta.Annotations)+1)
+	for k, v := range u.ObjectMeta.Annotations {
+		annotations[k] = v
+	}
+	return annotations
+}

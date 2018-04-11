@@ -34,9 +34,10 @@ var servicePort = 80
 func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetElaK8SServiceNameForRevision(u),
-			Namespace: ns,
-			Labels:    MakeElaResourceLabels(u),
+			Name:        controller.GetElaK8SServiceNameForRevision(u),
+			Namespace:   ns,
+			Labels:      MakeElaResourceLabels(u),
+			Annotations: MakeElaResourceAnnotations(u),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
