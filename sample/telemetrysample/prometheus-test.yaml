@@ -57,7 +57,7 @@ metadata:
     prometheus: test
 spec:
   replicas: 1
-  version: v2.1.0
+  version: v2.2.1
   serviceAccountName: prometheus-test
   serviceMonitorSelector:
     matchExpressions:
