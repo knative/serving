@@ -60,6 +60,9 @@ func getTestRevision() *v1alpha1.Revision {
 				"testLabel2":      "bar",
 				ela.RouteLabelKey: "test-route",
 			},
+			Annotations: map[string]string{
+				"testAnnotation": "test",
+			},
 		},
 		Spec: v1alpha1.RevisionSpec{
 			// corev1.Container has a lot of setting.  We try to pass many
@@ -144,6 +147,17 @@ func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
 			},
 		},
 	}
+}
+
+func sumMaps(a map[string]string, b map[string]string) map[string]string {
+	summedMap := make(map[string]string, len(a)+len(b)+2)
+	for k, v := range a {
+		summedMap[k] = v
+	}
+	for k, v := range b {
+		summedMap[k] = v
+	}
+	return summedMap
 }
 
 func newTestController(t *testing.T, elaObjects ...runtime.Object) (
@@ -263,12 +277,16 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Error("Missing queue-proxy container")
 	}
 
-	expectedLabels := map[string]string{
-		"testLabel1":         "foo",
-		"testLabel2":         "bar",
-		ela.RouteLabelKey:    "test-route",
-		ela.RevisionLabelKey: rev.Name,
-	}
+	expectedLabels := sumMaps(
+		rev.Labels,
+		map[string]string{ela.RevisionLabelKey: rev.Name},
+	)
+	expectedAnnotations := rev.Annotations
+	expectedPodSpecAnnotations := sumMaps(
+		rev.Annotations,
+		map[string]string{"sidecar.istio.io/inject": "true"},
+	)
+
 	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Labels not set correctly on deployment: expected %v got %v.",
 			expectedLabels, labels)
@@ -276,6 +294,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if labels := deployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Label not set correctly in pod template: expected %v got %v.",
 			expectedLabels, labels)
+	}
+	if annotations := deployment.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAnnotations) {
+		t.Errorf("Annotations not set correctly on deployment: expected %v got %v.",
+			expectedAnnotations, annotations)
+	}
+	if annotations := deployment.Spec.Template.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedPodSpecAnnotations) {
+		t.Errorf("Annotations not set correctly in pod template: expected %v got %v.",
+			expectedPodSpecAnnotations, annotations)
 	}
 
 	// Look for the revision service.
@@ -300,16 +326,21 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("Label not set correctly for revision service: expected %v got %v.",
 			expectedLabels, labels)
 	}
+	if annotations := service.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAnnotations) {
+		t.Errorf("Annotations not set correctly for revision service: expected %v got %v.",
+			expectedAnnotations, annotations)
+	}
 
 	// Look for the autoscaler deployment.
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-	expectedAutoscalerLabels := map[string]string{
-		"testLabel1":           "foo",
-		"testLabel2":           "bar",
-		ela.RouteLabelKey:      "test-route",
-		ela.RevisionLabelKey:   rev.Name,
-		ela.AutoscalerLabelKey: expectedAutoscalerName,
-	}
+	expectedAutoscalerLabels := sumMaps(
+		expectedLabels,
+		map[string]string{ela.AutoscalerLabelKey: expectedAutoscalerName},
+	)
+	expectedAutoscalerPodSpecAnnotations := sumMaps(
+		rev.Annotations,
+		map[string]string{"sidecar.istio.io/inject": "false"},
+	)
 
 	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
@@ -318,6 +349,10 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if labels := asDeployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
 		t.Errorf("Label not set correctly in autoscaler pod template: expected %v got %v.",
 			expectedAutoscalerLabels, labels)
+	}
+	if annotations := asDeployment.Spec.Template.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAutoscalerPodSpecAnnotations) {
+		t.Errorf("Annotations not set correctly in autoscaler pod template: expected %v got %v.",
+			expectedAutoscalerPodSpecAnnotations, annotations)
 	}
 	// Check the autoscaler deployment environment variables
 	foundAutoscaler := false
@@ -345,6 +380,10 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
 			expectedLabels, labels)
+	}
+	if annotations := asService.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAnnotations) {
+		t.Errorf("Annotations not set correctly autoscaler service: expected %v got %v.",
+			expectedAnnotations, annotations)
 	}
 
 	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})

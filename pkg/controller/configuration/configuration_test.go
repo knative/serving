@@ -74,6 +74,10 @@ func getTestConfiguration() *v1alpha1.Configuration {
 						"test-label":                   "test",
 						"example.com/namespaced-label": "test",
 					},
+					Annotations: map[string]string{
+						"test-annotation-1": "foo",
+						"test-annotation-2": "bar",
+					},
 				},
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "test-account",
@@ -223,6 +227,12 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Labels {
 		if rev.Labels[k] != v {
 			t.Errorf("revisionTemplate label %s=%s not passed to revision", k, v)
+		}
+	}
+
+	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Annotations {
+		if rev.Annotations[k] != v {
+			t.Errorf("revisionTemplate annotation %s=%s not passed to revision", k, v)
 		}
 	}
 
