@@ -14,12 +14,13 @@ limitations under the License.
 package activator
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strconv"
-	"sync"
+	"strings"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -27,24 +28,38 @@ import (
 	"github.com/golang/glog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/workqueue"
 )
 
 // Activator that can activate revisions in reserve state or redirect traffic to active revisions.
 type Activator struct {
-	kubeClient  kubernetes.Interface
-	elaClient   clientset.Interface
-	tripper     http.RoundTripper
-	revisionMap sync.Map
+	kubeClient kubernetes.Interface
+	elaClient  clientset.Interface
+	tripper    http.RoundTripper
+	chans      Channels
 }
 
-// revisionStatus contains a workqueue and a watch for each unique revision
-type revisionStatus struct {
-	queueObj workqueue.RateLimitingInterface
-	watchObj watch.Interface
+// Channels hold all channels for activating revisions.
+type Channels struct {
+	ActivateCh        chan (string)
+	ActivationDoneCh  chan (string)
+	RevisionRequestCh chan (RevisionRequest)
+	WatchCh           chan (string)
 }
+
+// RevisionRequest holds the http request information.
+type RevisionRequest struct {
+	name      string
+	namespace string
+	w         http.ResponseWriter
+	// r         *http.Request
+	r      http.Request
+	active bool
+}
+
+const (
+	requestQueueLength = 1000
+)
 
 // NewActivator returns an Activator.
 func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, tripper http.RoundTripper) (*Activator, error) {
@@ -52,28 +67,48 @@ func NewActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface
 		kubeClient: kubeClient,
 		elaClient:  elaClient,
 		tripper:    tripper,
+		chans: Channels{
+			ActivateCh:        make(chan string, requestQueueLength),
+			ActivationDoneCh:  make(chan string, requestQueueLength),
+			RevisionRequestCh: make(chan RevisionRequest, requestQueueLength),
+			WatchCh:           make(chan string, requestQueueLength),
+		},
 	}, nil
 }
 
-func getRevisionKey(rev *v1alpha1.Revision) string {
-	return rev.GetNamespace() + "/" + rev.GetName()
+func getRevisionKey(namespace string, name string) string {
+	return namespace + "/" + name
 }
 
-func proxyRequest(w http.ResponseWriter, r *http.Request, targetURL string, tripper http.RoundTripper) {
-	glog.Info("Sending a proxy request to ", targetURL)
-	target, err := url.Parse(targetURL)
+func getRevisionNameFromKey(key string) (namespace string, name string, err error) {
+	arr := strings.Split(key, "/")
+	if len(arr) != 2 {
+		glog.Errorf("Invalid revision key ", key)
+		return "", "", errors.New("Invalid revision key " + key)
+	}
+	return arr[0], arr[1], nil
+}
+
+func (a *Activator) proxyRequest(revRequest RevisionRequest) {
+	revision, err := a.getRevision(revRequest.namespace, revRequest.name)
+	serviceURL, err := a.getRevisionTargetURL(revision)
 	if err != nil {
-		glog.Errorf("Failed to parse target URL: %s. Error: %v", targetURL, err)
-		http.Error(w, "Failed to forward request.", http.StatusBadRequest)
+		http.Error(revRequest.w, "Failed to forward request.", http.StatusServiceUnavailable)
+		return
+	}
+	glog.Info("Sending a proxy request to ", serviceURL)
+	target, err := url.Parse(serviceURL)
+	if err != nil {
+		glog.Errorf("Failed to parse target URL: %s. Error: %v", serviceURL, err)
+		http.Error(revRequest.w, "Failed to forward request.", http.StatusBadRequest)
 		return
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = tripper
-	proxy.ServeHTTP(w, r)
+	proxy.Transport = a.tripper
+	proxy.ServeHTTP(revRequest.w, &revRequest.r)
 	glog.Info("End proxy request")
 }
 
-//getRevisionTargetURL calculates the target URL
 func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
 	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
 	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
@@ -95,37 +130,58 @@ func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.Namespace)
 	_, err := revisionClient.Update(revision)
 	if err != nil {
-		glog.Errorf("Failed to update the revision: %s", revision.GetName())
+		glog.Errorf("Failed to update the revision: %s/%s", revision.GetNamespace(), revision.GetName())
 		return err
 	}
-	glog.Infof("Updated the revision: %s", revision.GetName())
 	return nil
 }
 
-func (a *Activator) waitForReady(revision *v1alpha1.Revision, readyCh chan bool) error {
-	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace())
-	key := getRevisionKey(revision)
-	var wi watch.Interface
-	var err error
-	var queue workqueue.RateLimitingInterface
-	if revStatus, ok := a.revisionMap.Load(key); !ok {
-		wi, err = revisionClient.Watch(metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("namespace=%s", revision.GetNamespace()),
-		})
-		if err != nil {
-			return err
-		}
-		queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), key)
-		revStatus = revisionStatus{
-			watchObj: wi,
-			queueObj: queue,
-		}
-		a.revisionMap.Store(key, revStatus)
+func (a *Activator) getRevisionFromKey(revKey string) (*v1alpha1.Revision, error) {
+	ns, name, err := getRevisionNameFromKey(revKey)
+	if err != nil {
+		return nil, err
 	}
+	return a.getRevision(ns, name)
+}
 
+func (a *Activator) getRevision(ns string, name string) (*v1alpha1.Revision, error) {
+	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(ns)
+	revision, err := revisionClient.Get(name, metav1.GetOptions{})
+	if err != nil {
+		glog.Errorf("Unable to get revision %s/%s", ns, name)
+		return nil, err
+	}
+	return revision, nil
+}
+
+func (a *Activator) activate(revKey string) {
+	revision, err := a.getRevisionFromKey(revKey)
+	if err != nil {
+		return
+	}
+	glog.Info("Revision to be activated: ", revKey)
+	revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
+	if a.updateRevision(revision) != nil {
+		return
+	}
+	glog.Infof("Updated the revision: %s", revision.GetName())
+}
+
+func (a *Activator) watchForRev(revKey string) {
+	glog.Infof("Watching for revision %s to be ready", revKey)
+	revision, err := a.getRevisionFromKey(revKey)
+	if err != nil {
+		return
+	}
+	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace())
+	wi, err := revisionClient.Watch(metav1.ListOptions{
+		//FieldSelector: fmt.Sprintf("namespace=%s", revision.GetNamespace()),
+	})
+	if err != nil {
+		glog.Errorf("Error when watching the revision. %v", err)
+		return
+	}
 	defer wi.Stop()
-	defer queue.ShutDown()
-
 	ch := wi.ResultChan()
 	for {
 		event := <-ch
@@ -136,8 +192,54 @@ func (a *Activator) waitForReady(revision *v1alpha1.Revision, readyCh chan bool)
 			if !rev.Status.IsReady() {
 				continue
 			}
-			readyCh <- true
-			return nil
+			a.chans.ActivationDoneCh <- revKey
+			glog.Infof("Revision %s is ready.", revKey)
+			return
+		}
+	}
+}
+
+func (a *Activator) proxyRequests(requests []RevisionRequest) {
+	glog.Info("In proxyRequests, len(requests): ", len(requests))
+	for _, revToProxy := range requests {
+		a.proxyRequest(revToProxy)
+	}
+}
+
+// The main method to process requests. Only active or reserved revisions reach here.
+func (a *Activator) process() {
+	// revisionMap is a map from the revision key to pending requests.
+	revisionMap := make(map[string][]RevisionRequest)
+	for {
+		select {
+		case revReq := <-a.chans.RevisionRequestCh:
+			var revRequests []RevisionRequest
+			revKey := getRevisionKey(revReq.namespace, revReq.name)
+			if revRequests, ok := revisionMap[revKey]; !ok {
+				revRequests = []RevisionRequest{}
+				revisionMap[revKey] = revRequests
+			}
+			revisionMap[revKey] = append(revRequests, revReq)
+			// Add a watch for each unique revision
+			a.chans.WatchCh <- revKey
+			glog.Infof("Add %s to watch channel", revKey)
+			// Only put the first reserved revision to the activateCh.
+			if !revReq.active {
+				glog.Infof("Add %s to activate channel", revKey)
+				a.chans.ActivateCh <- revKey
+			}
+		case revToActivate := <-a.chans.ActivateCh:
+			a.activate(revToActivate)
+		case revToWatch := <-a.chans.WatchCh:
+			a.watchForRev(revToWatch)
+		case revDone := <-a.chans.ActivationDoneCh:
+			glog.Info("Got a done event")
+			if revRequests, ok := revisionMap[revDone]; ok {
+				//delete(revisionMap, revDone)
+				a.proxyRequests(revRequests)
+			} else {
+				glog.Error("The revision %s is unexpected in activator", revDone)
+			}
 		}
 	}
 }
@@ -145,58 +247,34 @@ func (a *Activator) waitForReady(revision *v1alpha1.Revision, readyCh chan bool)
 func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Use the namespace from the header.
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions("default")
-	revisionName := r.Header.Get("revision")
+	revisionName := r.Header.Get(controller.GetRevisionHeaderName())
 
-	glog.Info("Revision name to be activated: ", revisionName)
 	revision, err := revisionClient.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		http.Error(w, "Unable to get revision.", http.StatusNotFound)
 		return
 	}
-	glog.Info("Found revision ", revision.GetName())
-	glog.Info("Start to proxy request...")
+	glog.Infof("Found revision %s in namespace %s", revision.GetName(), revision.GetNamespace())
 	switch revision.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
-		// The revision is already active. Forward the request to k8s deployment.
-		serviceURL, err := a.getRevisionTargetURL(revision)
-		if err != nil {
-			http.Error(w, "Failed to forward request.", http.StatusServiceUnavailable)
-			return
+		glog.Info("The revision is active.")
+		glog.Info("length1: ", len(a.chans.RevisionRequestCh))
+		a.chans.RevisionRequestCh <- RevisionRequest{
+			name:      revision.GetName(),
+			namespace: revision.GetNamespace(),
+			r:         *r,
+			w:         w,
+			active:    true,
 		}
-
-		glog.Info("The revision is active. Forwarding request to service at ", serviceURL)
-		proxyRequest(w, r, serviceURL, a.tripper)
+		glog.Info("length2: ", len(a.chans.RevisionRequestCh))
 	case v1alpha1.RevisionServingStateReserve:
-		if serviceURL, err := a.getRevisionTargetURL(revision); err != nil {
-			http.Error(w, "Unable to get service URL of revision.", http.StatusServiceUnavailable)
-		} else {
-			glog.Infof("Activating the revision and enqueuing the requests")
-			revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-			if err := a.updateRevision(revision); err != nil {
-				http.Error(w, "Unable to update revision.", http.StatusExpectationFailed)
-				return
-			}
-			readyCh := make(chan bool)
-			a.waitForReady(revision, readyCh)
-			<-readyCh
-			key := getRevisionKey(revision)
-			glog.Info("Forwarding requests to service at ", serviceURL)
-			for {
-				revStatusObj, ok := a.revisionMap.Load(key)
-				if !ok {
-					http.Error(w, "Unable to load the revision in the revision map.", http.StatusInternalServerError)
-					return
-				}
-				revStatus := revStatusObj.(revisionStatus)
-				obj, shutdown := revStatus.queueObj.Get()
-				if shutdown {
-					revStatus.queueObj.Done(revStatus.queueObj)
-					revStatus.watchObj.Stop()
-					a.revisionMap.Delete(key)
-					return
-				}
-				proxyRequest(w, obj.(*http.Request), serviceURL, a.tripper)
-			}
+		glog.Info("The revision is inactive.")
+		a.chans.RevisionRequestCh <- RevisionRequest{
+			name:      revision.GetName(),
+			namespace: revision.GetNamespace(),
+			r:         *r,
+			w:         w,
+			active:    false,
 		}
 	case v1alpha1.RevisionServingStateRetired:
 		glog.Info("revision is retired. do nothing.")
@@ -210,7 +288,7 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 // Run will set up the event handler for requests.
 func (a *Activator) Run(stopCh <-chan struct{}) error {
 	glog.Info("Started Activator")
-
+	go a.process()
 	http.HandleFunc("/", a.handler)
 	http.ListenAndServe(":8080", nil)
 	<-stopCh

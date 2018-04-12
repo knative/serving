@@ -103,6 +103,7 @@ func autoscaler() {
 		case <-ticker.C:
 			scale, ok := a.Scale(time.Now())
 			if ok {
+				// TODO: delete this!
 				// Disable scale to zero until the zero-to-one
 				// code changes are complete:
 				// https://github.com/elafros/elafros/pull/341
@@ -110,7 +111,6 @@ func autoscaler() {
 				if scale == 0 {
 					continue
 				}
-
 				scaleChan <- scale
 
 				// Stop the autoscaler from doing any more work.

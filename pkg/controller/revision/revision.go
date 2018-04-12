@@ -503,9 +503,13 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	endpoint := obj.(*corev1.Endpoints)
 	eName := endpoint.Name
 	namespace := endpoint.Namespace
+	if namespace == "ela-system" {
+		return
+	}
 	// Lookup and see if this endpoints corresponds to a service that
 	// we own and hence the Revision that created this service.
 	revName := lookupServiceOwner(endpoint)
+	glog.Infof("endpoint: %+v; eName: %s; namespace: %s; revName: %s", endpoint, eName, namespace, revName)
 	if revName == "" {
 		return
 	}
@@ -540,6 +544,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
+	glog.Infof("now: %+v; creation time: %+v", time.Now, rev.CreationTimestamp.Time)
 	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
 	if revisionAge < serviceTimeoutDuration {
 		return

@@ -73,6 +73,10 @@ func GetElaK8SActivatorNamespace() string {
 	return "ela-system"
 }
 
+func GetRevisionHeaderName() string {
+	return "ElafrosRevison"
+}
+
 func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {
 	return GetOrCreateNamespace(GetElaNamespaceName(ns), c)
 }
