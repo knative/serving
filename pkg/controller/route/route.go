@@ -17,13 +17,13 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -45,15 +45,18 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 var (
 	controllerKind        = v1alpha1.SchemeGroupVersion.WithKind("Route")
-	routeProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "elafros",
-		Name:      "route_process_item_count",
-		Help:      "Counter to keep track of items in the route work queue",
-	}, []string{"status"})
+	routeProcessItemCount = stats.Int64(
+		"route_process_item_count",
+		"Counter to keep track of items in the route work queue.",
+		stats.UnitNone)
+	statusTagKey tag.Key
 )
 
 const (
@@ -101,10 +104,6 @@ type Controller struct {
 
 	// suffix used to construct Route domain.
 	controllerConfig controller.Config
-}
-
-func init() {
-	prometheus.MustRegister(routeProcessItemCount)
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -176,6 +175,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Start the informer factories to begin populating the informer caches
 	glog.Info("Starting Route controller")
+
+	// Metrics setup: begin
+	// Create the tag keys that will be used to add tags to our measurements.
+	var err error
+	if statusTagKey, err = tag.NewKey("status"); err != nil {
+		return fmt.Errorf("failed to create tag key in OpenCensus: %v", err)
+	}
+	// Create view to see our measurements cumulatively.
+	countView := &view.View{
+		Description: "Counter to keep track of items in the route work queue.",
+		Measure:     routeProcessItemCount,
+		Aggregation: view.Count(),
+		TagKeys:     []tag.Key{statusTagKey},
+	}
+	if err = view.Register(countView); err != nil {
+		return fmt.Errorf("failed to register the views in OpenCensus: %v", err)
+	}
+	defer view.Unregister(countView)
+	// Metrics setup: end
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
@@ -257,7 +275,10 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	routeProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
+	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, promStatus)); tagError == nil {
+		// Increment the request count by one.
+		stats.Record(ctx, routeProcessItemCount.M(1))
+	}
 
 	if err != nil {
 		runtime.HandleError(err)

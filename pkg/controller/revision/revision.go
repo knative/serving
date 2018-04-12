@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -25,7 +26,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,6 +50,9 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
@@ -84,15 +87,14 @@ var (
 	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	queueSidecarImage        string
-	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "elafros",
-		Name:      "revision_process_item_count",
-		Help:      "Counter to keep track of items in the revision work queue",
-	}, []string{"status"})
+	revisionProcessItemCount = stats.Int64(
+		"revision_process_item_count",
+		"Counter to keep track of items in the revision work queue.",
+		stats.UnitNone)
+	statusTagKey tag.Key
 )
 
 func init() {
-	prometheus.MustRegister(revisionProcessItemCount)
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 }
 
@@ -206,6 +208,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Start the informer factories to begin populating the informer caches
 	glog.Info("Starting Revision controller")
 
+	// Metrics setup: begin
+	// Create the tag keys that will be used to add tags to our measurements.
+	var err error
+	if statusTagKey, err = tag.NewKey("status"); err != nil {
+		return fmt.Errorf("failed to create tag key in OpenCensus: %v", err)
+	}
+	// Create view to see our measurements cumulatively.
+	countView := &view.View{
+		Description: "Counter to keep track of items in the revision work queue.",
+		Measure:     revisionProcessItemCount,
+		Aggregation: view.Count(),
+		TagKeys:     []tag.Key{statusTagKey},
+	}
+	if err = view.Register(countView); err != nil {
+		return fmt.Errorf("failed to register the views in OpenCensus: %v", err)
+	}
+	defer view.Unregister(countView)
+	// Metrics setup: end
+
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
@@ -286,7 +307,10 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	revisionProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
+	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, promStatus)); tagError == nil {
+		// Increment the request count by one.
+		stats.Record(ctx, revisionProcessItemCount.M(1))
+	}
 
 	if err != nil {
 		runtime.HandleError(err)

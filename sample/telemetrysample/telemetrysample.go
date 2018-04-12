@@ -68,7 +68,7 @@ func main() {
 	view.RegisterExporter(promExporter)
 
 	// Create the tag keys that will be used to add tags to our measurements.
-	requestStatusTagKey, err = tag.NewKey("telemetrysample/keys/status")
+	requestStatusTagKey, err = tag.NewKey("status")
 	if err != nil {
 		log.Fatal(err)
 	}
