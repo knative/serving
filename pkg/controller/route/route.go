@@ -51,9 +51,9 @@ import (
 )
 
 var (
-	controllerKind        = v1alpha1.SchemeGroupVersion.WithKind("Route")
-	routeProcessItemCount = stats.Int64(
-		"route_process_item_count",
+	controllerKind   = v1alpha1.SchemeGroupVersion.WithKind("Route")
+	processItemCount = stats.Int64(
+		"ela-controller/route/queue/queue_process_count",
 		"Counter to keep track of items in the route work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
@@ -185,7 +185,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Create view to see our measurements cumulatively.
 	countView := &view.View{
 		Description: "Counter to keep track of items in the route work queue.",
-		Measure:     routeProcessItemCount,
+		Measure:     processItemCount,
 		Aggregation: view.Count(),
 		TagKeys:     []tag.Key{statusTagKey},
 	}
@@ -240,7 +240,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err, promStatus := func(obj interface{}) (error, string) {
+	err, processStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -275,9 +275,9 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, promStatus)); tagError == nil {
+	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
 		// Increment the request count by one.
-		stats.Record(ctx, routeProcessItemCount.M(1))
+		stats.Record(ctx, processItemCount.M(1))
 	}
 
 	if err != nil {

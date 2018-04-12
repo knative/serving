@@ -78,21 +78,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros_revision_process_item_count{status = \"success\"}[1m]) * 60",
+              "expr": "rate(elafros.dev/ela-controller/revision/queue_process_count{status = \"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros_revision_process_item_count{status = \"failure\"}[1m]) * 60",
+              "expr": "rate(elafros.dev/ela-controller/revision/queue_process_count{status = \"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros_revision_process_item_count{status = \"invalid\"}[1m]) * 60",
+              "expr": "rate(elafros.dev/ela-controller/revision/queue_process_count{status = \"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -102,7 +102,7 @@ data:
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Revision Work Items/min",
+          "title": "Revision Queue Work Items/min",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -176,21 +176,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros_route_process_item_count{status=\"success\"}[1m]) * 60",
+              "expr": "rate(elafros.dev/ela-controller/route/queue_process_count{status=\"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros_route_process_item_count{status=\"failure\"}[1m]) * 60",
+              "expr": "rate(elafros.dev/ela-controller/route/queue_process_count{status=\"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros_route_process_item_count{status=\"invalid\"}[1m]) * 60",
+              "expr": "rate(elafros.dev/ela-controller/route/queue_process_count{status=\"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -200,7 +200,7 @@ data:
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Route Work Items/min",
+          "title": "Route Queue Work Items/min",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -232,7 +232,101 @@ data:
               "show": true
             }
           ]
-        }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 11,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 4,
+          "legend": {
+            "avg": true,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "rate(elafros.dev/ela-controller/service/queue_process_count{status = \"success\"}[1m]) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "success",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(elafros.dev/ela-controller/service/queue_process_count{status = \"failure\"}[1m]) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "failure",
+              "refId": "B"
+            },
+            {
+              "expr": "rate(elafros.dev/ela-controller/service/queue_process_count{status = \"invalid\"}[1m]) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "invalid",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Service Queue Work Items/min",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ]
+        },
       ],
       "schemaVersion": 16,
       "style": "dark",

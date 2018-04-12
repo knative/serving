@@ -43,7 +43,7 @@ var (
 	requestCount = stats.Int64("request_count", "Total number of requests.", stats.UnitNone)
 
 	// Create a measurement to keep track of request durations.
-	requestDuration = stats.Float64("request_duration_seconds", "Histogram of the request duration.", stats.UnitNone)
+	requestDuration = stats.Int64("request_duration", "Histogram of the request duration.", stats.UnitMilliseconds)
 
 	// Capture the HTTP response code in a tag so that we can aggregate and visualize
 	// this metric based on different response codes (see count of all 400 vs 200 for example).
@@ -84,7 +84,7 @@ func main() {
 		&view.View{
 			Description: "Histogram of the request duration.",
 			Measure:     requestDuration,
-			Aggregation: view.Distribution(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5),
+			Aggregation: view.Distribution(10, 25, 50, 100, 250, 500, 1000, 2500),
 		},
 	)
 	if err != nil {
@@ -164,7 +164,7 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 			stats.Record(ctx, requestCount.M(1))
 
 			// Record the request duration.
-			stats.Record(ctx, requestDuration.M((time.Since(start).Seconds())))
+			stats.Record(ctx, requestDuration.M(time.Since(start).Nanoseconds()/int64(time.Millisecond)))
 		}(time.Now())
 
 		getWithContext := func(url string) (*http.Response, error) {
