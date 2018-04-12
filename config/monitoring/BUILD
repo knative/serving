@@ -17,8 +17,8 @@ k8s_objects(
         ":namespace",
         "//config/monitoring/prometheus-operator:everything",
         "//config/monitoring/prometheus:everything-base",
-        "//config/monitoring/prometheus-exporter:everything-common",
-        "//config/monitoring/prometheus-servicemonitor:everything-common",
+        "//config/monitoring/prometheus-exporter:everything",
+        "//config/monitoring/prometheus-servicemonitor:everything",
         "//config/monitoring/prometheus:everything-prometheus",
         "//config/monitoring/grafana-dashboard-defs:everything",
         "//config/monitoring/grafana:everything",
@@ -55,16 +55,5 @@ k8s_objects(
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
         "//config/monitoring/fluentd:istio",
-    ],
-)
-
-#
-# Extended set of k8s metrics
-#
-k8s_objects(
-    name = "k8s-metrics",
-    objects = [
-        "//config/monitoring/prometheus-servicemonitor:k8s-metrics",
-        "//config/monitoring/prometheus-exporter:k8s-metrics",
     ],
 )

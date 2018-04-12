@@ -29,7 +29,7 @@ spec:
         runAsUser: 65534
       containers:
       - name: grafana
-        image: quay.io/coreos/monitoring-grafana:5.0.0-beta1
+        image: quay.io/coreos/monitoring-grafana:5.0.3
         volumeMounts:
         - name: grafana-storage
           mountPath: /data
@@ -37,26 +37,12 @@ spec:
           mountPath: /grafana/conf/provisioning/datasources
         - name: grafana-dashboards
           mountPath: /grafana/conf/provisioning/dashboards
-        - name: grafana-dashboard-definition-deployment
-          mountPath: /grafana-dashboard-definition/deployment
-        - name: grafana-dashboard-definition-etcd
-          mountPath: /grafana-dashboard-definition/etcd
-        - name: grafana-dashboard-definition-k8s
-          mountPath: /grafana-dashboard-definition/k8s
-        - name: grafana-dashboard-definition-node
-          mountPath: /grafana-dashboard-definition/node
-        - name: grafana-dashboard-definition-pod
-          mountPath: /grafana-dashboard-definition/pod
-        - name: grafana-dashboard-definition-statefulset
-          mountPath: /grafana-dashboard-definition/statefulset
-        - name: grafana-dashboard-definition-ela-controller
-          mountPath: /grafana-dashboard-definition/ela-controller
+        - name: grafana-dashboard-definition-kubernetes
+          mountPath: /grafana-dashboard-definition/kubernetes
+        - name: grafana-dashboard-definition-elafros
+          mountPath: /grafana-dashboard-definition/elafros
         - name: grafana-dashboard-definition-istio
           mountPath: /grafana-dashboard-definition/istio
-        - name: grafana-dashboard-definition-istio-mixer
-          mountPath: /grafana-dashboard-definition/istio-mixer
-        - name: grafana-dashboard-definition-istio-pilot
-          mountPath: /grafana-dashboard-definition/istio-pilot
         ports:
         - name: web
           containerPort: 3000
@@ -76,33 +62,12 @@ spec:
       - name: grafana-dashboards
         configMap:
           name: grafana-dashboards
-      - name: grafana-dashboard-definition-deployment
+      - name: grafana-dashboard-definition-kubernetes
         configMap:
-          name: grafana-dashboard-definition-deployment
-      - name: grafana-dashboard-definition-etcd
+          name: grafana-dashboard-definition-kubernetes
+      - name: grafana-dashboard-definition-elafros
         configMap:
-          name: grafana-dashboard-definition-etcd
-      - name: grafana-dashboard-definition-k8s
-        configMap:
-          name: grafana-dashboard-definition-k8s
-      - name: grafana-dashboard-definition-node
-        configMap:
-          name: grafana-dashboard-definition-node
-      - name: grafana-dashboard-definition-pod
-        configMap:
-          name: grafana-dashboard-definition-pod
-      - name: grafana-dashboard-definition-statefulset
-        configMap:
-          name: grafana-dashboard-definition-statefulset
-      - name: grafana-dashboard-definition-ela-controller
-        configMap:
-          name: grafana-dashboard-definition-ela-controller
+          name: grafana-dashboard-definition-elafros
       - name: grafana-dashboard-definition-istio
         configMap:
           name: grafana-dashboard-definition-istio
-      - name: grafana-dashboard-definition-istio-mixer
-        configMap:
-          name: grafana-dashboard-definition-istio-mixer
-      - name: grafana-dashboard-definition-istio-pilot
-        configMap:
-          name: grafana-dashboard-definition-istio-pilot
