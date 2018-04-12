@@ -53,7 +53,7 @@ import (
 var (
 	controllerKind   = v1alpha1.SchemeGroupVersion.WithKind("Route")
 	processItemCount = stats.Int64(
-		"ela-controller/route/queue/queue_process_count",
+		"controller_route_queue_process_count",
 		"Counter to keep track of items in the route work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key

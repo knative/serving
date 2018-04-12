@@ -54,7 +54,7 @@ data:
             "x": 0,
             "y": 0
           },
-          "id": 4,
+          "id": 1,
           "legend": {
             "avg": true,
             "current": false,
@@ -78,21 +78,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros.dev/ela-controller/revision/queue_process_count{status = \"success\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_revision_queue_process_count{status = \"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros.dev/ela-controller/revision/queue_process_count{status = \"failure\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_revision_queue_process_count{status = \"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros.dev/ela-controller/revision/queue_process_count{status = \"invalid\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_revision_queue_process_count{status = \"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -176,21 +176,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros.dev/ela-controller/route/queue_process_count{status=\"success\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_route_queue_process_count{status=\"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros.dev/ela-controller/route/queue_process_count{status=\"failure\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_route_queue_process_count{status=\"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros.dev/ela-controller/route/queue_process_count{status=\"invalid\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_route_queue_process_count{status=\"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -246,7 +246,7 @@ data:
             "x": 0,
             "y": 0
           },
-          "id": 4,
+          "id": 3,
           "legend": {
             "avg": true,
             "current": false,
@@ -270,21 +270,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros.dev/ela-controller/service/queue_process_count{status = \"success\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_service_queue_process_count{status = \"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros.dev/ela-controller/service/queue_process_count{status = \"failure\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_service_queue_process_count{status = \"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros.dev/ela-controller/service/queue_process_count{status = \"invalid\"}[1m]) * 60",
+              "expr": "rate(elafros_controller_service_queue_process_count{status = \"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -326,7 +326,7 @@ data:
               "show": true
             }
           ]
-        },
+        }
       ],
       "schemaVersion": 16,
       "style": "dark",

@@ -50,7 +50,7 @@ import (
 var (
 	controllerKind   = v1alpha1.SchemeGroupVersion.WithKind("Service")
 	processItemCount = stats.Int64(
-		"ela-controller/service/queue_process_count",
+		"controller_service_queue_process_count",
 		"Counter to keep track of items in the service work queue",
 		stats.UnitNone)
 	statusTagKey tag.Key

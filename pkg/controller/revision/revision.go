@@ -88,7 +88,7 @@ var (
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	queueSidecarImage    string
 	processItemCount     = stats.Int64(
-		"ela-controller/revision/queue_process_count",
+		"controller_revision_queue_process_count",
 		"Counter to keep track of items in the revision work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
