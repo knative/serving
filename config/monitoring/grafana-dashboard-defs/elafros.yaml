@@ -15,10 +15,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-definition-ela-controller
+  name: grafana-dashboard-definition-elafros
   namespace: monitoring
 data:
-  ela-controller-dashboard.json: |+
+  elafros-dashboard.json: |+
     {
       "__inputs": [
         {

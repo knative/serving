@@ -26,11 +26,6 @@ k8s_object(
     template = "service.yaml",
 )
 
-k8s_object(
-    name = "rules",
-    template = "rules.yaml",
-)
-
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -40,7 +35,6 @@ k8s_objects(
         ":roles",
         ":role-bindings",
         ":service",
-        ":rules",
     ],
     visibility = ["//visibility:public"],
 )

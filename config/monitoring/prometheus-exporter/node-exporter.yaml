@@ -93,7 +93,7 @@ spec:
           readOnly: true
           mountPath: /host/sys
       - name: kube-rbac-proxy
-        image: quay.io/brancz/kube-rbac-proxy:v0.2.0
+        image: quay.io/coreos/kube-rbac-proxy:v0.3.0
         args:
         - "--secure-listen-address=:9100"
         - "--upstream=http://127.0.0.1:9101/"
