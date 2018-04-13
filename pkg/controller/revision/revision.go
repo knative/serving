@@ -411,6 +411,7 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q failed", rev.Name)
 	rev.Status.RemoveCondition(v1alpha1.RevisionConditionReady)
+	//rev.Status.RemoveCondition(v1alpha1.RevisionCondition)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
 			Type:    v1alpha1.RevisionConditionFailed,
@@ -544,7 +545,8 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	glog.Infof("now: %+v; creation time: %+v", time.Now, rev.CreationTimestamp.Time)
+	glog.Infof("In addEndpointsEvent: revision is %+v", rev)
+	glog.Infof("now: %+v; creation time: %+v", time.Now(), rev.CreationTimestamp.Time)
 	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
 	if revisionAge < serviceTimeoutDuration {
 		return
@@ -577,6 +579,11 @@ func (c *Controller) reconcileOnceBuilt(rev *v1alpha1.Revision, ns string) error
 
 	if deletionTimestamp == nil && rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
 		log.Printf("Creating or reconciling resources for %s\n", rev.Name)
+		// newRev, err := c.updateCreationTimestamp(rev)
+		// if err != nil {
+		// 	log.Printf("Failed to update the revision creation time for %s/%s", rev.GetNamespace(), rev.GetName())
+		// 	return err
+		// }
 		return c.createK8SResources(rev, elaNS)
 	}
 	return c.deleteK8SResources(rev, elaNS)
@@ -870,6 +877,22 @@ func (c *Controller) removeFinalizers(rev *v1alpha1.Revision, ns string) error {
 
 	return nil
 }
+
+// func (c *Controller) updateCreationTimestamp(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
+// 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(rev.Namespace)
+// 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	currTime := time.Now()
+// 	newRev.CreationTimestamp = metav1.NewTime(currTime)
+// 	if newRev, err = prClient.Update(newRev); err != nil {
+// 		return nil, err
+// 	} else {
+// 		log.Printf("Updated the revision %s/%s creation timestamp to be %+v", newRev.GetNamespace(), newRev.GetName(), currTime)
+// 		return newRev, nil
+// 	}
+// }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(rev.Namespace)

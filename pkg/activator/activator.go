@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -52,13 +53,13 @@ type RevisionRequest struct {
 	name      string
 	namespace string
 	w         http.ResponseWriter
-	// r         *http.Request
-	r      http.Request
-	active bool
+	r         *http.Request
+	active    bool
+	doneCh    chan (bool)
 }
 
 const (
-	requestQueueLength = 1000
+	requestQueueLength = 100
 )
 
 // NewActivator returns an Activator.
@@ -104,8 +105,10 @@ func (a *Activator) proxyRequest(revRequest RevisionRequest) {
 		return
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = a.tripper
-	proxy.ServeHTTP(revRequest.w, &revRequest.r)
+	proxy.Transport = http.DefaultTransport.(*http.Transport) //a.tripper
+	proxy.ServeHTTP(revRequest.w, revRequest.r)
+	// Make sure the handler function exits after ServeHTTP function.
+	revRequest.doneCh <- true
 	glog.Info("End proxy request")
 }
 
@@ -155,11 +158,11 @@ func (a *Activator) getRevision(ns string, name string) (*v1alpha1.Revision, err
 }
 
 func (a *Activator) activate(revKey string) {
+	glog.Info("Revision to be activated: ", revKey)
 	revision, err := a.getRevisionFromKey(revKey)
 	if err != nil {
 		return
 	}
-	glog.Info("Revision to be activated: ", revKey)
 	revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 	if a.updateRevision(revision) != nil {
 		return
@@ -167,7 +170,7 @@ func (a *Activator) activate(revKey string) {
 	glog.Infof("Updated the revision: %s", revision.GetName())
 }
 
-func (a *Activator) watchForRev(revKey string) {
+func (a *Activator) watchForReady(revKey string) {
 	glog.Infof("Watching for revision %s to be ready", revKey)
 	revision, err := a.getRevisionFromKey(revKey)
 	if err != nil {
@@ -201,6 +204,7 @@ func (a *Activator) watchForRev(revKey string) {
 
 func (a *Activator) proxyRequests(requests []RevisionRequest) {
 	glog.Info("In proxyRequests, len(requests): ", len(requests))
+	time.Sleep(2 * time.Second)
 	for _, revToProxy := range requests {
 		a.proxyRequest(revToProxy)
 	}
@@ -221,22 +225,21 @@ func (a *Activator) process() {
 			}
 			revisionMap[revKey] = append(revRequests, revReq)
 			// Add a watch for each unique revision
-			a.chans.WatchCh <- revKey
 			glog.Infof("Add %s to watch channel", revKey)
+			a.chans.WatchCh <- revKey
 			// Only put the first reserved revision to the activateCh.
 			if !revReq.active {
 				glog.Infof("Add %s to activate channel", revKey)
 				a.chans.ActivateCh <- revKey
 			}
-		case revToActivate := <-a.chans.ActivateCh:
-			a.activate(revToActivate)
 		case revToWatch := <-a.chans.WatchCh:
-			a.watchForRev(revToWatch)
+			go a.watchForReady(revToWatch)
+		case revToActivate := <-a.chans.ActivateCh:
+			go a.activate(revToActivate)
 		case revDone := <-a.chans.ActivationDoneCh:
-			glog.Info("Got a done event")
 			if revRequests, ok := revisionMap[revDone]; ok {
-				//delete(revisionMap, revDone)
-				a.proxyRequests(revRequests)
+				delete(revisionMap, revDone)
+				go a.proxyRequests(revRequests)
 			} else {
 				glog.Error("The revision %s is unexpected in activator", revDone)
 			}
@@ -258,24 +261,28 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 	switch revision.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
 		glog.Info("The revision is active.")
-		glog.Info("length1: ", len(a.chans.RevisionRequestCh))
-		a.chans.RevisionRequestCh <- RevisionRequest{
+		revRequest := RevisionRequest{
 			name:      revision.GetName(),
 			namespace: revision.GetNamespace(),
-			r:         *r,
+			r:         r,
 			w:         w,
 			active:    true,
+			doneCh:    make(chan bool),
 		}
-		glog.Info("length2: ", len(a.chans.RevisionRequestCh))
+		a.chans.RevisionRequestCh <- revRequest
+		<-revRequest.doneCh
 	case v1alpha1.RevisionServingStateReserve:
 		glog.Info("The revision is inactive.")
-		a.chans.RevisionRequestCh <- RevisionRequest{
+		revRequest := RevisionRequest{
 			name:      revision.GetName(),
 			namespace: revision.GetNamespace(),
-			r:         *r,
+			r:         r,
 			w:         w,
 			active:    false,
+			doneCh:    make(chan bool),
 		}
+		a.chans.RevisionRequestCh <- revRequest
+		<-revRequest.doneCh
 	case v1alpha1.RevisionServingStateRetired:
 		glog.Info("revision is retired. do nothing.")
 		http.Error(w, "Retired revision.", http.StatusServiceUnavailable)
