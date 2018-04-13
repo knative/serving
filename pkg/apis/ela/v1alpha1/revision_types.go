@@ -76,12 +76,12 @@ type RevisionSpec struct {
 
 	// ServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
-	// Users may not specify this when creating a revision.  It is expected
+	// Users may not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
 	ServingState RevisionServingStateType `json:"servingState"`
 
 	// ServiceAccountName holds the name of the Kuberenetes service account
-	// as which the underlying K8s resources should be run.  If unspecified
+	// as which the underlying K8s resources should be run. If unspecified
 	// this will default to the "default" service account for the namespace
 	// in which the Revision exists.
 	// This may be used to provide access to private container images by
@@ -90,10 +90,7 @@ type RevisionSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// BuildName optionally holds the name of the Build responsible for
-	// producing the container image this Revision is responsible for
-	// executing.  Parts of the Revision may be instantiated in parallel to
-	// the Build's execution, but the compute resource will not be created
-	// and the Revision may not become ready before the Build completes.
+	// producing the container image for tis Revision.
 	BuildName string `json:"buildName,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
@@ -104,7 +101,7 @@ type RevisionSpec struct {
 	Container corev1.Container `json:"container,omitempty"`
 }
 
-// RevisionConditionType is used to communicate the status of aspects of the reconciliation process.
+// RevisionConditionType is used to communicate the status of the reconciliation process.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RevisionConditionType string
 
@@ -140,7 +137,7 @@ type RevisionCondition struct {
 type RevisionStatus struct {
 
 	// ServiceName holds the name of a core Kubernetes Service object that
-	// load balances over the pods backing this Revision.  When the Revision
+	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
 	// targetting the revision.
 	ServiceName string `json:"serviceName,omitempty"`

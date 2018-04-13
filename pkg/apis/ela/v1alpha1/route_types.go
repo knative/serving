@@ -91,7 +91,7 @@ type RouteCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
-// RouteConditionType is used to communicate the status of aspects of the reconciliation process.
+// RouteConditionType is used to communicate the status of the reconciliation process.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RouteConditionType string
 

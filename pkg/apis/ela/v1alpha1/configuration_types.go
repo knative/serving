@@ -29,7 +29,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Configuration represents the "floating head" of a linear history of Revisions,
-// and optionally how the containers those revisions reference are built.  Users
+// and optionally how the containers those revisions reference are built. Users
 // will generally create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
@@ -53,18 +53,19 @@ type ConfigurationSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// Build holds the specification for the build to be performed to produce
-	// the container image referenced by the Revision's Container.
+	// Build optionally holds the specification for the build to be
+	// performed to produce the container image referenced by the
+	// Revision's Container.
 	Build *build.BuildSpec `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to
-	// stamp out.  If a Build specification is provided, then the
+	// stamp out. If a Build specification is provided, then the
 	// RevisionTemplate's BuildName field will be populated with the name of
-	// the Build object created to produce the container the Revision expects.
+	// the Build object created to produce the container for the Revision.
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
-// ConfigurationConditionType is used to communicate the status of aspects of the reconciliation process.
+// ConfigurationConditionType is used to communicate the status of the reconciliation process.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type ConfigurationConditionType string
 
@@ -103,7 +104,7 @@ type ConfigurationStatus struct {
 	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
 
 	// LatestCreatedRevisionName is the last revision that was created from this
-	// Configuration.  It is ready iff it matches LatestReadyRevisionName.
+	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
