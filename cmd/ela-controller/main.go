@@ -81,18 +81,14 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error loading controller config: %v", err)
 	}
-	// Add new controllers here.
-	ctors := []controller.Constructor{
-		configuration.NewController,
-		revision.NewController,
-		route.NewController,
-		service.NewController,
-	}
 
 	// Build all of our controllers, with the clients constructed above.
-	controllers := make([]controller.Interface, 0, len(ctors))
-	for _, ctor := range ctors {
-		controllers = append(controllers, ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig))
+	// Add new controllers to this array.
+	controllers := []controller.Interface{
+		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
 
 	go kubeInformerFactory.Start(stopCh)
@@ -103,8 +99,8 @@ func main() {
 		go func(ctrlr controller.Interface) {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
-			if err := ctrlr.Run(threadsPerController, stopCh); err != nil {
-				glog.Fatalf("Error running controller: %v", err)
+			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
+				glog.Fatalf("Error running controller: %v", runErr)
 			}
 		}(ctrlr)
 	}
