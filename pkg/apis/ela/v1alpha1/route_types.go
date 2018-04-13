@@ -28,7 +28,7 @@ import (
 
 // Route is responsible for configuring ingress over a collection of Revisions,
 // possibly by referencing the Configuration from which they are stamped out
-// and smoothly rolling out it's "latest ready" Revision.
+// and smoothly rolling out its "latest ready" Revision.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#route
 type Route struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -43,8 +43,8 @@ type Route struct {
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
-	// Name is used to expose a dedicated hostname for referencing this target exclusively.
-	// It has the form: {name}.${route.status.domain}
+	// Name is optionally used to expose a dedicated hostname for referencing this
+	// target exclusively. It has the form: {name}.${route.status.domain}
 	// +optional
 	Name string `json:"name,omitempty"`
 
@@ -53,7 +53,7 @@ type TrafficTarget struct {
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
-	// ConfigurationName of a configuration whose latest revision we will send this portion of traffic.
+	// ConfigurationName of a configuration to whose latest revision we will send this portion of traffic.
 	// When the "status.latestReadyRevisionName" of the referenced configuration changes we will automatically
 	// migrate traffic from the prior "latest ready" revision to the new one.
 	// This field is never set in Route's status, only its spec.
@@ -61,12 +61,12 @@ type TrafficTarget struct {
 	// +optional
 	ConfigurationName string `json:"configurationName,omitempty"`
 
-	// Specifies percent of the traffic to this Revision or Configuration
+	// Percent specifies percent of the traffic to this Revision or Configuration
 	// This defaults to zero if unspecified.
 	Percent int `json:"percent"`
 }
 
-// RouteSpec defines the desired state of Route
+// RouteSpec holds the desired state of the Route (from the client).
 type RouteSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
@@ -104,18 +104,20 @@ const (
 	RouteConditionFailed RouteConditionType = "Failed"
 )
 
-// RouteStatus defines the observed state of Route
+// RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
-	// Domain holds the top-level domain that will load balance over the provided traffic targets.
+	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	Domain string `json:"domain,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
-	// This will only reference RevisionName, never ConfigurationName.
+	// These entries will always contain RevisionName references.
+	// When ConfigurationName appears in the spec, this will hold the
+	// LatestReadyRevisionName that we last observed.
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
-	// reconciliation processes to bring the "spec" inline with the observed
+	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 

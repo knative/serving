@@ -66,7 +66,7 @@ const (
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
-// RevisionSpec defines the desired state of Revision
+// RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
@@ -80,7 +80,7 @@ type RevisionSpec struct {
 	// that the system will manipulate this based on routability and load.
 	ServingState RevisionServingStateType `json:"servingState"`
 
-	// ServiceAccountName holds the name of the Kuberenetes service account
+	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified
 	// this will default to the "default" service account for the namespace
 	// in which the Revision exists.
@@ -133,17 +133,17 @@ type RevisionCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
-// RevisionStatus defines the observed state of Revision
+// RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
 
-	// ServiceName holds the name of a core Kubernetes Service object that
+	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
-	// targetting the revision.
+	// targeting the revision.
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
-	// reconciliation processes to bring the "spec" inline with the observed
+	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	Conditions []RevisionCondition `json:"conditions,omitempty"`
 

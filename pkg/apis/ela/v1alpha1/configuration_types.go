@@ -28,9 +28,9 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Configuration represents the "floating head" of a linear history of Revisions,
-// and optionally how the containers those revisions reference are built. Users
-// will generally create new Revisions by updating the Configuration's spec.
+// Configuration represents the "floating HEAD" of a linear history of Revisions,
+// and optionally how the containers those revisions reference are built.
+// Users create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#configuration
@@ -45,7 +45,7 @@ type Configuration struct {
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
-// ConfigurationSpec defines the desired state of Configuration
+// ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
@@ -59,7 +59,7 @@ type ConfigurationSpec struct {
 	Build *build.BuildSpec `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to
-	// stamp out. If a Build specification is provided, then the
+	// be stamped out. If a Build specification is provided, then the
 	// RevisionTemplate's BuildName field will be populated with the name of
 	// the Build object created to produce the container for the Revision.
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
@@ -92,10 +92,10 @@ type ConfigurationCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
-// ConfigurationStatus defines the observed state of Configuration
+// ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
 	// Conditions communicates information about ongoing/complete
-	// reconciliation processes to bring the "spec" inline with the observed
+	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
