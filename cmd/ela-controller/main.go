@@ -99,8 +99,8 @@ func main() {
 		go func(ctrlr controller.Interface) {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
-			if err := ctrlr.Run(threadsPerController, stopCh); err != nil {
-				glog.Fatalf("Error running controller: %v", err)
+			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
+				glog.Fatalf("Error running controller: %v", runErr)
 			}
 		}(ctrlr)
 	}
