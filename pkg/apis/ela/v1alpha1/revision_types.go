@@ -105,6 +105,9 @@ type RevisionCondition struct {
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
+	// Last time the condition transitioned from one status to another.
+	LastTransitionTime metav1.Time
+
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
 

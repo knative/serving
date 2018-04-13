@@ -343,9 +343,10 @@ func (c *Controller) syncHandler(key string) error {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
 				rev.Status.SetCondition(
 					&v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionBuildComplete,
-						Status: corev1.ConditionFalse,
-						Reason: "Building",
+						Type:               v1alpha1.RevisionConditionBuildComplete,
+						Status:             corev1.ConditionFalse,
+						Reason:             "Building",
+						LastTransitionTime: metav1.NewTime(time.Now()),
 					})
 				// Let this trigger a reconciliation loop.
 				if _, err := c.updateStatus(rev); err != nil {
@@ -400,9 +401,10 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q ready", rev.Name)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
-			Reason: "ServiceReady",
+			Type:               v1alpha1.RevisionConditionReady,
+			Status:             corev1.ConditionTrue,
+			Reason:             "ServiceReady",
+			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
 	_, err := c.updateStatus(rev)
 	return err
@@ -413,10 +415,11 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 	rev.Status.RemoveCondition(v1alpha1.RevisionConditionReady)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionFailed,
-			Status:  corev1.ConditionTrue,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
+			Type:               v1alpha1.RevisionConditionFailed,
+			Status:             corev1.ConditionTrue,
+			Reason:             "ServiceTimeout",
+			Message:            "Timed out waiting for a service endpoint to become ready",
+			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
 	_, err := c.updateStatus(rev)
 	return err
@@ -428,18 +431,20 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
-				Type:   v1alpha1.RevisionConditionBuildComplete,
-				Status: corev1.ConditionTrue,
+				Type:               v1alpha1.RevisionConditionBuildComplete,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(time.Now()),
 			})
 		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionBuildFailed,
-				Status:  corev1.ConditionTrue,
-				Reason:  bc.Reason,
-				Message: bc.Message,
+				Type:               v1alpha1.RevisionConditionBuildFailed,
+				Status:             corev1.ConditionTrue,
+				Reason:             bc.Reason,
+				Message:            bc.Message,
+				LastTransitionTime: metav1.NewTime(time.Now()),
 			})
 		c.recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
 	}
@@ -606,9 +611,10 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	// And the deployment is no longer ready, so update that
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
+			Type:               v1alpha1.RevisionConditionReady,
+			Status:             corev1.ConditionFalse,
+			Reason:             "Inactive",
+			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
 	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
@@ -657,9 +663,10 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	// that will watch for service to become ready for serving traffic.
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Deploying",
+			Type:               v1alpha1.RevisionConditionReady,
+			Status:             corev1.ConditionFalse,
+			Reason:             "Deploying",
+			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
 	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
