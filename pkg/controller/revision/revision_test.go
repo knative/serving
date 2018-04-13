@@ -48,6 +48,8 @@ import (
 )
 
 const testNamespace string = "test"
+const testQueueImage string = "queueImage"
+const testAutoscalerImage string = "autoscalerImage"
 
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
@@ -183,6 +185,8 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		elaInformer,
 		&rest.Config{},
 		ctrl.Config{},
+		testQueueImage,
+		testAutoscalerImage,
 	).(*Controller)
 
 	return
