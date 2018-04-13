@@ -441,6 +441,7 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
 	} else {
+		// Use nil to denote the absence of a new object (delete)
 		newObj = nil
 	}
 
@@ -451,6 +452,7 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
 	} else {
+		// Use nil to denote the absence of an old object (create)
 		oldObj = nil
 	}
 

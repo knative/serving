@@ -351,7 +351,7 @@ func TestInvalidRevisionUpdate(t *testing.T) {
 	}
 	req.OldObject.Raw = marshaled
 
-	// Change fields we are allowed to change:
+	// Change fields we are NOT allowed to change:
 	revision.Spec.Container.Image = "yikes"
 
 	marshaled, err = json.Marshal(revision)

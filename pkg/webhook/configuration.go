@@ -86,14 +86,14 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 	if template.Spec.ServingState != "" {
 		return errDisallowedFields("revisionTemplate.spec.servingState")
 	}
-	if err := validateContainer(&template.Spec.Container); err != nil {
+	if err := validateContainer(template.Spec.Container); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validateContainer(container *corev1.Container) error {
-	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
+func validateContainer(container corev1.Container) error {
+	if reflect.DeepEqual(container, corev1.Container{}) {
 		return errEmptyContainerInRevisionTemplate
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them
