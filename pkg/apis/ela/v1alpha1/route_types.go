@@ -26,31 +26,43 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Route
+// Route is responsible for configuring ingress over a collection of Revisions,
+// possibly by referencing the Configuration from which they are stamped out
+// and smoothly rolling out it's "latest ready" Revision.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#route
 type Route struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RouteSpec   `json:"spec,omitempty"`
+	// Spec holds the desired state of the Route (from the client).
+	Spec RouteSpec `json:"spec,omitempty"`
+
+	// Status communicates the observed state of the Route (from the controller).
 	Status RouteStatus `json:"status,omitempty"`
 }
 
+// TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
-	// Optional name to expose this as an external target
+	// Name is used to expose a dedicated hostname for referencing this target exclusively.
+	// It has the form: {name}.${route.status.domain}
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// One of these is valid...
-	// Revision is the name to a specific revision
+	// RevisionName of a specific revision to which to send this portion of traffic.
+	// This is mutually exclusive with ConfigurationName.
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
-	// Configuration is the name to a configuration, rolls out
-	// automatically
+	// ConfigurationName of a configuration whose latest revision we will send this portion of traffic.
+	// When the "status.latestReadyRevisionName" of the referenced configuration changes we will automatically
+	// migrate traffic from the prior "latest ready" revision to the new one.
+	// This field is never set in Route's status, only its spec.
+	// This is mutually exclusive with RevisionName.
 	// +optional
 	ConfigurationName string `json:"configurationName,omitempty"`
 
 	// Specifies percent of the traffic to this Revision or Configuration
+	// This defaults to zero if unspecified.
 	Percent int `json:"percent"`
 }
 
@@ -62,7 +74,7 @@ type RouteSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// Specifies the traffic split between Revisions and Configurations
+	// Traffic specifies how to distribute traffic over a collection of Elafros Revisions and Configurations.
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
@@ -79,7 +91,8 @@ type RouteCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
-// RouteConditionType represents an Route condition value
+// RouteConditionType is used to communicate the status of aspects of the reconciliation process.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RouteConditionType string
 
 const (
@@ -93,11 +106,17 @@ const (
 
 // RouteStatus defines the observed state of Route
 type RouteStatus struct {
+	// Domain holds the top-level domain that will load balance over the provided traffic targets.
+	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
 	Domain string `json:"domain,omitempty"`
 
-	// Specifies the traffic split between Revisions and Configurations
+	// Traffic holds the configured traffic distribution.
+	// This will only reference RevisionName, never ConfigurationName.
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
+	// Conditions communicates information about ongoing/complete
+	// reconciliation processes to bring the "spec" inline with the observed
+	// state of the world.
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that

@@ -27,12 +27,16 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Revision
+// Revision is an immutable snapshot of code and configuration.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RevisionSpec   `json:"spec,omitempty"`
+	// Spec holds the desired state of the Revision (from the client).
+	Spec RevisionSpec `json:"spec,omitempty"`
+
+	// Status communicates the observed state of the Revision (from the controller).
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
@@ -44,6 +48,8 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
+// RevisionServingStateType is an enumeration of the levels of serving readiness into which the Revision may be put.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RevisionServingStateType string
 
 const (
@@ -56,6 +62,7 @@ const (
 	RevisionServingStateReserve RevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
+	// A Revision may be brought out of retirement, but it may take longer.
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
@@ -67,21 +74,38 @@ type RevisionSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// Desired serving state of the Revision. Used to determine what state the
-	// Kubernetes resources should be in.
+	// ServingState holds a value describing the desired state the Kubernetes
+	// resources should be in for this Revision.
+	// Users may not specify this when creating a revision.  It is expected
+	// that the system will manipulate this based on routability and load.
 	ServingState RevisionServingStateType `json:"servingState"`
 
-	// Name of the service account the code should run as.
+	// ServiceAccountName holds the name of the Kuberenetes service account
+	// as which the underlying K8s resources should be run.  If unspecified
+	// this will default to the "default" service account for the namespace
+	// in which the Revision exists.
+	// This may be used to provide access to private container images by
+	// following: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
 	// TODO(ZhiminXiang): verify the corresponding service account exists.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// The name of the build that is producing the container image that we are deploying.
+	// BuildName optionally holds the name of the Build responsible for
+	// producing the container image this Revision is responsible for
+	// executing.  Parts of the Revision may be instantiated in parallel to
+	// the Build's execution, but the compute resource will not be created
+	// and the Revision may not become ready before the Build completes.
 	BuildName string `json:"buildName,omitempty"`
 
+	// Container defines the unit of execution for this Revision.
+	// In the context of a Revision, we disallow a number of the fields of
+	// this Container, including: name, resources, ports, and volumeMounts.
+	// TODO(mattmoor): Link to the runtime contract tracked by:
+	// https://github.com/elafros/elafros/issues/627
 	Container corev1.Container `json:"container,omitempty"`
 }
 
-// RevisionConditionType represents an Revision condition value
+// RevisionConditionType is used to communicate the status of aspects of the reconciliation process.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RevisionConditionType string
 
 const (
@@ -114,11 +138,18 @@ type RevisionCondition struct {
 
 // RevisionStatus defines the observed state of Revision
 type RevisionStatus struct {
-	// This is the k8s name of the service that represents this revision.
-	// We expose this to ensure that we can easily route to it from
-	// Route.
-	ServiceName string              `json:"serviceName,omitempty"`
-	Conditions  []RevisionCondition `json:"conditions,omitempty"`
+
+	// ServiceName holds the name of a core Kubernetes Service object that
+	// load balances over the pods backing this Revision.  When the Revision
+	// is Active, this service would be an appropriate ingress target for
+	// targetting the revision.
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// Conditions communicates information about ongoing/complete
+	// reconciliation processes to bring the "spec" inline with the observed
+	// state of the world.
+	Conditions []RevisionCondition `json:"conditions,omitempty"`
+
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
