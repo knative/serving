@@ -18,7 +18,6 @@ package revision
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -86,17 +85,12 @@ var (
 	elaPodReplicaCount   = int32(1)
 	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	queueSidecarImage    string
 	processItemCount     = stats.Int64(
 		"controller_revision_queue_process_count",
 		"Counter to keep track of items in the revision work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
 )
-
-func init() {
-	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
-}
 
 // Helper to make sure we log error messages returned by Reconcile().
 func printErr(err error) error {
@@ -133,6 +127,12 @@ type Controller struct {
 
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
+
+	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
+	queueSidecarImage string
+
+	// autoscalerImage is the name of the image used for the autoscaler pod.
+	autoscalerImage string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -147,7 +147,9 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config,
+	queueSidecarImage string,
+	autoscalerImage string) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
@@ -162,14 +164,16 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:   kubeclientset,
-		elaclientset:    elaclientset,
-		lister:          informer.Lister(),
-		synced:          informer.Informer().HasSynced,
-		endpointsSynced: endpointsInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:        recorder,
-		buildtracker:    &buildTracker{builds: map[key]set{}},
+		kubeclientset:     kubeclientset,
+		elaclientset:      elaclientset,
+		lister:            informer.Lister(),
+		synced:            informer.Informer().HasSynced,
+		endpointsSynced:   endpointsInformer.Informer().HasSynced,
+		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:          recorder,
+		buildtracker:      &buildTracker{builds: map[key]set{}},
+		queueSidecarImage: queueSidecarImage,
+		autoscalerImage:   autoscalerImage,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -735,7 +739,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev)
+	podSpec := MakeElaPodSpec(rev, c.queueSidecarImage)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
@@ -862,7 +866,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	deployment := MakeElaAutoscalerDeployment(rev)
+	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)
