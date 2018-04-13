@@ -38,7 +38,8 @@ import (
 	"github.com/elafros/elafros/pkg/controller/route"
 	"github.com/elafros/elafros/pkg/controller/service"
 	"github.com/elafros/elafros/pkg/signals"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 )
 
 const (
@@ -108,9 +109,18 @@ func main() {
 		}(ctrlr)
 	}
 
+	// Setup the metrics to flow to Prometheus.
+	glog.Info("Initializing OpenCensus Prometheus exporter.")
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "elafros"})
+	if err != nil {
+		glog.Fatalf("failed to create the Prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(promExporter)
+	view.SetReportingPeriod(10 * time.Second)
+
 	// Start the endpoint that Prometheus scraper talks to
 	srv := &http.Server{Addr: metricsScrapeAddr}
-	http.Handle(metricsScrapePath, promhttp.Handler())
+	http.Handle(metricsScrapePath, promExporter)
 	go func() {
 		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
 		if err := srv.ListenAndServe(); err != nil {

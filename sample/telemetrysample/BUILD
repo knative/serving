@@ -7,10 +7,15 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//vendor/github.com/openzipkin/zipkin-go:go_default_library",
-        "//vendor/github.com/openzipkin/zipkin-go/middleware/http:go_default_library",
         "//vendor/github.com/openzipkin/zipkin-go/reporter/http:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
+        "//vendor/go.opencensus.io/exporter/prometheus:go_default_library",
+        "//vendor/go.opencensus.io/exporter/zipkin:go_default_library",
+        "//vendor/go.opencensus.io/plugin/ochttp:go_default_library",
+        "//vendor/go.opencensus.io/plugin/ochttp/propagation/b3:go_default_library",
+        "//vendor/go.opencensus.io/stats:go_default_library",
+        "//vendor/go.opencensus.io/stats/view:go_default_library",
+        "//vendor/go.opencensus.io/tag:go_default_library",
+        "//vendor/go.opencensus.io/trace:go_default_library",
     ],
 )
 
