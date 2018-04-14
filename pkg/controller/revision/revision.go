@@ -499,6 +499,14 @@ func getIsServiceReady(e *corev1.Endpoints) bool {
 	return false
 }
 
+func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
+	condCount := len(r.Status.Conditions)
+	if condCount == 0 {
+		return r.CreationTimestamp.Time
+	}
+	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
+}
+
 func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
@@ -538,7 +546,6 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	// Lookup and see if this endpoints corresponds to a service that
 	// we own and hence the Revision that created this service.
 	revName := lookupServiceOwner(endpoint)
-	glog.Infof("endpoint: %+v; eName: %s; namespace: %s; revName: %s", endpoint, eName, namespace, revName)
 	if revName == "" {
 		return
 	}
@@ -574,8 +581,9 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	}
 
 	glog.Infof("In addEndpointsEvent: revision is %+v", rev)
-	glog.Infof("now: %+v; creation time: %+v", time.Now(), rev.CreationTimestamp.Time)
-	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
+	glog.Infof("now: %+v; last time: %+v", time.Now(), getRevisionLastTransitionTime(rev))
+
+	revisionAge := time.Now().Sub(getRevisionLastTransitionTime(rev))
 	if revisionAge < serviceTimeoutDuration {
 		return
 	}

@@ -90,6 +90,22 @@ func getRevisionNameFromKey(key string) (namespace string, name string, err erro
 	return arr[0], arr[1], nil
 }
 
+func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
+	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
+	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	if len(svc.Spec.Ports) != 1 {
+		return "", fmt.Errorf("need just one port. Found %v ports", len(svc.Spec.Ports))
+	}
+	serviceURL := "http://" + svc.Spec.ClusterIP + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port))
+	return serviceURL, nil
+}
+
 func (a *Activator) proxyRequest(revRequest RevisionRequest) {
 	revision, err := a.getRevision(revRequest.namespace, revRequest.name)
 	serviceURL, err := a.getRevisionTargetURL(revision)
@@ -112,21 +128,11 @@ func (a *Activator) proxyRequest(revRequest RevisionRequest) {
 	glog.Info("End proxy request")
 }
 
-func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (string, error) {
-	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
-	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return "", nil
-		}
-		return "", err
+func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest) {
+	glog.Info("Sending %d requests to revision %s: ", len(requests), revKey)
+	for i := range requests {
+		a.proxyRequest(requests[i])
 	}
-	if len(svc.Spec.Ports) != 1 {
-		return "", fmt.Errorf("need just one port. Found %v ports", len(svc.Spec.Ports))
-	}
-	serviceURL := "http://" + svc.Spec.ClusterIP + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port))
-	glog.Info("serviceURL: ", serviceURL)
-	return serviceURL, nil
 }
 
 func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
@@ -178,7 +184,7 @@ func (a *Activator) watchForReady(revKey string) {
 	}
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace())
 	wi, err := revisionClient.Watch(metav1.ListOptions{
-		//FieldSelector: fmt.Sprintf("namespace=%s", revision.GetNamespace()),
+		FieldSelector: fmt.Sprintf("metadata.name=%s", revision.GetName()),
 	})
 	if err != nil {
 		glog.Errorf("Error when watching the revision. %v", err)
@@ -195,18 +201,12 @@ func (a *Activator) watchForReady(revKey string) {
 			if !rev.Status.IsReady() {
 				continue
 			}
+			// TODO: Fix RevisionStatus.IsReady()
+			time.Sleep(7 * time.Second)
 			a.chans.ActivationDoneCh <- revKey
 			glog.Infof("Revision %s is ready.", revKey)
 			return
 		}
-	}
-}
-
-func (a *Activator) proxyRequests(requests []RevisionRequest) {
-	glog.Info("In proxyRequests, len(requests): ", len(requests))
-	time.Sleep(2 * time.Second)
-	for _, revToProxy := range requests {
-		a.proxyRequest(revToProxy)
 	}
 }
 
@@ -239,7 +239,7 @@ func (a *Activator) process() {
 		case revDone := <-a.chans.ActivationDoneCh:
 			if revRequests, ok := revisionMap[revDone]; ok {
 				delete(revisionMap, revDone)
-				go a.proxyRequests(revRequests)
+				go a.proxyRequests(revDone, revRequests)
 			} else {
 				glog.Error("The revision %s is unexpected in activator", revDone)
 			}

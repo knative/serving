@@ -74,7 +74,7 @@ func GetElaK8SActivatorNamespace() string {
 }
 
 func GetRevisionHeaderName() string {
-	return "ElafrosRevison"
+	return "Elafros-Revision"
 }
 
 func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {
