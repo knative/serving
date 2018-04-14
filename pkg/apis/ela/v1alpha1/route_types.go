@@ -26,9 +26,11 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Route is responsible for configuring ingress over a collection of Revisions,
-// possibly by referencing the Configuration from which they are stamped out
-// and smoothly rolling out its "latest ready" Revision.
+// Route is responsible for configuring ingress over a collection of Revisions.
+// Some of the Revisions a Route distributes traffic over may be specified by
+// referencing the Configuration responsible for creating them; in these cases
+// the Route is additionally responsible for monitoring the Configuration for
+// "latest ready" revision changes, and smoothly rolling out latest revisions.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#route
 type Route struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -53,15 +55,16 @@ type TrafficTarget struct {
 	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
-	// ConfigurationName of a configuration to whose latest revision we will send this portion of traffic.
-	// When the "status.latestReadyRevisionName" of the referenced configuration changes we will automatically
-	// migrate traffic from the prior "latest ready" revision to the new one.
+	// ConfigurationName of a configuration to whose latest revision we will send
+	// this portion of traffic. When the "status.latestReadyRevisionName" of the
+	// referenced configuration changes, we will automatically migrate traffic
+	// from the prior "latest ready" revision to the new one.
 	// This field is never set in Route's status, only its spec.
 	// This is mutually exclusive with RevisionName.
 	// +optional
 	ConfigurationName string `json:"configurationName,omitempty"`
 
-	// Percent specifies percent of the traffic to this Revision or Configuration
+	// Percent specifies percent of the traffic to this Revision or Configuration.
 	// This defaults to zero if unspecified.
 	Percent int `json:"percent"`
 }

@@ -53,9 +53,8 @@ type ConfigurationSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// Build optionally holds the specification for the build to be
-	// performed to produce the container image referenced by the
-	// Revision's Container.
+	// Build optionally holds the specification for the build to
+	// perform to produce the Revision's container image.
 	Build *build.BuildSpec `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to

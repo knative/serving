@@ -48,7 +48,7 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-// RevisionServingStateType is an enumeration of the levels of serving readiness into which the Revision may be put.
+// RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
 // See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RevisionServingStateType string
 
@@ -62,7 +62,8 @@ const (
 	RevisionServingStateReserve RevisionServingStateType = "Reserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
-	// A Revision may be brought out of retirement, but it may take longer.
+	// A Revision may be brought out of retirement, but it may take longer than
+	// it would from a "Reserve" state.
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
@@ -76,7 +77,7 @@ type RevisionSpec struct {
 
 	// ServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
-	// Users may not specify this when creating a revision. It is expected
+	// Users must not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
 	ServingState RevisionServingStateType `json:"servingState"`
 
@@ -90,7 +91,7 @@ type RevisionSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// BuildName optionally holds the name of the Build responsible for
-	// producing the container image for tis Revision.
+	// producing the container image for its Revision.
 	BuildName string `json:"buildName,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
@@ -135,7 +136,6 @@ type RevisionCondition struct {
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {
-
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
