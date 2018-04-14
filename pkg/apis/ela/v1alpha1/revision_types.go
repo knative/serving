@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -128,6 +129,9 @@ type RevisionCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+
+	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
 
 	// +optional
@@ -214,6 +218,7 @@ func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
 			conditions = append(conditions, cond)
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
