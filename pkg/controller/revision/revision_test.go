@@ -214,6 +214,13 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return
 }
 
+func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1.RevisionCondition) string {
+	for i := range got {
+		got[i].LastTransitionTime = metav1.NewTime(time.Time{})
+	}
+	return cmp.Diff(want, got)
+}
+
 func TestCreateRevCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
@@ -399,7 +406,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			Reason: "Deploying",
 		},
 	}
-	if diff := cmp.Diff(want, rev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -447,7 +454,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 			Reason: "Building",
 		},
 	}
-	if diff := cmp.Diff(want, waitRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, waitRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 }
@@ -521,7 +528,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		},
 	}
-	if diff := cmp.Diff(want, failedRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -602,7 +609,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		},
 	}
-	if diff := cmp.Diff(want, completedRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, completedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -673,7 +680,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		},
 	}
-	if diff := cmp.Diff(want, failedRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -708,7 +715,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Reason: "Deploying",
 		},
 	}
-	if diff := cmp.Diff(deployingConditions, deployingRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(deployingConditions, deployingRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -728,7 +735,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Reason: "ServiceReady",
 		},
 	}
-	if diff := cmp.Diff(readyConditions, readyRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(readyConditions, readyRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
