@@ -28,27 +28,44 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Configuration
+// Configuration represents the "floating HEAD" of a linear history of Revisions,
+// and optionally how the containers those revisions reference are built.
+// Users create new Revisions by updating the Configuration's spec.
+// The "latest created" revision's name is available under status, as is the
+// "latest ready" revision's name.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#configuration
 type Configuration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ConfigurationSpec   `json:"spec,omitempty"`
+	// Spec holds the desired state of the Configuration (from the client).
+	Spec ConfigurationSpec `json:"spec,omitempty"`
+
+	// Status communicates the observed state of the Configuration (from the controller).
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
-// ConfigurationSpec defines the desired state of Configuration
+// ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
-	Generation       int64                `json:"generation,omitempty"`
-	Build            *build.BuildSpec     `json:"build,omitempty"`
+	Generation int64 `json:"generation,omitempty"`
+
+	// Build optionally holds the specification for the build to
+	// perform to produce the Revision's container image.
+	Build *build.BuildSpec `json:"build,omitempty"`
+
+	// RevisionTemplate holds the latest specification for the Revision to
+	// be stamped out. If a Build specification is provided, then the
+	// RevisionTemplate's BuildName field will be populated with the name of
+	// the Build object created to produce the container for the Revision.
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
-// ConfigurationConditionType represents a Configuration condition value
+// ConfigurationConditionType is used to communicate the status of the reconciliation process.
+// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type ConfigurationConditionType string
 
 const (
@@ -74,15 +91,19 @@ type ConfigurationCondition struct {
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
 }
 
-// ConfigurationStatus defines the observed state of Configuration
+// ConfigurationStatus communicates the observed state of the Configuration (from the controller).
 type ConfigurationStatus struct {
+	// Conditions communicates information about ongoing/complete
+	// reconciliation processes that bring the "spec" inline with the observed
+	// state of the world.
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
-	// Latest revision that is ready.
+	// LatestReadyRevisionName holds the name of the latest Revision stamped out
+	// from this Configuration that has had its "Ready" condition become "True".
 	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
 
-	// LatestCreatedRevisionName is the last revision that was created; it might not be
-	// ready yet. When it's ready, it will get moved to LatestReady.
+	// LatestCreatedRevisionName is the last revision that was created from this
+	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
