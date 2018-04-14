@@ -407,7 +407,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		},
 	}
 	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		t.Errorf("Unexpected revision conditions dif (-want +got): %v", diff)
 	}
 
 }
