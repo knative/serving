@@ -20,14 +20,26 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/golang/glog"
+	"github.com/google/go-cmp/cmp"
 	"github.com/mattbaird/jsonpatch"
 )
 
 // ValidateRevision is Revision resource specific validation and mutation handler
 func ValidateRevision(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	_, _, err := unmarshal(old, new, "ValidateRevision")
+	o, n, err := unmarshal(old, new, "ValidateRevision")
 	if err != nil {
 		return err
+	}
+
+	// When we have an "old" object, check for changes.
+	if o != nil {
+		// The autoscaler is allowed to change these fields, so clear them.
+		o.Spec.ServingState = ""
+		n.Spec.ServingState = ""
+
+		if diff := cmp.Diff(o.Spec, n.Spec); diff != "" {
+			return fmt.Errorf("Revision spec should not change (-old +new): %s", diff)
+		}
 	}
 
 	return nil

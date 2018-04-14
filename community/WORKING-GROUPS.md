@@ -17,27 +17,46 @@ docs and won't need to request access for each of them individually.
 
 The current working groups are:
 
-*   [Build & deploy](#build--deploy)
+*   [API Core](#api-core)
+*   [Build](#build)
 *   [Events](#events)
 *   [Scaling](#scaling)
 *   [Serving](#serving)
 <!-- TODO add charters for each group -->
 
-## Build & deploy
+## API Core
 
-Build, Build templates, Secrets, API core, Image caching
+API [resources](../pkg/apis/ela), [validation](../pkg/webhook), and [semantics](../pkg/controller).
 
 Artifact                   | Link
 -------------------------- | ----
 Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
-Meeting Notes              | [Notes](TODO)
+Meeting Notes              | [Notes](https://docs.google.com/document/d/1NC4klOdNaU-N-PsKLyXBqDKgNSHtxCDep29Ta2b5FK0/edit)
+Document Folder            | [Folder](TODO)
+Slack Channel              | [#api](https://elafros.slack.com)
+
+&nbsp;                                                   | Leads      | Company | Profile
+-------------------------------------------------------- | ---------- | ------- | -------
+<img width="30px" src="https://github.com/mattmoor.png"> | Matt Moore | Google  | [mattmoor](https://github.com/mattmoor)
+
+## Build
+
+[Build](https://github.com/elafros/build), Builders, and Build templates
+
+Artifact                   | Link
+-------------------------- | ----
+Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Community Meeting VC       | [TODO](TODO)
+Community Meeting Calendar | [Calendar Invitation](TODO)
+Meeting Notes              | [Notes](https://docs.google.com/document/d/1e7gMVFlJfkFdTcaWj2qETeRD9kSBG2Vh8mASPmQMYC0/edit)
 Document Folder            | [Folder](TODO)
 Slack Channel              | [#build-crd](https://elafros.slack.com)
 
 &nbsp;                                                   | Leads      | Company | Profile
 -------------------------------------------------------- | ---------- | ------- | -------
+<img width="30px" src="https://github.com/ImJasonH.png"> | Jason Hall | Google  | [ImJasonH](https://github.com/ImJasonH)
 <img width="30px" src="https://github.com/mattmoor.png"> | Matt Moore | Google  | [mattmoor](https://github.com/mattmoor)
 
 ## Events

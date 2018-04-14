@@ -17,7 +17,6 @@ limitations under the License.
 package revision
 
 import (
-	"flag"
 	"strconv"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
@@ -36,13 +35,7 @@ import (
 // non-default namespaces continue to work with autoscaling.
 const AutoscalerNamespace = "ela-system"
 
-var autoscalerImage string
-
-func init() {
-	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
-}
-
-func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
+func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, autoscalerImage string) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},

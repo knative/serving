@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#TODO delete this file after all prow jobs points to project-coverage.sh
+
 set -o errexit
 
 if [[ $# -eq 0 ]] ; then

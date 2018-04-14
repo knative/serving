@@ -48,6 +48,8 @@ import (
 )
 
 const testNamespace string = "test"
+const testQueueImage string = "queueImage"
+const testAutoscalerImage string = "autoscalerImage"
 
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
@@ -68,7 +70,7 @@ func getTestRevision() *v1alpha1.Revision {
 			// corev1.Container has a lot of setting.  We try to pass many
 			// of them here to verify that we pass through the settings to
 			// derived objects.
-			Container: &corev1.Container{
+			Container: corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},
 				Args:       []string{"hello", "world"},
@@ -183,6 +185,8 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		elaInformer,
 		&rest.Config{},
 		ctrl.Config{},
+		testQueueImage,
+		testAutoscalerImage,
 	).(*Controller)
 
 	return
@@ -212,6 +216,13 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	}()
 
 	return
+}
+
+func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1.RevisionCondition) string {
+	for i := range got {
+		got[i].LastTransitionTime = metav1.NewTime(time.Time{})
+	}
+	return cmp.Diff(want, got)
 }
 
 func TestCreateRevCreatesStuff(t *testing.T) {
@@ -399,7 +410,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			Reason: "Deploying",
 		},
 	}
-	if diff := cmp.Diff(want, rev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -447,7 +458,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 			Reason: "Building",
 		},
 	}
-	if diff := cmp.Diff(want, waitRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, waitRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 }
@@ -521,7 +532,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		},
 	}
-	if diff := cmp.Diff(want, failedRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -602,7 +613,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		},
 	}
-	if diff := cmp.Diff(want, completedRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, completedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -673,7 +684,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		},
 	}
-	if diff := cmp.Diff(want, failedRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -708,7 +719,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Reason: "Deploying",
 		},
 	}
-	if diff := cmp.Diff(deployingConditions, deployingRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(deployingConditions, deployingRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -728,7 +739,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Reason: "ServiceReady",
 		},
 	}
-	if diff := cmp.Diff(readyConditions, readyRev.Status.Conditions); diff != "" {
+	if diff := compareRevisionConditions(readyConditions, readyRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -823,15 +834,16 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	currentRev, _ := elaClient.ElafrosV1alpha1().Revisions("test").Get(rev.Name, metav1.GetOptions{})
 
-	want := v1alpha1.RevisionCondition{
-		Type:    "Failed",
-		Status:  corev1.ConditionTrue,
-		Reason:  "ServiceTimeout",
-		Message: "Timed out waiting for a service endpoint to become ready",
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:    "Failed",
+			Status:  corev1.ConditionTrue,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		},
 	}
-
-	if len(currentRev.Status.Conditions) != 1 || want != currentRev.Status.Conditions[0] {
-		t.Errorf("expected conditions to have 1 condition equal to %v", want)
+	if diff := compareRevisionConditions(want, currentRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 }
 
