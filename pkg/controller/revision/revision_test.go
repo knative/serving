@@ -830,15 +830,16 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	currentRev, _ := elaClient.ElafrosV1alpha1().Revisions("test").Get(rev.Name, metav1.GetOptions{})
 
-	want := v1alpha1.RevisionCondition{
-		Type:    "Failed",
-		Status:  corev1.ConditionTrue,
-		Reason:  "ServiceTimeout",
-		Message: "Timed out waiting for a service endpoint to become ready",
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:    "Failed",
+			Status:  corev1.ConditionTrue,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		},
 	}
-
-	if len(currentRev.Status.Conditions) != 1 || want != currentRev.Status.Conditions[0] {
-		t.Errorf("expected conditions to have 1 condition equal to %v", want)
+	if diff := compareRevisionConditions(want, currentRev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 }
 
