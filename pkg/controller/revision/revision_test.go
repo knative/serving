@@ -290,7 +290,10 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 	expectedLabels := sumMaps(
 		rev.Labels,
-		map[string]string{ela.RevisionLabelKey: rev.Name},
+		map[string]string{
+			ela.RevisionLabelKey: rev.Name,
+			appLabelKey:          rev.Name,
+		},
 	)
 	expectedAnnotations := rev.Annotations
 	expectedPodSpecAnnotations := sumMaps(
