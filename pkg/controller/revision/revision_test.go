@@ -117,7 +117,7 @@ func getTestAuxiliaryReadyEndpoints(revName string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-auxiliary", revName),
-			Namespace: "test",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				ela.RevisionLabelKey: revName,
 			},
@@ -138,7 +138,7 @@ func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-service", revName),
-			Namespace: "test",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				ela.RevisionLabelKey: revName,
 			},
@@ -791,7 +791,7 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 		},
 	}
 
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
@@ -823,7 +823,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 		},
 	}
 
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
@@ -832,7 +832,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	controller.addEndpointsEvent(endpoints)
 
-	currentRev, _ := elaClient.ElafrosV1alpha1().Revisions("test").Get(rev.Name, metav1.GetOptions{})
+	currentRev, _ := elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 
 	want := []v1alpha1.RevisionCondition{
 		{
@@ -851,7 +851,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
-	elaClient.ElafrosV1alpha1().Revisions("test").Create(rev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
