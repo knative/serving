@@ -54,7 +54,10 @@ import (
 	"go.opencensus.io/tag"
 )
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
+var (
+	configurationControllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
+	revisionControllerKind      = v1alpha1.SchemeGroupVersion.WithKind("Revision")
+)
 
 const (
 	elaContainerName string = "ela-container"
@@ -667,6 +670,10 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	if err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
+	err = c.reconcileFluentdConfigMap(rev)
+	if err != nil {
+		log.Printf("Failed to create fluent config map: %s", err)
+	}
 
 	// Create k8s service
 	serviceName, err := c.reconcileService(rev, ns)
@@ -739,7 +746,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	}
 
 	// Create the deployment.
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage)
@@ -785,12 +792,35 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 		return serviceName, nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
 	service := MakeRevisionK8sService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating service: %q", service.Name)
 	_, err := sc.Create(service)
 	return serviceName, err
+}
+
+func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	cmc := c.kubeclientset.Core().ConfigMaps(ns)
+	_, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			log.Printf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
+			return err
+		}
+		log.Printf("ConfigMap %q doesn't exist, creating", fluentdConfigMapName)
+	} else {
+		log.Printf("Found existing ConfigMap %q", fluentdConfigMapName)
+		return nil
+	}
+
+	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
+	configMap := MakeFluentdConfigMap(rev, ns)
+	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
+	log.Printf("Creating configmap: %q", configMap.Name)
+	_, err = cmc.Create(configMap)
+	return err
 }
 
 func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
@@ -826,7 +856,7 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
 	service := MakeElaAutoscalerService(rev)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
@@ -868,7 +898,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
 	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)

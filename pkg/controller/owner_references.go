@@ -16,17 +16,17 @@ limitations under the License.
 
 package controller
 
-import "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
-// ConfigurationControllerKind is used to create a owner reference pointing to a Configuration.
-var ConfigurationControllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-
-// LookupRevisionOwner returns the configuration that created the given revision.
-func LookupRevisionOwner(revision *v1alpha1.Revision) string {
-	// See if there's a 'configuration' owner reference on this object.
-	for _, ownerReference := range revision.OwnerReferences {
-		if ownerReference.Kind == ConfigurationControllerKind.Kind {
-			return ownerReference.Name
+// LookupOwnerName returns the given ObjectMeta's owner name matching the given
+// GroupVersionKind.
+func LookupOwnerName(ownerRefs []v1.OwnerReference, kind schema.GroupVersionKind) string {
+	for _, owner := range ownerRefs {
+		if owner.Kind == kind.Kind {
+			return owner.Name
 		}
 	}
 	return ""

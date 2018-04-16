@@ -275,7 +275,7 @@ func (c *Controller) syncHandler(key string) error {
 	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
 		config.Name, config, config.Spec.RevisionTemplate)
 	spec := config.Spec.RevisionTemplate.Spec
-	controllerRef := metav1.NewControllerRef(config, controller.ConfigurationControllerKind)
+	controllerRef := metav1.NewControllerRef(config, controllerKind)
 
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
@@ -380,7 +380,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	namespace := revision.Namespace
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
-	configName := controller.LookupRevisionOwner(revision)
+	configName := controller.LookupOwnerName(revision.OwnerReferences, controllerKind)
 	if configName == "" {
 		return
 	}

@@ -34,7 +34,6 @@ const (
 	queueContainerCPU   = "25m"
 	fluentdContainerCPU = "75m"
 
-	fluentdConfigMapName       = "fluentd-varlog-config" // Must be synced with elafros/configmap.yaml.
 	fluentdConfigMapVolumeName = "configmap"
 	varLogVolumeName           = "varlog"
 )
@@ -71,9 +70,6 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 		Name:          elaPortName,
 		ContainerPort: int32(elaPort),
 	}}
-	if elaContainer.VolumeMounts == nil {
-		elaContainer.VolumeMounts = []corev1.VolumeMount{}
-	}
 	elaContainer.VolumeMounts = append(
 		elaContainer.VolumeMounts,
 		corev1.VolumeMount{
@@ -101,7 +97,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 			},
 			{
 				Name:  "ELA_CONFIGURATION",
-				Value: controller.LookupRevisionOwner(rev),
+				Value: controller.LookupOwnerName(rev.OwnerReferences, configurationControllerKind),
 			},
 			{
 				Name:  "ELA_REVISION",
