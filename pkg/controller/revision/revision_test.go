@@ -225,15 +225,19 @@ func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1
 	return cmp.Diff(want, got)
 }
 
-func TestCreateRevCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
-	rev := getTestRevision()
-
+func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
+}
+
+func TestCreateRevCreatesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	createRevision(elaClient, elaInformer, controller, rev)
 
 	// This function is used to verify pass through of container environment
 	// variables.
@@ -439,11 +443,8 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	createRevision(elaClient, elaInformer, controller, rev)
 
 	waitRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -761,9 +762,7 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 		},
 	}
 
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	createRevision(elaClient, elaInformer, controller, rev)
 
 	// Create endpoints owned by this Revision.
 	endpoints := getTestReadyEndpoints(rev.Name)
@@ -791,9 +790,7 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 		},
 	}
 
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	createRevision(elaClient, elaInformer, controller, rev)
 
 	// Create endpoints owned by this Revision.
 	endpoints := getTestReadyEndpoints(rev.Name)
@@ -823,9 +820,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 		},
 	}
 
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	createRevision(elaClient, elaInformer, controller, rev)
 
 	// Create endpoints owned by this Revision.
 	endpoints := getTestNotReadyEndpoints(rev.Name)
@@ -851,9 +846,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since addEndpointsEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	createRevision(elaClient, elaInformer, controller, rev)
 
 	// Create endpoints owned by this Revision.
 	endpoints := getTestAuxiliaryReadyEndpoints(rev.Name)
