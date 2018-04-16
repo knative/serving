@@ -226,7 +226,7 @@ func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1
 }
 
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
