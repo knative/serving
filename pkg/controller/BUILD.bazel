@@ -7,6 +7,7 @@ go_library(
         "controller.go",
         "doc.go",
         "names.go",
+        "owner_references.go",
         "promethus_labels.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/controller",

@@ -61,10 +61,8 @@ const (
 	elaPortName      string = "ela-port"
 	elaPort                 = 8080
 
-	elaContainerLogVolumeName      string = "ela-logs"
-	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
-
-	queueContainerName string = "queue-proxy"
+	fluentdContainerName string = "fluentd-proxy"
+	queueContainerName   string = "queue-proxy"
 	// queueSidecarName set by -queueSidecarName flag
 	queueHttpPortName string = "queue-http-port"
 
@@ -128,6 +126,9 @@ type Controller struct {
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
 
+	// fluentdSidecarImage is the name of the image used for the fluentd sidecar injected into the revision pod
+	fluentdSidecarImage string
+
 	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
 	queueSidecarImage string
 
@@ -148,6 +149,7 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig controller.Config,
+	fluentdSidecarImage string,
 	queueSidecarImage string,
 	autoscalerImage string) controller.Interface {
 
@@ -164,16 +166,17 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		elaclientset:      elaclientset,
-		lister:            informer.Lister(),
-		synced:            informer.Informer().HasSynced,
-		endpointsSynced:   endpointsInformer.Informer().HasSynced,
-		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:          recorder,
-		buildtracker:      &buildTracker{builds: map[key]set{}},
-		queueSidecarImage: queueSidecarImage,
-		autoscalerImage:   autoscalerImage,
+		kubeclientset:       kubeclientset,
+		elaclientset:        elaclientset,
+		lister:              informer.Lister(),
+		synced:              informer.Informer().HasSynced,
+		endpointsSynced:     endpointsInformer.Informer().HasSynced,
+		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:            recorder,
+		buildtracker:        &buildTracker{builds: map[key]set{}},
+		fluentdSidecarImage: fluentdSidecarImage,
+		queueSidecarImage:   queueSidecarImage,
+		autoscalerImage:     autoscalerImage,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -739,7 +742,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.queueSidecarImage)
+	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec

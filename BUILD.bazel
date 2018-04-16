@@ -58,6 +58,11 @@ k8s_object(
 )
 
 k8s_object(
+    name = "configmap",
+    template = "configmap.yaml",
+)
+
+k8s_object(
     name = "configuration",
     template = "configuration.yaml",
 )
@@ -105,6 +110,7 @@ k8s_objects(
         ":authz",
         ":crds",
         ":elaconfig",
+        ":configmap",
         ":controller",
         ":controllerservice",
         ":webhook",
