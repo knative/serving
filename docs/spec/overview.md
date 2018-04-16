@@ -59,9 +59,10 @@ and makes both the most recently created and most recently *ready*
 
 # Orchestration
 
-The system will be configured to disallow users from creating or
-changing Revisions. Instead, the creation of immutable Revisions
-through a Configuration provides:
+The system will be configured to disallow users from creating
+([NYI](https://github.com/elafros/elafros/issues/664)) or changing
+Revisions. Instead, the creation of immutable Revisions through a
+Configuration provides:
 
 * a single referenceable resource for the route to perform automated
   rollouts
