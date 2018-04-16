@@ -74,7 +74,7 @@ func getTestRevision(servingState v1alpha1.RevisionServingStateType) *v1alpha1.R
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			Container: corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},
 				Args:       []string{"hello", "world"},

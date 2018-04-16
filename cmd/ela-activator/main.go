@@ -25,13 +25,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// var (
-// 	activateCh        = make(chan string)
-// 	activationDoneCh  = make(chan string)
-// 	revisionRequestCh = make(chan activator.RevisionRequest)
-// 	watchCh           = make(chan string)
-// )
-
 func main() {
 	flag.Parse()
 	glog.Info("Starting the elafros activator...")
