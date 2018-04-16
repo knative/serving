@@ -48,6 +48,7 @@ import (
 )
 
 const testNamespace string = "test"
+const testFluentdImage string = "fluentdImage"
 const testQueueImage string = "queueImage"
 const testAutoscalerImage string = "autoscalerImage"
 
@@ -88,6 +89,16 @@ func getTestRevision() *v1alpha1.Revision {
 				TerminationMessagePath: "/dev/null",
 			},
 			ServingState: v1alpha1.RevisionServingStateActive,
+		},
+	}
+}
+
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
+			Name:      "test-config",
+			Namespace: testNamespace,
 		},
 	}
 }
@@ -185,6 +196,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		elaInformer,
 		&rest.Config{},
 		ctrl.Config{},
+		testFluentdImage,
 		testQueueImage,
 		testAutoscalerImage,
 	).(*Controller)
@@ -228,6 +240,11 @@ func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1
 func TestCreateRevCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*metav1.NewControllerRef(config, ctrl.ConfigurationControllerKind),
+	)
 
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
@@ -286,6 +303,23 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 	if !foundQueueProxy {
 		t.Error("Missing queue-proxy container")
+	}
+
+	// Check the revision deployment fluentd proxy environment variables
+	foundFluentdProxy := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "fluentd-proxy" {
+			foundFluentdProxy = true
+			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
+			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", "test-config", "")
+			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
+			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
+			break
+		}
+	}
+	if !foundFluentdProxy {
+		t.Error("Missing fluentd-proxy container")
 	}
 
 	expectedLabels := sumMaps(
