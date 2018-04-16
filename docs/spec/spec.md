@@ -227,7 +227,7 @@ spec:
 
   container:  # corev1.Container
     # We disallow the following fields from corev1.Container:
-    #  name, resources, prots, and volumeMounts
+    #  name, resources, ports, and volumeMounts
     image: gcr.io/...
     command: ['run']
     args: []
@@ -250,9 +250,13 @@ spec:
   servingState: Active | Reserve | Retired
 
   # NYI: https://github.com/elafros/elafros/issues/456
+  # Some function or server frameworks or application code may be written to
+  # expect that each request will be granted a single-tenant process to run
+  # (i.e. that the request code is run single-threaded).
   concurrencyModel: ...
 
   # NYI: https://github.com/elafros/elafros/issues/457
+  # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 
 status:

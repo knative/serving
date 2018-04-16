@@ -61,17 +61,16 @@ and makes both the most recently created and most recently *ready*
 
 The system will be configured to disallow users from creating
 ([NYI](https://github.com/elafros/elafros/issues/664)) or changing
-Revisions. Instead, the creation of immutable Revisions through a
-Configuration provides:
+Revisions. Instead, Revisions are created indirectly when a Configuration
+is created or updated. This provides:
 
 * a single referenceable resource for the route to perform automated
   rollouts
 * a single resource that can be watched to see a history of all the
   revisions created
-* (but doesn’t mandate) PATCH semantics for new revisions to be done
-  on the server, minimizing read-modify-write implemented across
-  multiple clients, which could result in optimistic concurrency
-  errors
+* PATCH semantics for revisions implemented server-side, minimizing
+  read-modify-write implemented across multiple clients, which could result
+  in optimistic concurrency errors
 * the ability to rollback to a known good configuration
 
 In the conventional single live revision scenario, a route has a
