@@ -17,7 +17,7 @@ limitations under the License.
 package revision
 
 import (
-	"flag"
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -25,7 +25,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,6 +49,9 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
@@ -80,21 +82,15 @@ const (
 )
 
 var (
-	elaPodReplicaCount       = int32(1)
-	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	queueSidecarImage        string
-	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "elafros",
-		Name:      "revision_process_item_count",
-		Help:      "Counter to keep track of items in the revision work queue",
-	}, []string{"status"})
+	elaPodReplicaCount   = int32(1)
+	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	processItemCount     = stats.Int64(
+		"controller_revision_queue_process_count",
+		"Counter to keep track of items in the revision work queue.",
+		stats.UnitNone)
+	statusTagKey tag.Key
 )
-
-func init() {
-	prometheus.MustRegister(revisionProcessItemCount)
-	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
-}
 
 // Helper to make sure we log error messages returned by Reconcile().
 func printErr(err error) error {
@@ -131,6 +127,12 @@ type Controller struct {
 
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
+
+	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
+	queueSidecarImage string
+
+	// autoscalerImage is the name of the image used for the autoscaler pod.
+	autoscalerImage string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -145,7 +147,9 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config,
+	queueSidecarImage string,
+	autoscalerImage string) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
@@ -160,14 +164,16 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:   kubeclientset,
-		elaclientset:    elaclientset,
-		lister:          informer.Lister(),
-		synced:          informer.Informer().HasSynced,
-		endpointsSynced: endpointsInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:        recorder,
-		buildtracker:    &buildTracker{builds: map[key]set{}},
+		kubeclientset:     kubeclientset,
+		elaclientset:      elaclientset,
+		lister:            informer.Lister(),
+		synced:            informer.Informer().HasSynced,
+		endpointsSynced:   endpointsInformer.Informer().HasSynced,
+		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:          recorder,
+		buildtracker:      &buildTracker{builds: map[key]set{}},
+		queueSidecarImage: queueSidecarImage,
+		autoscalerImage:   autoscalerImage,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -205,6 +211,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Start the informer factories to begin populating the informer caches
 	glog.Info("Starting Revision controller")
+
+	// Metrics setup: begin
+	// Create the tag keys that will be used to add tags to our measurements.
+	var err error
+	if statusTagKey, err = tag.NewKey("status"); err != nil {
+		return fmt.Errorf("failed to create tag key in OpenCensus: %v", err)
+	}
+	// Create view to see our measurements cumulatively.
+	countView := &view.View{
+		Description: "Counter to keep track of items in the revision work queue.",
+		Measure:     processItemCount,
+		Aggregation: view.Count(),
+		TagKeys:     []tag.Key{statusTagKey},
+	}
+	if err = view.Register(countView); err != nil {
+		return fmt.Errorf("failed to register the views in OpenCensus: %v", err)
+	}
+	defer view.Unregister(countView)
+	// Metrics setup: end
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
@@ -251,7 +276,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err, promStatus := func(obj interface{}) (error, string) {
+	err, processStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -286,7 +311,10 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	revisionProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
+	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
+		// Increment the request count by one.
+		stats.Record(ctx, processItemCount.M(1))
+	}
 
 	if err != nil {
 		runtime.HandleError(err)
@@ -711,7 +739,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev)
+	podSpec := MakeElaPodSpec(rev, c.queueSidecarImage)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
@@ -838,7 +866,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 	}
 
 	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	deployment := MakeElaAutoscalerDeployment(rev)
+	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)

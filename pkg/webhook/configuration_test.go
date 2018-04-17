@@ -81,14 +81,14 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 			Generation: testGeneration,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &corev1.Container{},
+					ServiceAccountName: "Fred",
 				},
 			},
 		},
 	}
 
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerInRevisionTemplate {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
+		t.Fatalf("Expected: %v. Failed with %v", errEmptyRevisionTemplateInSpec, err)
 	}
 }
 
@@ -106,7 +106,7 @@ func TestServingStateNotAllowed(t *testing.T) {
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServingState: v1alpha1.RevisionServingStateActive,
-					Container:    &container,
+					Container:    container,
 				},
 			},
 		},
@@ -143,7 +143,7 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 			Generation: testGeneration,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Container: &container,
+					Container: container,
 				},
 			},
 		},
@@ -158,12 +158,12 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
-	container.Name = ""
+	configuration.Spec.RevisionTemplate.Spec.Container.Name = ""
 	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[1:], ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
-	container.Resources = corev1.ResourceRequirements{}
+	configuration.Spec.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{}
 	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[2:], ", "))
 	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)

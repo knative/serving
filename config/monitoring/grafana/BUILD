@@ -11,11 +11,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "service-public",
-    template = "service-public.yaml",
-)
-
-k8s_object(
     name = "datasources",
     template = "datasources.yaml",
 )

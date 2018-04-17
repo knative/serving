@@ -210,10 +210,8 @@
   packages = [
     ".",
     "idgenerator",
-    "middleware/http",
     "model",
     "propagation",
-    "propagation/b3",
     "reporter",
     "reporter/http"
   ]
@@ -261,6 +259,26 @@
   packages = ["."]
   revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
   version = "v1.0.0"
+
+[[projects]]
+  name = "go.opencensus.io"
+  packages = [
+    "exporter/prometheus",
+    "exporter/zipkin",
+    "internal",
+    "internal/tagencoding",
+    "plugin/ochttp",
+    "plugin/ochttp/propagation/b3",
+    "stats",
+    "stats/internal",
+    "stats/view",
+    "tag",
+    "trace",
+    "trace/internal",
+    "trace/propagation"
+  ]
+  revision = "0095aec66ae14801c6711210f6f0716411cefdd3"
+  version = "v0.8.0"
 
 [[projects]]
   branch = "master"
@@ -369,12 +387,6 @@
   ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
-
-[[projects]]
-  name = "google.golang.org/grpc"
-  packages = ["metadata"]
-  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
-  version = "v1.10.0"
 
 [[projects]]
   name = "gopkg.in/go-playground/webhooks.v3"
@@ -694,6 +706,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "42a100c845a10cafc499f005319781dd4c21907141595c21c176147194c22c83"
+  inputs-digest = "6d8793bd411026f8d24ee5b3d2dcd681d1a1406586ff7c7bfdf294279a63a693"
   solver-name = "gps-cdcl"
   solver-version = 1
