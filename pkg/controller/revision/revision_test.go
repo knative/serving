@@ -229,6 +229,12 @@ func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	controller.syncHandler(KeyOrDie(rev))
+}
+
+func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
+	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Update(rev)
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 }
@@ -860,4 +866,110 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 	)
 
 	controller.addEndpointsEvent(endpoints)
+}
+
+func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision and verify that the k8s resources are created as
+	// appropriate.
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	_, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	// Now, update the revision serving state to Retired, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateRetired
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+}
+
+func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision and verify that the k8s resources are created as
+	// appropriate.
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	_, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	// Now, update the revision serving state to Reserve, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+}
+
+func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision. The k8s resources should not be created.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateRetired
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+
+	// Now, update the revision serving state to Active, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the resources to be created.
+	_, err = kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+}
+
+func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision. The k8s resources should not be created.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+
+	// Now, update the revision serving state to Active, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the resources to be created.
+	_, err = kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
 }
