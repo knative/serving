@@ -153,7 +153,7 @@
   branch = "master"
   name = "github.com/josephburnett/k8sflag"
   packages = ["pkg/k8sflag"]
-  revision = "1e71828eeae31c75a83a8c1c17623adf65af8ee4"
+  revision = "29556cbcc8cd22fba705e9f08fc71c5585e293bb"
 
 [[projects]]
   name = "github.com/json-iterator/go"

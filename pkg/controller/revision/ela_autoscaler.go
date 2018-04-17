@@ -55,6 +55,17 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 
 	replicas := int32(1)
 
+	configVolume := corev1.Volume{
+		Name: "ela-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "ela-config",
+				},
+			},
+		},
+	}
+
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(u),
@@ -109,18 +120,16 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 								"-logtostderr=true",
 								"-stderrthreshold=INFO",
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								corev1.VolumeMount{
+									Name:      "ela-config",
+									MountPath: "/etc/config",
+								},
+							},
 						},
 					},
 					ServiceAccountName: "ela-autoscaler",
-					Volumes: []corev1.Volume{
-						corev1.Volume{
-							Name: "config-volume",
-							ConfigMap: &ConfigMapVolumeSource{
-								Name: "ela-config",
-							},
-							MountPath: "/etc/config",
-						},
-					},
+					Volumes:            []corev1.Volume{configVolume},
 				},
 			},
 		},

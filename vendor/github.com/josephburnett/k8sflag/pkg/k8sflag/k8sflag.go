@@ -18,6 +18,7 @@ type Option int
 const (
 	Verbose  Option = iota
 	Required Option = iota
+	Dynamic  Option = iota
 )
 
 type flag interface {
@@ -66,14 +67,16 @@ func NewFlagSet(path string, options ...Option) *FlagSet {
 	return c
 }
 
-func (c *FlagSet) register(f flag) {
+func (c *FlagSet) register(f flag, options ...Option) {
 	filename := filepath.Join(append(c.path, filepath.SplitList(f.name())...)...)
 	if _, ok := c.watches[filename]; ok {
 		panic("Flag already bound to " + f.name())
 	}
 	c.setFromFile(f, filename)
-	c.watches[filename] = f
-	c.watcher.Add(filename)
+	if hasOption(Dynamic, options) {
+		c.watches[filename] = f
+		c.watcher.Add(filename)
+	}
 }
 
 func (c *FlagSet) setFromFile(f flag, filename string) {
@@ -156,7 +159,7 @@ func (s *FlagSet) String(key string, def string, options ...Option) *StringFlag 
 	if hasOption(Required, options) {
 		f.required = true
 	}
-	s.register(flag(f))
+	s.register(flag(f), options...)
 	return f
 }
 
@@ -168,7 +171,7 @@ func (s *FlagSet) Bool(key string, def bool, options ...Option) *BoolFlag {
 	if hasOption(Required, options) {
 		f.required = true
 	}
-	s.register(flag(f))
+	s.register(flag(f), options...)
 	return f
 }
 
@@ -180,7 +183,7 @@ func (s *FlagSet) Int32(key string, def int32, options ...Option) *Int32Flag {
 	if hasOption(Required, options) {
 		f.required = true
 	}
-	s.register(flag(f))
+	s.register(flag(f), options...)
 	return f
 }
 
@@ -192,7 +195,7 @@ func (s *FlagSet) Duration(key string, def *time.Duration, options ...Option) *D
 	if hasOption(Required, options) {
 		f.required = true
 	}
-	s.register(flag(f))
+	s.register(flag(f), options...)
 	return f
 }
 

@@ -46,8 +46,8 @@ type statKey struct {
 var (
 	stableWindow                 = k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required).Get()
 	panicWindow                  = k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required).Get()
-	maxScaleUpRate       float64 = 10
 	scaleToZeroThreshold         = k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required).Get()
+	maxScaleUpRate       float64 = 10
 	lastRequestTime              = time.Now()
 )
 
