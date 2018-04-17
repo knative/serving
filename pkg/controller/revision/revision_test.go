@@ -48,6 +48,7 @@ import (
 )
 
 const testNamespace string = "test"
+const testFluentdImage string = "fluentdImage"
 const testQueueImage string = "queueImage"
 const testAutoscalerImage string = "autoscalerImage"
 
@@ -88,6 +89,16 @@ func getTestRevision() *v1alpha1.Revision {
 				TerminationMessagePath: "/dev/null",
 			},
 			ServingState: v1alpha1.RevisionServingStateActive,
+		},
+	}
+}
+
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
+			Name:      "test-config",
+			Namespace: testNamespace,
 		},
 	}
 }
@@ -185,6 +196,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		elaInformer,
 		&rest.Config{},
 		ctrl.Config{},
+		testFluentdImage,
 		testQueueImage,
 		testAutoscalerImage,
 	).(*Controller)
@@ -242,6 +254,11 @@ func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 func TestCreateRevCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
@@ -296,6 +313,23 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 	if !foundQueueProxy {
 		t.Error("Missing queue-proxy container")
+	}
+
+	// Check the revision deployment fluentd proxy environment variables
+	foundFluentdProxy := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "fluentd-proxy" {
+			foundFluentdProxy = true
+			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
+			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", "test-config", "")
+			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
+			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
+			break
+		}
+	}
+	if !foundFluentdProxy {
+		t.Error("Missing fluentd-proxy container")
 	}
 
 	expectedLabels := sumMaps(
@@ -405,6 +439,29 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if annotations := asService.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAnnotations) {
 		t.Errorf("Annotations not set correctly autoscaler service: expected %v got %v.",
 			expectedAnnotations, annotations)
+	}
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// Look for the config map.
+	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config map: %v", err)
+	}
+	// The config map should also be owned by rev.
+	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
+	}
+	if labels := configMap.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly config map: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
+		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
+			want, got)
 	}
 
 	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})

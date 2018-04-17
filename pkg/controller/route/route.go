@@ -51,7 +51,6 @@ import (
 )
 
 var (
-	controllerKind   = v1alpha1.SchemeGroupVersion.WithKind("Route")
 	processItemCount = stats.Int64(
 		"controller_route_queue_process_count",
 		"Counter to keep track of items in the route work queue.",
@@ -840,19 +839,10 @@ func (c *Controller) updateConfigurationEvent(old, new interface{}) {
 	c.addConfigurationEvent(new)
 }
 
-func (c *Controller) findOwningRouteName(ingress *v1beta1.Ingress) string {
-	for _, owner := range ingress.ObjectMeta.OwnerReferences {
-		if owner.Kind == controllerKind.Kind {
-			return owner.Name
-		}
-	}
-	return ""
-}
-
 func (c *Controller) updateIngressEvent(old, new interface{}) {
 	ingress := new.(*v1beta1.Ingress)
 	// If ingress isn't owned by a route, no route update is required.
-	routeName := c.findOwningRouteName(ingress)
+	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
 	if routeName == "" {
 		return
 	}
