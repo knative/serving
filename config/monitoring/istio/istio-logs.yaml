@@ -54,3 +54,5 @@ spec:
     latency: response.duration | "0ms"
     destinationService: destination.service | ""
     destinationNamespace: destination.namespace | ""
+    destinationRevision: destination.labels["elafros.dev/revision"] | "unknown"
+    destinationConfiguration: destination.labels["elafros.dev/configuration"] | "unknown"
