@@ -35,6 +35,8 @@ import (
 // non-default namespaces continue to work with autoscaling.
 const AutoscalerNamespace = "ela-system"
 
+// MakeElaAutoscalerDeployment creates the deployment of the
+// autoscaler for a particular revision.
 func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
@@ -110,6 +112,8 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 	}
 }
 
+// MakeElaAutoscalerService returns a service for the autoscaler of
+// the given revision.
 func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{

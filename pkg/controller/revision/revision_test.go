@@ -419,6 +419,71 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 }
 
+func TestCreateRevPreservesAppLabel(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	controller.syncHandler(KeyOrDie(rev))
+
+	// Look for the revision deployment.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+	expectedLabels := sumMaps(
+		rev.Labels,
+		map[string]string{
+			ela.RevisionLabelKey: rev.Name,
+		},
+	)
+	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Labels not set correctly on deployment: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	if labels := deployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly in pod template: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	// Look for the revision service.
+	expectedServiceName := fmt.Sprintf("%s-service", rev.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision service: %v", err)
+	}
+	if labels := service.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly for revision service: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	// Look for the autoscaler deployment.
+	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
+	expectedAutoscalerLabels := sumMaps(
+		expectedLabels,
+		map[string]string{ela.AutoscalerLabelKey: expectedAutoscalerName},
+	)
+	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
+	}
+	if labels := asDeployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
+		t.Errorf("Label not set correctly in autoscaler pod template: expected %v got %v.",
+			expectedAutoscalerLabels, labels)
+	}
+	// Look for the autoscaler service.
+	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler service: %v", err)
+	}
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
+			expectedLabels, labels)
+	}
+}
+
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
