@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
@@ -96,10 +97,7 @@ func getTestRevision(servingState v1alpha1.RevisionServingStateType) *v1alpha1.R
 	}
 }
 
-func getActivator(t *testing.T, rev *v1alpha1.Revision) *Activator {
-	// Create fake clients
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	elaClient := fakeclientset.NewSimpleClientset()
+func getActivator(t *testing.T, kubeClient *fakekubeclientset.Clientset, elaClient *fakeclientset.Clientset, rev *v1alpha1.Revision) *Activator {
 	if rev != nil {
 		// Add the revision
 		elaClient.ElafrosV1alpha1().Revisions(rev.GetNamespace()).Create(rev)
@@ -130,13 +128,14 @@ func getActivator(t *testing.T, rev *v1alpha1.Revision) *Activator {
 	if err != nil {
 		t.Fatal("Failed to create an activator!")
 	}
-
 	return a
 }
 
 func TestGetRevisionTargetURL(t *testing.T) {
 	reservedRev := getTestRevision(v1alpha1.RevisionServingStateReserve)
-	a := getActivator(t, reservedRev)
+	elaClient := fakeclientset.NewSimpleClientset()
+	kubeClient := fakekubeclientset.NewSimpleClientset()
+	a := getActivator(t, kubeClient, elaClient, reservedRev)
 	targetURL, err := a.getRevisionTargetURL(reservedRev)
 	if err != nil {
 		t.Errorf("Error in getRevisionTargetURL %v", err)
@@ -147,10 +146,23 @@ func TestGetRevisionTargetURL(t *testing.T) {
 	}
 }
 
-func testHandler_revision(t *testing.T, servingState v1alpha1.RevisionServingStateType, expectedStatus int) {
-	rev := getTestRevision(servingState)
-	a := getActivator(t, rev)
+func update(elaClient *fakeclientset.Clientset, rev *v1alpha1.Revision) {
+	// Wait a bit to kick off the ready event.
+	time.Sleep(1 * time.Second)
+	rev.Status = v1alpha1.RevisionStatus{
+		Conditions: []v1alpha1.RevisionCondition{
+			{
+				Type:   v1alpha1.RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+	}
+	elaClient.ElafrosV1alpha1().Revisions(rev.GetNamespace()).Update(rev)
+}
 
+func helper(t *testing.T, kubeClient *fakekubeclientset.Clientset, elaClient *fakeclientset.Clientset, rev *v1alpha1.Revision, expectedStatus int, signal chan bool) {
+	a := getActivator(t, kubeClient, elaClient, rev)
+	go a.process()
 	req := getHTTPRequest(t)
 	// response recorder to record the response
 	responseRecorder := httptest.NewRecorder()
@@ -158,30 +170,39 @@ func testHandler_revision(t *testing.T, servingState v1alpha1.RevisionServingSta
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
 	handler.ServeHTTP(responseRecorder, req)
-
-	// Check the status code is what we expect.
 	if status := responseRecorder.Code; status != expectedStatus {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, expectedStatus)
 	}
+	signal <- true
+}
+
+func testHandlerRevision(t *testing.T, servingState v1alpha1.RevisionServingStateType, expectedStatus int) {
+	rev := getTestRevision(servingState)
+	kubeClient := fakekubeclientset.NewSimpleClientset()
+	elaClient := fakeclientset.NewSimpleClientset()
+	signal := make(chan bool)
+	go helper(t, kubeClient, elaClient, rev, expectedStatus, signal)
+	go update(elaClient, rev)
+	<-signal
 }
 
 // Test for a revision with reserve status.
 func TestHandler_reserveRevision(t *testing.T) {
-	testHandler_revision(t, v1alpha1.RevisionServingStateReserve, http.StatusOK)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateReserve, http.StatusOK)
 }
 
 // Test for a revision with active status.
 func TestHandler_activeRevision(t *testing.T) {
-	testHandler_revision(t, v1alpha1.RevisionServingStateActive, http.StatusOK)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateActive, http.StatusOK)
 }
 
 // Test for a revision with reretired status.
 func TestHandler_retiredRevision(t *testing.T) {
-	testHandler_revision(t, v1alpha1.RevisionServingStateRetired, http.StatusServiceUnavailable)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateRetired, http.StatusServiceUnavailable)
 }
 
 // Test for a revision with unknown status.
 func TestHandler_unknowRevision(t *testing.T) {
-	testHandler_revision(t, "Unknown", http.StatusServiceUnavailable)
+	testHandlerRevision(t, "Unknown", http.StatusServiceUnavailable)
 }

@@ -121,7 +121,7 @@ func (a *Activator) proxyRequest(revRequest RevisionRequest) {
 		return
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = http.DefaultTransport.(*http.Transport) //a.tripper
+	proxy.Transport = a.tripper
 	proxy.ServeHTTP(revRequest.w, revRequest.r)
 	// Make sure the handler function exits after ServeHTTP function.
 	revRequest.doneCh <- true
@@ -182,8 +182,7 @@ func (a *Activator) watchForReady(revKey string) {
 	if err != nil {
 		return
 	}
-	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace())
-	wi, err := revisionClient.Watch(metav1.ListOptions{
+	wi, err := a.elaClient.ElafrosV1alpha1().Revisions(revision.GetNamespace()).Watch(metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", revision.GetName()),
 	})
 	if err != nil {
@@ -191,6 +190,7 @@ func (a *Activator) watchForReady(revKey string) {
 		return
 	}
 	defer wi.Stop()
+
 	ch := wi.ResultChan()
 	for {
 		event := <-ch
@@ -201,8 +201,9 @@ func (a *Activator) watchForReady(revKey string) {
 			if !rev.Status.IsReady() {
 				continue
 			}
-			// TODO: Fix RevisionStatus.IsReady()
-			time.Sleep(7 * time.Second)
+			// TODO: Mark a revision ready at the right time
+			// https://github.com/elafros/elafros/issues/660
+			time.Sleep(5 * time.Second)
 			a.chans.activationDoneCh <- revKey
 			glog.Infof("Revision %s is ready.", revKey)
 			return
