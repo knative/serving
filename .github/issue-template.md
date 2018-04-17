@@ -12,6 +12,14 @@ working groups are aware of the issue:
 -->
 
 <!--
+Uncomment leaving one or more of the following to classify the kind of issue:
+
+/kind bug
+/kind dev
+/kind doc
+-->
+
+<!--
 You may also assign an issue via:
 
 /assign @user
