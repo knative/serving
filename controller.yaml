@@ -31,13 +31,10 @@ spec:
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
-<<<<<<< HEAD
+        - "-fluentdSidecarImage"
         # The flag to turn on the activator.
         - "-enableActivatorExperiment=true"
-=======
-        - "-fluentdSidecarImage"
         - "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
->>>>>>> upstream/master
         - "-queueSidecarImage"
         - ela-queue:latest
         - "-autoscalerImage"
