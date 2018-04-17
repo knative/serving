@@ -650,23 +650,19 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 
 func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error {
 	// Fire off a Deployment..
-	err := c.reconcileDeployment(rev, ns)
-	if err != nil {
+	if err := c.reconcileDeployment(rev, ns); err != nil {
 		log.Printf("Failed to create a deployment: %s", err)
 		return err
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscalerDeployment(rev)
-	if err != nil {
+	if err := c.reconcileAutoscalerDeployment(rev); err != nil {
 		log.Printf("Failed to create autoscaler Deployment: %s", err)
 	}
-	err = c.reconcileAutoscalerService(rev)
-	if err != nil {
+	if err := c.reconcileAutoscalerService(rev); err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
-	err = c.reconcileFluentdConfigMap(rev)
-	if err != nil {
+	if err := c.reconcileFluentdConfigMap(rev); err != nil {
 		log.Printf("Failed to create fluent config map: %s", err)
 	}
 
