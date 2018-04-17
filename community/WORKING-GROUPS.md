@@ -12,10 +12,10 @@ procedures.
 
 The working groups generate design docs which are kept in a
 [shared drive](https://drive.google.com/corp/drive/folders/0APnJ_hRs30R2Uk9PVA)
-and are available for anyone to read. You have to request access to
-the drive, something we're stuck with sadly, but once you do you'll
-have access to all the docs and won't need to request access for each
-of them individually.
+and are available for anyone to read and comment on. The shared drive
+currently grants edit and comment access to the
+[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Google group.
 
 The current working groups are:
 
