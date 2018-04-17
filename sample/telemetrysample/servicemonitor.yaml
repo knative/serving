@@ -21,6 +21,6 @@ metadata:
 spec:
   selector:
     matchExpressions:
-    - {key: revision, operator: Exists}
+    - {key: elafros.dev/configuration, operator: In, values: [telemetrysample-configuration]}
   endpoints:
   - port: http

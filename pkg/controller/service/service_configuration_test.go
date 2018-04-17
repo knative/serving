@@ -37,7 +37,7 @@ func createConfiguration(containerName string) v1alpha1.ConfigurationSpec {
 	return v1alpha1.ConfigurationSpec{
 		RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
-				Container: &corev1.Container{
+				Container: corev1.Container{
 					Name: containerName,
 				},
 			},

@@ -35,7 +35,7 @@ const (
 )
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
+func MakeElaPodSpec(u *v1alpha1.Revision, queueSidecarImage string) *corev1.PodSpec {
 	elaContainer := u.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
@@ -100,7 +100,7 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	}
 
 	return &corev1.PodSpec{
-		Containers: []corev1.Container{*elaContainer, queueContainer},
+		Containers:         []corev1.Container{*elaContainer, queueContainer},
 		ServiceAccountName: u.Spec.ServiceAccountName,
 	}
 }
@@ -112,11 +112,15 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 		MaxSurge:       &elaPodMaxSurge,
 	}
 
+	podTemplateAnnotations := MakeElaResourceAnnotations(u)
+	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetRevisionDeploymentName(u),
-			Namespace: namespace,
-			Labels:    MakeElaResourceLabels(u),
+			Name:        controller.GetRevisionDeploymentName(u),
+			Namespace:   namespace,
+			Labels:      MakeElaResourceLabels(u),
+			Annotations: MakeElaResourceAnnotations(u),
 		},
 		Spec: v1beta1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
@@ -126,10 +130,8 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: MakeElaResourceLabels(u),
-					Annotations: map[string]string{
-						"sidecar.istio.io/inject": "true",
-					},
+					Labels:      MakeElaResourceLabels(u),
+					Annotations: podTemplateAnnotations,
 				},
 			},
 		},
