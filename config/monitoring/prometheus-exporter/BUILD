@@ -23,21 +23,10 @@ k8s_object(
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
-    name = "everything-common",
+    name = "everything",
     objects = [
         ":node-exporter",
         ":prometheus",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-#
-# Enable detailed k8s metric collection.
-# Below is not enabled by default as it installs a large set of k8s metrics.
-#
-k8s_objects(
-    name = "k8s-metrics",
-    objects = [
         ":kube-controller-metrics",
         ":kube-state-metrics",
     ],

@@ -30,32 +30,110 @@ import (
 
 const (
 	// Each Elafros pod gets 1 cpu.
-	elaContainerCpu   = "400m"
-	queueContainerCpu = "25m"
+	elaContainerCPU     = "400m"
+	queueContainerCPU   = "25m"
+	fluentdContainerCPU = "75m"
+
+	fluentdConfigMapVolumeName = "configmap"
+	varLogVolumeName           = "varlog"
 )
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
-	elaContainer := u.Spec.Container.DeepCopy()
+func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarImage string) *corev1.PodSpec {
+	varLogVolume := corev1.Volume{
+		Name: varLogVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	fluentdConfigMapVolume := corev1.Volume{
+		Name: fluentdConfigMapVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "fluentd-varlog-config",
+				},
+			},
+		},
+	}
+
+	elaContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
 	elaContainer.Name = elaContainerName
 	elaContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse(elaContainerCpu),
+			corev1.ResourceName("cpu"): resource.MustParse(elaContainerCPU),
 		},
 	}
 	elaContainer.Ports = []corev1.ContainerPort{{
 		Name:          elaPortName,
 		ContainerPort: int32(elaPort),
 	}}
+	elaContainer.VolumeMounts = append(
+		elaContainer.VolumeMounts,
+		corev1.VolumeMount{
+			Name:      varLogVolumeName,
+			MountPath: "/var/log",
+		},
+	)
+
+	fluentdContainer := corev1.Container{
+		Name:  fluentdContainerName,
+		Image: fluentdSidecarImage,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "FLUENTD_ARGS",
+				Value: "--no-supervisor -q",
+			},
+			{
+				Name:  "ELA_CONTAINER_NAME",
+				Value: elaContainerName,
+			},
+			{
+				Name:  "ELA_CONFIGURATION",
+				Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+			},
+			{
+				Name:  "ELA_REVISION",
+				Value: rev.Name,
+			},
+			{
+				Name:  "ELA_NAMESPACE",
+				Value: rev.Namespace,
+			},
+			{
+				Name: "ELA_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      varLogVolumeName,
+				MountPath: "/var/log/revisions",
+			},
+			{
+				Name:      fluentdConfigMapVolumeName,
+				MountPath: "/etc/fluent/config.d",
+			},
+		},
+	}
 
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
 		Image: queueSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCpu),
+				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCPU),
 			},
 		},
 		Ports: []corev1.ContainerPort{
@@ -74,15 +152,15 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ELA_NAMESPACE",
-				Value: u.Namespace,
+				Value: rev.Namespace,
 			},
 			{
 				Name:  "ELA_REVISION",
-				Value: u.Name,
+				Value: rev.Name,
 			},
 			{
 				Name:  "ELA_AUTOSCALER",
-				Value: controller.GetRevisionAutoscalerName(u),
+				Value: controller.GetRevisionAutoscalerName(rev),
 			},
 			{
 				Name:  "ELA_AUTOSCALER_PORT",
@@ -100,9 +178,9 @@ func MakeElaPodSpec(u *v1alpha1.Revision) *corev1.PodSpec {
 	}
 
 	return &corev1.PodSpec{
-		Containers:         []corev1.Container{*elaContainer, queueContainer},
-		Volumes:            []corev1.Volume{configVolume},
-		ServiceAccountName: u.Spec.ServiceAccountName,
+		Containers:         []corev1.Container{*elaContainer, fluentdContainer, queueContainer},
+		Volumes:            []corev1.Volume{varLogVolume, fluentdConfigMapVolume},
+		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
 }
 

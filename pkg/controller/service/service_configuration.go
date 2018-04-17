@@ -18,6 +18,7 @@ package service
 
 import (
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/controller"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,7 +30,7 @@ func MakeServiceConfiguration(service *v1alpha1.Service) *v1alpha1.Configuration
 			Name:      service.Name,
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(service, controllerKind),
+				*controller.NewServiceControllerRef(service),
 			},
 			Labels: MakeElaResourceLabels(service),
 		},

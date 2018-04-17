@@ -19,63 +19,21 @@ metadata:
   namespace: monitoring
 data:
   dashboards.yaml: |+
-    - name: 'deployment'
+    - name: 'kubernetes'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/deployment
-    - name: 'etcd'
+        folder: /grafana-dashboard-definition/kubernetes
+    - name: 'elafros'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/etcd
-    - name: 'k8s'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/k8s
-    - name: 'node'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/node
-    - name: 'pod'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/pod
-    - name: 'statefulset'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/statefulset
-    - name: 'ela-controller'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/ela-controller
+        folder: /grafana-dashboard-definition/elafros
     - name: 'istio'
       org_id: 1
       folder: ''
       type: file
       options:
         folder: /grafana-dashboard-definition/istio
-    - name: 'istio-mixer'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/istio-mixer
-    - name: 'istio-pilot'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/istio-pilot
