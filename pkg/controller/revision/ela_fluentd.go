@@ -73,8 +73,8 @@ const fluentdConfigSource = `
 
 const fluentdConfigMapName = "fluentd-varlog-config"
 
-// MakeFluentdConfigMap creates a ConfigMap that gets mounted for nginx container
-// on the pod.
+// MakeFluentdConfigMap creates a ConfigMap that gets mounted for fluentd
+// container on the pod.
 func MakeFluentdConfigMap(rev *v1alpha1.Revision, namespace string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{

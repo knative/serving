@@ -60,7 +60,7 @@ func main() {
 	flag.Parse()
 
 	if len(fluentdSidecarImage) != 0 {
-		glog.Infof("Using queue sidecar image: %s", fluentdSidecarImage)
+		glog.Infof("Using fluentd sidecar image: %s", fluentdSidecarImage)
 	} else {
 		glog.Fatal("missing required flag: -fluentdSidecarImage")
 	}
