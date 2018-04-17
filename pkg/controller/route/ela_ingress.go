@@ -76,7 +76,7 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 				"kubernetes.io/ingress.class": "istio",
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(route, controllerKind),
+				*controller.NewRouteControllerRef(route),
 			},
 		},
 		Spec: v1beta1.IngressSpec{

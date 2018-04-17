@@ -54,17 +54,13 @@ import (
 	"go.opencensus.io/tag"
 )
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
-
 const (
 	elaContainerName string = "ela-container"
 	elaPortName      string = "ela-port"
 	elaPort                 = 8080
 
-	elaContainerLogVolumeName      string = "ela-logs"
-	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
-
-	queueContainerName string = "queue-proxy"
+	fluentdContainerName string = "fluentd-proxy"
+	queueContainerName   string = "queue-proxy"
 	// queueSidecarName set by -queueSidecarName flag
 	queueHttpPortName string = "queue-http-port"
 
@@ -128,6 +124,9 @@ type Controller struct {
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
 
+	// fluentdSidecarImage is the name of the image used for the fluentd sidecar injected into the revision pod
+	fluentdSidecarImage string
+
 	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
 	queueSidecarImage string
 
@@ -148,6 +147,7 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig controller.Config,
+	fluentdSidecarImage string,
 	queueSidecarImage string,
 	autoscalerImage string) controller.Interface {
 
@@ -164,16 +164,17 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		elaclientset:      elaclientset,
-		lister:            informer.Lister(),
-		synced:            informer.Informer().HasSynced,
-		endpointsSynced:   endpointsInformer.Informer().HasSynced,
-		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:          recorder,
-		buildtracker:      &buildTracker{builds: map[key]set{}},
-		queueSidecarImage: queueSidecarImage,
-		autoscalerImage:   autoscalerImage,
+		kubeclientset:       kubeclientset,
+		elaclientset:        elaclientset,
+		lister:              informer.Lister(),
+		synced:              informer.Informer().HasSynced,
+		endpointsSynced:     endpointsInformer.Informer().HasSynced,
+		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:            recorder,
+		buildtracker:        &buildTracker{builds: map[key]set{}},
+		fluentdSidecarImage: fluentdSidecarImage,
+		queueSidecarImage:   queueSidecarImage,
+		autoscalerImage:     autoscalerImage,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -669,20 +670,20 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 
 func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error {
 	// Fire off a Deployment..
-	err := c.reconcileDeployment(rev, ns)
-	if err != nil {
+	if err := c.reconcileDeployment(rev, ns); err != nil {
 		log.Printf("Failed to create a deployment: %s", err)
 		return err
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscalerDeployment(rev)
-	if err != nil {
+	if err := c.reconcileAutoscalerDeployment(rev); err != nil {
 		log.Printf("Failed to create autoscaler Deployment: %s", err)
 	}
-	err = c.reconcileAutoscalerService(rev)
-	if err != nil {
+	if err := c.reconcileAutoscalerService(rev); err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
+	}
+	if err := c.reconcileFluentdConfigMap(rev); err != nil {
+		log.Printf("Failed to create fluent config map: %s", err)
 	}
 
 	// Create k8s service
@@ -756,10 +757,10 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	}
 
 	// Create the deployment.
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.queueSidecarImage)
+	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
@@ -802,12 +803,35 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 		return serviceName, nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	service := MakeRevisionK8sService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating service: %q", service.Name)
 	_, err := sc.Create(service)
 	return serviceName, err
+}
+
+func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	cmc := c.kubeclientset.Core().ConfigMaps(ns)
+	_, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			log.Printf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
+			return err
+		}
+		log.Printf("ConfigMap %q doesn't exist, creating", fluentdConfigMapName)
+	} else {
+		log.Printf("Found existing ConfigMap %q", fluentdConfigMapName)
+		return nil
+	}
+
+	controllerRef := controller.NewRevisionControllerRef(rev)
+	configMap := MakeFluentdConfigMap(rev, ns)
+	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
+	log.Printf("Creating configmap: %q", configMap.Name)
+	_, err = cmc.Create(configMap)
+	return err
 }
 
 func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
@@ -843,7 +867,7 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	service := MakeElaAutoscalerService(rev)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
@@ -885,7 +909,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)

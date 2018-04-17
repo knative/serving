@@ -4,8 +4,8 @@ So, you want to hack on Elafros? Yay!
 
 The following sections outline the process all changes to the Elafros
 repositories go through. All changes, regardless of whether they are from
-newcomers to the community or from the core team follow the same process and are
-given the same level of review.
+newcomers to the community or from the core team follow the same process and
+are given the same level of review.
 
 *   [Working groups](#working-groups)
 *   [Code of conduct](#code-of-conduct)
@@ -46,27 +46,23 @@ permission to use and redistribute your contributions as part of the project.
 
 ## Design documents
 
-*Design documents as described here are aspirational. Until these processes are
-implemented, docs should be made public and shared with the
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) group.*
-
-Any substantial design deserves a design document. Design documents are written
-with Google Docs and should be shared with the community by adding the doc to
-our [Team Drive](TODO) and sending a note to the appropriate working group to
-let people know the doc is there. To get write access to the drive, you'll need
+Any substantial design deserves a design document. Design documents are
+written with Google Docs and should be shared with the community by adding
+the doc to our
+[Team Drive](https://drive.google.com/corp/drive/folders/0APnJ_hRs30R2Uk9PVA)
+and sending an email to the appropriate working group's mailing list to let
+people know the doc is there. To get write access to the drive, you'll need
 to be a [member](ROLES.md#member) of the Elafros organization.
 
-We have a common [design document template](TODO). Just open the template and
-select "Make Copy" from the File menu in order to bootstrap your document.
+We do not yet have a common design document template(TODO).
 
-Anybody can access the team drive for reading and commenting. If you are part of
-any of the Elafros groups such as
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev), you
-automatically get permission to access the team drive. If you're not part of one
-of these groups however, the first time you try to access the team drive you'll
-be asked to request permission. This permission will always be granted and we do
-our best to grant access as fast as we can, but there is a human involved there,
-so please forgive any delays.
+The team drive is shared with the
+[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) Google
+group for editing and commenting. If you're not part of that group, the
+first time you try to access the team drive or a specific doc, you'll be
+asked to request permission. This permission will always be granted and we
+do our best to grant access as fast as we can, but there is a human involved
+there, so please forgive any delays.
 
 ## Contributing a feature
 
