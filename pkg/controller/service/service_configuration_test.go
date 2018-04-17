@@ -18,6 +18,8 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -130,19 +132,19 @@ func TestPinned(t *testing.T) {
 }
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
-	controllerKind := v1alpha1.SchemeGroupVersion.WithKind("Service")
 	if got, want := len(ownerRefs), 1; got != want {
 		t.Errorf("expected %d owner refs got %d", want, got)
 		return
 	}
-	or := ownerRefs[0]
-	if got, want := or.Name, testServiceName; got != want {
-		t.Errorf("expected %q owner refs name got %q", want, got)
+
+	expectedRefs := []metav1.OwnerReference{
+		metav1.OwnerReference{
+			APIVersion: "elafros.dev/v1alpha1",
+			Kind:       "Service",
+			Name:       testServiceName,
+		},
 	}
-	if got, want := or.Kind, controllerKind.Kind; got != want {
-		t.Errorf("expected %q owner refs kind got %q", want, got)
-	}
-	if got, want := or.APIVersion, controllerKind.GroupVersion().String(); got != want {
-		t.Errorf("expected %q owner refs kind got %q", want, got)
+	if diff := cmp.Diff(expectedRefs, ownerRefs, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
 	}
 }

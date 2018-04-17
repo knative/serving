@@ -436,6 +436,29 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
 
+	// Look for the config map.
+	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config map: %v", err)
+	}
+	// The config map should also be owned by rev.
+	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
+	}
+	if labels := configMap.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly config map: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
+		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
+			want, got)
+	}
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
 	// Ensure that the Revision status is updated.
 	want := []v1alpha1.RevisionCondition{
 		{
