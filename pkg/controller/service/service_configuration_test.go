@@ -130,6 +130,7 @@ func TestPinned(t *testing.T) {
 }
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
+	controllerKind := v1alpha1.SchemeGroupVersion.WithKind("Service")
 	if got, want := len(ownerRefs), 1; got != want {
 		t.Errorf("expected %d owner refs got %d", want, got)
 		return

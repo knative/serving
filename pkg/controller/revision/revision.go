@@ -54,11 +54,6 @@ import (
 	"go.opencensus.io/tag"
 )
 
-var (
-	configurationControllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-	revisionControllerKind      = v1alpha1.SchemeGroupVersion.WithKind("Revision")
-)
-
 const (
 	elaContainerName string = "ela-container"
 	elaPortName      string = "ela-port"
@@ -746,7 +741,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	}
 
 	// Create the deployment.
-	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage)
@@ -792,7 +787,7 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 		return serviceName, nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	service := MakeRevisionK8sService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating service: %q", service.Name)
@@ -815,7 +810,7 @@ func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	configMap := MakeFluentdConfigMap(rev, ns)
 	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
 	log.Printf("Creating configmap: %q", configMap.Name)
@@ -856,7 +851,7 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	service := MakeElaAutoscalerService(rev)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
@@ -898,7 +893,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, revisionControllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)

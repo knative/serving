@@ -97,7 +97,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 			},
 			{
 				Name:  "ELA_CONFIGURATION",
-				Value: controller.LookupOwnerName(rev.OwnerReferences, configurationControllerKind),
+				Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
 			},
 			{
 				Name:  "ELA_REVISION",

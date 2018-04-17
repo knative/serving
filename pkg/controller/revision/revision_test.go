@@ -243,7 +243,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*metav1.NewControllerRef(config, configurationControllerKind),
+		*ctrl.NewConfigurationControllerRef(config),
 	)
 
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)

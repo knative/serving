@@ -384,7 +384,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 
 	// Create a revision owned by this Configuration. Calling IsReady() on this
 	// revision will return false.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	controller.addRevisionEvent(revision)
@@ -419,7 +419,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 
 	// Create a revision owned by this Configuration. This revision is Ready, but
 	// doesn't match the LatestCreatedRevisionName.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	revision.Status = v1alpha1.RevisionStatus{
@@ -464,7 +464,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 
 	// Create a revision owned by this Configuration. This revision is Ready and
 	// matches the Configuration's LatestReadyRevisionName.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	revision.Status = v1alpha1.RevisionStatus{
@@ -582,7 +582,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 
 	configClient.Create(config)
 
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	// mark the revision as Ready
