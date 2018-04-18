@@ -177,7 +177,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 				Name:          RequestQueuePortName,
 				ContainerPort: int32(RequestQueuePort),
 			},
-			// Provides health checks and life cycle hooks.
+			// Provides health checks and lifecycle hooks.
 			{
 				Name:          RequestQueueAdminPortName,
 				ContainerPort: int32(RequestQueueAdminPort),
