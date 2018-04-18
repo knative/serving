@@ -22,6 +22,10 @@ go test -v ./pkg/...
 
 ## Running end-to-end tests
 
+You can either run all the end-to-end tests in an isolate, hermetic cluster, or use your already existing cluster for that.
+
+### Running against an isolate, hermetic cluster
+
 In order to run the end-to-end tests, make sure you:
 
 1. Have `kubetest` installed:
@@ -33,6 +37,12 @@ In order to run the end-to-end tests, make sure you:
 2. Have the `PROJECT_ID` environment variable set to a GCP project you own.
 
 The end-to-end tests can be run by simply executing the `e2e-tests.sh` script.
+
+### Running against an already existing cluster
+
+In order to run the end-to-end tests, make sure you have the `K8S_USER_OVERRIDE`, `K8S_CLUSTER_OVERRIDE` and `DOCKER_REPO_OVERRIDE` environment variables correctly set.
+
+The end-to-end tests can be run by executing `e2e-tests.sh --run-tests` in the command line.
 
 ## Running conformance tests
 
