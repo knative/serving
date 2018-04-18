@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
@@ -132,6 +133,9 @@ type Controller struct {
 
 	// autoscalerImage is the name of the image used for the autoscaler pod.
 	autoscalerImage string
+
+	// see (elaconfig.yaml)
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -149,7 +153,8 @@ func NewController(
 	controllerConfig controller.Config,
 	fluentdSidecarImage string,
 	queueSidecarImage string,
-	autoscalerImage string) controller.Interface {
+	autoscalerImage string,
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
@@ -164,17 +169,18 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:       kubeclientset,
-		elaclientset:        elaclientset,
-		lister:              informer.Lister(),
-		synced:              informer.Informer().HasSynced,
-		endpointsSynced:     endpointsInformer.Informer().HasSynced,
-		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:            recorder,
-		buildtracker:        &buildTracker{builds: map[key]set{}},
-		fluentdSidecarImage: fluentdSidecarImage,
-		queueSidecarImage:   queueSidecarImage,
-		autoscalerImage:     autoscalerImage,
+		kubeclientset:                     kubeclientset,
+		elaclientset:                      elaclientset,
+		lister:                            informer.Lister(),
+		synced:                            informer.Informer().HasSynced,
+		endpointsSynced:                   endpointsInformer.Informer().HasSynced,
+		workqueue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:                          recorder,
+		buildtracker:                      &buildTracker{builds: map[key]set{}},
+		fluentdSidecarImage:               fluentdSidecarImage,
+		queueSidecarImage:                 queueSidecarImage,
+		autoscalerImage:                   autoscalerImage,
+		autoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -740,7 +746,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage)
+	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage, c.autoscaleConcurrencyQuantumOfTime)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
