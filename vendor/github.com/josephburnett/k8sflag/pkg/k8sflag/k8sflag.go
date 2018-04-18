@@ -146,6 +146,11 @@ type Int32Flag struct {
 	def int32
 }
 
+type Float64Flag struct {
+	flagCommon
+	def float64
+}
+
 type DurationFlag struct {
 	flagCommon
 	def *time.Duration
@@ -187,6 +192,18 @@ func (s *FlagSet) Int32(key string, def int32, options ...Option) *Int32Flag {
 	return f
 }
 
+func (s *FlagSet) Float64(key string, def float64, options ...Option) *Float64Flag {
+	f := &Float64Flag{}
+	f.key = key
+	f.def = def
+	f.verbose = s.verbose
+	if hasOption(Required, options) {
+		f.required = true
+	}
+	s.register(flag(f), options...)
+	return f
+}
+
 func (s *FlagSet) Duration(key string, def *time.Duration, options ...Option) *DurationFlag {
 	f := &DurationFlag{}
 	f.key = key
@@ -209,6 +226,10 @@ func Bool(key string, def bool, options ...Option) *BoolFlag {
 
 func Int32(key string, def int32, options ...Option) *Int32Flag {
 	return defaultFlagSet.Int32(key, def, options...)
+}
+
+func Float64(key string, def float64, options ...Option) *Float64Flag {
+	return defaultFlagSet.Float64(key, def, options...)
 }
 
 func Duration(key string, def *time.Duration, options ...Option) *DurationFlag {
@@ -244,6 +265,17 @@ func (f *Int32Flag) set(bytes []byte) error {
 	return nil
 }
 
+func (f *Float64Flag) set(bytes []byte) error {
+	s := string(bytes)
+	l, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return err
+	}
+	f.value.Store(l)
+	info("Set Float64Flag %v: %v.", f.key, l)
+	return nil
+}
+
 func (f *DurationFlag) set(bytes []byte) error {
 	s := string(bytes)
 	d, err := time.ParseDuration(s)
@@ -270,6 +302,11 @@ func (f *Int32Flag) setDefault() {
 	info("Set Int32Flag %v to default: %v.", f.key, f.def)
 }
 
+func (f *Float64Flag) setDefault() {
+	f.value.Store(f.def)
+	info("Set Float64Flag %v to default: %v.", f.key, f.def)
+}
+
 func (f *DurationFlag) setDefault() {
 	f.value.Store(f.def)
 	info("Set DurationFlag %v to default: %v.", f.key, f.def)
@@ -285,6 +322,10 @@ func (f *BoolFlag) Get() bool {
 
 func (f *Int32Flag) Get() int32 {
 	return f.value.Load().(int32)
+}
+
+func (f *Float64Flag) Get() float64 {
+	return f.value.Load().(float64)
 }
 
 func (f *DurationFlag) Get() *time.Duration {

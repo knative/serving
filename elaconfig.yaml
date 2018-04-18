@@ -27,11 +27,23 @@ data:
   # Although it will match all routes, it is the least-specific rule so it
   # will only be used if no other domain matches.
   demo-domain.com: |
+
   # AUTOSCALER CONFIGURATION
-  # Static parameters
+
+  # Static parameters:
+
+  # The desired number of concurrent requests for each pod.  This
+  # is the primary knob for the fast autoscaler which will try
+  # achieve a 60-second average concurrency per pod of
+  # targetConcurrency.  Another process may tune targetConcurrency
+  # to best handle the resource requirements of the revision.
+  autoscale.target-concurrency: 1.0
+
   autoscale.stable-window: 60s
   autoscale.panic-window: 6s
+  
+  # Dynamic parameters:
+  
+  autoscale.enable-scale-to-zero: "false"
   autoscale.scale-to-zero-threshold: 5m
-  # Dynamic parameters
-  autoscale.experimental.scale-to-zero: "false"
   

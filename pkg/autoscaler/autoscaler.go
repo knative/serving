@@ -44,27 +44,29 @@ type statKey struct {
 }
 
 var (
-	stableWindow                 = k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required).Get()
-	panicWindow                  = k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required).Get()
-	scaleToZeroThreshold         = k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required).Get()
-	maxScaleUpRate       float64 = 10
-	lastRequestTime              = time.Now()
+	lastRequestTime = time.Now()
 )
 
-type Autoscaler struct {
-	stableConcurrencyPerPod         float64
-	panicConcurrencyPerPodThreshold float64
-	stats                           map[statKey]Stat
-	panicking                       bool
-	panicTime                       *time.Time
-	maxPanicPods                    float64
+type Config struct {
+	TargetConcurrency    *k8sflag.Float64Flag
+	MaxScaleUpRate       *k8sflag.Float64Flag
+	StableWindow         *k8sflag.DurationFlag
+	PanicWindow          *k8sflag.DurationFlag
+	ScaleToZeroThreshold *k8sflag.DurationFlag
 }
 
-func NewAutoscaler(targetConcurrency float64) *Autoscaler {
+type Autoscaler struct {
+	Config
+	stats        map[statKey]Stat
+	panicking    bool
+	panicTime    *time.Time
+	maxPanicPods float64
+}
+
+func NewAutoscaler(config Config) *Autoscaler {
 	return &Autoscaler{
-		stableConcurrencyPerPod:         targetConcurrency,
-		panicConcurrencyPerPodThreshold: targetConcurrency * 2,
-		stats: make(map[statKey]Stat),
+		Config: config,
+		stats:  make(map[statKey]Stat),
 	}
 }
 
@@ -100,12 +102,12 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	for key, stat := range a.stats {
 		instant := key.time
-		if instant.Add(*panicWindow).After(now) {
+		if instant.Add(*a.PanicWindow.Get()).After(now) {
 			panicTotal = panicTotal + stat.AverageConcurrentRequests
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
 		}
-		if instant.Add(*stableWindow).After(now) {
+		if instant.Add(*a.StableWindow.Get()).After(now) {
 			stableTotal = stableTotal + stat.AverageConcurrentRequests
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
@@ -125,7 +127,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		}
 	}
 
-	if lastRequestTime.Add(*scaleToZeroThreshold).Before(now) {
+	if lastRequestTime.Add(*a.ScaleToZeroThreshold.Get()).Before(now) {
 		glog.Info("Threshold passed with no new requests. Scaling to 0.")
 		return 0, true
 	}
@@ -140,7 +142,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
-	if a.panicking && a.panicTime.Add(*stableWindow).Before(now) {
+	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
 		glog.Info("Un-panicking.")
 		a.panicking = false
 		a.panicTime = nil
@@ -158,20 +160,20 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	observedPanicConcurrency := panicTotal / panicCount
 
 	// Desired scaling ratio is observed concurrency over desired
-	// (stable) concurrency. Rate limited to within maxScaleUpRate.
-	desiredStableScalingRatio := rateLimited(observedStableConcurrency / a.stableConcurrencyPerPod)
-	desiredPanicScalingRatio := rateLimited(observedPanicConcurrency / a.stableConcurrencyPerPod)
+	// (stable) concurrency. Rate limited to within MaxScaleUpRate.
+	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())
+	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency.Get())
 
 	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, stableWindow, stableCount, len(stablePods))
+		observedStableConcurrency, a.StableWindow, stableCount, len(stablePods))
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, panicWindow, panicCount, len(panicPods))
+		observedPanicConcurrency, a.PanicWindow, panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= a.panicConcurrencyPerPodThreshold {
+	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
 		glog.Info("PANICKING")
 		a.panicking = true
 		a.panicTime = &now
@@ -190,9 +192,9 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 }
 
-func rateLimited(desiredRate float64) float64 {
-	if desiredRate > maxScaleUpRate {
-		return maxScaleUpRate
+func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
+	if desiredRate > a.MaxScaleUpRate.Get() {
+		return a.MaxScaleUpRate.Get()
 	}
 	return desiredRate
 }
