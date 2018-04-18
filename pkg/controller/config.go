@@ -67,6 +67,7 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 	c := Config{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range m.Data {
+		// TODO(josephburnett): migrate to k8sflag
 		if k == "prod-domain.com" || k == "demo-domain.com" {
 			labelSelector := LabelSelector{}
 			err := yaml.Unmarshal([]byte(v), &labelSelector)
