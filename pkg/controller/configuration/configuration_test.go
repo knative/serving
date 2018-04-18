@@ -44,7 +44,6 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 
 	"k8s.io/client-go/rest"
-	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -473,14 +472,6 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 			Status: corev1.ConditionTrue,
 		}},
 	}
-
-	// In this case, we can't tell if addRevisionEvent has updated the
-	// Configuration, because it's already in the expected state. Use a reactor
-	// instead to test whether Update() is called.
-	elaClient.Fake.PrependReactor("update", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
-		t.Error("Configuration was updated unexpectedly")
-		return true, nil, nil
-	})
 
 	controller.addRevisionEvent(revision)
 }

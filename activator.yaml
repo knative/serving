@@ -35,4 +35,3 @@ spec:
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
-        
