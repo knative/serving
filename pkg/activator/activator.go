@@ -190,7 +190,6 @@ func (a *Activator) watchForReady(revKey string) {
 		return
 	}
 	defer wi.Stop()
-
 	ch := wi.ResultChan()
 	for {
 		event := <-ch
@@ -203,7 +202,7 @@ func (a *Activator) watchForReady(revKey string) {
 			}
 			// TODO: Mark a revision ready at the right time
 			// https://github.com/elafros/elafros/issues/660
-			time.Sleep(5 * time.Second)
+			time.Sleep(2 * time.Second)
 			a.chans.activationDoneCh <- revKey
 			glog.Infof("Revision %s is ready.", revKey)
 			return
@@ -218,7 +217,6 @@ func (a *Activator) process() {
 	for {
 		select {
 		case revReq := <-a.chans.revisionRequestCh:
-			var revRequests []RevisionRequest
 			revKey := getRevisionKey(revReq.namespace, revReq.name)
 			if revRequests, ok := revisionMap[revKey]; !ok {
 				revRequests = []RevisionRequest{}
@@ -232,7 +230,7 @@ func (a *Activator) process() {
 				glog.Infof("Add %s to watch channel", revKey)
 				a.chans.watchCh <- revKey
 			}
-			revisionMap[revKey] = append(revRequests, revReq)
+			revisionMap[revKey] = append(revisionMap[revKey], revReq)
 		case revToWatch := <-a.chans.watchCh:
 			go a.watchForReady(revToWatch)
 		case revToActivate := <-a.chans.activateCh:
@@ -252,7 +250,6 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Use the namespace from the header.
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions("default")
 	revisionName := r.Header.Get(controller.GetRevisionHeaderName())
-
 	revision, err := revisionClient.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		http.Error(w, "Unable to get revision.", http.StatusNotFound)
