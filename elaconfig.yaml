@@ -37,10 +37,11 @@ data:
   # achieve a 60-second average concurrency per pod of
   # targetConcurrency.  Another process may tune targetConcurrency
   # to best handle the resource requirements of the revision.
-  autoscale.target-concurrency: 1.0
+  autoscale.target-concurrency: "1.0"
 
   autoscale.stable-window: 60s
   autoscale.panic-window: 6s
+  autoscale.max-scale-up-rate: "10"
   
   # Dynamic parameters:
   

@@ -168,9 +168,9 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, a.StableWindow, stableCount, len(stablePods))
+		observedStableConcurrency, a.StableWindow.Get(), stableCount, len(stablePods))
 	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, a.PanicWindow, panicCount, len(panicPods))
+		observedPanicConcurrency, a.PanicWindow.Get(), panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
