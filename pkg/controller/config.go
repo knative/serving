@@ -67,17 +67,18 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 	c := Config{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range m.Data {
-		// TODO(josephburnett): migrate to k8sflag
-		if k == "prod-domain.com" || k == "demo-domain.com" {
-			labelSelector := LabelSelector{}
-			err := yaml.Unmarshal([]byte(v), &labelSelector)
-			if err != nil {
-				return nil, err
-			}
-			c.Domains[k] = &labelSelector
-			if len(labelSelector.Selector) == 0 {
-				hasDefault = true
-			}
+		// TODO(josephburnett): migrate domain configuration to k8sflag
+		if strings.HasPrefix(k, "autoscale.") {
+			continue
+		}
+		labelSelector := LabelSelector{}
+		err := yaml.Unmarshal([]byte(v), &labelSelector)
+		if err != nil {
+			return nil, err
+		}
+		c.Domains[k] = &labelSelector
+		if len(labelSelector.Selector) == 0 {
+			hasDefault = true
 		}
 	}
 	if !hasDefault {

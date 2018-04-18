@@ -21,15 +21,16 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	a.expectScale(t, time.Now(), 0, false)
 }
 
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -42,7 +43,7 @@ func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 }
 
 func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -55,7 +56,7 @@ func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
 }
 
 func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -68,7 +69,7 @@ func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
 }
 
 func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -81,7 +82,7 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 }
 
 func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -94,7 +95,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
 }
 
 func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -117,7 +118,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 
 }
 func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -141,7 +142,7 @@ func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stablizes.
 func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
-	a := NewAutoscaler(1.0)
+	a := newTestAutoscaler(1.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -190,7 +191,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 }
 
 func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -231,7 +232,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 
 // Autoscaler should drop data after 60 seconds.
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
-	a := NewAutoscaler(10.0)
+	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
 		time.Now(),
 		linearSeries{
@@ -256,6 +257,20 @@ type linearSeries struct {
 	endConcurrency   int
 	durationSeconds  int
 	podCount         int
+}
+
+func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
+	stableWindow := 60 * time.Second
+	panicWindow := 6 * time.Second
+	scaleToZeroThreshold := 5 * time.Minute
+	config := Config{
+		TargetConcurrency:    k8sflag.Float64("target-concurrency", targetConcurrency),
+		MaxScaleUpRate:       k8sflag.Float64("max-scale-up-rate", 10.0),
+		StableWindow:         k8sflag.Duration("stable-window", &stableWindow),
+		PanicWindow:          k8sflag.Duration("panic-window", &panicWindow),
+		ScaleToZeroThreshold: k8sflag.Duration("scale-to-zero-threshold", &scaleToZeroThreshold),
+	}
+	return NewAutoscaler(config)
 }
 
 // Record a data point every second, for every pod, for duration of the
