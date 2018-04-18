@@ -8,8 +8,7 @@ Examples in this section illustrate:
 
 * [Automatic rollout of a new Revision to an existing Service with a
   pre-built container](#1-automatic-rollout-of-a-new-revision-to-existing-service---pre-built-container)
-* [Creating a first route to deploy a first revision from a pre-built
-  container](#2-creating-route-and-deploying-first-revision---pre-built-container)
+* [Creating a new Service with a pre-built container](#2-creating-a-new-service-with-a-pre-built-container)
 * [Configuration changes and manual rollout
   options](#3-manual-rollout-of-a-new-revision---config-change-only)
 * [Creating a revision from source](#4-deploy-a-revision-from-source)
@@ -38,22 +37,23 @@ $ elafros deploy --service my-service
 
 **Steps**:
 
-* Update the Configuration with the config change
+* Update the Service with the config change
 
 **Results:**
 
-* A new Revision is created, and automatically rolled out to 100% once
-  ready
+* The Configuration associated with the Service is updated, and a new
+  Revision is created, and automatically rolled out to 100% once ready.
 
 ![Automatic Rollout](images/auto_rollout.png)
 
 
-After the initial Route and Configuration have been created (which is
-shown in the [second example](TODO)), the typical
-interaction is to update the revision configuration, resulting in the
-creation of a new revision, which will be automatically rolled out by
-the route. Revision configuration updates can be handled as either a
-PUT or PATCH operation:
+After the initial Route and Configuration have been created (which is shown
+in the
+[second example](#2-creating-a-new-service-with-a-pre-built-container)),
+the typical interaction is to update the revision configuration, resulting
+in the creation of a new revision, which will be automatically rolled out by
+the route. Revision configuration updates can be handled as either a PUT or
+PATCH operation:
 
 * Optimistic concurrency controls for PUT operations in a
   read/modify/write routine work as expected in kubernetes.
@@ -69,9 +69,28 @@ followed by several GET calls to illustrate each step in the
 reconciliation process as the system materializes the new revision,
 and begins shifting traffic from the old revision to the new revision.
 
-The client PATCHes the configuration's template revision with just the
-new container image, inheriting previous configuration from the
-configuration:
+The client PATCHes the service's configuration with new container image,
+inheriting previous environment values from the configuration spec:
+
+```http
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/sevices/my-service
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  runLatest:
+    configuration:
+      revisionTemplate:  # template for building Revision
+        spec:
+          container:
+            image: gcr.io/...  # new image
+```
+
+This causes the controller to PATCH the configuration's template revision
+with the new container image:
 
 ```http
 PATCH /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
@@ -80,7 +99,7 @@ PATCH /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
 apiVersion: elafros.dev/v1alpha1
 kind: Configuration
 metadata:
-  name: my-service  # by convention, same name as the service
+  name: my-service  # Named the same as the Service
 spec:
   revisionTemplate:  # template for building Revision
     spec:
@@ -88,8 +107,8 @@ spec:
         image: gcr.io/...  # new image
 ```
 
-The update to the Configuration triggers a new revision being created,
-and the Configuration is updated to reflect the new Revision:
+The update to the Configuration triggers a new Revision being created, and
+the Configuration and Service are updated to reflect the new Revision:
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
@@ -108,6 +127,25 @@ status:
   latestReadyRevisionName: abc
   latestCreatedRevisionName: def # new revision created, but not ready yet
   observedGeneration: 1235
+```
+
+```http
+GET /apis/elafros.dev/v1alpha1/namespaces/default/service/my-service
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+  generation: 1452
+ ...
+
+spec: 
+  ... # same as before, except new container.image
+status:
+  latestReadyRevisionName: abc
+  latestCreatedRevisionName: def # new revision created, but not ready yet
+  observedGeneration: 1452
 ```
 
 The newly created revision has the same config as the previous
@@ -145,13 +183,13 @@ status:
 ```
 
 When the new revision is Ready, i.e. underlying resources are
-materialized and ready to serve, the configuration updates its
-`status.latestReadyRevisionName` status to reflect the new
+materialized and ready to serve, the configuration (and service)
+updates their `status.latestReadyRevisionName` to reflect the new
 revision. The route, which is configured to automatically rollout new
 revisions from the configuration, watches the configuration and is
-notified of the `latestReadyRevisionName`, and begins migrating traffic
-to it. During reconciliation, traffic may be routed to both existing
-revision `abc` and new revision `def`:
+notified of the `latestReadyRevisionName`, and begins migrating
+traffic to it. During reconciliation, traffic may be routed to both
+existing revision `abc` and new revision `def`:
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
@@ -211,9 +249,9 @@ status:
 ```
 
 
-## 2) Creating Route and deploying first Revision - pre-built container
+## 2) Creating a new Service with a pre-built container
 
-**Scenario**: User creates a new Route and deploys their first
+**Scenario**: User creates a new Service and deploys their first
   Revision based on a pre-built container
 
 ```
@@ -229,8 +267,8 @@ $ elafros deploy --service my-service --region us-central1
 
 **Steps**:
 
-* Create a new Configuration and a Route that references a that
-  configuration.
+* Create a new Service. That Service will trigger creation of a new
+  Configuration and a Route that references a that configuration.
 
 **Results**:
 
@@ -239,38 +277,66 @@ $ elafros deploy --service my-service --region us-central1
 
 * A new Route is created, referencing the configuration
 
-* The route begins serving traffic to the revision that was created by
+* The route begins serving traffic to the Revision that was created by
   the configuration
 
 ![Initial Creation](images/initial_creation.png)
 
 
-The previous example assumed an existing Route and Configuration to
-illustrate the common scenario of updating the configuration to deploy
-a new revision to the service.
+The previous example assumed an existing Service with a Route and
+Configuration to illustrate the common scenario of updating the
+configuration to deploy a new revision to the service.
 
 In this getting started example, deploying a first Revision is
-accomplished by creating a new Configuration (which will generate a
-new Revision) and creating a new Route referring to that
-configuration. Note that these two steps can occur in either order, or
-in parallel.
+accomplished by creating a new Service, which will create both a
+Configuration and a new Route referring to that configuration. In
+turn, the Configuration will generate a new Revision. Note that these
+steps may occur in in parallel.
 
-A Route can either refer directly to a Revision, or to the latest
-ready revision of a Configuration, as this example illustrates. This
-is the most straightforward scenario that many Elafros customers are
-expected to use, and is consistent with the experience of deploying
-code that is rolled out immediately.
+In the `runLatest` style of Service, the Route always references the
+latest ready revision of a Configuration, as this example
+illustrates. This is the most straightforward scenario that many
+Elafros customers are expected to use, and is consistent with the
+experience of deploying code that is rolled out immediately.  A Route
+may also directly to a Revision, which is shown in
+[example 3](#3-manual-rollout-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by
 several GET calls to illustrate each step in the reconciliation
 process as the system materializes and begins routing traffic to the
 revision.
 
-The client creates the route and configuration, which by convention
-share the same name:
+The client creates the service in `runLatest` mode:
 
 ```http
-POST /apis/elafros.dev/v1alpha1/namespaces/default/routes
+POST /apis/elafros.dev/v1alpha1/namespaces/default/services
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  runLatest:
+    configuration:
+      revisionTemplate:  # template for building Revision
+        metadata: ...
+        spec: 
+          container: # k8s core.v1.Container
+            image: gcr.io/...
+            env:
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+          ...
+```
+
+This causes the service controller to create route and configuration
+objects with the same name as the Service:
+
+```http
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -285,7 +351,7 @@ spec:
 ```
 
 ```http
-POST /apis/elafros.dev/v1alpha1/namespaces/default/configurations
+GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -294,8 +360,8 @@ metadata:
   name: my-service  # By convention (not req'd), same name as the service.
                     # This will also be set as the "elafros.dev/configuration"
                     # label on the created Revision.
-spec:
-  revisionTemplate:  # template for building Revision
+spec:  # Contents from service's spec.runLatest.configuration
+  revisionTemplate:
     metadata: ...
     spec: 
       container: # k8s core.v1.Container
@@ -308,9 +374,9 @@ spec:
       ...
 ```
 
-Upon the creation of the configuration, the system will create a new
-Revision, generating its name, and applying the spec and metadata from
-the configuration, as well as new metadata labels:
+Upon the creation of the configuration, the configuration controller
+will create a new Revision, generating its name, and applying the spec
+and metadata from the configuration, as well as new metadata labels:
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -373,7 +439,7 @@ metadata:
 spec: 
   ...  # same as before
 status:
-  # the latest created and ready to serve. Watched by service
+  # the latest created and ready to serve. Watched by route
   latestReadyRevisionName: abc
   # latest created revision 
   latestCreatedRevisionName: abc
@@ -415,11 +481,33 @@ status:
   observedGeneration: 2145
 ```
 
+The Service also watches the Configuration (and Route) and mirrors their status for convenience:
+
+```http
+GET /apis/elafros.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+  generation: 1
+  ...
+spec: 
+  ...  # same as before
+status:
+  # the latest created and ready to serve.
+  latestReadyRevisionName: abc
+  # latest created revision 
+  latestCreatedRevisionName: abc
+  observedGeneration: 1
+```
+
 
 ## 3) Manual rollout of a new Revision - config change only
 
-**_Scenario_**: User updates configuration with new configuration (env
-  var change) to an existing service, tests the revision, then
+**_Scenario_**: User updates configuration with new runtime arguments
+  (env var change) to an existing service, tests the revision, then
   proceeds with a manually controlled rollout to 100%
 
 ```
@@ -450,14 +538,11 @@ current,next  100%     v3   2018-01-19 12:16    user1         a6f92d1
 
 **Steps**:
 
-* Update the Route to pin the current revision
+* Update the Service to switch from `runLatest` to `pinned` strategy.
 
-* Update the Configuration with the new configuration (env var)
+* Update the Service with the new configuration (env var).
 
-* Update the Route to address the new Revision 
-
-* After testing the new revision through the named subdomain, proceed
-  with the rollout, incrementally increasing traffic to 100%
+* Update the Service to address the new Revision.
 
 **Results:**
 
@@ -465,21 +550,44 @@ current,next  100%     v3   2018-01-19 12:16    user1         a6f92d1
   addressable at next.my-service... (by convention), but traffic is
   not routed to it until the percentage is manually ramped up. Upon
   completing the rollout, the next revision is now the current
-  revision
+  revision.
 
 ![Manual rollout](images/manual_rollout.png)
 
 
-In the previous examples, the route referenced a Configuration for
-automatic rollouts of new Revisions. While this pattern is useful for
-many scenarios such as functions-as-a-service and simple development
-flows, the Route can also reference Revisions directly to "pin"
-traffic to specific revisions, which is suitable for manually
-controlling rollouts, i.e. testing a new revision prior to serving
-traffic. (Note: see [Appendix B](complex_examples.md) for a
-semi-automatic variation of manual rollouts).
+In the previous examples, the Service automatically made changes to
+the configuration live when they became ready. While this pattern is
+useful for many scenarios such as functions-as-a-service and simple
+development flows, the Service can also reference Revisions directly
+in `pinned` mode to route traffic to a specific Revision, which is
+suitable for manually controlling rollouts, i.e. testing a new
+revision prior to serving traffic. (Note: see
+[Appendix B](complex_examples.md) for a semi-automatic variation of
+manual rollouts).
 
-The client updates the route to pin the current revision:
+The client updates the service to pin the current revision:
+
+```http
+PUT /apis/elafros.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  pinned:
+    revisionName: def
+    configuration:  # Copied from spec.runLatest.configuration
+      revisionTemplate:  # template for building Revision
+        spec:
+          container:
+            image: gcr.io/...  # new image
+```
+
+This causes the Route to be updated to pin traffic the specified
+revision (note that the Configuration between the two is equivalent,
+and therefore unchanged).
 
 ```http
 PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
@@ -492,13 +600,37 @@ metadata:
 spec:
   rollout:
     traffic:
-    - revisionName: def # pin a specific revision, i.e. the current one
+    - revisionName: def  # pin a specific revision, i.e. the current one
       percent: 100
+    - configurationName: my-service  # Make "next" address the latest release
+      name: next
+```
+
+Next, the service is updated with the new variables, which causes the
+service controller to update the Configuration, in this case updating
+the environment but keeping the same container image:
+
+```http
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  pinned:
+    configuration:  # Copied from spec.runLatest.configuration
+      revisionTemplate:  # template for building Revision
+        spec:
+          container:
+            env:  # k8s-style strategic merge patch, updating a single list value
+            - name: HELLO
+              value: blurg  # changed value
 ```
 
 As in the previous example, the configuration is updated to trigger
-the creation of a new revision, in this case updating the container
-image but keeping the same config:
+the creation of a new revision:
 
 ```http
 PATCH /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
