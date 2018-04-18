@@ -2,7 +2,8 @@
 
 This directory contains tests and testing docs for `Elafros`:
 
-* Unit tests currently reside in the codebase alongside the code they test.
+* [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test.
+* [End-to-end tests](#running-end-to-end-tests)
 * [Conformance tests](./conformance/README.md) are in [`./test/conformance`](./conformance)
 
 ## Running unit tests
