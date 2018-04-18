@@ -202,7 +202,7 @@ func (a *Activator) watchForReady(revKey string) {
 			}
 			// TODO: Mark a revision ready at the right time
 			// https://github.com/elafros/elafros/issues/660
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 			a.chans.activationDoneCh <- revKey
 			glog.Infof("Revision %s is ready.", revKey)
 			return

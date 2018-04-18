@@ -32,13 +32,13 @@ spec:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
         - "-fluentdSidecarImage"
-        # The flag to turn on the activator.
-        - "-enableActivatorExperiment=true"
         - "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
         - "-queueSidecarImage"
         - ela-queue:latest
         - "-autoscalerImage"
         - ela-autoscaler:latest
+        # The flag to turn on the activator.
+        - "-enableActivatorExperiment=false"
         ports:
         - name: metrics
           containerPort: 9090

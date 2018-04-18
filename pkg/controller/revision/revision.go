@@ -616,11 +616,6 @@ func (c *Controller) reconcileOnceBuilt(rev *v1alpha1.Revision, ns string) error
 
 	if deletionTimestamp == nil && rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
 		log.Printf("Creating or reconciling resources for %s\n", rev.Name)
-		// newRev, err := c.updateCreationTimestamp(rev)
-		// if err != nil {
-		// 	log.Printf("Failed to update the revision creation time for %s/%s", rev.GetNamespace(), rev.GetName())
-		// 	return err
-		// }
 		return c.createK8SResources(rev, elaNS)
 	}
 	return c.deleteK8SResources(rev, elaNS)
