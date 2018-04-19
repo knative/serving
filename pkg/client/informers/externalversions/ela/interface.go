@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package elafros
+package ela
 
 import (
 	v1alpha1 "github.com/elafros/elafros/pkg/client/informers/externalversions/ela/v1alpha1"
