@@ -22,9 +22,9 @@ go test -v ./pkg/...
 
 ## Running end-to-end tests
 
-You can either run all the end-to-end tests in an isolate, hermetic cluster, or use your already existing cluster for that.
+You can either run all the end-to-end tests in an isolated, hermetic cluster, or use your already existing cluster for that.
 
-### Running against an isolate, hermetic cluster
+### Running against an isolated, hermetic cluster
 
 In order to run the end-to-end tests, make sure you:
 
