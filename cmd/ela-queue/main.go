@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -152,11 +154,20 @@ func statReporter() {
 	}
 }
 
+func isProbe(r *http.Request) bool {
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	reqInChan <- queue.Poke{}
-	defer func() {
-		reqOutChan <- queue.Poke{}
-	}()
+	if !isProbe(r) {
+		// Only count non-prober requests for autoscaling.
+		reqInChan <- queue.Poke{}
+		defer func() {
+			reqOutChan <- queue.Poke{}
+		}()
+	}
 	proxy.ServeHTTP(w, r)
 }
 
@@ -227,6 +238,7 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
+	flag.Parse()
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
 	if err != nil {
