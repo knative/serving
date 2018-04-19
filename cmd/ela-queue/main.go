@@ -238,6 +238,8 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
+	// Even though we have no flags, glog has some hence requiring
+	// flag.Parse().
 	flag.Parse()
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
