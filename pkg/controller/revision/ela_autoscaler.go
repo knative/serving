@@ -35,24 +35,26 @@ import (
 // non-default namespaces continue to work with autoscaling.
 const AutoscalerNamespace = "ela-system"
 
-func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, autoscalerImage string) *v1beta1.Deployment {
+// MakeElaAutoscalerDeployment creates the deployment of the
+// autoscaler for a particular revision.
+func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
 
-	labels := MakeElaResourceLabels(u)
-	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(u)
-	annotations := MakeElaResourceAnnotations(u)
+	labels := MakeElaResourceLabels(rev)
+	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
+	annotations := MakeElaResourceAnnotations(rev)
 	annotations[sidecarIstioInjectAnnotation] = "false"
 
 	replicas := int32(1)
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        controller.GetRevisionAutoscalerName(u),
+			Name:        controller.GetRevisionAutoscalerName(rev),
 			Namespace:   AutoscalerNamespace,
-			Labels:      MakeElaResourceLabels(u),
-			Annotations: MakeElaResourceAnnotations(u),
+			Labels:      MakeElaResourceLabels(rev),
+			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: v1beta1.DeploymentSpec{
 			Replicas: &replicas,
@@ -82,15 +84,15 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, autoscalerImage string) *
 							Env: []corev1.EnvVar{
 								{
 									Name:  "ELA_NAMESPACE",
-									Value: u.Namespace,
+									Value: rev.Namespace,
 								},
 								{
 									Name:  "ELA_DEPLOYMENT",
-									Value: controller.GetRevisionDeploymentName(u),
+									Value: controller.GetRevisionDeploymentName(rev),
 								},
 								{
 									Name:  "ELA_REVISION",
-									Value: u.Name,
+									Value: rev.Name,
 								},
 								{
 									Name:  "ELA_AUTOSCALER_PORT",
@@ -110,13 +112,15 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, autoscalerImage string) *
 	}
 }
 
-func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
+// MakeElaAutoscalerService returns a service for the autoscaler of
+// the given revision.
+func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        controller.GetRevisionAutoscalerName(u),
+			Name:        controller.GetRevisionAutoscalerName(rev),
 			Namespace:   AutoscalerNamespace,
-			Labels:      MakeElaResourceLabels(u),
-			Annotations: MakeElaResourceAnnotations(u),
+			Labels:      MakeElaResourceLabels(rev),
+			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -128,7 +132,7 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				ela.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(u),
+				ela.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
 			},
 		},
 	}

@@ -31,6 +31,8 @@ spec:
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
+        - "-fluentdSidecarImage"
+        - "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
         - "-queueSidecarImage"
         - ela-queue:latest
         - "-autoscalerImage"

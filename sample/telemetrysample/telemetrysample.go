@@ -17,11 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	openzipkin "github.com/openzipkin/zipkin-go"
@@ -130,6 +132,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
+	mux.Handle("/log", &ochttp.Handler{Propagation: &b3.HTTPFormat{}, Handler: logHandler(client)})
 	// Setup OpenCensus Prometheus exporter to handle scraping for metrics.
 	mux.Handle("/metrics", promExporter)
 	http.ListenAndServe(":8080", mux)
@@ -212,5 +215,53 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 		w.WriteHeader(status)
 		w.Write([]byte("Hello world!\n"))
 		log.Printf("Request complete. Status: %v", status)
+	}
+}
+
+func logHandler(client *http.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		timestamp := time.Now()
+
+		// Send logs to STDOUT
+		msg := "A log in plain text format to STDOUT"
+		fmt.Fprintln(os.Stdout, msg)
+
+		data := map[string]string{
+			"log":  "A log in json format to STDOUT",
+			"time": timestamp.String(),
+		}
+		jsonOutput, _ := json.Marshal(data)
+		fmt.Fprintln(os.Stdout, string(jsonOutput))
+
+		// Send logs to /var/log
+		fileName := "/var/log/sample.log"
+		f, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+
+		if err == nil {
+			msg = "A log in plain text format to /var/log\n"
+			if _, err := f.WriteString(msg); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to write to %s: %v", fileName, err)
+			}
+
+			data := map[string]string{
+				"log":  "A log in json format to /var/log",
+				"time": timestamp.String(),
+				// fluentd-time is the reserved key to tell fluentd the logging time. It
+				// must be in the format of RFC3339Nano, i.e. %Y-%m-%dT%H:%M:%S.%NZ.
+				// Without this, fluentd uses current time when it collect the log as an
+				// event time.
+				"fluentd-time": timestamp.Format(time.RFC3339Nano),
+			}
+			jsonOutput, _ := json.Marshal(data)
+			if _, err := f.WriteString(string(jsonOutput) + "\n"); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to write to %s: %v", fileName, err)
+			}
+			f.Sync()
+		} else {
+			fmt.Fprintf(os.Stderr, "Failed to create %s: %v", fileName, err)
+		}
+
+		fmt.Fprint(w, "Sending logs done.\n")
 	}
 }

@@ -29,8 +29,8 @@
 # Test cluster parameters and location of generated test images
 readonly E2E_CLUSTER_NAME=ela-e2e-cluster
 readonly E2E_CLUSTER_ZONE=us-central1-a
-readonly E2E_CLUSTER_NODES=2
-readonly E2E_CLUSTER_MACHINE=n1-standard-2
+readonly E2E_CLUSTER_NODES=3
+readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly GKE_VERSION=v1.9.4-gke.1
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
@@ -102,8 +102,10 @@ function delete_elafros_images() {
   gcloud -q container images delete ${all_images}
 }
 
-function exit_if_test_failed() {
-  [[ $? -ne 0 ]] && exit 1
+function exit_if_failed() {
+  [[ $? -eq 0 ]] && return 0
+  echo "*** TEST FAILED ***"
+  exit 1
 }
 
 # End-to-end tests
@@ -197,7 +199,9 @@ if [[ -z $1 ]]; then
     --extract "${GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
-  exit $(cat ${TEST_RESULT_FILE})
+  result="$(cat ${TEST_RESULT_FILE})"
+  echo "Test result code is $result"
+  exit $result
 fi
 
 # --run-tests passed as first argument, run the tests.
@@ -259,7 +263,8 @@ if (( IS_PROW )); then
 fi
 
 bazel run //:everything.apply
-wait_for_elafros || exit 1
+wait_for_elafros
+exit_if_failed
 
 # Enable Istio sidecar injection
 bazel run @istio_release//:webhook-create-signed-cert
@@ -268,9 +273,9 @@ kubectl label namespace default istio-injection=enabled
 # Run the tests
 
 run_hello_world
-exit_if_test_failed
+exit_if_failed
 run_conformance_tests
-exit_if_test_failed
+exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
@@ -278,4 +283,5 @@ exit_if_test_failed
 # failure in kubetest.
 # TODO(adrcunha): Get rid of this workaround.
 echo -n "0"> ${TEST_RESULT_FILE}
+echo "*** ALL TESTS PASSED ***"
 exit 0

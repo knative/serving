@@ -48,6 +48,7 @@ import (
 )
 
 const testNamespace string = "test"
+const testFluentdImage string = "fluentdImage"
 const testQueueImage string = "queueImage"
 const testAutoscalerImage string = "autoscalerImage"
 
@@ -88,6 +89,16 @@ func getTestRevision() *v1alpha1.Revision {
 				TerminationMessagePath: "/dev/null",
 			},
 			ServingState: v1alpha1.RevisionServingStateActive,
+		},
+	}
+}
+
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
+			Name:      "test-config",
+			Namespace: testNamespace,
 		},
 	}
 }
@@ -185,6 +196,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		elaInformer,
 		&rest.Config{},
 		ctrl.Config{},
+		testFluentdImage,
 		testQueueImage,
 		testAutoscalerImage,
 	).(*Controller)
@@ -229,6 +241,12 @@ func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	controller.syncHandler(KeyOrDie(rev))
+}
+
+func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
+	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Update(rev)
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 }
@@ -236,6 +254,11 @@ func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 func TestCreateRevCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
@@ -292,9 +315,29 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Error("Missing queue-proxy container")
 	}
 
+	// Check the revision deployment fluentd proxy environment variables
+	foundFluentdProxy := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "fluentd-proxy" {
+			foundFluentdProxy = true
+			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
+			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", "test-config", "")
+			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
+			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
+			break
+		}
+	}
+	if !foundFluentdProxy {
+		t.Error("Missing fluentd-proxy container")
+	}
+
 	expectedLabels := sumMaps(
 		rev.Labels,
-		map[string]string{ela.RevisionLabelKey: rev.Name},
+		map[string]string{
+			ela.RevisionLabelKey: rev.Name,
+			appLabelKey:          rev.Name,
+		},
 	)
 	expectedAnnotations := rev.Annotations
 	expectedPodSpecAnnotations := sumMaps(
@@ -406,6 +449,29 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
 
+	// Look for the config map.
+	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config map: %v", err)
+	}
+	// The config map should also be owned by rev.
+	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
+	}
+	if labels := configMap.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly config map: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
+		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
+			want, got)
+	}
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
 	// Ensure that the Revision status is updated.
 	want := []v1alpha1.RevisionCondition{
 		{
@@ -418,6 +484,71 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
+}
+
+func TestCreateRevPreservesAppLabel(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	controller.syncHandler(KeyOrDie(rev))
+
+	// Look for the revision deployment.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+	expectedLabels := sumMaps(
+		rev.Labels,
+		map[string]string{
+			ela.RevisionLabelKey: rev.Name,
+		},
+	)
+	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Labels not set correctly on deployment: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	if labels := deployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly in pod template: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	// Look for the revision service.
+	expectedServiceName := fmt.Sprintf("%s-service", rev.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision service: %v", err)
+	}
+	if labels := service.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly for revision service: expected %v got %v.",
+			expectedLabels, labels)
+	}
+	// Look for the autoscaler deployment.
+	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
+	expectedAutoscalerLabels := sumMaps(
+		expectedLabels,
+		map[string]string{ela.AutoscalerLabelKey: expectedAutoscalerName},
+	)
+	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
+	}
+	if labels := asDeployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
+		t.Errorf("Label not set correctly in autoscaler pod template: expected %v got %v.",
+			expectedAutoscalerLabels, labels)
+	}
+	// Look for the autoscaler service.
+	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get autoscaler service: %v", err)
+	}
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
+			expectedLabels, labels)
+	}
 }
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
@@ -860,4 +991,110 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 	)
 
 	controller.addEndpointsEvent(endpoints)
+}
+
+func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision and verify that the k8s resources are created as
+	// appropriate.
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	_, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	// Now, update the revision serving state to Retired, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateRetired
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+}
+
+func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision and verify that the k8s resources are created as
+	// appropriate.
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	_, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	// Now, update the revision serving state to Reserve, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+}
+
+func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision. The k8s resources should not be created.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateRetired
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+
+	// Now, update the revision serving state to Active, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the resources to be created.
+	_, err = kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+}
+
+func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	// Create revision. The k8s resources should not be created.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the deployment to be gone.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err == nil {
+		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	}
+
+	// Now, update the revision serving state to Active, and force another
+	// run of the controller.
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	// Expect the resources to be created.
+	_, err = kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
 }

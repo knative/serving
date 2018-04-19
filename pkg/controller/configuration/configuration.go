@@ -48,8 +48,6 @@ import (
 
 const controllerAgentName = "configuration-controller"
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -275,7 +273,7 @@ func (c *Controller) syncHandler(key string) error {
 	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
 		config.Name, config, config.Spec.RevisionTemplate)
 	spec := config.Spec.RevisionTemplate.Spec
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := controller.NewConfigurationControllerRef(config)
 
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
@@ -380,7 +378,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	namespace := revision.Namespace
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
-	configName := lookupRevisionOwner(revision)
+	configName := controller.LookupOwningConfigurationName(revision.OwnerReferences)
 	if configName == "" {
 		return
 	}
@@ -449,17 +447,6 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 
 func (c *Controller) updateRevisionEvent(old, new interface{}) {
 	c.addRevisionEvent(new)
-}
-
-// Return the configuration that created it.
-func lookupRevisionOwner(revision *v1alpha1.Revision) string {
-	// See if there's a 'configuration' owner reference on this object.
-	for _, ownerReference := range revision.OwnerReferences {
-		if ownerReference.Kind == controllerKind.Kind {
-			return ownerReference.Name
-		}
-	}
-	return ""
 }
 
 func getLatestRevisionStatusCondition(revision *v1alpha1.Revision) *v1alpha1.RevisionCondition {
