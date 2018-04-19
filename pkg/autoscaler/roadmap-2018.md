@@ -10,7 +10,7 @@ This is what we hope to accomplish in 2018.
   2. *Make it light*
   3. *Make everything better*
 
-In 2018 we will focus on making autoscaling correct, fast and light.  Not so much on making everything better which is a longer term endeavour.
+In 2018 we will focus primarily on making autoscaling correct, fast and light.
 
 ## Areas of Interest and Requirements
 
@@ -18,6 +18,7 @@ In 2018 we will focus on making autoscaling correct, fast and light.  Not so muc
 2. **Performance**.  When scaling from 1-to-N and back down, autoscaling must maintain reasonable latency.  The Elafros implementation of autoscaling must be competitive in its ability to serve variable load.
 3. **Scale to zero**.  Idle ([Reserve](README.md#behavior)) Revisions must cost nothing.  Reserve Revisions must serve the first request in 1 second or less.
 4. **Development**.  Autoscaler development must follow a clear roadmap.  Getting started as a developer must be easy and the team must scale horizontally.
+5. **Integration**.  Autoscaler should be pluggable and support multiple strategies and workloads.
 
 ### Correctness
 
@@ -40,10 +41,14 @@ In 2018 we will focus on making autoscaling correct, fast and light.  Not so muc
 1. **Custom resource definition and controller** to encapsulate the autoscaling implementation.  This will let autoscaling evolve independently from the Revision custom resource and controller.  This makes development more independent and scalable.
 2. **Remove metrics reporting from the Queue Proxy** in order to rely on a common, Elafros metrics pipeline.  This could mean polling the Pods to get the same metrics as are reported to Prometheus.  Or going to Prometheus to get the metrics it has aggregated.  It means removing the metrics push from the [Queue Proxy to the Autoscaler](README.md#context).
 
+### Integration
+
+1. **Autoscaler multitenancy** will allow the autoscaler to remain "always on".  It will also reduce the overhead of running 1 single-tenant autoscaler pod per revision.
+2. **Consume custom metrics API** as an abstraction to allow pluggability.  This may require another metrics aggregation component to get the queue-proxy produced concurrency metrics behind a custom metrics API.  It will also allow autoscaling based on Prometheus metrics through an adapter.  A good acceptance criteria is the ability to plug in the vanilla Horizontal Pod Autoscaler (HPA) in lieu of the Elafros autoscaler (minus scale-to-zero capabilities).
+3. **Autoscale queue-based workloads** in addition to request/reply workloads.  The first use-case is the integration of Riff autoscaling into the multitenant autoscaler.  The autoscaler must be able to select the appropriate strategy for scaling the revision.
+
 ## What We Are Not Doing
 
 These are things we are explicitly leaving off the roadmap.  But we might do exploratory work to set them up for later development.  Most of these are related to Design Goal #3: *make everything better*.
 
-1. **Use the Horizontal Pod Autoscaler** (HPA) instead of our own Autoscaler implementation.  If we can get the metrics we need from Prometheus, we can adapt the HPA to a custom metrics API on Prometheus for scaling.  This might mean making changes to the HPA to achieve our performance goals.
-2. **Use Envoy for single-threading** instead of using the Queue Proxy to enforce serialization of requests to the application container.  This only applies in single-threaded mode.  It would allow us to remove the Queue Proxy entirely.  But it would probably require feature work in Envoy/Istio.
-3. **Autoscaler multitenancy** may allow us to make more efficient use of resources when managing large numbers of low-scale Revisions.  Currently each Active Revision has its own Autoscaler.
+1. **Use Envoy for single-threading** instead of using the Queue Proxy to enforce serialization of requests to the application container.  This only applies in single-threaded mode.  It would allow us to remove the Queue Proxy entirely.  But it would probably require feature work in Envoy/Istio.
