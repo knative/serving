@@ -70,15 +70,6 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 # Hello World: shiniestnewestversion!
 ```
 
-Generate some logs to STDOUT and files under `/var/log` in `Json` or plain text formats.
-
-```shell
-curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/logs
-# Sending logs done.
-```
-
-You can access to the logs from Kibana UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
-
 ## Updating
 
 You can update this to a new version. For example, update it with a new configuration.yaml via:
