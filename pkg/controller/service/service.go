@@ -48,7 +48,6 @@ import (
 )
 
 var (
-	controllerKind   = v1alpha1.SchemeGroupVersion.WithKind("Service")
 	processItemCount = stats.Int64(
 		"controller_service_queue_process_count",
 		"Counter to keep track of items in the service work queue",

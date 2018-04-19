@@ -49,14 +49,21 @@ const (
 )
 
 var (
-	masterURL         string
-	kubeconfig        string
-	queueSidecarImage string
-	autoscalerImage   string
+	masterURL           string
+	kubeconfig          string
+	fluentdSidecarImage string
+	queueSidecarImage   string
+	autoscalerImage     string
 )
 
 func main() {
 	flag.Parse()
+
+	if len(fluentdSidecarImage) != 0 {
+		glog.Infof("Using fluentd sidecar image: %s", fluentdSidecarImage)
+	} else {
+		glog.Fatal("missing required flag: -fluentdSidecarImage")
+	}
 
 	if len(queueSidecarImage) != 0 {
 		glog.Infof("Using queue sidecar image: %s", queueSidecarImage)
@@ -99,7 +106,7 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, queueSidecarImage, autoscalerImage),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage),
 		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
@@ -150,6 +157,7 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&fluentdSidecarImage, "fluentdSidecarImage", "", "The digest of the fluentd sidecar image.")
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }

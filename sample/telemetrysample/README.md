@@ -53,6 +53,13 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Hello World!
 ```
 
+Generate some logs to STDOUT and files under `/var/log` in `Json` or plain text formats.
+
+```shell
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/log
+Sending logs done.
+```
+
 ## Accessing logs
 You can access to the logs from Kibana UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
 
