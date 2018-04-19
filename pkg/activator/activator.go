@@ -36,8 +36,9 @@ import (
 type Activator struct {
 	kubeClient kubernetes.Interface
 	elaClient  clientset.Interface
-	tripper    http.RoundTripper
-	chans      Channels
+	// A RoundTripper member allows us to pass fake tripper in test to mimic a revision.
+	tripper http.RoundTripper
+	chans   Channels
 }
 
 // Channels hold all channels for activating revisions.
@@ -212,15 +213,14 @@ func (a *Activator) watchForReady(revKey string) {
 
 // The main method to process requests. Only active or reserved revisions reach here.
 func (a *Activator) process() {
-	// revisionMap is a map from the revision key to pending requests.
-	revisionMap := make(map[string][]RevisionRequest)
+	pendingRequests := make(map[string][]RevisionRequest)
 	for {
 		select {
 		case revReq := <-a.chans.revisionRequestCh:
 			revKey := getRevisionKey(revReq.namespace, revReq.name)
-			if revRequests, ok := revisionMap[revKey]; !ok {
+			if revRequests, ok := pendingRequests[revKey]; !ok {
 				revRequests = []RevisionRequest{}
-				revisionMap[revKey] = revRequests
+				pendingRequests[revKey] = revRequests
 				// Only put the first reserved revision to the activateCh.
 				if !revReq.active {
 					glog.Infof("Add %s to activate channel", revKey)
@@ -230,14 +230,14 @@ func (a *Activator) process() {
 				glog.Infof("Add %s to watch channel", revKey)
 				a.chans.watchCh <- revKey
 			}
-			revisionMap[revKey] = append(revisionMap[revKey], revReq)
+			pendingRequests[revKey] = append(pendingRequests[revKey], revReq)
 		case revToWatch := <-a.chans.watchCh:
 			go a.watchForReady(revToWatch)
 		case revToActivate := <-a.chans.activateCh:
 			go a.activate(revToActivate)
 		case revDone := <-a.chans.activationDoneCh:
-			if revRequests, ok := revisionMap[revDone]; ok {
-				delete(revisionMap, revDone)
+			if revRequests, ok := pendingRequests[revDone]; ok {
+				delete(pendingRequests, revDone)
 				go a.proxyRequests(revDone, revRequests)
 			} else {
 				glog.Error("The revision %s is unexpected in activator", revDone)
@@ -248,6 +248,7 @@ func (a *Activator) process() {
 
 func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Use the namespace from the header.
+	// https://github.com/elafros/elafros/issues/693
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions("default")
 	revisionName := r.Header.Get(controller.GetRevisionHeaderName())
 	revision, err := revisionClient.Get(revisionName, metav1.GetOptions{})

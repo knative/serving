@@ -31,7 +31,8 @@ import (
 func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string) istiov1alpha2.RouteRuleSpec {
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
-	// TODO: https://github.com/elafros/elafros/issues/607
+	// TODO: Set up routerules in different namespace, direct traffic to activator only when necessary.
+	// https://github.com/elafros/elafros/issues/607
 	if !enableActivatorExperiment {
 		destinationWeights = calculateDestinationWeights(u, tt, routes)
 		if tt != nil {

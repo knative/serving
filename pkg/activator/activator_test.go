@@ -31,9 +31,11 @@ import (
 )
 
 const (
-	testNamespace    string = "default"
-	testRevisionName string = "test-rev"
-	testPort                = 1234
+	testNamespace       string = "default"
+	testRevisionName    string = "test-rev"
+	testPort                   = 1234
+	createRevision             = true
+	doNotCreateRevision        = false
 )
 
 // FakeRoundTripper serves as a fake transport
@@ -100,7 +102,7 @@ func getTestRevision(servingState v1alpha1.RevisionServingStateType, revName str
 }
 
 // Add the test revisions to the environment.
-func addTestRevisions(t *testing.T, kubeClient *fakekubeclientset.Clientset, elaClient *fakeclientset.Clientset, revisions ...*v1alpha1.Revision) {
+func createRevisions(t *testing.T, kubeClient *fakekubeclientset.Clientset, elaClient *fakeclientset.Clientset, revisions ...*v1alpha1.Revision) {
 	for _, rev := range revisions {
 		if rev != nil {
 			// Add the revision
@@ -142,7 +144,7 @@ func TestGetRevisionTargetURL(t *testing.T) {
 	reservedRev := getTestRevision(v1alpha1.RevisionServingStateReserve, testRevisionName)
 	elaClient := fakeclientset.NewSimpleClientset()
 	kubeClient := fakekubeclientset.NewSimpleClientset()
-	addTestRevisions(t, kubeClient, elaClient, reservedRev)
+	createRevisions(t, kubeClient, elaClient, reservedRev)
 	a := getActivator(t, kubeClient, elaClient)
 	targetURL, err := a.getRevisionTargetURL(reservedRev)
 	if err != nil {
@@ -178,7 +180,7 @@ func testHandlerRevision(t *testing.T, servingState v1alpha1.RevisionServingStat
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	elaClient := fakeclientset.NewSimpleClientset()
 	if addRevToEnv {
-		addTestRevisions(t, kubeClient, elaClient, rev)
+		createRevisions(t, kubeClient, elaClient, rev)
 	}
 	signal := make(chan bool)
 	a := getActivator(t, kubeClient, elaClient)
@@ -200,27 +202,27 @@ func testHandlerRevision(t *testing.T, servingState v1alpha1.RevisionServingStat
 
 // Test for a revision that's not in Elafros.
 func TestHandler_revisionNotInElafros(t *testing.T) {
-	testHandlerRevision(t, v1alpha1.RevisionServingStateActive, http.StatusNotFound, false)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateActive, http.StatusNotFound, doNotCreateRevision)
 }
 
 // Test for a revision with reserve status.
 func TestHandler_reserveRevision(t *testing.T) {
-	testHandlerRevision(t, v1alpha1.RevisionServingStateReserve, http.StatusOK, true)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateReserve, http.StatusOK, createRevision)
 }
 
 // Test for a revision with active status.
 func TestHandler_activeRevision(t *testing.T) {
-	testHandlerRevision(t, v1alpha1.RevisionServingStateActive, http.StatusOK, true)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateActive, http.StatusOK, createRevision)
 }
 
 // Test for a revision with reretired status.
 func TestHandler_retiredRevision(t *testing.T) {
-	testHandlerRevision(t, v1alpha1.RevisionServingStateRetired, http.StatusServiceUnavailable, true)
+	testHandlerRevision(t, v1alpha1.RevisionServingStateRetired, http.StatusServiceUnavailable, createRevision)
 }
 
 // Test for a revision with unknown status.
 func TestHandler_unknowRevision(t *testing.T) {
-	testHandlerRevision(t, "Unknown", http.StatusServiceUnavailable, true)
+	testHandlerRevision(t, "Unknown", http.StatusServiceUnavailable, createRevision)
 }
 
 func testHandlerMultipleRevisions(t *testing.T, revMap map[*v1alpha1.Revision]int) {
@@ -228,7 +230,7 @@ func testHandlerMultipleRevisions(t *testing.T, revMap map[*v1alpha1.Revision]in
 	elaClient := fakeclientset.NewSimpleClientset()
 	count := 0
 	for rev, num := range revMap {
-		addTestRevisions(t, kubeClient, elaClient, rev)
+		createRevisions(t, kubeClient, elaClient, rev)
 		count += num
 	}
 	if count == 0 {
@@ -285,7 +287,7 @@ func TestHandler_twoConcurrentActiveRevisions(t *testing.T) {
 	testHandlerMultipleRevisions(t, revMap)
 }
 
-// Test when there are two unique revisions, revisionMap has more than one entries.
+// Test when there are two unique revisions, pendingRequests has more than one entries.
 func TestHandler_twoUniqueRevisions(t *testing.T) {
 	rev1 := getTestRevision(v1alpha1.RevisionServingStateActive, "test-rev1")
 	rev2 := getTestRevision(v1alpha1.RevisionServingStateReserve, "test-rev2")
