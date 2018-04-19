@@ -30,7 +30,6 @@ In 2018 we will focus primarily on making autoscaling correct, fast and light.
 
 1. **Establish canonical load test scenarios** to prove autoscaler performance and guide development.  We need to establish the code to run, the request load to generate, and the performance expected.  This will tell us where we need to improve.
 2. **Reproducable load tests** which can be run by anyone with minimal setup.  These must be transparent and easy to run.  They must be meaningful tests which prove autoscaler performance.
-3. **[Slow Brain](README.md#slow-brain--fast-brain) implementation** to automatically adjust autoscaling parameters to the application's behavior.
 
 ### Scale to Zero
 
@@ -39,7 +38,6 @@ In 2018 we will focus primarily on making autoscaling correct, fast and light.
 ### Development
 
 1. **Custom resource definition and controller** to encapsulate the autoscaling implementation.  This will let autoscaling evolve independently from the Revision custom resource and controller.  This makes development more independent and scalable.
-2. **Remove metrics reporting from the Queue Proxy** in order to rely on a common, Elafros metrics pipeline.  This could mean polling the Pods to get the same metrics as are reported to Prometheus.  Or going to Prometheus to get the metrics it has aggregated.  It means removing the metrics push from the [Queue Proxy to the Autoscaler](README.md#context).
 
 ### Integration
 
@@ -52,3 +50,6 @@ In 2018 we will focus primarily on making autoscaling correct, fast and light.
 These are things we are explicitly leaving off the roadmap.  But we might do exploratory work to set them up for later development.  Most of these are related to Design Goal #3: *make everything better*.
 
 1. **Use Envoy for single-threading** instead of using the Queue Proxy to enforce serialization of requests to the application container.  This only applies in single-threaded mode.  It would allow us to remove the Queue Proxy entirely.  But it would probably require feature work in Envoy/Istio.
+2. **Remove metrics reporting from the Queue Proxy** in order to rely on a common, Elafros metrics pipeline.  This could mean polling the Pods to get the same metrics as are reported to Prometheus.  Or going to Prometheus to get the metrics it has aggregated.  It means removing the metrics push from the [Queue Proxy to the Autoscaler](README.md#context).
+3. **[Slow Brain](README.md#slow-brain--fast-brain) implementation** to automatically adjust autoscaling parameters to the application's behavior.
+
