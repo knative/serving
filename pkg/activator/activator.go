@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
@@ -114,7 +115,7 @@ func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL,
 }
 
 func (a *Activator) proxyRequest(revRequest RevisionRequest, serviceURL *url.URL) {
-	glog.Infof("Sending a proxy request to %v", serviceURL)
+	glog.Infof("Sending a proxy request to %q", serviceURL)
 	proxy := httputil.NewSingleHostReverseProxy(serviceURL)
 	proxy.Transport = a.tripper
 	proxy.ServeHTTP(revRequest.w, revRequest.r)
@@ -123,7 +124,7 @@ func (a *Activator) proxyRequest(revRequest RevisionRequest, serviceURL *url.URL
 	glog.Info("End proxy request")
 }
 
-func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest, happyPath bool) {
+func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest) {
 	glog.Infof("Sending %d requests to revision %s.", len(requests), revKey)
 	if len(requests) == 0 {
 		return
@@ -132,13 +133,13 @@ func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest, hap
 	revision, err := a.getRevision(requests[0].namespace, requests[0].name)
 	if err != nil {
 		glog.Errorf("Failed to get revision %s, %q", revKey, err)
-		a.chans.badRevisionCh <- revKey
+		a.stopRequests(revKey, requests)
 		return
 	}
 	serviceURL, err := a.getRevisionTargetURL(revision)
 	if err != nil {
 		glog.Errorf("Failed to get service URL for revision %s, %q", revKey, err)
-		a.chans.badRevisionCh <- revKey
+		a.stopRequests(revKey, requests)
 		return
 	}
 	// TODO: Consider sending the requests in parallel.
@@ -238,14 +239,15 @@ func (a *Activator) watchForReady(revKey string) {
 // The main method to process requests. Only active or reserved revisions reach here.
 func (a *Activator) process(quitCh chan struct{}) {
 	// TODO: https://golang.org/pkg/sync/#Map
-	pendingRequests := make(map[string][]RevisionRequest)
+	var pendingRequests sync.Map //map[string][]RevisionRequest
 	for {
 		select {
 		case revReq := <-a.chans.revisionRequestCh:
 			revKey := getRevisionKey(revReq.namespace, revReq.name)
-			if revRequests, ok := pendingRequests[revKey]; !ok {
+			revRequests, found := pendingRequests.Load(revKey)
+			if !found {
 				revRequests = []RevisionRequest{}
-				pendingRequests[revKey] = revRequests
+				pendingRequests.Store(revKey, revRequests)
 				// Only put the first reserved revision to the activateCh.
 				if !revReq.active {
 					glog.Infof("Add %s to activate channel", revKey)
@@ -255,27 +257,32 @@ func (a *Activator) process(quitCh chan struct{}) {
 				glog.Infof("Add %s to watch channel", revKey)
 				a.chans.watchCh <- revKey
 			}
-			pendingRequests[revKey] = append(pendingRequests[revKey], revReq)
+			pendingRequests.Store(revKey, append(revRequests.([]RevisionRequest), revReq))
 		case revToWatch := <-a.chans.watchCh:
 			go a.watchForReady(revToWatch)
 		case revToActivate := <-a.chans.activateCh:
 			go a.activate(revToActivate)
 		case revDone := <-a.chans.activationDoneCh:
-			if revRequests, ok := pendingRequests[revDone]; ok {
-				delete(pendingRequests, revDone)
-				go a.proxyRequests(revDone, revRequests, happyPath)
+			revRequests, found := pendingRequests.Load(revDone)
+			if found {
+				pendingRequests.Delete(revDone)
+				go a.proxyRequests(revDone, revRequests.([]RevisionRequest))
 			} else {
-				glog.Error("The revision %s is unexpected in activator", revDone)
+				glog.Errorf("The revision %s is unexpected in activator", revDone)
 			}
 		case badRev := <-a.chans.badRevisionCh:
-			if revRequests, ok := pendingRequests[badRev]; ok {
-				delete(pendingRequests, badRev)
-				go a.proxyRequests(badRev, revRequests, sadPath)
+			revRequests, found := pendingRequests.Load(badRev)
+			if found {
+				pendingRequests.Delete(badRev)
+				go a.stopRequests(badRev, revRequests.([]RevisionRequest))
 			} else {
-				glog.Error("The revision %s is unexpected in activator", badRev)
+				glog.Errorf("The revision %s is unexpected in activator", badRev)
 			}
 		case <-quitCh:
-			return
+			pendingRequests.Range(func(revKey, revRequests interface{}) bool {
+				a.chans.badRevisionCh <- revKey.(string)
+				return true
+			})
 		}
 	}
 }
