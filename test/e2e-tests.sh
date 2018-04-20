@@ -104,7 +104,20 @@ function delete_elafros_images() {
 
 function exit_if_failed() {
   [[ $? -eq 0 ]] && return 0
-  echo "*** TEST FAILED ***"
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***************************************"
+  echo ">>> Project info"
+  gcloud compute project-info describe
+  echo ">>> All pods:"
+  kubectl get pods --all-namespaces
+  echo ">>> All services:"
+  kubectl get services
+  echo ">>> All events:"
+  kubectl get events
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***************************************"
   exit 1
 }
 
@@ -241,8 +254,6 @@ echo "================================================="
 echo "* Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "* User is ${K8S_USER_OVERRIDE}"
 echo "* Docker is ${DOCKER_REPO_OVERRIDE}"
-echo "*** Project info ***"
-gcloud compute project-info describe
 
 header "Building and starting Elafros"
 trap teardown EXIT
