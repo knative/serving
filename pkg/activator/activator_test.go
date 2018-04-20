@@ -151,7 +151,7 @@ func TestGetRevisionTargetURL(t *testing.T) {
 		t.Errorf("Error in getRevisionTargetURL %v", err)
 	}
 	expectedURL := "http://abc:1234"
-	if targetURL != expectedURL {
+	if targetURL.String() != expectedURL {
 		t.Errorf("getRevisionTargetURL returned unexpected url %s, expected %s", targetURL, expectedURL)
 	}
 }
@@ -170,9 +170,9 @@ func setRevisionReady(elaClient *fakeclientset.Clientset, rev *v1alpha1.Revision
 	elaClient.ElafrosV1alpha1().Revisions(rev.GetNamespace()).Update(rev)
 }
 
-func handleRequst(handler http.Handler, rr *httptest.ResponseRecorder, req *http.Request, signal chan bool) {
+func handleRequst(handler http.Handler, rr *httptest.ResponseRecorder, req *http.Request, signal chan struct{}) {
 	handler.ServeHTTP(rr, req)
-	signal <- true
+	signal <- struct{}{}
 }
 
 func testHandlerRevision(t *testing.T, servingState v1alpha1.RevisionServingStateType, expectedStatus int, addRevToEnv bool) {
@@ -182,9 +182,10 @@ func testHandlerRevision(t *testing.T, servingState v1alpha1.RevisionServingStat
 	if addRevToEnv {
 		createRevisions(t, kubeClient, elaClient, rev)
 	}
-	signal := make(chan bool)
+	signal := make(chan struct{})
 	a := getActivator(t, kubeClient, elaClient)
-	go a.process()
+	quitCh := make(chan struct{})
+	go a.process(quitCh)
 	req := getHTTPRequest(t, testRevisionName)
 	// response recorder to record the response
 	responseRecorder := httptest.NewRecorder()
@@ -198,6 +199,7 @@ func testHandlerRevision(t *testing.T, servingState v1alpha1.RevisionServingStat
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, expectedStatus)
 	}
+	quitCh <- struct{}{}
 }
 
 // Test for a revision that's not in Elafros.
@@ -237,10 +239,11 @@ func testHandlerMultipleRevisions(t *testing.T, revMap map[*v1alpha1.Revision]in
 		return
 	}
 
-	signal := make(chan bool, count)
+	signal := make(chan struct{}, count)
 	responseRecorders := make([]*httptest.ResponseRecorder, count)
 	a := getActivator(t, kubeClient, elaClient)
-	go a.process()
+	quitCh := make(chan struct{})
+	go a.process(quitCh)
 	handler := http.HandlerFunc(a.handler)
 
 	index := 0
@@ -269,6 +272,7 @@ func testHandlerMultipleRevisions(t *testing.T, revMap map[*v1alpha1.Revision]in
 				status, http.StatusOK)
 		}
 	}
+	quitCh <- struct{}{}
 }
 
 // Test when there are 3 concurrent requests for a particular reserve revision.

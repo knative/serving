@@ -540,9 +540,6 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	endpoint := obj.(*corev1.Endpoints)
 	eName := endpoint.Name
 	namespace := endpoint.Namespace
-	if namespace == "ela-system" {
-		return
-	}
 	// Lookup and see if this endpoints corresponds to a service that
 	// we own and hence the Revision that created this service.
 	revName := lookupServiceOwner(endpoint)

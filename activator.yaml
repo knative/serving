@@ -18,6 +18,8 @@ metadata:
   name: ela-activator
   namespace: ela-system
 spec:
+  # TODO: Increase the replicas
+  # https://github.com/elafros/elafros/issues/695
   replicas: 1
   template:
     metadata:

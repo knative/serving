@@ -43,7 +43,7 @@ type statKey struct {
 }
 
 const (
-	scaleToZeroThreshold time.Duration = 5 * time.Minute
+	scaleToZeroThreshold time.Duration = 2 * time.Minute
 	stableWindowSeconds  float64       = 60
 	stableWindow         time.Duration = 60 * time.Second
 	panicWindowSeconds   float64       = 6
