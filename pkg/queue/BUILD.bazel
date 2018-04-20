@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["queue.go"],
+    srcs = ["stats.go", "breaker.go"],
     importpath = "github.com/elafros/elafros/pkg/queue",
     visibility = ["//visibility:public"],
     deps = ["//pkg/autoscaler:go_default_library"],

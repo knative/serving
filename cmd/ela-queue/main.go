@@ -56,6 +56,13 @@ const (
 	// bit longer, that it doesn't go away until the pod is truly
 	// removed from service.
 	quitSleepSecs = 20
+
+	// Queue depth.  The maximum number of requests to enqueue before
+	// returing 503 overload.
+	queueDepth = 2
+	// Max concurrency.  The highest level of concurrency which will
+	// be allowed in the pod.
+	maxConcurrency = 2
 )
 
 var (
@@ -69,6 +76,7 @@ var (
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
 	proxy             *httputil.ReverseProxy
+	breaker           = queue.NewBreaker(queueDepth, maxConcurrency)
 )
 
 func init() {
@@ -161,14 +169,22 @@ func isProbe(r *http.Request) bool {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if !isProbe(r) {
-		// Only count non-prober requests for autoscaling.
-		reqInChan <- queue.Poke{}
-		defer func() {
-			reqOutChan <- queue.Poke{}
-		}()
+	if isProbe(r) {
+		// Do not count health checks for concurrency metrics
+		proxy.ServeHTTP(w, r)
 	}
-	proxy.ServeHTTP(w, r)
+	// Metrics for autoscaling
+	reqInChan <- queue.Poke{}
+	defer func() {
+		reqOutChan <- queue.Poke{}
+	}()
+	// Circuit breaking for overload
+	ok := breaker.Maybe(func() {
+		proxy.ServeHTTP(w, r)
+	})
+	if !ok {
+		http.Error(w, "overload", http.StatusServiceUnavailable)
+	}
 }
 
 // healthServer registers whether a PreStop hook has been called.
