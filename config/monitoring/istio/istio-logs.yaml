@@ -52,5 +52,9 @@ spec:
     responseCode: response.code | 0
     responseSize: response.size | 0
     latency: response.duration | "0ms"
+    sourceService: source.service | "unknown"
     destinationService: destination.service | ""
     destinationNamespace: destination.namespace | ""
+    destinationRevision: destination.labels["elafros.dev/revision"] | "unknown"
+    destinationConfiguration: destination.labels["elafros.dev/configuration"] | "unknown"
+    traceId: request.headers["x-b3-traceid"] | "unknown"
