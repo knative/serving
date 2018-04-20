@@ -18,10 +18,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -96,20 +94,22 @@ func getRevisionNameFromKey(key string) (namespace string, name string, err erro
 }
 
 func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL, error) {
-	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
-	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
+	endpoint, err := a.kubeClient.CoreV1().Endpoints(revision.GetNamespace()).Get(
+		controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	if len(svc.Spec.Ports) != 1 {
-		return nil, fmt.Errorf("need just one port. Found %v ports", len(svc.Spec.Ports))
+	if len(endpoint.Subsets[0].Ports) != 1 {
+		return nil, fmt.Errorf("need just one port. Found %v ports", len(endpoint.Subsets[0].Ports))
 	}
+	ip := endpoint.Subsets[0].Addresses[0].IP
+	port := endpoint.Subsets[0].Ports[0].Port
 	u := &url.URL{
 		Scheme: "http",
-		Host:   svc.Spec.ClusterIP + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
+		Host:   fmt.Sprintf("%s:%d", ip, port),
 	}
 	return u, nil
 }
@@ -225,10 +225,6 @@ func (a *Activator) watchForReady(revKey string) {
 			if !rev.Status.IsReady() {
 				continue
 			}
-			// TODO: Mark a revision ready at the right time
-			// https://github.com/elafros/elafros/issues/660
-			// After that issue is fixed, we can remove sleep here.
-			time.Sleep(5 * time.Second)
 			a.chans.activationDoneCh <- revKey
 			glog.Infof("Revision %s is ready.", revKey)
 			return
