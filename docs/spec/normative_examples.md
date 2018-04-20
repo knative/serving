@@ -600,10 +600,12 @@ metadata:
 spec:
   rollout:
     traffic:
-    - revisionName: def  # pin a specific revision, i.e. the current one
+    - revisionName: def
+      name: current  # addressable as current.my-service.default.mydomain.com
       percent: 100
-    - configurationName: my-service  # Make "next" address the latest release
-      name: next
+    - configurationName: my-service  # LatestReadyRevision of my-service
+      name: next  # addressable as next.my-service.default.mydomain.com
+      percent: 0 # no traffic yet
 ```
 
 Next, the service is updated with the new variables, which causes the
@@ -679,13 +681,13 @@ status:
 Even when ready, the new revision does not automatically start serving
 traffic, as the route was pinned to revision `def`.
 
-Update the route to make the existing revision serving traffic
-addressable through subdomain `current`, and referencing the new
-revision at 0% traffic but making it addressable through subdomain
-`next`:
+Once the new revision is ready, the route will update the `next` name
+to point to the revision `ghi`. The new revision will still not
+receive any traffic by default, but can be accessed for testing,
+verification, etc.
 
 ```http
-PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -698,28 +700,9 @@ spec:
     - revisionName: def
       name: current  # addressable as current.my-service.default.mydomain.com
       percent: 100
-    - revisionName: ghi
+    - configurationName: my-service  # LatestReadyRevision of my-service
       name: next  # addressable as next.my-service.default.mydomain.com
       percent: 0 # no traffic yet
-```
-
-In this state, the route makes both revisions addressable with
-subdomains `current` and `next` (once the revision `ghi` has a status of
-Ready), but traffic has not shifted to next yet. Also note that while
-the names current/next have semantic meaning, they are convention
-only; blue/green, or any other subdomain names could be configured.
-
-```http
-GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
-```
-```yaml
-apiVersion: elafros.dev/v1alpha1
-kind: Route
-metadata:
-  name: my-service
-  ...
-spec:
-  ... # unchanged
 status:
   domain: my-service.default.mydomain.com
   traffic:
@@ -732,68 +715,53 @@ status:
   conditions:
   - type: RolloutComplete
     status: True
-  ...
 ```
 
 After testing the new revision at
-`next.my-service.default.mydomain.com`, it can be rolled out to 100%
-(either directly, or through several increments, with the split
-totaling 100%):
+`next.my-service.default.mydomain.com`, it can be promoted to live by
+updating the service to pin `ghi` as the new revision.
+
+```http
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/services/my-service
+```
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  pinned:
+    revisionname: ghi
+```
+
+This causes the service to update the route to assign 
 
 ```http
 PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
-kind: Route
+kind: route
 metadata:
   name: my-service
 spec:
   rollout:
-    Traffic: # percentages must total 100%
-    - revisionName: def
-      name: current
-      percent: 0 
+    traffic:
     - revisionName: ghi
+      name: current
+      percent: 100
+    - configurationName: my-service  # LatestReadyRevision of my-service
       name: next
-      percent: 100 # migrate traffic fully to the next revision
+      percent: 0
 ```
 
-After reconciliation, all traffic has been shifted to the new version:
-
-```http
-GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
-```
-```yaml
-apiVersion: elafros.dev/v1alpha1
-kind: Route
-metadata:
-  name: my-service
-  ...
-spec:
-  ... # unchanged
-status:
-  domain: my-service.default.mydomain.com
-  traffic:
-  - revisionName: def
-    name: current
-    percent: 0
-  - revisionName: ghi
-    name: next
-    percent: 100
-  conditions:
-  - type: RolloutComplete
-    status: True
-  ...
-```
-
-By convention, the final step when completing the rollout is to update
-`current` to reflect the new revision. `next` can either be removed, or
-left addressing the same revision as current so that
+Once the update has been completed, if the latest ready revision is
+the same as the pinned revision, the names `current` and `next` will
+point to the same revision. Both names are left in place so that
 `next.my-service.default.mydomain.com` is always addressable.
 
 ```http
-PATCH /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -809,6 +777,18 @@ spec:
     - revisionName: ghi # optional: leave next as also referring to ghi
       name: next
       percent: 0
+status:
+  domain: my-service.default.mydomain.com
+  traffic:
+  - revisionName: ghi
+    name: current  # addressable as current.my-service.default.mydomain.com
+    percent: 100
+  - revisionName: ghi
+    name: next # addressable as next.my-service.default.mydomain.com
+    percent: 0
+  conditions:
+  - type: RolloutComplete
+    status: True
 ```
 
 
@@ -831,21 +811,22 @@ $ elafros deploy --service my-service
 
 **Steps**:
 
-* Create/Update a Configuration, inlining build details.
+* Create/Update the service, updating build source information and
+  using a new container label.
 
 **Results**:
 
 * The Configuration is created/updated, which generates a container
-  build and a new revision based on the template, and can be rolled
+  build and a new Revision based on the template, and can be rolled
   out per earlier examples
 
 ![Build Example](images/build_example.png)
 
 
-Previous examples demonstrated configurations created with pre-built
+Previous examples demonstrated services created with pre-built
 containers. Revisions can also be created by providing build
-information to the configuration, which results in a container image
-built by the system. The build information is supplied by inlining the
+information to the service, which results in a container image built
+by the system. The build information is supplied by inlining the
 BuildSpec of a Build resource in the Configuration. This describes:
 
 * **What** to build (`build.source`): Source can be provided as an
@@ -859,47 +840,50 @@ BuildSpec of a Build resource in the Configuration. This describes:
 * **Where** to publish (`build.template.arguments`): Image registry
   url and other information specific to this build invocation.
 
-The client creates the configuration inlining a build spec for an
-archive based source build, and referencing a nodejs build template:
+The client updates the configuration in the service inlining a build
+spec for an git based source build, and referencing a nodejs build
+template:
 
 ```http
-POST /apis/elafros.dev/v1alpha1/namespaces/default/configurations
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+kind: Service
 metadata:
   name: my-service 
 spec:
-  build:  # build.dev/v1alpha1.BuildTemplateSpec
-    source:
-      # oneof git|gcs|custom:
-      git:
-        url: https://...
-        commit: ...
-    template:  # defines build template
-      name: nodejs_8_9_4 # builder name
-      namespace: build-templates
-      arguments:
-      - name: _IMAGE
-        value: gcr.io/...  # destination for image
+  runLatest:
+    configuration:
+      build:  # build.dev/v1alpha1.BuildTemplateSpec
+        source:
+          # oneof git|gcs|custom:
+          git:
+            url: https://...
+            commit: ...
+        template:  # defines build template
+          name: nodejs_8_9_4 # builder name
+          namespace: build-templates
+          arguments:
+          - name: _IMAGE
+            value: gcr.io/...  # destination for image
 
-  revisionTemplate:  # template for building Revision
-    metadata: ...
-    spec:
-      container:  # k8s core.v1.Container
-        image: gcr.io/...  # Promise of a future build. Same as supplied in
-                           # build.template.arguments[_IMAGE]
-        env:  # Updated environment variables to go live with new source.
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
+      revisionTemplate:  # template for building Revision
+        metadata: ...
+        spec:
+          container:  # k8s core.v1.Container
+            image: gcr.io/...  # Promise of a future build. Same as supplied in
+                               # build.template.arguments[_IMAGE]
+            env:  # Updated environment variables to go live with new source.
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
 ```
 
 Note the `revisionTemplate.spec.container.image` above is supplied
 with the destination of the build. This enables one-step changes to
-both config and source code. If the build step were responsible for
+both environment and source code. If the build step were responsible for
 updating the `revisionTemplate.spec.container.image` at the completion
 of the build, an update to both source and config could result in the
 creation of two Revisions, one with the config change, and the other
@@ -908,12 +892,14 @@ for the `buildName` to be complete and the
 `revisionTemplate.spec.container.image` to be live before marking the
 Revision as "ready".
 
-Upon creating/updating the configuration's build field, the system
-creates a new revision. The configuration controller will initiate a
-build, populating the revision’s buildName with a reference to the
-underlying Build resource. Via status updates which the revision
-controller observes through the build reference, the high-level state
-of the build is mirrored into conditions in the Revision’s status:
+Upon creating/updating the service's configuration, the contents are
+copied into the corresponding Configuration object. Once updated, the
+configuration controller creates a new revision. The configuration
+controller will also create a build, populating the revision’s
+buildName with a reference to the underlying Build resource. The
+revision controller watches status updates on the build reference, and
+the high-level state of the build is mirrored into conditions in the
+Revision’s status for convenience:
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -959,10 +945,12 @@ status:
 Rollout operations in the route are identical to the pre-built
 container examples.
 
-Also analogous is updating the configuration to create a new
-revision - in this case, updated source would be provided to the
+Also analogous is creating the service from scratch with source
+files - in this case, the source would be provided to the
 configuration's inlined build spec, which would initiate a new
-container build, and the creation of a new revision.
+container build, and the creation of a new revision. If the first
+build fails `LatestReadyRevisionName` will be entirely unset until a
+Revision is created which can become ready.
 
 
 ## 5) Deploy a Function
@@ -983,7 +971,8 @@ $ elafros deploy --function index --service my-function
 
 **Steps**:
 
-* Create/Update a Configuration, additionally specifying function details.
+* Create/Update a service, specifying source code and function
+  details.
 
 **Results**:
 
@@ -995,11 +984,12 @@ $ elafros deploy --function index --service my-function
 
 
 Previous examples illustrated creating and deploying revisions in the
-context of apps.  Functions are created and deployed in the same
-manner (in particular, as containers which respond to HTTP). In the
-build phase of the deployment, additional function metadata may be
-taken into account in order to wrap the supplied code in a functions
-framework.
+context of application containers.  Functions are created and deployed
+in the same manner (in particular, as containers which respond to
+HTTP). In the build phase of the deployment, additional function
+metadata may be taken into account in order to wrap the supplied code
+in a language-specific functions framework which translates from HTTP
+to language-native constructs.
 
 Functions are configured with a language-specific entryPoint. The
 entryPoint may be provided as an argument to the build template, if
@@ -1012,53 +1002,56 @@ Note that a function may be connected to one or more event sources via
 Bindings in the Eventing API; the binding of events to functions is
 not a core function of the compute API.
 
-Creating the configuration with build and function metadata:
+Creating the service with build and function metadata:
 
 ```http
-POST /apis/elafros.dev/v1alpha1/namespaces/default/configurations
+POST /apis/elafros.dev/v1alpha1/namespaces/default/services
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+kind: Service
 metadata:
   name: my-function 
 spec:
-  build:  # build.dev/v1alpha1.BuildTemplateSpec
-    source:
-      # oneof git|gcs|custom
-      git:
-        url: https://...
-        commit: ...
-    template:  # defines build template
-      name: go_1_9_fn  # function builder
-      namespace: build-templates
-      arguments:
-      - name: _IMAGE
-        value: gcr.io/...  # destination for image
-      - name: _ENTRY_POINT
-        value: index  # language dependent, function-only entrypoint
+  runLatest:
+    configuration:
+      build:  # build.dev/v1alpha1.BuildTemplateSpec
+        source:
+          # oneof git|gcs|custom
+          git:
+            url: https://...
+            commit: ...
+        template:  # defines build template
+          name: go_1_9_fn  # function builder
+          namespace: build-templates
+          arguments:
+          - name: _IMAGE
+            value: gcr.io/...  # destination for image
+          - name: _ENTRY_POINT
+            value: index  # language dependent, function-only entrypoint
 
-  revisionTemplate:  # template for building Revision
-    metadata:
-      labels:
-        # One-of "function" or "app", convention for CLI/UI clients to list/select
-        elafros.dev/type: "function"
-    spec:
-      container:  # k8s core.v1.Container
-        image: gcr.io/...  # Promise of a future build. Same as supplied in
-                           # build.template.arguments[_IMAGE]
-        env:
-        - name: FOO
-          value: bar
-        - name: HELLO
-          value: world
-      
-      # serializes requests for function. Default value for functions
-      concurrencyModel: SingleThreaded
-      # max time allowed to respond to request
-      timeoutSeconds: 20
+      revisionTemplate:  # template for building Revision
+        metadata:
+          labels:
+            # One-of "function" or "app", convention for CLI/UI clients to list/select
+            elafros.dev/type: "function"
+        spec:
+          container:  # k8s core.v1.Container
+            image: gcr.io/...  # Promise of a future build. Same as supplied in
+                               # build.template.arguments[_IMAGE]
+            env:
+            - name: FOO
+              value: bar
+            - name: HELLO
+              value: world
+
+          # serializes requests for function. Default value for functions
+          concurrencyModel: SingleThreaded
+          # max time allowed to respond to request
+          timeoutSeconds: 20
 ```
 
-Upon creating or updating the configuration, a new Revision is created
-per the previous examples. Rollout operations are also identical to
-the previous examples.
+Upon creating or updating the service, values are copied to the
+configuration, which causes a new Revision to be created per the
+previous examples. Rollout operations are also identical to the
+previous examples.

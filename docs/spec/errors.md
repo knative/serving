@@ -1,5 +1,5 @@
-
 # Error Conditions and Reporting
+
 Elafros uses the standard Kubernetes API pattern for reporting
 configuration errors and current state of the system by writing the
 report in the `status` section. There are two mechanisms commonly used
