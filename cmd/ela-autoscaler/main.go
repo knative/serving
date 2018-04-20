@@ -107,9 +107,9 @@ func autoscaler() {
 				// code changes are complete:
 				// https://github.com/elafros/elafros/pull/341
 				// https://github.com/elafros/elafros/pull/255
-				// if scale == 0 {
-				// 	continue
-				// }
+				if scale == 0 {
+					continue
+				}
 
 				scaleChan <- scale
 
