@@ -15,30 +15,25 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: ela-controller
+  name: ela-activator
   namespace: ela-system
 spec:
+  # TODO: Increase the replicas
+  # https://github.com/elafros/elafros/issues/695
   replicas: 1
   template:
     metadata:
       labels:
-        app: ela-controller
+        app: ela-activator
+        role: ela-activator
     spec:
       serviceAccountName: ela-controller
       containers:
-      - name: ela-controller
-        image: ela-controller:latest
+      - name: ela-activator
+        image: ela-activator:latest
+        ports:
+        - name: http
+          containerPort: 8080
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
-        - "-fluentdSidecarImage"
-        - "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
-        - "-queueSidecarImage"
-        - ela-queue:latest
-        - "-autoscalerImage"
-        - ela-autoscaler:latest
-        # The flag to turn on the activator.
-        - "-enableActivatorExperiment=false"
-        ports:
-        - name: metrics
-          containerPort: 9090

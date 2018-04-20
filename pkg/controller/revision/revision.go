@@ -505,6 +505,14 @@ func getIsServiceReady(e *corev1.Endpoints) bool {
 	return false
 }
 
+func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
+	condCount := len(r.Status.Conditions)
+	if condCount == 0 {
+		return r.CreationTimestamp.Time
+	}
+	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
+}
+
 func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
@@ -575,7 +583,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
+	revisionAge := time.Now().Sub(getRevisionLastTransitionTime(rev))
 	if revisionAge < serviceTimeoutDuration {
 		return
 	}

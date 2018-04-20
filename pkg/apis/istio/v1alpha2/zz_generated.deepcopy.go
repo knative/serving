@@ -196,6 +196,13 @@ func (in *RouteRuleSpec) DeepCopyInto(out *RouteRuleSpec) {
 		*out = make([]DestinationWeight, len(*in))
 		copy(*out, *in)
 	}
+	if in.AppendHeaders != nil {
+		in, out := &in.AppendHeaders, &out.AppendHeaders
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
