@@ -114,15 +114,15 @@ function exit_if_failed() {
   echo ">>> All resources:"
   kubectl get all --all-namespaces
   echo ">>> Services:"
-  kubectl get services
+  kubectl get services --all-namespaces
   echo ">>> Events:"
-  kubectl get events
+  kubectl get events --all-namespaces
   echo ">>> Routes:"
-  kubectl get routes -o yaml
+  kubectl get routes -o yaml --all-namespaces
   echo ">>> Configurations:"
-  kubectl get configurations -o yaml
+  kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
-  kubectl get revisions -o yaml
+  kubectl get revisions -o yaml --all-namespaces
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo "***************************************"
