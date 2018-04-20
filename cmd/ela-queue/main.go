@@ -17,13 +17,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/elafros/elafros/pkg/autoscaler"
@@ -45,6 +51,11 @@ const (
 	// be handled in a quantum of time. Because the request out
 	// channel isn't drained until the end of a quantum of time.
 	requestCountingQueueLength = 100
+	// Number of seconds the /quitquitquit handler should wait before
+	// returning.  The purpose is to kill the container alive a little
+	// bit longer, that it doesn't go away until the pod is truly
+	// removed from service.
+	quitSleepSecs = 20
 )
 
 var (
@@ -143,15 +154,92 @@ func statReporter() {
 	}
 }
 
+func isProbe(r *http.Request) bool {
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	reqInChan <- queue.Poke{}
-	defer func() {
-		reqOutChan <- queue.Poke{}
-	}()
+	if !isProbe(r) {
+		// Only count non-prober requests for autoscaling.
+		reqInChan <- queue.Poke{}
+		defer func() {
+			reqOutChan <- queue.Poke{}
+		}()
+	}
 	proxy.ServeHTTP(w, r)
 }
 
+// healthServer registers whether a PreStop hook has been called.
+type healthServer struct {
+	alive bool
+	mutex sync.RWMutex
+}
+
+// isAlive() returns true until a PreStop hook has been called.
+func (h *healthServer) isAlive() bool {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	return h.alive
+}
+
+// kill() marks that a PreStop hook has been called.
+func (h *healthServer) kill() {
+	h.mutex.Lock()
+	h.alive = false
+	h.mutex.Unlock()
+}
+
+// healthHandler is used for readinessProbe/livenessCheck of
+// queue-proxy.
+func (h *healthServer) healthHandler(w http.ResponseWriter, r *http.Request) {
+	if h.isAlive() {
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "alive: true")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, "alive: false")
+	}
+}
+
+// quitHandler() is used for preStop hook of queue-proxy. It:
+// - marks the service as not ready, so that requests will no longer
+//   be routed to it,
+// - adds a small delay, so that the container doesn't get killed at
+//   the same time the pod is marked for removal.
+func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
+	// First, we want to mark the container as not ready, so that even
+	// if the pod removal (from service) isn't yet effective, the
+	// readinessCheck will still prevent traffic to be routed to this
+	// pod.
+	h.kill()
+	// However, since both readinessCheck and pod removal from service
+	// is eventually consistent, we add here a small delay to have the
+	// container stay alive a little bit longer after.  We still have
+	// no guarantee that container termination is done only after
+	// removal from service is effective, but this has been showed to
+	// alleviate the issue.
+	time.Sleep(quitSleepSecs * time.Second)
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, "alive: false")
+}
+
+// Sets up /health and /quitquitquit endpoints.
+func setupAdminHandlers(server *http.Server) {
+	h := healthServer{
+		alive: true,
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc(fmt.Sprintf("/%s", revision.RequestQueueHealthPath), h.healthHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", revision.RequestQueueQuitPath), h.quitHandler)
+	server.Handler = mux
+	server.ListenAndServe()
+}
+
 func main() {
+	// Even though we have no flags, glog has some hence requiring
+	// flag.Parse().
 	flag.Parse()
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
@@ -184,6 +272,25 @@ func main() {
 			statSink.Close()
 		}
 	}()
+
+	server := &http.Server{
+		Addr: fmt.Sprintf(":%d", revision.RequestQueuePort), Handler: nil}
+	adminServer := &http.Server{
+		Addr: fmt.Sprintf(":%d", revision.RequestQueueAdminPort), Handler: nil}
+
+	// Add a SIGTERM handler to gracefully shutdown the servers during
+	// pod termination.
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	go func() {
+		<-sigTermChan
+		// Calling server.Shutdown() allows pending requests to
+		// complete, while no new work is accepted.
+		server.Shutdown(context.Background())
+		adminServer.Shutdown(context.Background())
+		os.Exit(0)
+	}()
 	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8012", nil)
+	go server.ListenAndServe()
+	setupAdminHandlers(adminServer)
 }

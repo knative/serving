@@ -30,7 +30,13 @@ Run:
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open Grafana UI at [http://localhost:3000](http://localhost:3000)
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Elafros:
+* **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
+* **Nodes:** CPU, memory, network and disk metrics at node level
+* **Pods:** CPU, memory and network metrics at pod level
+* **Deployment:** CPU, memory and network metrics aggregated at deployment level 
+* **Istio, Mixer and Pilot:** Detailed Istio mesh, Mixer and Pilot metrics
+* **Kubernetes:** Dashboards giving insights into cluster health, deployments and capacity usage
 
 ## Accessing per request traces
 First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.

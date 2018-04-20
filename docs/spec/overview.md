@@ -29,12 +29,18 @@ or all backing revisions.
 ## Revision
 
 **Revision** is an immutable snapshot of code and configuration. A
-revision can be created from a pre-built container image or built from
-source. While there is a history of previous revisions, only those
-currently referenced by a Route are addressable or routable. Older
-inactive revisions need not be backed by underlying resources, they
-exist only as the revision metadata in storage. Revisions are created
-by updates to a **Configuration**.
+revision references a container image, and optionally a build that is
+responsible for materializing that container image from source.
+Revisions are created by updates to a **Configuration**.
+
+Revisions that are not addressable via a Route will be *retired*
+and all underlying K8s resources will be deleted. This provides a
+lightweight history of the revisions a configuration has produced
+over time, and enables users to easily rollback to a prior revision.
+
+Revisions that are addressable via a Route will have resource
+utilization proportional to the load they are under.
+
 
 ## Configuration
 
@@ -53,18 +59,18 @@ and makes both the most recently created and most recently *ready*
 
 # Orchestration
 
-The system will be configured to not allow customer mutations to
-Revisions. Instead, the creation of immutable Revisions through a
-Configuration provides:
+The system will be configured to disallow users from creating
+([NYI](https://github.com/elafros/elafros/issues/664)) or changing
+Revisions. Instead, Revisions are created indirectly when a Configuration
+is created or updated. This provides:
 
 * a single referenceable resource for the route to perform automated
   rollouts
 * a single resource that can be watched to see a history of all the
   revisions created
-* (but doesn’t mandate) PATCH semantics for new revisions to be done
-  on the server, minimizing read-modify-write implemented across
-  multiple clients, which could result in optimistic concurrency
-  errors
+* PATCH semantics for revisions implemented server-side, minimizing
+  read-modify-write implemented across multiple clients, which could result
+  in optimistic concurrency errors
 * the ability to rollback to a known good configuration
 
 In the conventional single live revision scenario, a route has a

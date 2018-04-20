@@ -44,7 +44,7 @@ func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 				{
 					Name:       httpServicePortName,
 					Port:       int32(servicePort),
-					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: requestQueuePortName},
+					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: RequestQueuePortName},
 				},
 			},
 			Type: "NodePort",

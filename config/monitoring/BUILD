@@ -25,6 +25,7 @@ k8s_objects(
         "//config/monitoring/elasticsearch:everything",
         "//config/monitoring/kibana:everything",
         "//config/monitoring/zipkin:everything",
+        "//config/monitoring/istio:everything",
     ],
 )
 
@@ -39,7 +40,7 @@ k8s_objects(
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
-        "//config/monitoring/fluentd:istio",
+        "//config/monitoring/istio:everything",
     ],
 )
 
@@ -54,6 +55,6 @@ k8s_objects(
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
-        "//config/monitoring/fluentd:istio",
+        "//config/monitoring/istio:everything",
     ],
 )
