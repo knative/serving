@@ -149,7 +149,7 @@ func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest) {
 }
 
 func (a *Activator) stopRequests(revKey string, requests []RevisionRequest) {
-	glog.Infof("Write to reponse for %d bad requests for revision %s.", len(requests), revKey)
+	glog.Infof("Write to response for %d bad requests for revision %s.", len(requests), revKey)
 	for _, revRequest := range requests {
 		http.Error(revRequest.w, "Bad request.", http.StatusInternalServerError)
 		revRequest.doneCh <- struct{}{}

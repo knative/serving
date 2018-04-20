@@ -127,6 +127,30 @@ func createRevisions(t *testing.T, kubeClient *fakekubeclientset.Clientset, elaC
 					},
 				},
 			)
+			// Add the k8s endpoint
+			// Add the k8s service
+			kubeClient.CoreV1().Endpoints(rev.GetNamespace()).Create(
+				&corev1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      controller.GetElaK8SServiceNameForRevision(rev),
+						Namespace: rev.GetNamespace(),
+					},
+					Subsets: []corev1.EndpointSubset{
+						corev1.EndpointSubset{
+							Addresses: []corev1.EndpointAddress{
+								corev1.EndpointAddress{
+									IP: "abc",
+								},
+							},
+							Ports: []corev1.EndpointPort{
+								corev1.EndpointPort{
+									Port: 1234,
+								},
+							},
+						},
+					},
+				},
+			)
 		}
 	}
 }
