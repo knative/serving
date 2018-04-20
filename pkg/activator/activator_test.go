@@ -128,7 +128,6 @@ func createRevisions(t *testing.T, kubeClient *fakekubeclientset.Clientset, elaC
 				},
 			)
 			// Add the k8s endpoint
-			// Add the k8s service
 			kubeClient.CoreV1().Endpoints(rev.GetNamespace()).Create(
 				&corev1.Endpoints{
 					ObjectMeta: metav1.ObjectMeta{
