@@ -107,14 +107,24 @@ function exit_if_failed() {
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***************************************"
-  echo ">>> Project info"
-  gcloud compute project-info describe
-  echo ">>> All pods:"
-  kubectl get pods --all-namespaces
-  echo ">>> All services:"
+  if (( IS_PROW )) || [[ $PROJECT_ID != "" ]]; then
+    echo ">>> Project info:"
+    gcloud compute project-info describe
+  fi
+  echo ">>> All resources:"
+  kubectl get all --all-namespaces
+  echo ">>> Services:"
   kubectl get services
-  echo ">>> All events:"
+  echo ">>> Events:"
   kubectl get events
+  echo ">>> Routes:"
+  kubectl get routes -o yaml
+  echo ">>> Configurations:"
+  kubectl get configurations -o yaml
+  echo ">>> Revisions:"
+  kubectl get revisions -o yaml
+  echo ">>> Ingress:"
+  kubectl get ingress --all-namespaces
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***************************************"
@@ -132,14 +142,6 @@ function run_conformance_tests() {
 function run_hello_world() {
   header "Running hello world"
   bazel run //sample/helloworld:everything.create || return 1
-  echo "Route:"
-  kubectl get route -o yaml
-  echo "Configuration:"
-  kubectl get configurations -o yaml
-  echo "Revision:"
-  kubectl get revisions -o yaml
-  echo "Pods:"
-  kubectl get pods
   local service_host=""
   local service_ip=""
   for i in {1..150}; do  # timeout after 5 minutes
