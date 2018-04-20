@@ -71,6 +71,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 	appendHeaders := make(map[string]string)
 	if len(u.Status.Traffic) > 0 {
 		// TODO: Deal with the case when the route has more than one traffic targets.
+		// Note this has dependency on istio features.
 		// https://github.com/elafros/elafros/issues/693
 		appendHeaders[controller.GetRevisionHeaderName()] = u.Status.Traffic[0].RevisionName
 	}

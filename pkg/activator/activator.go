@@ -60,8 +60,6 @@ type RevisionRequest struct {
 
 const (
 	requestQueueLength = 100
-	happyPath          = true
-	sadPath            = false
 )
 
 // NewActivator returns an Activator.
@@ -105,6 +103,9 @@ func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL,
 	if len(endpoint.Subsets[0].Ports) != 1 {
 		return nil, fmt.Errorf("need just one port. Found %v ports", len(endpoint.Subsets[0].Ports))
 	}
+	// TODO: figure out why do we need to use the pod IP directly to avoid the delay.
+	// We should be able to use the k8s service cluster IP.
+	// https://github.com/elafros/elafros/issues/660
 	ip := endpoint.Subsets[0].Addresses[0].IP
 	port := endpoint.Subsets[0].Ports[0].Port
 	u := &url.URL{
@@ -234,7 +235,6 @@ func (a *Activator) watchForReady(revKey string) {
 
 // The main method to process requests. Only active or reserved revisions reach here.
 func (a *Activator) process(quitCh chan struct{}) {
-	// TODO: https://golang.org/pkg/sync/#Map
 	var pendingRequests sync.Map //map[string][]RevisionRequest
 	for {
 		select {
