@@ -102,6 +102,10 @@ function delete_elafros_images() {
   gcloud -q container images delete ${all_images}
 }
 
+function get_ela_pod() {
+  kubectl get pods -n ela-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
+}
+
 function exit_if_failed() {
   [[ $? -eq 0 ]] && return 0
   echo "***************************************"
@@ -125,6 +129,8 @@ function exit_if_failed() {
   kubectl get revisions -o yaml --all-namespaces
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
+  echo ">>> Elafros controller log:"
+  kubectl logs $(get_ela_pod ela-controller) -n ela-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***************************************"
