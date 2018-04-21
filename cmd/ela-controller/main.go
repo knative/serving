@@ -36,8 +36,10 @@ import (
 	"github.com/elafros/elafros/pkg/controller/configuration"
 	"github.com/elafros/elafros/pkg/controller/revision"
 	"github.com/elafros/elafros/pkg/controller/route"
+	"github.com/elafros/elafros/pkg/controller/service"
 	"github.com/elafros/elafros/pkg/signals"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 )
 
 const (
@@ -47,13 +49,33 @@ const (
 )
 
 var (
-	masterURL  string
-	kubeconfig string
+	masterURL           string
+	kubeconfig          string
+	fluentdSidecarImage string
+	queueSidecarImage   string
+	autoscalerImage     string
 )
 
 func main() {
 	flag.Parse()
 
+	if len(fluentdSidecarImage) != 0 {
+		glog.Infof("Using fluentd sidecar image: %s", fluentdSidecarImage)
+	} else {
+		glog.Fatal("missing required flag: -fluentdSidecarImage")
+	}
+
+	if len(queueSidecarImage) != 0 {
+		glog.Infof("Using queue sidecar image: %s", queueSidecarImage)
+	} else {
+		glog.Fatal("missing required flag: -queueSidecarImage")
+	}
+
+	if len(autoscalerImage) != 0 {
+		glog.Infof("Using autoscaler image: %s", autoscalerImage)
+	} else {
+		glog.Fatal("missing required flag: -autoscalerImage")
+	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
@@ -79,17 +101,14 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error loading controller config: %v", err)
 	}
-	// Add new controllers here.
-	ctors := []controller.Constructor{
-		configuration.NewController,
-		revision.NewController,
-		route.NewController,
-	}
 
 	// Build all of our controllers, with the clients constructed above.
-	controllers := make([]controller.Interface, 0, len(ctors))
-	for _, ctor := range ctors {
-		controllers = append(controllers, ctor(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig))
+	// Add new controllers to this array.
+	controllers := []controller.Interface{
+		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
 
 	go kubeInformerFactory.Start(stopCh)
@@ -100,15 +119,24 @@ func main() {
 		go func(ctrlr controller.Interface) {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
-			if err := ctrlr.Run(threadsPerController, stopCh); err != nil {
-				glog.Fatalf("Error running controller: %v", err)
+			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
+				glog.Fatalf("Error running controller: %v", runErr)
 			}
 		}(ctrlr)
 	}
 
+	// Setup the metrics to flow to Prometheus.
+	glog.Info("Initializing OpenCensus Prometheus exporter.")
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "elafros"})
+	if err != nil {
+		glog.Fatalf("failed to create the Prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(promExporter)
+	view.SetReportingPeriod(10 * time.Second)
+
 	// Start the endpoint that Prometheus scraper talks to
 	srv := &http.Server{Addr: metricsScrapeAddr}
-	http.Handle(metricsScrapePath, promhttp.Handler())
+	http.Handle(metricsScrapePath, promExporter)
 	go func() {
 		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
 		if err := srv.ListenAndServe(); err != nil {
@@ -129,4 +157,7 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&fluentdSidecarImage, "fluentdSidecarImage", "", "The digest of the fluentd sidecar image.")
+	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
+	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }

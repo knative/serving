@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
-	"github.com/gorilla/mux"
-	"io/ioutil"
 	"net/url"
+	"os"
 
-	"github.com/golang/glog"
+	"github.com/gorilla/mux"
+
 	"flag"
 )
 
@@ -24,8 +24,8 @@ func main() {
 		resource = "NOT SPECIFIED"
 	}
 
-	root := "/"+resource
-	path := root+"/{stockId}"
+	root := "/" + resource
+	path := root + "/{stockId}"
 
 	router.HandleFunc("/", Index)
 	router.HandleFunc(root, StockIndex)
@@ -52,17 +52,17 @@ func StockPrice(w http.ResponseWriter, r *http.Request) {
 		Path:   "/1.0/stock/" + stockId + "/price",
 	}
 
-	glog.Info(url)
+	log.Print(url)
 
 	resp, err := http.Get(url.String())
-
-	if err != nil{
-		fmt.Fprintf(w, "%s not found for ticker : %s \n",resource, stockId)
+	if err != nil {
+		fmt.Fprintf(w, "%s not found for ticker : %s \n", resource, stockId)
+		return
 	}
 
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 
-	fmt.Fprintf(w, "%s price for ticker %s is %s\n",resource, stockId, string(body))
+	fmt.Fprintf(w, "%s price for ticker %s is %s\n", resource, stockId, string(body))
 }

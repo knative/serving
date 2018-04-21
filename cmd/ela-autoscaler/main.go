@@ -23,7 +23,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	ela_autoscaler "github.com/elafros/elafros/pkg/autoscaler"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -54,11 +56,13 @@ const (
 
 var (
 	upgrader          = websocket.Upgrader{}
+	elaClient         clientset.Interface
 	kubeClient        *kubernetes.Clientset
 	statChan          = make(chan ela_autoscaler.Stat, statBufferSize)
 	scaleChan         = make(chan int32, scaleBufferSize)
 	elaNamespace      string
 	elaDeployment     string
+	elaRevision       string
 	elaAutoscalerPort string
 )
 
@@ -74,6 +78,12 @@ func init() {
 		glog.Fatal("No ELA_DEPLOYMENT provided.")
 	}
 	glog.Infof("ELA_DEPLOYMENT=%v", elaDeployment)
+
+	elaRevision = os.Getenv("ELA_REVISION")
+	if elaDeployment == "" {
+		glog.Fatal("No ELA_REVISION provided.")
+	}
+	glog.Infof("ELA_REVISION=%v", elaRevision)
 
 	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
 	if elaAutoscalerPort == "" {
@@ -93,7 +103,20 @@ func autoscaler() {
 		case <-ticker.C:
 			scale, ok := a.Scale(time.Now())
 			if ok {
+				// Disable scale to zero until the zero-to-one
+				// code changes are complete:
+				// https://github.com/elafros/elafros/pull/341
+				// https://github.com/elafros/elafros/pull/255
+				if scale == 0 {
+					continue
+				}
+
 				scaleChan <- scale
+
+				// Stop the autoscaler from doing any more work.
+				if scale == 0 {
+					return
+				}
 			}
 		case s := <-statChan:
 			a.Record(s)
@@ -142,6 +165,20 @@ func scaleTo(podCount int32) {
 	}
 
 	glog.Infof("Scaling to %v", podCount)
+	if podCount == 0 {
+		revisionClient := elaClient.ElafrosV1alpha1().Revisions(elaNamespace)
+		revision, err := revisionClient.Get(elaRevision, metav1.GetOptions{})
+
+		if err != nil {
+			glog.Errorf("Error getting Revision %q: %s", elaRevision, err)
+		}
+		revision.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+		revision, err = revisionClient.Update(revision)
+		if err != nil {
+			glog.Errorf("Error updating Revision %q: %s", elaRevision, err)
+		}
+
+	}
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
@@ -189,6 +226,11 @@ func main() {
 		glog.Fatal(err)
 	}
 	kubeClient = kc
+	ec, err := clientset.NewForConfig(config)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	elaClient = ec
 	go autoscaler()
 	go scaleSerializer()
 	http.HandleFunc("/", handler)

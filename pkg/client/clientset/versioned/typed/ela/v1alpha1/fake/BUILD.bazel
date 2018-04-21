@@ -8,6 +8,7 @@ go_library(
         "fake_ela_client.go",
         "fake_revision.go",
         "fake_route.go",
+        "fake_service.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake",
     visibility = ["//visibility:public"],

@@ -69,7 +69,11 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	if err := validateTemplate(&configuration.Spec.RevisionTemplate); err != nil {
+	return validateConfigurationSpec(&configuration.Spec)
+}
+
+func validateConfigurationSpec(configurationSpec *v1alpha1.ConfigurationSpec) error {
+	if err := validateTemplate(&configurationSpec.RevisionTemplate); err != nil {
 		return err
 	}
 	return nil
@@ -88,8 +92,8 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 	return nil
 }
 
-func validateContainer(container *corev1.Container) error {
-	if container == nil || reflect.DeepEqual(*container, corev1.Container{}) {
+func validateContainer(container corev1.Container) error {
+	if reflect.DeepEqual(container, corev1.Container{}) {
 		return errEmptyContainerInRevisionTemplate
 	}
 	// Some corev1.Container fields are set by Elafros controller.  We disallow them

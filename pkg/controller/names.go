@@ -65,8 +65,16 @@ func GetElaK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SRouterServiceName(u *v1alpha1.Route) string {
-	return "router-service"
+func GetElaK8SActivatorServiceName() string {
+	return "activator-service"
+}
+
+func GetElaK8SActivatorNamespace() string {
+	return "ela-system"
+}
+
+func GetRevisionHeaderName() string {
+	return "Elafros-Revision"
 }
 
 func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {

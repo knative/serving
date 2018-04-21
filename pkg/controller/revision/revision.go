@@ -17,13 +17,14 @@ limitations under the License.
 package revision
 
 import (
-	"flag"
+	"context"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
+
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -48,52 +49,50 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Revision")
-
 const (
-	routeLabel      string = "route"
-	elaVersionLabel string = "revision"
-
 	elaContainerName string = "ela-container"
 	elaPortName      string = "ela-port"
 	elaPort                 = 8080
 
-	elaContainerLogVolumeName      string = "ela-logs"
-	elaContainerLogVolumeMountPath string = "/var/log/app_engine"
-
-	queueContainerName string = "queue-proxy"
+	fluentdContainerName string = "fluentd-proxy"
+	queueContainerName   string = "queue-proxy"
 	// queueSidecarName set by -queueSidecarName flag
 	queueHttpPortName string = "queue-http-port"
 
 	requestQueueContainerName string = "request-queue"
-	requestQueuePortName      string = "queue-port"
-	requestQueuePort                 = 8012
+	RequestQueuePortName      string = "queue-port"
+	RequestQueuePort                 = 8012
+	// Queue proxy admin port and paths provide health check and
+	// lifecycle hooks.
+	RequestQueueAdminPortName string = "queueadm-port"
+	RequestQueueAdminPort            = 8022
+	RequestQueueQuitPath             = "quitquitquit"
+	RequestQueueHealthPath           = "health"
 
 	controllerAgentName = "revision-controller"
 
 	autoscalerPort = 8080
 
 	serviceTimeoutDuration = 5 * time.Minute
+
+	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 )
 
 var (
-	elaPodReplicaCount       = int32(1)
-	elaPodMaxUnavailable     = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	elaPodMaxSurge           = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	queueSidecarImage        string
-	revisionProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "elafros",
-		Name:      "revision_process_item_count",
-		Help:      "Counter to keep track of items in the revision work queue",
-	}, []string{"status"})
+	elaPodReplicaCount   = int32(1)
+	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	processItemCount     = stats.Int64(
+		"controller_revision_queue_process_count",
+		"Counter to keep track of items in the revision work queue.",
+		stats.UnitNone)
+	statusTagKey tag.Key
 )
-
-func init() {
-	prometheus.MustRegister(revisionProcessItemCount)
-	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
-}
 
 // Helper to make sure we log error messages returned by Reconcile().
 func printErr(err error) error {
@@ -130,6 +129,15 @@ type Controller struct {
 
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
+
+	// fluentdSidecarImage is the name of the image used for the fluentd sidecar injected into the revision pod
+	fluentdSidecarImage string
+
+	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
+	queueSidecarImage string
+
+	// autoscalerImage is the name of the image used for the autoscaler pod.
+	autoscalerImage string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -144,7 +152,10 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config,
+	fluentdSidecarImage string,
+	queueSidecarImage string,
+	autoscalerImage string) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
@@ -159,14 +170,17 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:   kubeclientset,
-		elaclientset:    elaclientset,
-		lister:          informer.Lister(),
-		synced:          informer.Informer().HasSynced,
-		endpointsSynced: endpointsInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:        recorder,
-		buildtracker:    &buildTracker{builds: map[key]set{}},
+		kubeclientset:       kubeclientset,
+		elaclientset:        elaclientset,
+		lister:              informer.Lister(),
+		synced:              informer.Informer().HasSynced,
+		endpointsSynced:     endpointsInformer.Informer().HasSynced,
+		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:            recorder,
+		buildtracker:        &buildTracker{builds: map[key]set{}},
+		fluentdSidecarImage: fluentdSidecarImage,
+		queueSidecarImage:   queueSidecarImage,
+		autoscalerImage:     autoscalerImage,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -204,6 +218,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Start the informer factories to begin populating the informer caches
 	glog.Info("Starting Revision controller")
+
+	// Metrics setup: begin
+	// Create the tag keys that will be used to add tags to our measurements.
+	var err error
+	if statusTagKey, err = tag.NewKey("status"); err != nil {
+		return fmt.Errorf("failed to create tag key in OpenCensus: %v", err)
+	}
+	// Create view to see our measurements cumulatively.
+	countView := &view.View{
+		Description: "Counter to keep track of items in the revision work queue.",
+		Measure:     processItemCount,
+		Aggregation: view.Count(),
+		TagKeys:     []tag.Key{statusTagKey},
+	}
+	if err = view.Register(countView); err != nil {
+		return fmt.Errorf("failed to register the views in OpenCensus: %v", err)
+	}
+	defer view.Unregister(countView)
+	// Metrics setup: end
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
@@ -250,7 +283,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err, promStatus := func(obj interface{}) (error, string) {
+	err, processStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -285,7 +318,10 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	revisionProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
+	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
+		// Increment the request count by one.
+		stats.Record(ctx, processItemCount.M(1))
+	}
 
 	if err != nil {
 		runtime.HandleError(err)
@@ -469,6 +505,14 @@ func getIsServiceReady(e *corev1.Endpoints) bool {
 	return false
 }
 
+func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
+	condCount := len(r.Status.Conditions)
+	if condCount == 0 {
+		return r.CreationTimestamp.Time
+	}
+	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
+}
+
 func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
@@ -539,7 +583,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	revisionAge := time.Now().Sub(rev.CreationTimestamp.Time)
+	revisionAge := time.Now().Sub(getRevisionLastTransitionTime(rev))
 	if revisionAge < serviceTimeoutDuration {
 		return
 	}
@@ -569,7 +613,7 @@ func (c *Controller) reconcileOnceBuilt(rev *v1alpha1.Revision, ns string) error
 
 	elaNS := controller.GetElaNamespaceName(rev.Namespace)
 
-	if deletionTimestamp == nil {
+	if deletionTimestamp == nil && rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
 		log.Printf("Creating or reconciling resources for %s\n", rev.Name)
 		return c.createK8SResources(rev, elaNS)
 	}
@@ -584,13 +628,13 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 	log.Printf("Deleted deployment")
 
-	err = c.deleteAutoscalerDeployment(rev, ns)
+	err = c.deleteAutoscalerDeployment(rev)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Deployment: %s", err)
 	}
 	log.Printf("Deleted autoscaler Deployment")
 
-	err = c.deleteAutoscalerService(rev, ns)
+	err = c.deleteAutoscalerService(rev)
 	if err != nil {
 		log.Printf("Failed to delete autoscaler Service: %s", err)
 	}
@@ -620,20 +664,20 @@ func (c *Controller) deleteK8SResources(rev *v1alpha1.Revision, ns string) error
 
 func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error {
 	// Fire off a Deployment..
-	err := c.reconcileDeployment(rev, ns)
-	if err != nil {
+	if err := c.reconcileDeployment(rev, ns); err != nil {
 		log.Printf("Failed to create a deployment: %s", err)
 		return err
 	}
 
 	// Autoscale the service
-	err = c.reconcileAutoscalerDeployment(rev, ns)
-	if err != nil {
+	if err := c.reconcileAutoscalerDeployment(rev); err != nil {
 		log.Printf("Failed to create autoscaler Deployment: %s", err)
 	}
-	err = c.reconcileAutoscalerService(rev, ns)
-	if err != nil {
+	if err := c.reconcileAutoscalerService(rev); err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
+	}
+	if err := c.reconcileFluentdConfigMap(rev); err != nil {
+		log.Printf("Failed to create fluent config map: %s", err)
 	}
 
 	// Create k8s service
@@ -707,10 +751,10 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	}
 
 	// Create the deployment.
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev)
+	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
@@ -753,7 +797,7 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 		return serviceName, nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
+	controllerRef := controller.NewRevisionControllerRef(rev)
 	service := MakeRevisionK8sService(rev, ns)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating service: %q", service.Name)
@@ -761,9 +805,32 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 	return serviceName, err
 }
 
-func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	cmc := c.kubeclientset.Core().ConfigMaps(ns)
+	_, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			log.Printf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
+			return err
+		}
+		log.Printf("ConfigMap %q doesn't exist, creating", fluentdConfigMapName)
+	} else {
+		log.Printf("Found existing ConfigMap %q", fluentdConfigMapName)
+		return nil
+	}
+
+	controllerRef := controller.NewRevisionControllerRef(rev)
+	configMap := MakeFluentdConfigMap(rev, ns)
+	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
+	log.Printf("Creating configmap: %q", configMap.Name)
+	_, err = cmc.Create(configMap)
+	return err
+}
+
+func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -779,9 +846,9 @@ func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision, ns string) 
 	return nil
 }
 
-func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -794,17 +861,17 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision, ns strin
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	service := MakeElaAutoscalerService(rev, ns)
+	controllerRef := controller.NewRevisionControllerRef(rev)
+	service := MakeElaAutoscalerService(rev)
 	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Service: %q", service.Name)
 	_, err = sc.Create(service)
 	return err
 }
 
-func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -821,9 +888,9 @@ func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision, ns strin
 	return nil
 }
 
-func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -836,8 +903,8 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision, ns st
 		return nil
 	}
 
-	controllerRef := metav1.NewControllerRef(rev, controllerKind)
-	deployment := MakeElaAutoscalerDeployment(rev, ns)
+	controllerRef := controller.NewRevisionControllerRef(rev)
+	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)
@@ -883,8 +950,8 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 // TODO: Consider using OwnerReferences.
 // https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
 func lookupServiceOwner(endpoint *corev1.Endpoints) string {
-	// see if there's a 'revision' label on this object marking it as ours.
-	if revisionName, ok := endpoint.Labels["revision"]; ok {
+	// see if there's a label on this object marking it as ours.
+	if revisionName, ok := endpoint.Labels[ela.RevisionLabelKey]; ok {
 		return revisionName
 	}
 	return ""

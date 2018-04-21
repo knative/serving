@@ -27,6 +27,7 @@ type ElafrosV1alpha1Interface interface {
 	ConfigurationsGetter
 	RevisionsGetter
 	RoutesGetter
+	ServicesGetter
 }
 
 // ElafrosV1alpha1Client is used to interact with features provided by the elafros.dev group.
@@ -44,6 +45,10 @@ func (c *ElafrosV1alpha1Client) Revisions(namespace string) RevisionInterface {
 
 func (c *ElafrosV1alpha1Client) Routes(namespace string) RouteInterface {
 	return newRoutes(c, namespace)
+}
+
+func (c *ElafrosV1alpha1Client) Services(namespace string) ServiceInterface {
+	return newServices(c, namespace)
 }
 
 // NewForConfig creates a new ElafrosV1alpha1Client for the given config.

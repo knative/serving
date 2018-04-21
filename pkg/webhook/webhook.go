@@ -210,6 +210,10 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 				Factory:   &v1alpha1.Route{},
 				Validator: ValidateRoute,
 			},
+			"Service": GenericCRDHandler{
+				Factory:   &v1alpha1.Service{},
+				Validator: ValidateService,
+			},
 		},
 	}, nil
 }
@@ -287,7 +291,7 @@ func (ac *AdmissionController) unregister(client clientadmissionregistrationv1be
 // configuration types.
 
 func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	resources := []string{"configurations", "routes", "revisions"}
+	resources := []string{"configurations", "routes", "revisions", "services"}
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -436,6 +440,9 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
+	} else {
+		// Use nil to denote the absence of a new object (delete)
+		newObj = nil
 	}
 
 	if len(oldBytes) != 0 {
@@ -444,6 +451,9 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
+	} else {
+		// Use nil to denote the absence of an old object (create)
+		oldObj = nil
 	}
 
 	var patches []jsonpatch.JsonPatchOperation

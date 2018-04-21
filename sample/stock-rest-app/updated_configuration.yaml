@@ -25,9 +25,6 @@ spec:
     spec:
       container:
         image: stock:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
         env:
           - name: RESOURCE
             value: share

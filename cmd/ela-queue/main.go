@@ -17,16 +17,24 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/elafros/elafros/pkg/autoscaler"
+	"github.com/elafros/elafros/pkg/controller/revision"
+	"github.com/elafros/elafros/pkg/queue"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -38,19 +46,26 @@ const (
 	// Add a little buffer space between request handling and stat
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
-	statReportingQueueLength   = 10
-	requestCountingQueueLength = 10
+	statReportingQueueLength = 10
+	// Add enough buffer to keep track of as many requests as can
+	// be handled in a quantum of time. Because the request out
+	// channel isn't drained until the end of a quantum of time.
+	requestCountingQueueLength = 100
+	// Number of seconds the /quitquitquit handler should wait before
+	// returning.  The purpose is to kill the container alive a little
+	// bit longer, that it doesn't go away until the pod is truly
+	// removed from service.
+	quitSleepSecs = 20
 )
 
 var (
 	podName           string
-	elaNamespace      string
 	elaRevision       string
 	elaAutoscaler     string
 	elaAutoscalerPort string
 	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan         = make(chan struct{}, requestCountingQueueLength)
-	reqOutChan        = make(chan struct{}, requestCountingQueueLength)
+	reqInChan         = make(chan queue.Poke, requestCountingQueueLength)
+	reqOutChan        = make(chan queue.Poke, requestCountingQueueLength)
 	kubeClient        *kubernetes.Clientset
 	statSink          *websocket.Conn
 	proxy             *httputil.ReverseProxy
@@ -62,12 +77,6 @@ func init() {
 		glog.Fatal("No ELA_POD provided.")
 	}
 	glog.Infof("ELA_POD=%v", podName)
-
-	elaNamespace = os.Getenv("ELA_NAMESPACE")
-	if elaNamespace == "" {
-		glog.Fatal("No ELA_NAMESPACE provided.")
-	}
-	glog.Infof("ELA_NAMESPACE=%v", elaNamespace)
 
 	elaRevision = os.Getenv("ELA_REVISION")
 	if elaRevision == "" {
@@ -96,7 +105,7 @@ func init() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, elaNamespace, elaAutoscalerPort)
+		elaAutoscaler, revision.AutoscalerNamespace, elaAutoscalerPort)
 	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
@@ -145,43 +154,92 @@ func statReporter() {
 	}
 }
 
-func concurrencyReporter() {
-	var concurrentRequests int32 = 0
-	var totalRequests int32 = 0
-	ticker := time.NewTicker(time.Second).C
-	for {
-		select {
-		case <-ticker:
-			now := time.Now()
-			stat := &autoscaler.Stat{
-				Time:                    &now,
-				PodName:                 podName,
-				ConcurrentRequests:      concurrentRequests,
-				TotalRequestsThisPeriod: totalRequests,
-			}
-			totalRequests = 0
-			statChan <- stat
-		case <-reqInChan:
-			concurrentRequests = concurrentRequests + 1
-			totalRequests = totalRequests + 1
-		case <-reqOutChan:
-			concurrentRequests = concurrentRequests - 1
-		}
-	}
+func isProbe(r *http.Request) bool {
+	// Since K8s 1.8, prober requests have
+	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
+	return strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/")
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	var in struct{}
-	reqInChan <- in
-	defer func() {
-		var out struct{}
-		reqOutChan <- out
-	}()
-	glog.Infof("Forwarding a request to the app container at %v", time.Now().String())
+	if !isProbe(r) {
+		// Only count non-prober requests for autoscaling.
+		reqInChan <- queue.Poke{}
+		defer func() {
+			reqOutChan <- queue.Poke{}
+		}()
+	}
 	proxy.ServeHTTP(w, r)
 }
 
+// healthServer registers whether a PreStop hook has been called.
+type healthServer struct {
+	alive bool
+	mutex sync.RWMutex
+}
+
+// isAlive() returns true until a PreStop hook has been called.
+func (h *healthServer) isAlive() bool {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	return h.alive
+}
+
+// kill() marks that a PreStop hook has been called.
+func (h *healthServer) kill() {
+	h.mutex.Lock()
+	h.alive = false
+	h.mutex.Unlock()
+}
+
+// healthHandler is used for readinessProbe/livenessCheck of
+// queue-proxy.
+func (h *healthServer) healthHandler(w http.ResponseWriter, r *http.Request) {
+	if h.isAlive() {
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "alive: true")
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, "alive: false")
+	}
+}
+
+// quitHandler() is used for preStop hook of queue-proxy. It:
+// - marks the service as not ready, so that requests will no longer
+//   be routed to it,
+// - adds a small delay, so that the container doesn't get killed at
+//   the same time the pod is marked for removal.
+func (h *healthServer) quitHandler(w http.ResponseWriter, r *http.Request) {
+	// First, we want to mark the container as not ready, so that even
+	// if the pod removal (from service) isn't yet effective, the
+	// readinessCheck will still prevent traffic to be routed to this
+	// pod.
+	h.kill()
+	// However, since both readinessCheck and pod removal from service
+	// is eventually consistent, we add here a small delay to have the
+	// container stay alive a little bit longer after.  We still have
+	// no guarantee that container termination is done only after
+	// removal from service is effective, but this has been showed to
+	// alleviate the issue.
+	time.Sleep(quitSleepSecs * time.Second)
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, "alive: false")
+}
+
+// Sets up /health and /quitquitquit endpoints.
+func setupAdminHandlers(server *http.Server) {
+	h := healthServer{
+		alive: true,
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc(fmt.Sprintf("/%s", revision.RequestQueueHealthPath), h.healthHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", revision.RequestQueueQuitPath), h.quitHandler)
+	server.Handler = mux
+	server.ListenAndServe()
+}
+
 func main() {
+	// Even though we have no flags, glog has some hence requiring
+	// flag.Parse().
 	flag.Parse()
 	glog.Info("Queue container is running")
 	config, err := rest.InClusterConfig()
@@ -195,12 +253,44 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
-	go concurrencyReporter()
+	// The ratio between reportTicker and bucketTicker durations determines
+	// the maximum QPS the autoscaler will target for very short requests.
+	// The bucketTicker duration is a quantum of time so only so many can
+	// fit into a given duration.  And the autoscaler targets 1.0 average
+	// concurrency on average.
+	bucketTicker := time.NewTicker(100 * time.Millisecond).C
+	reportTicker := time.NewTicker(time.Second).C
+	queue.NewStats(podName, queue.Channels{
+		ReqInChan:        reqInChan,
+		ReqOutChan:       reqOutChan,
+		QuantizationChan: bucketTicker,
+		ReportChan:       reportTicker,
+		StatChan:         statChan,
+	})
 	defer func() {
 		if statSink != nil {
 			statSink.Close()
 		}
 	}()
+
+	server := &http.Server{
+		Addr: fmt.Sprintf(":%d", revision.RequestQueuePort), Handler: nil}
+	adminServer := &http.Server{
+		Addr: fmt.Sprintf(":%d", revision.RequestQueueAdminPort), Handler: nil}
+
+	// Add a SIGTERM handler to gracefully shutdown the servers during
+	// pod termination.
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+	go func() {
+		<-sigTermChan
+		// Calling server.Shutdown() allows pending requests to
+		// complete, while no new work is accepted.
+		server.Shutdown(context.Background())
+		adminServer.Shutdown(context.Background())
+		os.Exit(0)
+	}()
 	http.HandleFunc("/", handler)
-	http.ListenAndServe(":8012", nil)
+	go server.ListenAndServe()
+	setupAdminHandlers(adminServer)
 }

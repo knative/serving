@@ -27,11 +27,11 @@
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_ZONE=us-east1-d
+readonly E2E_CLUSTER_NAME=ela-e2e-cluster
+readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly GKE_VERSION=v1.9.4-gke.1
-readonly E2E_DOCKER_BASE=gcr.io/elafros-e2e-tests
+readonly GKE_VERSION=v1.9.6-gke.1
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
 # Unique identifier for this test execution
@@ -42,7 +42,7 @@ readonly UUID=$(cat /proc/sys/kernel/random/uuid)
 [[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
-readonly SCRIPT_ROOT="$(dirname ${SCRIPT_CANONICAL_PATH})/.."
+readonly ELAFROS_ROOT="$(dirname ${SCRIPT_CANONICAL_PATH})/.."
 
 # Save *_OVERRIDE variables in case a bazel cleanup if required.
 readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
@@ -83,7 +83,8 @@ function wait_for_elafros() {
   echo -n "Waiting for Elafros to come up"
   for i in {1..150}; do  # timeout after 5 minutes
     if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 2 ]]; then
-      echo -e "\nElafros is up"
+      echo -e "\nElafros is up:"
+      kubectl -n ela-system get pods
       return 0
     fi
     echo -n "."
@@ -101,15 +102,31 @@ function delete_elafros_images() {
   gcloud -q container images delete ${all_images}
 }
 
+function exit_if_failed() {
+  [[ $? -eq 0 ]] && return 0
+  echo "*** TEST FAILED ***"
+  exit 1
+}
+
+# End-to-end tests
+
 function run_conformance_tests() {
   header "Running conformance tests"
   echo -e "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: pizzaplanet" | kubectl create -f -
-  go test -v ./test/conformance -ginkgo.v -dockerrepo ${E2E_DOCKER_BASE}/ela-conformance-test
+  go test -v ./test/conformance -ginkgo.v -dockerrepo gcr.io/elafros-e2e-tests/ela-conformance-test
 }
 
 function run_hello_world() {
   header "Running hello world"
-  bazel run sample/helloworld:everything.create || return 1
+  bazel run //sample/helloworld:everything.create || return 1
+  echo "Route:"
+  kubectl get route -o yaml
+  echo "Configuration:"
+  kubectl get configurations -o yaml
+  echo "Revision:"
+  kubectl get revisions -o yaml
+  echo "Pods:"
+  kubectl get pods
   local service_host=""
   local service_ip=""
   for i in {1..150}; do  # timeout after 5 minutes
@@ -132,13 +149,13 @@ function run_hello_world() {
     echo "ERROR: unexpected output [$output]"
     result=1
   fi
-  bazel run sample/helloworld:everything.delete  # ignore errors
+  bazel run //sample/helloworld:everything.delete  # ignore errors
   return $result
 }
 
 # Script entry point.
 
-cd ${SCRIPT_ROOT}
+cd ${ELAFROS_ROOT}
 
 # Show help if bad arguments are passed.
 if [[ -n $1 && $1 != "--run-tests" ]]; then
@@ -157,17 +174,17 @@ if [[ -z $1 ]]; then
     --provider=gke
     --deployment=gke
     --gcp-node-image=cos
-    --cluster=ela-e2e-cluster
+    --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
     --gcp-network=ela-e2e-net
     --gke-environment=prod
   )
   if (( ! IS_PROW )); then
-    if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-      : ${DOCKER_REPO_OVERRIDE:?"DOCKER_REPO_OVERRIDE must be set to  writeable docker repo."}
-      return 1
-    fi
     CLUSTER_CREATION_ARGS+=(--gcp-project=${PROJECT_ID:?"PROJECT_ID must be set to the GCP project where the tests are run."})
+  else
+    # On prow, set bogus SSH keys for kubetest, we're not using them.
+    touch $HOME/.ssh/google_compute_engine.pub
+    touch $HOME/.ssh/google_compute_engine
   fi
   # Clear user and cluster variables, so they'll be set to the test cluster.
   # DOCKER_REPO_OVERRIDE is not touched because when running locally it must
@@ -182,7 +199,9 @@ if [[ -z $1 ]]; then
     --extract "${GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
-  exit $(cat ${TEST_RESULT_FILE})
+  result="$(cat ${TEST_RESULT_FILE})"
+  echo "Test result code is $result"
+  exit $result
 fi
 
 # --run-tests passed as first argument, run the tests.
@@ -198,14 +217,21 @@ if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
   USING_EXISTING_CLUSTER=0
   export K8S_CLUSTER_OVERRIDE=$(kubectl config current-context)
   # Fresh new test cluster, set cluster-admin.
-  kubectl create clusterrolebinding cluster-admin-binding \
+  # Get the password of the admin and use it, as the service account (or the user)
+  # might not have the necessary permission.
+  passwd=$(gcloud container clusters describe ${E2E_CLUSTER_NAME} --zone=${E2E_CLUSTER_ZONE} | \
+    grep password | cut -d' ' -f4)
+  kubectl --username=admin --password=$passwd create clusterrolebinding cluster-admin-binding \
     --clusterrole=cluster-admin \
     --user=${K8S_USER_OVERRIDE}
+  # Make sure we're in the default namespace. Currently kubetest switches to
+  # test-pods namespace when creating the cluster.
+  kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
 fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=${E2E_DOCKER_BASE}/ela-images-e2e-${UUID}
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)
 fi
 readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
@@ -215,6 +241,8 @@ echo "================================================="
 echo "* Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "* User is ${K8S_USER_OVERRIDE}"
 echo "* Docker is ${DOCKER_REPO_OVERRIDE}"
+echo "*** Project info ***"
+gcloud compute project-info describe
 
 header "Building and starting Elafros"
 trap teardown EXIT
@@ -235,18 +263,25 @@ if (( IS_PROW )); then
 fi
 
 bazel run //:everything.apply
-wait_for_elafros || exit 1
+wait_for_elafros
+exit_if_failed
+
+# Enable Istio sidecar injection
+bazel run @istio_release//:webhook-create-signed-cert
+kubectl label namespace default istio-injection=enabled
 
 # Run the tests
 
 run_hello_world
-test_result=$?
+exit_if_failed
+run_conformance_tests
+exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
-# Store the real test result to return it later, ignoring any teardown failure
-# in kubetest.
+# We store the real test result to return it later, ignoring any teardown
+# failure in kubetest.
 # TODO(adrcunha): Get rid of this workaround.
-echo -n "${test_result}"> ${TEST_RESULT_FILE}
-
-exit ${test_result}
+echo -n "0"> ${TEST_RESULT_FILE}
+echo "*** ALL TESTS PASSED ***"
+exit 0

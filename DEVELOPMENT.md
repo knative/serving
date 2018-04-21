@@ -105,7 +105,7 @@ bazel run :everything.apply
 
 You can see things running with:
 ```shell
-$ kubectl -n ela-system get pods
+kubectl -n ela-system get pods
 NAME                                READY     STATUS    RESTARTS   AGE
 ela-controller-77897cc687-vp27q   1/1       Running   0          16s
 ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
@@ -114,8 +114,12 @@ ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
 You can access the Elafros Controller's logs with:
 
 ```shell
-$ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
+kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
 ```
+
+If you're using a GCP project to host your Kubernetes cluster, it's good to check the
+[Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
+page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
 ## Enable log and metric collection
 You can use two different setups for collecting logs and metrics:

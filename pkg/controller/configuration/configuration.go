@@ -48,8 +48,6 @@ import (
 
 const controllerAgentName = "configuration-controller"
 
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
-
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -275,7 +273,7 @@ func (c *Controller) syncHandler(key string) error {
 	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
 		config.Name, config, config.Spec.RevisionTemplate)
 	spec := config.Spec.RevisionTemplate.Spec
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := controller.NewConfigurationControllerRef(config)
 
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
@@ -317,6 +315,11 @@ func (c *Controller) syncHandler(key string) error {
 		rev.ObjectMeta.Labels = make(map[string]string)
 	}
 	rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
+
+	if rev.ObjectMeta.Annotations == nil {
+		rev.ObjectMeta.Annotations = make(map[string]string)
+	}
+	rev.ObjectMeta.Annotations[ela.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
@@ -375,17 +378,10 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	namespace := revision.Namespace
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
-	configName := lookupRevisionOwner(revision)
+	configName := controller.LookupOwningConfigurationName(revision.OwnerReferences)
 	if configName == "" {
 		return
 	}
-
-	if !revision.Status.IsReady() {
-		// The revision isn't ready, so ignore this event.
-		glog.Infof("Revision %q is not ready", revisionName)
-		return
-	}
-	glog.Infof("Revision %q is ready", revisionName)
 
 	config, err := c.lister.Configurations(namespace).Get(configName)
 	if err != nil {
@@ -400,37 +396,45 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
-	if config.Status.IsLatestReadyRevisionNameUpToDate() {
-		// The configuration is already ready and has LatestReadyRevisionName equal
-		// to LatestCreatedRevisionName, so ignore this event.
-		glog.Infof("Configuration %q is already ready with latest created revision ready", revisionName)
-		return
-	}
-
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
 
-	alreadyReady := config.Status.IsReady()
-	if !alreadyReady {
-		c.markConfigurationReady(config, revision)
+	if !revision.Status.IsReady() {
+		glog.Infof("Revision %q of configuration %q is not ready", revisionName, config.Name)
+
+		//add LatestRevision condition to be false with the status from the revision
+		c.markConfigurationLatestRevisionStatus(config, revision)
+
+		if _, err := c.updateStatus(config); err != nil {
+			glog.Errorf("Error updating configuration '%s/%s': %v",
+				namespace, configName, err)
+		}
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestRevisionUpdate",
+			"Latest revision of configuration is not ready")
+
+	} else {
+		glog.Infof("Revision %q is ready", revisionName)
+
+		alreadyReady := config.Status.IsReady()
+		if !alreadyReady {
+			c.markConfigurationReady(config, revision)
+		}
+		glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
+			config.Name, revision.Name)
+		config.Status.LatestReadyRevisionName = revision.Name
+
+		if _, err := c.updateStatus(config); err != nil {
+			glog.Errorf("Error updating configuration '%s/%s': %v",
+				namespace, configName, err)
+		}
+		if !alreadyReady {
+			c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+				"Configuration becomes ready")
+		}
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+			"LatestReadyRevisionName updated to %q", revision.Name)
+
 	}
-
-	glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
-		config.Name, revision.Name)
-	config.Status.LatestReadyRevisionName = revision.Name
-
-	if _, err := c.updateStatus(config); err != nil {
-		glog.Errorf("Error updating configuration '%s/%s': %v",
-			namespace, configName, err)
-	}
-
-	if !alreadyReady {
-		c.recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
-			"Configuration becomes ready")
-	}
-	c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-		"LatestReadyRevisionName updated to %q", revision.Name)
-
 	return
 }
 
@@ -438,15 +442,13 @@ func (c *Controller) updateRevisionEvent(old, new interface{}) {
 	c.addRevisionEvent(new)
 }
 
-// Return the configuration that created it.
-func lookupRevisionOwner(revision *v1alpha1.Revision) string {
-	// See if there's a 'configuration' owner reference on this object.
-	for _, ownerReference := range revision.OwnerReferences {
-		if ownerReference.Kind == controllerKind.Kind {
-			return ownerReference.Name
+func getLatestRevisionStatusCondition(revision *v1alpha1.Revision) *v1alpha1.RevisionCondition {
+	for _, cond := range revision.Status.Conditions {
+		if !(cond.Type == v1alpha1.RevisionConditionReady && cond.Status == corev1.ConditionTrue) {
+			return &cond
 		}
 	}
-	return ""
+	return nil
 }
 
 // Mark ConfigurationConditionReady of Configuration ready as the given latest
@@ -454,10 +456,30 @@ func lookupRevisionOwner(revision *v1alpha1.Revision) string {
 func (c *Controller) markConfigurationReady(
 	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
 	glog.Infof("Marking Configuration %q ready", config.Name)
+	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
 			Type:   v1alpha1.ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 			Reason: "LatestRevisionReady",
+		})
+}
+
+// Mark ConfigurationConditionLatestRevisionReady of Configuration to false with the status
+// from the revision
+func (c *Controller) markConfigurationLatestRevisionStatus(
+	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
+	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionReady)
+	cond := getLatestRevisionStatusCondition(revision)
+	if cond == nil {
+		glog.Infof("Revision status is not updated yet")
+		return
+	}
+	config.Status.SetCondition(
+		&v1alpha1.ConfigurationCondition{
+			Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
+			Status:  corev1.ConditionFalse,
+			Reason:  cond.Reason,
+			Message: cond.Message,
 		})
 }

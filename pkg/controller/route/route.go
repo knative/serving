@@ -17,13 +17,14 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -45,15 +46,20 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
 )
 
 var (
-	controllerKind        = v1alpha1.SchemeGroupVersion.WithKind("Route")
-	routeProcessItemCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "elafros",
-		Name:      "route_process_item_count",
-		Help:      "Counter to keep track of items in the route work queue",
-	}, []string{"status"})
+	processItemCount = stats.Int64(
+		"controller_route_queue_process_count",
+		"Counter to keep track of items in the route work queue.",
+		stats.UnitNone)
+	statusTagKey tag.Key
+	// The experiment flag in controller.yaml to turn on activator feature. The default is false.
+	// If it's true, the traffic will always be directed to the activator.
+	enableActivatorExperiment bool
 )
 
 const (
@@ -104,7 +110,7 @@ type Controller struct {
 }
 
 func init() {
-	prometheus.MustRegister(routeProcessItemCount)
+	flag.BoolVar(&enableActivatorExperiment, "enableActivatorExperiment", false, "The experiment flag to turn on activator feature.")
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -177,6 +183,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Start the informer factories to begin populating the informer caches
 	glog.Info("Starting Route controller")
 
+	// Metrics setup: begin
+	// Create the tag keys that will be used to add tags to our measurements.
+	var err error
+	if statusTagKey, err = tag.NewKey("status"); err != nil {
+		return fmt.Errorf("failed to create tag key in OpenCensus: %v", err)
+	}
+	// Create view to see our measurements cumulatively.
+	countView := &view.View{
+		Description: "Counter to keep track of items in the route work queue.",
+		Measure:     processItemCount,
+		Aggregation: view.Count(),
+		TagKeys:     []tag.Key{statusTagKey},
+	}
+	if err = view.Register(countView); err != nil {
+		return fmt.Errorf("failed to register the views in OpenCensus: %v", err)
+	}
+	defer view.Unregister(countView)
+	// Metrics setup: end
+
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
@@ -222,7 +247,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err, promStatus := func(obj interface{}) (error, string) {
+	err, processStatus := func(obj interface{}) (error, string) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -257,7 +282,10 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	routeProcessItemCount.With(prometheus.Labels{"status": promStatus}).Inc()
+	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
+		// Increment the request count by one.
+		stats.Record(ctx, processItemCount.M(1))
+	}
 
 	if err != nil {
 		runtime.HandleError(err)
@@ -314,7 +342,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	glog.Infof("Running reconcile Route for %s\n%+v\n", route.Name, route)
 
 	// Create a placeholder service that is simply used by istio as a placeholder.
-	// This service could eventually be the 'router' service that will get all the
+	// This service could eventually be the 'activator' service that will get all the
 	// fallthrough traffic if there are no route rules (revisions to target).
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
@@ -413,14 +441,18 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 }
 
 func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
+	ingressNamespace := route.Namespace
+	if enableActivatorExperiment {
+		ingressNamespace = controller.GetElaK8SActivatorNamespace()
+	}
 	ingress := MakeRouteIngress(route)
-	ingressClient := c.kubeclientset.Extensions().Ingresses(route.Namespace)
+	ingressClient := c.kubeclientset.Extensions().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(controller.GetElaK8SIngressName(route), metav1.GetOptions{})
 	if err != nil {
 		if apierrs.IsNotFound(err) {
 			if _, err = ingressClient.Create(ingress); err == nil {
-				glog.Infof("Created ingress %q", ingress.Name)
-				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
+				glog.Infof("Created ingress %q in namespace %q", ingress.Name, ingressNamespace)
+				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q in namespace %q", ingress.Name, ingressNamespace)
 			}
 		}
 		return err
@@ -429,8 +461,8 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	if !reflect.DeepEqual(existing.Spec, ingress.Spec) {
 		existing.Spec = ingress.Spec
 		if _, err = ingressClient.Update(existing); err == nil {
-			glog.Infof("Updated ingress %q", ingress.Name)
-			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q", ingress.Name)
+			glog.Infof("Updated ingress %q in namespace %q", ingress.Name, ingressNamespace)
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q in namespace %q", ingress.Name, ingressNamespace)
 		}
 		return err
 	}
@@ -620,9 +652,6 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 	if len(revisionRoutes) == 0 {
 		glog.Errorf("No routes were found for the service %q", route.Name)
 		return nil, nil
-	}
-	for _, rr := range revisionRoutes {
-		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
 	// Create route rule for the route domain
@@ -819,19 +848,10 @@ func (c *Controller) updateConfigurationEvent(old, new interface{}) {
 	c.addConfigurationEvent(new)
 }
 
-func (c *Controller) findOwningRouteName(ingress *v1beta1.Ingress) string {
-	for _, owner := range ingress.ObjectMeta.OwnerReferences {
-		if owner.Kind == controllerKind.Kind {
-			return owner.Name
-		}
-	}
-	return ""
-}
-
 func (c *Controller) updateIngressEvent(old, new interface{}) {
 	ingress := new.(*v1beta1.Ingress)
 	// If ingress isn't owned by a route, no route update is required.
-	routeName := c.findOwningRouteName(ingress)
+	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
 	if routeName == "" {
 		return
 	}

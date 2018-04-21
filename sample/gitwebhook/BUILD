@@ -6,7 +6,6 @@ go_library(
     importpath = "github.com/elafros/elafros/sample/gitwebhook",
     visibility = ["//visibility:private"],
     deps = [
-        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/google/go-github/github:go_default_library",
         "//vendor/golang.org/x/oauth2:go_default_library",
         "//vendor/gopkg.in/go-playground/webhooks.v3:go_default_library",

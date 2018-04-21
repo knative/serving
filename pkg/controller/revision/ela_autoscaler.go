@@ -17,9 +17,9 @@ limitations under the License.
 package revision
 
 import (
-	"flag"
 	"strconv"
 
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -30,23 +30,31 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var autoscalerImage string
+// AutoscalerNamespace needs to match the service account, which needs to
+// be a single, known namespace. This ensures that projects created in
+// non-default namespaces continue to work with autoscaling.
+const AutoscalerNamespace = "ela-system"
 
-func init() {
-	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
-}
-
-func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployment {
+// MakeElaAutoscalerDeployment creates the deployment of the
+// autoscaler for a particular revision.
+func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *v1beta1.Deployment {
 	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
+
+	labels := MakeElaResourceLabels(rev)
+	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
+	annotations := MakeElaResourceAnnotations(rev)
+	annotations[sidecarIstioInjectAnnotation] = "false"
+
 	replicas := int32(1)
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: namespace,
-			Labels:    MakeElaResourceLabels(u),
+			Name:        controller.GetRevisionAutoscalerName(rev),
+			Namespace:   AutoscalerNamespace,
+			Labels:      MakeElaResourceLabels(rev),
+			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: v1beta1.DeploymentSpec{
 			Replicas: &replicas,
@@ -56,12 +64,8 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: map[string]string{
-						"autoscaler": controller.GetRevisionAutoscalerName(u),
-					},
-					Annotations: map[string]string{
-						"sidecar.istio.io/inject": "false",
-					},
+					Labels:      labels,
+					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -80,11 +84,15 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 							Env: []corev1.EnvVar{
 								{
 									Name:  "ELA_NAMESPACE",
-									Value: u.Namespace,
+									Value: rev.Namespace,
 								},
 								{
 									Name:  "ELA_DEPLOYMENT",
-									Value: controller.GetRevisionDeploymentName(u),
+									Value: controller.GetRevisionDeploymentName(rev),
+								},
+								{
+									Name:  "ELA_REVISION",
+									Value: rev.Name,
 								},
 								{
 									Name:  "ELA_AUTOSCALER_PORT",
@@ -104,12 +112,15 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision, namespace string) *v1beta
 	}
 }
 
-func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Service {
+// MakeElaAutoscalerService returns a service for the autoscaler of
+// the given revision.
+func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: namespace,
-			Labels:    MakeElaResourceLabels(u),
+			Name:        controller.GetRevisionAutoscalerName(rev),
+			Namespace:   AutoscalerNamespace,
+			Labels:      MakeElaResourceLabels(rev),
+			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -121,7 +132,7 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision, namespace string) *corev1.Se
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				"autoscaler": controller.GetRevisionAutoscalerName(u),
+				ela.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
 			},
 		},
 	}

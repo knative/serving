@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
@@ -29,27 +30,26 @@ var httpServicePortName = "http"
 var servicePort = 80
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same
-// "revision" label. Traffic is routed to queue-proxy port.
+// ela.RevisionLabelKey label. Traffic is routed to queue-proxy port.
 func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetElaK8SServiceNameForRevision(u),
-			Namespace: ns,
-			Labels: map[string]string{
-				"revision": u.Name,
-			},
+			Name:        controller.GetElaK8SServiceNameForRevision(u),
+			Namespace:   ns,
+			Labels:      MakeElaResourceLabels(u),
+			Annotations: MakeElaResourceAnnotations(u),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
 					Name:       httpServicePortName,
 					Port:       int32(servicePort),
-					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: requestQueuePortName},
+					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: RequestQueuePortName},
 				},
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				"revision": u.Name,
+				ela.RevisionLabelKey: u.Name,
 			},
 		},
 	}
