@@ -125,5 +125,9 @@ func (b *Breaker) concurrentRequest() (chan struct{}, chan bool) {
 
 func done(release chan struct{}) {
 	close(release)
+	// Allow enough time for the two goroutines involved to shuffle
+	// the request out of active and another request out of the
+	// queue.
+	runtime.Gosched()
 	runtime.Gosched()
 }
