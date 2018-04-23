@@ -113,9 +113,6 @@ const (
 	RevisionConditionReady RevisionConditionType = "Ready"
 	// RevisionConditionFailed is set when the revision readiness check exceeds 3.
 	RevisionConditionFailed RevisionConditionType = "Failed"
-	// RevisionConditionBuildComplete is set when the revision has an associated build
-	// and is marked True if/once the Build has completed succesfully.
-	RevisionConditionBuildComplete RevisionConditionType = "BuildComplete"
 	// RevisionConditionBuildFailed is set when the revision has an associated build
 	// that has failed for some reason.
 	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"

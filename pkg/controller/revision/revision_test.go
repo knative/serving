@@ -611,7 +611,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	// Ensure that the Revision status is updated.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:   "BuildComplete",
+			Type:   "Ready",
 			Status: corev1.ConditionFalse,
 			Reason: "Building",
 		},
@@ -689,6 +689,12 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			Reason:  reason,
 			Message: errMessage,
 		},
+		{
+			Type: "Ready",
+			Status: corev1.ConditionFalse,
+			Reason: "BuildFailed",
+			Message: errMessage,
+		},
 	}
 	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -764,14 +770,15 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
 
-	// The next update we receive should tell us that the build completed.
-	want := []v1alpha1.RevisionCondition{
+	// The next update we receive should tell us that the build completed, by clearing the BuildFailed condition.
+/*	want := []v1alpha1.RevisionCondition{
 		{
 			Type:   "BuildComplete",
 			Status: corev1.ConditionTrue,
 		},
 	}
-	if diff := compareRevisionConditions(want, completedRev.Status.Conditions); diff != "" {
+*/
+	if diff := compareRevisionConditions(nil, completedRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
@@ -839,6 +846,12 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			Type:    "BuildFailed",
 			Status:  corev1.ConditionTrue,
 			Reason:  reason,
+			Message: errMessage,
+		},
+		{
+			Type: "Ready",
+			Status: corev1.ConditionFalse,
+			Reason: "BuildFailed",
 			Message: errMessage,
 		},
 	}
