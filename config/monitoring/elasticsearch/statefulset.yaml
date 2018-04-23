@@ -41,7 +41,6 @@ spec:
       - image: k8s.gcr.io/elasticsearch:v5.6.4
         name: elasticsearch-logging
         resources:
-          # need more cpu upon initialization, therefore burstable class
           limits:
             cpu: 1000m
           requests:
