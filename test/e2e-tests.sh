@@ -82,7 +82,7 @@ function teardown() {
 function wait_for_elafros() {
   echo -n "Waiting for Elafros to come up"
   for i in {1..150}; do  # timeout after 5 minutes
-    if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 2 ]]; then
+    if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 3 ]]; then
       echo -e "\nElafros is up:"
       kubectl -n ela-system get pods
       return 0
