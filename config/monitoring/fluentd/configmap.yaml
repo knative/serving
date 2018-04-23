@@ -35,7 +35,7 @@ data:
       format json
       read_from_head true
     </source>
-    # Detect exceptions in the log output and forward them as one log entry.
+    # Combine multi line logs into a single log entry.
     <match raw.kubernetes.**>
       @id raw.kubernetes
       @type detect_exceptions
@@ -46,34 +46,12 @@ data:
       max_bytes 500000
       max_lines 1000
     </match>
-  system.input.conf: |-
-    # Example:
-    # 2015-12-21 23:17:22,066 [salt.state       ][INFO    ] Completed state [net.ipv4.ip_forward] at time 23:17:22.066081
-    <source>
-      @id minion
-      @type tail
-      format /^(?<time>[^ ]* [^ ,]*)[^\[]*\[[^\]]*\]\[(?<severity>[^ \]]*) *\] (?<message>.*)$/
-      time_format %Y-%m-%d %H:%M:%S
-      path /var/log/salt/minion
-      pos_file /var/log/salt.pos
-      tag salt
-    </source>
-    # Example:
-    # Dec 21 23:17:22 gke-foo-1-1-4b5cbd14-node-4eoj startupscript: Finished running startup script /var/run/google.startup.script
-    <source>
-      @id startupscript.log
-      @type tail
-      format syslog
-      path /var/log/startupscript.log
-      pos_file /var/log/es-startupscript.log.pos
-      tag startupscript
-    </source>
   forward.input.conf: |-
     <source>
       @type forward
     </source>
   output.conf: |-
-    # Enriches records with Kubernetes metadata
+    # Add Kubernetes metadata and send to Elastic Search
     <filter kubernetes.**>
       @type kubernetes_metadata
     </filter>
