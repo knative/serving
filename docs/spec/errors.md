@@ -22,18 +22,20 @@ should follow these patterns:
 1. Each resource should define a small number of terminal failure
    conditions as `Type`s. This should bias towards fewer than 5
    high-level error categories which are separate and meaningful for
-   customers. For a Revision, these might be `BuildFailed`,
+   clients. For a Revision, these might be `BuildFailed`,
    `ContainerNotRunnable`, or `ContainerDeadlineExceeded`.
 2. Where it makes sense, resources should define a **single** "happy
    state" condition which indicates that the resource is set up
    correctly and ready to serve. This is typically named `Ready` (but
    note that Configuration copies the `Ready` status of the latest
    created Revision in `LatestRevisionReady`).
-3. Terminal failure conditions should only have the states `Unknown`
-   (indicated by not applying the failure state) and `True`. Terminal
-   failure conditions should also supply additional details about the
-   failure in the "Reason" and "Message" sections -- both of these
-   should be considered to have unlimited cardinality, unlike `Type`.
+3. Terminal failure conditions may have the state `False` while the
+   reconciliation is in progress. Once the reconciliation is complete,
+   the failure condition should be cleared (if successful) or set to
+   `True` (if the reconciliation failed). Terminal failure conditions
+   should also supply additional details about the failure in the
+   "Reason" and "Message" sections -- both of these should be
+   considered to have unlimited cardinality, unlike `Type`.
 
 Example user and system error scenarios are included below along with
 how the status is presented to CLI and UI tools via the API.
