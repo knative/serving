@@ -17,10 +17,12 @@ limitations under the License.
 package revision
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -50,7 +52,11 @@ func hasHttpPath(p *corev1.Probe) bool {
 }
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarImage string) *corev1.PodSpec {
+func MakeElaPodSpec(
+	rev *v1alpha1.Revision,
+	fluentdSidecarImage,
+	queueSidecarImage string,
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) *corev1.PodSpec {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -209,6 +215,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 		Args: []string{
 			"-logtostderr=true",
 			"-stderrthreshold=INFO",
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
 		},
 		Env: []corev1.EnvVar{
 			{

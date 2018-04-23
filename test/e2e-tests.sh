@@ -31,7 +31,7 @@ readonly E2E_CLUSTER_NAME=ela-e2e-cluster
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly GKE_VERSION=v1.9.4-gke.1
+readonly GKE_VERSION=v1.9.6-gke.1
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
 # Unique identifier for this test execution

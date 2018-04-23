@@ -66,17 +66,18 @@ const (
 )
 
 var (
-	podName           string
-	elaRevision       string
-	elaAutoscaler     string
-	elaAutoscalerPort string
-	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan         = make(chan queue.Poke, requestCountingQueueLength)
-	reqOutChan        = make(chan queue.Poke, requestCountingQueueLength)
-	kubeClient        *kubernetes.Clientset
-	statSink          *websocket.Conn
-	proxy             *httputil.ReverseProxy
-	breaker           = queue.NewBreaker(queueDepth, maxConcurrency)
+	podName                  string
+	elaRevision              string
+	elaAutoscaler            string
+	elaAutoscalerPort        string
+	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqInChan                = make(chan queue.Poke, requestCountingQueueLength)
+	reqOutChan               = make(chan queue.Poke, requestCountingQueueLength)
+	kubeClient               *kubernetes.Clientset
+	statSink                 *websocket.Conn
+	proxy                    *httputil.ReverseProxy
+	breaker                  = queue.NewBreaker(queueDepth, maxConcurrency)
+	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 )
 
 func init() {
@@ -269,12 +270,7 @@ func main() {
 	kubeClient = kc
 	go connectStatSink()
 	go statReporter()
-	// The ratio between reportTicker and bucketTicker durations determines
-	// the maximum QPS the autoscaler will target for very short requests.
-	// The bucketTicker duration is a quantum of time so only so many can
-	// fit into a given duration.  And the autoscaler targets 1.0 average
-	// concurrency on average.
-	bucketTicker := time.NewTicker(100 * time.Millisecond).C
+	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
 		ReqInChan:        reqInChan,
