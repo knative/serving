@@ -34,6 +34,7 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -195,6 +196,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
+	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
 	controller = NewController(
 		kubeClient,
 		elaClient,
@@ -205,6 +207,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		testFluentdImage,
 		testQueueImage,
 		testAutoscalerImage,
+		k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
 	).(*Controller)
 
 	return

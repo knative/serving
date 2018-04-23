@@ -26,6 +26,7 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	ela_autoscaler "github.com/elafros/elafros/pkg/autoscaler"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -36,13 +37,6 @@ import (
 )
 
 const (
-	// The desired number of concurrent requests for each pod.  This
-	// is the primary knob for the fast autoscaler which will try
-	// achieve a 60-second average concurrency per pod of
-	// targetConcurrency.  Another process may tune targetConcurrency
-	// to best handle the resource requirements of the revision.
-	targetConcurrency = float64(1.0)
-
 	// A big enough buffer to handle 1000 pods sending stats every 1
 	// second while we do the autoscaling computation (a few hundred
 	// milliseconds).
@@ -64,6 +58,8 @@ var (
 	elaDeployment     string
 	elaRevision       string
 	elaAutoscalerPort string
+
+	enableScaleToZero = k8sflag.Bool("autoscale.enable-scale-to-zero", false, k8sflag.Dynamic)
 )
 
 func init() {
@@ -93,9 +89,14 @@ func init() {
 }
 
 func autoscaler() {
-	glog.Infof("Target concurrency: %0.2f.", targetConcurrency)
-
-	a := ela_autoscaler.NewAutoscaler(targetConcurrency)
+	config := ela_autoscaler.Config{
+		TargetConcurrency:    k8sflag.Float64("autoscale.target-concurrency", 0.0, k8sflag.Required),
+		MaxScaleUpRate:       k8sflag.Float64("autoscale.max-scale-up-rate", 0.0, k8sflag.Required),
+		StableWindow:         k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required),
+		PanicWindow:          k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required),
+		ScaleToZeroThreshold: k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic),
+	}
+	a := ela_autoscaler.NewAutoscaler(config)
 	ticker := time.NewTicker(2 * time.Second)
 
 	for {
@@ -103,11 +104,8 @@ func autoscaler() {
 		case <-ticker.C:
 			scale, ok := a.Scale(time.Now())
 			if ok {
-				// Disable scale to zero until the zero-to-one
-				// code changes are complete:
-				// https://github.com/elafros/elafros/pull/341
-				// https://github.com/elafros/elafros/pull/255
-				if scale == 0 {
+				// Flag guard scale to zero.
+				if !enableScaleToZero.Get() && scale == 0 {
 					continue
 				}
 

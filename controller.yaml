@@ -42,3 +42,10 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
+        volumeMounts:
+        - name: ela-config
+          mountPath: /etc/config
+      volumes:
+        - name: ela-config
+          configMap:
+            name: ela-config
