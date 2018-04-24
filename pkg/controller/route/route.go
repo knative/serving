@@ -64,6 +64,7 @@ var (
 
 const (
 	controllerAgentName = "route-controller"
+	doNotUseActivator   = false
 )
 
 // RevisionRoute represents a single target to route to.
@@ -907,7 +908,8 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(route, false); err != nil {
+	// When deal with configuratio event, do not use activator. updateRouteEvent deals with activator.
+	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(route, doNotUseActivator); err != nil {
 		glog.Errorf("Error updating route '%s/%s' upon configuration becoming ready: %v",
 			ns, routeName, err)
 	}

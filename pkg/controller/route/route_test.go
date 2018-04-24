@@ -1090,9 +1090,8 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 
 	// test the ingress with activator
 	flag.Set("enableActivatorExperiment", "true")
-	// Create an ingress owned by this route.
+	// Create an ingress which uses the activator.
 	controller.reconcileIngress(route, hasInactiveTarget)
-	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient = kubeClient.Extensions().Ingresses(ctrl.GetElaK8SActivatorNamespace())
 	ingress, _ = ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
 	if ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName != ctrl.GetElaK8SActivatorServiceName() {
