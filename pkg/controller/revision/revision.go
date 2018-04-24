@@ -382,6 +382,13 @@ func (c *Controller) syncHandler(key string) error {
 						Status: corev1.ConditionFalse,
 						Reason: "Building",
 					})
+				rev.Status.SetCondition(
+					&v1alpha1.RevisionCondition{
+						Type:   v1alpha1.RevisionConditionBuildFailed,
+						Status: corev1.ConditionUnknown,
+						Reason: "Building",
+						Message: "Building with build " + rev.Spec.BuildName,
+					})
 				// Let this trigger a reconciliation loop.
 				if _, err := c.updateStatus(rev); err != nil {
 					glog.Errorf("Error recording the Ready=False condition: %s", err)
@@ -421,15 +428,14 @@ func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 		if cond.Type != v1alpha1.RevisionConditionBuildFailed {
 			continue
 		}
-		// We use failed = False to indicate build is still progressing.
+		// We use failed = Unknown to indicate build is still progressing.
 		switch cond.Status {
 		case corev1.ConditionTrue:
 			return true, true
-		case corev1.ConditionFalse:
+		case corev1.ConditionFalse:  // Completed, did not fail.
+			return true, false
+		case corev1.ConditionUnknown:  // Could be done, or not started yet.
 			return false, false
-//		case corev1.ConditionUnknown:  // Could be done, or not started yet.
-
-//			return true, false
 		}
 	}
 	if rev.Spec.BuildName == "" {
@@ -468,8 +474,21 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
-		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type: v1alpha1.RevisionConditionBuildFailed,
+				Status: corev1.ConditionFalse,
+				Reason: "BuildSuccess",
+				Message: bc.Message,
+			})
 		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type: v1alpha1.RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "BuildComplete",
+				Message: "Build complete, starting instances",
+			})
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
