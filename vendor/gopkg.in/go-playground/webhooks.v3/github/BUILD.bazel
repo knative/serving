@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "github.go",
+        "payload.go",
+    ],
+    importmap = "elafros/vendor/gopkg.in/go-playground/webhooks.v3/github",
+    importpath = "gopkg.in/go-playground/webhooks.v3/github",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/gopkg.in/go-playground/webhooks.v3:go_default_library"],
+)

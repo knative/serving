@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "annotation.go",
+        "doc.go",
+        "endpoint.go",
+        "kind.go",
+        "span.go",
+        "span_id.go",
+        "traceid.go",
+    ],
+    importmap = "elafros/vendor/github.com/openzipkin/zipkin-go/model",
+    importpath = "github.com/openzipkin/zipkin-go/model",
+    visibility = ["//visibility:public"],
+)

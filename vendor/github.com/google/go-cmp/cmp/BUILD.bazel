@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compare.go",
+        "options.go",
+        "path.go",
+        "reporter.go",
+        "unsafe_reflect.go",
+    ],
+    importmap = "elafros/vendor/github.com/google/go-cmp/cmp",
+    importpath = "github.com/google/go-cmp/cmp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/go-cmp/cmp/internal/diff:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/internal/function:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp/internal/value:go_default_library",
+    ],
+)

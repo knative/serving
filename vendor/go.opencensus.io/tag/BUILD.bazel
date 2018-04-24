@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "context.go",
+        "doc.go",
+        "key.go",
+        "map.go",
+        "map_codec.go",
+        "profile_19.go",
+        "profile_not19.go",
+        "validate.go",
+    ],
+    importmap = "elafros/vendor/go.opencensus.io/tag",
+    importpath = "go.opencensus.io/tag",
+    visibility = ["//visibility:public"],
+)

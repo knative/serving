@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "logger.go",
+        "webhooks.go",
+    ],
+    importmap = "elafros/vendor/gopkg.in/go-playground/webhooks.v3",
+    importpath = "gopkg.in/go-playground/webhooks.v3",
+    visibility = ["//visibility:public"],
+)
