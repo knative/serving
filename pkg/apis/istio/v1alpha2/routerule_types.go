@@ -32,7 +32,7 @@ type RouteRule struct {
 }
 
 // Istio route looks like so, but couldn't find a k8s/go definition for it
-// so we'll just create one. This is terrrible, but it just might work for
+// so we'll just create one. This is terrible, but it just might work for
 // now, but if things change on their end, this will most certainly break :(
 //  spec:
 //    destination:
@@ -50,6 +50,9 @@ type RouteRule struct {
 //    - destination:
 //        name: revision-service-2
 //      weight: 10
+//  # https://github.com/istio/istio/blob/master/tests/helm/templates/rule-default-route-append-headers.yaml
+//    appendHeaders:
+//      istio-custom-header: user-defined-value
 type DestinationWeight struct {
 	Destination IstioService `json:"destination"`
 	Weight      int          `json:"weight"`
@@ -78,9 +81,10 @@ type MatchString struct {
 }
 
 type RouteRuleSpec struct {
-	Destination IstioService        `json:"destination"`
-	Match       Match               `json:"match,omitempty"`
-	Route       []DestinationWeight `json:"route"`
+	Destination   IstioService        `json:"destination"`
+	Match         Match               `json:"match,omitempty"`
+	Route         []DestinationWeight `json:"route"`
+	AppendHeaders map[string]string   `json:"appendHeaders"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

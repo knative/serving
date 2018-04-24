@@ -396,13 +396,6 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
-	if config.Status.IsLatestReadyRevisionNameUpToDate() {
-		// The configuration is already ready and has LatestReadyRevisionName equal
-		// to LatestCreatedRevisionName, so ignore this event.
-		glog.Infof("Configuration %q is already ready with latest created revision ready", revisionName)
-		return
-	}
-
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
 

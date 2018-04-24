@@ -37,6 +37,15 @@ spec:
         - ela-queue:latest
         - "-autoscalerImage"
         - ela-autoscaler:latest
+        # The flag to turn on the activator.
+        - "-enableActivatorExperiment=false"
         ports:
         - name: metrics
           containerPort: 9090
+        volumeMounts:
+        - name: ela-config
+          mountPath: /etc/config
+      volumes:
+        - name: ela-config
+          configMap:
+            name: ela-config

@@ -40,10 +40,13 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 		fmt.Sprintf("*.%s", route.Status.Domain),
 	}
 
-	// By default we map to the placeholder service directly.
-	// This would point to 'router' component if we wanted to use
-	// this method for 0->1 case.
+	// This would point to 'activator' component if enableActivatorExperiment is true.
+	namespace := route.Namespace
 	serviceName := controller.GetElaK8SServiceName(route)
+	if enableActivatorExperiment {
+		namespace = controller.GetElaK8SActivatorNamespace()
+		serviceName = controller.GetElaK8SActivatorServiceName()
+	}
 
 	path := v1beta1.HTTPIngressPath{
 		Backend: v1beta1.IngressBackend{
@@ -68,7 +71,7 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 	return &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetElaK8SIngressName(route),
-			Namespace: route.Namespace,
+			Namespace: namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "istio",
 			},

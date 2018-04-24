@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"reflect"
 	"time"
@@ -56,6 +57,9 @@ var (
 		"Counter to keep track of items in the route work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
+	// The experiment flag in controller.yaml to turn on activator feature. The default is false.
+	// If it's true, the traffic will always be directed to the activator.
+	enableActivatorExperiment bool
 )
 
 const (
@@ -103,6 +107,10 @@ type Controller struct {
 
 	// suffix used to construct Route domain.
 	controllerConfig controller.Config
+}
+
+func init() {
+	flag.BoolVar(&enableActivatorExperiment, "enableActivatorExperiment", false, "The experiment flag to turn on activator feature.")
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -334,7 +342,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	glog.Infof("Running reconcile Route for %s\n%+v\n", route.Name, route)
 
 	// Create a placeholder service that is simply used by istio as a placeholder.
-	// This service could eventually be the 'router' service that will get all the
+	// This service could eventually be the 'activator' service that will get all the
 	// fallthrough traffic if there are no route rules (revisions to target).
 	// This is one way to implement the 0->1. For now, we'll just create a placeholder
 	// that selects nothing.
@@ -433,14 +441,18 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 }
 
 func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
+	ingressNamespace := route.Namespace
+	if enableActivatorExperiment {
+		ingressNamespace = controller.GetElaK8SActivatorNamespace()
+	}
 	ingress := MakeRouteIngress(route)
-	ingressClient := c.kubeclientset.Extensions().Ingresses(route.Namespace)
+	ingressClient := c.kubeclientset.Extensions().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(controller.GetElaK8SIngressName(route), metav1.GetOptions{})
 	if err != nil {
 		if apierrs.IsNotFound(err) {
 			if _, err = ingressClient.Create(ingress); err == nil {
-				glog.Infof("Created ingress %q", ingress.Name)
-				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.Name)
+				glog.Infof("Created ingress %q in namespace %q", ingress.Name, ingressNamespace)
+				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q in namespace %q", ingress.Name, ingressNamespace)
 			}
 		}
 		return err
@@ -449,8 +461,8 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	if !reflect.DeepEqual(existing.Spec, ingress.Spec) {
 		existing.Spec = ingress.Spec
 		if _, err = ingressClient.Update(existing); err == nil {
-			glog.Infof("Updated ingress %q", ingress.Name)
-			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q", ingress.Name)
+			glog.Infof("Updated ingress %q in namespace %q", ingress.Name, ingressNamespace)
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q in namespace %q", ingress.Name, ingressNamespace)
 		}
 		return err
 	}
@@ -640,9 +652,6 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 	if len(revisionRoutes) == 0 {
 		glog.Errorf("No routes were found for the service %q", route.Name)
 		return nil, nil
-	}
-	for _, rr := range revisionRoutes {
-		glog.Infof("Adding a route to %q Weight: %d", rr.Service, rr.Weight)
 	}
 
 	// Create route rule for the route domain

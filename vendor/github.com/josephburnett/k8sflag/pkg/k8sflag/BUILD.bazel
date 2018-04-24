@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["k8sflag.go"],
+    importmap = "elafros/vendor/github.com/josephburnett/k8sflag/pkg/k8sflag",
+    importpath = "github.com/josephburnett/k8sflag/pkg/k8sflag",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/fsnotify/fsnotify:go_default_library"],
+)

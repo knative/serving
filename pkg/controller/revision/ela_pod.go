@@ -17,15 +17,18 @@ limitations under the License.
 package revision
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -38,8 +41,22 @@ const (
 	varLogVolumeName           = "varlog"
 )
 
+func hasHttpPath(p *corev1.Probe) bool {
+	if p == nil {
+		return false
+	}
+	if p.Handler.HTTPGet == nil {
+		return false
+	}
+	return p.Handler.HTTPGet.Path != ""
+}
+
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarImage string) *corev1.PodSpec {
+func MakeElaPodSpec(
+	rev *v1alpha1.Revision,
+	fluentdSidecarImage,
+	queueSidecarImage string,
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) *corev1.PodSpec {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -77,6 +94,32 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 			MountPath: "/var/log",
 		},
 	)
+	// Add our own PreStop hook here, which should do two things:
+	// - make the container fails the next readinessCheck to avoid
+	//   having more traffic, and
+	// - add a small delay so that the container stays alive a little
+	//   bit longer in case stoppage of traffic is not effective
+	//   immediately.
+	//
+	// TODO(tcnghia): Fail validation webhook when users specify their
+	// own lifecycle hook.
+	elaContainer.Lifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(RequestQueueAdminPort),
+				Path: RequestQueueQuitPath,
+			},
+		},
+	}
+	// If the client provided a readiness check endpoint, we should
+	// fill in the port for them so that requests also go through
+	// queue proxy for a better health checking logic.
+	//
+	// TODO(tcnghia): Fail validation webhook when users specify their
+	// own port in readiness checks.
+	if hasHttpPath(elaContainer.ReadinessProbe) {
+		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(RequestQueuePort)
+	}
 
 	fluentdContainer := corev1.Container{
 		Name:  fluentdContainerName,
@@ -127,7 +170,6 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 			},
 		},
 	}
-
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
 		Image: queueSidecarImage,
@@ -137,17 +179,43 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 			},
 		},
 		Ports: []corev1.ContainerPort{
-			// TOOD: HTTPS connections from the Cloud LB require
-			// certs. Right now, the static nginx.conf file has
-			// been modified to only allow HTTP connections.
 			{
-				Name:          requestQueuePortName,
-				ContainerPort: int32(requestQueuePort),
+				Name:          RequestQueuePortName,
+				ContainerPort: int32(RequestQueuePort),
 			},
+			// Provides health checks and lifecycle hooks.
+			{
+				Name:          RequestQueueAdminPortName,
+				ContainerPort: int32(RequestQueueAdminPort),
+			},
+		},
+		// This handler (1) marks the service as not ready and (2)
+		// adds a small delay before the container is killed.
+		Lifecycle: &corev1.Lifecycle{
+			PreStop: &corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(RequestQueueAdminPort),
+					Path: RequestQueueQuitPath,
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(RequestQueueAdminPort),
+					Path: RequestQueueHealthPath,
+				},
+			},
+			// We want to mark the service as not ready as soon as the
+			// PreStop handler is called, so we need to check a little
+			// bit more often than the default.  It is a small
+			// sacrifice for a low rate of 503s.
+			PeriodSeconds: 1,
 		},
 		Args: []string{
 			"-logtostderr=true",
 			"-stderrthreshold=INFO",
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -176,7 +244,6 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 			},
 		},
 	}
-
 	return &corev1.PodSpec{
 		Containers:         []corev1.Container{*elaContainer, fluentdContainer, queueContainer},
 		Volumes:            []corev1.Volume{varLogVolume, fluentdConfigMapVolume},
