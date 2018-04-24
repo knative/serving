@@ -143,8 +143,8 @@ function wait_for_hello_world_ingress() {
   for i in {1..150}; do  # timeout after 5 minutes
     echo "Waiting for Ingress to come up"
     if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
-      local service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
-      local service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
+      service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
       echo -e -n "Ingress is at $service_ip / $service_host\n"
       return 0
     fi
