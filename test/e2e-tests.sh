@@ -82,7 +82,8 @@ function teardown() {
 function wait_for_elafros() {
   echo -n "Waiting for Elafros to come up"
   for i in {1..150}; do  # timeout after 5 minutes
-    if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 3 ]]; then
+    local not_running=$(kubectl -n ela-system get pods | grep -v NAME | grep -v "Running" | wc -l)
+    if [[ $not_running == 0 ]]; then
       echo -e "\nElafros is up:"
       kubectl -n ela-system get pods
       return 0
@@ -91,6 +92,7 @@ function wait_for_elafros() {
     sleep 2
   done
   echo -e "\n\nERROR: timeout waiting for Elafros to come up"
+  kubectl -n ela-system get pods
   return 1
 }
 
@@ -102,13 +104,42 @@ function delete_elafros_images() {
   gcloud -q container images delete ${all_images}
 }
 
+function get_ela_pod() {
+  kubectl get pods -n ela-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
+}
+
 function exit_if_failed() {
   [[ $? -eq 0 ]] && return 0
-  echo "*** TEST FAILED ***"
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***************************************"
+  if (( IS_PROW )) || [[ $PROJECT_ID != "" ]]; then
+    echo ">>> Project info:"
+    gcloud compute project-info describe
+  fi
+  echo ">>> All resources:"
+  kubectl get all --all-namespaces
+  echo ">>> Services:"
+  kubectl get services --all-namespaces
+  echo ">>> Events:"
+  kubectl get events --all-namespaces
+  echo ">>> Routes:"
+  kubectl get routes -o yaml --all-namespaces
+  echo ">>> Configurations:"
+  kubectl get configurations -o yaml --all-namespaces
+  echo ">>> Revisions:"
+  kubectl get revisions -o yaml --all-namespaces
+  echo ">>> Ingress:"
+  kubectl get ingress --all-namespaces
+  echo ">>> Elafros controller log:"
+  kubectl logs $(get_ela_pod ela-controller) -n ela-system
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***************************************"
   exit 1
 }
 
-function wait_for_ingress() {
+function wait_for_hello_world_ingress() {
   for i in {1..150}; do  # timeout after 5 minutes
     echo "Waiting for Ingress to come up"
     if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
@@ -135,18 +166,9 @@ function run_conformance_tests() {
 function run_hello_world() {
   header "Running hello world"
   bazel run //sample/helloworld:everything.create || return 1
-
-  echo "Route:"
-  kubectl get route -o yaml
-  echo "Configuration:"
-  kubectl get configurations -o yaml
-  echo "Revision:"
-  kubectl get revisions -o yaml
-  echo "Pods:"
-  kubectl get pods
   local service_host=""
   local service_ip=""
-  if ! wait_for_ingress;then
+  if ! wait_for_hello_world_ingress;then
     echo "ERROR: No ingress, stopping test."
     bazel run //sample/helloworld:everything.delete  # ignore errors
     return 1
@@ -167,7 +189,7 @@ function test_autoscale() {
   local service_host=""
   local service_ip=""
 
-  if ! wait_for_ingress;then
+  if ! wait_for_hello_world_ingress;then
     echo "ERROR: No ingress, stopping test."
     bazel run //sample/helloworld:everything.delete  # ignore errors
     return 1
@@ -334,8 +356,6 @@ echo "================================================="
 echo "* Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "* User is ${K8S_USER_OVERRIDE}"
 echo "* Docker is ${DOCKER_REPO_OVERRIDE}"
-echo "*** Project info ***"
-gcloud compute project-info describe
 
 header "Building and starting Elafros"
 trap teardown EXIT
