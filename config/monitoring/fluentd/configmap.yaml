@@ -35,7 +35,7 @@ data:
       format json
       read_from_head true
     </source>
-    # Combine multi line logs into a single log entry.
+    # Combine multi line logs which form an exception stack trace into a single log entry
     <match raw.kubernetes.**>
       @id raw.kubernetes
       @type detect_exceptions
