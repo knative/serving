@@ -92,6 +92,7 @@ function wait_for_elafros() {
     sleep 2
   done
   echo -e "\n\nERROR: timeout waiting for Elafros to come up"
+  kubectl -n ela-system get pods
   return 1
 }
 
