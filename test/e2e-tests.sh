@@ -82,7 +82,8 @@ function teardown() {
 function wait_for_elafros() {
   echo -n "Waiting for Elafros to come up"
   for i in {1..150}; do  # timeout after 5 minutes
-    if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 3 ]]; then
+    local not_running=$(kubectl -n ela-system get pods | grep -v NAMESPACE | grep -v "Running" | wc -l)
+    if [[ $not_running == 0 ]]; then
       echo -e "\nElafros is up:"
       kubectl -n ela-system get pods
       return 0
@@ -137,12 +138,12 @@ function exit_if_failed() {
   exit 1
 }
 
-function wait_for_ingress() {
+function wait_for_hello_world_ingress() {
   for i in {1..150}; do  # timeout after 5 minutes
     echo "Waiting for Ingress to come up"
     if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
-      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
-      service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+      local service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
+      local service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
       echo -e -n "Ingress is at $service_ip / $service_host\n"
       return 0
     fi
@@ -166,7 +167,7 @@ function run_hello_world() {
   bazel run //sample/helloworld:everything.create || return 1
   local service_host=""
   local service_ip=""
-  if ! wait_for_ingress;then
+  if ! wait_for_hello_world_ingress;then
     echo "ERROR: No ingress, stopping test."
     bazel run //sample/helloworld:everything.delete  # ignore errors
     return 1
@@ -187,7 +188,7 @@ function test_autoscale() {
   local service_host=""
   local service_ip=""
 
-  if ! wait_for_ingress;then
+  if ! wait_for_hello_world_ingress;then
     echo "ERROR: No ingress, stopping test."
     bazel run //sample/helloworld:everything.delete  # ignore errors
     return 1
