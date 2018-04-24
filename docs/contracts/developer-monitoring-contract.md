@@ -20,14 +20,14 @@ The following logs are collected.
   to the stdout/stderr channels. Collected automatically by default.
 * **/var/log**: All files under `/var/log` will be collected and parsed as single line.
   If the message is a JSON payload, it will be treated as structured logs and parsed accordingly.
-  See [Logs Format](#log-formats) section for more information. **NOTE**:
+  See the [Logs Formats](#log-formats) section for more information. **NOTE**:
   [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
 
 Elafros recommends to send logs to stdout/stderr.
 
 ### Log Destinations
 
-The default destination of all logs is a in-cluster instance of ElasticSearch. A
+The default destination of all logs is an in-cluster instance of ElasticSearch. A
 Kibana dashboard is provided as the default UI to view logs.
 
 Stackdriver is provided as an alternate logging destination.
@@ -37,20 +37,21 @@ Stackdriver is provided as an alternate logging destination.
 The following formats are supported.
 
 * **Plain text**: A single line regarded as plain text, structured as follows:
+  * *kubernetes.labels.elafros_dev/configuration*: Elafros configuration of the
+    application, container or function that emitted the log.
+  * *kubernetes.labels.elafros_dev/revision*: Elafros revision of the application,
+     container or function that emitted the log.
+  * *kubernetes.namespace_name*: Kubernetes namespace of the application, container
+    or function that emitted the log.
   * *log*: The original log content.
+  * *stream*: One of `stdout`, `stderr` or `varlog`.
   * *tag*: If the log was from stdout/stderr, the value is
     `kubernetes.var.log.<pod_name>_<namespace>_<container_name>_<container_id>.log`.
     If the log was from `/var/log/*`, the value is the relative path to `/var/log/`
     with "`/`" replaced with "`.`". For example, the value of a log from
     `/var/log/foo/bar.log` is `foo.bar.log`.
-  * *time*: Time when the log was collected.
-  * *kubernetes.namespace_name*: Kubernetes namespace of the application, container
-    or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/configuration*: Elafros configuration of the
-    application, container or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/revision*: Elafros revision of the application,
-     container or function that emitted the log.
-  * *stream*: One of `stdout`, `stderr` or `varlog`.
+  * *time*: Time when the log was collected. **NOTE**: Developers need to add
+    timestamp in the log content if they want the timestamp to be accurate.
 
   **NOTE**:
 
@@ -58,10 +59,10 @@ The following formats are supported.
   emitted as `{"message": "Hello", "fluentd-time": "2018-05-23T12:42:22.14423454"}`,
   it will be structured as follows:
 
+  * *message*: Lifted from JSON dictionary.
   * *time*: Lifted from `fluentd-time` in JSON dictionary. **NOTE**: the format
     should be `%Y-%m-%dT%H:%M:%S.%NZ` otherwise the log will not be parsed correctly.
     If this key is missing, the value will be the time when the log was collected.
-  * *message*: Lifted from JSON dictionary.
   * *tag*, *kubernetes.namespace_name*, *kubernetes.labels.elafros_dev/configuration*
     *kubernetes.labels.elafros_dev/revision*, *stream*: Same with plant text.
 
@@ -70,19 +71,19 @@ The following formats are supported.
 
 * **Request logs**: Request logs are structured as follows:
 
-  * *tag*: A fixed value set to “requestlog.logentry.istio-system” - used to identify
-  request logs from other logs.
-  * *timestamp*: Time request was made.
-  * *destinationNamespace*: Namespace that the request was served on.
   * *destinationConfiguration*: Elafros Configuration that served the request.
+  * *destinationNamespace*: Namespace that the request was served on.
   * *destinationRevision*: Elafros Revision that served the request.
+  * *latency*: Time took for the request to complete.
+  * *method*: HTTP request method (GET, POST, etc).
+  * *protocol*: http, https or tcp.
   * *requestHost*: Domain name of the service processing the request.
   * *requestSize*: Size of the request.
   * *responseCode*: HTTP response code.
   * *responseSize*: Size of the response.
-  * *latency*: Time took for the request to complete.
-  * *method*: HTTP request method (GET, POST, etc).
-  * *protocol*: http, https or tcp.
+  * *tag*: A fixed value set to “requestlog.logentry.istio-system” - used to
+    identify request logs from other logs.
+  * *timestamp*: Time request was made.
   * *url*: Relative URL that was requested.
   * *traceId*: OpenTracing trace id
 
@@ -104,11 +105,11 @@ Type: Counter
 
 Labels:
 
-* *source_service*: Service that the request was from.
-* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_configuration*: Elafros Configuration that served the request.
+* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
+* *source_service*: Service that the request was from.
 
 #### revision_request_duration
 
@@ -118,11 +119,11 @@ Type: Histogram
 
 Labels:
 
-* *source_service*: Service that the request was from.
-* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_configuration*: Elafros Configuration that served the request.
+* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
+* *source_service*: Service that the request was from.
 
 #### revision_request_size
 
@@ -132,11 +133,11 @@ Type: Histogram
 
 Labels:
 
-* *source_service*: Service that the request was from.
-* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_configuration*: Elafros Configuration that served the request.
+* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
+* *source_service*: Service that the request was from.
 
 #### revision_response_size
 
@@ -146,11 +147,11 @@ Type: Histogram
 
 Labels:
 
-* *source_service*: Service that the request was from.
-* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_configuration*: Elafros Configuration that served the request.
+* *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
+* *source_service*: Service that the request was from.
 
 #### container_memory_usage_bytes
 
@@ -161,21 +162,21 @@ Type: Gauge
 Labels:
 
 * *container_name*: Name of the container.
-* *pod_name*: Name of Kubernetes pod that the container was served on.
 * *namespace*: Kubernetes namespace that the container was served on.
+* *pod_name*: Name of Kubernetes pod that the container was served on.
 
 #### container_cpu_usage_seconds_total
 
 Description: CPU usage of a container.
 
-Type: Gauge
+Type: Counter
 
 Labels:
 
 * *container_name*: Name of the container.
-* *pod_name*: Name of Kubernetes pod that the container was served on.
-* *namespace*: Kubernetes namespace that the container was served on.
 * *cpu*: CPU identification, cpu00, cpu01, etc.
+* *namespace*: Kubernetes namespace that the container was served on.
+* *pod_name*: Name of Kubernetes pod that the container was served on.
 
 ### Metrics Destinations
 
@@ -187,7 +188,7 @@ be used as the dashboard tool to visualize these metrics.
 
 Custom metrics are not supported in this release but are considered for future
 releases. For users who want to generate custom metrics, we strongly recommend
-using [OpenCensus](https://opencensus.io/ ) libraries as we plan to integrate
+using [OpenCensus](https://opencensus.io/) libraries as we plan to integrate
 with OpenCensus in order to support custom metrics.
 
 ## Distributed Tracing
