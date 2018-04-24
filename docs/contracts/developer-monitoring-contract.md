@@ -78,14 +78,16 @@ The following formats are supported.
   * *method*: HTTP request method (GET, POST, etc).
   * *protocol*: http, https or tcp.
   * *requestHost*: Domain name of the service processing the request.
+  * *requestReferer*: Address of the previous web page from which the request was made.
   * *requestSize*: Size of the request.
+  * *requestUserAgent*: User agent string of the request.
   * *responseCode*: HTTP response code.
   * *responseSize*: Size of the response.
   * *tag*: A fixed value set to “requestlog.logentry.istio-system” - used to
     identify request logs from other logs.
   * *timestamp*: Time request was made.
+  * *traceId*: OpenTracing trace id.
   * *url*: Relative URL that was requested.
-  * *traceId*: OpenTracing trace id
 
 ### Log Cleanup
 
