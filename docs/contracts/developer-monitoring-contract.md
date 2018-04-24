@@ -2,24 +2,28 @@
 
 This document is intended to set an agreement with Elafros
 [developer persona](../product/personas.md#developer-personas) about the logging
-and monitoring environment where their code runs.
+and monitoring environment where their applications, container images and functions.
+run.
 
 ## Logging
 
 Elafros provides default out of the box logs and dashboards for all of applications,
-functions and container images.
+container images and functions.
 
 ### Log Types
 
 The following logs are collected.
 
-* **Request logs**: Status of requests or invocations sent to the functions, applications
-  or containers. Collected automatically by default.
-* **stdout/stderr**: Logs emitted by the functions, applications or containers
+* **Request logs**: Status of requests or invocations sent to the applications, containers
+  or functions. Collected automatically by default.
+* **stdout/stderr**: Logs emitted by the applications, containers or functions
   to the stdout/stderr channels. Collected automatically by default.
 * **/var/log**: All files under `/var/log` will be collected and parsed as single line.
   If the message is a JSON payload, it will be treated as structured logs and parsed accordingly.
-  See [Logs Format](#log-formats) section for more information.
+  See [Logs Format](#log-formats) section for more information. **NOTE**:
+  [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
+
+Elafros recommends to send logs to stdout/stderr.
 
 ### Log Destinations
 
@@ -42,9 +46,9 @@ The following formats are supported.
   * *time*: Time when the log was collected.
   * *kubernetes.namespace_name*: Kubernetes namespace of the application, container
     or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/configuration*: Elafros Configuration of the
+  * *kubernetes.labels.elafros_dev/configuration*: Elafros configuration of the
     application, container or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/revision*: Elafros Revision of the application,
+  * *kubernetes.labels.elafros_dev/revision*: Elafros revision of the application,
      container or function that emitted the log.
   * *stream*: One of `stdout`, `stderr` or `varlog`.
 
@@ -54,22 +58,12 @@ The following formats are supported.
   emitted as `{"message": "Hello", "fluentd-time": "2018-05-23T12:42:22.14423454"}`,
   it will be structured as follows:
 
-  * *tag*: If the log was from stdout/stderr, the value is
-    `kubernetes.var.log.<pod_name>_<namespace>_<container_name>_<container_id>.log`.
-    If the log was from `/var/log/*`, the value is the relative path to `/var/log/`
-    with "`/`" replaced with "`.`". For example, the value of a log from
-    `/var/log/foo/bar.log` is `foo.bar.log`.
   * *time*: Lifted from `fluentd-time` in JSON dictionary. **NOTE**: the format
     should be `%Y-%m-%dT%H:%M:%S.%NZ` otherwise the log will not be parsed correctly.
     If this key is missing, the value will be the time when the log was collected.
   * *message*: Lifted from JSON dictionary.
-  * *kubernetes.namespace_name*: Kubernetes namespace of the application, container
-    or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/configuration*: Elafros Configuration of the
-    application, container or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/revision*: Elafros Revision of the application,
-     container or function that emitted the log.
-  * *stream*: One of `stdout`, `stderr` or `varlog`.
+  * *tag*, *kubernetes.namespace_name*, *kubernetes.labels.elafros_dev/configuration*
+    *kubernetes.labels.elafros_dev/revision*, *stream*: Same with plant text.
 
 * **Multi-line**: If a consecutive sequence of log messages forms an exception stack
   trace, the log messages are forwarded as a single, combined log message.
@@ -94,8 +88,9 @@ The following formats are supported.
 
 ### Log Cleanup
 
-Logs written to `stdout` and `stderr` are cleaned up by Kubernetes. Elafros will
-provide necessary functionality to clean up all the logs from /var/log/* that are collected.
+Logs written to stdout and stderr are cleaned up by Kubernetes. Elafros will
+provide necessary functionality to clean up all the logs from `/var/log/*` that
+are collected.
 
 ## Monitoring
 
@@ -182,7 +177,7 @@ Labels:
 * *namespace*: Kubernetes namespace that the container was served on.
 * *cpu*: CPU identification, cpu00, cpu01, etc.
 
-### Metrics Destination
+### Metrics Destinations
 
 The default destination of all metrics will be Prometheus. Operators can setup
 exporters on Prometheus to send the metrics to other destinations. Grafana will
