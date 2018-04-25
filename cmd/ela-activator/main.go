@@ -19,6 +19,7 @@ import (
 
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	"github.com/elafros/elafros/pkg/controller"
 	"github.com/elafros/elafros/pkg/signals"
 	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
@@ -26,10 +27,7 @@ import (
 )
 
 var (
-	httpRequests       = make(chan *activator.HttpRequests)
-	activationRequests = make(chan *activator.RevisionId)
-	endpoints          = make(chan *activator.RevisionEndpoint)
-	proxyRequests      = make(chan *activator.ProxyRequest)
+	incomingRequests chan<- *activator.HttpRequests
 )
 
 func main() {
@@ -37,6 +35,7 @@ func main() {
 	glog.Info("Starting the elafros activator...")
 
 	// set up signals so we handle the first shutdown signal gracefully
+	// TODO: wire shutdown signal into sub-components.
 	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -52,28 +51,34 @@ func main() {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
 
+	httpRequests := make(chan *activator.HttpRequests)
+	activationRequests := make(chan *activator.RevisionId)
+	endpoints := make(chan *activator.RevisionEndpoint)
+	proxyRequests := make(chan *activator.ProxyRequest)
+
+	// Create the Activator, RevisionActivator and Proxy components
+	// and wire them together.
 	a := activator.NewActivator(
 		httpRequests.(<-chan *activator.HttpRequest),
 		activationRequests.(chan<- *activator.RevisionId),
 		endpoints.(<-chan *activator.RevisionEndpoint),
 		proxyRequests.(chan<- *activator.ProxyRequest))
-
 	r := activator.NewRevisionActivator(
 		kubeClient,
 		elaClient,
 		activationRequests.(<-chan *activator.RevisionId),
 		endpoints.(chan<- *activator.RevisionEndpoint))
-
 	p := activator.NewProxy(proxyRequests.(<-chan activator.ProxyRequest))
+	incomingRequests = httpRequests.(chan<- *activator.HttpRequest)
 
-	a.Run(stopCh)
-	glog.Flush()
+	http.HandleFunc("/", handler)
+	http.ListenAndServe(":8080", nil)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	// Get revision header
-	// Get revision
-	// Return 400 if revision is retired
-	// Else put onto activation channel
-
+	// TODO: Use the namespace from the header.
+	// https://github.com/elafros/elafros/issues/693
+	namespace := "default"
+	name := r.Header.Get(controller.GetRevisionHeaderName())
+	incomingRequests <- activator.NewHttpRequests(w, r, namespace, name)
 }
