@@ -25,6 +25,13 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+var (
+	httpRequests       = make(chan *activator.HttpRequests)
+	activationRequests = make(chan *activator.RevisionId)
+	endpoints          = make(chan *activator.RevisionEndpoint)
+	proxyRequests      = make(chan *activator.ProxyRequest)
+)
+
 func main() {
 	flag.Parse()
 	glog.Info("Starting the elafros activator...")
@@ -44,11 +51,29 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
-	a, err := activator.NewActivator(kubeClient, elaClient, http.DefaultTransport.(*http.Transport))
-	if err != nil {
-		glog.Fatalf("Failed to create an activator: %v", err)
-	}
+
+	a := activator.NewActivator(
+		httpRequests.(<-chan *activator.HttpRequest),
+		activationRequests.(chan<- *activator.RevisionId),
+		endpoints.(<-chan *activator.RevisionEndpoint),
+		proxyRequests.(chan<- *activator.ProxyRequest))
+
+	r := activator.NewRevisionActivator(
+		kubeClient,
+		elaClient,
+		activationRequests.(<-chan *activator.RevisionId),
+		endpoints.(chan<- *activator.RevisionEndpoint))
+
+	p := activator.NewProxy(proxyRequests.(<-chan activator.ProxyRequest))
 
 	a.Run(stopCh)
 	glog.Flush()
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	// Get revision header
+	// Get revision
+	// Return 400 if revision is retired
+	// Else put onto activation channel
+
 }
