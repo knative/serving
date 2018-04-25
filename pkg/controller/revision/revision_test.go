@@ -502,7 +502,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	want := []v1alpha1.RevisionCondition{
 		{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}
@@ -873,7 +873,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	deployingConditions := []v1alpha1.RevisionCondition{
 		{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}
@@ -977,7 +977,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
 		v1alpha1.RevisionCondition{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}

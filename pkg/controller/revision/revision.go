@@ -574,17 +574,10 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	// Check to see if the revision has already been marked as ready
+	// Check to see if the revision has already been marked as ready or failed
 	// and if it is, then there's no need to do anything to it.
-	if rev.Status.IsReady() {
+	if rev.Status.IsReady() || rev.Status.IsFailed() {
 		return
-	}
-	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil {
-		// Don't keep attempting to reconcile terminal Ready = False conditions.
-		// We do this by whitelisting non-terminal reasons here.
-		if c.Reason != "Deploying" { // TODO(argent): other temporary reasons?
-			return
-		}
 	}
 
 	// Don't modify the informer's copy.
@@ -718,7 +711,7 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
 			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		})
 	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)

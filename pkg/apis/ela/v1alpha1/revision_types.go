@@ -188,6 +188,17 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
+// IsFailed looks to all non-Ready conditions; if any are false, then
+// this node is in a terminal failure state.
+func (rs *RevisionStatus) IsFailed() bool {
+	for _, cond := range rs.Conditions {
+		if cond.Type != RevisionConditionReady && cond.Status == corev1.ConditionFalse {
+			return true
+		}
+	}
+	return false
+}
+
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
