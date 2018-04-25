@@ -226,9 +226,10 @@ function test_scale_up_autoscaler() {
   eval $command
 
   for i in {1..30}; do # wait up to 1 minute for the scale up.
-    echo -n '.'
+    echo -n "."
     # Look for an increase in ready replicas as a result of the increased QPS
-    if [ $(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}") -gt 1 ]; then
+    local replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
+    if [[ -n $replicas && $replicas -gt 1 ]]; then
       echo -e "\nAutoscale up successful\n"
       return 0
     fi
@@ -246,10 +247,11 @@ function test_scale_down_autoscaler() {
     sleep 2
     # Look for ready replicas to drop to 1 as a result of the traffic dropping off
     # TODO: Wait to scale to zero once we turn that functionality on.
-    replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
+    local replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
     if [[ -z $replicas || $replicas -le 1 ]]; then
       echo -e "\nAutoscale down successful"
-      sleep 60  # Wait for 60 seconds before trying to scale back up. This is non-optimal, but we will fix this time by M4.
+      # TODO: Wait for 60 seconds before trying to scale back up. This is non-optimal, but we will fix this time by M4.
+      sleep 60
       return 0
     fi
   done
@@ -260,14 +262,11 @@ function test_scale_down_autoscaler() {
 }
 
 function print_autoscale_debug() {
-  echo "Running kubectl get all"
-  kubectl get all
-  echo -e "\n\nRunning kubectl get all for the ela-system namespace\n"
-  kubectl get all -n ela-system
-  echo -e "\n\nRetrieving the last two minutes of autoscaler logs.\n"
-  local pod=$(kubectl get pods -n ela-system | grep autoscaler | cut -d ' ' -f 1)
+  local pod=$(kubectl get pods -n ela-system | grep autoscaler | cut -d' ' -f1)
+  echo -e "\n\nLast two minutes of autoscaler $pod logs:\n"
   kubectl logs -n ela-system $pod --since 2m
 }
+
 # Script entry point.
 
 cd ${ELAFROS_ROOT}
