@@ -40,10 +40,10 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 		fmt.Sprintf("*.%s", route.Status.Domain),
 	}
 
-	// This would point to 'activator' component if enableActivatorExperiment is true.
+	// This would point to 'activator' component if enableActivator is true.
 	namespace := route.Namespace
 	serviceName := controller.GetElaK8SServiceName(route)
-	if enableActivatorExperiment {
+	if enableActivator {
 		namespace = controller.GetElaK8SActivatorNamespace()
 		serviceName = controller.GetElaK8SActivatorServiceName()
 	}
