@@ -14,6 +14,10 @@
 # Build API (imported from elafros/build)
 /pkg/apis/build @mattmoor @ImJasonH
 
+# API Core working group
+/pkg/webhook @mattmoor @grantr @tcnghia
+/pkg/controller @mattmoor @grantr @tcnghia
+
 # All groups can review docs.
 /docs/ @elafros/elafros-writers @google/elafros-readers
 
