@@ -111,14 +111,14 @@ const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady RevisionConditionType = "Ready"
-	// RevisionConditionFailed is set when the revision readiness check exceeds 3.
-	RevisionConditionFailed RevisionConditionType = "Failed"
 	// RevisionConditionBuildComplete is set when the revision has an associated build
 	// and is marked True if/once the Build has completed succesfully.
-	RevisionConditionBuildComplete RevisionConditionType = "BuildComplete"
-	// RevisionConditionBuildFailed is set when the revision has an associated build
-	// that has failed for some reason.
-	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"
+	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
+	// RevisionConditionResourcesProvisioned is set when underlying
+	// Kubernetes resources have been provisioned.
+	RevisionConditionResourcesProvisioned RevisionConditionType = "ResourcesProvisioned"
+	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
+	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -183,15 +183,6 @@ func (r *Revision) GetSpecJSON() ([]byte, error) {
 // RevisionConditionReady returns true if ConditionStatus is True
 func (rs *RevisionStatus) IsReady() bool {
 	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return c.Status == corev1.ConditionTrue
-	}
-	return false
-}
-
-// IsFailed looks at the conditions and if the Status has a condition
-// RevisionConditionFailed returns true if ConditionStatus is True
-func (rs *RevisionStatus) IsFailed() bool {
-	if c := rs.GetCondition(RevisionConditionFailed); c != nil {
 		return c.Status == corev1.ConditionTrue
 	}
 	return false

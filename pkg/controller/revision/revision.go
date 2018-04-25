@@ -378,8 +378,8 @@ func (c *Controller) syncHandler(key string) error {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
 				rev.Status.SetCondition(
 					&v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionBuildComplete,
-						Status: corev1.ConditionFalse,
+						Type:   v1alpha1.RevisionConditionBuildSucceeded,
+						Status: corev1.ConditionUnknown,
 						Reason: "Building",
 					})
 				// Let this trigger a reconciliation loop.
@@ -417,15 +417,20 @@ func (c *Controller) reconcileWithImage(rev *v1alpha1.Revision, ns string) error
 // Checks whether the Revision knows whether the build is done.
 // TODO(mattmoor): Use a method on the Build type.
 func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
+	if rev.Spec.BuildName == "" {
+		return true, false
+	}
 	for _, cond := range rev.Status.Conditions {
-		if cond.Status != corev1.ConditionTrue {
+		if cond.Type != v1alpha1.RevisionConditionBuildSucceeded {
 			continue
 		}
-		switch cond.Type {
-		case v1alpha1.RevisionConditionBuildComplete:
+		switch cond.Status {
+		case corev1.ConditionTrue:
 			return true, false
-		case v1alpha1.RevisionConditionBuildFailed:
-			return true, true
+		case corev1.ConditionFalse:
+			return true, false
+		case corev1.ConditionUnknown:
+			return false, false
 		}
 	}
 	return false, false
@@ -445,13 +450,20 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 
 func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q failed", rev.Name)
-	rev.Status.RemoveCondition(v1alpha1.RevisionConditionReady)
+	reason, message := "ServiceTimeout", "Timed out waiting for a service endpoint to become ready"
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionFailed,
-			Status:  corev1.ConditionTrue,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
+			Type:    v1alpha1.RevisionConditionResourcesProvisioned,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
+		})
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:    v1alpha1.RevisionConditionReady,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
 		})
 	_, err := c.updateStatus(rev)
 	return err
@@ -460,19 +472,17 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
-		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
-				Type:   v1alpha1.RevisionConditionBuildComplete,
+				Type:   v1alpha1.RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			})
 		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
-		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionBuildFailed,
-				Status:  corev1.ConditionTrue,
+				Type:    v1alpha1.RevisionConditionBuildSucceeded,
+				Status:  corev1.ConditionFalse,
 				Reason:  bc.Reason,
 				Message: bc.Message,
 			})
@@ -564,10 +574,17 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	// Check to see if the revision has already been marked as ready or failed
+	// Check to see if the revision has already been marked as ready
 	// and if it is, then there's no need to do anything to it.
-	if rev.Status.IsReady() || rev.Status.IsFailed() {
+	if rev.Status.IsReady() {
 		return
+	}
+	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil {
+		// Don't keep attempting to reconcile terminal Ready = False conditions.
+		// We do this by whitelisting non-terminal reasons here.
+		if c.Reason != "Deploying" { // TODO(argent): other temporary reasons?
+			return
+		}
 	}
 
 	// Don't modify the informer's copy.

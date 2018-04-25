@@ -611,8 +611,8 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	// Ensure that the Revision status is updated.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:   "BuildComplete",
-			Status: corev1.ConditionFalse,
+			Type:   "BuildSucceeded",
+			Status: corev1.ConditionUnknown,
 			Reason: "Building",
 		},
 	}
@@ -684,8 +684,8 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	// status.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "BuildFailed",
-			Status:  corev1.ConditionTrue,
+			Type:    "BuildSucceeded",
+			Status:  corev1.ConditionFalse,
 			Reason:  reason,
 			Message: errMessage,
 		},
@@ -767,7 +767,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// The next update we receive should tell us that the build completed.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:   "BuildComplete",
+			Type:   "BuildSucceeded",
 			Status: corev1.ConditionTrue,
 		},
 	}
@@ -836,8 +836,8 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "BuildFailed",
-			Status:  corev1.ConditionTrue,
+			Type:    "BuildSucceeded",
+			Status:  corev1.ConditionFalse,
 			Reason:  reason,
 			Message: errMessage,
 		},
@@ -941,8 +941,13 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
 		v1alpha1.RevisionCondition{
-			Type:   "Failed",
-			Status: corev1.ConditionTrue,
+			Type:   "ResourcesProvisioned",
+			Status: corev1.ConditionFalse,
+			Reason: "ExceededReadinessChecks",
+		},
+		v1alpha1.RevisionCondition{
+			Type:   "Ready",
+			Status: corev1.ConditionFalse,
 			Reason: "ExceededReadinessChecks",
 		},
 	}
@@ -988,8 +993,14 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "Failed",
-			Status:  corev1.ConditionTrue,
+			Type:    "ResourcesProvisioned",
+			Status:  corev1.ConditionFalse,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		},
+		{
+			Type:    "Ready",
+			Status:  corev1.ConditionFalse,
 			Reason:  "ServiceTimeout",
 			Message: "Timed out waiting for a service endpoint to become ready",
 		},
