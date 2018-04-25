@@ -31,11 +31,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "node-exporter",
-    template = "node-exporter.yaml",
-)
-
-k8s_object(
     name = "prometheus",
     template = "prometheus.yaml",
 )

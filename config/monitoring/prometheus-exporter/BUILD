@@ -6,16 +6,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "kube-state-metrics",
-    template = "kube-state-metrics.yaml",
-)
-
-k8s_object(
-    name = "node-exporter",
-    template = "node-exporter.yaml",
-)
-
-k8s_object(
     name = "prometheus",
     template = "prometheus.yaml",
 )
