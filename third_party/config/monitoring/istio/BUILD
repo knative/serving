@@ -12,21 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
-metadata:
-  name: kibana-logging
-  namespace: monitoring
-  labels:
-    app: kibana-logging
-    kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
-    kubernetes.io/name: "Kibana"
-spec:
-  type: NodePort
-  selector:
-    app: kibana-logging
-  ports:
-  - port: 5601
-    protocol: TCP
-    targetPort: ui
+licenses(["notice"])  # Apache 2
+
+load("@k8s_object//:defaults.bzl", "k8s_object")
+
+k8s_object(
+    name = "istio",
+    template = "istio-dashboard.json",
+)
+
+k8s_object(
+    name = "mixer",
+    template = "mixer-dashboard.json",
+)
+
+k8s_object(
+    name = "pilot",
+    template = "pilot-dashboard.json",
+)
+
+load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
+
+k8s_objects(
+    name = "everything",
+    objects = [
+        "istio",
+        "mixer",
+        "pilot",
+    ],
+    visibility = ["//visibility:public"],
+)

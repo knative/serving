@@ -20,9 +20,9 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-        ":kubernetes",
         ":elafros",
-        ":istio",
+        "//third_party/config/monitoring/istio:everything",
+        "//third_party/config/monitoring/prometheus-operator/dashboards:everything",
     ],
     visibility = ["//visibility:public"],
 )

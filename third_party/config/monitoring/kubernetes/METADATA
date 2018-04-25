@@ -12,3 +12,6 @@ third_party {
   last_upgrade_date { year: 2018 month: 4 day: 23 }
   license_type: NOTICE
 }
+
+local_modifications:
+    "YAML files in node-exporter are modified to work in Elafros."

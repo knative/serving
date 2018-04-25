@@ -25,10 +25,10 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-        ":node-exporter",
+        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter",
         ":prometheus",
         ":kube-controller-metrics",
-        ":kube-state-metrics",
+        "//third_party/config/monitoring/kubernetes/kube-state-metrics:everything",
     ],
     visibility = ["//visibility:public"],
 )
