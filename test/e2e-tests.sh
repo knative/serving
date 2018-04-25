@@ -386,8 +386,9 @@ kubectl label namespace default istio-injection=enabled
 
 run_hello_world
 exit_if_failed
-test_autoscale
-exit_if_failed
+# TODO(adrcunha): Reenable once https://github.com/elafros/elafros/issues/739 is fixed.
+# test_autoscale
+# exit_if_failed
 run_conformance_tests
 exit_if_failed
 
