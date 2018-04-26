@@ -19,12 +19,12 @@ package route
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -57,9 +57,9 @@ var (
 		"Counter to keep track of items in the route work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
-	// The experiment flag in controller.yaml to turn on activator feature. The default is false.
+	// The autoscale.enable-scale-to-zero setting in elaconfig.yaml to turn on activator. The default is false.
 	// If it's true, the traffic will always be directed to the activator.
-	enableActivatorExperiment bool
+	enableActivator bool
 )
 
 const (
@@ -110,7 +110,7 @@ type Controller struct {
 }
 
 func init() {
-	flag.BoolVar(&enableActivatorExperiment, "enableActivatorExperiment", false, "The experiment flag to turn on activator feature.")
+	enableActivator = k8sflag.Bool("autoscale.enable-scale-to-zero", false, k8sflag.Dynamic).Get()
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -442,7 +442,7 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 
 func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	ingressNamespace := route.Namespace
-	if enableActivatorExperiment {
+	if enableActivator {
 		ingressNamespace = controller.GetElaK8SActivatorNamespace()
 	}
 	ingress := MakeRouteIngress(route)

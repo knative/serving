@@ -33,7 +33,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
 	// TODO: Set up routerules in different namespace, direct traffic to activator only when necessary.
 	// https://github.com/elafros/elafros/issues/607
-	if !enableActivatorExperiment {
+	if !enableActivator {
 		destinationWeights = calculateDestinationWeights(u, tt, routes)
 		if tt != nil {
 			domain = fmt.Sprintf("%s.%s", tt.Name, domain)
@@ -56,7 +56,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		}
 	}
 
-	// if enableActivatorExperiment flag is on, and there are reserved revisions,
+	// if enable-scale-to-zero in elaconfig.yaml is true, and there are reserved revisions,
 	// define the corresponding istio route rules.
 	glog.Info("using activator-service as the destination")
 	placeHolderK8SServiceName = controller.GetElaK8SActivatorServiceName()
