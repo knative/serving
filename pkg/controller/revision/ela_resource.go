@@ -3,6 +3,7 @@ package revision
 import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const appLabelKey = "app"
@@ -22,6 +23,11 @@ func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
 		labels[appLabelKey] = revision.Name
 	}
 	return labels
+}
+
+// MakeElaResourceSelector constructs the Selector we will apply to K8s resources.
+func MakeElaResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
+	return &metav1.LabelSelector{MatchLabels:MakeElaResourceLabels(revision)}
 }
 
 // MakeElaResourceAnnotations creates the annotations we will apply to

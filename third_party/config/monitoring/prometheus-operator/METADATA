@@ -1,0 +1,19 @@
+name: "Prometheus Operator"
+description:
+    "The Prometheus Operator makes the Prometheus configuration Kubernetes "
+    "native and manages and operates Prometheus and Alertmanager clusters."
+
+third_party {
+  url {
+    type: GIT
+    value: "https://github.com/coreos/prometheus-operator"
+  }
+  version: "0.18.0"
+  last_upgrade_date { year: 2018 month: 4 day: 23 }
+  license_type: NOTICE
+}
+
+local_modifications:
+    "Contents of JSON files in dashboards folder are converted to YAML files "
+    "but file names are kept intact to preserve the original files "
+    "as well as to keep a clear change history."

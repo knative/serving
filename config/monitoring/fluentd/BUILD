@@ -15,11 +15,6 @@ k8s_object(
     template = "service.yaml",
 )
 
-k8s_object(
-    name = "ds",
-    template = "ds.yaml",
-)
-
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -27,7 +22,7 @@ k8s_objects(
     objects = [
         ":service",
         ":configmap",
-        ":ds",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:fluentd",
     ],
     visibility = ["//visibility:public"],
 )
@@ -37,7 +32,7 @@ k8s_objects(
     objects = [
         ":service",
         ":configmap-dev",
-        ":ds",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:fluentd",
     ],
     visibility = ["//visibility:public"],
 )

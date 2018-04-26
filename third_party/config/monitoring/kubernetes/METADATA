@@ -1,0 +1,17 @@
+name: "Kubernetes"
+description:
+    "Kubernetes is an open-source system for automating deployment, scaling, "
+    "and management of containerized applications."
+
+third_party {
+  url {
+    type: GIT
+    value: "https://github.com/kubernetes/kubernetes"
+  }
+  version: "1.9.0"
+  last_upgrade_date { year: 2018 month: 4 day: 23 }
+  license_type: NOTICE
+}
+
+local_modifications:
+    "YAML files in node-exporter are modified to work in Elafros."

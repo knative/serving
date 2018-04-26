@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
@@ -54,6 +55,9 @@ var (
 	fluentdSidecarImage string
 	queueSidecarImage   string
 	autoscalerImage     string
+
+	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
+	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
 )
 
 func main() {
@@ -106,8 +110,8 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage, autoscaleConcurrencyQuantumOfTime),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
 

@@ -17,13 +17,15 @@ limitations under the License.
 package revision
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -50,7 +52,11 @@ func hasHttpPath(p *corev1.Probe) bool {
 }
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarImage string) *corev1.PodSpec {
+func MakeElaPodSpec(
+	rev *v1alpha1.Revision,
+	fluentdSidecarImage,
+	queueSidecarImage string,
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) *corev1.PodSpec {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -209,6 +215,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 		Args: []string{
 			"-logtostderr=true",
 			"-stderrthreshold=INFO",
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -245,8 +252,8 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, fluentdSidecarImage, queueSidecarIma
 }
 
 // MakeElaDeployment creates a deployment.
-func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployment {
-	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
+func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deployment {
+	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
 	}
@@ -254,16 +261,17 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 	podTemplateAnnotations := MakeElaResourceAnnotations(u)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
-	return &v1beta1.Deployment{
+	return &appsv1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionDeploymentName(u),
 			Namespace:   namespace,
 			Labels:      MakeElaResourceLabels(u),
 			Annotations: MakeElaResourceAnnotations(u),
 		},
-		Spec: v1beta1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
-			Strategy: v1beta1.DeploymentStrategy{
+			Selector: MakeElaResourceSelector(u),
+			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},

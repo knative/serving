@@ -15,6 +15,7 @@ go_library(
         "//pkg/controller/service:go_default_library",
         "//pkg/signals:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.opencensus.io/exporter/prometheus:go_default_library",
         "//vendor/go.opencensus.io/stats/view:go_default_library",
         "//vendor/k8s.io/client-go/informers:go_default_library",

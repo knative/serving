@@ -82,7 +82,8 @@ function teardown() {
 function wait_for_elafros() {
   echo -n "Waiting for Elafros to come up"
   for i in {1..150}; do  # timeout after 5 minutes
-    if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 2 ]]; then
+    local not_running=$(kubectl -n ela-system get pods | grep -v NAME | grep -v "Running" | wc -l)
+    if [[ $not_running == 0 ]]; then
       echo -e "\nElafros is up:"
       kubectl -n ela-system get pods
       return 0
@@ -91,6 +92,7 @@ function wait_for_elafros() {
     sleep 2
   done
   echo -e "\n\nERROR: timeout waiting for Elafros to come up"
+  kubectl -n ela-system get pods
   return 1
 }
 
@@ -102,12 +104,58 @@ function delete_elafros_images() {
   gcloud -q container images delete ${all_images}
 }
 
+function get_ela_pod() {
+  kubectl get pods -n ela-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
+}
+
 function exit_if_failed() {
   [[ $? -eq 0 ]] && return 0
-  echo "*** TEST FAILED ***"
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***************************************"
+  if (( IS_PROW )) || [[ $PROJECT_ID != "" ]]; then
+    echo ">>> Project info:"
+    gcloud compute project-info describe
+  fi
+  echo ">>> All resources:"
+  kubectl get all --all-namespaces
+  echo ">>> Services:"
+  kubectl get services --all-namespaces
+  echo ">>> Events:"
+  kubectl get events --all-namespaces
+  echo ">>> Routes:"
+  kubectl get routes -o yaml --all-namespaces
+  echo ">>> Configurations:"
+  kubectl get configurations -o yaml --all-namespaces
+  echo ">>> Revisions:"
+  kubectl get revisions -o yaml --all-namespaces
+  echo ">>> Ingress:"
+  kubectl get ingress --all-namespaces
+  echo ">>> Elafros controller log:"
+  kubectl logs $(get_ela_pod ela-controller) -n ela-system
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***************************************"
   exit 1
 }
 
+function wait_for_ingress() {
+  local ingress_name=$1
+  for i in {1..150}; do  # timeout after 5 minutes
+    echo "Waiting for Ingress to come up"
+    if [[ $(kubectl get ingress | grep $ingress_name | wc -w) == 5 ]]; then
+      service_host=$(kubectl get route $ingress_name -o jsonpath="{.status.domain}")
+      service_ip=$(kubectl get ingress $ingress_name-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+      echo -e -n "Ingress is at $service_ip / $service_host\n"
+      return 0
+    fi
+    sleep 2
+  done
+  if [[ -z $service_ip || -z $service_host ]]; then
+    echo "ERROR: timeout waiting for Ingress to come up"
+    return 1
+  fi
+}
 # End-to-end tests
 
 function run_conformance_tests() {
@@ -119,28 +167,11 @@ function run_conformance_tests() {
 function run_hello_world() {
   header "Running hello world"
   bazel run //sample/helloworld:everything.create || return 1
-  echo "Route:"
-  kubectl get route -o yaml
-  echo "Configuration:"
-  kubectl get configurations -o yaml
-  echo "Revision:"
-  kubectl get revisions -o yaml
-  echo "Pods:"
-  kubectl get pods
   local service_host=""
   local service_ip=""
-  for i in {1..150}; do  # timeout after 5 minutes
-    echo "Waiting for Ingress to come up"
-    if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
-      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
-      service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
-      echo -e -n "Ingress is at $service_ip / $service_host"
-      break
-    fi
-    sleep 2
-  done
-  if [[ -z $service_ip || -z $service_host ]]; then
-    echo -e "\nERROR: timeout waiting for Ingress to come up"
+  if ! wait_for_ingress "route-example";then
+    echo "ERROR: No ingress, stopping test."
+    bazel run //sample/helloworld:everything.delete  # ignore errors
     return 1
   fi
   local output=$(curl --header "Host:$service_host" http://${service_ip})
@@ -151,6 +182,90 @@ function run_hello_world() {
   fi
   bazel run //sample/helloworld:everything.delete  # ignore errors
   return $result
+}
+
+function test_autoscale() {
+  header "Running autoscaler sample and ramping up/down traffic."
+  bazel run //sample/autoscale:everything.create || return 1
+  local service_host=""
+  local service_ip=""
+
+  if ! wait_for_ingress "autoscale-route";then
+    echo "ERROR: No ingress, stopping test."
+    bazel run //sample/autoscale:everything.delete  # ignore errors
+    return 1
+  fi
+
+  local deployment=$(kubectl get deploy -o jsonpath="{.items[0].metadata.name}")
+
+  echo "Generating traffic to scale up the autoscaler."
+  if ! test_scale_up_autoscaler; then
+    bazel run //sample/autoscale:everything.delete
+    return 1
+  fi
+
+  echo "Waiting for the autoscaler to scale back down."
+  if ! test_scale_down_autoscaler; then
+    bazel run //sample/autoscale:everything.delete
+    return 1
+  fi
+
+  echo "Scaling up once more."
+  test_scale_up_autoscaler
+  result=$?
+
+  bazel run //sample/autoscale:everything.delete
+  return $result
+}
+
+function test_scale_up_autoscaler() {
+  # Queue up 8 simultaneous calls to prime-number finding app.
+  local command='curl --header "Host:$service_host" http://${service_ip}/primes/40000000 >/dev/null  2>&1 & '
+  for i in {1..3};do
+    command+=$command
+  done
+  eval $command
+
+  for i in {1..30}; do # wait up to 1 minute for the scale up.
+    echo -n "."
+    # Look for an increase in ready replicas as a result of the increased QPS
+    local replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
+    if [[ -n $replicas && $replicas -gt 1 ]]; then
+      echo -e "\nAutoscale up successful\n"
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo -e "\nERROR: Could not successfully scale up"
+  print_autoscale_debug
+  return 1
+}
+
+function test_scale_down_autoscaler() {
+  for i in {1..180}; do # timeout after 6 minutes
+    echo -n "."
+    sleep 2
+    # Look for ready replicas to drop to 1 as a result of the traffic dropping off
+    # TODO: Wait to scale to zero once we turn that functionality on.
+    local replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
+    if [[ -z $replicas || $replicas -le 1 ]]; then
+      echo -e "\nAutoscale down successful"
+      # TODO: Wait for 60 seconds before trying to scale back up. This is non-optimal, but we will fix this time by M4.
+      sleep 60
+      return 0
+    fi
+  done
+
+  echo -e "\nERROR: Could not successfully scale down"
+  print_autoscale_debug
+  return 1
+}
+
+function print_autoscale_debug() {
+  local pod=$(kubectl get pods -n ela-system | grep autoscaler | cut -d' ' -f1)
+  echo -e "\n\nLast two minutes of autoscaler $pod logs:\n"
+  kubectl logs -n ela-system $pod --since 2m
 }
 
 # Script entry point.
@@ -241,8 +356,6 @@ echo "================================================="
 echo "* Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "* User is ${K8S_USER_OVERRIDE}"
 echo "* Docker is ${DOCKER_REPO_OVERRIDE}"
-echo "*** Project info ***"
-gcloud compute project-info describe
 
 header "Building and starting Elafros"
 trap teardown EXIT
@@ -276,6 +389,11 @@ run_hello_world
 exit_if_failed
 run_conformance_tests
 exit_if_failed
+
+# These tests are currently failing intermittently for reasons that seem to be
+# unrelated to the PRs they are testing, investigating in https://github.com/elafros/elafros/issues/751
+# test_autoscale
+# exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

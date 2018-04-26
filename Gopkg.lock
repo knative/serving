@@ -26,6 +26,12 @@
   revision = "944e07253867aacae43c04b2e6a239005443f33a"
 
 [[projects]]
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   name = "github.com/ghodss/yaml"
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
@@ -142,6 +148,12 @@
   packages = ["."]
   revision = "f1ac5984e69fed03e0574a92f70c59f132616ea2"
   version = "0.3.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/josephburnett/k8sflag"
+  packages = ["pkg/k8sflag"]
+  revision = "632d8ec6ee68a68bbeef4aeee67f64661c1326c3"
 
 [[projects]]
   name = "github.com/json-iterator/go"
@@ -706,6 +718,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6d8793bd411026f8d24ee5b3d2dcd681d1a1406586ff7c7bfdf294279a63a693"
+  inputs-digest = "d01a9ae14ce1f794e79d58b1249a4e3e11b2a74eb7b3d49aaad88692a327ba96"
   solver-name = "gps-cdcl"
   solver-version = 1

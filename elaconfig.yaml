@@ -27,3 +27,44 @@ data:
   # Although it will match all routes, it is the least-specific rule so it
   # will only be used if no other domain matches.
   demo-domain.com: |
+
+  # AUTOSCALER CONFIGURATION
+
+  # Static parameters:
+
+  # Target concurrency is the desired  number of concurrent requests for
+  # each pod. This is the primary knob for fast autoscaling which will
+  # try achieve an concurrency per pod of the target concurrency.
+  autoscale.target-concurrency: "1.0"
+
+  # When operating in a stable mode, the autoscaler operates on the
+  # average concurrency over the stable window.
+  autoscale.stable-window: "60s"
+
+  # When observed average concurrency during the panic window reaches 2x
+  # the target concurrency, the autoscaler enters panic mode. When
+  # operating in panic mode, the autoscaler operates on the average
+  # concurrency over the panic window.
+  autoscale.panic-window: "6s"
+
+  # Max scale up rate limits the rate at which the autoscaler will
+  # increase pod count. It is the maximum ratio of desired pods versus
+  # observed pods.
+  autoscale.max-scale-up-rate: "10"
+
+  # Concurrency quantum of time is the minimum time a request consumes
+  # for the purpose of reporting concurrency metrics. The number of
+  # quantums of time that fit into 1 second determines the max QPS the
+  # pod will handle. Requests can span multiple quantums of time in
+  # which case the request duration is rounded up.
+  autoscale.concurrency-quantum-of-time: "100ms"
+
+  # Scale to zero feature flag
+  autoscale.enable-scale-to-zero: "false"
+
+  # Dynamic parameters (take effect when config map is updated):
+
+  # Scale to zero threshold is the time a revision must be idle before
+  # it is scaled to zero.
+  autoscale.scale-to-zero-threshold: "5m"
+  
