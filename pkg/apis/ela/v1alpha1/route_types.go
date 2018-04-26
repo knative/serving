@@ -105,6 +105,9 @@ const (
 	// RouteConditionFailed is set when the service is not configured
 	// properly or has no available backends ready to receive traffic.
 	RouteConditionFailed RouteConditionType = "Failed"
+	// TrafficDropped is set when one or more revisions which
+	// receive percentage traffic from the route cannot be found.
+	RouteConditionTrafficDropped RouteConditionType = "TrafficDropped"
 )
 
 // RouteStatus communicates the observed state of the Route (from the controller).

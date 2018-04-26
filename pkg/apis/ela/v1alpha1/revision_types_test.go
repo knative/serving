@@ -44,18 +44,6 @@ func TestIsReady(t *testing.T) {
 			isReady: false,
 		},
 		{
-			name: "Different condition type should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionBuildComplete,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: false,
-		},
-		{
 			name: "False condition status should not be ready",
 			status: RevisionStatus{
 				Conditions: []RevisionCondition{
@@ -102,38 +90,6 @@ func TestIsReady(t *testing.T) {
 			},
 			isReady: true,
 		},
-		{
-			name: "Multiple conditions with ready status should be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionBuildComplete,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
-		},
-		{
-			name: "Multiple conditions with ready status false should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionBuildComplete,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
-		},
 	}
 
 	for _, tc := range cases {
@@ -150,20 +106,20 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rc := &RevisionCondition{
-		Type:   RevisionConditionBuildComplete,
+		Type:   RevisionConditionBuildFailed,
 		Status: corev1.ConditionTrue,
 	}
 	// Set Condition and make sure it's the only thing returned
 	rs.SetCondition(rc)
-	if e, a := rc, rs.GetCondition(RevisionConditionBuildComplete); !reflect.DeepEqual(e, a) {
+	if e, a := rc, rs.GetCondition(RevisionConditionBuildFailed); !reflect.DeepEqual(e, a) {
 		t.Errorf("GetCondition expected %v got: %v", e, a)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
 	}
 	// Remove and make sure it's no longer there
-	rs.RemoveCondition(RevisionConditionBuildComplete)
-	if a := rs.GetCondition(RevisionConditionBuildComplete); a != nil {
+	rs.RemoveCondition(RevisionConditionBuildFailed)
+	if a := rs.GetCondition(RevisionConditionBuildFailed); a != nil {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
 }

@@ -7,16 +7,38 @@ in status:
 
 * conditions represent true/false statements about the current state
   of the resource.
-
 * other fields may provide status on the most recently retrieved state
   of the system as it relates to the resource (example: number of
   replicas or traffic assignments).
 
 Both of these mechanisms often include additional data from the
 controller such as `observedGeneration` (to determine whether the
-controller has seen the latest updates to the spec). Example user and
-system error scenarios are included below along with how the status is
-presented to CLI and UI tools via the API.
+controller has seen the latest updates to the spec).
+
+Conditions provide an easy mechanism for client user interfaces to
+indicate the current state of resources to a user. Elafros resources
+should follow these patterns:
+
+1. Each resource should define a small number of terminal failure
+   conditions as `Type`s. This should bias towards fewer than 5
+   high-level error categories which are separate and meaningful for
+   clients. For a Revision, these might be `BuildFailed`,
+   `ContainerNotRunnable`, or `ContainerDeadlineExceeded`.
+2. Where it makes sense, resources should define a **single** "happy
+   state" condition which indicates that the resource is set up
+   correctly and ready to serve. This is typically named `Ready` (but
+   note that Configuration copies the `Ready` status of the latest
+   created Revision in `LatestRevisionReady`).
+3. Terminal failure conditions may have the state `False` while the
+   reconciliation is in progress. Once the reconciliation is complete,
+   the failure condition should be cleared (if successful) or set to
+   `True` (if the reconciliation failed). Terminal failure conditions
+   should also supply additional details about the failure in the
+   "Reason" and "Message" sections -- both of these should be
+   considered to have unlimited cardinality, unlike `Type`.
+
+Example user and system error scenarios are included below along with
+how the status is presented to CLI and UI tools via the API.
 
 * [Revision failed to become Ready](#revision-failed-to-become-ready)
 * [Build failed](#build-failed)
@@ -85,7 +107,7 @@ status:
   conditions:
   - type: Ready
     status: False
-    reason: ContainerMissing
+    reason: BuildFailed
     message: "Unable to start because container is missing and build failed."
   - type: BuildFailed
     status: True
@@ -116,8 +138,8 @@ status:
     name: next
     percent: 0
   conditions:
-  - type: RolloutInProgress
-    status: False
+  - type: Ready
+    status: True
   - type: TrafficDropped
     status: True
     reason: RevisionMissing
@@ -144,8 +166,8 @@ status:
   - revisionName: "Not found"
     percent: 100
   conditions:
-  - type: RolloutInProgress
-    status: False
+  - type: Ready
+    status: True
   - type: TrafficDropped
     status: True
     reason: ConfigurationMissing
@@ -185,10 +207,11 @@ status:
 ## Resource exhausted while creating a revision
 
 Since a Revision is only metadata, the Revision will be created, but
-will have a condition indicating the underlying failure, possibly
-indicating the failed underlying resource. In a multitenant
-environment, the customer might not have have access or visibility
-into the underlying resources in the hosting environment.
+the `Ready` condition will be false, and the `ContainerNotRunnable`
+condition will be set. `ContainerNotRunnable` should indicate the
+underlying failure, where possible. In a multitenant environment, the
+customer might not have have access or visibility into the underlying
+resources in the hosting environment.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -199,6 +222,10 @@ status:
   conditions:
   - type: Ready
     status: False
+    reason: ContainerNotRunnable
+    message: "The controller could not create a deployment named ela-abc-e13ac."
+  - type: ContainerNotRunnable
+    status: True
     reason: NoDeployment
     message: "The controller could not create a deployment named ela-abc-e13ac."
 ```
@@ -209,17 +236,16 @@ status:
 See
 [the kubernetes documentation for how this is handled for Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#failed-deployment). For
 Revisions, we will start by assuming a single timeout for deployment
-(rather than configurable), and report that the Revision was not
-Ready, with a reason `ProgressDeadlineExceeded`. Note that we will
-only report `ProgressDeadlineExceeded` if we could not determine
-another reason (such as quota failures, missing build, or container
-execution failures).
+(rather than configurable), and set `ContainerDeadlineExceeded` if the
+deployment takes longer than this deadline to become `Ready`. Note
+that we will only report `ContainerDeadlineExceeded` if we could not
+determine another reason (such as quota failures, missing build, or
+container execution failures).
 
-Kubernetes controllers will continue attempting to make progress
-(possibly at a less-aggressive rate) when they encounter a case where
-the desired status cannot match the actual status, so if the
-underlying deployment is slow, it might eventually finish after
-reporting `ProgressDeadlineExceeded`.
+Since container setup time also affects the ability of 0 to 1
+autoscaling, the `ContainerDeadlineExceeded` condition should be
+considered a terminal condition, even if Kubernetes might attempt to
+make progress even after the deadline.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -230,8 +256,12 @@ status:
   conditions:
   - type: Ready
     status: False
+    reason: ContainerDeadlineExceeded
+    message: "Did not pass readiness checks in 120 seconds."
+  - type: ContainerDeadlineExceeded
+    status: True
     reason: ProgressDeadlineExceeded
-    message: "Unable to create pods for more than 120 seconds."
+    message: "Did not pass readiness checks in 120 seconds."
 ```
 
 
@@ -239,8 +269,8 @@ status:
 
 Similar to deployment slowness, if the transfer of traffic (either via
 gradual or abrupt rollout) takes longer than a certain timeout to
-complete/update, the `RolloutInProgress` condition will remain at
-True, but the reason will be set to `ProgressDeadlineExceeded`.
+complete/update, the `Ready` condition will remain at
+`False`, and the reason will be set to `ProgressDeadlineExceeded`.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/abc
@@ -254,8 +284,8 @@ status:
   - revisionName: def
     percent: 25
   conditions:
-  - type: RolloutInProgress
-    status: True
+  - type: Ready
+    status: False
     reason: ProgressDeadlineExceeded
     # reason is a short status, message provides error details
     message: "Unable to update traffic split for more than 120 seconds."
@@ -266,15 +296,17 @@ status:
 
 Revisions might be created while a Build is still creating the
 container image or uploading it to the repository. If the build is
-being performed by a CRD in the cluster, the spec.buildName attribute
-will be set (and see the [Build failed](#build-failed) example). In
-other cases when the build is not supplied, the container image
-referenced might not be present in the registry (either because of a
-typo or because it was deleted). In this case, the Ready condition
-will be set to False with a reason of ContainerMissing. This condition
-could be corrected if the image becomes available at a later time. We
-can also make a defensive copy of the container image to avoid this
-error due to deleted source container.
+being performed by a CRD in the cluster, the `spec.buildName`
+attribute will be set (and see the [Build failed](#build-failed)
+example). In other cases when the build is not supplied, the container
+image referenced might not be present in the registry (either because
+of a typo or because it was deleted). In this case, the `Ready`
+condition will be set to `False` and the terminal
+`ContainerNotRunnable` condition will be set to `True`. This condition
+could be corrected if the image becomes available at a later
+time. Elafros could also make a defensive copy of the container image
+to avoid having to surface this error at a later date if the original
+docker image is deleted.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -287,7 +319,7 @@ status:
     status: False
     reason: ContainerMissing
     message: "Unable to fetch image 'gcr.io/...': <literal error>"
-  - type: Failed
+  - type: ContainerNotRunnable
     status: True
     reason: ContainerMissing
     message: "Unable to fetch image 'gcr.io/...': <literal error>"
@@ -297,15 +329,15 @@ status:
 ## Container image fails at startup on Revision
 
 Particularly for development cases with interpreted languages like
-Node or Python, syntax errors or the like might only be caught at
-container startup time. For this reason, implementations may choose to
-start a single copy of the container on deployment, before making the
-container Ready. If the initial container fails to start, the `Ready`
-condition will be set to False and the reason will be set to
-`ExitCode:%d` with the exit code of the application, and the last line
-of output in the message. Additionally, the Revision will include a
-`logsUrl` which provides the address of an endpoint which can be used to
-fetch the logs for the failed process.
+Node or Python, syntax errors might only be caught at container
+startup time. For this reason, implementations may choose to start a
+single copy of the container on deployment, before making the
+container `Ready`. If the initial container fails to start, the
+`ContainerNotRunnable` condition will be set to `False` and the reason
+will be set to `ExitCode:%d` with the exit code of the application,
+and the last line of output in the message. Additionally, the Revision
+`status.logsUrl` should be present, which provides the address of an
+endpoint which can be used to fetch the logs for the failed process.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -317,6 +349,10 @@ status:
   conditions:
   - type: Ready
     status: False
+    reason: ContainerNotRunnable
+    message: "Container failed with: SyntaxError: Unexpected identifier"
+  - type: ContainerNotRunnable
+    status: True
     reason: ExitCode:127
     message: "Container failed with: SyntaxError: Unexpected identifier"
 ```
