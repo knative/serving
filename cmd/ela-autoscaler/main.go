@@ -59,7 +59,7 @@ var (
 	elaRevision       string
 	elaAutoscalerPort string
 
-	enableScaleToZero = k8sflag.Bool("autoscale.enable-scale-to-zero", false, k8sflag.Dynamic)
+	enableScaleToZero = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
 )
 
 func init() {

@@ -19,12 +19,12 @@ package route
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -57,9 +57,6 @@ var (
 		"Counter to keep track of items in the route work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
-	// The experiment flag in controller.yaml to turn on activator feature. The default is false.
-	// If it's true, the traffic will always be directed to the activator.
-	enableActivatorExperiment bool
 )
 
 const (
@@ -107,10 +104,9 @@ type Controller struct {
 
 	// suffix used to construct Route domain.
 	controllerConfig controller.Config
-}
 
-func init() {
-	flag.BoolVar(&enableActivatorExperiment, "enableActivatorExperiment", false, "The experiment flag to turn on activator feature.")
+	// Autoscale enable scale to zero experiment flag.
+	enableScaleToZero *k8sflag.BoolFlag
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -125,7 +121,8 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config,
+	enableScaleToZero *k8sflag.BoolFlag) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -143,14 +140,15 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:    kubeclientset,
-		elaclientset:     elaclientset,
-		lister:           informer.Lister(),
-		synced:           informer.Informer().HasSynced,
-		configSynced:     configInformer.Informer().HasSynced,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
-		recorder:         recorder,
-		controllerConfig: controllerConfig,
+		kubeclientset:     kubeclientset,
+		elaclientset:      elaclientset,
+		lister:            informer.Lister(),
+		synced:            informer.Informer().HasSynced,
+		configSynced:      configInformer.Informer().HasSynced,
+		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
+		recorder:          recorder,
+		controllerConfig:  controllerConfig,
+		enableScaleToZero: enableScaleToZero,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -442,10 +440,10 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 
 func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	ingressNamespace := route.Namespace
-	if enableActivatorExperiment {
+	if c.enableScaleToZero.Get() {
 		ingressNamespace = controller.GetElaK8SActivatorNamespace()
 	}
-	ingress := MakeRouteIngress(route)
+	ingress := MakeRouteIngress(route, c.enableScaleToZero)
 	ingressClient := c.kubeclientset.Extensions().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(controller.GetElaK8SIngressName(route), metav1.GetOptions{})
 	if err != nil {
@@ -661,14 +659,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route))
+		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 	} else {
-		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route))
+		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
 		if _, err := routeClient.Update(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -687,14 +685,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 			if !apierrs.IsNotFound(err) {
 				return nil, err
 			}
-			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route))
+			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
 			if _, err := routeClient.Create(routeRules); err != nil {
 				c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 				return nil, err
 			}
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 		} else {
-			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route))
+			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
 			if _, err := routeClient.Update(routeRules); err != nil {
 				return nil, err
 			}
