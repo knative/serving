@@ -37,12 +37,32 @@ spec:
           mountPath: /grafana/conf/provisioning/datasources
         - name: grafana-dashboards
           mountPath: /grafana/conf/provisioning/dashboards
-        - name: grafana-dashboard-definition-kubernetes
-          mountPath: /grafana-dashboard-definition/kubernetes
         - name: grafana-dashboard-definition-elafros
           mountPath: /grafana-dashboard-definition/elafros
         - name: grafana-dashboard-definition-istio
           mountPath: /grafana-dashboard-definition/istio
+        - name: grafana-dashboard-definition-mixer
+          mountPath: /grafana-dashboard-definition/mixer
+        - name: grafana-dashboard-definition-pilot
+          mountPath: /grafana-dashboard-definition/pilot
+        - name: grafana-dashboard-definition-kubernetes-deployment
+          mountPath: /grafana-dashboard-definition/kubernetes-deployment
+        - name: grafana-dashboard-definition-kubernetes-capacity-planning
+          mountPath: /grafana-dashboard-definition/kubernetes-capacity-planning
+        - name: grafana-dashboard-definition-kubernetes-cluster-health
+          mountPath: /grafana-dashboard-definition/kubernetes-cluster-health
+        - name: grafana-dashboard-definition-kubernetes-cluster-status
+          mountPath: /grafana-dashboard-definition/kubernetes-cluster-status
+        - name: grafana-dashboard-definition-kubernetes-control-plane-status
+          mountPath: /grafana-dashboard-definition/kubernetes-control-plane-status
+        - name: grafana-dashboard-definition-kubernetes-resource-requests
+          mountPath: /grafana-dashboard-definition/kubernetes-resource-requests
+        - name: grafana-dashboard-definition-kubernetes-nodes
+          mountPath: /grafana-dashboard-definition/kubernetes-nodes
+        - name: grafana-dashboard-definition-kubernetes-pods
+          mountPath: /grafana-dashboard-definition/kubernetes-pods
+        - name: grafana-dashboard-definition-kubernetes-statefulset
+          mountPath: /grafana-dashboard-definition/kubernetes-statefulset
         ports:
         - name: web
           containerPort: 3000
@@ -62,12 +82,42 @@ spec:
       - name: grafana-dashboards
         configMap:
           name: grafana-dashboards
-      - name: grafana-dashboard-definition-kubernetes
-        configMap:
-          name: grafana-dashboard-definition-kubernetes
       - name: grafana-dashboard-definition-elafros
         configMap:
           name: grafana-dashboard-definition-elafros
       - name: grafana-dashboard-definition-istio
         configMap:
           name: grafana-dashboard-definition-istio
+      - name: grafana-dashboard-definition-mixer
+        configMap:
+          name: grafana-dashboard-definition-mixer
+      - name: grafana-dashboard-definition-pilot
+        configMap:
+          name: grafana-dashboard-definition-pilot
+      - name: grafana-dashboard-definition-kubernetes-deployment
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-deployment
+      - name: grafana-dashboard-definition-kubernetes-capacity-planning
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-capacity-planning
+      - name: grafana-dashboard-definition-kubernetes-cluster-health
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-cluster-health
+      - name: grafana-dashboard-definition-kubernetes-cluster-status
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-cluster-status
+      - name: grafana-dashboard-definition-kubernetes-control-plane-status
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-control-plane-status
+      - name: grafana-dashboard-definition-kubernetes-resource-requests
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-resource-requests
+      - name: grafana-dashboard-definition-kubernetes-nodes
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-nodes
+      - name: grafana-dashboard-definition-kubernetes-pods
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-pods
+      - name: grafana-dashboard-definition-kubernetes-statefulset
+        configMap:
+          name: grafana-dashboard-definition-kubernetes-statefulset
