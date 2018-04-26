@@ -115,5 +115,6 @@ kubectl apply -f ${ELAFROS_RELEASE} || true
 kubectl apply -f ${ELAFROS_RELEASE}
 
 wait_until_running ela-system
+wait_until_running build-system
 
 header "Elafros deployed successfully to ${K8S_CLUSTER_NAME}"
