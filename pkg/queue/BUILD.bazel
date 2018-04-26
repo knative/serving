@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "breaker.go",
+        "queue.go",
         "stats.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/queue",
