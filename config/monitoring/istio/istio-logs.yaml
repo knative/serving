@@ -58,3 +58,5 @@ spec:
     destinationRevision: destination.labels["elafros.dev/revision"] | "unknown"
     destinationConfiguration: destination.labels["elafros.dev/configuration"] | "unknown"
     traceId: request.headers["x-b3-traceid"] | "unknown"
+    userAgent: request.useragent | "unknown"
+    referer: request.referer | "unknown"
