@@ -24,17 +24,16 @@ import (
 	istiov1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	"github.com/elafros/elafros/pkg/controller"
 	"github.com/golang/glog"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // makeIstioRouteSpec creates an Istio route
-func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, enableScaleToZero *k8sflag.BoolFlag) istiov1alpha2.RouteRuleSpec {
+func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, useActivator bool) istiov1alpha2.RouteRuleSpec {
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
-	// TODO: Set up routerules in different namespace, direct traffic to activator only when necessary.
+	// TODO: Set up routerules in different namespace.
 	// https://github.com/elafros/elafros/issues/607
-	if !enableScaleToZero.Get() {
+	if !useActivator {
 		destinationWeights = calculateDestinationWeights(u, tt, routes)
 		if tt != nil {
 			domain = fmt.Sprintf("%s.%s", tt.Name, domain)
@@ -57,7 +56,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		}
 	}
 
-	// if enableActivatorExperiment flag is on, and there are reserved revisions,
+	// if enableScaleToZero flag is true, and there are reserved revisions,
 	// define the corresponding istio route rules.
 	glog.Info("using activator-service as the destination")
 	placeHolderK8SServiceName = controller.GetElaK8SActivatorServiceName()
@@ -86,7 +85,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 }
 
 // MakeIstioRoutes creates an Istio route
-func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, enableScaleToZero *k8sflag.BoolFlag) *istiov1alpha2.RouteRule {
+func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, useActivator bool) *istiov1alpha2.RouteRule {
 	labels := map[string]string{"route": u.Name}
 	if tt != nil {
 		labels["traffictarget"] = tt.Name
@@ -98,7 +97,7 @@ func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, r
 			Namespace: ns,
 			Labels:    labels,
 		},
-		Spec: makeIstioRouteSpec(u, tt, ns, routes, domain, enableScaleToZero),
+		Spec: makeIstioRouteSpec(u, tt, ns, routes, domain, useActivator),
 	}
 	serviceRef := controller.NewRouteControllerRef(u)
 	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)

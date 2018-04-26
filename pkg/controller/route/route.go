@@ -61,6 +61,7 @@ var (
 
 const (
 	controllerAgentName = "route-controller"
+	doNotUseActivator   = false
 )
 
 // RevisionRoute represents a single target to route to.
@@ -350,16 +351,22 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 
+	useActivator, err := c.shouldUseActivator(route)
+	if err != nil {
+		glog.Errorf("Failed to check if should direct traffic to activator: %s", err)
+		return err
+	}
+
 	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
 
-	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(route); err != nil {
+	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(route, useActivator); err != nil {
 		return err
 	}
 
 	// Then create or update the Ingress rule for this service
 	glog.Infof("Creating or updating ingress rule")
-	if err = c.reconcileIngress(route); err != nil {
+	if err = c.reconcileIngress(route, useActivator); err != nil {
 		glog.Infof("Failed to create or update ingress rule: %s", err)
 		return err
 	}
@@ -375,7 +382,7 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 // syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
 // according to the traffic targets in Spec field for Route resource. It then updates the Status
 // block of the Route and returns the updated one.
-func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
+func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Route, useActivator bool) (*v1alpha1.Route, error) {
 	c.consolidateTrafficTargets(route)
 	configMap, revMap, err := c.getDirectTrafficTargets(route)
 	if err != nil {
@@ -393,7 +400,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 
 	// Then create the actual route rules.
 	glog.Info("Creating Istio route rules")
-	revisionRoutes, err := c.createOrUpdateRouteRules(route, configMap, revMap)
+	revisionRoutes, err := c.createOrUpdateRouteRules(route, configMap, revMap, useActivator)
 	if err != nil {
 		glog.Infof("Failed to create Routes: %s", err)
 		return nil, err
@@ -438,19 +445,29 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 	return nil
 }
 
-func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
+func (c *Controller) reconcileIngress(route *v1alpha1.Route, useActivator bool) error {
+	// When we need to route traffic to activator, the ingress object needs to be in ela-system
+	// namespace, since activator service resides in ela-system. When we route traffic to revisions,
+	// the ingress object needs to be in the same namespace as the route. E.g. if we need to
+	// use the ingress object in route's namespace, we need to delete the ingress object in
+	// ela-system namespace.
 	ingressNamespace := route.Namespace
-	if c.enableScaleToZero.Get() {
-		ingressNamespace = controller.GetElaK8SActivatorNamespace()
+	ingressName := controller.GetElaK8SIngressName(route)
+	deleteIngressNs := controller.GetElaK8SActivatorNamespace()
+
+	// If we need to route traffic to the activator, create/update ingress object in ela-system,
+	// and delete the ingress object in route's namespace.
+	if useActivator {
+		ingressNamespace, deleteIngressNs = deleteIngressNs, ingressNamespace
 	}
-	ingress := MakeRouteIngress(route, c.enableScaleToZero)
+	ingress := MakeRouteIngress(route, useActivator)
 	ingressClient := c.kubeclientset.Extensions().Ingresses(ingressNamespace)
-	existing, err := ingressClient.Get(controller.GetElaK8SIngressName(route), metav1.GetOptions{})
+	existing, err := ingressClient.Get(ingressName, metav1.GetOptions{})
 	if err != nil {
 		if apierrs.IsNotFound(err) {
 			if _, err = ingressClient.Create(ingress); err == nil {
-				glog.Infof("Created ingress %q in namespace %q", ingress.Name, ingressNamespace)
-				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q in namespace %q", ingress.Name, ingressNamespace)
+				glog.Infof("Created ingress %q in namespace %q", ingressName, ingressNamespace)
+				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q in namespace %q", ingressName, ingressNamespace)
 			}
 		}
 		return err
@@ -459,11 +476,25 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route) error {
 	if !reflect.DeepEqual(existing.Spec, ingress.Spec) {
 		existing.Spec = ingress.Spec
 		if _, err = ingressClient.Update(existing); err == nil {
-			glog.Infof("Updated ingress %q in namespace %q", ingress.Name, ingressNamespace)
-			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q in namespace %q", ingress.Name, ingressNamespace)
+			glog.Infof("Updated ingress %q in namespace %q", ingressName, ingressNamespace)
+			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q in namespace %q", ingressName, ingressNamespace)
 		}
 		return err
 	}
+	return c.deleteObsoleteIngress(ingressName, deleteIngressNs)
+}
+
+func (c *Controller) deleteObsoleteIngress(name string, namespace string) error {
+	ingressClient := c.kubeclientset.Extensions().Ingresses(namespace)
+	if err := ingressClient.Delete(name, &metav1.DeleteOptions{}); err != nil {
+		if apierrs.IsNotFound(err) {
+			glog.Infof("There does not exist ingress %s in namespace %s.", name, namespace)
+			return nil
+		}
+		glog.Errorf("Failed to delete ingress %s in namespace %s. %v", name, namespace, err)
+		return err
+	}
+	glog.Infof("Successfully deleted ingress %s in namespace %s.", name, namespace)
 	return nil
 }
 
@@ -496,6 +527,35 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 	}
 
 	return configMap, revMap, nil
+}
+
+// Activator is used when the enableScaleToZero in elaconfig.yaml is true and there is
+// inactive traffic target.
+func (c *Controller) shouldUseActivator(route *v1alpha1.Route) (bool, error) {
+	if !c.enableScaleToZero.Get() {
+		return false, nil
+	}
+
+	ns := route.Namespace
+	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
+
+	for _, tt := range route.Status.Traffic {
+		revName := tt.RevisionName
+		rev, err := revClient.Get(revName, metav1.GetOptions{})
+		if err != nil {
+			glog.Errorf("Failed to fetch Revision %q: %v", revName, err)
+			return false, err
+		}
+		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+		if cond != nil {
+			if cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse {
+				glog.Infof("Revision %s is inactive.", revName)
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
@@ -633,7 +693,8 @@ func (c *Controller) computeRevisionRoutes(
 	return ret, nil
 }
 
-func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
+	revMap map[string]*v1alpha1.Revision, useActivator bool) ([]RevisionRoute, error) {
 	// grab a client that's specific to RouteRule.
 	ns := route.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
@@ -659,14 +720,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
+		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), useActivator)
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 	} else {
-		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
+		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), useActivator)
 		if _, err := routeClient.Update(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -685,14 +746,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 			if !apierrs.IsNotFound(err) {
 				return nil, err
 			}
-			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
+			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), useActivator)
 			if _, err := routeClient.Create(routeRules); err != nil {
 				c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 				return nil, err
 			}
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 		} else {
-			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), c.enableScaleToZero)
+			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), useActivator)
 			if _, err := routeClient.Update(routeRules); err != nil {
 				return nil, err
 			}
@@ -836,7 +897,8 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(route); err != nil {
+	// When deal with configuration event, do not use activator. updateRouteEvent deals with activator.
+	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(route, doNotUseActivator); err != nil {
 		glog.Errorf("Error updating route '%s/%s' upon configuration becoming ready: %v",
 			ns, routeName, err)
 	}
