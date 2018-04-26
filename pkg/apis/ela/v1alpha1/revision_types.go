@@ -114,9 +114,9 @@ const (
 	// RevisionConditionBuildComplete is set when the revision has an associated build
 	// and is marked True if/once the Build has completed succesfully.
 	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
-	// RevisionConditionResourcesProvisioned is set when underlying
+	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesProvisioned RevisionConditionType = "ResourcesProvisioned"
+	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )

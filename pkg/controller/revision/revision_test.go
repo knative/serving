@@ -941,7 +941,7 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
 		v1alpha1.RevisionCondition{
-			Type:   "ResourcesProvisioned",
+			Type:   "ResourcesAvailable",
 			Status: corev1.ConditionFalse,
 			Reason: "ExceededReadinessChecks",
 		},
@@ -993,7 +993,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "ResourcesProvisioned",
+			Type:    "ResourcesAvailable",
 			Status:  corev1.ConditionFalse,
 			Reason:  "ServiceTimeout",
 			Message: "Timed out waiting for a service endpoint to become ready",

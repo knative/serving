@@ -428,7 +428,7 @@ func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 		case corev1.ConditionTrue:
 			return true, false
 		case corev1.ConditionFalse:
-			return true, false
+			return true, true
 		case corev1.ConditionUnknown:
 			return false, false
 		}
@@ -453,7 +453,7 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 	reason, message := "ServiceTimeout", "Timed out waiting for a service endpoint to become ready"
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionResourcesProvisioned,
+			Type:    v1alpha1.RevisionConditionResourcesAvailable,
 			Status:  corev1.ConditionFalse,
 			Reason:  reason,
 			Message: message,

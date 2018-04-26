@@ -20,20 +20,42 @@ Conditions provide an easy mechanism for client user interfaces to
 indicate the current state of resources to a user. Elafros resources
 should follow these patterns:
 
-1. Each resource should define a small number of terminal success
-   conditions as Types. This should bias towards fewer than 5
-   high-level error categories which are separate and meaningful for
-   customers. For a Revision, these might be `BuildSucceeded`,
-   `ResourcesProvisioned` and `ContainerHealthy`.
+1. Each resource should define a small number of success conditions as
+   Types. This should bias towards fewer than 5 high-level progress
+   categories which are separate and meaningful for customers. For a
+   Revision, these might be `BuildSucceeded`, `ResourcesAvailable` and
+   `ContainerHealthy`.
 2. Where it makes sense, resources should define a top-level "happy
-   state" resource which indicates that the resourc is set up
-   correctly and ready to serve. This should be named `Ready`.
-3. Terminal conditions should be set to `Unknown` while they are being
-   reconciled towards success or failure. Terminal failure conditions
-   (conditions with status `False`) should also supply additional
-   details about the failure in the "Reason" and "Message" sections --
-   both of these should be considered to have unlimited cardinality,
-   unlike Type.
+   state" condition type which indicates that the resource is set up
+   correctly and ready to serve. For long-running resources, this
+   should be named `Ready`. For objects which run to completion, the
+   object should be named `Succeeded`.
+3. Each condition's status should be one of:
+   * `Unknown` when the controller is actively working to achieve the
+     condition.
+   * `False` when the reconciliation has failed. This should be a terminal
+     failure state until user action occurs.
+   * `True ` when the reconciliation has succeeded. Once all transition
+     conditions have succeeded, the "happy state" condition should be set
+     to `True`.
+     
+   Type names should be chosen such that these interpretations are clear:
+   
+   > `BuildSucceeded` works because `True` = success and `False` = failure.
+   
+   > `BuildCompleted` does not, because `False` could mean "in-progress".
+   
+   Conditions may also be omitted entirely if reconciliation has been
+   skipped. When all conditions have succeeded, the "happy state"
+   should clear other conditions for output legibility. Until the
+   "happy stnate" is set, conditions should be persisted for the
+   benefit of UI tools representing progress on the outcome.
+   
+4. Conditions with a status of `False` will also supply additional details
+   about the failure in the "Reason" and "Message" sections -- both of
+   these should be considered to have unlimited cardinality, unlike
+   Type. If a resource has a "happy state" type, it will surface the
+   `Reason` and `Message` from the first failing sub Conditions.
 
 Example user and system error scenarios are included below along with
 how the status is presented to CLI and UI tools via the API.
@@ -115,7 +137,7 @@ status:
 
 ## Revision not found by Route
 
-If a Revision is referenced in the Route's `spec.rollout.traffic`, the
+If a Revision is referenced in the Route's `spec.traffic`, the
 corresponding entry in the `status.traffic` list will be set to "Not
 found", and the `AllTrafficAssigned` condition will be marked as False
 with a reason of `RevisionMissing`.
@@ -137,11 +159,11 @@ status:
   - type: Ready
     status: False
     reason: RevisionMissing
-    message: "Revision 'qyzz' referenced in rollout.traffic not found"
+    message: "Revision 'qyzz' referenced in traffic not found"
   - type: AllTrafficAssigned
     status: False
     reason: RevisionMissing
-    message: "Revision 'qyzz' referenced in rollout.traffic not found"
+    message: "Revision 'qyzz' referenced in traffic not found"
 ```
 
 
@@ -176,11 +198,14 @@ status:
 
 ## Latest Revision of a Configuration deleted
 
-If the most recent (or most recently ready) Revision is deleted, the
-Configuration will clear the `latestReadyRevisionName` and set
-`LatestRevisionReady` to False. If the Configuration is referenced by
-a Route, the Route will set the `AllTrafficAssigned` condition to
-False with reason `RevisionMissing`, as above.
+If the most recent Revision is deleted, the Configuration will set
+`LatestRevisionReady` to False.
+
+If the deleted Revision was also the most recent to become ready, the
+Configuration will also clear the `latestReadyRevisionName`. Additionally,
+if the Configuration in this case is referenced by a Route, the Route will
+set the `AllTrafficAssigned` condition to False with reason
+`RevisionMissing`, as above.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
@@ -234,16 +259,15 @@ status:
 See
 [the kubernetes documentation for how this is handled for Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#failed-deployment). For
 Revisions, we will start by assuming a single timeout for deployment
-(rather than configurable), and report that the Revision was not
-Ready, with a reason `ContainerDeadlineExceeded`. Note that we will
-only report `ContainerDeadlineExceeded` if we could not determine
-another reason (such as quota failures, missing build, or container
-execution failures).
+(rather than configurable), and report that the Revision was not Ready,
+with a reason `ProgressDeadlineExceeded`. Note that we will only report
+`ProgressDeadlineExceeded` if we could not determine another reason (such
+as quota failures, missing build, or container execution failures).
 
-Since container setup time also affects the ability of 0 to 1
-autoscaling, the `ContainerDeadlineExceeded` condition should be
-considered a terminal condition, even if Kubernetes might attempt to
-make progress even after the deadline.
+Since container setup time also affects the ability of 0 to 1 autoscaling,
+the `ProgressDeadlineExceeded` reason should be considered a terminal
+condition, even if Kubernetes might attempt to make progress even after the
+deadline.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -254,7 +278,7 @@ status:
   conditions:
   - type: Ready
     status: False
-    reason: ContainerDeadlineExceeded
+    reason: ProgressDeadlineExceeded
     message: "Did not pass readiness checks in 120 seconds."
 ```
 
@@ -323,14 +347,16 @@ status:
 
 Particularly for development cases with interpreted languages like
 Node or Python, syntax errors might only be caught at container
-startup time. For this reason, implementations may choose to start a
-single copy of the container on deployment, before making the
-container `Ready`. If the initial container fails to start, the
-`Ready` condition will be set to `False`, the reason will be set to
-`ContainerExit` , and the last line of output in the
-message. Additionally, the Revision `status.logsUrl` should be
-present, which provides the address of an endpoint which can be used
-to fetch the logs for the failed process.
+startup time. For this reason, implementations should start a copy of
+the container on deployment, before marking the container `Ready`. If
+this container fails to start, the `Ready` condition will be set to
+`False`, the reason will be set to `ExitCode%d` with the exit code of
+the application, and the termination message from the container will
+be provided. (Containers will be run with the default
+`terminationMessagePath` and a `terminationMessagePolicy` of
+`FallbackToLogsOnError`.) Additionally, the Revision `status.logsUrl`
+should be present, which provides the address of an endpoint which can
+be used to fetch the logs for the failed process.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -342,10 +368,10 @@ status:
   conditions:
   - type: Ready
     status: False
-    reason: ContainerExit
+    reason: ExitCode127
     message: "Container failed with: SyntaxError: Unexpected identifier"
   - type: ContainerHealthy
     status: False
-    reason: ContainerExit
+    reason: ExitCode127
     message: "Container failed with: SyntaxError: Unexpected identifier"
 ```
