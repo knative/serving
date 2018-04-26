@@ -902,7 +902,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	want := []v1alpha1.RevisionCondition{
 		{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}
