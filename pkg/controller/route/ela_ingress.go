@@ -21,6 +21,7 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +31,7 @@ import (
 // MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
 // targets Istio by using the simple placeholder service name. All the routing actually happens in
 // the route rules.
-func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
+func MakeRouteIngress(route *v1alpha1.Route, enableScaleToZero *k8sflag.BoolFlag) *v1beta1.Ingress {
 	// We used to have a distinct service, but in the ela world, use the
 	// name for serviceID too.
 
@@ -43,7 +44,7 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 	// This would point to 'activator' component if enableActivatorExperiment is true.
 	namespace := route.Namespace
 	serviceName := controller.GetElaK8SServiceName(route)
-	if enableActivatorExperiment {
+	if enableScaleToZero.Get() {
 		namespace = controller.GetElaK8SActivatorNamespace()
 		serviceName = controller.GetElaK8SActivatorServiceName()
 	}
