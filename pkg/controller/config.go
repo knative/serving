@@ -71,6 +71,9 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 		if strings.HasPrefix(k, "autoscale.") {
 			continue
 		}
+		if strings.HasPrefix(k, "logging.") {
+			continue
+		}
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {
