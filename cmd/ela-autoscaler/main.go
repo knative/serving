@@ -92,7 +92,7 @@ func init() {
 }
 
 func autoscaler() {
-	var targetConcurrency *k8sflag.Float64
+	var targetConcurrency *k8sflag.Float64Flag
 	if enableSingleConcurrency.Get() {
 		targetConcurrency = singleConcurrencyTarget
 	} else {

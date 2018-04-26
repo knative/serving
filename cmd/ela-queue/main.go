@@ -177,9 +177,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqOutChan <- queue.Poke{}
 	}()
-	if enableSingleConcurrency {
+	if *enableSingleConcurrency {
 		// Enforce single concurrency and breaking
-		ok := breaker.Maybe(func() {
+		ok := singleConcurrencyBreaker.Maybe(func() {
 			proxy.ServeHTTP(w, r)
 		})
 		if !ok {
