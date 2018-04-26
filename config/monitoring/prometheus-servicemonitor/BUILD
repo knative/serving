@@ -65,7 +65,7 @@ k8s_objects(
         ":kube-scheduler",
         ":kube-state-metrics",
         ":kubelet",
-        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter",
+        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter-monitor",
     ],
     visibility = ["//visibility:public"],
 )
