@@ -19,12 +19,12 @@ package route
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -57,9 +57,6 @@ var (
 		"Counter to keep track of items in the route work queue.",
 		stats.UnitNone)
 	statusTagKey tag.Key
-	// The experiment flag in controller.yaml to turn on activator feature. The default is false.
-	// If it's true, the traffic will always be directed to the activator.
-	enableActivatorExperiment bool
 )
 
 const (
@@ -108,10 +105,9 @@ type Controller struct {
 
 	// suffix used to construct Route domain.
 	controllerConfig controller.Config
-}
 
-func init() {
-	flag.BoolVar(&enableActivatorExperiment, "enableActivatorExperiment", false, "The experiment flag to turn on activator feature.")
+	// Autoscale enable scale to zero experiment flag.
+	enableScaleToZero *k8sflag.BoolFlag
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -126,7 +122,8 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config,
+	enableScaleToZero *k8sflag.BoolFlag) controller.Interface {
 
 	glog.Infof("Route controller Init")
 
@@ -144,14 +141,15 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:    kubeclientset,
-		elaclientset:     elaclientset,
-		lister:           informer.Lister(),
-		synced:           informer.Informer().HasSynced,
-		configSynced:     configInformer.Informer().HasSynced,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
-		recorder:         recorder,
-		controllerConfig: controllerConfig,
+		kubeclientset:     kubeclientset,
+		elaclientset:      elaclientset,
+		lister:            informer.Lister(),
+		synced:            informer.Informer().HasSynced,
+		configSynced:      configInformer.Informer().HasSynced,
+		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Routes"),
+		recorder:          recorder,
+		controllerConfig:  controllerConfig,
+		enableScaleToZero: enableScaleToZero,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -447,7 +445,7 @@ func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route) error {
 	return nil
 }
 
-func (c *Controller) reconcileIngress(route *v1alpha1.Route, hasInactiveTrafficTarget bool) error {
+func (c *Controller) reconcileIngress(route *v1alpha1.Route, useActivator bool) error {
 	// When we need to route traffic to activator, the ingress object needs to be in ela-system
 	// namespace, since activator service resides in ela-system. When we route traffic to revisions,
 	// the ingress object needs to be in the same namespace as the route. E.g. if we need to
@@ -459,10 +457,10 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route, hasInactiveTrafficT
 
 	// If we need to route traffic to the activator, create/update ingress object in ela-system,
 	// and delete the ingress object in route's namespace.
-	if enableActivatorExperiment && hasInactiveTrafficTarget {
+	if useActivator {
 		ingressNamespace, deleteIngressNs = deleteIngressNs, ingressNamespace
 	}
-	ingress := MakeRouteIngress(route, hasInactiveTrafficTarget)
+	ingress := MakeRouteIngress(route, useActivator)
 	ingressClient := c.kubeclientset.Extensions().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(ingressName, metav1.GetOptions{})
 	if err != nil {
@@ -531,12 +529,13 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 	return configMap, revMap, nil
 }
 
-// Activator is used when the enableActivatorExperiment is on and there is inactive
-// traffic target.
+// Activator is used when the enableScaleToZero in elaconfig.yaml is true and there is
+// inactive traffic target.
 func (c *Controller) shouldUseActivator(route *v1alpha1.Route) (bool, error) {
-	if !enableActivatorExperiment {
+	if !c.enableScaleToZero.Get() {
 		return false, nil
 	}
+
 	ns := route.Namespace
 	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 

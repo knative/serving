@@ -24,7 +24,6 @@ package route
 - When a Revision is deleted TODO
 */
 import (
-	"flag"
 	"fmt"
 	"regexp"
 	"strings"
@@ -42,6 +41,7 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -57,7 +57,7 @@ const (
 	testNamespace       string = "test"
 	defaultDomainSuffix string = "test-domain.dev"
 	prodDomainSuffix    string = "prod-domain.com"
-	hasInactiveTarget   bool   = true
+	useActivator        bool   = true
 )
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
@@ -164,6 +164,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 				},
 			},
 		},
+		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
 	).(*Controller)
 
 	return
@@ -1063,7 +1064,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Create an ingress owned by this route. Do not use activator.
-	controller.reconcileIngress(route, !hasInactiveTarget)
+	controller.reconcileIngress(route, !useActivator)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
@@ -1087,10 +1088,8 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
 
-	// test the ingress with activator
-	flag.Set("enableActivatorExperiment", "true")
 	// Create an ingress which uses the activator.
-	controller.reconcileIngress(route, hasInactiveTarget)
+	controller.reconcileIngress(route, useActivator)
 	ingressClient = kubeClient.Extensions().Ingresses(ctrl.GetElaK8SActivatorNamespace())
 	ingress, _ = ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
 	if ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName != ctrl.GetElaK8SActivatorServiceName() {

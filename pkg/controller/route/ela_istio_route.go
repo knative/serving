@@ -56,7 +56,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		}
 	}
 
-	// if enableActivatorExperiment flag is on, and there are reserved revisions,
+	// if enableScaleToZero flag is true, and there are reserved revisions,
 	// define the corresponding istio route rules.
 	glog.Info("using activator-service as the destination")
 	placeHolderK8SServiceName = controller.GetElaK8SActivatorServiceName()
