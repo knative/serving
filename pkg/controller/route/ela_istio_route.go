@@ -28,12 +28,12 @@ import (
 )
 
 // makeIstioRouteSpec creates an Istio route
-func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, hasInactiveTarget bool) istiov1alpha2.RouteRuleSpec {
+func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, useActivator bool) istiov1alpha2.RouteRuleSpec {
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
 	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
 	// TODO: Set up routerules in different namespace.
 	// https://github.com/elafros/elafros/issues/607
-	if !enableActivatorExperiment || !hasInactiveTarget {
+	if !useActivator {
 		destinationWeights = calculateDestinationWeights(u, tt, routes)
 		if tt != nil {
 			domain = fmt.Sprintf("%s.%s", tt.Name, domain)
@@ -85,7 +85,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 }
 
 // MakeIstioRoutes creates an Istio route
-func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, hasInactiveTarget bool) *istiov1alpha2.RouteRule {
+func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, useActivator bool) *istiov1alpha2.RouteRule {
 	labels := map[string]string{"route": u.Name}
 	if tt != nil {
 		labels["traffictarget"] = tt.Name
@@ -97,7 +97,7 @@ func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, r
 			Namespace: ns,
 			Labels:    labels,
 		},
-		Spec: makeIstioRouteSpec(u, tt, ns, routes, domain, hasInactiveTarget),
+		Spec: makeIstioRouteSpec(u, tt, ns, routes, domain, useActivator),
 	}
 	serviceRef := controller.NewRouteControllerRef(u)
 	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)

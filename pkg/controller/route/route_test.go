@@ -58,7 +58,6 @@ const (
 	defaultDomainSuffix string = "test-domain.dev"
 	prodDomainSuffix    string = "prod-domain.com"
 	hasInactiveTarget   bool   = true
-	hasNoInactiveTarget bool   = false
 )
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
@@ -1063,8 +1062,8 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Create a route.
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
-	// Create an ingress owned by this route.
-	controller.reconcileIngress(route, hasNoInactiveTarget)
+	// Create an ingress owned by this route. Do not use activator.
+	controller.reconcileIngress(route, !hasInactiveTarget)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
