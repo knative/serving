@@ -142,6 +142,7 @@ type Controller struct {
 
 	// see (elaconfig.yaml)
 	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
+	autoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -160,7 +161,8 @@ func NewController(
 	fluentdSidecarImage string,
 	queueSidecarImage string,
 	autoscalerImage string,
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) controller.Interface {
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag,
+	autoscaleEnableSingleConcurrency *k8sflag.BoolFlag) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
@@ -187,6 +189,7 @@ func NewController(
 		queueSidecarImage:                 queueSidecarImage,
 		autoscalerImage:                   autoscalerImage,
 		autoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
+		autoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -760,7 +763,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage, c.autoscaleConcurrencyQuantumOfTime)
+	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage, c.autoscaleConcurrencyQuantumOfTime, c.autoscaleEnableSingleConcurrency)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec

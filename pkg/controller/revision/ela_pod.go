@@ -56,7 +56,8 @@ func MakeElaPodSpec(
 	rev *v1alpha1.Revision,
 	fluentdSidecarImage,
 	queueSidecarImage string,
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) *corev1.PodSpec {
+	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag,
+	autoscaleEnableSingleConcurrency *k8sflag.BoolFlag) *corev1.PodSpec {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -170,6 +171,14 @@ func MakeElaPodSpec(
 			},
 		},
 	}
+	args := []string{
+		"-logtostderr=true",
+		"-stderrthreshold=INFO",
+		fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
+	}
+	if autoscaleEnableSingleConcurrency.Get() {
+		args = append(args, "-enableSingleConcurrency")
+	}
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
 		Image: queueSidecarImage,
@@ -212,11 +221,7 @@ func MakeElaPodSpec(
 			// sacrifice for a low rate of 503s.
 			PeriodSeconds: 1,
 		},
-		Args: []string{
-			"-logtostderr=true",
-			"-stderrthreshold=INFO",
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
-		},
+		Args: args,
 		Env: []corev1.EnvVar{
 			{
 				Name:  "ELA_NAMESPACE",

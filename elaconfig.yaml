@@ -62,6 +62,9 @@ data:
   # Scale to zero feature flag
   autoscale.enable-scale-to-zero: "false"
 
+  # Single concurrency feature flag
+  autoscale.enable-single-concurrency: "false"
+  
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the time a revision must be idle before

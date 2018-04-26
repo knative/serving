@@ -58,6 +58,7 @@ var (
 
 	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
 	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	autoscaleEnableSingleConcurrency  = k8sflag.Bool("autoscale.enable-single-concurrency", false)
 )
 
 func main() {

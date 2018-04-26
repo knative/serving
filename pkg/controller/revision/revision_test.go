@@ -208,6 +208,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		testQueueImage,
 		testAutoscalerImage,
 		k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		k8sflag.Bool("autoscale.enable-single-concurrency", false),
 	).(*Controller)
 
 	return

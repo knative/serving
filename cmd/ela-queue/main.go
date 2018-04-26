@@ -57,12 +57,9 @@ const (
 	// removed from service.
 	quitSleepSecs = 20
 
-	// Queue depth.  The maximum number of requests to enqueue before
-	// returing 503 overload.
-	queueDepth = 2
-	// Max concurrency.  The highest level of concurrency which will
-	// be allowed in the pod.
-	maxConcurrency = 2
+	// Single concurency queue depth.  The maximum number of requests
+	// to enqueue before returing 503 overload.
+	singleConcurrencyQueueDepth = 10
 )
 
 var (
@@ -76,8 +73,9 @@ var (
 	kubeClient               *kubernetes.Clientset
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
-	breaker                  = queue.NewBreaker(queueDepth, maxConcurrency)
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
+	enableSingleConcurrency  = flag.Bool("enableSingleConcurrency", false, "")
+	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
 func init() {
@@ -179,12 +177,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqOutChan <- queue.Poke{}
 	}()
-	// Circuit breaking for overload
-	ok := breaker.Maybe(func() {
+	if enableSingleConcurrency {
+		// Enforce single concurrency and breaking
+		ok := breaker.Maybe(func() {
+			proxy.ServeHTTP(w, r)
+		})
+		if !ok {
+			http.Error(w, "overload", http.StatusServiceUnavailable)
+		}
+	} else {
 		proxy.ServeHTTP(w, r)
-	})
-	if !ok {
-		http.Error(w, "overload", http.StatusServiceUnavailable)
 	}
 }
 
