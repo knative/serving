@@ -41,6 +41,7 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -160,6 +161,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 				},
 			},
 		},
+		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
 	).(*Controller)
 
 	return

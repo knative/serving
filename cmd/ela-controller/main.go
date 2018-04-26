@@ -57,6 +57,7 @@ var (
 	autoscalerImage     string
 
 	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
+	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
 )
 
 func main() {
@@ -110,7 +111,7 @@ func main() {
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage, autoscaleConcurrencyQuantumOfTime),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
 

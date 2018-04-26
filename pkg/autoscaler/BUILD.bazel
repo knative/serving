@@ -18,5 +18,8 @@ go_test(
     name = "go_default_test",
     srcs = ["autoscaler_test.go"],
     embed = [":go_default_library"],
-    deps = ["//vendor/github.com/golang/glog:go_default_library"],
+    deps = [
+        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
+    ],
 )
