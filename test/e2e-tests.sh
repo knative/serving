@@ -389,8 +389,11 @@ run_hello_world
 exit_if_failed
 run_conformance_tests
 exit_if_failed
-test_autoscale
-exit_if_failed
+
+# These tests are currently failing intermittently for reasons that seem to be
+# unrelated to the PRs they are testing, investigating in https://github.com/elafros/elafros/issues/751
+# test_autoscale
+# exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
