@@ -32,10 +32,16 @@ data:
 
   # Static parameters:
 
-  # Target concurrency is the desired  number of concurrent requests for
+  # Single concurrency enforces processing of only one request in a time
+  # per pod.
+  autoscale.enable-single-concurrency: "false"
+
+  # Target concurrency is the desired number of concurrent requests for
   # each pod. This is the primary knob for fast autoscaling which will
-  # try achieve an concurrency per pod of the target concurrency.
-  autoscale.target-concurrency: "1.0"
+  # try achieve an concurrency per pod of the target
+  # concurrency. Single-concurrency must target a value close to 1.0.
+  autoscale.multi-concurrency-target: "1.0"
+  autoscale.single-concurrency-target: "0.9"
 
   # When operating in a stable mode, the autoscaler operates on the
   # average concurrency over the stable window.
@@ -61,9 +67,6 @@ data:
 
   # Scale to zero feature flag
   autoscale.enable-scale-to-zero: "false"
-
-  # Single concurrency feature flag
-  autoscale.enable-single-concurrency: "false"
   
   # Dynamic parameters (take effect when config map is updated):
 

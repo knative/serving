@@ -59,7 +59,10 @@ var (
 	elaRevision       string
 	elaAutoscalerPort string
 
-	enableScaleToZero = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	enableScaleToZero       = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	enableSingleConcurrency = k8sflag.Bool("autoscale.enable-single-concurrency", false, k8sflag.Required)
+	multiConcurrencyTarget  = k8sflag.Float64("autoscale.multi-concurrency-target", 0.0, k8sflag.Required)
+	singleConcurrencyTarget = k8sflag.Float64("autoscale.single-concurrency-target", 0.0, k8sflag.Required)
 )
 
 func init() {
@@ -89,8 +92,14 @@ func init() {
 }
 
 func autoscaler() {
+	var targetConcurrency *k8sflag.Float64
+	if enableSingleConcurrency.Get() {
+		targetConcurrency = singleConcurrencyTarget
+	} else {
+		targetConcurrency = multiConcurrencyTarget
+	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    k8sflag.Float64("autoscale.target-concurrency", 0.0, k8sflag.Required),
+		TargetConcurrency:    targetConcurrency,
 		MaxScaleUpRate:       k8sflag.Float64("autoscale.max-scale-up-rate", 0.0, k8sflag.Required),
 		StableWindow:         k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required),
 		PanicWindow:          k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required),
