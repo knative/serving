@@ -48,14 +48,14 @@ should follow these patterns:
    Conditions may also be omitted entirely if reconciliation has been
    skipped. When all conditions have succeeded, the "happy state"
    should clear other conditions for output legibility. Until the
-   "happy stnate" is set, conditions should be persisted for the
+   "happy state" is set, conditions should be persisted for the
    benefit of UI tools representing progress on the outcome.
    
 4. Conditions with a status of `False` will also supply additional details
    about the failure in the "Reason" and "Message" sections -- both of
    these should be considered to have unlimited cardinality, unlike
    Type. If a resource has a "happy state" type, it will surface the
-   `Reason` and `Message` from the first failing sub Conditions.
+   `Reason` and `Message` from the first failing sub Condition.
 
 Example user and system error scenarios are included below along with
 how the status is presented to CLI and UI tools via the API.
@@ -264,10 +264,10 @@ with a reason `ProgressDeadlineExceeded`. Note that we will only report
 `ProgressDeadlineExceeded` if we could not determine another reason (such
 as quota failures, missing build, or container execution failures).
 
-Since container setup time also affects the ability of 0 to 1 autoscaling,
-the `ProgressDeadlineExceeded` reason should be considered a terminal
-condition, even if Kubernetes might attempt to make progress even after the
-deadline.
+Since container setup time also affects the ability of 0 to 1
+autoscaling, the `Ready` failure with `ProgressDeadlineExceeded`
+reason should be considered a terminal condition, even if Kubernetes
+might attempt to make progress even after the deadline.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
