@@ -486,6 +486,13 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Reason:  bc.Reason,
 				Message: bc.Message,
 			})
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type: v1alpha1.RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: bc.Reason,
+				Message: bc.Message,
+			})
 		c.recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
 	}
 	// This will trigger a reconciliation that will cause us to stop tracking the build.
