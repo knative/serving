@@ -60,6 +60,13 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 			},
 		},
 	}
+	args := []string{
+		"-logtostderr=true",
+		"-stderrthreshold=INFO",
+	}
+	if rev.Spec.ConcurrencyModel == v1alpha1.RevisionConcurrencyModelSingle {
+		args = append(args, "-enableSingleConcurrency")
+	}
 
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -111,10 +118,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 									Value: strconv.Itoa(autoscalerPort),
 								},
 							},
-							Args: []string{
-								"-logtostderr=true",
-								"-stderrthreshold=INFO",
-							},
+							Args: args,
 							VolumeMounts: []corev1.VolumeMount{
 								corev1.VolumeMount{
 									Name:      "ela-config",

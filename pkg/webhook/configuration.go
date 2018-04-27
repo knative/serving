@@ -141,7 +141,7 @@ func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, old Gener
 	if newC.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/concurrencyModel",
+			Path:      "/spec/revisionTemplate/spec/concurrencyModel",
 			Value:     v1alpha1.RevisionConcurrencyModelMulti,
 		})
 	}

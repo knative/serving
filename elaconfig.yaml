@@ -32,10 +32,6 @@ data:
 
   # Static parameters:
 
-  # Single concurrency enforces processing of only one request in a time
-  # per pod.
-  autoscale.enable-single-concurrency: "false"
-
   # Target concurrency is the desired number of concurrent requests for
   # each pod. This is the primary knob for fast autoscaling which will
   # try achieve an concurrency per pod of the target

@@ -59,8 +59,11 @@ var (
 	elaRevision       string
 	elaAutoscalerPort string
 
+	// Revision-level configuration
+	enableSingleConcurrency = flag.Bool("enableSingleConcurrency", false, "")
+
+	// Cluster-level configuration
 	enableScaleToZero       = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
-	enableSingleConcurrency = k8sflag.Bool("autoscale.enable-single-concurrency", false, k8sflag.Required)
 	multiConcurrencyTarget  = k8sflag.Float64("autoscale.multi-concurrency-target", 0.0, k8sflag.Required)
 	singleConcurrencyTarget = k8sflag.Float64("autoscale.single-concurrency-target", 0.0, k8sflag.Required)
 )
@@ -93,7 +96,7 @@ func init() {
 
 func autoscaler() {
 	var targetConcurrency *k8sflag.Float64Flag
-	if enableSingleConcurrency.Get() {
+	if *enableSingleConcurrency {
 		targetConcurrency = singleConcurrencyTarget
 	} else {
 		targetConcurrency = multiConcurrencyTarget
