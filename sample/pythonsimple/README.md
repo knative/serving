@@ -13,7 +13,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 You can deploy this to Elafros from the root directory via:
 ```shell
-bazel run sample/python_helloworld:everything.apply
+bazel run sample/pythonsimple:everything.apply
 ```
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
