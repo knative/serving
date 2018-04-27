@@ -107,3 +107,42 @@ repositories()
 load(":ca_bundle.bzl", "cluster_ca_bundle")
 
 cluster_ca_bundle(name = "cluster_ca_bundle")
+
+# ================================================================
+# Imports for python samples
+# ================================================================
+
+git_repository(
+    name = "io_bazel_rules_python",
+    # HEAD as of 2018-04-27
+    commit = "8b5d0683a7d878b28fffe464779c8a53659fc645",
+    remote = "https://github.com/bazelbuild/rules_python.git",
+)
+
+load(
+    "@io_bazel_rules_python//python:pip.bzl",
+    "pip_import",
+    "pip_repositories",
+)
+
+pip_repositories()
+
+pip_import(
+   name = "python_helloworld_pip",
+   requirements = "//sample/pythonsimple:requirements.txt",
+)
+
+load(
+    "@python_helloworld_pip//:requirements.bzl",
+    "pip_install"
+)
+
+pip_install()
+
+# Pull in the py_image stuff.
+load(
+    "@io_bazel_rules_docker//python:image.bzl",
+    _py_image_repos = "repositories",
+)
+
+_py_image_repos()
