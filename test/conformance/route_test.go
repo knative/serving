@@ -27,10 +27,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"encoding/json"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/client/clientset/versioned"
 	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -236,9 +238,17 @@ var _ = Describe("Route", func() {
 			})
 
 			By("Patch the Configuration to use a new image")
-			patchConfig, err := GetChangedConfigurationBytes(configuration(imagePaths[0]), configuration(imagePaths[1]))
+			patches := []jsonpatch.JsonPatchOperation{
+				jsonpatch.JsonPatchOperation{
+					Operation: "replace",
+					Path:      "/spec/revisionTemplate/spec/container/image",
+					Value:     imagePaths[1],
+				},
+			}
+			patchBytes, err := json.Marshal(patches)
 			Expect(err).NotTo(HaveOccurred())
-			newConfig, err := configClient.Patch(configName, types.MergePatchType, patchConfig, "")
+
+			newConfig, err := configClient.Patch(configName, types.JSONPatchType, patchBytes, "")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newConfig.Generation).To(Equal(int64(0)))
 			Expect(newConfig.Spec.Generation).To(Equal(int64(2)))
