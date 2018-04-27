@@ -142,7 +142,7 @@ Labels:
 
 #### revision_response_size
 
-Description: Size of response to an application, a container or a function.
+Description: Size of response from an application, a container or a function.
 
 Type: Histogram
 
