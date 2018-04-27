@@ -21,11 +21,12 @@ func NewProxy(proxyRequests <-chan *ProxyRequest) *Proxy {
 				target := &url.URL{
 					// TODO: support https
 					Scheme: "http",
-					Host:   fmt.Sprintf("%s:%d", req.Endpoint.Ip, req.Endpoint.Port),
+					Host:   fmt.Sprintf("%s:%d", req.endpoint.ip, req.endpoint.port),
 				}
 				proxy := httputil.NewSingleHostReverseProxy(target)
-				proxy.ServeHTTP(req.HttpRequest.W, req.HttpRequest.R)
+				proxy.ServeHTTP(req.HttpRequest.w, req.HttpRequest.r)
 			}()
 		}
 	}()
+	return p
 }

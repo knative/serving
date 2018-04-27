@@ -11,21 +11,21 @@ type RevisionId struct {
 	namespace string
 }
 
-func (r RevisionId) string() {
-	return Namespace + "/" + Name
+func (r RevisionId) string() string {
+	return r.namespace + "/" + r.name
 }
 
 // HttpRequest is a single http request which needs to be proxied to an
 // active revision.
 type HttpRequest struct {
-	revisionId
+	RevisionId
 	w http.ResponseWriter
 	r *http.Request
 }
 
 func NewHttpRequest(w http.ResponseWriter, r *http.Request, namespace, name string) *HttpRequest {
 	return &HttpRequest{
-		revisionId: revisionId{
+		RevisionId: RevisionId{
 			namespace: namespace,
 			name:      name,
 		},
@@ -37,14 +37,14 @@ func NewHttpRequest(w http.ResponseWriter, r *http.Request, namespace, name stri
 // Endpoint is an IP, port pair.
 type endpoint struct {
 	ip   string
-	port string
+	port int32
 }
 
 // RevisionEndpoint is the endpoint of an active revision. It will
 // include either an endpoint or an error and error code identifying
 // why an endpoint could not be obtained.
 type RevisionEndpoint struct {
-	revisionId
+	RevisionId
 	endpoint
 	err    error
 	status int
@@ -71,13 +71,13 @@ type Activator struct {
 }
 
 func NewActivator(
-	httpRequests <-chan *Request,
-	activationRequests chan<- *ActivationRequest,
+	httpRequests <-chan *HttpRequest,
+	activationRequests chan<- *RevisionId,
 	endpoints <-chan *RevisionEndpoint,
-	proxyRequests <-chan *Request,
+	proxyRequests chan<- *ProxyRequest,
 ) *Activator {
 	a := &Activator{
-		pendingRequests:    make(map[string][]Request),
+		pendingRequests:    make(map[string][]*HttpRequest),
 		httpRequests:       httpRequests,
 		activationRequests: activationRequests,
 		endpoints:          endpoints,
@@ -87,28 +87,28 @@ func NewActivator(
 		log.Println("Activator up.")
 		for {
 			select {
-			case req <- httpRequests:
-				id := req.RevisionId.String()
-				if reqs, ok := d.pendingRequests[id]; ok {
-					d.pendingRequests[id] = append(d.pendingRequests[id], req)
+			case req := <-httpRequests:
+				id := req.RevisionId.string()
+				if reqs, ok := a.pendingRequests[id]; ok {
+					a.pendingRequests[id] = append(reqs, req)
 				} else {
 					// First request for this revision
-					d.pendingRequests[id] = []*HttpRequest{req}
-					d.activationRequests <- req.RevisionId
+					a.pendingRequests[id] = []*HttpRequest{req}
+					a.activationRequests <- &req.RevisionId
 				}
-			case end <- activeEndpoints:
-				id := end.RevisionId.String()
-				if reqs, ok := d.pendingRequests[id]; ok {
+			case end := <-endpoints:
+				id := end.RevisionId.string()
+				if reqs, ok := a.pendingRequests[id]; ok {
 					for _, r := range reqs {
 						// if end has error, write error and don't proxy
 						pr := &ProxyRequest{
-							HttpRequest: r,
-							Endpoint:    end.Endpoint,
+							HttpRequest: *r,
+							endpoint:    end.endpoint,
 						}
 						go func() { proxyRequests <- pr }()
 					}
 				}
-				delete(d.pendingRequests, id)
+				delete(a.pendingRequests, id)
 			}
 		}
 	}()

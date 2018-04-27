@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "activator.go",
+	"proxy.go",
+	"revision.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/activator",
     visibility = ["//visibility:public"],
