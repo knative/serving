@@ -17,9 +17,9 @@ k8s_object(
 k8s_object(
     name = "controller",
     images = {
-        "ela-controller:latest": "//cmd/ela-controller:image",
-        "ela-queue:latest": "//cmd/ela-queue:image",
-        "ela-autoscaler:latest": "//cmd/ela-autoscaler:image",
+        "github.com/elafros/elafros/cmd/ela-controller": "//cmd/ela-controller:image",
+        "github.com/elafros/elafros/cmd/ela-queue": "//cmd/ela-queue:image",
+        "github.com/elafros/elafros/cmd/ela-autoscaler": "//cmd/ela-autoscaler:image",
     },
     template = "controller.yaml",
 )
@@ -27,7 +27,7 @@ k8s_object(
 k8s_object(
     name = "webhook",
     images = {
-        "ela-webhook:latest": "//cmd/ela-webhook:image",
+        "github.com/elafros/elafros/cmd/ela-webhook": "//cmd/ela-webhook:image",
     },
     template = "webhook.yaml",
 )
@@ -35,7 +35,7 @@ k8s_object(
 k8s_object(
     name = "activator",
     images = {
-        "ela-activator:latest": "//cmd/ela-activator:image",
+        "github.com/elafros/elafros/cmd/ela-activator": "//cmd/ela-activator:image",
     },
     template = "activator.yaml",
 )
