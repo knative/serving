@@ -55,7 +55,7 @@ k8s_objects(
 k8s_objects(
     name = "fluentd",
     objects = [
-        "fluentd-es-ds"
+        "fluentd-es-ds",
     ],
     visibility = ["//visibility:public"],
 )
