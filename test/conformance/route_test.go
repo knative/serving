@@ -111,7 +111,7 @@ func isRevisionReady(confGen string) func(r *v1alpha1.Revision) (bool, error) {
 	return func(r *v1alpha1.Revision) (bool, error) {
 		if len(r.Status.Conditions) > 0 {
 			Expect(r.Status.Conditions[0].Type).To(Equal(v1alpha1.RevisionConditionType("Ready")))
-			if r.Status.Conditions[0].Status == corev1.ConditionStatus("False") {
+			if r.Status.Conditions[0].Status == corev1.ConditionStatus("Unknown") {
 				Expect(r.Status.Conditions[0].Reason).To(Equal("Deploying"))
 			} else {
 				Expect(r.Status.Conditions[0].Status).To(Equal(corev1.ConditionStatus("True")))

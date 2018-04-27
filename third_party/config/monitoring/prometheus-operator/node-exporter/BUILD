@@ -55,7 +55,7 @@ k8s_objects(
         "cluster-role",
         "cluster-role-binding",
         "daemonset",
-        "service"
+        "service",
     ],
     visibility = ["//visibility:public"],
 )
@@ -63,7 +63,7 @@ k8s_objects(
 k8s_objects(
     name = "node-exporter-monitor",
     objects = [
-        "service-monitor"
+        "service-monitor",
     ],
     visibility = ["//visibility:public"],
 )
