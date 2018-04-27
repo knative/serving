@@ -1,4 +1,4 @@
-# Helloworld
+# Python Simple Sample
 
 A simple web server written in Python that you can use for testing. It reads in an
 env variable 'TARGET' and prints "Hello World from Python: ${TARGET}!" if
