@@ -196,6 +196,22 @@ function test_autoscale() {
     return 1
   fi
 
+  local app_is_ready=false
+  echo "Waiting for the app to serve requests."
+  for i in {1..150};do
+    if [[ $(curl -s --header "Host:$service_host" http://${service_ip}/primes/4) == "[2]" ]]; then
+      app_is_ready=true
+      break;
+    fi
+    echo -n "."
+    sleep 2
+  done
+  if ! $success; then
+    echo "ERROR: Timed out waiting for autoscale app to come up."
+    bazel run //sample/autoscale:everything.delete  # ignore errors
+    return 1
+  fi
+
   local deployment=$(kubectl get deploy -o jsonpath="{.items[0].metadata.name}")
 
   echo "Generating traffic to scale up the autoscaler."
@@ -220,11 +236,12 @@ function test_autoscale() {
 
 function test_scale_up_autoscaler() {
   # Queue up 8 simultaneous calls to prime-number finding app.
-  local command='curl --header "Host:$service_host" http://${service_ip}/primes/40000000 >/dev/null  2>&1 & '
+  local command='curl --header "Host:$service_host" http://${service_ip}/primes/40000000 & '
   for i in {1..3};do
     command+=$command
   done
   eval $command
+  wait
 
   for i in {1..30}; do # wait up to 1 minute for the scale up.
     echo -n "."
@@ -251,8 +268,10 @@ function test_scale_down_autoscaler() {
     local replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
     if [[ -z $replicas || $replicas -le 1 ]]; then
       echo -e "\nAutoscale down successful"
-      # TODO: Wait for 60 seconds before trying to scale back up. This is non-optimal, but we will fix this time by M4.
-      sleep 60
+      # Wait until terminating pods are totally shut down. This is non-optimal, but we are working on this for M4.
+      while [[ $(kubectl get pods -o jsonpath="{.items[*].metadata.name}" | wc -w) -gt 1 ]];do
+        sleep 5
+      done
       return 0
     fi
   done
@@ -389,11 +408,8 @@ run_hello_world
 exit_if_failed
 run_conformance_tests
 exit_if_failed
-
-# These tests are currently failing intermittently for reasons that seem to be
-# unrelated to the PRs they are testing, investigating in https://github.com/elafros/elafros/issues/751
-# test_autoscale
-# exit_if_failed
+test_autoscale
+exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
