@@ -148,5 +148,4 @@ RevisionReady:
 		IP:   ip,
 		Port: port,
 	}
-	end.Active = true
 }

@@ -92,13 +92,15 @@ func NewActivator(
 				if reqs, ok := d.pendingRequests[id]; ok {
 					d.pendingRequests[id] = append(d.pendingRequests[id], req)
 				} else {
+					// First request for this revision
 					d.pendingRequests[id] = []*HttpRequest{req}
+					d.activationRequests <- req.RevisionId
 				}
-				d.activationRequests <- req.RevisionId
 			case end <- activeEndpoints:
 				id := end.RevisionId.String()
 				if reqs, ok := d.pendingRequests[id]; ok {
 					for _, r := range reqs {
+						// if end has error, write error and don't proxy
 						pr := &ProxyRequest{
 							HttpRequest: r,
 							Endpoint:    end.Endpoint,
