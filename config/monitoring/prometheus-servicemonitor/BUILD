@@ -41,6 +41,11 @@ k8s_object(
 )
 
 k8s_object(
+    name = "ela-autoscaler",
+    template = "ela-autoscaler.yaml",
+)
+
+k8s_object(
     name = "ela-controller",
     template = "ela-controller.yaml",
 )
@@ -58,6 +63,7 @@ k8s_objects(
         ":istio",
         ":prometheus",
         ":prometheus-operator",
+        ":ela-autoscaler",
         ":ela-controller",
         ":fluentd-es",
         ":apiserver",

@@ -61,12 +61,14 @@ type Autoscaler struct {
 	panicking    bool
 	panicTime    *time.Time
 	maxPanicPods float64
+	reporter     StatsReporter
 }
 
-func NewAutoscaler(config Config) *Autoscaler {
+func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		Config: config,
-		stats:  make(map[statKey]Stat),
+		Config:   config,
+		stats:    make(map[statKey]Stat),
+		reporter: reporter,
 	}
 }
 
@@ -144,6 +146,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
 		glog.Info("Un-panicking.")
+		a.reporter.Report(PanicM, 0)
 		a.panicking = false
 		a.panicTime = nil
 		a.maxPanicPods = 0
@@ -175,6 +178,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
 		glog.Info("PANICKING")
+		a.reporter.Report(PanicM, 1)
 		a.panicking = true
 		a.panicTime = &now
 	}

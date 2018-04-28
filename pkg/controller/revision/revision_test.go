@@ -23,6 +23,7 @@ package revision
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -448,6 +449,9 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			foundAutoscaler = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
+			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
+			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
 			break
 		}
 	}
@@ -464,7 +468,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if diff := cmp.Diff(expectedRefs, asService.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
 	}
-	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
 		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
 			expectedLabels, labels)
 	}
@@ -574,7 +578,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
-	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
 		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
 			expectedLabels, labels)
 	}
