@@ -20,19 +20,12 @@ metadata:
   labels:
     app: telemetrysample
 spec:
-  # Uncomment this to test running a nop Build (the image is from Bazel).
-  # This is disabled until we stand up the Build components as part of
-  # everything, which necessitates vendoring.
-  # build:
-  #   steps:
-  #   - name: blah
-  #     image: busybox:latest
-  #     args: ["echo", "Hello"]
-
   revisionTemplate:
     metadata:
       labels:
         elafros.dev/type: app
     spec:
       container:
-        image: telemetrysample:latest
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/elafros/elafros/sample/telemetrysample
