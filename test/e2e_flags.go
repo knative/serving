@@ -13,53 +13,48 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// conformance_suite_test contains the logic required across all conformance test specs.
-package conformance
+// This file contains logic to encapsulate flags which are needed to specify
+// what cluster, etc. to use for e2e tests.
+
+package test
 
 import (
 	"flag"
 	"os"
 	"os/user"
 	"path"
-	"testing"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	// Mysteriously required to support GCP auth (currently used for accessing already build image). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-var (
-	cluster          string
-	dockerRepo       string
-	kubeconfig       string
-	resolvableDomain bool
-)
+// Flags will include the k8s cluster (defaults to $K8S_CLUSTER_OVERRIDE), kubeconfig (defaults to ./kube/config)
+// (for connecting to an existing cluster), dockerRepo (defaults to $DOCKER_REPO_OVERRIDE) and how to connect to deployed endpoints.
+var Flags = initializeFlags()
 
-func init() {
+// EnvironmentFlags holds the command line flags or defaults for settings in the user's environment.
+type EnvironmentFlags struct {
+	Cluster          string
+	DockerRepo       string
+	Kubeconfig       string
+	ResolvableDomain bool
+}
+
+func initializeFlags() *EnvironmentFlags {
+	var f EnvironmentFlags
 	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
-	flag.StringVar(&cluster, "cluster", defaultCluster,
+	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
 		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
 
 	defaultRepo := os.Getenv("DOCKER_REPO_OVERRIDE")
-	flag.StringVar(&dockerRepo, "dockerrepo", defaultRepo,
+	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
 		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $DOCKER_REPO_OVERRIDE")
 
-	flag.StringVar(&kubeconfig, "kubeconfig", "",
+	usr, _ := user.Current()
+	defaultKubeconfig := path.Join(usr.HomeDir, ".kube/config")
+
+	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
 
-	if kubeconfig == "" {
-		usr, _ := user.Current()
-		kubeconfig = path.Join(usr.HomeDir, ".kube/config")
-	}
-
-	flag.BoolVar(&resolvableDomain, "resolvabledomain", false,
+	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
-}
 
-func TestConformance(t *testing.T) {
-	testing.Verbose()
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Conformance Suite")
+	return &f
 }

@@ -16,12 +16,10 @@ limitations under the License.
 // crdpolling contains functions which poll Elafros CRDs until they
 // get into the state desired by the caller or time out.
 
-package conformance
+package test
 
 import (
 	"time"
-
-	. "github.com/onsi/gomega"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
@@ -39,55 +37,51 @@ const (
 // WaitForRouteState polls the status of the Route called name from client every
 // interval until inState returns `true` indicating it is done, returns an
 // error or timeout.
-func WaitForRouteState(client elatyped.RouteInterface, name string, inState func(r *v1alpha1.Route) (bool, error)) {
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+func WaitForRouteState(client elatyped.RouteInterface, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		r, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(r)
 	})
-	Expect(err).NotTo(HaveOccurred())
 }
 
 // WaitForConfigurationState polls the status of the Configuration called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout.
-func WaitForConfigurationState(client elatyped.ConfigurationInterface, name string, inState func(c *v1alpha1.Configuration) (bool, error)) {
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+func WaitForConfigurationState(client elatyped.ConfigurationInterface, name string, inState func(c *v1alpha1.Configuration) (bool, error)) error {
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		c, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(c)
 	})
-	Expect(err).NotTo(HaveOccurred())
 }
 
 // WaitForRevisionState polls the status of the Revision called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout.
-func WaitForRevisionState(client elatyped.RevisionInterface, name string, inState func(r *v1alpha1.Revision) (bool, error)) {
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+func WaitForRevisionState(client elatyped.RevisionInterface, name string, inState func(r *v1alpha1.Revision) (bool, error)) error {
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		r, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(r)
 	})
-	Expect(err).NotTo(HaveOccurred())
 }
 
 // WaitForIngressState polls the status of the Ingress called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout.
-func WaitForIngressState(client v1beta1.IngressInterface, name string, inState func(r *apiv1beta1.Ingress) (bool, error)) {
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+func WaitForIngressState(client v1beta1.IngressInterface, name string, inState func(r *apiv1beta1.Ingress) (bool, error)) error {
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		i, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(i)
 	})
-	Expect(err).NotTo(HaveOccurred())
 }
