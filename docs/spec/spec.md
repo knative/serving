@@ -1,3 +1,8 @@
+# Elafros API spec
+
+This file contains the [resource paths](#resource-paths) and [yaml
+schemas](#resource-yaml-definitions) that make up the Elafros API.
+
 ## Resource Paths
 
 Resource paths in the Elafros API have the following standard k8s form:
@@ -29,13 +34,13 @@ prod.my-service.default.mydomain.com
 ```
 
 
-# Resource YAML Definitions
+## Resource YAML Definitions
 
 YAMLs for the Elafros API resources are described below, describing the
 basic k8s structure: metadata, spec and status, along with comments on
 specific fields.
 
-## Route
+### Route
 
 For a high-level description of Routes,
 [see the overview](overview.md#route).
@@ -92,7 +97,7 @@ status:
 ```
 
 
-## Configuration
+### Configuration
 
 For a high-level description of Configurations,
 [see the overview](overview.md#configuration).
@@ -196,7 +201,7 @@ status:
 ```
 
 
-## Revision
+### Revision
 
 For a high-level description of Revisions,
 [see the overview](overview.md#revision).
