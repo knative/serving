@@ -783,7 +783,7 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	}
 
 	// Checking existing revision condition to see if it is the initial deployment or
-	// during the reactivating process. If a revision is in condition "Activating",
+	// during the reactivating process. If a revision is in condition "Inactive" or "Activating",
 	// we need to route traffic to the activator; if a revision is in condition "Deploying",
 	// we need to route traffic to the revision directly.
 	reason := "Deploying"

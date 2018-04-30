@@ -75,13 +75,14 @@ func TestMakeIstioRouteSpecUseActivator(t *testing.T) {
 		Destination: istiov1alpha2.IstioService{
 			Name: "test-route-service",
 		},
-		Route: []istiov1alpha2.DestinationWeight{istiov1alpha2.DestinationWeight{
-			Destination: istiov1alpha2.IstioService{
-				Name:      controller.GetElaK8SActivatorServiceName(),
-				Namespace: controller.GetElaK8SActivatorNamespace(),
+		Route: []istiov1alpha2.DestinationWeight{
+			istiov1alpha2.DestinationWeight{
+				Destination: istiov1alpha2.IstioService{
+					Name:      controller.GetElaK8SActivatorServiceName(),
+					Namespace: controller.GetElaK8SActivatorNamespace(),
+				},
+				Weight: 100,
 			},
-			Weight: 100,
-		},
 		},
 		AppendHeaders: map[string]string{},
 	}
