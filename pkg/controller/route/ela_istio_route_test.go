@@ -96,7 +96,6 @@ func TestMakeIstioRouteSpecUseActivator(t *testing.T) {
 func TestCalculateDestinationWeightsNoTrafficTarget(t *testing.T) {
 	// The parameter traffic target is nil.
 	route := getTestRouteWithTrafficTargets(nil)
-	//rr := getTestRevisionRoutes()
 	rr := getTestRevisionRoutes()
 	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{
 		istiov1alpha2.DestinationWeight{
