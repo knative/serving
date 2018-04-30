@@ -114,7 +114,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 							Args: []string{
 								"-logtostderr=true",
 								"-stderrthreshold=INFO",
-								fmt.Sprintf("-concurrencyModel=%q", rev.Spec.ConcurrencyModel),
+								fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								corev1.VolumeMount{
