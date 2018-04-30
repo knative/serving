@@ -171,6 +171,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if isProbe(r) {
 		// Do not count health checks for concurrency metrics
 		proxy.ServeHTTP(w, r)
+		return
 	}
 	// Metrics for autoscaling
 	reqInChan <- queue.Poke{}
