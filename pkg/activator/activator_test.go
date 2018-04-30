@@ -3,33 +3,45 @@ package activator
 import (
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 )
 
 func TestActivatorOneRequest(t *testing.T) {
 	done := make(chan struct{})
-	ch := newTestChannels().
-		withRevisionActivator(succeedingRevisionActivator(done, "ip", 8080)).
-		withProxy(succeedingProxy())
-	a := ch.newActivator()
+	at := newActivatorTest().
+		withActivator().
+		withFakeRevisionActivatorFn(succeedingRevisionActivatorFn(done, "ip", 8080)).
+		withFakeProxyFn(succeedingProxyFn())
 
-	ch.sendHttpRequest("rev1")
+	at.sendHttpRequest("rev1")
 	close(done)
+	at.done()
 
-	// assert one activation request was made
-	// assert one request was proxied
+	if len(at.fakeRevisionActivator.record) != 1 {
+		t.Fatalf("Unexpected number of revision activations. Want 1. Got %v.",
+			len(at.fakeRevisionActivator.record))
+	}
+	if len(at.fakeProxy.record) != 1 {
+		t.Fatalf("Unexpected number of requests proxied. Want 1. Got %v.",
+			len(at.fakeProxy.record))
+	}
 }
 
-type testChannels struct {
-	done               chan *HttpRequest
-	httpRequests       chan *HttpRequest
-	activationRequests chan *RevisionId
-	endpoints          chan *RevisionEndpoint
-	proxyRequests      chan *ProxyRequest
+type activatorTest struct {
+	httpRequests          chan *HttpRequest
+	activationRequests    chan *RevisionId
+	endpoints             chan *RevisionEndpoint
+	proxyRequests         chan *ProxyRequest
+	activator             *Activator
+	revisionActivator     *RevisionActivator
+	proxy                 *Proxy
+	fakeRevisionActivator *fakeRevisionActivator
+	fakeProxy             *fakeProxy
 }
 
-func newTestChannels() *testChannels {
-	return &testChannels{
+func newActivatorTest() *activatorTest {
+	return &activatorTest{
 		httpRequests:       make(chan *HttpRequest),
 		activationRequests: make(chan *RevisionId),
 		endpoints:          make(chan *RevisionEndpoint),
@@ -37,74 +49,98 @@ func newTestChannels() *testChannels {
 	}
 }
 
-func (ch *testChannels) newActivator() *Activator {
-	return NewActivator(
-		ch.httpRequests.(<-chan *HttpRequest),
-		ch.activationRequests.(chan<- *RevisionId),
-		ch.endpoints.(<-chan *RevisionEndpoint),
-		ch.proxyRequests.(chan<- *ProxyRequest))
+func (at *activatorTest) withActivator() *activatorTest {
+	at.activator = NewActivator(
+		(<-chan *HttpRequest)(at.httpRequests),
+		(chan<- *RevisionId)(at.activationRequests),
+		(<-chan *RevisionEndpoint)(at.endpoints),
+		(chan<- *ProxyRequest)(at.proxyRequests))
+	return at
 }
 
-func (ch *testChannels) sendHttpRequest(name string) {
-	ch.httpRequests <- &HttpRequest{
+func (at *activatorTest) sendHttpRequest(name string) {
+	at.httpRequests <- &HttpRequest{
 		w: httptest.NewRecorder(),
 		r: &http.Request{
-			Header: Header(map[string][]string{
+			Header: http.Header(map[string][]string{
 				"Elafros-Revision": []string{name},
 			}),
 		},
 	}
 }
 
-type fakeRevisionActivator func(*RevisionId) *RevisionEndpoint
-type fakeProxy func(*ProxyRequest)
+func (at *activatorTest) done() {
+	for i := 0; i < 10; i++ {
+		runtime.Gosched()
+	}
+}
 
-func (ch *testChannels) withRevisionActivator(f fakeRevisionActivator) *testChannels {
+type fakeRevisionActivator struct {
+	fn     func(*RevisionId) *RevisionEndpoint
+	record map[*RevisionId]*RevisionEndpoint
+}
+
+func (at *activatorTest) withFakeRevisionActivatorFn(fn func(*RevisionId) *RevisionEndpoint) *activatorTest {
+	record := make(map[*RevisionId]*RevisionEndpoint)
+	at.fakeRevisionActivator = &fakeRevisionActivator{
+		fn:     fn,
+		record: record,
+	}
 	go func() {
 		for {
-			rev := <-ch.activationRequests
-			endpoints <- f(rev)
+			rev := <-at.activationRequests
+			end := fn(rev)
+			record[rev] = end
+			at.endpoints <- end
 		}
 	}()
+	return at
 }
 
-func (ch *testChannels) withProxy(f fakeProxy) *testChannels {
+type fakeProxy struct {
+	fn     func(*ProxyRequest)
+	record []*ProxyRequest
+}
+
+func (at *activatorTest) withFakeProxyFn(fn func(*ProxyRequest)) *activatorTest {
+	record := make([]*ProxyRequest, 0)
+	at.fakeProxy = &fakeProxy{
+		fn:     fn,
+		record: record,
+	}
 	go func() {
 		for {
-			f(<-ch.proxyRequests)
+			req := <-at.proxyRequests
+			at.fakeProxy.record = append(at.fakeProxy.record, req)
+			fn(req)
 		}
 	}()
+	return at
 }
 
-func succeedingRevisionActivator(release chan struct{}, ip string, int32 port) fakeRevisionActivator {
-	return fakeRevisionActivator(
-		func(r *RevisionId) *RevisionEndpoint {
-			_ <- release
-			return &RevisionEndpoint{
-				RevisionId: *r,
-				endpoint: endpoint{
-					ip:   ip,
-					port: port,
-				},
-			}
-		},
-	)
+func succeedingRevisionActivatorFn(release chan struct{}, ip string, port int32) func(*RevisionId) *RevisionEndpoint {
+	return func(r *RevisionId) *RevisionEndpoint {
+		_ = <-release
+		return &RevisionEndpoint{
+			RevisionId: *r,
+			endpoint: endpoint{
+				ip:   ip,
+				port: port,
+			},
+		}
+	}
 }
 
-func failingRevisionActivator(err error, status int) fakeRevisionActivator {
-	return fakeRevisionActivator(
-		func(r *RevisionId) *RevisionEndpoint {
-			return &RevisionEndpoint{
-				RevisionId: *r,
-				err:        err,
-				status:     status,
-			}
-		},
-	)
+func failingRevisionActivatorFn(err error, status int) func(*RevisionId) *RevisionEndpoint {
+	return func(r *RevisionId) *RevisionEndpoint {
+		return &RevisionEndpoint{
+			RevisionId: *r,
+			err:        err,
+			status:     status,
+		}
+	}
 }
 
-func succeedingProxy() fakeProxy {
-	return fakeProxy(
-		func(_ *ProxyRequest) {},
-	)
+func succeedingProxyFn() func(*ProxyRequest) {
+	return func(_ *ProxyRequest) {}
 }
