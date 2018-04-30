@@ -60,7 +60,7 @@ var (
 	elaAutoscalerPort string
 
 	// Revision-level configuration
-	enableSingleConcurrency = flag.Bool("enableSingleConcurrency", false, "")
+	concurrencyMode = flag.String("concurrencyMode", string(v1alpha1.RevisionConcurrencyModelMulti), "")
 
 	// Cluster-level configuration
 	enableScaleToZero       = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
