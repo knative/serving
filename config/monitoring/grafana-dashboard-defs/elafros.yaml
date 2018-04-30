@@ -794,7 +794,7 @@ data:
           "title": "Request Volume by Revision",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -875,7 +875,7 @@ data:
           "title": "Request Volume by Response Code",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -993,7 +993,7 @@ data:
           "title": "Response Time by Revision",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1126,7 +1126,7 @@ data:
           "title": "Response Time by Response Code",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1220,7 +1220,7 @@ data:
           "title": "Response Size by Revision",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1301,7 +1301,7 @@ data:
           "title": "Request Size by Revision",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1485,7 +1485,7 @@ data:
           "title": "Total CPU Usage",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1565,7 +1565,7 @@ data:
           "title": "Total Memory Usage",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1768,7 +1768,7 @@ data:
           "title": "Pod Counts",
           "tooltip": {
             "shared": true,
-            "sort": 1,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -1898,7 +1898,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Elafros - Autoscaler",
+      "title": "Elafros - Auto Scaler",
       "uid": "u_-9SIMiz",
       "version": 3
     }

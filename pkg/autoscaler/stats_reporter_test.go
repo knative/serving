@@ -34,6 +34,7 @@ func TestReporter_Report(t *testing.T) {
 		"revision":                "testrev",
 	}
 
+	// Send statistics only once and observe the results
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 10) })
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 7) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 5) })
@@ -43,10 +44,21 @@ func TestReporter_Report(t *testing.T) {
 	checkData(t, "actual_pod_count", wantTags, 5)
 	checkData(t, "panic_mode", wantTags, 0)
 
-	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 6) })
+	// All the stats are gauges - record multiple entries for one stat - last one should stick
+	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 1) })
+	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 2) })
+	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 3) })
+	checkData(t, "desired_pod_count", wantTags, 3)
+
+	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 4) })
+	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 5) })
+	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 6) })
+	checkData(t, "requested_pod_count", wantTags, 6)
+
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 7) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 8) })
-	checkData(t, "actual_pod_count", wantTags, 8)
+	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 9) })
+	checkData(t, "actual_pod_count", wantTags, 9)
 
 	expectSuccess(t, func() error { return r.Report(PanicM, 1) })
 	expectSuccess(t, func() error { return r.Report(PanicM, 0) })

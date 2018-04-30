@@ -7,37 +7,86 @@ and tools.
 
 ## Request metrics
 
-Open Grafana UI as described in [telemetry.md](../telemetry.md) and navigate
-to "Elafros - Revision HTTP Requests" dashboard. Select your configuration and revision
+Start your investigation with "Revision - HTTP Requests" dashboard. To open this dashboard,
+open Grafana UI as described in [telemetry.md](../telemetry.md) and navigate to 
+"Elafros - Revision HTTP Requests". Select your configuration and revision
 from the menu on top left of the page. You will see a page like below:
 
-![Elafros - Revision HTTP Requests](images/request_dashboard1.png)
+![Elafros - Revision HTTP Requests](images/request_dash1.png)
 
-In this dashboard, you can see:
-* Request volume by revision -- explain
-* Request latency by revision -- explain
-* Request and response sizes -- explain
-* Check and see if a particular revision is having an issue or all - explain
-* WHAT ELSE?????* WHAT ELSE?????* WHAT ELSE?????* WHAT ELSE?????* WHAT ELSE?????
+This dashboard gives visibility into:
+* Request volume per revision
+* Request volume per HTTP response code
+* Response time per revision
+* Response time per HTTP response code
+* Request and response sizes per revision
 
-## End to end traces
-* Explain
+This dashboard can show traffic volume or latency discrepancies between different revisions. 
+If, for example, a revision's latency is higher than others', 
+focus your investigation on the offending revision through the rest of this guide.
 
+## Request traces
+Next, look into request traces to find out where the time is spent for a single request.
+To access request traces, open Zipkin UI as described in [telemetry.md](../telemetry.md).
+Select your revision from the "Service Name" drop down and click on "Find Traces" button.
+This will bring up a view that looks like below:
+
+![Zipkin - Trace Overview](images/zipkin1.png)
+
+In the example above, we can see that the request spent most of its time in the 
+[span](https://github.com/opentracing/specification/blob/master/specification.md#the-opentracing-data-model) right before the last.
+Investigation should now be focused on that specific span. 
+Clicking on that will bring up a view that looks like below:
+
+![Zipkin - Span Details](images/zipkin2.png)
+
+This view shows detailed information about the specific span, such as the
+micro service or external URL that was called. In this example, call to a
+Grafana URL is taking the most time and investigation should focus on why
+that URL is taking that long.
 
 ## Auto scaler metrics
-- Desired pod count
-- Requested pod count
-- Actual pod count
-- Panic mode
-- Explain what happens in each different situation
+If request metrics or traces do not show any obvious hot spots, or if they show
+that most of the time is spent in your own code, auto scaler metrics should be
+looked next. To open auto scaler dashboard, open Grafana UI and select 
+"Elafros - Auto Scaler" dashboard. This will bring up a view that looks like below:
 
-## CPU metrics
-see how much time is spent in your containers
+![Elafros - Auto Scaler](images/autoscaler_dash1.png)
 
-## Pod metrics
-needed?????
+This view shows 3 key metrics from Elafros auto scaler:
+* Actual pod count: # of pods that are running a given revision
+* Desired pod count: # of pods that auto scaler thinks that should serve the
+  revision
+* Requested pod count: # of pods that auto scaler requested from Kubernetes
 
-## Node metrics
-needed?????
+If there is a large gap between actual pod count and requested pod count, that
+means that the Kubernetes cluster is unable to keep up allocating new
+resources fast enough, or that the Kubernetes cluster is out of requested
+resources.
 
-## Use a profiler???????
+If there is a large gap between requested pod count and desired pod count, that
+is an indication that Elafros auto scaler is unable to communicate with
+Kubernetes master to make the request.
+
+In the example above, auto scaler requested 18 pods to optimally serve the traffic
+but was only granted 8 pods because the cluster is out of resources.
+
+## CPU and memory usage
+You can access total CPU and memory usage of your revision from 
+"Elafros - Revision CPU and Memory Usage" dashboard. Opening this will bring up a 
+view that looks like below:
+
+![Elafros - Revision CPU and Memory Usage](images/cpu_dash1.png)
+
+The first chart shows rate of the CPU usage across all pods serving the revision.
+The second chart shows total memory consumed across all pods serving the revision.
+Both of these metrics are further divided into per container usage.
+* ela-container: This container runs the user code (application, function or container).
+* [istio-proxy](https://github.com/istio/proxy): Sidecar container to form an 
+[Istio](https://istio.io/docs/concepts/what-is-istio/overview.html) mesh.
+* queue-proxy: Elafros owned sidecar container to enforce request concurrency limits.
+* autoscaler: Elafros owned sidecar container to provide auto scaling for the revision.
+* fluentd-proxy: Sidecar container to collect logs from /var/log.
+
+## Profiling
+...To be filled...
