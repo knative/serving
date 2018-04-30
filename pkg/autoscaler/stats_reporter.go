@@ -44,7 +44,7 @@ type StatsReporter interface {
 	Report(m Measurement, v int64) error
 }
 
-// Reporter holds cached metrics objects to report autoscaler metrics
+// Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
 	measurements [lastEnumEntry + 1]*stats.Int64Measure
 	ctx          context.Context
@@ -55,22 +55,32 @@ type Reporter struct {
 func NewStatsReporter(podNamespace string, config string, revision string) (*Reporter, error) {
 
 	var r = &Reporter{}
-	r.measurements[DesiredPodCountM] = stats.Int64("desired_pod_count", "Number of pods autoscaler wants to allocate", stats.UnitNone)
-	r.measurements[RequestedPodCountM] = stats.Int64("requested_pod_count", "Number of pods autoscaler requested from Kubernetes", stats.UnitNone)
-	r.measurements[ActualPodCountM] = stats.Int64("actual_pod_count", "Number of pods that are allocated currently", stats.UnitNone)
-	r.measurements[PanicM] = stats.Int64("panic_mode", "1 if autoscaler is in panic mode, 0 otherwise", stats.UnitNone)
+	r.measurements[DesiredPodCountM] = stats.Int64(
+		"desired_pod_count",
+		"Number of pods autoscaler wants to allocate",
+		stats.UnitNone)
+	r.measurements[RequestedPodCountM] = stats.Int64(
+		"requested_pod_count",
+		"Number of pods autoscaler requested from Kubernetes",
+		stats.UnitNone)
+	r.measurements[ActualPodCountM] = stats.Int64(
+		"actual_pod_count",
+		"Number of pods that are allocated currently",
+		stats.UnitNone)
+	r.measurements[PanicM] = stats.Int64(
+		"panic_mode",
+		"1 if autoscaler is in panic mode, 0 otherwise",
+		stats.UnitNone)
 
 	// Create the tag keys that will be used to add tags to our measurements.
 	namespaceTagKey, err := tag.NewKey("configuration_namespace")
 	if err != nil {
 		return nil, err
 	}
-
 	configTagKey, err := tag.NewKey("configuration")
 	if err != nil {
 		return nil, err
 	}
-
 	revisionTagKey, err := tag.NewKey("revision")
 	if err != nil {
 		return nil, err

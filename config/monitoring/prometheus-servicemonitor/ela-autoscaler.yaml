@@ -28,4 +28,4 @@ spec:
     - ela-system
   endpoints:
   - port: autoscaler-port
-    interval: 5s
+    interval: 3s

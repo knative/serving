@@ -1715,7 +1715,7 @@ data:
           "seriesOverrides": [
             {
               "alias": "Panic Mode",
-              "color": "#e24d42",
+              "color": "#f29191",
               "dashes": true,
               "fill": 2,
               "linewidth": 2,
@@ -1725,11 +1725,12 @@ data:
           ],
           "spaceLength": 10,
           "stack": false,
-          "steppedLine": false,
+          "steppedLine": true,
           "targets": [
             {
               "expr": "autoscaler_actual_pod_count{configuration_namespace=\"$namespace\", configuration=\"$configuration\", revision=\"$revision\"}",
               "format": "time_series",
+              "interval": "1s",
               "intervalFactor": 1,
               "legendFormat": "Actual Pods",
               "refId": "A"
@@ -1737,6 +1738,7 @@ data:
             {
               "expr": "autoscaler_desired_pod_count{configuration_namespace=\"$namespace\", configuration=\"$configuration\", revision=\"$revision\"} ",
               "format": "time_series",
+              "interval": "1s",
               "intervalFactor": 1,
               "legendFormat": "Desired Pods",
               "refId": "B"
@@ -1744,6 +1746,7 @@ data:
             {
               "expr": "autoscaler_requested_pod_count{configuration_namespace=\"$namespace\", configuration=\"$configuration\", revision=\"$revision\"} ",
               "format": "time_series",
+              "interval": "1s",
               "intervalFactor": 1,
               "legendFormat": "Requested Pods",
               "refId": "C"
@@ -1751,6 +1754,7 @@ data:
             {
               "expr": "autoscaler_panic_mode{configuration_namespace=\"$namespace\", configuration=\"$configuration\", revision=\"$revision\"} ",
               "format": "time_series",
+              "interval": "1s",
               "hide": false,
               "instant": false,
               "intervalFactor": 1,
