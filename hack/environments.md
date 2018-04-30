@@ -16,9 +16,7 @@ gcloud container clusters get-credentials elafros-demo --zone us-central1-a --pr
 
 ### The playground environment
 
-This environment is recreated every Saturday 1AM PST, using the latest stable Elafros release (i.e., the images available at gcr.io/elafros-images).
-
-The environment creation process is automatic and currently uses Google private infrastructure maintained by the Serverless EngProd team.
+This environment is recreated by a prow periodic job every Saturday 1AM PST, using the latest stable Elafros release (i.e., the images available at gcr.io/elafros-images).
 
 You can configure your access by running:
 
