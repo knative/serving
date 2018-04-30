@@ -49,6 +49,7 @@ type RouteRule struct {
 //      weight: 90
 //    - destination:
 //        name: revision-service-2
+//        namespace: revision-2-namespace
 //      weight: 10
 //  # https://github.com/istio/istio/blob/master/tests/helm/templates/rule-default-route-append-headers.yaml
 //    appendHeaders:
