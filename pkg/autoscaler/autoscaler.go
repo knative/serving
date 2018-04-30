@@ -23,6 +23,7 @@ import (
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 )
 
+// Stat defines a single measurement at a point in time
 type Stat struct {
 	// The time the data point was collected on the pod.
 	Time *time.Time
@@ -47,6 +48,7 @@ var (
 	lastRequestTime = time.Now()
 )
 
+// Config defines the tunable autoscaler parameters
 type Config struct {
 	TargetConcurrency    *k8sflag.Float64Flag
 	MaxScaleUpRate       *k8sflag.Float64Flag
@@ -55,6 +57,7 @@ type Config struct {
 	ScaleToZeroThreshold *k8sflag.DurationFlag
 }
 
+// Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	Config
 	stats        map[statKey]Stat
@@ -64,6 +67,7 @@ type Autoscaler struct {
 	reporter     StatsReporter
 }
 
+// NewAutoscaler creates a new instance of autoscaler
 func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
 		Config:   config,
@@ -85,7 +89,7 @@ func (a *Autoscaler) Record(stat Stat) {
 	a.stats[key] = stat
 }
 
-// Calculate the desired scale based on current statistics given the current time.
+// Scale calculates the desired scale based on current statistics given the current time.
 // Not safe for concurrent access or concurrent access with Record.
 func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
