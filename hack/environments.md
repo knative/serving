@@ -2,11 +2,11 @@
 
 There are two ready-to-use stable Elafros environments available for contributors.
 
-Currently the access is restricted to members of the `elafros-images` Google groups.
+Currently the access is restricted to members of the `elafros-images` Google groups. Ask @mattmoor to be added to the group.
 
 ## The demo environment
 
-This environment is manually rebuilt by the Steering Committee at the conclusion of a milestone.
+This environment is rebuilt by the Steering Committee at the conclusion of a milestone.
 
 You can configure your access by running:
 
@@ -16,7 +16,9 @@ gcloud container clusters get-credentials elafros-demo --zone us-central1-a --pr
 
 ### The playground environment
 
-This environment is automatically recreated every Saturday 1AM PST, using the latest stable Elafros release.
+This environment is recreated every Saturday 1AM PST, using the latest stable Elafros release (i.e., the images available at gcr.io/elafros-images).
+
+The environment creation process is automatic and currently uses Google private infrastructure maintained by the Serverless EngProd team.
 
 You can configure your access by running:
 
