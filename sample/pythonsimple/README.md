@@ -58,10 +58,7 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
 route-python-example-ela-ingress   demo.myhost.net             80        14s
 ```
-@app.route('/')
-def get():
-  target = os.environ.get('TARGET') or 'NOT SPECIFIED'
-  return 'Hello World from Python: %s!\n' % target
+
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell
