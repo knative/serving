@@ -100,7 +100,7 @@ func validateConcurrencyModel(value v1alpha1.RevisionConcurrencyModelType) error
 	case v1alpha1.RevisionConcurrencyModelType(""), v1alpha1.RevisionConcurrencyModelMulti, v1alpha1.RevisionConcurrencyModelSingle:
 		return nil
 	default:
-		return fmt.Errorf("Unknown RevisionConcurrencyModelType: %q", value)
+		return fmt.Errorf("Unrecognized value for concurrencyModel: %q", value)
 	}
 }
 
