@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/autoscaler"
 	"github.com/elafros/elafros/pkg/controller/revision"
 	"github.com/elafros/elafros/pkg/queue"
@@ -74,7 +75,7 @@ var (
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
-	enableSingleConcurrency  = flag.Bool("enableSingleConcurrency", false, "")
+	concurrencyModel         = flag.String("concurrencyModel", v1alpha1.RevisonConcurrencyModelMulti, "")
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
@@ -178,7 +179,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqOutChan <- queue.Poke{}
 	}()
-	if *enableSingleConcurrency {
+	if *concurrencyModel == v1alpha1.RevisionConcurrencyModelSingle {
 		// Enforce single concurrency and breaking
 		ok := singleConcurrencyBreaker.Maybe(func() {
 			proxy.ServeHTTP(w, r)
