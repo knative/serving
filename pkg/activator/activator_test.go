@@ -28,6 +28,50 @@ func TestActivatorOneRequest(t *testing.T) {
 	}
 }
 
+func TestActivatorManyRequestsOneRevision(t *testing.T) {
+	done := make(chan struct{})
+	at := newActivatorTest().
+		withActivator().
+		withFakeRevisionActivatorFn(succeedingRevisionActivatorFn(done, "ip", 8080)).
+		withFakeProxyFn(succeedingProxyFn())
+
+	at.sendHttpRequest("rev1")
+	at.sendHttpRequest("rev1")
+	close(done)
+	at.done()
+
+	if len(at.fakeRevisionActivator.record) != 1 {
+		t.Fatalf("Unexpected number of revision activations. Want 1. Got %v.",
+			len(at.fakeRevisionActivator.record))
+	}
+	if len(at.fakeProxy.record) != 2 {
+		t.Fatalf("Unexpected number of requests proxied. Want 2. Got %v.",
+			len(at.fakeProxy.record))
+	}
+}
+
+func TestActivatorOneRequestManyRevisions(t *testing.T) {
+	done := make(chan struct{})
+	at := newActivatorTest().
+		withActivator().
+		withFakeRevisionActivatorFn(succeedingRevisionActivatorFn(done, "ip", 8080)).
+		withFakeProxyFn(succeedingProxyFn())
+
+	at.sendHttpRequest("rev1")
+	at.sendHttpRequest("rev2")
+	close(done)
+	at.done()
+
+	if len(at.fakeRevisionActivator.record) != 2 {
+		t.Fatalf("Unexpected number of revision activations. Want 2. Got %v.",
+			len(at.fakeRevisionActivator.record))
+	}
+	if len(at.fakeProxy.record) != 2 {
+		t.Fatalf("Unexpected number of requests proxied. Want 2. Got %v.",
+			len(at.fakeProxy.record))
+	}
+}
+
 type activatorTest struct {
 	httpRequests          chan *HttpRequest
 	activationRequests    chan *RevisionId
