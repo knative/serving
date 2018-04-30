@@ -75,11 +75,11 @@ const (
 	// RevisionConcurrencyModelSingle guarantees that only one
 	// request will be handled at a time (concurrently) per instance
 	// of Revision Container.
-	RevisionConcurrencyModelSingle RevisionConcurrencyModelType = "Single"
+	RevisionConcurrencyModelSingle RevisionConcurrencyModelType = "SingleConcurrency"
 	// RevisionConcurencyModelMulti allows more than one request to
 	// be handled at a time (concurrently) per instance of Revision
-	// Container
-	RevisionConcurrencyModelMulti RevisionConcurrencyModelType = "Multi"
+	// Container.
+	RevisionConcurrencyModelMulti RevisionConcurrencyModelType = "MultiConcurrency"
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).
@@ -97,7 +97,8 @@ type RevisionSpec struct {
 	ServingState RevisionServingStateType `json:"servingState"`
 
 	// ConcurrencyModel specifies the desired concurrency model
-	// (Single or Multi) for the Revision.
+	// (SingleConcurrency or MultiConcurrency) for the
+	// Revision. Defaults to MultiConcurrency.
 	ConcurrencyModel RevisionConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
