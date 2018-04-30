@@ -1,9 +1,8 @@
-apiVersion: rbac.authorization.k8s.io/v1
-# kubernetes versions before 1.8.0 should use rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
-  namespace: kube-system
   name: kube-state-metrics-resizer
+  namespace: monitoring
 rules:
 - apiGroups: [""]
   resources:
@@ -14,4 +13,3 @@ rules:
   - deployments
   resourceNames: ["kube-state-metrics"]
   verbs: ["get", "update"]
-

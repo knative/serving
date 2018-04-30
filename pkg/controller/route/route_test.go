@@ -41,6 +41,7 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -52,9 +53,12 @@ import (
 	. "github.com/elafros/elafros/pkg/controller/testing"
 )
 
-const testNamespace string = "test"
-const defaultDomainSuffix string = "test-domain.dev"
-const prodDomainSuffix string = "prod-domain.com"
+const (
+	testNamespace       string = "test"
+	defaultDomainSuffix string = "test-domain.dev"
+	prodDomainSuffix    string = "prod-domain.com"
+	useActivator        bool   = true
+)
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
@@ -160,6 +164,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 				},
 			},
 		},
+		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
 	).(*Controller)
 
 	return
@@ -1043,6 +1048,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	controller.addConfigurationEvent(config)
 }
 
+// Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	kubeClient, elaClient, controller, _, _ := newTestController(t)
 
@@ -1057,8 +1063,8 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Create a route.
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
-	// Create an ingress owned by this route.
-	controller.reconcileIngress(route)
+	// Create an ingress owned by this route. Do not use activator.
+	controller.reconcileIngress(route, !useActivator)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
@@ -1080,5 +1086,14 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
+
+	// Create an ingress which uses the activator.
+	controller.reconcileIngress(route, useActivator)
+	ingressClient = kubeClient.Extensions().Ingresses(ctrl.GetElaK8SActivatorNamespace())
+	ingress, _ = ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
+	if ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName != ctrl.GetElaK8SActivatorServiceName() {
+		t.Errorf("Unexpected ingress for activator service. want %s, got %s.",
+			ctrl.GetElaK8SActivatorNamespace(), ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName)
 	}
 }
