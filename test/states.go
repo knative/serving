@@ -30,16 +30,12 @@ import (
 // traffic to and return true if 100% of the traffic is routing to revisionName.
 func AllRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
 	return func(r *v1alpha1.Route) (bool, error) {
-		if len(r.Status.Traffic) > 0 {
-			if len(r.Status.Traffic) != 1 {
-				return true, fmt.Errorf("Expected Route to have only one configurated Traffic but had %d. Route: %v", len(r.Status.Traffic), r)
-			}
-			if r.Status.Traffic[0].RevisionName == revisionName {
-				if r.Status.Traffic[0].Percent != 100 {
-					return true, fmt.Errorf("Expected 100%% of traffic to go to Revision %s but actually is %d", revisionName, r.Status.Traffic[0].Percent)
-				}
-				if r.Status.Traffic[0].Name != routeName {
-					return true, fmt.Errorf("Expected traffic name to be %s but actually is %s", revisionName, r.Status.Traffic[0].Name)
+		for _, tt := range r.Status.Traffic {
+			if tt.RevisionName == revisionName {
+				if r.Status.Traffic[0].Percent == 100 {
+					if r.Status.Traffic[0].Name != routeName {
+						return true, fmt.Errorf("Expected traffic name to be %s but actually is %s", revisionName, r.Status.Traffic[0].Name)
+					}
 				}
 				return true, nil
 			}
