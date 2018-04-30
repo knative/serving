@@ -69,10 +69,10 @@ Artifact                   | Link
 -------------------------- | ----
 Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
 Community Meeting VC       | [meet.google.com/uea-zcwt-drt](https://meet.google.com/uea-zcwt-drt) <br>Or dial in:<br>(US) +1 919 525 1825<br>PIN: 356 842#
-Community Meeting Calendar | Wednesdays 9:00a-10:00a PST<br>[Calendar Invitation](https://calendar.google.com/calendar/embed?src=google.com_5pce19kpifu8avnj0eo74sg84c%40group.calendar.google.com&ctz=America%2FLos_Angeles)
+Community Meeting Calendar | Wednesdays 9:00a-9:30a PST<br>[Calendar Invitation](https://calendar.google.com/calendar/embed?src=google.com_5pce19kpifu8avnj0eo74sg84c%40group.calendar.google.com&ctz=America%2FLos_Angeles)
 Meeting Notes              | [Notes](https://docs.google.com/document/d/1uGDehQu493N_XCAT5H4XEw5T9IWlPN1o19ULOWKuPnY/edit)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1S22YmGl6B1ppYApwa1j5j9Nc6rEChlPo)
-Slack Channel              | [#events](https://elafros.slack.com/messages/CAE894AMC/)
+Slack Channel              | [#eventing](https://elafros.slack.com/messages/C9JP909F0/)
 
 &nbsp;                                                        | Leads       | Company | Profile
 ------------------------------------------------------------- | ----------- | ------- | -------
