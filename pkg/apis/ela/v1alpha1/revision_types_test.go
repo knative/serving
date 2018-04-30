@@ -48,7 +48,7 @@ func TestIsReady(t *testing.T) {
 			status: RevisionStatus{
 				Conditions: []RevisionCondition{
 					{
-						Type:   RevisionConditionBuildComplete,
+						Type:   RevisionConditionBuildSucceeded,
 						Status: corev1.ConditionTrue,
 					},
 				},
@@ -107,7 +107,7 @@ func TestIsReady(t *testing.T) {
 			status: RevisionStatus{
 				Conditions: []RevisionCondition{
 					{
-						Type:   RevisionConditionBuildComplete,
+						Type:   RevisionConditionBuildSucceeded,
 						Status: corev1.ConditionTrue,
 					},
 					{
@@ -123,7 +123,7 @@ func TestIsReady(t *testing.T) {
 			status: RevisionStatus{
 				Conditions: []RevisionCondition{
 					{
-						Type:   RevisionConditionBuildComplete,
+						Type:   RevisionConditionBuildSucceeded,
 						Status: corev1.ConditionTrue,
 					},
 					{
@@ -150,20 +150,20 @@ func TestGetSetCondition(t *testing.T) {
 	}
 
 	rc := &RevisionCondition{
-		Type:   RevisionConditionBuildComplete,
+		Type:   RevisionConditionBuildSucceeded,
 		Status: corev1.ConditionTrue,
 	}
 	// Set Condition and make sure it's the only thing returned
 	rs.SetCondition(rc)
-	if e, a := rc, rs.GetCondition(RevisionConditionBuildComplete); !reflect.DeepEqual(e, a) {
+	if e, a := rc, rs.GetCondition(RevisionConditionBuildSucceeded); !reflect.DeepEqual(e, a) {
 		t.Errorf("GetCondition expected %v got: %v", e, a)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
 		t.Errorf("GetCondition expected nil got: %v", a)
 	}
 	// Remove and make sure it's no longer there
-	rs.RemoveCondition(RevisionConditionBuildComplete)
-	if a := rs.GetCondition(RevisionConditionBuildComplete); a != nil {
+	rs.RemoveCondition(RevisionConditionBuildSucceeded)
+	if a := rs.GetCondition(RevisionConditionBuildSucceeded); a != nil {
 		t.Errorf("empty RevisionStatus returned %v when expected nil", a)
 	}
 }

@@ -31,11 +31,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "node-exporter",
-    template = "node-exporter.yaml",
-)
-
-k8s_object(
     name = "prometheus",
     template = "prometheus.yaml",
 )
@@ -61,7 +56,6 @@ k8s_objects(
     name = "everything",
     objects = [
         ":istio",
-        ":node-exporter",
         ":prometheus",
         ":prometheus-operator",
         ":ela-controller",
@@ -71,6 +65,7 @@ k8s_objects(
         ":kube-scheduler",
         ":kube-state-metrics",
         ":kubelet",
+        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter-monitor",
     ],
     visibility = ["//visibility:public"],
 )

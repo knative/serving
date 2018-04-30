@@ -1,8 +1,8 @@
-apiVersion: rbac.authorization.k8s.io/v1
-# kubernetes versions before 1.8.0 should use rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: kube-state-metrics
+  namespace: monitoring
 rules:
 - apiGroups: [""]
   resources:
@@ -38,3 +38,11 @@ rules:
   resources:
   - horizontalpodautoscalers
   verbs: ["list", "watch"]
+- apiGroups: ["authentication.k8s.io"]
+  resources:
+  - tokenreviews
+  verbs: ["create"]
+- apiGroups: ["authorization.k8s.io"]
+  resources:
+  - subjectaccessreviews
+  verbs: ["create"]

@@ -19,12 +19,6 @@ metadata:
   namespace: monitoring
 data:
   dashboards.yaml: |+
-    - name: 'kubernetes'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/kubernetes
     - name: 'elafros'
       org_id: 1
       folder: ''
@@ -37,3 +31,69 @@ data:
       type: file
       options:
         folder: /grafana-dashboard-definition/istio
+    - name: 'mixer'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/mixer
+    - name: 'pilot'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/pilot
+    - name: 'kubernetes-deployment'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-deployment
+    - name: 'kubernetes-capacity-planning'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-capacity-planning
+    - name: 'kubernetes-cluster-health'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-cluster-health
+    - name: 'kubernetes-cluster-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-cluster-status
+    - name: 'kubernetes-control-plane-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-control-plane-status
+    - name: 'kubernetes-resource-requests'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-resource-requests
+    - name: 'kubernetes-nodes'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-nodes
+    - name: 'kubernetes-pods'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-pods
+    - name: 'kubernetes-statefulset'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-statefulset

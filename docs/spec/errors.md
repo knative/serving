@@ -14,9 +14,51 @@ in status:
 
 Both of these mechanisms often include additional data from the
 controller such as `observedGeneration` (to determine whether the
-controller has seen the latest updates to the spec). Example user and
-system error scenarios are included below along with how the status is
-presented to CLI and UI tools via the API.
+controller has seen the latest updates to the spec).
+
+Conditions provide an easy mechanism for client user interfaces to
+indicate the current state of resources to a user. Elafros resources
+should follow these patterns:
+
+1. Each resource should define a small number of success conditions as
+   Types. This should bias towards fewer than 5 high-level progress
+   categories which are separate and meaningful for customers. For a
+   Revision, these might be `BuildSucceeded`, `ResourcesAvailable` and
+   `ContainerHealthy`.
+2. Where it makes sense, resources should define a top-level "happy
+   state" condition type which indicates that the resource is set up
+   correctly and ready to serve. For long-running resources, this
+   should be named `Ready`. For objects which run to completion, the
+   object should be named `Succeeded`.
+3. Each condition's status should be one of:
+   * `Unknown` when the controller is actively working to achieve the
+     condition.
+   * `False` when the reconciliation has failed. This should be a terminal
+     failure state until user action occurs.
+   * `True ` when the reconciliation has succeeded. Once all transition
+     conditions have succeeded, the "happy state" condition should be set
+     to `True`.
+     
+   Type names should be chosen such that these interpretations are clear:
+   
+   > `BuildSucceeded` works because `True` = success and `False` = failure.
+   
+   > `BuildCompleted` does not, because `False` could mean "in-progress".
+   
+   Conditions may also be omitted entirely if reconciliation has been
+   skipped. When all conditions have succeeded, the "happy state"
+   should clear other conditions for output legibility. Until the
+   "happy state" is set, conditions should be persisted for the
+   benefit of UI tools representing progress on the outcome.
+   
+4. Conditions with a status of `False` will also supply additional details
+   about the failure in the "Reason" and "Message" sections -- both of
+   these should be considered to have unlimited cardinality, unlike
+   Type. If a resource has a "happy state" type, it will surface the
+   `Reason` and `Message` from the first failing sub Condition.
+
+Example user and system error scenarios are included below along with
+how the status is presented to CLI and UI tools via the API.
 
 * [Revision failed to become Ready](#revision-failed-to-become-ready)
 * [Build failed](#build-failed)
@@ -45,7 +87,7 @@ status:
   conditions:
   - type: LatestRevisionReady
     status: False
-    reason: ContainerMissing
+    reason: ContainerHealthy
     message: "Unable to start because container is missing and build failed."
 ```
 
@@ -53,8 +95,8 @@ status:
 ## Build failed
 
 If the Build steps failed while creating a Revision, you can examine
-the `Failed` condition on the Build or the `BuildFailed` condition on
-the Revision (which copies the value from the build referenced by
+the `Failed` condition on the Build or the `BuildSucceeded` condition
+on the Revision (which copies the value from the build referenced by
 `spec.buildName`). In addition, the Build resource (but not the
 Revision) should have a status field to link to the log output of the
 build.
@@ -71,7 +113,6 @@ status:
   - type: Failed
     status: True
     reason: BuildStepFailed  # could also be SourceMissing, etc
-    # reason is a short status, message provides error details
     message: "Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
@@ -85,21 +126,20 @@ status:
   conditions:
   - type: Ready
     status: False
-    reason: ContainerMissing
-    message: "Unable to start because container is missing and build failed."
-  - type: BuildFailed
-    status: True
+    reason: BuildFailed
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+  - type: BuildSucceeded
+    status: False
     reason: BuildStepFailed
-    # reason is a short status, message provides error details
     message: "Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
 
 ## Revision not found by Route
 
-If a Revision is referenced in the Route's `spec.rollout.traffic`, the
+If a Revision is referenced in the Route's `spec.traffic`, the
 corresponding entry in the `status.traffic` list will be set to "Not
-found", and the `TrafficDropped` condition will be marked as True,
+found", and the `AllTrafficAssigned` condition will be marked as False
 with a reason of `RevisionMissing`.
 
 ```http
@@ -116,13 +156,14 @@ status:
     name: next
     percent: 0
   conditions:
-  - type: RolloutInProgress
+  - type: Ready
     status: False
-  - type: TrafficDropped
-    status: True
     reason: RevisionMissing
-    # reason is a short status, message provides error details
-    message: "Revision 'qyzz' referenced in rollout.traffic not found"
+    message: "Revision 'qyzz' referenced in traffic not found"
+  - type: AllTrafficAssigned
+    status: False
+    reason: RevisionMissing
+    message: "Revision 'qyzz' referenced in traffic not found"
 ```
 
 
@@ -131,8 +172,8 @@ status:
 If a Route references the `latestReadyRevisionName` of a Configuration
 and the Configuration cannot be found, the corresponding entry in
 `status.traffic` list will be set to "Not found", and the
-`TrafficDropped` condition will be marked as True with a reason of
-`ConfigurationMissing`.
+`AllTrafficAssigned` condition will be marked as False with a reason
+of `ConfigurationMissing`.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/abc
@@ -144,22 +185,27 @@ status:
   - revisionName: "Not found"
     percent: 100
   conditions:
-  - type: RolloutInProgress
+  - type: Ready
     status: False
-  - type: TrafficDropped
-    status: True
     reason: ConfigurationMissing
-    # reason is a short status, message provides error details
+    message: "Revision 'my-service' referenced in rollout.traffic not found"
+  - type: AllTrafficAssigned
+    status: False
+    reason: ConfigurationMissing
     message: "Revision 'my-service' referenced in rollout.traffic not found"
 ```
 
 
 ## Latest Revision of a Configuration deleted
 
-If the most recent (or most recently ready) Revision is deleted, the
-Configuration will clear the `latestReadyRevisionName`. If the
-Configuration is referenced by a Route, the Route will set the
-`TrafficDropped` condition with reason `RevisionMissing`, as above.
+If the most recent Revision is deleted, the Configuration will set
+`LatestRevisionReady` to False.
+
+If the deleted Revision was also the most recent to become ready, the
+Configuration will also clear the `latestReadyRevisionName`. Additionally,
+if the Configuration in this case is referenced by a Route, the Route will
+set the `AllTrafficAssigned` condition to False with reason
+`RevisionMissing`, as above.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/configurations/my-service
@@ -201,6 +247,10 @@ status:
     status: False
     reason: NoDeployment
     message: "The controller could not create a deployment named ela-abc-e13ac."
+  - type: ResourcesProvisioned
+    status: False
+    reason: NoDeployment
+    message: "The controller could not create a deployment named ela-abc-e13ac."
 ```
 
 
@@ -209,17 +259,15 @@ status:
 See
 [the kubernetes documentation for how this is handled for Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#failed-deployment). For
 Revisions, we will start by assuming a single timeout for deployment
-(rather than configurable), and report that the Revision was not
-Ready, with a reason `ProgressDeadlineExceeded`. Note that we will
-only report `ProgressDeadlineExceeded` if we could not determine
-another reason (such as quota failures, missing build, or container
-execution failures).
+(rather than configurable), and report that the Revision was not Ready,
+with a reason `ProgressDeadlineExceeded`. Note that we will only report
+`ProgressDeadlineExceeded` if we could not determine another reason (such
+as quota failures, missing build, or container execution failures).
 
-Kubernetes controllers will continue attempting to make progress
-(possibly at a less-aggressive rate) when they encounter a case where
-the desired status cannot match the actual status, so if the
-underlying deployment is slow, it might eventually finish after
-reporting `ProgressDeadlineExceeded`.
+Since container setup time also affects the ability of 0 to 1
+autoscaling, the `Ready` failure with `ProgressDeadlineExceeded`
+reason should be considered a terminal condition, even if Kubernetes
+might attempt to make progress even after the deadline.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -231,7 +279,7 @@ status:
   - type: Ready
     status: False
     reason: ProgressDeadlineExceeded
-    message: "Unable to create pods for more than 120 seconds."
+    message: "Did not pass readiness checks in 120 seconds."
 ```
 
 
@@ -254,8 +302,8 @@ status:
   - revisionName: def
     percent: 25
   conditions:
-  - type: RolloutInProgress
-    status: True
+  - type: Ready
+    status: False
     reason: ProgressDeadlineExceeded
     # reason is a short status, message provides error details
     message: "Unable to update traffic split for more than 120 seconds."
@@ -266,15 +314,16 @@ status:
 
 Revisions might be created while a Build is still creating the
 container image or uploading it to the repository. If the build is
-being performed by a CRD in the cluster, the spec.buildName attribute
-will be set (and see the [Build failed](#build-failed) example). In
-other cases when the build is not supplied, the container image
-referenced might not be present in the registry (either because of a
-typo or because it was deleted). In this case, the Ready condition
-will be set to False with a reason of ContainerMissing. This condition
-could be corrected if the image becomes available at a later time. We
-can also make a defensive copy of the container image to avoid this
-error due to deleted source container.
+being performed by a CRD in the cluster, the `spec.buildName`
+attribute will be set (and see the [Build failed](#build-failed)
+example). In other cases when the build is not supplied, the container
+image referenced might not be present in the registry (either because
+of a typo or because it was deleted). In this case, the `Ready`
+condition will be set to `False` with a reason of
+`ContainerMissing`. This condition could be corrected if the image
+becomes available at a later time. Elafros could also make a defensive
+copy of the container image to avoid having to surface this error if
+the original docker image is deleted.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -287,8 +336,8 @@ status:
     status: False
     reason: ContainerMissing
     message: "Unable to fetch image 'gcr.io/...': <literal error>"
-  - type: Failed
-    status: True
+  - type: ContainerHealthy
+    status: False
     reason: ContainerMissing
     message: "Unable to fetch image 'gcr.io/...': <literal error>"
 ```
@@ -297,15 +346,17 @@ status:
 ## Container image fails at startup on Revision
 
 Particularly for development cases with interpreted languages like
-Node or Python, syntax errors or the like might only be caught at
-container startup time. For this reason, implementations may choose to
-start a single copy of the container on deployment, before making the
-container Ready. If the initial container fails to start, the `Ready`
-condition will be set to False and the reason will be set to
-`ExitCode:%d` with the exit code of the application, and the last line
-of output in the message. Additionally, the Revision will include a
-`logsUrl` which provides the address of an endpoint which can be used to
-fetch the logs for the failed process.
+Node or Python, syntax errors might only be caught at container
+startup time. For this reason, implementations should start a copy of
+the container on deployment, before marking the container `Ready`. If
+this container fails to start, the `Ready` condition will be set to
+`False`, the reason will be set to `ExitCode%d` with the exit code of
+the application, and the termination message from the container will
+be provided. (Containers will be run with the default
+`terminationMessagePath` and a `terminationMessagePolicy` of
+`FallbackToLogsOnError`.) Additionally, the Revision `status.logsUrl`
+should be present, which provides the address of an endpoint which can
+be used to fetch the logs for the failed process.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
@@ -317,6 +368,10 @@ status:
   conditions:
   - type: Ready
     status: False
-    reason: ExitCode:127
+    reason: ExitCode127
+    message: "Container failed with: SyntaxError: Unexpected identifier"
+  - type: ContainerHealthy
+    status: False
+    reason: ExitCode127
     message: "Container failed with: SyntaxError: Unexpected identifier"
 ```

@@ -139,12 +139,13 @@ function exit_if_failed() {
   exit 1
 }
 
-function wait_for_hello_world_ingress() {
+function wait_for_ingress() {
+  local ingress_name=$1
   for i in {1..150}; do  # timeout after 5 minutes
     echo "Waiting for Ingress to come up"
-    if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
-      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
-      service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+    if [[ $(kubectl get ingress | grep $ingress_name | wc -w) == 5 ]]; then
+      service_host=$(kubectl get route $ingress_name -o jsonpath="{.status.domain}")
+      service_ip=$(kubectl get ingress $ingress_name-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
       echo -e -n "Ingress is at $service_ip / $service_host\n"
       return 0
     fi
@@ -168,7 +169,7 @@ function run_hello_world() {
   bazel run //sample/helloworld:everything.create || return 1
   local service_host=""
   local service_ip=""
-  if ! wait_for_hello_world_ingress;then
+  if ! wait_for_ingress "route-example";then
     echo "ERROR: No ingress, stopping test."
     bazel run //sample/helloworld:everything.delete  # ignore errors
     return 1
@@ -184,14 +185,30 @@ function run_hello_world() {
 }
 
 function test_autoscale() {
-  header "Running hello-world and ramping up/down traffic."
-  bazel run //sample/helloworld:everything.create || return 1
+  header "Running autoscaler sample and ramping up/down traffic."
+  bazel run //sample/autoscale:everything.create || return 1
   local service_host=""
   local service_ip=""
 
-  if ! wait_for_hello_world_ingress;then
+  if ! wait_for_ingress "autoscale-route";then
     echo "ERROR: No ingress, stopping test."
-    bazel run //sample/helloworld:everything.delete  # ignore errors
+    bazel run //sample/autoscale:everything.delete  # ignore errors
+    return 1
+  fi
+
+  local app_is_ready=false
+  echo "Waiting for the app to serve requests."
+  for i in {1..150};do
+    if [[ $(curl -s --header "Host:$service_host" http://${service_ip}/primes/4) == "[2]" ]]; then
+      app_is_ready=true
+      break;
+    fi
+    echo -n "."
+    sleep 2
+  done
+  if ! $success; then
+    echo "ERROR: Timed out waiting for autoscale app to come up."
+    bazel run //sample/autoscale:everything.delete  # ignore errors
     return 1
   fi
 
@@ -218,12 +235,13 @@ function test_autoscale() {
 }
 
 function test_scale_up_autoscaler() {
-  # Queue up 128 simultaneous calls to hello world app.
-  local command='curl --header "Host:$service_host" http://${service_ip} >/dev/null  2>&1 & '
-  for i in {1..7};do
+  # Queue up 8 simultaneous calls to prime-number finding app.
+  local command='curl --header "Host:$service_host" http://${service_ip}/primes/40000000 & '
+  for i in {1..3};do
     command+=$command
   done
   eval $command
+  wait
 
   for i in {1..30}; do # wait up to 1 minute for the scale up.
     echo -n "."
@@ -250,8 +268,10 @@ function test_scale_down_autoscaler() {
     local replicas=$(kubectl get deploy $deployment -o jsonpath="{.status.readyReplicas}")
     if [[ -z $replicas || $replicas -le 1 ]]; then
       echo -e "\nAutoscale down successful"
-      # TODO: Wait for 60 seconds before trying to scale back up. This is non-optimal, but we will fix this time by M4.
-      sleep 60
+      # Wait until terminating pods are totally shut down. This is non-optimal, but we are working on this for M4.
+      while [[ $(kubectl get pods -o jsonpath="{.items[*].metadata.name}" | wc -w) -gt 1 ]];do
+        sleep 5
+      done
       return 0
     fi
   done
@@ -386,9 +406,9 @@ kubectl label namespace default istio-injection=enabled
 
 run_hello_world
 exit_if_failed
-test_autoscale
-exit_if_failed
 run_conformance_tests
+exit_if_failed
+test_autoscale
 exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
