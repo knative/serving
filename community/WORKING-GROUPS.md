@@ -85,9 +85,9 @@ Autoscaling
 Artifact                   | Link
 -------------------------- | ----
 Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
-Community Meeting VC       | [TODO](TODO)
-Community Meeting Calendar | [Calendar Invitation](TODO)
-Meeting Notes              | [Notes](TODO)
+Community Meeting VC       | [scaling-wg](https://hangouts.google.com/hangouts/_/google.com/scaling-wg)
+Community Meeting Calendar | [Calendar](https://calendar.google.com/calendar?cid=Z29vZ2xlLmNvbV9sNHY5NnJocWJoMGk1dWsyMnU1MGhudDY2c0Bncm91cC5jYWxlbmRhci5nb29nbGUuY29t)
+Meeting Notes              | [Notes](https://docs.google.com/document/d/1FoLJqbDJM8_tw7CON-CJZsO2mlF8Ia1cWzCjWX8HDAI/edit#heading=h.c0ufqy5rucfa)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1qpGIPXVGoMm6IXb74gPrrHkudV_bjIZ9)
 Slack Channel              | [#autoscaling](https://elafros.slack.com)
 
