@@ -59,7 +59,9 @@ type DestinationWeight struct {
 }
 
 type IstioService struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Domain    string `json:"domain"`
 }
 
 type Match struct {

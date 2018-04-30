@@ -59,11 +59,11 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 	// if enableScaleToZero flag is true, and there are reserved revisions,
 	// define the corresponding istio route rules.
 	glog.Info("using activator-service as the destination")
-	placeHolderK8SServiceName = controller.GetElaK8SActivatorServiceName()
 	destinationWeights = append(destinationWeights,
 		istiov1alpha2.DestinationWeight{
 			Destination: istiov1alpha2.IstioService{
-				Name: placeHolderK8SServiceName,
+				Name:      controller.GetElaK8SActivatorServiceName(),
+				Namespace: controller.GetElaK8SActivatorNamespace(),
 			},
 			Weight: 100,
 		})
