@@ -176,8 +176,8 @@ spec:
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
 
-      # +optional concurrency strategy. Single default value for functions
-      concurrencyModel: Single
+      # +optional concurrency strategy.  Defaults to Multi.
+      concurrencyModel: ...
       # +optional. max time the instance is allowed for responding to a request
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as.
