@@ -11,7 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+apiVersion: elafros.dev/v1alpha1
+kind: Route
+metadata:
+  name: route-python-example
+  namespace: default
+spec:
+  traffic:
+  - configurationName: configuration-python-example
+    percent: 100
+---
 apiVersion: elafros.dev/v1alpha1
 kind: Configuration
 metadata:
@@ -24,7 +33,7 @@ spec:
         elafros.dev/type: app
     spec:
       container:
-        image: python-sample:latest
+        image: REPLACE_ME/python-simple:latest
         env:
           - name: TARGET
             value: shiniestnewestversion

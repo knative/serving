@@ -1,19 +1,32 @@
 # Python Simple Sample
 
-A simple web server written in Python that you can use for testing. It reads in an
-env variable 'TARGET' and prints "Hello World from Python: ${TARGET}!" if
-TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
+A simple web server written in Python that you can use for testing. It:
+
+  1. reads in an env variable 'TARGET' and prints "Hello World from Python: ${TARGET}!". if
+     TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
+  1. refers an undefined variable and sends multi-line exception stack trace logs
+     to stderr and file.
+
+The server is made into a docker container and provided to Elafros.
 
 ## Prerequisites
 
 1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
 2. [Start Elafros](../../README.md#start-elafros)
+3. Install [docker](https://www.docker.com/)
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+First build and push the docker image from the root directory via:
 ```shell
-bazel run sample/pythonsimple:everything.apply
+docker build -t "${DOCKER_REPO_OVERRIDE}/python-simple:latest" sample/pythonsimple/
+docker push "${DOCKER_REPO_OVERRIDE}/python-simple:latest"
+```
+
+Then replace `REPLACE_ME` with the value of your `DOCKER_REPO_OVERRIDE` in
+[manifest.yaml](./manifest.yaml#L36) and deploy this to Elafros from the root directory via:
+```shell
+kubectl apply -f sample/pythonsimple/manifest.yaml
 ```
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
@@ -45,7 +58,10 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
 route-python-example-ela-ingress   demo.myhost.net             80        14s
 ```
-
+@app.route('/')
+def get():
+  target = os.environ.get('TARGET') or 'NOT SPECIFIED'
+  return 'Hello World from Python: %s!\n' % target
 Once the `ADDRESS` gets assigned to the cluster, you can run:
 
 ```shell

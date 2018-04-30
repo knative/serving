@@ -15,6 +15,7 @@ limitations under the License.
 '''
 
 import os
+import traceback
 
 from flask import Flask
 
@@ -26,8 +27,15 @@ def get():
   target = os.environ.get('TARGET') or 'NOT SPECIFIED'
   return 'Hello World from Python: %s!\n' % target
 
+@app.route('/error')
+def getError():
+  try:
+    print undefined
+  except Exception:
+    with open("/var/log/error.log", "w") as f:
+      traceback.print_exc(file=f)
+    traceback.print_exc()
+    return 'exception stack trace logs were send to stderr and /var/log/error.log\n'
 
 if __name__ == '__main__':
-  # This is used when running locally. Gunicorn is used to run the
-  # application on Google App Engine. See entrypoint in app.yaml.
   app.run(host='127.0.0.1', port=8080, debug=True)
