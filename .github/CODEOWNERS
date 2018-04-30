@@ -28,6 +28,15 @@
 # third_party
 /third_party/ @evankanderson @mattmoor @vaikas-google @mdemirhan
 
+# Scaling.
+/cmd/ela-activator @josephburnett
+/cmd/ela-autoscaler @josephburnett
+/cmd/ela-queue/ @josephburnett
+/pkg/activator @josephburnett
+/pkg/autoscaler @josephburnett
+/pkg/queue @josephburnett
+/sample/autoscale @josephburnett
+
 ### To request CODEOWNERS on a subdirectory, propose it above
 ### in a PR to the below maintainers.
 /.github/CODEOWNERS @evankanderson @mattmoor @vaikas-google
