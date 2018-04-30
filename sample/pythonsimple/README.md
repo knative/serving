@@ -5,7 +5,7 @@ A simple web server written in Python that you can use for testing. It:
   1. reads in an env variable 'TARGET' and prints "Hello World from Python: ${TARGET}!". if
      TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
   1. refers an undefined variable and sends multi-line exception stack trace logs
-     to stderr and file.
+     to STDERR and file under /var/log.
 
 The server is made into a docker container and provided to Elafros.
 
@@ -85,3 +85,11 @@ Now curl the service IP as if DNS were properly configured:
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 # Hello World from Python: shiniestnewestversion!
 ```
+
+Generate multi-line exception stack trace logs to STDERR and file under /var/log:
+```shell
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/error
+# exception stack trace logs were send to stderr and /var/log/error.log
+```
+
+See [Logs and Metrics](../../docs/telemetry.md) for accessing logs.
