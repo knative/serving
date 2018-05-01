@@ -517,7 +517,8 @@ func (c *Controller) shouldUseActivatorInRouteRules(route *v1alpha1.Route) (bool
 		if cond != nil {
 			// A revision is considered inactive (yet) if it's in
 			// "Inactive" condition or "Activating" condition.
-			if cond.Reason == "Inactive" || cond.Reason == "Activating" {
+			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
 				glog.Infof("Revision %s is inactive.", revName)
 				return true, nil
 			}

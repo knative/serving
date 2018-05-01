@@ -789,7 +789,8 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	reason := "Deploying"
 	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
 	if cond != nil {
-		if cond.Reason == "Inactive" || cond.Reason == "Activating" {
+		if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+			(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
 			reason = "Activating"
 		}
 	}
