@@ -14,15 +14,15 @@ from the menu on top left of the page. You will see a page like below:
 
 ![Elafros - Revision HTTP Requests](images/request_dash1.png)
 
-This dashboard gives visibility into:
-* Request volume per revision
+This dashboard gives visibility into the following for each revision:
+* Request volume
 * Request volume per HTTP response code
-* Response time per revision
+* Response time
 * Response time per HTTP response code
-* Request and response sizes per revision
+* Request and response sizes
 
 This dashboard can show traffic volume or latency discrepancies between different revisions. 
-If, for example, a revision's latency is higher than others', 
+If, for example, a revision's latency is higher than others revisions, then 
 focus your investigation on the offending revision through the rest of this guide.
 
 ## Request traces
@@ -45,19 +45,21 @@ micro service or external URL that was called. In this example, call to a
 Grafana URL is taking the most time and investigation should focus on why
 that URL is taking that long.
 
-## Auto scaler metrics
+## Autoscaler metrics
 If request metrics or traces do not show any obvious hot spots, or if they show
-that most of the time is spent in your own code, auto scaler metrics should be
-looked next. To open auto scaler dashboard, open Grafana UI and select 
-"Elafros - Auto Scaler" dashboard. This will bring up a view that looks like below:
+that most of the time is spent in your own code, autoscaler metrics should be
+looked next. To open autoscaler dashboard, open Grafana UI and select 
+"Elafros - Autoscaler" dashboard. This will bring up a view that looks like below:
 
-![Elafros - Auto Scaler](images/autoscaler_dash1.png)
+![Elafros - Autoscaler](images/autoscaler_dash1.png)
 
-This view shows 3 key metrics from Elafros auto scaler:
+This view shows four key metrics from Elafros autoscaler:
 * Actual pod count: # of pods that are running a given revision
-* Desired pod count: # of pods that auto scaler thinks that should serve the
+* Desired pod count: # of pods that autoscaler thinks that should serve the
   revision
-* Requested pod count: # of pods that auto scaler requested from Kubernetes
+* Requested pod count: # of pods that autoscaler requested from Kubernetes
+* Panic mode: If 0, autoscaler is operating in [stable mode](../../pkg/autoscaler/README.md#stable-mode).
+If 1, autoscaler is operating in [panic mode](../../pkg/autoscaler/README.md#panic-mode).
 
 If there is a large gap between actual pod count and requested pod count, that
 means that the Kubernetes cluster is unable to keep up allocating new
@@ -65,10 +67,10 @@ resources fast enough, or that the Kubernetes cluster is out of requested
 resources.
 
 If there is a large gap between requested pod count and desired pod count, that
-is an indication that Elafros auto scaler is unable to communicate with
+is an indication that Elafros autoscaler is unable to communicate with
 Kubernetes master to make the request.
 
-In the example above, auto scaler requested 18 pods to optimally serve the traffic
+In the example above, autoscaler requested 18 pods to optimally serve the traffic
 but was only granted 8 pods because the cluster is out of resources.
 
 ## CPU and memory usage
