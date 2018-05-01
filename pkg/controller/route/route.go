@@ -391,10 +391,21 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 	if err := c.extendConfigurationsWithIndirectTrafficTargets(route, configMap, revMap); err != nil {
 		return nil, err
 	}
+	if err := c.extendRevisionsWithIndirectTrafficTargets(route, configMap, revMap); err != nil {
+		return nil, err
+	}
+
+	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap); err != nil {
+		return nil, err
+	}
 	if err := c.setLabelForGivenConfigurations(route, configMap); err != nil {
 		return nil, err
 	}
-	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap); err != nil {
+
+	if err := c.deleteLabelForOutsideOfGivenRevisions(route, revMap); err != nil {
+		return nil, err
+	}
+	if err := c.setLabelForGivenRevisions(route, revMap); err != nil {
 		return nil, err
 	}
 
@@ -583,6 +594,38 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 	return nil
 }
 
+func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
+	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) error {
+	ns := route.Namespace
+	revisionClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
+
+	for _, tt := range route.Spec.Traffic {
+		if tt.ConfigurationName != "" {
+			configName := tt.ConfigurationName
+			if config, ok := configMap[configName]; ok {
+
+				revName := config.Status.LatestReadyRevisionName
+				if revName == "" {
+					glog.Infof("Configuration %s is not ready. Skipping Configuration %q during route reconcile",
+						tt.ConfigurationName)
+					continue
+				}
+				// Check if it is a duplicated revision
+				if _, ok := revMap[revName]; !ok {
+					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
+					if err != nil {
+						glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
+						return err
+					}
+					revMap[revName] = rev
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *Controller) setLabelForGivenConfigurations(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
@@ -610,6 +653,38 @@ func (c *Controller) setLabelForGivenConfigurations(
 		config.Labels[ela.RouteLabelKey] = route.Name
 		if _, err := configClient.Update(config); err != nil {
 			glog.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) setLabelForGivenRevisions(
+	route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
+	revisionClient := c.elaclientset.ElafrosV1alpha1().Revisions(route.Namespace)
+
+	// Validate revision if it already has a route label
+	for _, rev := range revMap {
+		if routeName, ok := rev.Labels[ela.RouteLabelKey]; ok {
+			if routeName != route.Name {
+				errMsg := fmt.Sprintf("Revision %q is already in use by %q, and cannot be used by %q",
+					rev.Name, routeName, route.Name)
+				c.recorder.Event(route, corev1.EventTypeWarning, "RevisionInUse", errMsg)
+				return errors.New(errMsg)
+			}
+		}
+	}
+
+	for _, rev := range revMap {
+		if rev.Labels == nil {
+			rev.Labels = make(map[string]string)
+		} else if _, ok := rev.Labels[ela.RouteLabelKey]; ok {
+			continue
+		}
+		rev.Labels[ela.RouteLabelKey] = route.Name
+		if _, err := revisionClient.Update(rev); err != nil {
+			glog.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
 			return err
 		}
 	}
@@ -646,12 +721,40 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	return nil
 }
 
+func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
+	route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
+	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(route.Namespace)
+
+	oldRevList, err := revClient.List(
+		metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", ela.RouteLabelKey, route.Name),
+		},
+	)
+	if err != nil {
+		glog.Errorf("Failed to fetch revisions with label '%s=%s': %s",
+			ela.RouteLabelKey, route.Name, err)
+		return err
+	}
+
+	// Delete label for newly removed revisions as traffic target.
+	for _, rev := range oldRevList.Items {
+		if _, ok := revMap[rev.Name]; !ok {
+			delete(rev.Labels, ela.RouteLabelKey)
+			if _, err := revClient.Update(&rev); err != nil {
+				glog.Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *Controller) computeRevisionRoutes(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	glog.Infof("Figuring out routes for Route: %s", route.Name)
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
-	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 	ret := []RevisionRoute{}
 
 	for _, tt := range route.Spec.Traffic {
@@ -666,11 +769,9 @@ func (c *Controller) computeRevisionRoutes(
 					tt.ConfigurationName)
 				return nil, nil
 			}
-			rev, err = revClient.Get(revName, metav1.GetOptions{})
-			if err != nil {
-				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
-				return nil, err
-			}
+			// Revision has been already fetched indirectly in extendRevisionsWithIndirectTrafficTargets
+			rev = revMap[revName]
+
 		} else {
 			// Direct revision has already been fetched
 			rev = revMap[revName]
