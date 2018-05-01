@@ -88,9 +88,6 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady ServiceConditionType = "Ready"
-	// ServiceConditionFailed is set when the service is not configured
-	// properly or has no available backends ready to receive traffic.
-	ServiceConditionFailed ServiceConditionType = "Failed"
 )
 
 type ServiceStatus struct {

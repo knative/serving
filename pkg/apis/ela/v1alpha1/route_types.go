@@ -102,9 +102,10 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady RouteConditionType = "Ready"
-	// RouteConditionFailed is set when the service is not configured
-	// properly or has no available backends ready to receive traffic.
-	RouteConditionFailed RouteConditionType = "Failed"
+	// RouteConditionAllTrafficAssigned is set to False when the
+	// service is not configured properly or has no available
+	// backends ready to receive traffic.
+	RouteConditionAllTrafficAssigned RouteConditionType = "AllTrafficAssigned"
 )
 
 // RouteStatus communicates the observed state of the Route (from the controller).
