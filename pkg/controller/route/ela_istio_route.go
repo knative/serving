@@ -28,17 +28,16 @@ import (
 )
 
 // makeIstioRouteSpec creates an Istio route
-func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, useActivator bool) istiov1alpha2.RouteRuleSpec {
+func makeIstioRouteSpec(route *v1alpha1.Route, trafficTarget *v1alpha1.TrafficTarget, revRoutes []RevisionRoute, domain string, useActivator bool) istiov1alpha2.RouteRuleSpec {
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
-	placeHolderK8SServiceName := controller.GetElaK8SServiceName(u)
+	placeHolderK8SServiceName := controller.GetElaK8SServiceName(route)
 	// TODO: Set up routerules in different namespace.
 	// https://github.com/elafros/elafros/issues/607
 	if !useActivator {
-		destinationWeights = calculateDestinationWeights(u, tt, routes)
-		if tt != nil {
-			domain = fmt.Sprintf("%s.%s", tt.Name, domain)
+		destinationWeights = calculateDestinationWeights(route, trafficTarget, revRoutes)
+		if trafficTarget != nil {
+			domain = fmt.Sprintf("%s.%s", trafficTarget.Name, domain)
 		}
-
 		return istiov1alpha2.RouteRuleSpec{
 			Destination: istiov1alpha2.IstioService{
 				Name: placeHolderK8SServiceName,
@@ -55,7 +54,6 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 			Route: destinationWeights,
 		}
 	}
-
 	// if enableScaleToZero flag is true, and there are reserved revisions,
 	// define the corresponding istio route rules.
 	glog.Info("using activator-service as the destination")
@@ -67,13 +65,12 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 			},
 			Weight: 100,
 		})
-
 	appendHeaders := make(map[string]string)
-	if len(u.Status.Traffic) > 0 {
+	if len(route.Status.Traffic) > 0 {
 		// TODO: Deal with the case when the route has more than one traffic targets.
 		// Note this has dependency on istio features.
 		// https://github.com/elafros/elafros/issues/693
-		appendHeaders[controller.GetRevisionHeaderName()] = u.Status.Traffic[0].RevisionName
+		appendHeaders[controller.GetRevisionHeaderName()] = route.Status.Traffic[0].RevisionName
 	}
 	return istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
@@ -85,34 +82,33 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 }
 
 // MakeIstioRoutes creates an Istio route
-func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, useActivator bool) *istiov1alpha2.RouteRule {
-	labels := map[string]string{"route": u.Name}
-	if tt != nil {
-		labels["traffictarget"] = tt.Name
+func MakeIstioRoutes(route *v1alpha1.Route, trafficTarget *v1alpha1.TrafficTarget, revRoutes []RevisionRoute, domain string, useActivator bool) *istiov1alpha2.RouteRule {
+	labels := map[string]string{"route": route.Name}
+	if trafficTarget != nil {
+		labels["traffictarget"] = trafficTarget.Name
 	}
-
 	r := &istiov1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetRouteRuleName(u, tt),
-			Namespace: ns,
+			Name:      controller.GetRouteRuleName(route, trafficTarget),
+			Namespace: route.Namespace,
 			Labels:    labels,
 		},
-		Spec: makeIstioRouteSpec(u, tt, ns, routes, domain, useActivator),
+		Spec: makeIstioRouteSpec(route, trafficTarget, revRoutes, domain, useActivator),
 	}
-	serviceRef := controller.NewRouteControllerRef(u)
+	serviceRef := controller.NewRouteControllerRef(route)
 	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
 	return r
 }
 
 // calculateDestinationWeights returns the destination weights for
 // the istio route rule.
-func calculateDestinationWeights(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, routes []RevisionRoute) []istiov1alpha2.DestinationWeight {
+func calculateDestinationWeights(route *v1alpha1.Route, trafficTarget *v1alpha1.TrafficTarget, revRoutes []RevisionRoute) []istiov1alpha2.DestinationWeight {
 	var istioServiceName string
 
-	if tt != nil {
-		for _, r := range routes {
-			if r.Name == tt.Name {
-				istioServiceName = r.Service
+	if trafficTarget != nil {
+		for _, revRoute := range revRoutes {
+			if revRoute.Name == trafficTarget.Name {
+				istioServiceName = revRoute.Service
 			}
 		}
 		return []istiov1alpha2.DestinationWeight{
@@ -126,13 +122,13 @@ func calculateDestinationWeights(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, 
 	}
 
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
-	for _, route := range routes {
+	for _, revRoute := range revRoutes {
 		destinationWeights = append(destinationWeights,
 			istiov1alpha2.DestinationWeight{
 				Destination: istiov1alpha2.IstioService{
-					Name: route.Service,
+					Name: revRoute.Service,
 				},
-				Weight: route.Weight,
+				Weight: revRoute.Weight,
 			})
 	}
 	return destinationWeights
