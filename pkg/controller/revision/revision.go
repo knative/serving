@@ -132,17 +132,38 @@ type Controller struct {
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
 
-	// fluentdSidecarImage is the name of the image used for the fluentd sidecar injected into the revision pod
-	fluentdSidecarImage string
+	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
+	// collect logs under /var/log/.
+	enableVarLogCollection bool
 
-	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
-	queueSidecarImage string
+	// controllerConfig includes the configurations for the controller
+	controllerConfig *ControllerConfig
+}
 
-	// autoscalerImage is the name of the image used for the autoscaler pod.
-	autoscalerImage string
+// ControllerConfig includes the configurations for the controller.
+type ControllerConfig struct {
+	// Autoscale part
 
 	// see (elaconfig.yaml)
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
+	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
+
+	// AutoscalerImage is the name of the image used for the autoscaler pod.
+	AutoscalerImage string
+
+	// QueueSidecarImage is the name of the image used for the queue sidecar
+	// injected into the revision pod
+	QueueSidecarImage string
+
+	// logging part
+
+	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
+	// collect logs under /var/log/.
+	EnableVarLogCollection bool
+
+	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
+	// injected into the revision pod. It is used only when enableVarLogCollection
+	// is true.
+	FluentdSidecarImage string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -157,11 +178,7 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
-	fluentdSidecarImage string,
-	queueSidecarImage string,
-	autoscalerImage string,
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) controller.Interface {
+	controllerConfig *ControllerConfig) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
@@ -177,18 +194,15 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:                     kubeclientset,
-		elaclientset:                      elaclientset,
-		lister:                            informer.Lister(),
-		synced:                            informer.Informer().HasSynced,
-		endpointsSynced:                   endpointsInformer.Informer().HasSynced,
-		workqueue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:                          recorder,
-		buildtracker:                      &buildTracker{builds: map[key]set{}},
-		fluentdSidecarImage:               fluentdSidecarImage,
-		queueSidecarImage:                 queueSidecarImage,
-		autoscalerImage:                   autoscalerImage,
-		autoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
+		kubeclientset:    kubeclientset,
+		elaclientset:     elaclientset,
+		lister:           informer.Lister(),
+		synced:           informer.Informer().HasSynced,
+		endpointsSynced:  endpointsInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:         recorder,
+		buildtracker:     &buildTracker{builds: map[key]set{}},
+		controllerConfig: controllerConfig,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -762,8 +776,10 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	if err := c.reconcileAutoscalerService(rev); err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
-	if err := c.reconcileFluentdConfigMap(rev); err != nil {
-		log.Printf("Failed to create fluent config map: %s", err)
+	if c.controllerConfig.EnableVarLogCollection {
+		if err := c.reconcileFluentdConfigMap(rev); err != nil {
+			log.Printf("Failed to create fluent config map: %s", err)
+		}
 	}
 
 	// Create k8s service
@@ -840,7 +856,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage, c.autoscaleConcurrencyQuantumOfTime)
+	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	deployment.Spec.Template.Spec = *podSpec
@@ -997,7 +1013,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 	}
 
 	controllerRef := controller.NewRevisionControllerRef(rev)
-	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
+	deployment := MakeElaAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)

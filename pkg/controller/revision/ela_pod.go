@@ -22,7 +22,6 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -54,23 +53,11 @@ func hasHttpPath(p *corev1.Probe) bool {
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(
 	rev *v1alpha1.Revision,
-	fluentdSidecarImage,
-	queueSidecarImage string,
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) *corev1.PodSpec {
+	controllerConfig *ControllerConfig) *corev1.PodSpec {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-	fluentdConfigMapVolume := corev1.Volume{
-		Name: fluentdConfigMapVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "fluentd-varlog-config",
-				},
-			},
 		},
 	}
 
@@ -121,58 +108,9 @@ func MakeElaPodSpec(
 		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(RequestQueuePort)
 	}
 
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
-			},
-		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "FLUENTD_ARGS",
-				Value: "--no-supervisor -q",
-			},
-			{
-				Name:  "ELA_CONTAINER_NAME",
-				Value: elaContainerName,
-			},
-			{
-				Name:  "ELA_CONFIGURATION",
-				Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
-			},
-			{
-				Name:  "ELA_REVISION",
-				Value: rev.Name,
-			},
-			{
-				Name:  "ELA_NAMESPACE",
-				Value: rev.Namespace,
-			},
-			{
-				Name: "ELA_POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
-				},
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      varLogVolumeName,
-				MountPath: "/var/log/revisions",
-			},
-			{
-				Name:      fluentdConfigMapVolumeName,
-				MountPath: "/etc/fluent/config.d",
-			},
-		},
-	}
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
-		Image: queueSidecarImage,
+		Image: controllerConfig.QueueSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCPU),
@@ -215,7 +153,7 @@ func MakeElaPodSpec(
 		Args: []string{
 			"-logtostderr=true",
 			"-stderrthreshold=INFO",
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -244,11 +182,81 @@ func MakeElaPodSpec(
 			},
 		},
 	}
-	return &corev1.PodSpec{
-		Containers:         []corev1.Container{*elaContainer, fluentdContainer, queueContainer},
-		Volumes:            []corev1.Volume{varLogVolume, fluentdConfigMapVolume},
+
+	podSpe := &corev1.PodSpec{
+		Containers:         []corev1.Container{*elaContainer, queueContainer},
+		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
+
+	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
+	if controllerConfig.EnableVarLogCollection {
+		fluentdConfigMapVolume := corev1.Volume{
+			Name: fluentdConfigMapVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "fluentd-varlog-config",
+					},
+				},
+			},
+		}
+
+		fluentdContainer := corev1.Container{
+			Name:  fluentdContainerName,
+			Image: controllerConfig.FluentdSidecarImage,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "FLUENTD_ARGS",
+					Value: "--no-supervisor -q",
+				},
+				{
+					Name:  "ELA_CONTAINER_NAME",
+					Value: elaContainerName,
+				},
+				{
+					Name:  "ELA_CONFIGURATION",
+					Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+				},
+				{
+					Name:  "ELA_REVISION",
+					Value: rev.Name,
+				},
+				{
+					Name:  "ELA_NAMESPACE",
+					Value: rev.Namespace,
+				},
+				{
+					Name: "ELA_POD_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.name",
+						},
+					},
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      varLogVolumeName,
+					MountPath: "/var/log/revisions",
+				},
+				{
+					Name:      fluentdConfigMapVolumeName,
+					MountPath: "/etc/fluent/config.d",
+				},
+			},
+		}
+
+		podSpe.Containers = append(podSpe.Containers, fluentdContainer)
+		podSpe.Volumes = append(podSpe.Volumes, fluentdConfigMapVolume)
+	}
+
+	return podSpe
 }
 
 // MakeElaDeployment creates a deployment.

@@ -67,4 +67,15 @@ data:
   # Scale to zero threshold is the time a revision must be idle before
   # it is scaled to zero.
   autoscale.scale-to-zero-threshold: "5m"
-  
+
+
+  # LOGGING CONFIGURATION
+
+  # Static parameters:
+
+  # Var log collection flag. The default value is false
+  logging.enable-var-log-collection: "true"
+
+  # The fluentd sidecar image used to collect logs from /var/log as a sidecar.
+  # Must be presented if logging.enable-var-log-collection is true.
+  logging.fluentd-sidecar-image: "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"

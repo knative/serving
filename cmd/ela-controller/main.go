@@ -50,23 +50,27 @@ const (
 )
 
 var (
-	masterURL           string
-	kubeconfig          string
-	fluentdSidecarImage string
-	queueSidecarImage   string
-	autoscalerImage     string
+	masterURL         string
+	kubeconfig        string
+	queueSidecarImage string
+	autoscalerImage   string
 
 	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
 	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+
+	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
+	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
 )
 
 func main() {
 	flag.Parse()
 
-	if len(fluentdSidecarImage) != 0 {
-		glog.Infof("Using fluentd sidecar image: %s", fluentdSidecarImage)
-	} else {
-		glog.Fatal("missing required flag: -fluentdSidecarImage")
+	if loggingEnableVarLogCollection.Get() {
+		if len(loggingFluentSidecarImage.Get()) != 0 {
+			glog.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
+		} else {
+			glog.Fatal("missing required flag: -fluentdSidecarImage")
+		}
 	}
 
 	if len(queueSidecarImage) != 0 {
@@ -106,11 +110,20 @@ func main() {
 		glog.Fatalf("Error loading controller config: %v", err)
 	}
 
+	revControllerConfig := revision.ControllerConfig{
+		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
+		AutoscalerImage:                   autoscalerImage,
+		QueueSidecarImage:                 queueSidecarImage,
+
+		EnableVarLogCollection: loggingEnableVarLogCollection.Get(),
+		FluentdSidecarImage:    loggingFluentSidecarImage.Get(),
+	}
+
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage, autoscaleConcurrencyQuantumOfTime),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, &revControllerConfig),
 		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
@@ -161,7 +174,6 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&fluentdSidecarImage, "fluentdSidecarImage", "", "The digest of the fluentd sidecar image.")
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }

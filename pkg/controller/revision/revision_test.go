@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -181,7 +182,19 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 	return summedMap
 }
 
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+func getTestControllerConfig() ControllerConfig {
+	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
+	return ControllerConfig{
+		QueueSidecarImage:                 testQueueImage,
+		AutoscalerImage:                   testAutoscalerImage,
+		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+
+		EnableVarLogCollection: true,
+		FluentdSidecarImage:    testFluentdImage,
+	}
+}
+
+func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -197,21 +210,26 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
-	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
 	controller = NewController(
 		kubeClient,
 		elaClient,
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{},
-		testFluentdImage,
-		testQueueImage,
-		testAutoscalerImage,
-		k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		controllerConfig,
 	).(*Controller)
 
 	return
+}
+
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory) {
+	testControllerConfig := getTestControllerConfig()
+	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
 }
 
 func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
@@ -312,6 +330,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 	foundQueueProxy := false
 	foundElaContainer := false
+	foundFluentdProxy := false
 	expectedPreStop := &corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port: intstr.FromInt(RequestQueueAdminPort),
@@ -339,13 +358,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}
 		}
-	}
-	if !foundQueueProxy {
-		t.Error("Missing queue-proxy container")
-	}
-	// Check the revision deployment fluentd proxy environment variables
-	foundFluentdProxy := false
-	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == "fluentd-proxy" {
 			foundFluentdProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
@@ -353,8 +365,10 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "ELA_CONFIGURATION", "test-config", "")
 			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
 			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
-			break
 		}
+	}
+	if !foundQueueProxy {
+		t.Error("Missing queue-proxy container")
 	}
 	if !foundFluentdProxy {
 		t.Error("Missing fluentd-proxy container")
@@ -516,7 +530,49 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
+}
 
+func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.EnableVarLogCollection = false
+	kubeClient, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Look for the revision deployment.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
+		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+	}
+
+	// Check the revision deployment fluentd proxy
+	foundFluentdProxy := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "fluentd-proxy" {
+			foundFluentdProxy = true
+			break
+		}
+	}
+	if foundFluentdProxy {
+		t.Error("fluentd-proxy container shouldn't be set up")
+	}
+
+	// Look for the config map.
+	_, err = kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Fatalf("The ConfigMap %s shouldn't exist: %v", fluentdConfigMapName, err)
+	}
 }
 
 func TestCreateRevPreservesAppLabel(t *testing.T) {
