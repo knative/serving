@@ -161,7 +161,7 @@ function wait_for_ingress() {
 function run_conformance_tests() {
   header "Running conformance tests"
   echo -e "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: pizzaplanet" | kubectl create -f -
-  go test -v ./test/conformance -ginkgo.v -dockerrepo gcr.io/elafros-e2e-tests/ela-conformance-test
+  go test -v ./test/conformance -dockerrepo gcr.io/elafros-e2e-tests/ela-conformance-test
 }
 
 function run_hello_world() {
