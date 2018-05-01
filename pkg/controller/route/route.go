@@ -317,7 +317,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		runtime.HandleError(fmt.Errorf("invalid resource key: %q", key))
 		return nil
 	}
 
@@ -338,7 +338,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 
-	glog.Infof("Running reconcile Route for %s\n%+v\n", route.Name, route)
+	glog.Infof("Running reconcile Route for %q\n%+v\n", route.Name, route)
 
 	// Create a placeholder service that is simply used by istio as a placeholder.
 	// This service could eventually be the 'activator' service that will get all the
@@ -384,23 +384,20 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 // block of the Route and returns the updated one.
 func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Route, useActivator bool) (*v1alpha1.Route, error) {
 	c.consolidateTrafficTargets(route)
-	configMap, revMap, err := c.getDirectTrafficTargets(route)
+	configByName, revByName, err := c.getDirectTrafficTargets(route)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.extendConfigurationsWithIndirectTrafficTargets(route, configMap, revMap); err != nil {
+	if err := c.setLabelForGivenConfigurations(route, configByName); err != nil {
 		return nil, err
 	}
-	if err := c.setLabelForGivenConfigurations(route, configMap); err != nil {
-		return nil, err
-	}
-	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap); err != nil {
+	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configByName); err != nil {
 		return nil, err
 	}
 
 	// Then create the actual route rules.
 	glog.Info("Creating Istio route rules")
-	revisionRoutes, err := c.createOrUpdateRouteRules(route, configMap, revMap, useActivator)
+	revisionRoutes, err := c.createOrUpdateRouteRules(route, configByName, revByName, useActivator)
 	if err != nil {
 		glog.Infof("Failed to create Routes: %s", err)
 		return nil, err
@@ -488,45 +485,59 @@ func (c *Controller) deleteObsoleteIngress(name string, namespace string) error 
 	ingressClient := c.kubeclientset.Extensions().Ingresses(namespace)
 	if err := ingressClient.Delete(name, &metav1.DeleteOptions{}); err != nil {
 		if apierrs.IsNotFound(err) {
-			glog.Infof("There does not exist ingress %s in namespace %s.", name, namespace)
+			glog.Infof("There does not exist ingress %q in namespace %q.", name, namespace)
 			return nil
 		}
-		glog.Errorf("Failed to delete ingress %s in namespace %s. %v", name, namespace, err)
+		glog.Errorf("Failed to delete ingress %q in namespace %q: %v", name, namespace, err)
 		return err
 	}
-	glog.Infof("Successfully deleted ingress %s in namespace %s.", name, namespace)
+	glog.Infof("Successfully deleted ingress %q in namespace %q.", name, namespace)
 	return nil
 }
 
+// getDirectTrafficTargets fetches the information about the
+// Configuration and Revision that are direct targets in the given
+// Route.  If a Revision is targeted, the parent Configuration will
+// also be returned.  The returned Configurations and Revisions will
+// be keyed by their names.
 func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	ns := route.Namespace
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
 	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
-	configMap := map[string]*v1alpha1.Configuration{}
-	revMap := map[string]*v1alpha1.Revision{}
-
+	configByName := map[string]*v1alpha1.Configuration{}
+	revByName := map[string]*v1alpha1.Revision{}
 	for _, tt := range route.Spec.Traffic {
-		if tt.ConfigurationName != "" {
-			configName := tt.ConfigurationName
-			config, err := configClient.Get(configName, metav1.GetOptions{})
-			if err != nil {
-				glog.Infof("Failed to fetch Configuration %q: %v", configName, err)
-				return nil, nil, err
-			}
-			configMap[configName] = config
-		} else {
+		revName := tt.RevisionName
+		configName := tt.ConfigurationName
+		if revName != "" {
+			// Traffic target is a Revision.
 			revName := tt.RevisionName
 			rev, err := revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				glog.Infof("Failed to fetch Revision %q: %v", revName, err)
 				return nil, nil, err
 			}
-			revMap[revName] = rev
+			revByName[revName] = rev
+			// Since this is a targeted Revision, we need to fetch the
+			// parent Configuration as well.
+			configName = rev.Labels[ela.ConfigurationLabelKey]
+		}
+		if configName != "" {
+			// configName is a name of either a targeted
+			// Configuration, or a parent Configuration of a targeted
+			// Revision.
+			if _, ok := configByName[configName]; !ok {
+				config, err := configClient.Get(configName, metav1.GetOptions{})
+				if err != nil {
+					glog.Infof("Failed to fetch Configuration %q: %v", configName, err)
+					return nil, nil, err
+				}
+				configByName[configName] = config
+			}
 		}
 	}
-
-	return configMap, revMap, nil
+	return configByName, revByName, nil
 }
 
 // Activator is used when the enableScaleToZero in elaconfig.yaml is true and there is
@@ -549,7 +560,7 @@ func (c *Controller) shouldUseActivator(route *v1alpha1.Route) (bool, error) {
 		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			if cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse {
-				glog.Infof("Revision %s is inactive.", revName)
+				glog.Infof("Revision %q is inactive.", revName)
 				return true, nil
 			}
 		}
@@ -558,37 +569,12 @@ func (c *Controller) shouldUseActivator(route *v1alpha1.Route) (bool, error) {
 	return false, nil
 }
 
-func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) error {
-	ns := route.Namespace
-	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
-
-	// Get indirect configurations.
-	for _, rev := range revMap {
-		if configName, ok := rev.Labels[ela.ConfigurationLabelKey]; ok {
-			if _, ok := configMap[configName]; !ok {
-				// This is not a duplicated configuration
-				config, err := configClient.Get(configName, metav1.GetOptions{})
-				if err != nil {
-					glog.Errorf("Failed to fetch Configuration %s: %s", configName, err)
-					return err
-				}
-				configMap[configName] = config
-			}
-		} else {
-			glog.Warningf("Revision %s does not have label %s", rev.Name, ela.ConfigurationLabelKey)
-		}
-	}
-
-	return nil
-}
-
 func (c *Controller) setLabelForGivenConfigurations(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
+	route *v1alpha1.Route, configByName map[string]*v1alpha1.Configuration) error {
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
 
 	// Validate
-	for _, config := range configMap {
+	for _, config := range configByName {
 		if routeName, ok := config.Labels[ela.RouteLabelKey]; ok {
 			// TODO(yanweiguo): add a condition in status for this error
 			if routeName != route.Name {
@@ -601,7 +587,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 	}
 
 	// Set label for newly added configurations as traffic target.
-	for _, config := range configMap {
+	for _, config := range configByName {
 		if config.Labels == nil {
 			config.Labels = make(map[string]string)
 		} else if _, ok := config.Labels[ela.RouteLabelKey]; ok {
@@ -609,7 +595,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 		}
 		config.Labels[ela.RouteLabelKey] = route.Name
 		if _, err := configClient.Update(config); err != nil {
-			glog.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+			glog.Errorf("Failed to update Configuration %q: %q", config.Name, err)
 			return err
 		}
 	}
@@ -618,7 +604,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 }
 
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
+	route *v1alpha1.Route, configByName map[string]*v1alpha1.Configuration) error {
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
 	// Get Configurations set as traffic target before this sync.
 	oldConfigsList, err := configClient.List(
@@ -634,10 +620,10 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 
 	// Delete label for newly removed configurations as traffic target.
 	for _, config := range oldConfigsList.Items {
-		if _, ok := configMap[config.Name]; !ok {
+		if _, ok := configByName[config.Name]; !ok {
 			delete(config.Labels, ela.RouteLabelKey)
 			if _, err := configClient.Update(&config); err != nil {
-				glog.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+				glog.Errorf("Failed to update Configuration %q: %s", config.Name, err)
 				return err
 			}
 		}
@@ -647,8 +633,8 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 }
 
 func (c *Controller) computeRevisionRoutes(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
-	glog.Infof("Figuring out routes for Route: %s", route.Name)
+	route *v1alpha1.Route, configByName map[string]*v1alpha1.Configuration, revByName map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+	glog.Infof("Figuring out routes for Route: %q", route.Name)
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
 	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
@@ -660,26 +646,26 @@ func (c *Controller) computeRevisionRoutes(
 		revName := tt.RevisionName
 		if tt.ConfigurationName != "" {
 			// Get the configuration's LatestReadyRevisionName
-			revName = configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
+			revName = configByName[tt.ConfigurationName].Status.LatestReadyRevisionName
 			if revName == "" {
-				glog.Errorf("Configuration %s is not ready. Should skip updating route rules",
+				glog.Errorf("Configuration %q is not ready. Should skip updating route rules",
 					tt.ConfigurationName)
 				return nil, nil
 			}
 			rev, err = revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
-				glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
+				glog.Errorf("Failed to fetch Revision %q: %s", revName, err)
 				return nil, err
 			}
 		} else {
 			// Direct revision has already been fetched
-			rev = revMap[revName]
+			rev = revByName[revName]
 		}
 		//TODO(grantr): What should happen if revisionName is empty?
 
 		if rev == nil {
 			// For safety, which should never happen.
-			glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
+			glog.Errorf("Failed to fetch Revision %q: %s", revName, err)
 			return nil, err
 		}
 		rr := RevisionRoute{
@@ -693,8 +679,8 @@ func (c *Controller) computeRevisionRoutes(
 	return ret, nil
 }
 
-func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
-	revMap map[string]*v1alpha1.Revision, useActivator bool) ([]RevisionRoute, error) {
+func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configByName map[string]*v1alpha1.Configuration,
+	revByName map[string]*v1alpha1.Revision, useActivator bool) ([]RevisionRoute, error) {
 	// grab a client that's specific to RouteRule.
 	ns := route.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
@@ -702,10 +688,9 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Errorf("Failed to create resource client")
 		return nil, fmt.Errorf("Couldn't get a routeClient")
 	}
-
-	revisionRoutes, err := c.computeRevisionRoutes(route, configMap, revMap)
+	revisionRoutes, err := c.computeRevisionRoutes(route, configByName, revByName)
 	if err != nil {
-		glog.Errorf("Failed to get routes for %s : %q", route.Name, err)
+		glog.Errorf("Failed to get routes for %q : %v", route.Name, err)
 		return nil, err
 	}
 	if len(revisionRoutes) == 0 {
@@ -720,14 +705,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), useActivator)
+		routeRules = MakeIstioRoutes(route, nil, revisionRoutes, c.routeDomain(route), useActivator)
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 	} else {
-		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), useActivator)
+		routeRules.Spec = makeIstioRouteSpec(route, nil, revisionRoutes, c.routeDomain(route), useActivator)
 		if _, err := routeClient.Update(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -746,14 +731,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 			if !apierrs.IsNotFound(err) {
 				return nil, err
 			}
-			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), useActivator)
+			routeRules = MakeIstioRoutes(route, &tt, revisionRoutes, c.routeDomain(route), useActivator)
 			if _, err := routeClient.Create(routeRules); err != nil {
 				c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 				return nil, err
 			}
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 		} else {
-			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), useActivator)
+			routeRules.Spec = makeIstioRouteSpec(route, &tt, revisionRoutes, c.routeDomain(route), useActivator)
 			if _, err := routeClient.Update(routeRules); err != nil {
 				return nil, err
 			}
@@ -804,7 +789,7 @@ func (c *Controller) consolidateTrafficTargets(route *v1alpha1.Route) {
 		}
 		if trafficMap[tt] != 0 {
 			glog.Infof(
-				"Found duplicate traffic targets (name: %s, revision: %s, configuration:%s), consolidating traffic",
+				"Found duplicate traffic targets (name: %q, revision: %q, configuration:%q), consolidating traffic",
 				tt.name,
 				tt.revisionName,
 				tt.configurationName,
@@ -877,13 +862,13 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	ns := config.Namespace
 
 	if config.Status.LatestReadyRevisionName == "" {
-		glog.Infof("Configuration %s is not ready", configName)
+		glog.Infof("Configuration %q is not ready", configName)
 		return
 	}
 
 	routeName, ok := config.Labels[ela.RouteLabelKey]
 	if !ok {
-		glog.Warningf("Configuration %s does not have label %s",
+		glog.Warningf("Configuration %q does not have label %s",
 			configName, ela.RouteLabelKey)
 		return
 	}
