@@ -44,6 +44,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "ela_istio_route_test.go",
         "queueing_test.go",
         "route_test.go",
     ],

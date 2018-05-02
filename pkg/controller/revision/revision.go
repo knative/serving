@@ -798,13 +798,26 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 		return nil
 	}
 
+	// Checking existing revision condition to see if it is the initial deployment or
+	// during the reactivating process. If a revision is in condition "Inactive" or "Activating",
+	// we need to route traffic to the activator; if a revision is in condition "Deploying",
+	// we need to route traffic to the revision directly.
+	reason := "Deploying"
+	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	if cond != nil {
+		if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+			(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+			reason = "Activating"
+		}
+	}
+
 	// By updating our deployment status we will trigger a Reconcile()
 	// that will watch for service to become ready for serving traffic.
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
 			Type:   v1alpha1.RevisionConditionReady,
 			Status: corev1.ConditionUnknown,
-			Reason: "Deploying",
+			Reason: reason,
 		})
 	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {

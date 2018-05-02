@@ -30,7 +30,7 @@ import (
 // MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
 // targets Istio by using the simple placeholder service name. All the routing actually happens in
 // the route rules.
-func MakeRouteIngress(route *v1alpha1.Route, useActivator bool) *v1beta1.Ingress {
+func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 	// We used to have a distinct service, but in the ela world, use the
 	// name for serviceID too.
 
@@ -40,17 +40,9 @@ func MakeRouteIngress(route *v1alpha1.Route, useActivator bool) *v1beta1.Ingress
 		fmt.Sprintf("*.%s", route.Status.Domain),
 	}
 
-	// This would point to 'activator' component if needed.
-	namespace := route.Namespace
-	serviceName := controller.GetElaK8SServiceName(route)
-	if useActivator {
-		namespace = controller.GetElaK8SActivatorNamespace()
-		serviceName = controller.GetElaK8SActivatorServiceName()
-	}
-
 	path := v1beta1.HTTPIngressPath{
 		Backend: v1beta1.IngressBackend{
-			ServiceName: serviceName,
+			ServiceName: controller.GetElaK8SServiceName(route),
 			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 		},
 	}
@@ -71,7 +63,7 @@ func MakeRouteIngress(route *v1alpha1.Route, useActivator bool) *v1beta1.Ingress
 	return &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetElaK8SIngressName(route),
-			Namespace: namespace,
+			Namespace: route.Namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "istio",
 			},
