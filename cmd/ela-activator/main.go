@@ -15,8 +15,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
+	"github.com/cloudflare/cfssl/log"
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/controller"
@@ -27,7 +31,7 @@ import (
 )
 
 var (
-	incomingRequests chan<- *activator.HttpRequests
+	deduper *activator.Deduper
 )
 
 func main() {
@@ -51,25 +55,8 @@ func main() {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
 
-	httpRequests := make(chan *activator.HttpRequests)
-	activationRequests := make(chan *activator.RevisionId)
-	endpoints := make(chan *activator.RevisionEndpoint)
-	proxyRequests := make(chan *activator.ProxyRequest)
-
-	// Create the Activator, RevisionActivator and Proxy components
-	// and wire them together.
-	a := activator.NewActivator(
-		httpRequests.(<-chan *activator.HttpRequest),
-		activationRequests.(chan<- *activator.RevisionId),
-		endpoints.(<-chan *activator.RevisionEndpoint),
-		proxyRequests.(chan<- *activator.ProxyRequest))
-	r := activator.NewRevisionActivator(
-		kubeClient,
-		elaClient,
-		activationRequests.(<-chan *activator.RevisionId),
-		endpoints.(chan<- *activator.RevisionEndpoint))
-	p := activator.NewProxy(proxyRequests.(<-chan activator.ProxyRequest))
-	incomingRequests = httpRequests.(chan<- *activator.HttpRequest)
+	a := activator.NewRevisionActivator(kubeClient, elaClient)
+	deduper = activator.NewActivationDeduper(a)
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
@@ -78,7 +65,22 @@ func main() {
 func handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Use the namespace from the header.
 	// https://github.com/elafros/elafros/issues/693
-	namespace := "default"
-	name := r.Header.Get(controller.GetRevisionHeaderName())
-	incomingRequests <- activator.NewHttpRequests(w, r, namespace, name)
+	id := RevisionId{
+		namespace: "default",
+		name:      r.Header.Get(controller.GetRevisionHeaderName()),
+	}
+	endpoint, status, err := deduper.ActiveEndpoint(id)
+	if err != nil {
+		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
+		log.Errorf(msg)
+		http.Error(w, msg, status)
+		return
+	}
+	target := &url.URL{
+		// TODO: support https
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", endpoint.Ip, endpoint.Port),
+	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ServeHTTP(w, r)
 }

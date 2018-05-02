@@ -17,42 +17,23 @@ import (
 // to active if necessary. Then it returns the endpoint once the revision
 // is ready to serve traffic.
 type RevisionActivator struct {
-	kubeClient         kubernetes.Interface
-	elaClient          clientset.Interface
-	activationRequests <-chan *RevisionId
-	endpoints          chan<- *RevisionEndpoint
+	kubeClient kubernetes.Interface
+	elaClient  clientset.Interface
 }
 
 // NewRevisionActivator creates and starts a new RevisionActivator.
-func NewRevisionActivator(
-	kubeClient kubernetes.Interface,
-	elaClient clientset.Interface,
-	activationRequests <-chan *RevisionId,
-	endpoints chan<- *RevisionEndpoint,
-) *RevisionActivator {
-	r := &RevisionActivator{
-		kubeClient:         kubeClient,
-		elaClient:          elaClient,
-		activationRequests: activationRequests,
-		endpoints:          endpoints,
+func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) *Activator {
+	return &RevisionActivator{
+		kubeClient: kubeClient,
+		elaClient:  elaClient,
 	}
-	go func() {
-		for {
-			select {
-			case req := <-activationRequests:
-				go r.activate(req)
-			}
-		}
-	}()
-	return r
 }
 
-func (r *RevisionActivator) activate(rev *RevisionId) {
+func (r *RevisionActivator) ActiveEndpoint(rev *RevisionId) (end *RevisionEndpoint) {
 
 	// In all cases, return a RevisionEndpoint with an endpoint or
 	// error / status to release pending requests.
-	end := &RevisionEndpoint{RevisionId: *rev}
-	defer func() { r.endpoints <- end }()
+	end = &RevisionEndpoint{RevisionId: *rev}
 	internalError := func(msg string, args ...interface{}) {
 		log.Printf(msg, args...)
 		end.err = fmt.Errorf(msg, args...)

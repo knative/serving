@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "activator.go",
-	"proxy.go",
+	"dedupe.go",
 	"revision.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/activator",
@@ -24,7 +24,10 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["activator_test.go"],
+    srcs = [
+        "activator_test.go",
+        "dedupe_test.go"
+    ],
     embed = [":go_default_library"],
     deps = [
         "//pkg/apis/ela:go_default_library",
