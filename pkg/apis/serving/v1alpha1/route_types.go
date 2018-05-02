@@ -71,12 +71,6 @@ type TrafficTarget struct {
 
 // RouteSpec holds the desired state of the Route (from the client).
 type RouteSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
-	Generation int64 `json:"generation,omitempty"`
-
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
@@ -139,14 +133,6 @@ type RouteList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Route `json:"items"`
-}
-
-func (r *Route) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Route) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
 }
 
 func (r *Route) GetSpecJSON() ([]byte, error) {

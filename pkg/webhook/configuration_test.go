@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -27,7 +28,7 @@ import (
 )
 
 func TestValidConfigurationAllowed(t *testing.T) {
-	configuration := createConfiguration(testGeneration, testConfigurationName)
+	configuration := createConfiguration(testConfigurationName)
 
 	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err != nil {
 		t.Fatalf("Expected allowed. Failed with %s", err)
@@ -61,7 +62,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation:       testGeneration,
+			Build:            new(build.BuildSpec),
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{},
 		},
 	}
@@ -78,7 +79,6 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: testGeneration,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "Fred",
@@ -102,7 +102,6 @@ func TestServingStateNotAllowed(t *testing.T) {
 			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: testGeneration,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					ServingState: v1alpha1.RevisionServingStateActive,
@@ -140,7 +139,6 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 			Name:      testConfigurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: testGeneration,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: container,

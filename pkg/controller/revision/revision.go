@@ -1014,15 +1014,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
-	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	newRev.Status = rev.Status
-
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return prClient.Update(newRev)
-	//	return prClient.UpdateStatus(newRev)
+	return prClient.UpdateStatus(rev)
 }
 
 // Given an endpoint see if it's managed by us and return the

@@ -121,8 +121,6 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization
-			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
@@ -1030,19 +1028,22 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 	}
 }
 
-func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
+func TestRouteLabelIsSetWhenTrafficTargetIsAConfiguration(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{ConfigurationName: config.Name, Percent: 100}},
 	)
 
+	var actions []kubetesting.PatchAction
+	reactionFunc := func(action kubetesting.Action) (bool, runtime.Object, error) {
+		actions = append(actions, action.(kubetesting.PatchAction))
+		return false, nil, nil
+	}
+
+	elaClient.AddReactor("patch", "configurations", reactionFunc)
+	elaClient.AddReactor("patch", "revisions", reactionFunc)
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -1050,37 +1051,23 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting config: %v", err)
+	if len(actions) != 1 {
+		t.Fatalf("Expected the route label to produce only one route label patch: %+v",
+			actions)
 	}
 
-	// Configuration should be labeled for this route
-	expectedLabels := map[string]string{serving.RouteLabelKey: route.Name}
-	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
+	if actions[0].GetResource().Resource != "configurations" {
+		t.Fatalf("Expected only the configuration to have an updated route label: %+v",
+			formatPatches(actions))
+	}
+
+	// Configuration should have been patched to have the route label
+	want := `[{"op":"add","path":"/metadata/labels/serving.knative.dev~1route","value":"test-route"}]`
+	got := string(actions[0].GetPatch())
+
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
-}
-
-func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
-	config := getTestConfiguration()
-	rev := getTestRevisionForConfig(config)
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
-	)
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
-	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.updateRouteEvent(KeyOrDie(route))
 
 	rev, err := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1097,40 +1084,47 @@ func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
 	}
 
 	// Mark the revision as the Config's latest ready revision
+	// Also since we've patched the config it should have the route label
+	// FYI: the client doesn't do this for the fakes
 	config.Status.LatestReadyRevisionName = rev.Name
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
+	config.Labels = map[string]string{serving.RouteLabelKey: route.Name}
+	elaClient.ServingV1alpha1().Configurations(testNamespace).UpdateStatus(config)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting revision: %v", err)
+	if len(actions) != 2 {
+		t.Fatalf("Expected the route label to produce only one additional route label patch: %+v",
+			formatPatches(actions))
 	}
 
-	// Revision should have the route label
-	expectedLabels = map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-		serving.RouteLabelKey:         route.Name,
+	if actions[1].GetResource().Resource != "revisions" {
+		t.Fatalf("Expected only the revision to have an updated route label: %+v",
+			actions)
 	}
 
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
+	// Revision should have been patched to have the route label
+	got = string(actions[1].GetPatch())
+
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 }
 
-func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
+func TestRouteLabelIsSetWhenTrafficTargetIsARevision(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{RevisionName: rev.Name, Percent: 100}},
 	)
 
+	var actions []kubetesting.PatchAction
+	reactionFunc := func(action kubetesting.Action) (bool, runtime.Object, error) {
+		actions = append(actions, action.(kubetesting.PatchAction))
+		return false, nil, nil
+	}
+
+	elaClient.AddReactor("patch", "configurations", reactionFunc)
+	elaClient.AddReactor("patch", "revisions", reactionFunc)
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -1138,30 +1132,26 @@ func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting config: %v", err)
+	if len(actions) != 2 {
+		t.Fatalf("Expected to have a route label patch for the revision and configuration: %+v",
+			formatPatches(actions))
 	}
 
-	// Configuration should be labeled for this route
-	expectedLabels := map[string]string{serving.RouteLabelKey: route.Name}
-	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-		t.Errorf("Unexpected label in configuration diff (-want +got): %v", diff)
+	if actions[0].GetResource().Resource != "configurations" {
+		t.Fatalf("Expected the configuration to have an updated route label: %+v", actions)
 	}
 
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting revision: %v", err)
+	if actions[1].GetResource().Resource != "revisions" {
+		t.Fatalf("Expected the revision to have an updated route label: %+v", actions)
 	}
 
-	// Revision should have the route label
-	expectedLabels = map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-		serving.RouteLabelKey:         route.Name,
-	}
-
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
-		t.Errorf("Unexpected label in revision diff (-want +got): %v", diff)
+	for _, a := range actions {
+		// The configuration and revision should have the route label
+		want := `[{"op":"add","path":"/metadata/labels/serving.knative.dev~1route","value":"test-route"}]`
+		got := string(a.GetPatch())
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
 	}
 }
 
@@ -1265,38 +1255,44 @@ func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 	// Set a route label in revision which is expected to be deleted.
 	rev.Labels[serving.RouteLabelKey] = route.Name
 
+	var actions []kubetesting.PatchAction
+	reactionFunc := func(action kubetesting.Action) (bool, runtime.Object, error) {
+		actions = append(actions, action.(kubetesting.PatchAction))
+		return false, nil, nil
+	}
+
+	elaClient.AddReactor("patch", "configurations", reactionFunc)
+	elaClient.AddReactor("patch", "revisions", reactionFunc)
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting config: %v", err)
+	if len(actions) != 2 {
+		t.Fatalf("Expected to have a route label patch for the revision and configuration: %+v",
+			formatPatches(actions))
+
 	}
 
-	// Check labels in configuration, should be empty.
-	expectedLabels := map[string]string{}
-	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-		t.Errorf("Unexpected label in Configuration diff (-want +got): %v", diff)
+	if actions[0].GetResource().Resource != "configurations" {
+		t.Fatalf("Expected the configuration route label to be deleted: %+v", actions)
 	}
 
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting revision: %v", err)
+	if actions[1].GetResource().Resource != "revisions" {
+		t.Fatalf("Expected the revision route label to be deleted: %+v", actions)
 	}
 
-	expectedLabels = map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
+	for _, a := range actions {
+		// The configuration and revision's route label should be deleted
+		want := `[{"op":"remove","path":"/metadata/labels/serving.knative.dev~1route"}]`
+		got := string(a.GetPatch())
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		}
 	}
-
-	// Check labels in revision, should be empty.
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
-		t.Errorf("Unexpected label in revision diff (-want +got): %v", diff)
-	}
-
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
@@ -1503,4 +1499,25 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
+}
+
+func formatPatches(actions []kubetesting.PatchAction) []interface{} {
+	result := make([]interface{}, 0, len(actions))
+
+	for _, a := range actions {
+		result = append(result, prettyPatch{
+			patch:    string(a.GetPatch()),
+			name:     a.GetName(),
+			resource: a.GetResource().Resource,
+		})
+
+	}
+
+	return result
+}
+
+type prettyPatch struct {
+	name     string
+	resource string
+	patch    string
 }

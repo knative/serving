@@ -23,3 +23,5 @@ spec:
     kind: Service
     plural: services
   scope: Namespaced
+  subresources:
+    status: {}

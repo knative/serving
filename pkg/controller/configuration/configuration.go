@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golang/glog"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -135,8 +136,8 @@ func (c *Controller) syncHandler(key string) error {
 	// Configuration business logic
 	if config.GetGeneration() == config.Status.ObservedGeneration {
 		// TODO(vaikas): Check to see if Status.LatestCreatedRevisionName is ready and update Status.LatestReady
-		logger.Infof("Skipping reconcile since already reconciled %d == %d",
-			config.Spec.Generation, config.Status.ObservedGeneration)
+		glog.Infof("Skipping reconcile since already reconciled %d == %d",
+			config.Generation, config.Status.ObservedGeneration)
 		return nil
 	}
 
@@ -198,7 +199,7 @@ func (c *Controller) syncHandler(key string) error {
 		if rev.ObjectMeta.Annotations == nil {
 			rev.ObjectMeta.Annotations = make(map[string]string)
 		}
-		rev.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
+		rev.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Generation)
 
 		// Delete revisions when the parent Configuration is deleted.
 		rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
@@ -219,7 +220,7 @@ func (c *Controller) syncHandler(key string) error {
 	// Also update the LatestCreatedRevisionName so that we'll know revision to check
 	// for ready state so that when ready, we can make it Latest.
 	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
-	config.Status.ObservedGeneration = config.Spec.Generation
+	config.Status.ObservedGeneration = config.Generation
 
 	logger.Infof("Updating the configuration status:\n%+v", config)
 
@@ -232,25 +233,12 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
-	// TODO: consider making sure the length of the
-	// string will not cause problems down the stack
-	if u.Spec.Generation == 0 {
-		return "", fmt.Errorf("configuration generation cannot be 0")
-	}
-	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation), nil
+	return fmt.Sprintf("%s-%05d", u.Name, u.Generation), nil
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(u.Namespace)
-	newu, err := configClient.Get(u.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	newu.Status = u.Status
-
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return configClient.Update(newu)
-	//	return configClient.UpdateStatus(newu)
+	return configClient.UpdateStatus(u)
 }
 
 func (c *Controller) addRevisionEvent(obj interface{}) {

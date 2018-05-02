@@ -85,12 +85,6 @@ const (
 
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
-	Generation int64 `json:"generation,omitempty"`
-
 	// ServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
 	// Users must not specify this when creating a revision. It is expected
@@ -189,14 +183,6 @@ type RevisionList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Revision `json:"items"`
-}
-
-func (r *Revision) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Revision) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
 }
 
 func (r *Revision) GetSpecJSON() ([]byte, error) {

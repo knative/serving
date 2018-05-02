@@ -18,18 +18,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestConfigurationGeneration(t *testing.T) {
-	config := Configuration{}
-	if e, a := int64(0), config.GetGeneration(); e != a {
-		t.Errorf("empty revision generation should be 0 was: %d", a)
-	}
-
-	config.SetGeneration(5)
-	if e, a := int64(5), config.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
-	}
-}
-
 func TestConfigurationIsReady(t *testing.T) {
 	cases := []struct {
 		name    string

@@ -39,7 +39,7 @@ func TestRunLatest(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{
 			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: createConfiguration(1, "config").Spec,
+				Configuration: createConfiguration("config").Spec,
 			},
 		},
 	}
@@ -69,7 +69,7 @@ func TestPinned(t *testing.T) {
 		Spec: v1alpha1.ServiceSpec{
 			Pinned: &v1alpha1.PinnedType{
 				RevisionName:  "revision",
-				Configuration: createConfiguration(1, "config").Spec,
+				Configuration: createConfiguration("config").Spec,
 			},
 		},
 	}
@@ -117,7 +117,7 @@ func TestPinnedSetsDefaults(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{
 			Pinned: &v1alpha1.PinnedType{
-				Configuration: createConfiguration(1, "config").Spec,
+				Configuration: createConfiguration("config").Spec,
 			},
 		},
 	}
@@ -147,7 +147,7 @@ func TestLatestSetsDefaults(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{
 			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: createConfiguration(1, "config").Spec,
+				Configuration: createConfiguration("config").Spec,
 			},
 		},
 	}

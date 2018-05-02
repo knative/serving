@@ -18,9 +18,10 @@ package service
 
 import (
 	"fmt"
-	"reflect"
 
 	"go.uber.org/zap"
+
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -147,7 +148,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// TODO(#642): Remove this.
 	if service.GetGeneration() == service.Status.ObservedGeneration {
 		logger.Infof("Skipping reconcile since already reconciled %d == %d",
-			service.Spec.Generation, service.Status.ObservedGeneration)
+			service.Generation, service.Status.ObservedGeneration)
 		return nil
 	}
 
@@ -171,7 +172,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// Update the Status of the Service with the latest generation that
 	// we just reconciled against so we don't keep generating Revisions.
 	// TODO(#642): Remove this.
-	service.Status.ObservedGeneration = service.Spec.Generation
+	service.Status.ObservedGeneration = service.Generation
 
 	logger.Infof("Updating the Service status:\n%+v", service)
 
@@ -185,17 +186,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
 	serviceClient := c.ElaClientSet.ServingV1alpha1().Services(service.Namespace)
-	existing, err := serviceClient.Get(service.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(existing.Status, service.Status) {
-		existing.Status = service.Status
-		// TODO: for CRD there's no updatestatus, so use normal update.
-		return serviceClient.Update(existing)
-	}
-	return existing, nil
+	return serviceClient.UpdateStatus(service)
 }
 
 func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) error {
@@ -209,7 +200,11 @@ func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) erro
 		}
 		return err
 	}
-	// TODO(vaikas): Perhaps only update if there are actual changes.
+
+	if apiequality.Semantic.DeepEqual(existing.Spec, config.Spec) {
+		return nil
+	}
+
 	copy := existing.DeepCopy()
 	copy.Spec = config.Spec
 	_, err = configClient.Update(copy)
@@ -227,7 +222,11 @@ func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
 		}
 		return err
 	}
-	// TODO(vaikas): Perhaps only update if there are actual changes.
+
+	if apiequality.Semantic.DeepEqual(existing.Spec, route.Spec) {
+		return nil
+	}
+
 	copy := existing.DeepCopy()
 	copy.Spec = route.Spec
 	_, err = routeClient.Update(copy)

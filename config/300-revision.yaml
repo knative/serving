@@ -23,3 +23,5 @@ spec:
     kind: Revision
     plural: revisions
   scope: Namespaced
+  subresources:
+    status: {}

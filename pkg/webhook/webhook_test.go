@@ -52,7 +52,6 @@ const (
 	imageName             = "test-container-image"
 	envVarName            = "envname"
 	envVarValue           = "envvalue"
-	testGeneration        = 1
 	testRouteName         = "test-route-name"
 	testRevisionName      = "test-revision"
 	testServiceName       = "test-service-name"
@@ -141,7 +140,7 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
 	invalidName := "configuration.example"
-	config := createConfiguration(0, invalidName)
+	config := createConfiguration(invalidName)
 	marshaled, err := json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal configuration: %s", err)
@@ -150,7 +149,7 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
-	config = createConfiguration(0, invalidName)
+	config = createConfiguration(invalidName)
 	marshaled, err = json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal configuration: %s", err)
@@ -163,14 +162,13 @@ func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(testCtx, createValidCreateConfiguration())
 	expectAllowed(t, resp)
-	p := incrementGenerationPatch(0)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidConfigurationNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createConfiguration(testGeneration, testConfigurationName)
-	new := createConfiguration(testGeneration, testConfigurationName)
+	old := createConfiguration(testConfigurationName)
+	new := createConfiguration(testConfigurationName)
 	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
@@ -178,8 +176,8 @@ func TestValidConfigurationNoChanges(t *testing.T) {
 
 func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createConfiguration(testGeneration, testConfigurationName)
-	new := createConfiguration(testGeneration, testConfigurationName)
+	old := createConfiguration(testConfigurationName)
+	new := createConfiguration(testConfigurationName)
 	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
@@ -188,13 +186,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	}
 	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "replace",
-			Path:      "/spec/generation",
-			Value:     2,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestInvalidNewRouteNameFails(t *testing.T) {
@@ -204,7 +196,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
 	invalidName := "route.example"
-	config := createRoute(0, invalidName)
+	config := createRoute(invalidName)
 	marshaled, err := json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal route: %s", err)
@@ -213,7 +205,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
-	config = createRoute(0, invalidName)
+	config = createRoute(invalidName)
 	marshaled, err = json.Marshal(config)
 	if err != nil {
 		t.Fatalf("Failed to marshal route: %s", err)
@@ -226,14 +218,13 @@ func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(testCtx, createValidCreateRoute())
 	expectAllowed(t, resp)
-	p := incrementGenerationPatch(0)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidRouteNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRoute(1, testRouteName)
-	new := createRoute(1, testRouteName)
+	old := createRoute(testRouteName)
+	new := createRoute(testRouteName)
 	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
@@ -241,7 +232,7 @@ func TestValidRouteNoChanges(t *testing.T) {
 
 func TestInvalidOldRoute(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	new := createRoute(1, testRouteName)
+	new := createRoute(testRouteName)
 	newBytes, err := json.Marshal(new)
 	if err != nil {
 		t.Errorf("Marshal(%v) = %v", new, err)
@@ -253,7 +244,7 @@ func TestInvalidOldRoute(t *testing.T) {
 
 func TestInvalidNewRoute(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRoute(1, testRouteName)
+	old := createRoute(testRouteName)
 	oldBytes, err := json.Marshal(old)
 	if err != nil {
 		t.Errorf("Marshal(%v) = %v", old, err)
@@ -265,8 +256,8 @@ func TestInvalidNewRoute(t *testing.T) {
 
 func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createRoute(1, testRouteName)
-	new := createRoute(1, testRouteName)
+	old := createRoute(testRouteName)
+	new := createRoute(testRouteName)
 	new.Spec.Traffic = []v1alpha1.TrafficTarget{
 		v1alpha1.TrafficTarget{
 			RevisionName: testRevisionName,
@@ -275,13 +266,7 @@ func TestValidRouteChanges(t *testing.T) {
 	}
 	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "replace",
-			Path:      "/spec/generation",
-			Value:     2,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidNewRevisionObject(t *testing.T) {
@@ -300,11 +285,6 @@ func TestValidNewRevisionObject(t *testing.T) {
 	resp := ac.admit(testCtx, req)
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		},
 		jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/servingState",
@@ -337,13 +317,7 @@ func TestValidRevisionUpdates(t *testing.T) {
 	req.Object.Raw = marshaled
 	resp := ac.admit(testCtx, req)
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestInvalidRevisionUpdate(t *testing.T) {
@@ -403,36 +377,34 @@ func TestValidNewServicePinned(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(testCtx, createValidCreateServicePinned())
 	expectAllowed(t, resp)
-	p := incrementGenerationPatch(0)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestValidNewServiceRunLatest(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(testCtx, createValidCreateServiceRunLatest())
 	expectAllowed(t, resp)
-	p := incrementGenerationPatch(0)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
 
 func TestInvalidNewServiceNoSpecs(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	svc := createServicePinned(0, testServiceName)
+	svc := createServicePinned(testServiceName)
 	svc.Spec.Pinned = nil
 	expectFailsWith(t, ac.admit(testCtx, createCreateService(svc)), "exactly one of runLatest or pinned")
 }
 
 func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	svc := createServicePinned(0, testServiceName)
+	svc := createServicePinned(testServiceName)
 	svc.Spec.Pinned.RevisionName = ""
 	expectFailsWith(t, ac.admit(testCtx, createCreateService(svc)), "spec.pinned.revisionName")
 }
 
 func TestValidServiceEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	old := createServicePinned(testGeneration, testServiceName)
-	new := createServicePinned(testGeneration, testServiceName)
+	old := createServicePinned(testServiceName)
+	new := createServicePinned(testServiceName)
 	new.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
 		corev1.EnvVar{
 			Name:  envVarName,
@@ -441,13 +413,6 @@ func TestValidServiceEnvChanges(t *testing.T) {
 	}
 	resp := ac.admit(testCtx, createUpdateService(&old, &new))
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "replace",
-			Path:      "/spec/generation",
-			Value:     2,
-		},
-	})
 }
 
 func TestValidWebhook(t *testing.T) {
@@ -504,7 +469,7 @@ func createValidCreateConfiguration() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Configuration"},
 	}
-	config := createConfiguration(0, testConfigurationName)
+	config := createConfiguration(testConfigurationName)
 	marshaled, err := json.Marshal(config)
 	if err != nil {
 		panic("failed to marshal configuration")
@@ -525,7 +490,7 @@ func createValidCreateRoute() *admissionv1beta1.AdmissionRequest {
 		Operation: admissionv1beta1.Create,
 		Kind:      metav1.GroupVersionKind{Kind: "Route"},
 	}
-	route := createRoute(0, testRouteName)
+	route := createRoute(testRouteName)
 	marshaled, err := json.Marshal(route)
 	if err != nil {
 		panic("failed to marshal route")
@@ -579,12 +544,12 @@ func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {
 
 func createUpdateService(old, new *v1alpha1.Service) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateService()
-	marshaled, err := json.Marshal(old)
+	marshaled, err := json.Marshal(new)
 	if err != nil {
 		panic("failed to marshal service")
 	}
 	req.Object.Raw = marshaled
-	marshaledOld, err := json.Marshal(new)
+	marshaledOld, err := json.Marshal(old)
 	if err != nil {
 		panic("failed to marshal service")
 	}
@@ -606,11 +571,11 @@ func createCreateService(service v1alpha1.Service) *admissionv1beta1.AdmissionRe
 }
 
 func createValidCreateServicePinned() *admissionv1beta1.AdmissionRequest {
-	return createCreateService(createServicePinned(0, testServiceName))
+	return createCreateService(createServicePinned(testServiceName))
 }
 
 func createValidCreateServiceRunLatest() *admissionv1beta1.AdmissionRequest {
-	return createCreateService(createServiceRunLatest(0, testServiceName))
+	return createCreateService(createServiceRunLatest(testServiceName))
 }
 
 func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
@@ -672,14 +637,13 @@ func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 	}
 }
 
-func createConfiguration(generation int64, configurationName string) v1alpha1.Configuration {
+func createConfiguration(configurationName string) v1alpha1.Configuration {
 	return v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      configurationName,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			Generation: generation,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
@@ -696,14 +660,13 @@ func createConfiguration(generation int64, configurationName string) v1alpha1.Co
 	}
 }
 
-func createRoute(generation int64, routeName string) v1alpha1.Route {
+func createRoute(routeName string) v1alpha1.Route {
 	return v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      routeName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Generation: generation,
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
 					Name:         "test-traffic-target",
@@ -730,41 +693,31 @@ func createRevision(revName string) v1alpha1.Revision {
 	}
 }
 
-func createServicePinned(generation int64, serviceName string) v1alpha1.Service {
+func createServicePinned(serviceName string) v1alpha1.Service {
 	return v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      serviceName,
 		},
 		Spec: v1alpha1.ServiceSpec{
-			Generation: generation,
 			Pinned: &v1alpha1.PinnedType{
 				RevisionName:  testRevisionName,
-				Configuration: createConfiguration(generation, "config").Spec,
+				Configuration: createConfiguration("config").Spec,
 			},
 		},
 	}
 }
 
-func createServiceRunLatest(generation int64, serviceName string) v1alpha1.Service {
+func createServiceRunLatest(serviceName string) v1alpha1.Service {
 	return v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      serviceName,
 		},
 		Spec: v1alpha1.ServiceSpec{
-			Generation: generation,
 			RunLatest: &v1alpha1.RunLatestType{
-				Configuration: createConfiguration(generation, "config").Spec,
+				Configuration: createConfiguration("config").Spec,
 			},
 		},
-	}
-}
-
-func incrementGenerationPatch(old int64) jsonpatch.JsonPatchOperation {
-	return jsonpatch.JsonPatchOperation{
-		Operation: "add",
-		Path:      "/spec/generation",
-		Value:     old + 1,
 	}
 }

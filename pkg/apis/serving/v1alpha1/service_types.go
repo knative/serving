@@ -36,14 +36,8 @@ type Service struct {
 }
 
 // ServiceSpec represents the configuration for the Service object.
-// Exactly one of its members (other than Generation) must be specified.
+// Exactly one of its members must be specified.
 type ServiceSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
-	Generation int64 `json:"generation,omitempty"`
-
 	// RunLatest defines a simple Service. It will automatically
 	// configure a route that keeps the latest ready revision
 	// from the supplied configuration running.
@@ -106,14 +100,6 @@ type ServiceList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Service `json:"items"`
-}
-
-func (s *Service) GetGeneration() int64 {
-	return s.Spec.Generation
-}
-
-func (s *Service) SetGeneration(generation int64) {
-	s.Spec.Generation = generation
 }
 
 func (s *Service) GetSpecJSON() ([]byte, error) {

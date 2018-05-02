@@ -76,8 +76,8 @@ func updateConfigWithImage(clients *test.Clients, imagePaths []string) error {
 	if err != nil {
 		return err
 	}
-	if newConfig.Spec.Generation != int64(2) {
-		return fmt.Errorf("The spec was updated so the Generation should be 2 but it was actually %d", newConfig.Spec.Generation)
+	if newConfig.Generation != int64(2) {
+		return fmt.Errorf("The spec was updated so the Generation should be 2 but it was actually %d", newConfig.Generation)
 	}
 	return nil
 }

@@ -19,19 +19,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestGeneration(t *testing.T) {
-	r := Revision{}
-	if a := r.GetGeneration(); a != 0 {
-		t.Errorf("empty revision generation should be 0 was: %d", a)
-	}
-
-	r.SetGeneration(5)
-	if e, a := int64(5), r.GetGeneration(); e != a {
-		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
-	}
-
-}
-
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string

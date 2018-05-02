@@ -47,12 +47,6 @@ type Configuration struct {
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
-	// TODO: Generation does not work correctly with CRD. They are scrubbed
-	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-	// So, we add Generation here. Once that gets fixed, remove this and use
-	// ObjectMeta.Generation instead.
-	Generation int64 `json:"generation,omitempty"`
-
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
 	Build *build.BuildSpec `json:"build,omitempty"`
@@ -120,14 +114,6 @@ type ConfigurationList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Configuration `json:"items"`
-}
-
-func (r *Configuration) GetGeneration() int64 {
-	return r.Spec.Generation
-}
-
-func (r *Configuration) SetGeneration(generation int64) {
-	r.Spec.Generation = generation
 }
 
 func (r *Configuration) GetSpecJSON() ([]byte, error) {

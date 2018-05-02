@@ -23,3 +23,5 @@ spec:
     kind: Route
     plural: routes
   scope: Namespaced
+  subresources:
+    status: {}

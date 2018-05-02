@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/golang/glog"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -41,6 +42,7 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
@@ -234,7 +236,6 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 	if err := c.extendRevisionsWithIndirectTrafficTargets(ctx, route, configMap, revMap); err != nil {
 		return nil, err
 	}
-
 	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, route, configMap); err != nil {
 		return nil, err
 	}
@@ -440,18 +441,16 @@ func (c *Controller) setLabelForGivenConfigurations(
 
 	// Set label for newly added configurations as traffic target.
 	for _, config := range configMap {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string)
-		} else if _, ok := config.Labels[serving.RouteLabelKey]; ok {
+		if _, ok := config.Labels[serving.RouteLabelKey]; ok {
 			continue
 		}
-		config.Labels[serving.RouteLabelKey] = route.Name
-		if _, err := configClient.Update(config); err != nil {
-			logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+
+		err := controller.SetConfigLabel(configClient, config.Name, serving.RouteLabelKey, route.Name)
+		if err != nil {
+			logger.Errorf("Failed add route label to Configuration %q: %q", config.Name, err)
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -474,18 +473,15 @@ func (c *Controller) setLabelForGivenRevisions(
 	}
 
 	for _, rev := range revMap {
-		if rev.Labels == nil {
-			rev.Labels = make(map[string]string)
-		} else if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
+		if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
 			continue
 		}
-		rev.Labels[serving.RouteLabelKey] = route.Name
-		if _, err := revisionClient.Update(rev); err != nil {
-			logger.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
+		err := controller.SetRevisionLabel(revisionClient, rev.Name, serving.RouteLabelKey, route.Name)
+		if err != nil {
+			glog.Errorf("Failed to add route label to Revision %q: %q", rev.Name, err)
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -508,14 +504,13 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	// Delete label for newly removed configurations as traffic target.
 	for _, config := range oldConfigsList.Items {
 		if _, ok := configMap[config.Name]; !ok {
-			delete(config.Labels, serving.RouteLabelKey)
-			if _, err := configClient.Update(&config); err != nil {
-				logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+			err := controller.RemoveConfigLabel(configClient, config.Name, serving.RouteLabelKey)
+			if err != nil {
+				logger.Errorf("Failed to delete route label from Configuration %q: %q", config.Name, err)
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -538,9 +533,8 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	// Delete label for newly removed revisions as traffic target.
 	for _, rev := range oldRevList.Items {
 		if _, ok := revMap[rev.Name]; !ok {
-			delete(rev.Labels, serving.RouteLabelKey)
-			if _, err := revClient.Update(&rev); err != nil {
-				logger.Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
+			if err := controller.RemoveRevisionLabel(revClient, rev.Name, serving.RouteLabelKey); err != nil {
+				logger.Errorf("Failed to delete route label from Revision %q: %q", rev.Name, err)
 				return err
 			}
 		}
@@ -775,8 +769,7 @@ func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error
 	// Check if there is anything to update.
 	if !reflect.DeepEqual(existing.Status, route.Status) {
 		existing.Status = route.Status
-		// TODO: for CRD there's no updatestatus, so use normal update.
-		return routeClient.Update(existing)
+		return routeClient.UpdateStatus(existing)
 	}
 	return existing, nil
 }
@@ -945,7 +938,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		Status: corev1.ConditionTrue,
 	})
 
-	if _, err = routeClient.Update(route); err != nil {
+	if _, err = routeClient.UpdateStatus(route); err != nil {
 		c.Logger.Error(
 			"Error updating readiness of route upon ingress becoming",
 			zap.Error(err),

@@ -447,13 +447,11 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 	}
 	logger.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
+	patchType := admissionv1beta1.PatchTypeJSONPatch
 	return &admissionv1beta1.AdmissionResponse{
-		Patch:   patchBytes,
-		Allowed: true,
-		PatchType: func() *admissionv1beta1.PatchType {
-			pt := admissionv1beta1.PatchTypeJSONPatch
-			return &pt
-		}(),
+		Patch:     patchBytes,
+		Allowed:   true,
+		PatchType: &patchType,
 	}
 }
 
@@ -492,12 +490,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 
 	var patches []jsonpatch.JsonPatchOperation
 
-	err := updateGeneration(ctx, &patches, oldObj, newObj)
-	if err != nil {
-		logger.Error("Failed to update generation", zap.Error(err))
-		return nil, fmt.Errorf("Failed to update generation: %s", err)
-	}
-
 	if defaulter := handler.Defaulter; defaulter != nil {
 		if err := defaulter(&patches, newObj); err != nil {
 			logger.Error("Failed the resource specific defaulter", zap.Error(err))
@@ -518,6 +510,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 		logger.Error("Failed to validate", zap.Error(err))
 		return nil, fmt.Errorf("Failed to validate: %s", err)
 	}
+
 	return json.Marshal(patches)
 }
 
@@ -531,74 +524,6 @@ func validateMetadata(new GenericCRD) error {
 	if len(name) > 63 {
 		return errors.New("Invalid resource name: length must be no more than 63 characters")
 	}
-	return nil
-}
-
-// updateGeneration sets the generation by following this logic:
-// if there's no old object, it's create, set generation to 1
-// if there's an old object and spec has changed, set generation to oldGeneration + 1
-// appends the patch to patches if changes are necessary.
-// TODO: Generation does not work correctly with CRD. They are scrubbed
-// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
-// So, we add Generation here. Once that gets fixed, remove this and use
-// ObjectMeta.Generation instead.
-func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	logger := logging.FromContext(ctx)
-	var oldGeneration int64
-	if old == nil {
-		logger.Info("Old is nil")
-	} else {
-		oldGeneration = old.GetGeneration()
-	}
-	if oldGeneration == 0 {
-		logger.Info("Creating an object, setting generation to 1")
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		})
-		return nil
-	}
-
-	oldSpecJSON, err := old.GetSpecJSON()
-	if err != nil {
-		logger.Error("Failed to get Spec JSON for old", zap.Error(err))
-	}
-	newSpecJSON, err := new.GetSpecJSON()
-	if err != nil {
-		logger.Error("Failed to get Spec JSON for new", zap.Error(err))
-	}
-
-	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
-	if err != nil {
-		fmt.Printf("Error creating JSON patch:%v", err)
-		return err
-	}
-	if len(specPatches) > 0 {
-		specPatchesJSON, err := json.Marshal(specPatches)
-		if err != nil {
-			logger.Error("Failed to marshal spec patches", zap.Error(err))
-			return err
-		}
-		logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
-
-		operation := "replace"
-		if newGeneration := new.GetGeneration(); newGeneration == 0 {
-			// If new is missing Generation, we need to "add" instead of "replace".
-			// We see this for Service resources because the initial generation is
-			// added to the managed Configuration and Route, but not the Service
-			// that manages them.
-			// TODO(#642): Remove this.
-			operation = "add"
-		}
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: operation,
-			Path:      "/spec/generation",
-			Value:     oldGeneration + 1,
-		})
-		return nil
-	}
-	logger.Info("No changes in the spec, not bumping generation")
 	return nil
 }
 

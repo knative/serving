@@ -29,8 +29,7 @@ func createRouteWithTraffic(trafficTargets []v1alpha1.TrafficTarget) v1alpha1.Ro
 			Name:      testRouteName,
 		},
 		Spec: v1alpha1.RouteSpec{
-			Generation: testGeneration,
-			Traffic:    trafficTargets,
+			Traffic: trafficTargets,
 		},
 	}
 }

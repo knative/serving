@@ -23,3 +23,5 @@ spec:
     kind: Configuration
     plural: configurations
   scope: Namespaced
+  subresources:
+    status: {}

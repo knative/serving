@@ -62,13 +62,12 @@ const (
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
-			Name:      "test-config",
-			Namespace: testNamespace,
+			SelfLink:   "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
+			Name:       "test-config",
+			Namespace:  testNamespace,
+			Generation: 1,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			//TODO(grantr): This is a workaround for generation initialization
-			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -225,7 +224,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 		t.Errorf("rev does not have configuration label <%s:%s>", serving.ConfigurationLabelKey, config.Name)
 	}
 
-	if rev.Annotations[serving.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Spec.Generation) {
+	if rev.Annotations[serving.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Generation) {
 		t.Errorf("rev does not have generation annotation <%s:%s>", serving.ConfigurationGenerationAnnotationKey, config.Name)
 	}
 
