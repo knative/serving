@@ -59,7 +59,7 @@ watch kubectl get deploy
 Cpu heavy app:
 
 ```
-bazel run //sample/autoscale/kdt3:everything.create
+bazel run //sample/autoscale/prime:everything.create
 export SERVICE_HOST=`kubectl get route autoscale-prime-route -o jsonpath="{.status.domain}"`
 export SERVICE_IP=`kubectl get ingress autoscale-prime-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/primes/40000
@@ -105,8 +105,8 @@ batch () {
   do
     sleep 0.02
     curl -s -o /dev/null -w "%{http_code}\n" \
-      --header 'Host:autoscale.myhost.net' \
-      http://${SERVICE_IP}/primes/40000000 &
+      --header "Host:${SERVICE_HOST?}" \
+      http://${SERVICE_IP?}/primes/40000000 &
   done
   wait
 }
@@ -117,8 +117,8 @@ time batch 2>/dev/null | sort | uniq -c
 
 ```shell
 kubectl delete namespace wrk
-bazel run sample/autoscale-kdt3:everything.delete
-bazel run sample/autoscale:everything.delete
+bazel run sample/autoscale/kdt3:everything.delete
+bazel run sample/autoscale/prime:everything.delete
 ```
 
 ## References
