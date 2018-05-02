@@ -6,45 +6,42 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
 2. [Start Elafros](../../README.md#start-elafros)
+3. [Setup telemetry](../../docs/telemetry.md)
 
 ## Setup
 
-Deploy the sample apps, a simple 3D tic-tac-toe game and a prime number generator.
+Deploy a simple 3D tic-tac-toe webapp.
 
 ```shell
 bazel run //sample/autoscale/kdt3:everything.create
-bazel run //sample/autoscaler:everything.create
 ```
 
-Export your Ingress IP as SERVICE_IP (or whatever the target cluster ingress is.)
+Export `SERVICE_HOST` and `INGRESS_IP`.
 
 ```shell
-# Put the Ingress Host name into an environment variable.
-export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
-
-# Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_HOST=`kubectl get route autoscale-kdt3-route -o jsonpath="{.status.domain}"`
+export SERVICE_IP=`kubectl get ingress autoscale-kdt3-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
-Hit the apps to verify they are running.
+Verify the app is running.
 
 ```shell
-time curl --header 'Host:autoscale-kdt3.myhost.net' http://${SERVICE_IP?}/game/
-time curl --header 'Host:autoscale.myhost.net' 'http://${SERVICE_IP?}/primes/40000000
+time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/game/
 ```
 
 ## Running a QPS load test
 
-Ramp up 1000 concurrent clients.
+Ramp up over 1 minute to 100 queries-per-second (qps) for 10 minutes.
 
 ```shell
-CLIENT_COUNT=500
-RAMP_TIME_SECONDS=100
+CLIENT_COUNT=100
+RAMP_TIME_SECONDS=60
+kubectl create namespace wrk
 for i in `seq 10 10 $CLIENT_COUNT`; do
   kubectl run wrk-$i \
     --image josephburnett/wrk2:latest \
-    --restart Never --image-pull-policy=Always -l "app=wrk" -n wrk \
-    -- -c10 -t10 -d10m -R10 -a -s /wrk2/scripts/points.lua \
+    --restart Never --image-pull-policy=Always -n wrk \
+    -- -c10 -t10 -d10m -R10 \
        -H 'Host: autoscale-kdt3.myhost.net' \
        "http://${SERVICE_IP}/game/"
   sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
@@ -59,52 +56,44 @@ watch kubectl get deploy
 
 ### Other test scenarios
 
+Cpu heavy app:
+
+```
+bazel run //sample/autoscale/kdt3:everything.create
+export SERVICE_HOST=`kubectl get route autoscale-prime-route -o jsonpath="{.status.domain}"`
+export SERVICE_IP=`kubectl get ingress autoscale-prime-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/primes/40000
+```
+
 Slower rampup:
 
 ```shell
-CLIENT_COUNT=500
+CLIENT_COUNT=100
 RAMP_TIME_SECONDS=400
 ```
 
 Lower peak:
 
 ```shell
-CLIENT_COUNT=100
-RAMP_TIME_SECONDS=100
+CLIENT_COUNT=50
+RAMP_TIME_SECONDS=60
 ```
 
 Ludicrous mode:
 
 ```shell
-CLIENT_COUNT=500
-RAMP_TIME_SECONDS=50
+CLIENT_COUNT=1000
+RAMP_TIME_SECONDS=30
 ```
 
 ## Analysis
 
 Calculate average QPS in 10 second increments.
-
-```shell
-kubectl logs -n wrk -l "app=wrk" | awk '/===STATUS===/ { sec = 10*int($2/10); count[sec]++; } END { for (sec in count) print sec " " count[sec] / 10 }' | sort
-```
-
 Calculate average latency in 10 second increments.
-
-```shell
-kubectl logs -n wrk -l "app=wrk" | awk '/===LATENCY===/ { sec = 10*int($2/10000000); sum[sec] += $3; count[sec]++ } END { for (sec in sum) print sec " " sum[sec] / count[sec] / 1000 }' | sort
-```
-
 Calculate average error rate in 10 second increments.
-
-```shell
-kubectl logs -n wrk -l "app=wrk" | awk '/===STATUS===/ { sec = 10*int($2/10); count[sec]++; if ($3 != "200") error[sec]++ } END { for (sec in count) print sec " " error[sec] / count[sec] }' | sort
-```
-
 Calculate the total client count in 10 second increments.
 
-```shell
-kubectl logs -n wrk -l "app=wrk" | awk '/===CLIENT===/' | sort | awk '{ sec = 10*int($2/10); total++; count[sec] = total } END { for (sec in count) print sec " " count[sec] }' | sort
-```
+TODO: analysis with Elafros telemetry system.
 
 ## Running a batch job load test
 
