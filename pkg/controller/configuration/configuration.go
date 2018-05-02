@@ -18,7 +18,6 @@ package configuration
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
@@ -47,8 +46,6 @@ import (
 )
 
 const controllerAgentName = "configuration-controller"
-
-var controllerKind = v1alpha1.SchemeGroupVersion.WithKind("Configuration")
 
 // Controller implements the controller for Configuration resources
 type Controller struct {
@@ -275,7 +272,7 @@ func (c *Controller) syncHandler(key string) error {
 	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
 		config.Name, config, config.Spec.RevisionTemplate)
 	spec := config.Spec.RevisionTemplate.Spec
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := controller.NewConfigurationControllerRef(config)
 
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
@@ -298,38 +295,54 @@ func (c *Controller) syncHandler(key string) error {
 		spec.BuildName = created.Name
 	}
 
-	rev := &v1alpha1.Revision{
-		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
-		Spec:       spec,
-	}
 	revName, err := generateRevisionName(config)
 	if err != nil {
 		return err
 	}
-	// TODO: Should this just use rev.ObjectMeta.GenerateName =
-	rev.ObjectMeta.Name = revName
-	// Can't generate objects in a different namespace from what the call is made against,
-	// so use the namespace of the configuration that's being updated for the Revision being
-	// created.
-	rev.ObjectMeta.Namespace = config.Namespace
 
-	if rev.ObjectMeta.Labels == nil {
-		rev.ObjectMeta.Labels = make(map[string]string)
-	}
-	rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
-
-	// Delete revisions when the parent Configuration is deleted.
-	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
-
-	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
+	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace)
+	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
-		return err
-	}
-	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
-	glog.Infof("Created Revision:\n%+v", created)
+		if !errors.IsNotFound(err) {
+			glog.Errorf("Revisions Get for %q failed: %s", revName, err)
+			return err
+		}
 
+		rev := &v1alpha1.Revision{
+			ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
+			Spec:       spec,
+		}
+		// TODO: Should this just use rev.ObjectMeta.GenerateName =
+		rev.ObjectMeta.Name = revName
+		// Can't generate objects in a different namespace from what the call is made against,
+		// so use the namespace of the configuration that's being updated for the Revision being
+		// created.
+		rev.ObjectMeta.Namespace = config.Namespace
+
+		if rev.ObjectMeta.Labels == nil {
+			rev.ObjectMeta.Labels = make(map[string]string)
+		}
+		rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
+
+		if rev.ObjectMeta.Annotations == nil {
+			rev.ObjectMeta.Annotations = make(map[string]string)
+		}
+		rev.ObjectMeta.Annotations[ela.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
+
+		// Delete revisions when the parent Configuration is deleted.
+		rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
+
+		created, err = revClient.Create(rev)
+		if err != nil {
+			glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
+			return err
+		}
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
+		glog.Infof("Created Revision:\n%+v", created)
+	} else {
+		glog.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
+	}
 	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.
 	// Also update the LatestCreatedRevisionName so that we'll know revision to check
@@ -337,10 +350,10 @@ func (c *Controller) syncHandler(key string) error {
 	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
 	config.Status.ObservedGeneration = config.Spec.Generation
 
-	log.Printf("Updating the configuration status:\n%+v", config)
+	glog.Infof("Updating the configuration status:\n%+v", config)
 
 	if _, err = c.updateStatus(config); err != nil {
-		log.Printf("Failed to update the configuration %s", err)
+		glog.Errorf("Failed to update the configuration %s", err)
 		return err
 	}
 
@@ -375,7 +388,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	namespace := revision.Namespace
 	// Lookup and see if this Revision corresponds to a Configuration that
 	// we own and hence the Configuration that created this Revision.
-	configName := lookupRevisionOwner(revision)
+	configName := controller.LookupOwningConfigurationName(revision.OwnerReferences)
 	if configName == "" {
 		return
 	}
@@ -390,13 +403,6 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	if revision.Name != config.Status.LatestCreatedRevisionName {
 		// The revision isn't the latest created one, so ignore this event.
 		glog.Infof("Revision %q is not the latest created one", revisionName)
-		return
-	}
-
-	if config.Status.IsLatestReadyRevisionNameUpToDate() {
-		// The configuration is already ready and has LatestReadyRevisionName equal
-		// to LatestCreatedRevisionName, so ignore this event.
-		glog.Infof("Configuration %q is already ready with latest created revision ready", revisionName)
 		return
 	}
 
@@ -444,17 +450,6 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 
 func (c *Controller) updateRevisionEvent(old, new interface{}) {
 	c.addRevisionEvent(new)
-}
-
-// Return the configuration that created it.
-func lookupRevisionOwner(revision *v1alpha1.Revision) string {
-	// See if there's a 'configuration' owner reference on this object.
-	for _, ownerReference := range revision.OwnerReferences {
-		if ownerReference.Kind == controllerKind.Kind {
-			return ownerReference.Name
-		}
-	}
-	return ""
 }
 
 func getLatestRevisionStatusCondition(revision *v1alpha1.Revision) *v1alpha1.RevisionCondition {

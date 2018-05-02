@@ -27,6 +27,7 @@ package configuration
 	Congfiguration.
 */
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -43,7 +44,6 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 
 	"k8s.io/client-go/rest"
-	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -73,12 +73,17 @@ func getTestConfiguration() *v1alpha1.Configuration {
 						"test-label":                   "test",
 						"example.com/namespaced-label": "test",
 					},
+					Annotations: map[string]string{
+						"test-annotation-1": "foo",
+						"test-annotation-2": "bar",
+					},
 				},
 				Spec: v1alpha1.RevisionSpec{
+					ServiceAccountName: "test-account",
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
-					Container: &corev1.Container{
+					Container: corev1.Container{
 						Image:      "gcr.io/repo/image",
 						Command:    []string{"echo"},
 						Args:       []string{"hello", "world"},
@@ -109,7 +114,7 @@ func getTestRevision() *v1alpha1.Revision {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			Container: corev1.Container{
 				Image: "test-image",
 			},
 		},
@@ -211,12 +216,22 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	}
 
 	if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
-		t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+		t.Errorf("rev does not have configuration label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+	}
+
+	if rev.Annotations[ela.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Spec.Generation) {
+		t.Errorf("rev does not have generation annotation <%s:%s>", ela.ConfigurationGenerationAnnotationKey, config.Name)
 	}
 
 	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Labels {
 		if rev.Labels[k] != v {
 			t.Errorf("revisionTemplate label %s=%s not passed to revision", k, v)
+		}
+	}
+
+	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Annotations {
+		if rev.Annotations[k] != v {
+			t.Errorf("revisionTemplate annotation %s=%s not passed to revision", k, v)
 		}
 	}
 
@@ -252,6 +267,9 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 	}
 	if got, want := len(revList.Items), 1; got != want {
 		t.Fatalf("expected %v revisions, got %v", want, got)
+	}
+	if got, want := revList.Items[0].Spec.ServiceAccountName, "test-account"; got != want {
+		t.Fatalf("expected service account name %v, got %v", want, got)
 	}
 
 	buildList, err := elaClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
@@ -365,7 +383,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 
 	// Create a revision owned by this Configuration. Calling IsReady() on this
 	// revision will return false.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	controller.addRevisionEvent(revision)
@@ -400,7 +418,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 
 	// Create a revision owned by this Configuration. This revision is Ready, but
 	// doesn't match the LatestCreatedRevisionName.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	revision.Status = v1alpha1.RevisionStatus{
@@ -445,7 +463,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 
 	// Create a revision owned by this Configuration. This revision is Ready and
 	// matches the Configuration's LatestReadyRevisionName.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	revision.Status = v1alpha1.RevisionStatus{
@@ -454,14 +472,6 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 			Status: corev1.ConditionTrue,
 		}},
 	}
-
-	// In this case, we can't tell if addRevisionEvent has updated the
-	// Configuration, because it's already in the expected state. Use a reactor
-	// instead to test whether Update() is called.
-	elaClient.Fake.PrependReactor("update", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
-		t.Error("Configuration was updated unexpectedly")
-		return true, nil, nil
-	})
 
 	controller.addRevisionEvent(revision)
 }
@@ -563,7 +573,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 
 	configClient.Create(config)
 
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	// mark the revision as Ready

@@ -19,63 +19,81 @@ metadata:
   namespace: monitoring
 data:
   dashboards.yaml: |+
-    - name: 'deployment'
+    - name: 'elafros'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/deployment
-    - name: 'etcd'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/etcd
-    - name: 'k8s'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/k8s
-    - name: 'node'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/node
-    - name: 'pod'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/pod
-    - name: 'statefulset'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/statefulset
-    - name: 'ela-controller'
-      org_id: 1
-      folder: ''
-      type: file
-      options:
-        folder: /grafana-dashboard-definition/ela-controller
+        folder: /grafana-dashboard-definition/elafros
     - name: 'istio'
       org_id: 1
       folder: ''
       type: file
       options:
         folder: /grafana-dashboard-definition/istio
-    - name: 'istio-mixer'
+    - name: 'mixer'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/istio-mixer
-    - name: 'istio-pilot'
+        folder: /grafana-dashboard-definition/mixer
+    - name: 'pilot'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/istio-pilot
+        folder: /grafana-dashboard-definition/pilot
+    - name: 'kubernetes-deployment'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-deployment
+    - name: 'kubernetes-capacity-planning'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-capacity-planning
+    - name: 'kubernetes-cluster-health'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-cluster-health
+    - name: 'kubernetes-cluster-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-cluster-status
+    - name: 'kubernetes-control-plane-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-control-plane-status
+    - name: 'kubernetes-resource-requests'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-resource-requests
+    - name: 'kubernetes-nodes'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-nodes
+    - name: 'kubernetes-pods'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-pods
+    - name: 'kubernetes-statefulset'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-statefulset

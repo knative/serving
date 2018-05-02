@@ -20,10 +20,10 @@
   version = "v1.1.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/evanphx/json-patch"
+  name = "github.com/fsnotify/fsnotify"
   packages = ["."]
-  revision = "944e07253867aacae43c04b2e6a239005443f33a"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -144,6 +144,12 @@
   version = "0.3.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/josephburnett/k8sflag"
+  packages = ["pkg/k8sflag"]
+  revision = "632d8ec6ee68a68bbeef4aeee67f64661c1326c3"
+
+[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
@@ -162,58 +168,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  name = "github.com/onsi/ginkgo"
-  packages = [
-    ".",
-    "config",
-    "internal/codelocation",
-    "internal/containernode",
-    "internal/failer",
-    "internal/leafnodes",
-    "internal/remote",
-    "internal/spec",
-    "internal/spec_iterator",
-    "internal/specrunner",
-    "internal/suite",
-    "internal/testingtproxy",
-    "internal/writer",
-    "reporters",
-    "reporters/stenographer",
-    "reporters/stenographer/support/go-colorable",
-    "reporters/stenographer/support/go-isatty",
-    "types"
-  ]
-  revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
-  version = "v1.4.0"
-
-[[projects]]
-  name = "github.com/onsi/gomega"
-  packages = [
-    ".",
-    "format",
-    "internal/assertion",
-    "internal/asyncassertion",
-    "internal/oraclematcher",
-    "internal/testingtsupport",
-    "matchers",
-    "matchers/support/goraph/bipartitegraph",
-    "matchers/support/goraph/edge",
-    "matchers/support/goraph/node",
-    "matchers/support/goraph/util",
-    "types"
-  ]
-  revision = "003f63b7f4cff3fc95357005358af2de0f5fe152"
-  version = "v1.3.0"
-
-[[projects]]
   name = "github.com/openzipkin/zipkin-go"
   packages = [
     ".",
     "idgenerator",
-    "middleware/http",
     "model",
     "propagation",
-    "propagation/b3",
     "reporter",
     "reporter/http"
   ]
@@ -263,6 +223,26 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "go.opencensus.io"
+  packages = [
+    "exporter/prometheus",
+    "exporter/zipkin",
+    "internal",
+    "internal/tagencoding",
+    "plugin/ochttp",
+    "plugin/ochttp/propagation/b3",
+    "stats",
+    "stats/internal",
+    "stats/view",
+    "tag",
+    "trace",
+    "trace/internal",
+    "trace/propagation"
+  ]
+  revision = "0095aec66ae14801c6711210f6f0716411cefdd3"
+  version = "v0.8.0"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
@@ -274,9 +254,6 @@
   packages = [
     "context",
     "context/ctxhttp",
-    "html",
-    "html/atom",
-    "html/charset",
     "http2",
     "http2/hpack",
     "idna",
@@ -311,24 +288,12 @@
   packages = [
     "collate",
     "collate/build",
-    "encoding",
-    "encoding/charmap",
-    "encoding/htmlindex",
-    "encoding/internal",
-    "encoding/internal/identifier",
-    "encoding/japanese",
-    "encoding/korean",
-    "encoding/simplifiedchinese",
-    "encoding/traditionalchinese",
-    "encoding/unicode",
     "internal/colltab",
     "internal/gen",
     "internal/tag",
     "internal/triegen",
     "internal/ucd",
-    "internal/utf8internal",
     "language",
-    "runes",
     "secure/bidirule",
     "transform",
     "unicode/bidi",
@@ -369,12 +334,6 @@
   ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
-
-[[projects]]
-  name = "google.golang.org/grpc"
-  packages = ["metadata"]
-  revision = "8e4536a86ab602859c20df5ebfd0bd4228d08655"
-  version = "v1.10.0"
 
 [[projects]]
   name = "gopkg.in/go-playground/webhooks.v3"
@@ -694,6 +653,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "42a100c845a10cafc499f005319781dd4c21907141595c21c176147194c22c83"
+  inputs-digest = "045fb1dfd99560f2cf3f5969ef34fef4a6cdb5674e2fb1e7188a859f09fdff7a"
   solver-name = "gps-cdcl"
   solver-version = 1

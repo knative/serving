@@ -1,8 +1,11 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the
-development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/README.md).
+[contributing](./community/CONTRIBUTING.md) to `Elafros`. Also take a look at:
+
+* [The pull request workflow](./community/CONTRIBUTING.md#pull-requests)
+* [How to add and run tests](./test/README.md)
+* [Iterating](#iterating)
 
 ## Getting started
 
@@ -105,7 +108,7 @@ bazel run :everything.apply
 
 You can see things running with:
 ```shell
-$ kubectl -n ela-system get pods
+kubectl -n ela-system get pods
 NAME                                READY     STATUS    RESTARTS   AGE
 ela-controller-77897cc687-vp27q   1/1       Running   0          16s
 ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
@@ -114,8 +117,12 @@ ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
 You can access the Elafros Controller's logs with:
 
 ```shell
-$ kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
+kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
 ```
+
+If you're using a GCP project to host your Kubernetes cluster, it's good to check the
+[Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
+page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
 ## Enable log and metric collection
 You can use two different setups for collecting logs and metrics:
@@ -163,12 +170,6 @@ bazel run :controller.apply
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Elafros`](./README.md#start-elafros).
-
-## Tests
-
-Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#prow).
-
-For more details about the tests themselves and how to run them, see [the test docs](./test/README.md).
 
 ## Clean up
 

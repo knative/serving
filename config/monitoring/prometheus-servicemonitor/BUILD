@@ -31,11 +31,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "node-exporter",
-    template = "node-exporter.yaml",
-)
-
-k8s_object(
     name = "prometheus",
     template = "prometheus.yaml",
 )
@@ -43,6 +38,11 @@ k8s_object(
 k8s_object(
     name = "prometheus-operator",
     template = "prometheus-operator.yaml",
+)
+
+k8s_object(
+    name = "ela-autoscaler",
+    template = "ela-autoscaler.yaml",
 )
 
 k8s_object(
@@ -57,34 +57,21 @@ k8s_object(
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
-#
-# Base set of components that we want to collect metrics from
-#
 k8s_objects(
-    name = "everything-common",
+    name = "everything",
     objects = [
         ":istio",
-        ":node-exporter",
         ":prometheus",
         ":prometheus-operator",
+        ":ela-autoscaler",
         ":ela-controller",
         ":fluentd-es",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-#
-# Enable detailed k8s metric collection.
-# Below is not enabled by default as it installs a large set of k8s metrics.
-#
-k8s_objects(
-    name = "k8s-metrics",
-    objects = [
         ":apiserver",
         ":kube-controller-manager",
         ":kube-scheduler",
         ":kube-state-metrics",
         ":kubelet",
+        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter-monitor",
     ],
     visibility = ["//visibility:public"],
 )

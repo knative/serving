@@ -6,16 +6,6 @@ k8s_object(
 )
 
 k8s_object(
-    name = "kube-state-metrics",
-    template = "kube-state-metrics.yaml",
-)
-
-k8s_object(
-    name = "node-exporter",
-    template = "node-exporter.yaml",
-)
-
-k8s_object(
     name = "prometheus",
     template = "prometheus.yaml",
 )
@@ -23,23 +13,12 @@ k8s_object(
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
-    name = "everything-common",
+    name = "everything",
     objects = [
-        ":node-exporter",
+        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter",
         ":prometheus",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-#
-# Enable detailed k8s metric collection.
-# Below is not enabled by default as it installs a large set of k8s metrics.
-#
-k8s_objects(
-    name = "k8s-metrics",
-    objects = [
         ":kube-controller-metrics",
-        ":kube-state-metrics",
+        "//third_party/config/monitoring/kubernetes/kube-state-metrics:everything",
     ],
     visibility = ["//visibility:public"],
 )

@@ -17,65 +17,87 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/golang/glog"
-	zipkin "github.com/openzipkin/zipkin-go"
-	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
+	openzipkin "github.com/openzipkin/zipkin-go"
 	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/exporter/zipkin"
+	"go.opencensus.io/plugin/ochttp"
+	"go.opencensus.io/plugin/ochttp/propagation/b3"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+	"go.opencensus.io/trace"
 )
 
 var (
-	// Create a counter to keep track of count of incoming requests.
-	// For more information on counters, see https://prometheus.io/docs/concepts/metric_types/
-	requestCount = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "telemetrysample",
-			Name:      "requests_total",
-			Help:      "Total number of requests.",
-		},
-		// Capture the HTTP response code in a label so that we
-		// can aggregate and visualize this metric based on different
-		// response codes (see count of all 400 vs 200 for example).
-		[]string{"status"},
-	)
+	// Create a measurement to keep track of incoming request counts.
+	// For more information on measurements, see https://godoc.org/go.opencensus.io/stats
+	requestCount = stats.Int64("request_count", "Total number of requests.", stats.UnitNone)
 
-	// Create a histogram to observe the request duration in buckets.
-	// For more information on histograms, see https://prometheus.io/docs/concepts/metric_types/
-	requestDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "telemetrysample",
-		Name:      "request_duration_seconds",
-		Help:      "Histogram of the request duration.",
-		Buckets:   []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5},
-	})
+	// Create a measurement to keep track of request durations.
+	requestDuration = stats.Int64("request_duration", "Histogram of the request duration.", stats.UnitMilliseconds)
+
+	// Capture the HTTP response code in a tag so that we can aggregate and visualize
+	// this metric based on different response codes (see count of all 400 vs 200 for example).
+	// For more information on tags, see https://godoc.org/go.opencensus.io/tag
+	requestStatusTagKey tag.Key
 )
-
-func init() {
-	// Register metrics defined above with the client library.
-	// prometheus.MustRegister doesn't make any external calls to Prometheus.
-	// Instead, it simply validates the correctness of metric definitions and
-	// tells client library to report their values to Promethus during scraping.
-	// If registration fails, MustRegister panics. To prevent a panic, call
-	// Register function instead. However; not failing due to invalid metric
-	// definitions is generally not a good idea as your service will be running
-	// blind without metrics coverage.
-	prometheus.MustRegister(requestCount)
-	prometheus.MustRegister(requestDuration)
-}
 
 func main() {
 	flag.Parse()
-	glog.Info("Telemetry sample started.")
+	log.SetPrefix("TelemetrySample: ")
+	log.Print("Telemetry sample started.")
 
-	// Zipkin setup
+	//
+	// Metrics setup
+	//
+
+	// We want our metrics in Prometheus. Create the exporter to do that.
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "telemetrysample"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	view.RegisterExporter(promExporter)
+
+	// Create the tag keys that will be used to add tags to our measurements.
+	requestStatusTagKey, err = tag.NewKey("status")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create view to see our measurements cumulatively.
+	err = view.Register(
+		&view.View{
+			Description: "Total number of requests.",
+			Measure:     requestCount,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{requestStatusTagKey},
+		},
+		&view.View{
+			Description: "Histogram of the request duration.",
+			Measure:     requestDuration,
+			Aggregation: view.Distribution(10, 25, 50, 100, 250, 500, 1000, 2500),
+		},
+	)
+	if err != nil {
+		log.Fatalf("Cannot subscribe to the view: %v", err)
+	}
+	view.SetReportingPeriod(1 * time.Second)
+
+	//
+	// Tracing setup
+	//
+
 	// If your service only calls other Elafros revisions, then Zipkin setup below
 	// is not needed. All that you need is to extract the following headers from incoming
 	// requests and copy them to your outgoing requests.
@@ -89,38 +111,30 @@ func main() {
 	// For unit tests, reporter.noopReporter can be used instead of the httpreporter below.
 	reporter := httpreporter.NewReporter("http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans")
 	defer reporter.Close()
-	zipkinEndpoint, err := zipkin.NewEndpoint("TelemetrySample", "localhost:8080")
+	localEndpoint, err := openzipkin.NewEndpoint("TelemetrySample", "localhost:8080")
 	if err != nil {
 		log.Fatalf("Unable to create zipkin local endpoint: %+v\n", err)
 	}
-	zipkinTracer, err := zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(zipkinEndpoint))
-	if err != nil {
-		log.Fatalf("Unable to create zipkin tracer: %+v\n", err)
-	}
 
-	// Zipkin middleware implements an http.Handler that automatically extracts
-	// traces from HTTP headers and intercepts http.ResponseWriter to
-	// add the extracted tracing information to the response.
-	zipkinMiddleware := zipkinhttp.NewServerMiddleware(zipkinTracer, zipkinhttp.TagResponseSize(true))
+	// The OpenCensus exporter wraps the Zipkin reporter
+	zipkinExporter := zipkin.NewExporter(reporter, localEndpoint)
+	trace.RegisterExporter(zipkinExporter)
 
-	// Zipkin transport implements an http.RoundTripper and injects open tracing
-	// headers into outgoing requests. If an outgoing call is made as part of responding
-	// to an incoming call, outgoing request must be created with the incoming request's
-	// context. Otherwise, the transporter will start a new trace id (i.e. a new root span)
-	// rather than attaching to the incoming request's trace id.
-	zipkinTransport, err := zipkinhttp.NewTransport(zipkinTracer)
-	if err != nil {
-		log.Fatalf("Unable to create Zipkin HTTP transport: %+v\n", err)
-	}
-	client := &http.Client{Transport: zipkinTransport}
+	// For example purposes, sample every trace.
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+	// Use an http.RoundTripper that instruments all outgoing requests with stats and tracing.
+	client := &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}
+
+	// Implements an http.Handler that automatically extracts traces
+	// from the incoming request and writes them back to the response.
+	handler := &ochttp.Handler{Propagation: &b3.HTTPFormat{}, Handler: rootHandler(client)}
 
 	mux := http.NewServeMux()
-
-	// Use zipkin middleware to handle traces before receiving calls to our handler.
-	mux.Handle("/", zipkinMiddleware((rootHandler(client))))
-
-	// Setup Prometheus handler for metrics.
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/", handler)
+	mux.Handle("/log", &ochttp.Handler{Propagation: &b3.HTTPFormat{}, Handler: logHandler(client)})
+	// Setup OpenCensus Prometheus exporter to handle scraping for metrics.
+	mux.Handle("/metrics", promExporter)
 	http.ListenAndServe(":8080", mux)
 }
 
@@ -135,7 +149,7 @@ var statusCodes = [...]int{
 func rootHandler(client *http.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Write the http request headers to the log for demonstration purposes.
-		glog.Infof("TelemetrySample: Request received. Request headers: %v", r.Header)
+		log.Printf("Request received. Request headers: %v", r.Header)
 
 		// Pick a random return code - this is used for demonstrating metrics & logs
 		// with different responses.
@@ -143,19 +157,23 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 
 		// Before returning from this function, update requestCount and requestDuration metrics.
 		defer func(start time.Time) {
-			// Counters only support incrementing. Increment the count by one
-			// to capture the single call.
-			requestCount.With(prometheus.Labels{"status": fmt.Sprint(status)}).Inc()
+			// Create a new context with the metric tags and their values.
+			ctx, err := tag.New(r.Context(), tag.Insert(requestStatusTagKey, fmt.Sprint(status)))
+			if err != nil {
+				log.Fatal(err)
+			}
 
-			// Capture the duration of the call using our histogram metric. Observe will
-			// put the correct values in the correct bucket as configured above.
-			requestDuration.Observe(time.Since(start).Seconds())
+			// Increment the request count by one.
+			stats.Record(ctx, requestCount.M(1))
+
+			// Record the request duration.
+			stats.Record(ctx, requestDuration.M(time.Since(start).Nanoseconds()/int64(time.Millisecond)))
 		}(time.Now())
 
 		getWithContext := func(url string) (*http.Response, error) {
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
-				glog.Errorf("Failed to create a new request: %v", err)
+				log.Printf("Failed to create a new request: %v", err)
 				return nil, err
 			}
 			// If we don't attach the incoming request's context, we will end up creating
@@ -175,27 +193,77 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer res.Body.Close()
+		// Close directly rather than defer to ensure that spans are finished now rather than
+		// end of this function. This applies to the remaining res.Body().Close calls below.
+		res.Body.Close()
 
 		res, err = getWithContext("http://grafana.monitoring.svc.cluster.local:30802")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer res.Body.Close()
+		res.Body.Close()
 
 		// Let's call a non-existent URL to demonstrate the failure scenarios in distributed tracing.
 		res, err = getWithContext("http://invalidurl.svc.cluster.local")
 		if err != nil {
-			glog.Errorf("Request failed: %v", err)
+			log.Printf("Request failed: %v", err)
 		} else {
-			defer res.Body.Close()
+			res.Body.Close()
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(status)
 		w.Write([]byte("Hello world!\n"))
-		glog.Infof("Request complete. Status: %v", status)
+		log.Printf("Request complete. Status: %v", status)
+	}
+}
+
+func logHandler(client *http.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		timestamp := time.Now()
+
+		// Send logs to STDOUT
+		msg := "A log in plain text format to STDOUT"
+		fmt.Fprintln(os.Stdout, msg)
+
+		data := map[string]string{
+			"log":  "A log in json format to STDOUT",
+			"time": timestamp.String(),
+		}
+		jsonOutput, _ := json.Marshal(data)
+		fmt.Fprintln(os.Stdout, string(jsonOutput))
+
+		// Send logs to /var/log
+		fileName := "/var/log/sample.log"
+		f, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+
+		if err == nil {
+			msg = "A log in plain text format to /var/log\n"
+			if _, err := f.WriteString(msg); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to write to %s: %v", fileName, err)
+			}
+
+			data := map[string]string{
+				"log":  "A log in json format to /var/log",
+				"time": timestamp.String(),
+				// fluentd-time is the reserved key to tell fluentd the logging time. It
+				// must be in the format of RFC3339Nano, i.e. %Y-%m-%dT%H:%M:%S.%NZ.
+				// Without this, fluentd uses current time when it collect the log as an
+				// event time.
+				"fluentd-time": timestamp.Format(time.RFC3339Nano),
+			}
+			jsonOutput, _ := json.Marshal(data)
+			if _, err := f.WriteString(string(jsonOutput) + "\n"); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to write to %s: %v", fileName, err)
+			}
+			f.Sync()
+		} else {
+			fmt.Fprintf(os.Stderr, "Failed to create %s: %v", fileName, err)
+		}
+
+		fmt.Fprint(w, "Sending logs done.\n")
 	}
 }

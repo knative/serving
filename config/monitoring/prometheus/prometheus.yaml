@@ -22,24 +22,12 @@ metadata:
     prometheus: system
 spec:
   replicas: 2
-  version: v2.1.0
+  version: v2.2.1
   serviceAccountName: prometheus-system
   serviceMonitorSelector:
     matchExpressions:
     - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,ela-system]}
-  ruleSelector:
-    matchLabels:
-      role: prometheus-rulefiles
-      prometheus: system
   resources:
     requests:
-      # 2Gi is default, but won't schedule if you don't have a node with >2Gi
-      # memory. Modify based on your target and time-series count for
-      # production use. This value is mainly meant for demonstration/testing
-      # purposes.
+      # TODO: Needs to be modified based on the actual usage.
       memory: 400Mi
-  alerting:
-    alertmanagers:
-    - namespace: default
-      name: alertmanager-system
-      port: web

@@ -17,14 +17,15 @@ k8s_objects(
         ":namespace",
         "//config/monitoring/prometheus-operator:everything",
         "//config/monitoring/prometheus:everything-base",
-        "//config/monitoring/prometheus-exporter:everything-common",
-        "//config/monitoring/prometheus-servicemonitor:everything-common",
+        "//config/monitoring/prometheus-exporter:everything",
+        "//config/monitoring/prometheus-servicemonitor:everything",
         "//config/monitoring/prometheus:everything-prometheus",
         "//config/monitoring/grafana-dashboard-defs:everything",
         "//config/monitoring/grafana:everything",
-        "//config/monitoring/elasticsearch:everything",
-        "//config/monitoring/kibana:everything",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:elasticsearch",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:kibana",
         "//config/monitoring/zipkin:everything",
+        "//config/monitoring/istio:everything",
     ],
 )
 
@@ -39,7 +40,7 @@ k8s_objects(
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
-        "//config/monitoring/fluentd:istio",
+        "//config/monitoring/istio:everything",
     ],
 )
 
@@ -54,17 +55,6 @@ k8s_objects(
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
-        "//config/monitoring/fluentd:istio",
-    ],
-)
-
-#
-# Extended set of k8s metrics
-#
-k8s_objects(
-    name = "k8s-metrics",
-    objects = [
-        "//config/monitoring/prometheus-servicemonitor:k8s-metrics",
-        "//config/monitoring/prometheus-exporter:k8s-metrics",
+        "//config/monitoring/istio:everything",
     ],
 )

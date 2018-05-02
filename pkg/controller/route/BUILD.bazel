@@ -19,7 +19,10 @@ go_library(
         "//pkg/client/listers/ela/v1alpha1:go_default_library",
         "//pkg/controller:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
+        "//vendor/go.opencensus.io/stats:go_default_library",
+        "//vendor/go.opencensus.io/stats/view:go_default_library",
+        "//vendor/go.opencensus.io/tag:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
@@ -41,6 +44,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "ela_istio_route_test.go",
         "queueing_test.go",
         "route_test.go",
     ],
@@ -55,6 +59,7 @@ go_test(
         "//pkg/controller/testing:go_default_library",
         "//vendor/github.com/google/go-cmp/cmp:go_default_library",
         "//vendor/github.com/google/go-cmp/cmp/cmpopts:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",

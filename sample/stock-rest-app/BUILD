@@ -5,10 +5,7 @@ go_library(
     srcs = ["stock.go"],
     importpath = "github.com/elafros/elafros/sample/stock-rest-app",
     visibility = ["//visibility:private"],
-    deps = [
-        "//vendor/github.com/golang/glog:go_default_library",
-        "//vendor/github.com/gorilla/mux:go_default_library",
-    ],
+    deps = ["//vendor/github.com/gorilla/mux:go_default_library"],
 )
 
 go_binary(

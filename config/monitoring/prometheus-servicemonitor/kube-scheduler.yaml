@@ -26,7 +26,7 @@ spec:
     interval: 30s
   selector:
     matchLabels:
-      app: kube-scheduler
+      k8s-app: kube-scheduler
   namespaceSelector:
     matchNames:
-    - monitoring
+    - kube-system

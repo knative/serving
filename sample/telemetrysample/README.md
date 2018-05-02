@@ -53,23 +53,27 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Hello World!
 ```
 
+Generate some logs to STDOUT and files under `/var/log` in `Json` or plain text formats.
+
+```shell
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/log
+Sending logs done.
+```
+
 ## Accessing logs
 You can access to the logs from Kibana UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
 
 ## Accessing per request traces
 You can access to per request traces from Zipkin UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
 
-## Accessing metrics on the dedicated Prometheus instance
-First, get the service IP that Prometheus UI is exposed on:
+## Accessing custom metrics
+You can see published metrics using Prometheus UI. To access to the UI, forward the Prometheus server to your machine:
 
-```shell
-# Put the Ingress IP into an environment variable.
-kubectl get service prometheus-test-web -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
-
-104.154.90.16
+```bash
+kubectl port-forward $(kubectl get pods --selector=app=prometheus,prometheus=test --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
-Copy the IP address and browse to <IP_ADDRESS>:30800.
+Then browse to http://localhost:9090.
 
 ## Cleaning up
 
