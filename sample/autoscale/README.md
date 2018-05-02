@@ -26,7 +26,7 @@ export SERVICE_IP=`kubectl get ingress autoscale-kdt3-route-ela-ingress -o jsonp
 Verify the app is running.
 
 ```shell
-time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/game/
+time curl -I -s --header "Host:${SERVICE_HOST?}" http://${SERVICE_IP?}/game/
 ```
 
 ## Running a QPS load test
@@ -42,8 +42,8 @@ for i in `seq 10 10 $CLIENT_COUNT`; do
     --image josephburnett/wrk2:latest \
     --restart Never --image-pull-policy=Always -n wrk \
     -- -c10 -t10 -d10m -R10 \
-       -H 'Host: autoscale-kdt3.myhost.net' \
-       "http://${SERVICE_IP}/game/"
+       -H "${SERVICE_HOST?}" \
+       "http://${SERVICE_IP?}/game/"
   sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
 done
 ```
