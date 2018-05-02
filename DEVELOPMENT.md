@@ -1,8 +1,11 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the
-development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/README.md).
+[contributing](./community/CONTRIBUTING.md) to `Elafros`. Also take a look at:
+
+* [The pull request workflow](./community/CONTRIBUTING.md#pull-requests)
+* [How to add and run tests](./test/README.md)
+* [Iterating](#iterating)
 
 ## Getting started
 
@@ -167,12 +170,6 @@ bazel run :controller.apply
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Elafros`](./README.md#start-elafros).
-
-## Tests
-
-Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#prow).
-
-For more details about the tests themselves and how to run them, see [the test docs](./test/README.md).
 
 ## Clean up
 

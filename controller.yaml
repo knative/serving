@@ -31,8 +31,6 @@ spec:
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
-        - "-fluentdSidecarImage"
-        - "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
         - "-queueSidecarImage"
         - ela-queue:latest
         - "-autoscalerImage"
@@ -40,3 +38,10 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
+        volumeMounts:
+        - name: ela-config
+          mountPath: /etc/config
+      volumes:
+        - name: ela-config
+          configMap:
+            name: ela-config

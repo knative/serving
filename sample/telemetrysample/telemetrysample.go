@@ -193,21 +193,23 @@ func rootHandler(client *http.Client) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer res.Body.Close()
+		// Close directly rather than defer to ensure that spans are finished now rather than
+		// end of this function. This applies to the remaining res.Body().Close calls below.
+		res.Body.Close()
 
 		res, err = getWithContext("http://grafana.monitoring.svc.cluster.local:30802")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer res.Body.Close()
+		res.Body.Close()
 
 		// Let's call a non-existent URL to demonstrate the failure scenarios in distributed tracing.
 		res, err = getWithContext("http://invalidurl.svc.cluster.local")
 		if err != nil {
 			log.Printf("Request failed: %v", err)
 		} else {
-			defer res.Body.Close()
+			res.Body.Close()
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

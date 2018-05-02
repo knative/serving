@@ -23,6 +23,7 @@ package revision
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -34,8 +35,11 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -84,6 +88,11 @@ func getTestRevision() *v1alpha1.Revision {
 					TimeoutSeconds: 42,
 				},
 				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "health",
+						},
+					},
 					TimeoutSeconds: 43,
 				},
 				TerminationMessagePath: "/dev/null",
@@ -173,7 +182,19 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 	return summedMap
 }
 
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+func getTestControllerConfig() ControllerConfig {
+	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
+	return ControllerConfig{
+		QueueSidecarImage:                 testQueueImage,
+		AutoscalerImage:                   testAutoscalerImage,
+		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+
+		EnableVarLogCollection: true,
+		FluentdSidecarImage:    testFluentdImage,
+	}
+}
+
+func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -195,13 +216,20 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{},
-		testFluentdImage,
-		testQueueImage,
-		testAutoscalerImage,
+		controllerConfig,
 	).(*Controller)
 
 	return
+}
+
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory) {
+	testControllerConfig := getTestControllerConfig()
+	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
 }
 
 func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
@@ -291,7 +319,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 	// Look for the revision deployment.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
@@ -300,24 +328,36 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
 	}
 
-	// Check the revision deployment queue proxy environment variables
 	foundQueueProxy := false
+	foundElaContainer := false
+	foundFluentdProxy := false
+	expectedPreStop := &corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.FromInt(RequestQueueAdminPort),
+			Path: RequestQueueQuitPath,
+		},
+	}
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == "queue-proxy" {
 			foundQueueProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
 			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
-			break
+			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
+				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
+			}
 		}
-	}
-	if !foundQueueProxy {
-		t.Error("Missing queue-proxy container")
-	}
-
-	// Check the revision deployment fluentd proxy environment variables
-	foundFluentdProxy := false
-	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == elaContainerName {
+			foundElaContainer = true
+			// verify that the ReadinessProbe has our port.
+			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(RequestQueuePort) {
+				t.Errorf("Expect ReadinessProbe handler to have port %d, saw %v",
+					RequestQueuePort, container.ReadinessProbe.Handler.HTTPGet.Port)
+			}
+			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
+				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
+			}
+		}
 		if container.Name == "fluentd-proxy" {
 			foundFluentdProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
@@ -325,13 +365,17 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "ELA_CONFIGURATION", "test-config", "")
 			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
 			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
-			break
 		}
+	}
+	if !foundQueueProxy {
+		t.Error("Missing queue-proxy container")
 	}
 	if !foundFluentdProxy {
 		t.Error("Missing fluentd-proxy container")
 	}
-
+	if !foundElaContainer {
+		t.Errorf("Missing %q container", elaContainerName)
+	}
 	expectedLabels := sumMaps(
 		rev.Labels,
 		map[string]string{
@@ -419,6 +463,9 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			foundAutoscaler = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
+			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
+			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
 			break
 		}
 	}
@@ -435,7 +482,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if diff := cmp.Diff(expectedRefs, asService.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
 	}
-	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
 		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
 			expectedLabels, labels)
 	}
@@ -476,14 +523,56 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	want := []v1alpha1.RevisionCondition{
 		{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}
 	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
+}
 
+func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.EnableVarLogCollection = false
+	kubeClient, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Look for the revision deployment.
+	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
+		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+	}
+
+	// Check the revision deployment fluentd proxy
+	foundFluentdProxy := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "fluentd-proxy" {
+			foundFluentdProxy = true
+			break
+		}
+	}
+	if foundFluentdProxy {
+		t.Error("fluentd-proxy container shouldn't be set up")
+	}
+
+	// Look for the config map.
+	_, err = kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Fatalf("The ConfigMap %s shouldn't exist: %v", fluentdConfigMapName, err)
+	}
 }
 
 func TestCreateRevPreservesAppLabel(t *testing.T) {
@@ -498,7 +587,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 
 	// Look for the revision deployment.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
@@ -545,7 +634,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
-	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
+	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
 		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
 			expectedLabels, labels)
 	}
@@ -585,8 +674,8 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	// Ensure that the Revision status is updated.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:   "BuildComplete",
-			Status: corev1.ConditionFalse,
+			Type:   "BuildSucceeded",
+			Status: corev1.ConditionUnknown,
 			Reason: "Building",
 		},
 	}
@@ -658,8 +747,14 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	// status.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "BuildFailed",
-			Status:  corev1.ConditionTrue,
+			Type:    "BuildSucceeded",
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: errMessage,
+		},
+		{
+			Type:    "Ready",
+			Status:  corev1.ConditionFalse,
 			Reason:  reason,
 			Message: errMessage,
 		},
@@ -741,7 +836,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// The next update we receive should tell us that the build completed.
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:   "BuildComplete",
+			Type:   "BuildSucceeded",
 			Status: corev1.ConditionTrue,
 		},
 	}
@@ -810,8 +905,14 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "BuildFailed",
-			Status:  corev1.ConditionTrue,
+			Type:    "BuildSucceeded",
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: errMessage,
+		},
+		{
+			Type:    "Ready",
+			Status:  corev1.ConditionFalse,
 			Reason:  reason,
 			Message: errMessage,
 		},
@@ -820,6 +921,54 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}
 
+}
+
+func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+
+	var testProgressDeadlineSeconds int32 = 10
+
+	rev := getTestRevision()
+
+	revClient.Create(rev)
+
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	controller.syncHandler(KeyOrDie(rev))
+
+	// Look for revision's deployment.
+	deploymentNameToLook := fmt.Sprintf("%s-deployment", rev.Name)
+
+	deployment, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
+		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+	}
+
+	//set ProgressDeadlineSeconds on Dep spec
+	deployment.Spec.ProgressDeadlineSeconds = &testProgressDeadlineSeconds
+	controller.addDeploymentProgressEvent(deployment)
+
+	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
+
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	want := []v1alpha1.RevisionCondition{
+		{
+			Type:   "Ready",
+			Status: corev1.ConditionUnknown,
+			Reason: "Deploying",
+		},
+	}
+	if diff := compareRevisionConditions(want, rev2Inspect.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
 }
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
@@ -847,7 +996,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	deployingConditions := []v1alpha1.RevisionCondition{
 		{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}
@@ -915,8 +1064,13 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
 		v1alpha1.RevisionCondition{
-			Type:   "Failed",
-			Status: corev1.ConditionTrue,
+			Type:   "ResourcesAvailable",
+			Status: corev1.ConditionFalse,
+			Reason: "ExceededReadinessChecks",
+		},
+		v1alpha1.RevisionCondition{
+			Type:   "Ready",
+			Status: corev1.ConditionFalse,
 			Reason: "ExceededReadinessChecks",
 		},
 	}
@@ -946,7 +1100,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
 		v1alpha1.RevisionCondition{
 			Type:   "Ready",
-			Status: corev1.ConditionFalse,
+			Status: corev1.ConditionUnknown,
 			Reason: "Deploying",
 		},
 	}
@@ -962,8 +1116,14 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	want := []v1alpha1.RevisionCondition{
 		{
-			Type:    "Failed",
-			Status:  corev1.ConditionTrue,
+			Type:    "ResourcesAvailable",
+			Status:  corev1.ConditionFalse,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		},
+		{
+			Type:    "Ready",
+			Status:  corev1.ConditionFalse,
 			Reason:  "ServiceTimeout",
 			Message: "Timed out waiting for a service endpoint to become ready",
 		},
@@ -1002,7 +1162,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
@@ -1013,7 +1173,8 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be gone.
-	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
 	}
@@ -1028,7 +1189,7 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
@@ -1039,7 +1200,7 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be gone.
-	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
 	}
@@ -1055,7 +1216,7 @@ func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
 
 	// Expect the deployment to be gone.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
 	}
@@ -1066,7 +1227,7 @@ func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the resources to be created.
-	_, err = kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	_, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
@@ -1082,7 +1243,7 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 
 	// Expect the deployment to be gone.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	deployment, err := kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
 	}
@@ -1093,7 +1254,7 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the resources to be created.
-	_, err = kubeClient.ExtensionsV1beta1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	_, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}

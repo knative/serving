@@ -22,9 +22,10 @@ k8s_objects(
         "//config/monitoring/prometheus:everything-prometheus",
         "//config/monitoring/grafana-dashboard-defs:everything",
         "//config/monitoring/grafana:everything",
-        "//config/monitoring/elasticsearch:everything",
-        "//config/monitoring/kibana:everything",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:elasticsearch",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:kibana",
         "//config/monitoring/zipkin:everything",
+        "//config/monitoring/istio:everything",
     ],
 )
 
@@ -39,7 +40,7 @@ k8s_objects(
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
-        "//config/monitoring/fluentd:istio",
+        "//config/monitoring/istio:everything",
     ],
 )
 
@@ -54,6 +55,6 @@ k8s_objects(
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
         # to be deployed one more time for istio to pick them up. This second installation is to mitigate
         # the issue
-        "//config/monitoring/fluentd:istio",
+        "//config/monitoring/istio:everything",
     ],
 )

@@ -14,12 +14,28 @@
 # Build API (imported from elafros/build)
 /pkg/apis/build @mattmoor @ImJasonH
 
+# API Core working group
+/pkg/webhook @mattmoor @grantr @tcnghia
+/pkg/controller @mattmoor @grantr @tcnghia
+
 # All groups can review docs.
 /docs/ @elafros/elafros-writers @google/elafros-readers
 
 # Tests.
 /test/ @adrcunha @srinivashegde86 @steuhs @bobcatfish
 /test/conformance/ @bobcatfish @adrcunha
+
+# third_party
+/third_party/ @evankanderson @mattmoor @vaikas-google @mdemirhan
+
+# Scaling.
+/cmd/ela-activator @josephburnett
+/cmd/ela-autoscaler @josephburnett
+/cmd/ela-queue/ @josephburnett
+/pkg/activator @josephburnett
+/pkg/autoscaler @josephburnett
+/pkg/queue @josephburnett
+/sample/autoscale @josephburnett
 
 ### To request CODEOWNERS on a subdirectory, propose it above
 ### in a PR to the below maintainers.

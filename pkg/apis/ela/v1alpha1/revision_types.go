@@ -111,14 +111,14 @@ const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady RevisionConditionType = "Ready"
-	// RevisionConditionFailed is set when the revision readiness check exceeds 3.
-	RevisionConditionFailed RevisionConditionType = "Failed"
 	// RevisionConditionBuildComplete is set when the revision has an associated build
 	// and is marked True if/once the Build has completed succesfully.
-	RevisionConditionBuildComplete RevisionConditionType = "BuildComplete"
-	// RevisionConditionBuildFailed is set when the revision has an associated build
-	// that has failed for some reason.
-	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"
+	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
+	// RevisionConditionResourcesAvailable is set when underlying
+	// Kubernetes resources have been provisioned.
+	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
+	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
+	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -188,11 +188,13 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-// IsFailed looks at the conditions and if the Status has a condition
-// RevisionConditionFailed returns true if ConditionStatus is True
+// IsFailed looks to all non-Ready conditions; if any are false, then
+// this node is in a terminal failure state.
 func (rs *RevisionStatus) IsFailed() bool {
-	if c := rs.GetCondition(RevisionConditionFailed); c != nil {
-		return c.Status == corev1.ConditionTrue
+	for _, cond := range rs.Conditions {
+		if cond.Type != RevisionConditionReady && cond.Status == corev1.ConditionFalse {
+			return true
+		}
 	}
 	return false
 }

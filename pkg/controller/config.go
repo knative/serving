@@ -67,6 +67,13 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 	c := Config{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range m.Data {
+		// TODO(josephburnett): migrate domain configuration to k8sflag
+		if strings.HasPrefix(k, "autoscale.") {
+			continue
+		}
+		if strings.HasPrefix(k, "logging.") {
+			continue
+		}
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {
