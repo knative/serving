@@ -42,7 +42,7 @@ for i in `seq 10 10 $CLIENT_COUNT`; do
     --image josephburnett/wrk2:latest \
     --restart Never --image-pull-policy=Always -n wrk \
     -- -c10 -t10 -d10m -R10 \
-       -H "${SERVICE_HOST?}" \
+       -H "Host: ${SERVICE_HOST?}" \
        "http://${SERVICE_IP?}/game/"
   sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
 done
