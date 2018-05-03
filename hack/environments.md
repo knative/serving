@@ -2,7 +2,7 @@
 
 There are two ready-to-use stable Elafros environments available for contributors.
 
-Currently the access is restricted to members of the `elafros-images` Google groups. Ask @mattmoor to be added to the group.
+Currently the access is restricted to members of the [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) Google group.
 
 ## The demo environment
 
