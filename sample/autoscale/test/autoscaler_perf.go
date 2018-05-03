@@ -9,7 +9,7 @@ import (
 )
 
 func sendRequest(mainStart time.Time, url string) {
-	req, _ := http.NewRequest("GET", "http://35.202.165.90/primes/40000000", nil)
+	req, _ := http.NewRequest("GET", url, nil)
 	req.Host = "autoscale-route.default.demo-domain.com"
 	var start time.Time
 	var end time.Time
