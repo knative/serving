@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"flag"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -113,7 +114,7 @@ func autoscaler() {
 	case string(v1alpha1.RevisionConcurrencyModelMulti):
 		targetConcurrency = multiConcurrencyTarget
 	default:
-		panic("Unrecognized concurrency model: " + *concurrencyModel)
+		log.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}
 	config := ela_autoscaler.Config{
 		TargetConcurrency:    targetConcurrency,

@@ -63,7 +63,7 @@ func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/concurrencyModel",
-			Value:     v1alpha1.RevisionConcurrencyModelMulti,
+			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
 		})
 	}
 

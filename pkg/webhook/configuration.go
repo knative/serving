@@ -95,9 +95,9 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 	return nil
 }
 
-func validateConcurrencyModel(value v1alpha1.RevisionConcurrencyModelType) error {
+func validateConcurrencyModel(value v1alpha1.RevisionRequestConcurrencyModelType) error {
 	switch value {
-	case v1alpha1.RevisionConcurrencyModelType(""), v1alpha1.RevisionConcurrencyModelMulti, v1alpha1.RevisionConcurrencyModelSingle:
+	case v1alpha1.RevisionRequestConcurrencyModelType(""), v1alpha1.RevisionRequestConcurrencyModelMulti, v1alpha1.RevisionRequestConcurrencyModelSingle:
 		return nil
 	default:
 		return fmt.Errorf("Unrecognized value for concurrencyModel: %q", value)
@@ -142,7 +142,7 @@ func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, old Gener
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/revisionTemplate/spec/concurrencyModel",
-			Value:     v1alpha1.RevisionConcurrencyModelMulti,
+			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
 		})
 	}
 	return nil
