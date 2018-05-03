@@ -66,7 +66,7 @@ var (
 	elaAutoscalerPort string
 
 	// Revision-level configuration
-	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionConcurrencyModelMulti), "")
+	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
 
 	// Cluster-level configuration
 	enableScaleToZero       = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
@@ -109,9 +109,9 @@ func init() {
 func autoscaler() {
 	var targetConcurrency *k8sflag.Float64Flag
 	switch *concurrencyModel {
-	case string(v1alpha1.RevisionConcurrencyModelSingle):
+	case string(v1alpha1.RevisionRequestConcurrencyModelSingle):
 		targetConcurrency = singleConcurrencyTarget
-	case string(v1alpha1.RevisionConcurrencyModelMulti):
+	case string(v1alpha1.RevisionRequestConcurrencyModelMulti):
 		targetConcurrency = multiConcurrencyTarget
 	default:
 		log.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)

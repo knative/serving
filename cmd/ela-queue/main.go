@@ -75,7 +75,7 @@ var (
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
-	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionConcurrencyModelMulti), "")
+	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
@@ -179,7 +179,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		reqOutChan <- queue.Poke{}
 	}()
-	if *concurrencyModel == string(v1alpha1.RevisionConcurrencyModelSingle) {
+	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
 		// Enforce single concurrency and breaking
 		ok := singleConcurrencyBreaker.Maybe(func() {
 			proxy.ServeHTTP(w, r)
