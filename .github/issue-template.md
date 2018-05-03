@@ -15,6 +15,7 @@ working groups are aware of the issue:
 Uncomment leaving one or more of the following to classify the kind of issue:
 
 /kind bug
+/kind cleanup
 /kind dev
 /kind doc
 -->
