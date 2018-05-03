@@ -181,8 +181,8 @@ spec:
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
 
-      # +optional concurrency strategy. SingleThreaded default value for functions
-      concurrencyModel: SingleThreaded
+      # +optional concurrency strategy.  Defaults to Multi.
+      concurrencyModel: ...
       # +optional. max time the instance is allowed for responding to a request
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as.
@@ -254,11 +254,10 @@ spec:
   # scaling to/from 0.
   servingState: Active | Reserve | Retired
 
-  # NYI: https://github.com/elafros/elafros/issues/456
   # Some function or server frameworks or application code may be written to
   # expect that each request will be granted a single-tenant process to run
   # (i.e. that the request code is run single-threaded).
-  concurrencyModel: ...
+  concurrencyModel: Single | Multi
 
   # NYI: https://github.com/elafros/elafros/issues/457
   # Many higher-level systems impose a per-request response deadline.

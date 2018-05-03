@@ -69,7 +69,10 @@ func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	return validateConfigurationSpec(&configuration.Spec)
+	if err := validateConfigurationSpec(&configuration.Spec); err != nil {
+		return err
+	}
+	return validateConcurrencyModel(configuration.Spec.RevisionTemplate.Spec.ConcurrencyModel)
 }
 
 func validateConfigurationSpec(configurationSpec *v1alpha1.ConfigurationSpec) error {
@@ -90,6 +93,15 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 		return err
 	}
 	return nil
+}
+
+func validateConcurrencyModel(value v1alpha1.RevisionRequestConcurrencyModelType) error {
+	switch value {
+	case v1alpha1.RevisionRequestConcurrencyModelType(""), v1alpha1.RevisionRequestConcurrencyModelMulti, v1alpha1.RevisionRequestConcurrencyModelSingle:
+		return nil
+	default:
+		return fmt.Errorf("Unrecognized value for concurrencyModel: %q", value)
+	}
 }
 
 func validateContainer(container corev1.Container) error {
@@ -116,6 +128,22 @@ func validateContainer(container corev1.Container) error {
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		return errDisallowedFields(strings.Join(ignoredFields, ", "))
+	}
+	return nil
+}
+
+func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	newC, ok := new.(*v1alpha1.Configuration)
+	if !ok {
+		return fmt.Errorf("Failed to convert new into a Configuration: %+v", new)
+	}
+
+	if newC.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
+		*patches = append(*patches, jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/revisionTemplate/spec/concurrencyModel",
+			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
+		})
 	}
 	return nil
 }

@@ -57,6 +57,7 @@ var (
 
 	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
 	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	autoscaleEnableSingleConcurrency  = k8sflag.Bool("autoscale.enable-single-concurrency", false)
 
 	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
 	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
@@ -112,6 +113,7 @@ func main() {
 
 	revControllerConfig := revision.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
+		AutoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
 		AutoscalerImage:                   autoscalerImage,
 		QueueSidecarImage:                 queueSidecarImage,
 

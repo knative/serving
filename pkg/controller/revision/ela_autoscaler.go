@@ -17,6 +17,7 @@ limitations under the License.
 package revision
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
@@ -58,7 +59,6 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 			},
 		},
 	}
-
 	return &v1beta1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
@@ -116,6 +116,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 							Args: []string{
 								"-logtostderr=true",
 								"-stderrthreshold=INFO",
+								fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								corev1.VolumeMount{
