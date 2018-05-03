@@ -61,19 +61,28 @@ watch kubectl get deploy
 
 Connect to Grafana as described in [the telemetry instructions](../../docs/telemetry.md).  You should see something like this:
 
-### Autoscaling
+### QPS Load
 
 ![qps](images/qps.png)
-![autoscaling](images/autoscaling.png)
 
-### CPU and Memory Usage
+### Autoscaling
+
+![autoscaler](images/autoscaler.png)
+
+### CPU Usage
 
 ![cpu](images/cpu.png)
+
+### Memory Usage
+
 ![memory](images/memory.png)
 
-### Latency and Success Rate
+### Latency
 
 ![latency](images/latency.png)
+
+### Success Rate
+
 ![success-rate](images/success-rate.png)
 
 ## Other test scenarios
