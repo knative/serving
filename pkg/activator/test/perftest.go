@@ -55,7 +55,7 @@ func doEvery(d time.Duration, w time.Duration, f func()) {
 }
 
 // This program sends 1 request to activate the revision, and then sends requests at
-// 100 QPS every second for 120 seconds. The standard output has 3 columns, they are:
+// 100 QPS every second for 60 seconds. The standard output has 3 columns, they are:
 // the time from the experiment starts, the http response time, and the http response code.
 // Before running this program, set the environment variable SERVICE_IP with
 // instructions here https://github.com/elafros/elafros/tree/master/sample/helloworld.
