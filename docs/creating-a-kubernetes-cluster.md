@@ -90,7 +90,7 @@ To use a k8s cluster running in GKE:
 minikube start \
   --kubernetes-version=v1.9.4 \
   --vm-driver=kvm2 \
-  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,SecurityContextDeny,MutatingAdmissionWebhook \
+  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
   --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
   --extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key"
 ```
