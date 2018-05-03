@@ -2,45 +2,57 @@ package activator
 
 import "sync"
 
-type ActivationDeduper struct {
-	mux             sync.Mutex
-	pendingRequests map[string][]<-chan *Endpoint
-	activator       *Activator
+type activationResult struct {
+	endpoint Endpoint
+	status   Status
+	err      error
 }
 
-func NewActivationDeduper(a *Activator) *Activator {
-	return *Activator(
+type ActivationDeduper struct {
+	mux             sync.Mutex
+	pendingRequests map[string][]chan activationResult
+	activator       Activator
+}
+
+func NewActivationDeduper(a Activator) Activator {
+	return Activator(
 		&ActivationDeduper{
-			pendingRequests: make(map[string][]<-chan *Endpoint),
+			pendingRequests: make(map[string][]chan activationResult),
 		},
 	)
 }
 
 func (a *ActivationDeduper) ActiveEndpoint(id RevisionId) (Endpoint, Status, error) {
-	ch := make(<-chan *Endpoint)
-	a.dedupe(id.string(), ch)
-	return <-ch
+	ch := make(chan activationResult)
+	a.dedupe(id, ch)
+	result := <-ch
+	return result.endpoint, result.status, result.err
 }
 
-func (a *ActivationDeduper) dedupe(id string, ch <-chan *Endpoint) {
+func (a *ActivationDeduper) dedupe(id RevisionId, ch chan activationResult) {
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()
-	if reqs, ok := a.pendingRequests[id]; ok {
-		a.pendingRequests[id] = append(reqs, ch)
+	if reqs, ok := a.pendingRequests[id.string()]; ok {
+		a.pendingRequests[id.string()] = append(reqs, ch)
 	} else {
-		a.pendingRequests[id] = []<-chan *Endpoint{ch}
+		a.pendingRequests[id.string()] = []chan activationResult{ch}
 		go a.activate(id)
 	}
 }
 
-func (a *ActivationDeduper) activate(id string) {
-	endpoint := a.activator.ActiveEndpoint(id)
+func (a *ActivationDeduper) activate(id RevisionId) {
+	endpoint, status, err := a.activator.ActiveEndpoint(id)
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()
-	if reqs, ok := a.pendingRequests[id]; ok {
-		delete(a.pendingRequests, id)
+	result := activationResult{
+		endpoint: endpoint,
+		status:   status,
+		err:      err,
+	}
+	if reqs, ok := a.pendingRequests[id.string()]; ok {
+		delete(a.pendingRequests, id.string())
 		for _, ch := range reqs {
-			ch <- endpoint
+			ch <- result
 		}
 	}
 }

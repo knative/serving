@@ -22,22 +22,21 @@ type RevisionActivator struct {
 }
 
 // NewRevisionActivator creates and starts a new RevisionActivator.
-func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) *Activator {
-	return &RevisionActivator{
-		kubeClient: kubeClient,
-		elaClient:  elaClient,
-	}
+func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) Activator {
+	return Activator(
+		&RevisionActivator{
+			kubeClient: kubeClient,
+			elaClient:  elaClient,
+		},
+	)
 }
 
-func (r *RevisionActivator) ActiveEndpoint(rev *RevisionId) (end *RevisionEndpoint) {
+func (r *RevisionActivator) ActiveEndpoint(rev RevisionId) (end Endpoint, status Status, activationError error) {
 
-	// In all cases, return a RevisionEndpoint with an endpoint or
-	// error / status to release pending requests.
-	end = &RevisionEndpoint{RevisionId: *rev}
 	internalError := func(msg string, args ...interface{}) {
 		log.Printf(msg, args...)
-		end.err = fmt.Errorf(msg, args...)
-		end.status = http.StatusInternalServerError
+		activationError = fmt.Errorf(msg, args...)
+		status = http.StatusInternalServerError
 	}
 
 	// Get the current revision serving state
@@ -55,9 +54,7 @@ func (r *RevisionActivator) ActiveEndpoint(rev *RevisionId) (end *RevisionEndpoi
 	case v1alpha1.RevisionServingStateRetired:
 		msg := fmt.Sprintf("Disregarding activation request for retired revision %s/%s", rev.namespace, rev.name)
 		log.Printf(msg)
-		end.err = fmt.Errorf(msg)
-		end.status = http.StatusPreconditionFailed
-		return
+		return end, http.StatusPreconditionFailed, fmt.Errorf(msg)
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do
 	case v1alpha1.RevisionServingStateReserve:
@@ -131,8 +128,9 @@ RevisionReady:
 	}
 
 	// Return the endpoint and active=true
-	end.endpoint = endpoint{
-		ip:   ip,
-		port: port,
+	end = Endpoint{
+		Ip:   ip,
+		Port: port,
 	}
+	return
 }
