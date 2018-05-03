@@ -14,6 +14,7 @@ Deploy a simple 3D tic-tac-toe webapp.
 
 ```shell
 bazel run //sample/autoscale/kdt3:everything.create
+istioctl create -f sample/autoscale/kdt3/egress.yaml
 ```
 
 Export `SERVICE_HOST` and `INGRESS_IP`.
@@ -21,6 +22,7 @@ Export `SERVICE_HOST` and `INGRESS_IP`.
 ```shell
 export SERVICE_HOST=`kubectl get route autoscale-kdt3-route -o jsonpath="{.status.domain}"`
 export SERVICE_IP=`kubectl get ingress autoscale-kdt3-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+echo SERVICE_HOST=${SERVICE_HOST?} SERVICE_IP=${SERVICE_IP?}
 ```
 
 Verify the app is running.
@@ -34,17 +36,18 @@ time curl -I -s --header "Host:${SERVICE_HOST?}" http://${SERVICE_IP?}/game/
 Ramp up over 1 minute to 100 queries-per-second (qps) for 10 minutes.
 
 ```shell
-CLIENT_COUNT=100
+QPS=200
 RAMP_TIME_SECONDS=60
+TEST_TIME_MINUTES=5
 kubectl create namespace wrk
-for i in `seq 10 10 $CLIENT_COUNT`; do
+for i in `seq 10 10 $QPS`; do
   kubectl run wrk-$i \
     --image josephburnett/wrk2:latest \
     --restart Never --image-pull-policy=Always -n wrk \
-    -- -c10 -t10 -d10m -R10 \
+    -- -c10 -t10 -d${TEST_TIME_MINUTES}m -R10 \
        -H "Host: ${SERVICE_HOST?}" \
        "http://${SERVICE_IP?}/game/"
-  sleep $(( $RAMP_TIME_SECONDS / ($CLIENT_COUNT / 10) ))
+  sleep $(( $RAMP_TIME_SECONDS / ($QPS / 10) ))
 done
 ```
 
@@ -54,50 +57,62 @@ Watch the Elafros deployment pod count increase.  Then return to 1.
 watch kubectl get deploy
 ```
 
-### Other test scenarios
+## Analysis
 
-Cpu heavy app:
+Connect to Grafana as described in [the telemetry instructions](../../docs/telemetry.md).  You should see something like this:
 
-```
-bazel run //sample/autoscale/prime:everything.create
-export SERVICE_HOST=`kubectl get route autoscale-prime-route -o jsonpath="{.status.domain}"`
-export SERVICE_IP=`kubectl get ingress autoscale-prime-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
-time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/primes/40000
-```
+### Autoscaling
+
+![qps](images/qps.png)
+![autoscaling](images/autoscaling.png)
+
+### CPU and Memory Usage
+
+![cpu](images/cpu.png)
+![memory](images/memory.png)
+
+### Latency and Success Rate
+
+![latency](images/latency.png)
+![success-rate](images/success-rate.png)
+
+## Other test scenarios
 
 Slower rampup:
 
 ```shell
-CLIENT_COUNT=100
+QPS=200
 RAMP_TIME_SECONDS=400
 ```
 
 Lower peak:
 
 ```shell
-CLIENT_COUNT=50
+QPS=50
 RAMP_TIME_SECONDS=60
 ```
 
 Ludicrous mode:
 
 ```shell
-CLIENT_COUNT=1000
+QPS=1000
 RAMP_TIME_SECONDS=30
 ```
 
-## Analysis
+Cpu heavy app:
 
-Calculate average QPS in 10 second increments.
-Calculate average latency in 10 second increments.
-Calculate average error rate in 10 second increments.
-Calculate the total client count in 10 second increments.
+```shell
+bazel run //sample/autoscale/prime:everything.create
 
-TODO: analysis with Elafros telemetry system.
+```
+```shell
+export SERVICE_HOST=`kubectl get route autoscale-prime-route -o jsonpath="{.status.domain}"`
+export SERVICE_IP=`kubectl get ingress autoscale-prime-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+echo SERVICE_HOST=${SERVICE_HOST?} SERVICE_IP=${SERVICE_IP?}
+time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/primes/40000
+```
 
-## Running a batch job load test
-
-Send 1000 requests, each of which consumes about 1 cpu/sec.
+Batch job:
 
 ```shell
 batch () {
@@ -117,6 +132,7 @@ time batch 2>/dev/null | sort | uniq -c
 
 ```shell
 kubectl delete namespace wrk
+istioctl delete -f sample/autoscale/kdt3/egress.yaml
 bazel run sample/autoscale/kdt3:everything.delete
 bazel run sample/autoscale/prime:everything.delete
 ```

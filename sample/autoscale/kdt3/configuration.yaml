@@ -27,4 +27,4 @@ spec:
         image: autoscale-kdt3-sample:latest
         env:
           - name: RESOURCES_URL
-            value: https://storage.googleapis.com/autoscale-resources/
+            value: http://storage.googleapis.com/autoscale-resources/
