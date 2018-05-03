@@ -31,7 +31,8 @@ func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.I
 	)
 }
 
-func (r *RevisionActivator) ActiveEndpoint(rev RevisionId) (end Endpoint, status Status, activationError error) {
+func (r *RevisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
+	rev := revisionId{namespace: namespace, name: name}
 
 	internalError := func(msg string, args ...interface{}) {
 		log.Printf(msg, args...)

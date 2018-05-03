@@ -10,39 +10,40 @@ type activationResult struct {
 
 type ActivationDeduper struct {
 	mux             sync.Mutex
-	pendingRequests map[string][]chan activationResult
+	pendingRequests map[revisionId][]chan activationResult
 	activator       Activator
 }
 
 func NewActivationDeduper(a Activator) Activator {
 	return Activator(
 		&ActivationDeduper{
-			pendingRequests: make(map[string][]chan activationResult),
+			pendingRequests: make(map[revisionId][]chan activationResult),
 			activator:       a,
 		},
 	)
 }
 
-func (a *ActivationDeduper) ActiveEndpoint(id RevisionId) (Endpoint, Status, error) {
+func (a *ActivationDeduper) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
+	id := revisionId{namespace: namespace, name: name}
 	ch := make(chan activationResult, 1)
 	a.dedupe(id, ch)
 	result := <-ch
 	return result.endpoint, result.status, result.err
 }
 
-func (a *ActivationDeduper) dedupe(id RevisionId, ch chan activationResult) {
+func (a *ActivationDeduper) dedupe(id revisionId, ch chan activationResult) {
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()
-	if reqs, ok := a.pendingRequests[id.string()]; ok {
-		a.pendingRequests[id.string()] = append(reqs, ch)
+	if reqs, ok := a.pendingRequests[id]; ok {
+		a.pendingRequests[id] = append(reqs, ch)
 	} else {
-		a.pendingRequests[id.string()] = []chan activationResult{ch}
+		a.pendingRequests[id] = []chan activationResult{ch}
 		go a.activate(id)
 	}
 }
 
-func (a *ActivationDeduper) activate(id RevisionId) {
-	endpoint, status, err := a.activator.ActiveEndpoint(id)
+func (a *ActivationDeduper) activate(id revisionId) {
+	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.name)
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()
 	result := activationResult{
@@ -50,8 +51,8 @@ func (a *ActivationDeduper) activate(id RevisionId) {
 		status:   status,
 		err:      err,
 	}
-	if reqs, ok := a.pendingRequests[id.string()]; ok {
-		delete(a.pendingRequests, id.string())
+	if reqs, ok := a.pendingRequests[id]; ok {
+		delete(a.pendingRequests, id)
 		for _, ch := range reqs {
 			ch <- result
 		}

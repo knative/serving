@@ -6,17 +6,12 @@ type Status int
 // Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
 type Activator interface {
-	ActiveEndpoint(RevisionId) (Endpoint, Status, error)
+	ActiveEndpoint(namespace, name string) (Endpoint, Status, error)
 }
 
-// RevisionId is the name and namespace of a revision.
-type RevisionId struct {
-	name      string
+type revisionId struct {
 	namespace string
-}
-
-func (r RevisionId) string() string {
-	return r.namespace + "/" + r.name
+	name      string
 }
 
 // Endpoint is an ip, port pair for an active revision.
