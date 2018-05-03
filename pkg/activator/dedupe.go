@@ -18,12 +18,13 @@ func NewActivationDeduper(a Activator) Activator {
 	return Activator(
 		&ActivationDeduper{
 			pendingRequests: make(map[string][]chan activationResult),
+			activator:       a,
 		},
 	)
 }
 
 func (a *ActivationDeduper) ActiveEndpoint(id RevisionId) (Endpoint, Status, error) {
-	ch := make(chan activationResult)
+	ch := make(chan activationResult, 1)
 	a.dedupe(id, ch)
 	result := <-ch
 	return result.endpoint, result.status, result.err
