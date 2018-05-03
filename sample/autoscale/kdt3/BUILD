@@ -11,7 +11,6 @@ go_library(
 go_binary(
     name = "kdt3",
     embed = [":go_default_library"],
-    importpath = "github.com/elafros/elafros/sample/autoscale/kdt3",
     pure = "on",
     visibility = ["//visibility:public"],
 )
