@@ -25,7 +25,7 @@ import (
 	"github.com/elafros/elafros/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -38,8 +38,8 @@ const AutoscalerNamespace = "ela-system"
 
 // MakeElaAutoscalerDeployment creates the deployment of the
 // autoscaler for a particular revision.
-func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *v1beta1.Deployment {
-	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
+func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *appsv1.Deployment {
+	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
@@ -59,16 +59,17 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 			},
 		},
 	}
-	return &v1beta1.Deployment{
+	return &appsv1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
 			Namespace:   AutoscalerNamespace,
 			Labels:      MakeElaResourceLabels(rev),
 			Annotations: MakeElaResourceAnnotations(rev),
 		},
-		Spec: v1beta1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
-			Strategy: v1beta1.DeploymentStrategy{
+			Selector: MakeElaResourceSelector(rev),
+			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},
