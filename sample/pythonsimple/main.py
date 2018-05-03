@@ -30,7 +30,7 @@ def get():
 @app.route('/error')
 def getError():
   try:
-    print undefined
+    print(undefined)
   except Exception:
     with open('/var/log/error.log', 'a') as f:
       traceback.print_exc(file=f)
