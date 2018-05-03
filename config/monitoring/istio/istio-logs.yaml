@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Configuration for a fluentd handler
 apiVersion: "config.istio.io/v1alpha2"
 kind: fluentd
 metadata:
@@ -21,7 +20,6 @@ metadata:
 spec:
   address: "fluentd-es.monitoring:24224"
 ---
-# Rule to send logentry instances to the fluentd handler
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -34,7 +32,6 @@ spec:
      instances:
      - requestlog.logentry
 ---
-  # Configuration for logentry instances
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:

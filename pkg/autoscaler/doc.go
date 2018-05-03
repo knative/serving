@@ -14,9 +14,9 @@ limitations under the License.
 */
 
 /*
-Autoscaler calculates the number of pods necessary for the desired
-level of concurrency per pod (stableConcurrencyPerPod). It operates in
-two modes, stable mode and panic mode.
+Package autoscaler calculates the number of pods necessary for the
+desired level of concurrency per pod (stableConcurrencyPerPod). It
+operates in two modes, stable mode and panic mode.
 
 Stable mode calculates the average concurrency observed over the last
 60 seconds and adjusts the observed pod count to achieve the target
