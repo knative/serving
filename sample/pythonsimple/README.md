@@ -1,18 +1,19 @@
 # Python Simple Sample
 
-A simple web server written in Python that you can use for testing. It:
+A simple web server written in Python that you can use for testing. It has two
+handlers:
 
-  1. reads in an env variable 'TARGET' and prints "Hello World from Python: ${TARGET}!". if
-     TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
-  1. refers an undefined variable and sends multi-line exception stack trace logs
-     to STDERR and file under /var/log.
+  1. One reads in an env variable 'TARGET' and prints "Hello World from Python: ${TARGET}!".
+     If TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
+  1. Another refers an undefined variable and sends multi-line exception stack
+     trace logs to STDERR and file under /var/log.
 
 The server is made into a docker container and provided to Elafros.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Setup your development environment](/DEVELOPMENT.md#getting-started)
+2. [Start Elafros](/README.md#start-elafros)
 3. Install [docker](https://www.docker.com/)
 
 ## Running
@@ -89,4 +90,4 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/error
 # exception stack trace logs were send to stderr and /var/log/error.log
 ```
 
-See [Logs and Metrics](../../docs/telemetry.md) for accessing logs.
+See [Logs and Metrics](/docs/telemetry.md) for accessing logs.

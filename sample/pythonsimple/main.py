@@ -32,7 +32,7 @@ def getError():
   try:
     print undefined
   except Exception:
-    with open("/var/log/error.log", "w") as f:
+    with open('/var/log/error.log', 'a') as f:
       traceback.print_exc(file=f)
     traceback.print_exc()
     return 'exception stack trace logs were send to stderr and /var/log/error.log\n'
