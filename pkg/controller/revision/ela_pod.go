@@ -108,63 +108,6 @@ func MakeElaPodSpec(
 		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(RequestQueuePort)
 	}
 
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
-			},
-		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "FLUENTD_ARGS",
-				Value: "--no-supervisor -q",
-			},
-			{
-				Name:  "ELA_CONTAINER_NAME",
-				Value: elaContainerName,
-			},
-			{
-				Name:  "ELA_CONFIGURATION",
-				Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
-			},
-			{
-				Name:  "ELA_REVISION",
-				Value: rev.Name,
-			},
-			{
-				Name:  "ELA_NAMESPACE",
-				Value: rev.Namespace,
-			},
-			{
-				Name: "ELA_POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
-				},
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      varLogVolumeName,
-				MountPath: "/var/log/revisions",
-			},
-			{
-				Name:      fluentdConfigMapVolumeName,
-				MountPath: "/etc/fluent/config.d",
-			},
-		},
-	}
-	args := []string{
-		"-logtostderr=true",
-		"-stderrthreshold=INFO",
-		fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
-	}
-	if autoscaleEnableSingleConcurrency.Get() {
-		args = append(args, "-enableSingleConcurrency")
-	}
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,
