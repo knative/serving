@@ -1,6 +1,6 @@
 # Helloworld
 
-A simple web server that you can use for testing. It reads in an
+A simple web server written in Go that you can use for testing. It reads in an
 env variable 'TARGET' and prints "Hello World: ${TARGET}!" if
 TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
@@ -13,7 +13,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 You can deploy this to Elafros from the root directory via:
 ```shell
-bazel run sample/helloworld:everything.create
+bazel run sample/helloworld:everything.apply
 ```
 
 Once deployed, you can inspect the created resources with `kubectl` commands:

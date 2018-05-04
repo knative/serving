@@ -204,6 +204,7 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 			},
 			"Configuration": GenericCRDHandler{
 				Factory:   &v1alpha1.Configuration{},
+				Defaulter: SetConfigurationDefaults,
 				Validator: ValidateConfiguration,
 			},
 			"Route": GenericCRDHandler{

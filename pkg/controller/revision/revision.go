@@ -146,6 +146,7 @@ type ControllerConfig struct {
 
 	// see (elaconfig.yaml)
 	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
+	AutoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
 
 	// AutoscalerImage is the name of the image used for the autoscaler pod.
 	AutoscalerImage string
@@ -991,9 +992,7 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 
 func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	// TODO (arvtiwar) migrate this to AppsV1 when it goes GA. See
-	// https://kubernetes.io/docs/reference/workloads-18-19.
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
+	dc := c.kubeclientset.AppsV1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -1012,7 +1011,7 @@ func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 
 func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
+	dc := c.kubeclientset.AppsV1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {

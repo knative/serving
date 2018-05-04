@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"flag"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -64,7 +65,13 @@ var (
 	elaRevision       string
 	elaAutoscalerPort string
 
-	enableScaleToZero = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	// Revision-level configuration
+	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
+
+	// Cluster-level configuration
+	enableScaleToZero       = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	multiConcurrencyTarget  = k8sflag.Float64("autoscale.multi-concurrency-target", 0.0, k8sflag.Required)
+	singleConcurrencyTarget = k8sflag.Float64("autoscale.single-concurrency-target", 0.0, k8sflag.Required)
 )
 
 func init() {
@@ -100,8 +107,17 @@ func init() {
 }
 
 func autoscaler() {
+	var targetConcurrency *k8sflag.Float64Flag
+	switch *concurrencyModel {
+	case string(v1alpha1.RevisionRequestConcurrencyModelSingle):
+		targetConcurrency = singleConcurrencyTarget
+	case string(v1alpha1.RevisionRequestConcurrencyModelMulti):
+		targetConcurrency = multiConcurrencyTarget
+	default:
+		log.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
+	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    k8sflag.Float64("autoscale.target-concurrency", 0.0, k8sflag.Required),
+		TargetConcurrency:    targetConcurrency,
 		MaxScaleUpRate:       k8sflag.Float64("autoscale.max-scale-up-rate", 0.0, k8sflag.Required),
 		StableWindow:         k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required),
 		PanicWindow:          k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required),

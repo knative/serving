@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/autoscaler"
 	"github.com/elafros/elafros/pkg/controller/revision"
 	"github.com/elafros/elafros/pkg/queue"
@@ -56,6 +57,10 @@ const (
 	// bit longer, that it doesn't go away until the pod is truly
 	// removed from service.
 	quitSleepSecs = 20
+
+	// Single concurency queue depth.  The maximum number of requests
+	// to enqueue before returing 503 overload.
+	singleConcurrencyQueueDepth = 10
 )
 
 var (
@@ -70,6 +75,8 @@ var (
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
+	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
+	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
 func init() {
@@ -162,14 +169,27 @@ func isProbe(r *http.Request) bool {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if !isProbe(r) {
-		// Only count non-prober requests for autoscaling.
-		reqInChan <- queue.Poke{}
-		defer func() {
-			reqOutChan <- queue.Poke{}
-		}()
+	if isProbe(r) {
+		// Do not count health checks for concurrency metrics
+		proxy.ServeHTTP(w, r)
+		return
 	}
-	proxy.ServeHTTP(w, r)
+	// Metrics for autoscaling
+	reqInChan <- queue.Poke{}
+	defer func() {
+		reqOutChan <- queue.Poke{}
+	}()
+	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
+		// Enforce single concurrency and breaking
+		ok := singleConcurrencyBreaker.Maybe(func() {
+			proxy.ServeHTTP(w, r)
+		})
+		if !ok {
+			http.Error(w, "overload", http.StatusServiceUnavailable)
+		}
+	} else {
+		proxy.ServeHTTP(w, r)
+	}
 }
 
 // healthServer registers whether a PreStop hook has been called.

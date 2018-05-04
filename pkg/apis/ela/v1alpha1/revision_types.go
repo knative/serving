@@ -68,6 +68,21 @@ const (
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
+// RevisionRequestConcurrencyModelType is an enumeration of the
+// concurrency models supported by a Revision.
+type RevisionRequestConcurrencyModelType string
+
+const (
+	// RevisionRequestConcurrencyModelSingle guarantees that only one
+	// request will be handled at a time (concurrently) per instance
+	// of Revision Container.
+	RevisionRequestConcurrencyModelSingle RevisionRequestConcurrencyModelType = "Single"
+	// RevisionRequestConcurencyModelMulti allows more than one request to
+	// be handled at a time (concurrently) per instance of Revision
+	// Container.
+	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -81,6 +96,11 @@ type RevisionSpec struct {
 	// Users must not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
 	ServingState RevisionServingStateType `json:"servingState"`
+
+	// ConcurrencyModel specifies the desired concurrency model
+	// (SingleConcurrency or MultiConcurrency) for the
+	// Revision. Defaults to MultiConcurrency.
+	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified

@@ -444,7 +444,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{"sidecar.istio.io/inject": "false"},
 	)
 
-	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
@@ -621,7 +621,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 		expectedLabels,
 		map[string]string{ela.AutoscalerLabelKey: expectedAutoscalerName},
 	)
-	asDeployment, err := kubeClient.ExtensionsV1beta1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
