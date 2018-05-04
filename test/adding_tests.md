@@ -2,23 +2,22 @@
 
 If you are [developing elafros](/DEVELOPMENT.md) you may need to add or change:
 
-* [e2e tests](#e2e-tests)
+* [e2e tests](./e2e)
 * [Conformance tests](./conformance)
 
 Both tests can use our [test library](#test-library).
 
-Reviewers of conformance tests (i.e. [OWNERS](/test/OWNERS)) are responsible for the style and quality of the resulting tests. In order to not discourage contributions, when style change are required, the reviewers can make the changes themselves.
+Reviewers of conformance and e2e tests (i.e. [OWNERS](/test/OWNERS)) are responsible for the style and quality of the resulting tests. In order to not discourage contributions, when style change are required, the reviewers can make the changes themselves.
 
-## e2e tests
+## Presubmit tests
 
-[`e2e-tests.sh`](./e2e-tests.sh) holds our current end to end tests (in addition
-to [the conformance tests](/test/conformance)):
+[`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
 
-* `run_hello_world`
-* `test_autoscale`
+This script, and consequently, the e2e and conformance tests will be run before every code submission. You can run these tests manually with:
 
-In the future we would like to implement additional e2e tests in Go using
-[the test library](#test-library).
+```shell
+test/presubmit-tests.sh
+```
 
 ## Test library
 

@@ -1,0 +1,38 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "e2e_test.go",
+    ],
+    deps = [
+        "//test:go_default_library",
+        "//vendor/k8s.io/client-go/plugin/pkg/client/auth/gcp:go_default_library",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "autoscale_test.go",
+        "helloworld_test.go",
+    ],
+    data = [
+        "go_default_files",
+    ],
+    deps = [
+        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
+	"//vendor/k8s.io/api/core/v1:go_default_library",
+	"//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+    embed = [":go_default_library"],
+)
+
+filegroup(
+    name = "go_default_files",
+    srcs = [
+        "kubeconfig",
+    ],
+)
