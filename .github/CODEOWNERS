@@ -7,7 +7,7 @@
 # updated.
 
 ### Component-level ownerships
-# Note that **unlike Prow**, CODEOWNERS is not transitive.
+# Note that **unlike Prow OWNERS**, CODEOWNERS is not hierarchical.
 # Include @elafros/elafros-maintainers on each line to allow the ToC
 # to approve PRs if needed.
 
