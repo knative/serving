@@ -6,61 +6,146 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
 2. [Start Elafros](../../README.md#start-elafros)
+3. [Setup telemetry](../../docs/telemetry.md)
 
 ## Setup
 
-Deploy the autoscale app to Elafros from the root directory.
+Deploy a simple 3D tic-tac-toe webapp.
 
 ```shell
-bazel run sample/autoscale:everything.create
+bazel run //sample/autoscale/kdt3:everything.create
+istioctl create -f sample/autoscale/kdt3/egress.yaml
 ```
 
-Export your Ingress IP as SERVICE_IP.
+Export `SERVICE_HOST` and `INGRESS_IP`.
 
 ```shell
-# Put the Ingress Host name into an environment variable.
-export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
-
-# Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_HOST=`kubectl get route autoscale-kdt3-route -o jsonpath="{.status.domain}"`
+export SERVICE_IP=`kubectl get ingress autoscale-kdt3-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+echo SERVICE_HOST=${SERVICE_HOST?} SERVICE_IP=${SERVICE_IP?}
 ```
 
-Request the largest prime less than 40,000,000 from the autoscale app.  Note that it consumes about 1 cpu/sec.
+Verify the app is running.
 
 ```shell
-time curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP?}/primes/40000000
+time curl -I -s --header "Host:${SERVICE_HOST?}" http://${SERVICE_IP?}/game/
 ```
 
-## Running
+## Running a QPS load test
 
-Ramp up a bunch of traffic on the autoscale app (about 300 QPS).
+Ramp up over 1 minute to 100 queries-per-second (qps) for 10 minutes.
 
 ```shell
-kubectl delete namespace hey --ignore-not-found && kubectl create namespace hey
-for i in `seq 2 2 60`; do
-  kubectl -n hey run hey-$i --image josephburnett/hey --restart Never -- \
-    -n 999999 -c $i -z 2m -host $SERVICE_HOST \
-    "http://${SERVICE_IP?}/primes/40000000"
-  sleep 1
+QPS=200
+RAMP_TIME_SECONDS=60
+TEST_TIME_MINUTES=5
+kubectl create namespace wrk
+for i in `seq 10 10 $QPS`; do
+  kubectl run wrk-$i \
+    --image josephburnett/wrk2:latest \
+    --restart Never --image-pull-policy=Always -n wrk \
+    -- -c10 -t10 -d${TEST_TIME_MINUTES}m -R10 \
+       -H "Host: ${SERVICE_HOST?}" \
+       "http://${SERVICE_IP?}/game/"
+  sleep $(( $RAMP_TIME_SECONDS / ($QPS / 10) ))
 done
-watch kubectl get pods -n hey --show-all
 ```
 
-Watch the Elafros deployment pod count increase.
+Watch the Elafros deployment pod count increase.  Then return to 1.
 
 ```shell
 watch kubectl get deploy
 ```
 
-Look at the latency, requests/sec and success rate of each pod.
+## Analysis
+
+Connect to Grafana as described in [the telemetry instructions](../../docs/telemetry.md).  You should see something like this:
+
+### QPS Load
+
+![qps](images/qps.png)
+
+### Autoscaling
+
+![autoscaler](images/autoscaler.png)
+
+### CPU Usage
+
+![cpu](images/cpu.png)
+
+### Memory Usage
+
+![memory](images/memory.png)
+
+### Latency
+
+![latency](images/latency.png)
+
+### Success Rate
+
+![success-rate](images/success-rate.png)
+
+## Other test scenarios
+
+Slower rampup:
 
 ```shell
-for i in `seq 4 4 120`; do kubectl -n hey logs hey-$i ; done | less
+QPS=200
+RAMP_TIME_SECONDS=400
+```
+
+Lower peak:
+
+```shell
+QPS=50
+RAMP_TIME_SECONDS=60
+```
+
+Ludicrous mode:
+
+```shell
+QPS=1000
+RAMP_TIME_SECONDS=30
+```
+
+Cpu heavy app:
+
+```shell
+bazel run //sample/autoscale/prime:everything.create
+
+```
+```shell
+export SERVICE_HOST=`kubectl get route autoscale-prime-route -o jsonpath="{.status.domain}"`
+export SERVICE_IP=`kubectl get ingress autoscale-prime-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+echo SERVICE_HOST=${SERVICE_HOST?} SERVICE_IP=${SERVICE_IP?}
+time curl -I -s --header "Host:${SERVICE_HOST}" http://${SERVICE_IP?}/primes/40000
+```
+
+Batch job:
+
+```shell
+batch () {
+  for i in `seq 1 1000`
+  do
+    sleep 0.02
+    curl -s -o /dev/null -w "%{http_code}\n" \
+      --header "Host:${SERVICE_HOST?}" \
+      http://${SERVICE_IP?}/primes/40000000 &
+  done
+  wait
+}
+time batch 2>/dev/null | sort | uniq -c
 ```
 
 ## Cleanup
 
 ```shell
-kubectl delete namespace hey
-bazel run sample/autoscale:everything.delete
+kubectl delete namespace wrk
+istioctl delete -f sample/autoscale/kdt3/egress.yaml
+bazel run sample/autoscale/kdt3:everything.delete
+bazel run sample/autoscale/prime:everything.delete
 ```
+
+## References
+
+This load test uses a modified version of `wrk2`.  Source code is [here](https://github.com/josephburnett/wrk2) and can be run directly from the [Dockerhub repo](https://hub.docker.com/r/josephburnett/wrk2/).

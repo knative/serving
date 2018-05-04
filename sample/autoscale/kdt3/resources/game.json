@@ -1,0 +1,30 @@
+{
+  "PlayerCount": 2,
+  "Creator": "",
+  "Rules": {
+    "meaning": 15,
+    "stringValue": "{\"InARow\":4}",
+    "excludeFromIndexes": true
+  },
+  "UpdatedDate": "2018-03-15T16:39:34.662389828Z",
+  "Players": [
+    {
+      "PlayerOrder": 0,
+      "PlayerId":"NOSBCWZFBHJVVGO32LDAGLNXBE",
+      "GameId":"62S7GDGZY7AVSXGRBNVMAEGYU4",
+      "Handle":"Player 1"
+    },
+    {
+      "PlayerOrder": 1,
+      "PlayerId":"HF47U63GDIPUL3Y4PGTX3NP47A",
+      "GameId":"62S7GDGZY7AVSXGRBNVMAEGYU4",
+      "Handle":"Player 2"
+    }
+  ],
+  "Won": true,
+  "CreatedDate": "2018-03-15T16:37:11.748425157Z",
+  "TurnOrder": 0,
+  "GameId": "62S7GDGZY7AVSXGRBNVMAEGYU4",
+  "TurnId": "NOSBCWZFBHJVVGO32LDAGLNXBE",
+  "Board": {"K":3,"D":{"D":[{"D":[{"D":[{"D":null,"Player":0,"IsClaimed":true,"IsWon":true},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":1,"IsClaimed":true,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":true,"IsWon":true},{"D":null,"Player":0,"IsClaimed":true,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":1,"IsClaimed":true,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":1,"IsClaimed":true,"IsWon":false},{"D":null,"Player":1,"IsClaimed":true,"IsWon":false},{"D":null,"Player":1,"IsClaimed":true,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":true,"IsWon":true},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":true,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":true,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},{"D":[{"D":null,"Player":0,"IsClaimed":true,"IsWon":true},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":0,"IsClaimed":false,"IsWon":false},{"D":null,"Player":1,"IsClaimed":true,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false}],"Player":0,"IsClaimed":false,"IsWon":false},"Size":4}
+}

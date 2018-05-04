@@ -1,0 +1,11 @@
+apiVersion: config.istio.io/v1alpha2
+kind: EgressRule
+metadata:
+  name: google-storage-egress-rule
+  namespace: default
+spec:
+  destination:
+    service: storage.googleapis.com
+  ports:
+    - port: 80
+      protocol: http
