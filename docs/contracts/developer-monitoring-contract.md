@@ -22,28 +22,31 @@ The following logs are collected.
   If the message is a JSON payload, it will be treated as structured logs and parsed accordingly.
   See the [Logs Formats](#log-formats) section for more information. **NOTE**:
   [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
+* **/dev/log**: TBD.
 
 Elafros recommends to send logs to stdout/stderr.
 
 ### Log Destinations
 
-The default destination of all logs is an in-cluster instance of ElasticSearch. A
-Kibana dashboard is provided as the default UI to view logs.
+Log aggregation is explicitly pluggable. [Operators](../product/personas.md#operator-personas)
+can choose logging plugins to define the log destinations.
 
-Stackdriver is provided as an alternate logging destination.
+Elafros provides samples of logging plugins, e.g. ElasticSearch&Kibana, Stackdriver.
+Cluster operator can implement their own plugins.
 
 ### Log Formats
 
 The following formats are supported.
 
-* **Plain text**: A single line regarded as plain text, structured as follows:
+* **Plain text**: A single line regarded as plain text. The following metadata
+  will be extracted from the log record:
   * *kubernetes.labels.elafros_dev/configuration*: Elafros configuration of the
     application, container or function that emitted the log.
   * *kubernetes.labels.elafros_dev/revision*: Elafros revision of the application,
      container or function that emitted the log.
   * *kubernetes.namespace_name*: Kubernetes namespace of the application, container
     or function that emitted the log.
-  * *log*: The original log content.
+  * *log*: If the original log content.
   * *stream*: One of `stdout`, `stderr` or `varlog`.
   * *tag*: If the log was from stdout/stderr, the value is
     `kubernetes.var.log.<pod_name>_<namespace>_<container_name>_<container_id>.log`.
@@ -53,13 +56,11 @@ The following formats are supported.
   * *time*: Time when the log was collected. **NOTE**: Developers need to add
     timestamp in the log content if they want the timestamp to be accurate.
 
-  **NOTE**:
-
-* **Structured**: A single line of serialized JSON. For example, if a log was
+* **Structured**: A single line of serialized JSON. For example, if a log is
   emitted as `{"message": "Hello", "fluentd-time": "2018-05-23T12:42:22.14423454"}`,
-  it will be structured as follows:
+  the following metadata will be extracted from the log record:
 
-  * *message*: Lifted from JSON dictionary.
+  * *message*: Lifted from JSON dictionary. `Hello` in this case.
   * *time*: Lifted from `fluentd-time` in JSON dictionary. **NOTE**: the format
     should be `%Y-%m-%dT%H:%M:%S.%NZ` otherwise the log will not be parsed correctly.
     If this key is missing, the value will be the time when the log was collected.
@@ -87,6 +88,8 @@ The following formats are supported.
   * *traceId*: OpenTracing trace id.
   * *url*: Relative URL that was requested.
   * *userAgent*: User agent string of the request.
+
+  **NOTE**: There is no extra payload/message field.
 
 ### Log Cleanup
 
