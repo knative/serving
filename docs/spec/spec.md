@@ -119,7 +119,7 @@ metadata:
   ...
 spec:
   # +optional. composable Build spec, if omitted provide image directly
-  build:  # This is a build.dev/v1alpha1.BuildTemplateSpec
+  build:  # This is a elafros.dev/v1alpha1.BuildTemplateSpec
     source:
       # oneof git|gcs|custom: 
       
@@ -227,7 +227,7 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. name of the elafros.dev.v1alpha1.Build if built from source
+  # +optional. name of the elafros.dev/v1alpha1.Build if built from source
   buildName: ...
 
   container:  # corev1.Container
@@ -310,10 +310,32 @@ metadata:
 
 # spec contains one of several possible rollout styles
 spec:  # One of "runLatest" or "pinned"
+  # Example, only one of runLatest or pinned can be set in practice.
+  runLatest:
+    configuration:  # elafros.dev/v1alpha1.Configuration
+      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+      buildName: ...
+
+      container:  # core.v1.Container
+        image: gcr.io/...
+        command: ['run']
+        args: []
+        env:  # list of environment vars
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+        - ...
+        livenessProbe: ...  # Optional
+        readinessProbe: ...  # Optional
+      concurrencyModel: ...
+      timeoutSeconds: ...
+      serviceAccountName: ...  # Name of the service account the code should run as
+  # Example, only one of runLatest or pinned can be set in practice.
   pinned:
     revisionName: myservice-00013  # Auto-generated revision name
-    configuration:  # elafros.dev.v1alpha1.Configuration
-      # +optional. name of the elafros.dev.v1alpha1.Build if built from source
+    configuration:  # elafros.dev/v1alpha1.Configuration
+      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
       buildName: ...
 
       container:  # core.v1.Container

@@ -10,8 +10,7 @@ Configurations, and Services:
 * **Configuration**, which acts as a stream of environments for Revisions.
 
 * **Service** acts as a top-level container for managing the set of
-  Routes, Configurations, and Revisions which implement a network
-  service.
+  Routes and Configurations which implement a network service.
 
 ![Object model](images/object_model.png)
 

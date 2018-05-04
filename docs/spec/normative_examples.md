@@ -73,7 +73,7 @@ The client PATCHes the service's configuration with new container image,
 inheriting previous environment values from the configuration spec:
 
 ```http
-PATCH /apis/elafros.dev/v1alpha1/namespaces/default/sevices/my-service
+PATCH /apis/elafros.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
 apiVersion: elafros.dev/v1alpha1
@@ -268,7 +268,7 @@ $ elafros deploy --service my-service --region us-central1
 **Steps**:
 
 * Create a new Service. That Service will trigger creation of a new
-  Configuration and a Route that references a that configuration.
+  Configuration and a Route that references that configuration.
 
 **Results**:
 
@@ -298,7 +298,7 @@ latest ready revision of a Configuration, as this example
 illustrates. This is the most straightforward scenario that many
 Elafros customers are expected to use, and is consistent with the
 experience of deploying code that is rolled out immediately.  A Route
-may also directly to a Revision, which is shown in
+may also directly reference a Revision, which is shown in
 [example 3](#3-manual-rollout-of-a-new-revision---config-change-only).
 
 The example shows the POST calls issued by the client, followed by
@@ -511,16 +511,16 @@ status:
   proceeds with a manually controlled rollout to 100%
 
 ```
-$ elafros rollout strategy manual
+$ elafros rollout --service my-service strategy manual
 
 $ elafros deploy --service my-service --env HELLO="blurg"
 [...]
 
 $ elafros revisions list --service my-service
-Name    Traffic  Id   Date                Deployer     Git SHA
-next     0%      v3   2018-01-19 12:16    user1        a6f92d1
-current  100%    v2   2018-01-18 20:34    user1        a6f92d1
-                 v1   2018-01-17 10:32    user1        33643fc
+Name     Traffic  Id   Date                Deployer     Git SHA
+next     0%       v3   2018-01-19 12:16    user1        a6f92d1
+current  100%     v2   2018-01-18 20:34    user1        a6f92d1
+                  v1   2018-01-17 10:32    user1        33643fc
 
 $ elafros rollout next percent 5
 [...]
@@ -556,14 +556,14 @@ current,next  100%     v3   2018-01-19 12:16    user1         a6f92d1
 
 
 In the previous examples, the Service automatically made changes to
-the configuration live when they became ready. While this pattern is
-useful for many scenarios such as functions-as-a-service and simple
-development flows, the Service can also reference Revisions directly
-in `pinned` mode to route traffic to a specific Revision, which is
-suitable for manually controlling rollouts, i.e. testing a new
-revision prior to serving traffic. (Note: see
-[Appendix B](complex_examples.md) for a semi-automatic variation of
-manual rollouts).
+the configuration (newly created Revision) routable when they became
+ready. While this pattern is useful for many scenarios such as
+functions-as-a-service and simple development flows, the Service can
+also reference Revisions directly in `pinned` mode to route traffic to
+a specific Revision, which is suitable for rolling back a service to a known-good state. manually controlling
+rollouts, i.e. testing a new revision prior to serving traffic. (Note:
+see [Appendix B](complex_examples.md) for a semi-automatic variation
+of manual rollouts).
 
 The client updates the service to pin the current revision:
 
@@ -855,7 +855,7 @@ metadata:
 spec:
   runLatest:
     configuration:
-      build:  # build.dev/v1alpha1.BuildTemplateSpec
+      build:  # elafros.dev/v1alpha1.BuildTemplateSpec
         source:
           # oneof git|gcs|custom:
           git:
@@ -915,7 +915,7 @@ metadata:
     elafros.dev/configurationGeneration: 1234
   ...
 spec:
-  # name of the build.dev/v1alpha1.Build, if built from source.
+  # name of the elafros.dev/v1alpha1.Build, if built from source.
   # Set by Configuration.
   buildName: ...
 
@@ -1015,7 +1015,7 @@ metadata:
 spec:
   runLatest:
     configuration:
-      build:  # build.dev/v1alpha1.BuildTemplateSpec
+      build:  # elafros.dev/v1alpha1.BuildTemplateSpec
         source:
           # oneof git|gcs|custom
           git:
