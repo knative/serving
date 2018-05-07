@@ -119,7 +119,7 @@ metadata:
   ...
 spec:
   # +optional. composable Build spec, if omitted provide image directly
-  build:  # This is a build.dev/v1alpha1.BuildTemplateSpec
+  build:  # This is a elafros.dev/v1alpha1.BuildTemplateSpec
     source:
       # oneof git|gcs|custom: 
       
@@ -188,7 +188,7 @@ spec:
       serviceAccountName: ...  # Name of the service account the code should run as.
 
 status:
-  # the latest created and ready to serve. Watched by route
+  # the latest created and ready to serve. Watched by Route
   latestReadyRevisionName: abc
   # latest created revision, may still be in the process of being materialized
   latestCreatedRevisionName: def
@@ -227,7 +227,7 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. name of the build.dev/v1alpha1.Build if built from source
+  # +optional. name of the elafros.dev/v1alpha1.Build if built from source
   buildName: ...
 
   container:  # corev1.Container
@@ -286,3 +286,94 @@ status:
 ```
 
 
+## Service
+
+For a high-level description of Services,
+[see the overview](overview.md#service).
+
+
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: :
+metadata:
+  name: myservice
+  namespace: default
+  labels:
+    elafros.dev/type: "function"  # convention, one of "function" or "app"
+  # system generated meta
+  uid: ...
+  resourceVersion: ...  # used for optimistic concurrency control
+  creationTimestamp: ...
+  generation: ... 
+  selfLink: ...
+  ...
+
+# spec contains one of several possible rollout styles
+spec:  # One of "runLatest" or "pinned"
+  # Example, only one of runLatest or pinned can be set in practice.
+  runLatest:
+    configuration:  # elafros.dev/v1alpha1.Configuration
+      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+      buildName: ...
+
+      container:  # core.v1.Container
+        image: gcr.io/...
+        command: ['run']
+        args: []
+        env:  # list of environment vars
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+        - ...
+        livenessProbe: ...  # Optional
+        readinessProbe: ...  # Optional
+      concurrencyModel: ...
+      timeoutSeconds: ...
+      serviceAccountName: ...  # Name of the service account the code should run as
+  # Example, only one of runLatest or pinned can be set in practice.
+  pinned:
+    revisionName: myservice-00013  # Auto-generated revision name
+    configuration:  # elafros.dev/v1alpha1.Configuration
+      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+      buildName: ...
+
+      container:  # core.v1.Container
+        image: gcr.io/...
+        command: ['run']
+        args: []
+        env:  # list of environment vars
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+        - ...
+        livenessProbe: ...  # Optional
+        readinessProbe: ...  # Optional
+      concurrencyModel: ...
+      timeoutSeconds: ...
+      serviceAccountName: ...  # Name of the service account the code should run as
+status:
+  # This information is copied from the owned Configuration and Route.
+
+  # The latest created and ready to serve Revision.
+  latestReadyRevisionName: abc
+  # Latest created Revision, may still be in the process of being materialized.
+  latestCreatedRevisionName: def
+
+  # domain: The hostname used to access the default (traffic-split)
+  #   route. Typically, this will be composed of the name and namespace
+  #   along with a cluster-specific prefix (here, mydomain.com).
+  domain: my-service.default.mydomain.com
+
+  conditions:  # See also the documentation in errors.md
+  - type: Ready
+    status: True
+    message: "Revision starting"
+  - type: LatestRevisionReady
+    status: False
+    reason: ContainerMissing
+    message: "Unable to start because container is missing and build failed."
+
+  observedGeneration: ...  # last generation being reconciled
+```

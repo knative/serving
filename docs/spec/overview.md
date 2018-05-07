@@ -1,12 +1,16 @@
 # Resource Types
 
-The primary resources in the Elafros API are Routes, Revisions, and Configurations:
+The primary resources in the Elafros API are Routes, Revisions,
+Configurations, and Services:
 
 * A **Route** provides a named endpoint and a mechanism for routing traffic to
 
 * **Revisions**, which are immutable snapshots of code + config, created by a
 
 * **Configuration**, which acts as a stream of environments for Revisions.
+
+* **Service** acts as a top-level container for managing the set of
+  Routes and Configurations which implement a network service.
 
 ![Object model](images/object_model.png)
 
@@ -56,6 +60,17 @@ Configuration's controller will track the status of created Revisions
 and makes both the most recently created and most recently *ready*
 (i.e. healthy) Revision available in the status section.
 
+## Service
+
+A **Service** encapsulates a set of **Routes** and **Configurations**
+which together provide a software component. Service exists to provide
+a singular abstraction which can be access controlled, reasoned about,
+and which encapsulates software lifecycle decisions such as rollout
+policy and team resource ownership. Service acts only as an
+orchestrator of the underlying Routes and Configurations (much as a
+kubernetes Deployment orchestrates ReplicaSets), and its usage is
+optional but recommended.
+
 
 # Orchestration
 
@@ -73,9 +88,10 @@ is created or updated. This provides:
   in optimistic concurrency errors
 * the ability to rollback to a known good configuration
 
-In the conventional single live revision scenario, a route has a
-single configuration with the same name as the route. Update
-operations on the configuration enable scenarios such as:
+In the conventional single live revision scenario, a service creates
+both a route and a configuration with the same name as the
+service. Update operations on the service enable scenarios such
+as:
 
 * *"Push code, keep config":* Specifying a new revision with updated
   source, inheriting configuration such as env vars from the
@@ -83,10 +99,12 @@ operations on the configuration enable scenarios such as:
 * *"Update config, keep code"*: Specifying a new revision as just a
   change to configuration, such as updating an env variable,
   inheriting all other configuration and source/image.
+* *"Execute a manual rollout"*: Updating the service when in pinned
+  rollout mode allows manual testing of a revision before making it
+  live.
 
-When creating an initial route and performing the first deployment,
-the two operations of creating a Route and an associated Configuration
-can be done in parallel, which streamlines the use case of deploying
-code initially from a button. The
-[sample API usage](normative_examples.md) section illustrates
-conventional usage of the API.
+Using a Service object to orchestrate the creation a both route and
+configuration allows deployment of code (e.g. from a github button) to
+avoid needing to reason about sequencing and failure modes of parallel
+resource creation. The [sample API usage](normative_examples.md)
+section illustrates conventional usage of the API.
