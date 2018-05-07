@@ -72,7 +72,7 @@ To use a k8s cluster running in GKE:
 1.  [Install and configure
     minikube](https://github.com/kubernetes/minikube#minikube) with a [VM
     driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm2` on
-    Linux or `xhyve` on macOS.
+    Linux or `hyperkit` on macOS.
 
 1.  [Create a cluster](https://github.com/kubernetes/minikube#quickstart) with
     version 1.9 or greater and your chosen VM driver:
@@ -106,7 +106,7 @@ For macOS use:
 ```shell
 minikube start \
   --kubernetes-version=v1.9.4 \
-  --vm-driver=xhyve \
+  --vm-driver=hyperkit \
   --bootstrapper=localkube \
   --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
   --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
