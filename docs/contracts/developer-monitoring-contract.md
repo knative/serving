@@ -57,15 +57,12 @@ The following formats are supported.
     timestamp in the log content if they want the timestamp to be accurate.
 
 * **Structured**: A single line of serialized JSON. For example, if a log is
-  emitted as `{"message": "Hello", "fluentd-time": "2018-05-23T12:42:22.14423454"}`,
-  the following metadata will be extracted from the log record:
+  emitted as `{"message": "Hello"}`, the following metadata will be extracted
+  from the log record:
 
   * *message*: Lifted from JSON dictionary. `Hello` in this case.
-  * *time*: Lifted from `fluentd-time` in JSON dictionary. **NOTE**: the format
-    should be `%Y-%m-%dT%H:%M:%S.%NZ` otherwise the log will not be parsed correctly.
-    If this key is missing, the value will be the time when the log was collected.
-  * *tag*, *kubernetes.namespace_name*, *kubernetes.labels.elafros_dev/configuration*
-    *kubernetes.labels.elafros_dev/revision*, *stream*: Same with plant text.
+  * *kubernetes.labels.elafros_dev/configuration*, *kubernetes.labels.elafros_dev/revision*,
+    *kubernetes.namespace_name*, *stream*, *tag*, *time*: Same with plant text.
 
 * **Multi-line**: If a consecutive sequence of log messages forms an exception stack
   trace, the log messages are forwarded as a single, combined log message.
@@ -113,7 +110,9 @@ Labels:
 * *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
-* *source_service*: Service that the request was from.
+* *source_service*: If the request was from outside the cluster, this will be
+  istio-ingress service name. If the request was from inside the cluster (revisons
+  calling other revisions), this will be Kubernetes service name of the revision.
 
 #### revision_request_duration
 
