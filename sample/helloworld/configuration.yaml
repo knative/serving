@@ -24,7 +24,9 @@ spec:
         elafros.dev/type: app
     spec:
       container:
-        image: sample:latest
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/elafros/elafros/sample/helloworld
         env:
           - name: TARGET
             value: shiniestnewestversion

@@ -27,7 +27,7 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 k8s_object(
     name = "configuration",
     images = {
-        "stock:latest": ":image",
+        "github.com/elafros/elafros/sample/stock-rest-app": ":image",
     },
     template = ":configuration.yaml",
 )
@@ -35,7 +35,7 @@ k8s_object(
 k8s_object(
     name = "updated_configuration",
     images = {
-        "stock:latest": ":image",
+        "github.com/elafros/elafros/sample/stock-rest-app": ":image",
     },
     template = ":updated_configuration.yaml",
 )

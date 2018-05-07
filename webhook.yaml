@@ -28,7 +28,9 @@ spec:
       serviceAccountName: ela-controller
       containers:
       - name: ela-webhook
-        image: ela-webhook:latest
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: github.com/elafros/elafros/cmd/ela-webhook
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
