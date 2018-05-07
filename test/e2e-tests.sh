@@ -137,7 +137,7 @@ if [[ -z $1 ]]; then
   header "Creating test cluster"
   # Smallest cluster required to run the end-to-end-tests
   CLUSTER_CREATION_ARGS=(
-    --gke-create-args="--enable-autoscaling --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform"
+    --gke-create-args="--enable-autoscaling --enable-kubernetes-alpha --min-nodes=1 --max-nodes=${E2E_CLUSTER_NODES} --scopes=cloud-platform"
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
