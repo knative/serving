@@ -15,11 +15,11 @@ container images and functions.
 The following logs are collected.
 
 * **Request logs**: Status of requests or invocations sent to the applications, containers
-  or functions. Collected automatically by default.
+  or functions.
 * **stdout/stderr**: Logs emitted by the applications, containers or functions
-  to the stdout/stderr channels. Collected automatically by default.
+  to the stdout/stderr channels.
 * **/var/log**: All files under `/var/log` will be collected and parsed as single line.
-  If the message is a JSON payload, it will be treated as structured logs and parsed accordingly.
+  If the single line message is a JSON payload, it will be treated as structured logs and parsed accordingly.
   See the [Logs Formats](#log-formats) section for more information. **NOTE**:
   [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
 * **/dev/log**: TBD.
@@ -126,7 +126,9 @@ Labels:
 * *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
-* *source_service*: Service that the request was from.
+* *source_service*: If the request was from outside the cluster, this will be
+  istio-ingress service name. If the request was from inside the cluster (revisons
+  calling other revisions), this will be Kubernetes service name of the revision.
 
 #### revision_request_size
 
@@ -140,7 +142,9 @@ Labels:
 * *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
-* *source_service*: Service that the request was from.
+* *source_service*: If the request was from outside the cluster, this will be
+  istio-ingress service name. If the request was from inside the cluster (revisons
+  calling other revisions), this will be Kubernetes service name of the revision.
 
 #### revision_response_size
 
@@ -154,7 +158,9 @@ Labels:
 * *destination_namespace*: Kubernetes namespace that the request was served on.
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
-* *source_service*: Service that the request was from.
+* *source_service*: If the request was from outside the cluster, this will be
+  istio-ingress service name. If the request was from inside the cluster (revisons
+  calling other revisions), this will be Kubernetes service name of the revision.
 
 #### container_memory_usage_bytes
 
