@@ -19,6 +19,7 @@ package configuration
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/golang/glog"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -199,7 +200,7 @@ func (c *Controller) syncHandler(key string) error {
 		if rev.ObjectMeta.Annotations == nil {
 			rev.ObjectMeta.Annotations = make(map[string]string)
 		}
-		rev.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Generation)
+		rev.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey] = strconv.Itoa(int(config.Generation))
 
 		// Delete revisions when the parent Configuration is deleted.
 		rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)

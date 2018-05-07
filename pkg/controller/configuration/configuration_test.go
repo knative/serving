@@ -27,7 +27,7 @@ package configuration
 	Congfiguration.
 */
 import (
-	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -224,7 +224,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 		t.Errorf("rev does not have configuration label <%s:%s>", serving.ConfigurationLabelKey, config.Name)
 	}
 
-	if rev.Annotations[serving.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Generation) {
+	if rev.Annotations[serving.ConfigurationGenerationAnnotationKey] != strconv.Itoa(int(config.Generation)) {
 		t.Errorf("rev does not have generation annotation <%s:%s>", serving.ConfigurationGenerationAnnotationKey, config.Name)
 	}
 

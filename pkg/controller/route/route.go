@@ -444,7 +444,6 @@ func (c *Controller) setLabelForGivenConfigurations(
 		if _, ok := config.Labels[serving.RouteLabelKey]; ok {
 			continue
 		}
-
 		err := controller.SetConfigLabel(configClient, config.Name, serving.RouteLabelKey, route.Name)
 		if err != nil {
 			logger.Errorf("Failed add route label to Configuration %q: %q", config.Name, err)
