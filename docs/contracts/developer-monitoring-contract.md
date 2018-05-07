@@ -92,8 +92,7 @@ The following formats are supported.
 ### Log Cleanup
 
 Logs written to stdout and stderr are cleaned up by Kubernetes. Elafros will
-provide necessary functionality to clean up all the logs from `/var/log/*` that
-are collected.
+provide necessary functionality to rotate all the logs from `/var/log/*`.
 
 ## Monitoring
 
