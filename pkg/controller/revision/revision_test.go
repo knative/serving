@@ -74,6 +74,7 @@ func getTestRevision() *v1alpha1.Revision {
 			Annotations: map[string]string{
 				"testAnnotation": "test",
 			},
+			UID: "test-rev-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
 			// corev1.Container has a lot of setting.  We try to pass many
@@ -418,6 +419,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		rev.Labels,
 		map[string]string{
 			ela.RevisionLabelKey: rev.Name,
+			ela.RevisionUID:      string(rev.UID),
 			appLabelKey:          rev.Name,
 		},
 	)
@@ -456,6 +458,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			APIVersion: "elafros.dev/v1alpha1",
 			Kind:       "Revision",
 			Name:       rev.Name,
+			UID:        rev.UID,
 		},
 	}
 
@@ -659,6 +662,50 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 	}
 }
 
+func TestCreateRevWithWithLoggingURL(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.LoggingURLTemplate = "http://logging.test.com?filter=${REVISION_UID}"
+	_, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	rev := getTestRevision()
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	createdRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	expectedLoggingURL := fmt.Sprintf("http://logging.test.com?filter=%s", rev.UID)
+	if createdRev.Status.LogURL != expectedLoggingURL {
+		t.Errorf("Created revision does not have a logging URL: expected: %s, got: %s", expectedLoggingURL, createdRev.Status.LogURL)
+	}
+}
+
+func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"
+	_, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
+	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+
+	rev := getTestRevision()
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Update controllers logging URL
+	controllerConfig.LoggingURLTemplate = "http://new-logging.test.com?filter=${REVISION_UID}"
+	updateRevision(elaClient, elaInformer, controller, rev)
+
+	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	expectedLoggingURL := fmt.Sprintf("http://new-logging.test.com?filter=%s", rev.UID)
+	if updatedRev.Status.LogURL != expectedLoggingURL {
+		t.Errorf("Updated revision does not have an updated logging URL: expected: %s, got: %s", expectedLoggingURL, updatedRev.Status.LogURL)
+	}
+}
+
 func TestCreateRevPreservesAppLabel(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
@@ -679,6 +726,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 		rev.Labels,
 		map[string]string{
 			ela.RevisionLabelKey: rev.Name,
+			ela.RevisionUID:      string(rev.UID),
 		},
 	)
 	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
