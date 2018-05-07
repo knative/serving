@@ -20,9 +20,10 @@ The following logs are collected.
   to the stdout/stderr channels.
 * **/var/log**: All files under `/var/log` will be collected and parsed as single line.
   If the single line message is a JSON payload, it will be treated as structured logs and parsed accordingly.
-  See the [Logs Formats](#log-formats) section for more information. **NOTE**:
-  [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
+  See the [Logs Formats](#log-formats) section for more information. **NOTE**: `/var/log` requires
+  a sidecar container. [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
 * **/dev/log**: TBD.
+
 
 Elafros recommends to send logs to stdout/stderr.
 
