@@ -214,7 +214,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return nil, controller.PromLabelValueInvalid
 		}
 		// Run the updateServiceEvent passing it the namespace/name string of the
-		// Foo resource to be synced.
+		// Service resource to be synced.
 		if err := c.updateServiceEvent(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
