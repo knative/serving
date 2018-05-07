@@ -17,7 +17,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewActivationDeduper(Activator(f))
+	d := NewDeduppingActivator(Activator(f))
 
 	endpoint, status, err := d.ActiveEndpoint("default", "rev1")
 
@@ -45,7 +45,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewActivationDeduper(f)
+	d := NewDeduppingActivator(f)
 
 	got := concurrentTest(d, f, []revisionId{
 		revisionId{"default", "rev1"},
@@ -80,7 +80,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewActivationDeduper(f)
+	d := NewDeduppingActivator(f)
 
 	got := concurrentTest(d, f, []revisionId{
 		revisionId{"default", "rev1"},
@@ -120,7 +120,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 				err:      error2,
 			},
 		})
-	d := NewActivationDeduper(f)
+	d := NewDeduppingActivator(f)
 
 	got := concurrentTest(d, f, []revisionId{
 		revisionId{"default", "rev1"},
@@ -147,8 +147,6 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	failEp := Endpoint{}
 	failStatus := Status(503)
 	failErr := fmt.Errorf("Test error.")
-	successEp := Endpoint{"ip", 8080}
-	successStatus := Status(0)
 	f := newFakeActivator(t,
 		map[revisionId]activationResult{
 			revisionId{"default", "rev1"}: activationResult{
@@ -157,7 +155,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 				err:      failErr,
 			},
 		})
-	d := NewActivationDeduper(Activator(f))
+	d := NewDeduppingActivator(Activator(f))
 
 	// Activation initially fails
 	endpoint, status, err := d.ActiveEndpoint("default", "rev1")
@@ -176,6 +174,8 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	}
 
 	// Later activation succeeds
+	successEp := Endpoint{"ip", 8080}
+	successStatus := Status(0)
 	f.responses[revisionId{"default", "rev1"}] = activationResult{
 		endpoint: successEp,
 		status:   successStatus,

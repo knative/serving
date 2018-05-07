@@ -56,7 +56,7 @@ func main() {
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, elaClient)
-	deduper = activator.NewActivationDeduper(a)
+	deduper = activator.NewDeduppingActivator(a)
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
