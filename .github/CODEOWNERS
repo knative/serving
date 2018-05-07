@@ -1,41 +1,44 @@
 ### KEEP THIS FIRST, LAST RULE WINS!
 # Default ownership until delegated
-# * @evankanderson @mattmoor @vaikas-google
+# * @elafros/elafros-maintainers
 
 # To allow automatic PR merging by prow, update any corresponding
 # OWNERS files in the relevant directories whenever CODEOWNERS is
 # updated.
 
 ### Component-level ownerships
+# Note that **unlike Prow OWNERS**, CODEOWNERS is not hierarchical.
+# Include @elafros/elafros-maintainers on each line to allow the ToC
+# to approve PRs if needed.
 
 # API governance.
-/pkg/apis @evankanderson @mattmoor @vaikas-google
+/pkg/apis @evankanderson @mattmoor @vaikas-google @elafros/elafros-maintainers
 
 # Build API (imported from elafros/build)
-/pkg/apis/build @mattmoor @ImJasonH
+/pkg/apis/build @mattmoor @ImJasonH @elafros/elafros-maintainers
 
 # API Core working group
-/pkg/webhook @mattmoor @grantr @tcnghia
-/pkg/controller @mattmoor @grantr @tcnghia
+/pkg/webhook @mattmoor @grantr @tcnghia @elafros/elafros-maintainers
+/pkg/controller @mattmoor @grantr @tcnghia @elafros/elafros-maintainers
 
 # All groups can review docs.
-/docs/ @elafros/elafros-writers @google/elafros-readers
+/docs/ @elafros/elafros-writers @google/elafros-readers @elafros/elafros-maintainers
 
 # Tests.
-/test/ @adrcunha @srinivashegde86 @steuhs @bobcatfish
-/test/conformance/ @bobcatfish @adrcunha
+/test/ @adrcunha @srinivashegde86 @steuhs @bobcatfish @elafros/elafros-maintainers
+/test/conformance/ @bobcatfish @adrcunha @elafros/elafros-maintainers
 
 # third_party
-/third_party/ @evankanderson @mattmoor @vaikas-google @mdemirhan
+/third_party/ @mdemirhan @elafros/elafros-maintainers
 
 # Scaling.
-/cmd/ela-activator @josephburnett
-/cmd/ela-autoscaler @josephburnett
-/cmd/ela-queue/ @josephburnett
-/pkg/activator @josephburnett
-/pkg/autoscaler @josephburnett
-/pkg/queue @josephburnett
-/sample/autoscale @josephburnett
+/cmd/ela-activator @josephburnett @elafros/elafros-maintainers
+/cmd/ela-autoscaler @josephburnett @elafros/elafros-maintainers
+/cmd/ela-queue/ @josephburnett @elafros/elafros-maintainers
+/pkg/activator @josephburnett @elafros/elafros-maintainers
+/pkg/autoscaler @josephburnett @elafros/elafros-maintainers
+/pkg/queue @josephburnett @elafros/elafros-maintainers
+/sample/autoscale @josephburnett @elafros/elafros-maintainers
 
 ### To request CODEOWNERS on a subdirectory, propose it above
 ### in a PR to the below maintainers.
