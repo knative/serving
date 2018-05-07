@@ -7,12 +7,12 @@ run.
 
 ## Logging
 
-Elafros provides default out of the box logs and dashboards for all of applications,
+Elafros provides default out of the box logs for all of applications,
 container images and functions.
 
 ### Log Types
 
-The following logs are collected.
+The following logs types are supported.
 
 * **Request logs**: Status of requests or invocations sent to the applications, containers
   or functions.
@@ -23,7 +23,6 @@ The following logs are collected.
   See the [Logs Formats](#log-formats) section for more information. **NOTE**: `/var/log` requires
   a sidecar container. [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
 * **/dev/log**: TBD.
-
 
 Elafros recommends to send logs to stdout/stderr.
 
@@ -57,7 +56,8 @@ The following formats are supported.
   * *time*: Time when the log was collected. **NOTE**: Developers need to add
     timestamp in the log content if they want the timestamp to be accurate.
 
-* **Structured**: A single line of serialized JSON. For example, if a log is
+* **Structured**: A single line of serialized JSON. If a single line fails to be
+  parsed into JSON, it will be treated as plain text. For example, if a log is
   emitted as `{"message": "Hello"}`, the following metadata will be extracted
   from the log record:
 
