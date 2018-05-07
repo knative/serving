@@ -1,12 +1,13 @@
 package activator
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
 )
 
-func TestSingleRevisionSingleRequest(t *testing.T) {
+func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionId]activationResult{
@@ -34,7 +35,7 @@ func TestSingleRevisionSingleRequest(t *testing.T) {
 	}
 }
 
-func TestSingleRevisionMultipleRequests(t *testing.T) {
+func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionId]activationResult{
@@ -60,6 +61,140 @@ func TestSingleRevisionMultipleRequests(t *testing.T) {
 	}
 	if len(f.record) != 1 {
 		t.Errorf("Unexpected number of activation requests. Want 1. Got %v.", len(f.record))
+	}
+}
+
+func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
+	ep1 := Endpoint{"ip1", 8080}
+	ep2 := Endpoint{"ip2", 8080}
+	f := newFakeActivator(t,
+		map[revisionId]activationResult{
+			revisionId{"default", "rev1"}: activationResult{
+				endpoint: ep1,
+				status:   Status(0),
+				err:      nil,
+			},
+			revisionId{"default", "rev2"}: activationResult{
+				endpoint: ep2,
+				status:   Status(0),
+				err:      nil,
+			},
+		})
+	d := NewActivationDeduper(f)
+
+	got := concurrentTest(d, f, []revisionId{
+		revisionId{"default", "rev1"},
+		revisionId{"default", "rev2"},
+		revisionId{"default", "rev1"},
+		revisionId{"default", "rev2"},
+	})
+
+	want := []activationResult{
+		activationResult{ep1, Status(0), nil},
+		activationResult{ep2, Status(0), nil},
+		activationResult{ep1, Status(0), nil},
+		activationResult{ep2, Status(0), nil},
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("Unexpected results. \nWant %+v. \nGot %+v", want, got)
+	}
+	if len(f.record) != 2 {
+		t.Errorf("Unexpected number of activation requests. Want 2. Got %v.", len(f.record))
+	}
+}
+
+func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
+	ep1 := Endpoint{"ip1", 8080}
+	status2 := Status(500)
+	error2 := fmt.Errorf("Test error")
+	f := newFakeActivator(t,
+		map[revisionId]activationResult{
+			revisionId{"default", "rev1"}: activationResult{
+				endpoint: ep1,
+				status:   Status(0),
+				err:      nil,
+			},
+			revisionId{"default", "rev2"}: activationResult{
+				endpoint: Endpoint{},
+				status:   status2,
+				err:      error2,
+			},
+		})
+	d := NewActivationDeduper(f)
+
+	got := concurrentTest(d, f, []revisionId{
+		revisionId{"default", "rev1"},
+		revisionId{"default", "rev2"},
+		revisionId{"default", "rev1"},
+		revisionId{"default", "rev2"},
+	})
+
+	want := []activationResult{
+		activationResult{ep1, Status(0), nil},
+		activationResult{Endpoint{}, status2, error2},
+		activationResult{ep1, Status(0), nil},
+		activationResult{Endpoint{}, status2, error2},
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("Unexpected results. \nWant %+v. \nGot %+v", want, got)
+	}
+	if len(f.record) != 2 {
+		t.Errorf("Unexpected number of activation requests. Want 2. Got %v.", len(f.record))
+	}
+}
+
+func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
+	failEp := Endpoint{}
+	failStatus := Status(503)
+	failErr := fmt.Errorf("Test error.")
+	successEp := Endpoint{"ip", 8080}
+	successStatus := Status(0)
+	f := newFakeActivator(t,
+		map[revisionId]activationResult{
+			revisionId{"default", "rev1"}: activationResult{
+				endpoint: failEp,
+				status:   failStatus,
+				err:      failErr,
+			},
+		})
+	d := NewActivationDeduper(Activator(f))
+
+	// Activation initially fails
+	endpoint, status, err := d.ActiveEndpoint("default", "rev1")
+
+	if err != failErr {
+		t.Errorf("Unexpected error. Want %v. Got %v.", failErr, err)
+	}
+	if endpoint != failEp {
+		t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", failEp, endpoint)
+	}
+	if status != failStatus {
+		t.Errorf("Unexpected status. Want %v. Got %v.", failStatus, status)
+	}
+	if len(f.record) != 1 {
+		t.Errorf("Unexpected number of activation requests. Want 1. Got %v.", len(f.record))
+	}
+
+	// Later activation succeeds
+	f.responses[revisionId{"default", "rev1"}] = activationResult{
+		endpoint: successEp,
+		status:   successStatus,
+		err:      nil,
+	}
+
+	endpoint, status, err = d.ActiveEndpoint("default", "rev1")
+
+	if err != nil {
+		t.Errorf("Unexpected error. Want %v. Got %v.", nil, err)
+	}
+	if endpoint != successEp {
+		t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", successEp, endpoint)
+	}
+	if status != successStatus {
+		t.Errorf("Unexpected status. Want %v. Got %v.", successStatus, status)
+	}
+	if len(f.record) != 2 {
+		t.Errorf("Unexpected number of activation requests. Want 2. Got %v.", len(f.record))
 	}
 }
 
@@ -116,12 +251,12 @@ func concurrentTest(a Activator, f *fakeActivator, ids []revisionId) []activatio
 	for i, id := range ids {
 		start.Add(1)
 		end.Add(1)
-		go func(index int) {
+		go func(index int, id revisionId) {
 			start.Done()
 			endpoint, status, err := a.ActiveEndpoint(id.namespace, id.name)
 			results[index] = activationResult{endpoint, status, err}
 			end.Done()
-		}(i)
+		}(i, id)
 	}
 	start.Wait()
 	for _, id := range ids {

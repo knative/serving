@@ -14,6 +14,12 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
+  name = "github.com/cloudflare/cfssl"
+  packages = ["log"]
+  revision = "5d63dbd981b5c408effbb58c442d54761ff94fbd"
+  version = "1.3.2"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -718,6 +724,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ef5de34f578e0182352507c86fb8a0233ad940dad7202a9fb1a87e768fa1496b"
+  inputs-digest = "3daeb3e220b5017d822cd8e6fec854d3e995902034379fb822a3025dfc7cb2a7"
   solver-name = "gps-cdcl"
   solver-version = 1
