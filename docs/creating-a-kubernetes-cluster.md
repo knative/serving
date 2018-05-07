@@ -86,7 +86,7 @@ To use a k8s cluster running in GKE:
     certificate controller must be told where to find the cluster CA certs on
     the VM._
 
-    _Starting with v0.26.0 minikube defaults to the `kubedam` bootstrapper, so 
+    _Starting with v0.26.0 minikube defaults to the `kubeadm` bootstrapper, so 
       we need to explicitly set the bootstrapper to be `localkube` for our extra-config
       settings to work._
 
