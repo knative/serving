@@ -5,12 +5,18 @@ k8s_object(
     template = "elafros.yaml",
 )
 
+k8s_object(
+    name = "elafros-efficiency",
+    template = "elafros-efficiency.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
     name = "everything",
     objects = [
         ":elafros",
+        ":elafros-efficiency",
         "//third_party/config/monitoring/istio:everything",
         "//third_party/config/monitoring/prometheus-operator/dashboards:everything",
     ],

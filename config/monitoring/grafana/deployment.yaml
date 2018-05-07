@@ -39,6 +39,8 @@ spec:
           mountPath: /grafana/conf/provisioning/dashboards
         - name: grafana-dashboard-definition-elafros
           mountPath: /grafana-dashboard-definition/elafros
+        - name: grafana-dashboard-definition-elafros-efficiency
+          mountPath: /grafana-dashboard-definition/elafros-efficiency
         - name: grafana-dashboard-definition-istio
           mountPath: /grafana-dashboard-definition/istio
         - name: grafana-dashboard-definition-mixer
@@ -85,6 +87,9 @@ spec:
       - name: grafana-dashboard-definition-elafros
         configMap:
           name: grafana-dashboard-definition-elafros
+      - name: grafana-dashboard-definition-elafros-efficiency
+        configMap:
+          name: grafana-dashboard-definition-elafros-efficiency
       - name: grafana-dashboard-definition-istio
         configMap:
           name: grafana-dashboard-definition-istio
