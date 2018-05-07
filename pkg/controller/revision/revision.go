@@ -279,7 +279,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	glog.Info("Starting workers")
-	// Launch threadiness workers to process resources
+	// Launch workers to process Revision resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
@@ -335,7 +335,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return nil, controller.PromLabelValueInvalid
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Foo resource to be synced.
+		// Revision resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
@@ -375,7 +375,7 @@ func (c *Controller) enqueueRevision(obj interface{}) {
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Foo resource
+// converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
 //TODO(grantr): not generic
 func (c *Controller) syncHandler(key string) error {
