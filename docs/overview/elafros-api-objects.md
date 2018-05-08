@@ -10,6 +10,9 @@
 * Route
   * Assigns traffic to Revisions (fractional scaling or by name).
   * Built using [Istio](https://istio.io/docs/).
+* Service
+  * Acts as a top-level controller to orchestrate Route and Configuration.
+  * Provides a simple entry point for UI and CLI tooling to achieve common behavior.
 * Build
   * Executes builds.
   

@@ -26,7 +26,7 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 k8s_object(
     name = "configuration",
     images = {
-        "autoscale-sample:latest": ":image",
+        "github.com/elafros/elafros/sample/autoscale": ":image",
     },
     template = ":configuration.yaml",
 )

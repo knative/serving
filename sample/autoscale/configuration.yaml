@@ -24,7 +24,9 @@ spec:
         elafros.dev/type: app
     spec:
       container:
-        image: autoscale-sample:latest
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/elafros/elafros/sample/autoscale
         # When scaling up Elafros controller doesn't have a way to
         # know if the user container is good for serving.  Having a
         # readiness probe prevents traffic to be routed to a pod

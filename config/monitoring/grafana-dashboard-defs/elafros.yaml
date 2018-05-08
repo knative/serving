@@ -105,7 +105,7 @@ data:
           "title": "Revision Queue Work Items/min",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -203,7 +203,7 @@ data:
           "title": "Route Queue Work Items/min",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -297,7 +297,7 @@ data:
           "title": "Service Queue Work Items/min",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
@@ -466,7 +466,7 @@ data:
           "tableColumn": "",
           "targets": [
             {
-              "expr": "round(sum(rate(istio_revision_request_count{destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])), 0.001)",
+              "expr": "round(sum(rate(istio_revision_request_count{destination_namespace=\"$namespace\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])), 0.001)",
               "format": "time_series",
               "hide": false,
               "interval": "",
@@ -548,7 +548,7 @@ data:
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(rate(istio_revision_request_count{response_code!~\"5.*\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])) / sum(rate(istio_revision_request_count{destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m]))",
+              "expr": "sum(rate(istio_revision_request_count{response_code!~\"5.*\", destination_namespace=\"$namespace\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])) / sum(rate(istio_revision_request_count{destination_namespace=\"$namespace\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m]))",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -629,7 +629,7 @@ data:
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(rate(istio_revision_request_count{response_code=~\"4.*\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])) ",
+              "expr": "sum(rate(istio_revision_request_count{response_code=~\"4.*\", destination_namespace=\"$namespace\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])) ",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -710,7 +710,7 @@ data:
           "tableColumn": "",
           "targets": [
             {
-              "expr": "sum(rate(istio_revision_request_count{response_code=~\"5.*\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])) ",
+              "expr": "sum(rate(istio_revision_request_count{response_code=~\"5.*\", destination_namespace=\"$namespace\", destination_revision=~\"$revision\", destination_configuration=~\"$configuration\"}[1m])) ",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -780,7 +780,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(round(sum(rate(istio_revision_request_count{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision), 0.001), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(round(sum(rate(istio_revision_request_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision), 0.001), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -861,7 +861,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(rate(istio_revision_request_count{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (response_code), 0.001)",
+              "expr": "round(sum(rate(istio_revision_request_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (response_code), 0.001)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -959,28 +959,28 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_revision }} (p50)",
               "refId": "A"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.90, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.90, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_revision }} (p90)",
               "refId": "B"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_revision }} (p95)",
               "refId": "C"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.99, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.99, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_revision }} (p99)",
@@ -1064,56 +1064,56 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"2.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"2.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "2xx (p50)",
               "refId": "C"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"3.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"3.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "3xx (p50)",
               "refId": "D"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"4.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"4.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "4xx (p50)",
               "refId": "A"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"5.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"5.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "5xx (p50)",
               "refId": "B"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"2.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"2.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "2xx (p95)",
               "refId": "E"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"3.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"3.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "3xx (p95)",
               "refId": "F"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"4.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"4.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "4xx (p95)",
               "refId": "G"
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"5.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(rate(istio_revision_request_duration_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\",response_code=~\"5.*\"}[1m])) by (le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "5xx (p95)",
@@ -1206,7 +1206,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(round(sum(rate(istio_revision_response_size_sum{destination_configuration=~\"$configuration\"}[1m])) by (destination_revision) / sum(rate(istio_revision_response_size_count{destination_configuration=~\"$configuration\"}[1m])) by (destination_revision), 1), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(round(sum(rate(istio_revision_response_size_sum{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\"}[1m])) by (destination_revision) / sum(rate(istio_revision_response_size_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\"}[1m])) by (destination_revision), 1), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -1287,7 +1287,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(round(sum(rate(istio_revision_request_size_sum{destination_configuration=~\"$configuration\"}[1m])) by (destination_revision) / sum(rate(istio_revision_request_size_count{destination_configuration=~\"$configuration\"}[1m])) by (destination_revision), 1), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+              "expr": "label_replace(round(sum(rate(istio_revision_request_size_sum{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\"}[1m])) by (destination_revision) / sum(rate(istio_revision_request_size_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\"}[1m])) by (destination_revision), 1), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -1344,11 +1344,31 @@ data:
             "datasource": "prometheus",
             "hide": 0,
             "includeAll": false,
+            "label": "Namespace",
+            "multi": false,
+            "name": "namespace",
+            "options": [],
+            "query": "label_values(istio_revision_request_count{destination_namespace!=\"unknown\"}, destination_namespace)",
+            "refresh": 1,
+            "regex": "",
+            "sort": 1,
+            "tagValuesQuery": "",
+            "tags": [],
+            "tagsQuery": "",
+            "type": "query",
+            "useTags": false
+          },
+          {
+            "allValue": null,
+            "current": {},
+            "datasource": "prometheus",
+            "hide": 0,
+            "includeAll": false,
             "label": "Configuration",
             "multi": false,
             "name": "configuration",
             "options": [],
-            "query": "label_values(istio_revision_request_count{destination_configuration!=\"unknown\"}, destination_configuration)",
+            "query": "label_values(istio_revision_request_count{destination_namespace=\"$namespace\", destination_configuration!=\"unknown\"}, destination_configuration)",
             "refresh": 1,
             "regex": "",
             "sort": 1,
@@ -1368,10 +1388,10 @@ data:
             "multi": true,
             "name": "revision",
             "options": [],
-            "query": "label_values(istio_revision_request_count{destination_configuration=~\"$configuration\",destination_revision!=\"unknown\"}, destination_revision)",
+            "query": "label_values(istio_revision_request_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\", destination_revision!=\"unknown\"}, destination_revision)",
             "refresh": 1,
             "regex": "",
-            "sort": 0,
+            "sort": 2,
             "tagValuesQuery": "",
             "tags": [],
             "tagsQuery": "",
@@ -1472,7 +1492,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{pod_name=~\"$revision.*\", container_name != \"POD\"}[1m])) by (container_name)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision.*\", container_name != \"POD\"}[1m])) by (container_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{container_name}}",
@@ -1552,7 +1572,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(container_memory_usage_bytes{pod_name=~\"$revision.*\", container_name != \"POD\"}) by (container_name)",
+              "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod_name=~\"$revision.*\", container_name != \"POD\"}) by (container_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{container_name}}",
@@ -1608,14 +1628,54 @@ data:
             "datasource": "prometheus",
             "hide": 0,
             "includeAll": false,
+            "label": "Namespace",
+            "multi": false,
+            "name": "namespace",
+            "options": [],
+            "query": "label_values(container_memory_usage_bytes{container_name=\"ela-container\"}, namespace)",
+            "refresh": 1,
+            "regex": "",
+            "sort": 1,
+            "tagValuesQuery": "",
+            "tags": [],
+            "tagsQuery": "",
+            "type": "query",
+            "useTags": false
+          },
+          {
+            "allValue": null,
+            "current": {},
+            "datasource": "prometheus",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Configuration",
+            "multi": false,
+            "name": "configuration",
+            "options": [],
+            "query": "label_values(container_memory_usage_bytes{namespace=\"$namespace\"}, pod_name)",
+            "refresh": 1,
+            "regex": "(.+?)-\\d\\d\\d\\d\\d-deployment-.*",
+            "sort": 1,
+            "tagValuesQuery": "",
+            "tags": [],
+            "tagsQuery": "",
+            "type": "query",
+            "useTags": false
+          },
+          {
+            "allValue": null,
+            "current": {},
+            "datasource": "prometheus",
+            "hide": 0,
+            "includeAll": false,
             "label": "Revision",
             "multi": false,
             "name": "revision",
             "options": [],
-            "query": "label_values(container_memory_usage_bytes, pod_name)",
+            "query": "label_values(container_memory_usage_bytes{namespace=\"$namespace\", pod_name=~\"$configuration.*?-deployment.*?\"}, pod_name)",
             "refresh": 1,
-            "regex": "(.+?)-\\d\\d\\d\\d\\d-deployment-.*",
-            "sort": 1,
+            "regex": "(.+?-\\d\\d\\d\\d\\d)-deployment-.*",
+            "sort": 2,
             "tagValuesQuery": "",
             "tags": [],
             "tagsQuery": "",
@@ -1678,7 +1738,7 @@ data:
       "gnetId": null,
       "graphTooltip": 0,
       "id": null,
-      "iteration": 1524864003271,
+      "iteration": 1525724908045,
       "links": [],
       "panels": [
         {
@@ -1754,9 +1814,9 @@ data:
             {
               "expr": "autoscaler_panic_mode{configuration_namespace=\"$namespace\", configuration=\"$configuration\", revision=\"$revision\"} ",
               "format": "time_series",
-              "interval": "1s",
               "hide": false,
               "instant": false,
+              "interval": "1s",
               "intervalFactor": 1,
               "legendFormat": "Panic Mode",
               "refId": "D"
@@ -1765,7 +1825,7 @@ data:
           "thresholds": [],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Pod Counts",
+          "title": "Revision Pod Counts",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1798,6 +1858,197 @@ data:
               "show": true
             }
           ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 17
+          },
+          "id": 4,
+          "legend": {
+            "avg": false,
+            "current": true,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(kube_pod_container_resource_requests_cpu_cores{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "Cores requested",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"}[1m]))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "Cores used",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(kube_pod_container_resource_limits_cpu_cores{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "Core limit",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Revision CPU Usage",
+          "tooltip": {
+            "shared": true,
+            "sort": 2,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "decimals": null,
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 17
+          },
+          "id": 6,
+          "legend": {
+            "avg": false,
+            "current": true,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(kube_pod_container_resource_requests_memory_bytes{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "Memory requested",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"})",
+              "format": "time_series",
+              "hide": false,
+              "intervalFactor": 1,
+              "legendFormat": "Memory used",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(kube_pod_container_resource_limits_memory_bytes{namespace=\"$namespace\", pod=~\"$revision-deployment-.*\"})",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Pod Memory Usage",
+          "tooltip": {
+            "shared": true,
+            "sort": 2,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "decbytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ]
         }
       ],
       "refresh": "5s",
@@ -1819,7 +2070,7 @@ data:
             "query": "label_values(autoscaler_actual_pod_count, configuration_namespace)",
             "refresh": 1,
             "regex": "",
-            "sort": 0,
+            "sort": 1,
             "tagValuesQuery": "",
             "tags": [],
             "tagsQuery": "",
@@ -1839,7 +2090,7 @@ data:
             "query": "label_values(autoscaler_actual_pod_count{configuration_namespace=\"$namespace\"}, configuration)",
             "refresh": 1,
             "regex": "",
-            "sort": 0,
+            "sort": 1,
             "tagValuesQuery": "",
             "tags": [],
             "tagsQuery": "",
@@ -1859,7 +2110,7 @@ data:
             "query": "label_values(autoscaler_actual_pod_count{configuration_namespace=\"$namespace\", configuration=\"$configuration\"}, revision)",
             "refresh": 1,
             "regex": "",
-            "sort": 0,
+            "sort": 2,
             "tagValuesQuery": "",
             "tags": [],
             "tagsQuery": "",
@@ -1900,5 +2151,5 @@ data:
       "timezone": "",
       "title": "Elafros - Autoscaler",
       "uid": "u_-9SIMiz",
-      "version": 3
+      "version": 4
     }

@@ -109,10 +109,17 @@ wait_until_running istio-system
 popd
 
 header "Installing Elafros"
-# This will fail, ignore (see https://github.com/elafros/install/issues/13)
-kubectl apply -f ${ELAFROS_RELEASE} || true
-# This should pass (see https://github.com/elafros/install/issues/13)
-kubectl apply -f ${ELAFROS_RELEASE}
+# Install might fail before succeding, so we retry a few times.
+# For details, see https://github.com/elafros/install/issues/13
+installed=0
+for i in {1..10}; do
+  kubectl apply -f ${ELAFROS_RELEASE} && installed=1 && break
+  sleep 30
+done
+if (( ! installed )); then
+  echo "ERROR: could not install Elafros"
+  exit 1
+fi
 
 wait_until_running ela-system
 wait_until_running build-system

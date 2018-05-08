@@ -25,6 +25,12 @@ data:
       type: file
       options:
         folder: /grafana-dashboard-definition/elafros
+    - name: 'elafros-efficiency'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/elafros-efficiency
     - name: 'istio'
       org_id: 1
       folder: ''
