@@ -768,7 +768,9 @@ func (c *Controller) computeRevisionRoutes(
 // Here we add empty/dummy route rules for non-target revisions to prepare to switch traffic to
 // them in the future.  We are tracking this issue in https://github.com/elafros/elafros/issues/348.
 //
-// TODO:  Remove this hack once https://github.com/istio/istio/issues/5204 is fixed.
+// TODO:  Even though this fixes the 503s when switching revisions, revisions will have empty route
+// rules to them for perpetuity, therefore not ideal.  We should remove this hack once
+// https://github.com/istio/istio/issues/5204 is fixed, probably in 0.8.1.
 func (c *Controller) computeEmptyRevisionRoutes(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	ns := route.Namespace
