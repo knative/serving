@@ -89,8 +89,8 @@ status:
   conditions:  # See also the [error conditions documentation](errors.md)
   - type: RolloutComplete
     status: True
-  - type: TrafficDropped
-    status: False
+  - type: AllTrafficAssigned
+    status: True
   - ...
 
   observedGeneration: ...  # last generation being reconciled

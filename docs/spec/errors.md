@@ -342,10 +342,10 @@ status:
 
 ## Revision not found by Route
 
-If a Revision is referenced in the Route's `spec.traffic`, the
-corresponding entry in the `status.traffic` list will be set to "Not
-found", and the `AllTrafficAssigned` condition will be marked as False
-with a reason of `RevisionMissing`.
+If a Revision is referenced in a Route's `spec.traffic`, and the Revision
+cannot be found, the `AllTrafficAssigned` condition will be marked as False
+with a reason of `RevisionMissing`, and the Revision will be omitted from the
+Route's  `status.traffic`.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
@@ -357,9 +357,6 @@ status:
   - revisionName: abc
     name: current
     percent: 100
-  - revisionName: "Not found"
-    name: next
-    percent: 0
   conditions:
   - type: Ready
     status: False
@@ -375,10 +372,9 @@ status:
 ## Configuration not found by Route
 
 If a Route references the `latestReadyRevisionName` of a Configuration
-and the Configuration cannot be found, the corresponding entry in
-`status.traffic` list will be set to "Not found", and the
-`AllTrafficAssigned` condition will be marked as False with a reason
-of `ConfigurationMissing`.
+and the Configuration cannot be found, the `AllTrafficAssigned` condition
+will be marked as False with a reason of `ConfigurationMissing`, and the
+Revision will be omitted from the Route's  `status.traffic`.
 
 ```http
 GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
@@ -386,18 +382,16 @@ GET /apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
 ```yaml
 ...
 status:
-  traffic:
-  - revisionName: "Not found"
-    percent: 100
+  traffic: []
   conditions:
   - type: Ready
     status: False
     reason: ConfigurationMissing
-    message: "Revision 'my-service' referenced in rollout.traffic not found"
+    message: "Configuration 'abc' referenced in traffic not found"
   - type: AllTrafficAssigned
     status: False
     reason: ConfigurationMissing
-    message: "Revision 'my-service' referenced in rollout.traffic not found"
+    message: "Configuration 'abc' referenced in traffic not found"
 ```
 
 
