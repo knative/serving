@@ -16,11 +16,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/cloudflare/cfssl/log"
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/controller"
