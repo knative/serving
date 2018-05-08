@@ -265,7 +265,7 @@ wait_for_elafros
 exit_if_failed
 
 # Enable Istio sidecar injection
-bazel run @istio_release//:webhook-create-signed-cert
+bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
 kubectl label namespace default istio-injection=enabled
 
 # Run the tests

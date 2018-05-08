@@ -67,18 +67,6 @@ k8s_defaults(
     image_chroot = _REPOSITORY,
 )
 
-# Istio
-ISTIO_RELEASE = "0.6.0"
-
-new_http_archive(
-    name = "istio_release",
-    build_file = "BUILD.istio",
-    sha256 = "fa9bc2c6a197096812b6f4a5a284d13b38bbdba4ee1fc6586a60c9a63337b4d8",
-    strip_prefix = "istio-" + ISTIO_RELEASE + "/install/kubernetes",
-    type = "tar.gz",
-    url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
-)
-
 load(":ca_bundle.bzl", "cluster_ca_bundle")
 
 cluster_ca_bundle(name = "cluster_ca_bundle")

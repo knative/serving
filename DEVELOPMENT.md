@@ -145,7 +145,7 @@ sidecar injection.
 First, create a signed cert for the Istio webhook:
 
 ```shell
-bazel run @istio_release//:webhook-create-signed-cert
+bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
 ```
 
 Second, label namespaces with `istio-injection=enabled`:

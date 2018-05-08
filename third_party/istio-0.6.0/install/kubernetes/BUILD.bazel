@@ -1,9 +1,11 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 load("@cluster_ca_bundle//:bundle.bzl", "CA_BUNDLE")
-load("@//:istio.bzl", "add_prestop_sleep", "disable_policy", "subst_ca_bundle")
+load(":istio.bzl", "add_prestop_sleep", "disable_policy", "subst_ca_bundle")
 
 package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2
 
 # Generate a istioclusterrolebinding.yaml based on the
 # K8S_USER_OVERRIDE env variable.
@@ -74,8 +76,8 @@ sh_binary(
 
 subst_ca_bundle(
     name = "istio-sidecar-injector-with-ca-bundle",
-    template = "istio-sidecar-injector.yaml",
     ca_bundle = CA_BUNDLE,
+    template = "istio-sidecar-injector.yaml",
 )
 
 k8s_object(
