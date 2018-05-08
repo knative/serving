@@ -37,7 +37,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -50,8 +51,9 @@ const controllerAgentName = "configuration-controller"
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
-	kubeclientset kubernetes.Interface
-	elaclientset  clientset.Interface
+	kubeclientset  kubernetes.Interface
+	elaclientset   clientset.Interface
+	buildclientset buildclientset.Interface
 
 	// lister indexes properties about Configuration
 	lister listers.ConfigurationLister
@@ -76,6 +78,7 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	elaclientset clientset.Interface,
+	buildclientset buildclientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
@@ -96,6 +99,7 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:   kubeclientset,
 		elaclientset:    elaclientset,
+		buildclientset:  buildclientset,
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,
 		revisionsSynced: revisionInformer.Informer().HasSynced,
@@ -284,7 +288,7 @@ func (c *Controller) syncHandler(key string) error {
 			Spec: *config.Spec.Build,
 		}
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
-		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
+		created, err := c.buildclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
 			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)

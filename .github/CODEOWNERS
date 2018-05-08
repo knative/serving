@@ -14,9 +14,6 @@
 # API governance.
 /pkg/apis @evankanderson @mattmoor @vaikas-google @elafros/elafros-maintainers
 
-# Build API (imported from elafros/build)
-/pkg/apis/build @mattmoor @ImJasonH @elafros/elafros-maintainers
-
 # API Core working group
 /pkg/webhook @mattmoor @grantr @tcnghia @elafros/elafros-maintainers
 /pkg/controller @mattmoor @grantr @tcnghia @elafros/elafros-maintainers

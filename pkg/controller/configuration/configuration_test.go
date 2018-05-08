@@ -36,7 +36,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
@@ -123,6 +124,7 @@ func getTestRevision() *v1alpha1.Revision {
 
 func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
+	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -130,6 +132,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
+	buildClient = fakebuildclientset.NewSimpleClientset()
 	// The ability to insert objects here is intended to work around the problem
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
@@ -143,6 +146,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	controller = NewController(
 		kubeClient,
 		elaClient,
+		buildClient,
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
@@ -160,7 +164,7 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+	kubeClient, _, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
@@ -187,7 +191,7 @@ func keyOrDie(obj interface{}) string {
 }
 
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	h := NewHooks()
 
@@ -245,7 +249,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 }
 
 func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	config.Spec.Build = &buildv1alpha1.BuildSpec{
 		Steps: []corev1.Container{{
@@ -272,7 +276,7 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 		t.Fatalf("expected service account name %v, got %v", want, got)
 	}
 
-	buildList, err := elaClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
+	buildList, err := buildClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("error listing builds: %v", err)
 	}
@@ -287,7 +291,7 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 }
 
 func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
@@ -365,7 +369,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 }
 
 func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
@@ -400,7 +404,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 }
 
 func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
@@ -442,7 +446,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 }
 
 func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
@@ -477,7 +481,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 }
 
 func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
@@ -551,7 +555,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 }
 
 func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()

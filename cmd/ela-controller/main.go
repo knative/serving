@@ -32,6 +32,8 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
+	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	"github.com/elafros/elafros/pkg/controller/configuration"
@@ -103,8 +105,14 @@ func main() {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
 
+	buildClient, err := buildclientset.NewForConfig(cfg)
+	if err != nil {
+		glog.Fatalf("Error building build clientset: %v", err)
+	}
+
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
+	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 
 	controllerConfig, err := controller.NewConfig(kubeClient)
 	if err != nil {
@@ -124,8 +132,8 @@ func main() {
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, &revControllerConfig),
+		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig),
 		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}

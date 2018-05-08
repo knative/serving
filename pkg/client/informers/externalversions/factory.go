@@ -21,7 +21,6 @@ import (
 	time "time"
 
 	versioned "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	build "github.com/elafros/elafros/pkg/client/informers/externalversions/build"
 	ela "github.com/elafros/elafros/pkg/client/informers/externalversions/ela"
 	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
 	istio "github.com/elafros/elafros/pkg/client/informers/externalversions/istio"
@@ -122,13 +121,8 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Build() build.Interface
 	Elafros() ela.Interface
 	Config() istio.Interface
-}
-
-func (f *sharedInformerFactory) Build() build.Interface {
-	return build.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Elafros() ela.Interface {
