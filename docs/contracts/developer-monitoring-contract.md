@@ -63,7 +63,7 @@ The following formats are supported.
 
   * *message*: Lifted from JSON dictionary. `Hello` in this case.
   * *kubernetes.labels.elafros_dev/configuration*, *kubernetes.labels.elafros_dev/revision*,
-    *kubernetes.namespace_name*, *stream*, *tag*, *time*: Same with plant text.
+    *kubernetes.namespace_name*, *stream*, *tag*, *time*: Same with plain text.
 
 * **Multi-line**: If a consecutive sequence of log messages forms an exception stack
   trace, the log messages are forwarded as a single, combined log message.
@@ -214,7 +214,7 @@ Zipkin and Jaeger backends; however custom spans with Stackdriver backend is not
 supported by Istio yet.
 
 Lastly, we want to allow customizing the sampling policy for distributed traces
-as well as request logs but sampling is not support in the current Istio release.
+as well as request logs but sampling is not supported in the current Istio release.
 We are in active discussions with Istio team to add sampling support.
 
 ## Samples
