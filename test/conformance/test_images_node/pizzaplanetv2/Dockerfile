@@ -1,8 +1,6 @@
 FROM node
 WORKDIR /usr/src/app
 COPY package.json ./
-ENV PORT=8080
-ENV MESSAGE="What a spaceport!"
 RUN npm install
 COPY server.js ./
 EXPOSE 8080

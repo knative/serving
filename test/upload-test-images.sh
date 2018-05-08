@@ -14,16 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -ex
+set -o errexit
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+: ${1:?"Pass the directory with the test images as argument"}
+: ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
 
-DOCKER_REPO_OVERRIDE=${DOCKER_REPO_OVERRIDE?"You must set `DOCKER_REPO_OVERRIDE`, see DEVELOPMENT.md"}
-IMAGE_NAME="${DOCKER_REPO_OVERRIDE}/pizzaplanet"
+DOCKER_FILES="$(ls -1 $1/*/Dockerfile)"
+: ${DOCKER_FILES:?"No subdirectories with Dockerfile files found in $1"}
 
-for version in v1 v2;
-do
-    VERSIONED_NAME="${IMAGE_NAME}${version}"
-    docker build "$DIR/test_images_node" -f "$DIR/test_images_node/Dockerfile.$version" -t "$VERSIONED_NAME"
-    docker push "$VERSIONED_NAME"
+for docker_file in ${DOCKER_FILES}; do
+  image_dir="$(dirname ${docker_file})"
+  versioned_name="${DOCKER_REPO_OVERRIDE}/$(basename ${image_dir})"
+  docker build "${image_dir}" -f "${docker_file}" -t "${versioned_name}"
+  docker push "${versioned_name}"
 done
