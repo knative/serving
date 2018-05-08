@@ -384,15 +384,15 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: fmt.Sprintf("%s-service.test", otherRev.Name),
-				},
-				Weight: 0,
-			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
 					Name: fmt.Sprintf("%s-service.test", latestReadyRev.Name),
 				},
 				Weight: 100,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", otherRev.Name),
+				},
+				Weight: 0,
 			},
 		},
 	}

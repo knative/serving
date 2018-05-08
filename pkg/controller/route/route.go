@@ -352,6 +352,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 
 	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
+
 	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(route); err != nil {
 		return err
 	}
@@ -386,12 +387,14 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 	if err := c.extendRevisionsWithIndirectTrafficTargets(route, configMap, revMap); err != nil {
 		return nil, err
 	}
+
 	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap); err != nil {
 		return nil, err
 	}
 	if err := c.setLabelForGivenConfigurations(route, configMap); err != nil {
 		return nil, err
 	}
+
 	if err := c.deleteLabelForOutsideOfGivenRevisions(route, revMap); err != nil {
 		return nil, err
 	}
@@ -500,6 +503,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 			revMap[revName] = rev
 		}
 	}
+
 	return configMap, revMap, nil
 }
 
@@ -721,20 +725,61 @@ func (c *Controller) computeRevisionRoutes(
 	glog.Infof("Figuring out routes for Route: %s", route.Name)
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
-	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
-	revRoutes := []RevisionRoute{}
+	ret := []RevisionRoute{}
+
 	for _, tt := range route.Spec.Traffic {
-		var targetRev *v1alpha1.Revision
+		var rev *v1alpha1.Revision
 		var err error
-		configName := tt.ConfigurationName
 		revName := tt.RevisionName
 		if tt.ConfigurationName != "" {
 			// Get the configuration's LatestReadyRevisionName
-			latestReadyRevName := configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
-			if latestReadyRevName == "" {
-				glog.Errorf("Configuration %s is not ready. Should skip updating route rules", configName)
+			revName = configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
+			if revName == "" {
+				glog.Errorf("Configuration %s is not ready. Should skip updating route rules",
+					tt.ConfigurationName)
 				return nil, nil
 			}
+			// Revision has been already fetched indirectly in extendRevisionsWithIndirectTrafficTargets
+			rev = revMap[revName]
+
+		} else {
+			// Direct revision has already been fetched
+			rev = revMap[revName]
+		}
+		//TODO(grantr): What should happen if revisionName is empty?
+
+		if rev == nil {
+			// For safety, which should never happen.
+			glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
+			return nil, err
+		}
+		rr := RevisionRoute{
+			Name:         tt.Name,
+			RevisionName: rev.Name,
+			Service:      fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS),
+			Weight:       tt.Percent,
+		}
+		ret = append(ret, rr)
+	}
+	return ret, nil
+}
+
+// computeEmptyRevisionRoutes is a hack to work around https://github.com/istio/istio/issues/5204.
+// Here we add empty/dummy route rules for non-target revisions to prepare to switch traffic to
+// them in the future.  We are tracking this issue in https://github.com/elafros/elafros/issues/348.
+//
+// TODO:  Remove this hack once https://github.com/istio/istio/issues/5204 is fixed.
+func (c *Controller) computeEmptyRevisionRoutes(
+	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+	ns := route.Namespace
+	elaNS := controller.GetElaNamespaceName(ns)
+	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
+	revRoutes := []RevisionRoute{}
+	for _, tt := range route.Spec.Traffic {
+		configName := tt.ConfigurationName
+		if tt.ConfigurationName != "" {
+			// Get the configuration's LatestReadyRevisionName
+			latestReadyRevName := configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
 			revs, err := revClient.List(metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", ela.ConfigurationLabelKey, configName),
 			})
@@ -743,10 +788,7 @@ func (c *Controller) computeRevisionRoutes(
 				return nil, err
 			}
 			for _, rev := range revs.Items {
-				if rev.Name == latestReadyRevName {
-					// This is the latest active revision, which we will deal with later.
-					targetRev = rev.DeepCopy()
-				} else if _, ok := revMap[rev.Name]; !ok {
+				if _, ok := revMap[rev.Name]; !ok && rev.Name != latestReadyRevName {
 					// This is a non-target revision.  Adding a dummy rule to make Istio happy,
 					// so that if we switch traffic to them later we won't cause Istio to
 					// throw spurious 503s. See https://github.com/istio/istio/issues/5204.
@@ -757,21 +799,7 @@ func (c *Controller) computeRevisionRoutes(
 					})
 				}
 			}
-		} else {
-			// Direct revision has already been fetched
-			targetRev = revMap[revName]
 		}
-		if targetRev == nil {
-			// If we are provided the correct revMap map, this should not happen.
-			glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
-			return nil, err
-		}
-		revRoutes = append(revRoutes, RevisionRoute{
-			Name:         tt.Name,
-			RevisionName: targetRev.Name,
-			Service:      fmt.Sprintf("%s.%s", targetRev.Status.ServiceName, elaNS),
-			Weight:       tt.Percent,
-		})
 	}
 	return revRoutes, nil
 }
@@ -801,7 +829,13 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Errorf("Failed to check if should direct traffic to activator: %s", err)
 		return nil, err
 	}
-
+	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixe.
+	emptyRoutes, err := c.computeEmptyRevisionRoutes(route, configMap, revMap)
+	if err != nil {
+		glog.Errorf("Failed to get empty routes for %s : %q", route.Name, err)
+		return nil, err
+	}
+	revisionRoutes = append(revisionRoutes, emptyRoutes...)
 	// Create route rule for the route domain
 	routeRuleName := controller.GetRouteRuleName(route, nil)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
