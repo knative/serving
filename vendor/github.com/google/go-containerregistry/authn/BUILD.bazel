@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "anon.go",
+        "auth.go",
+        "authn.go",
+        "basic.go",
+        "bearer.go",
+        "doc.go",
+        "helper.go",
+        "keychain.go",
+    ],
+    importmap = "elafros/vendor/github.com/google/go-containerregistry/authn",
+    importpath = "github.com/google/go-containerregistry/authn",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/google/go-containerregistry/name:go_default_library"],
+)
