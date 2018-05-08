@@ -124,7 +124,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-  revision = "f43fbe2f385b7a54b1cbf635b18fa5e16b1ceba1"
+  revision = "066aa5dfe3fa057adc747fd74d5079759606c173"
 
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
@@ -810,6 +810,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "182682ebf99b37431b246a1be2a70716760ab628a4b0209edf6f93adcb3a6da8"
+  inputs-digest = "0e82a74c42cb0dbb5337de80bbc7c3f3415aaead2dddf074c7edaa0c92a1d484"
   solver-name = "gps-cdcl"
   solver-version = 1

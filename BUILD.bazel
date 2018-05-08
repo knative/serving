@@ -13,7 +13,7 @@ k8s_objects(
     name = "everything",
     objects = [
         "@istio_release//:istio",
-        "@buildcrd//:everything",
+        "//third_party/config/build:everything",
         "//config:everything",
     ],
 )

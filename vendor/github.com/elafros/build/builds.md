@@ -7,8 +7,8 @@ This document serves to define what "Builds" are, and their capabilities.
 
 A `Build` is the main custom resource introduced by this project.
 Builds are a "run to completion" resource, which start evaluating upon
-creation, and run until they either `Complete` or the first failing
-step (resuling in a `Failed` status).
+creation and run until they are `Complete` (or until the first failing
+step, resulting in a `Failed` status).
 
 ### Elements of a Build
 
@@ -21,7 +21,7 @@ step (resuling in a `Failed` status).
 
 Builds may define a `source:` that describes the context with which to seed the
 build.  This context is put into `/workspace`, a volume that is mounted into
-both the `source:` and all of the `steps:`.
+the `source:` and all of the `steps:`.
 
 Currently, two types of source are supported:
  * `git:` which can specify a `url:` and one of: `branch`, `tag`, `ref`,
@@ -49,8 +49,8 @@ is run as the "default" service account in the namespace of the Build.
 A custom service account may be specified via `serviceAccountName: build-bot`.
 
 Service accounts may be used to project certain types of credentials into the
-context of a Build automagically.  For more information on how this proces is
-configured and works, see the [credential initializer documentation](
+context of a Build automagically.  For more information on how this process is
+configured and how it works, see the [credential initializer documentation](
 ./cmd/creds-init/README.md).
 
 
@@ -113,13 +113,13 @@ spec:
   - image: ubuntu
     args: ["curl https://foo.com > /var/my-volume"]
     volumeMounts:
-    - name my-volume
+    - name: my-volume
       mountPath: /var/my-volume
 
   - image: ubuntu
     args: ["cat", "/etc/my-volume"]
     volumeMounts:
-    - name my-volume
+    - name: my-volume
       mountPath: /etc/my-volume
 
   volumes:

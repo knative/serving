@@ -51,19 +51,14 @@ https://github.com/bazelbuild/rules_docker#authentication).
 You can stand up a version of this controller on-cluster with:
 ```shell
 # This will register the CRD and deploy the controller to start acting on them.
-bazel run :everything.create
-```
-
-To test things out, you can create an example `Build` with:
-```shell
-bazel run :example-build.create
+bazel run //config:everything.create
 ```
 
 ### Iterating
 
 As you make changes to the code, you can redeploy your controller with:
 ```shell
-bazel run :controller.replace
+bazel run //config:controller.replace
 ```
 
 **Two things of note:**
@@ -82,7 +77,7 @@ bazel run //:gazelle -- -proto=disable
 
 You can clean up everything with:
 ```shell
-bazel run :everything.delete
+bazel run //config:everything.delete
 ```
 
 ## Running Integration Tests
@@ -92,7 +87,7 @@ To run integration tests, run the following steps:
 ```shell
 # First, have the version of the system that you want to test up.
 # e.g. to change between builders, alter the flag in controller.yaml
-bazel run :everything.apply
+bazel run //config:everything.apply
 
 # Next, make sure that you have no builds or build templates in your current namespace:
 kubectl delete builds --all
