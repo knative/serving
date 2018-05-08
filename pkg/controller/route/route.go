@@ -781,7 +781,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 		configName := tt.ConfigurationName
 		if configName != "" {
 			// Get the configuration's LatestReadyRevisionName
-			latestReadyRevName := configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
+			latestReadyRevName := configMap[configName].Status.LatestReadyRevisionName
 			revs, err := revClient.List(metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", ela.ConfigurationLabelKey, configName),
 			})
@@ -831,7 +831,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Errorf("Failed to check if should direct traffic to activator: %s", err)
 		return nil, err
 	}
-	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixe.
+	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixed.
 	emptyRoutes, err := c.computeEmptyRevisionRoutes(route, configMap, revMap)
 	if err != nil {
 		glog.Errorf("Failed to get empty routes for %s : %q", route.Name, err)
