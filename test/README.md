@@ -4,7 +4,7 @@ This directory contains tests and testing docs for `Elafros`:
 
 * [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
 * [Conformance tests](#running-conformance-tests) in [`/test/conformance`](./conformance)
-* [End-to-end tests](#running-end-to-end-tests)
+* [End-to-end tests](#running-end-to-end-tests) in [`/test/e2e`](./e2e)
 
 If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
@@ -101,39 +101,83 @@ bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=-
 ```
 
 ## Running end-to-end tests
+The e2e tests have almost the exact same requirements and specs as the conformance tests, but they will be enumerated for clarity.
 
-The script [`e2e-tests.sh`](/test/e2e-tests.sh) can be used to run all the end to end tests
-(including [the conformance tests](#running-conformance-tests)) either:
+To run [the e2e tests](./e2e), you need to have a running environment that meets
+[the e2e test environment requirements](#e2e-test-environment-requirements).
 
-* [Using an existing cluster](#running-against-an-existing-cluster)
-* [In an isolated, hermetic GCP cluster](#running-against-an-isolated-hermetic-gcp-cluster)
+To run the e2e tests against the current cluster in `~/.kube/config`
+using `go test` using the environment specified in [your environment
+variables](/DEVELOPMENT.md#environment-setup):
 
-### Running against an existing cluster
-
-Assuming you have [`K8S_USER_OVERRIDE`, `K8S_CLUSTER_OVERRIDE` and
-`DOCKER_REPO_OVERRIDE` set](/DEVELOPMENT.md#environment-setup), run:
+Since these tests are fairly slow,  running them with logging
+enabled is recommended. Do so by passing the `-v` flag to go test like so: 
 
 ```bash
-./tests/e2e-tests.sh --run-tests
+go test -v ./test/e2e
 ```
 
-### Running against an isolated, hermetic GCP cluster
-
-This will start a cluster for you in GCP using [kubetest](https://github.com/kubernetes/test-infra/tree/master/kubetest).
-Make sure you:
-
-1. Have `kubetest` installed:
-   ```
-   wget https://github.com/garethr/kubetest/releases/download/0.1.0/kubetest-darwin-amd64.tar.gz
-   tar xf kubetest-darwin-amd64.tar.gz
-   cp kubetest /usr/local/bin
-   ```
-2. Have the `PROJECT_ID` environment variable set to a GCP project you own.
-
-Run:
+You can [use test flags](#flags) to control the environment
+your tests run against, i.e. override [your environment variables](/DEVELOPMENT.md#environment-setup):
 
 ```bash
-./tests/e2e-tests.sh
+go test -v ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
+```
+
+If you are running against an environment with no loadbalancer for the ingress, at the moment
+your only option is to use a domain which will resolve to the IP of the running node (see 
+[#609](https://github.com/elafros/elafros/issues/609)):
+
+```bash
+go test -v ./test/e2e --resolvabledomain
+```
+
+## End-to-end test environment requirements
+
+These tests require:
+
+1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+2. The namespace `noodleburg` to exist in the cluster: `kubectl create namespace noodleburg`
+3. A docker repo containing [the e2e test images](#e2e-test-images)
+
+### End-to-end test images
+
+The configuration for the images used for the existing e2e tests lives in the subdirectories found in
+[`test_images_node`](./e2e/test_images_node/).
+
+[`upload-test-images.sh`](./upload-test-images.sh) can be used to build and push the
+docker images. It requires:
+
+* [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
+* You to be [authenticated with your
+  `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
+* [`docker`](https://docs.docker.com/install/) to be installed
+
+To run the script:
+
+```bash
+./test/e2e/upload-test-images.sh
+```
+
+### Running e2e tests with Bazel
+
+To run the e2e tests with `bazel` you must:
+
+* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
+  [`BUILD.bazel`](./e2e/BUILD.bazel). By default [`BUILD.bazel`](./e2e/BUILD.bazel)
+  is configured to use [`test/e2e/kubeconfig`](/test/e2e/kubeconfig).
+* Provide a docker repo from which the built images will be pulled. This is done
+  via the `--dockerrepo` argument.
+
+_The `bazel` execution environment will not contain your environment variables, so you must
+explicitly specify them with [command line args](#flags)._
+
+To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./e2e/kubeconfig)
+and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
+to the location where [you have pushed the e2e test images](#e2e-test-images)):
+
+```bash
+bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
 ```
 
 ## Flags
@@ -155,12 +199,15 @@ file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-
 at `~./kube/config`.
 You can specify a different config file with the argument `--kubeconfig`.
 
-To run the conformance tests with a non-default kubeconfig file:
+To run the tests with a non-default kubeconfig file:
 
 ```bash
 go test ./test/conformance --kubeconfig /my/path/kubeconfig
 ```
 
+```bash
+go test ./test/e2e --kubeconfig /my/path/kubeconfig
+```
 #### Specifying cluster
 
 The `--cluster` argument lets you use a different cluster than [your specified
@@ -170,6 +217,10 @@ if not specified.
 
 ```bash
 go test ./test/conformance --cluster your-cluster-name
+```
+
+```bash
+go test ./test/e2e --cluster your-cluster-name
 ```
 
 The current cluster names can be obtained by running:
@@ -187,6 +238,10 @@ if not specified.
 
 ```bash
 go test ./test/conformance --dockerrepo gcr.myhappyproject
+```
+
+```bash
+go test ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
 #### Using a resolvable domain
