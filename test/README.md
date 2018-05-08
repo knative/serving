@@ -63,8 +63,8 @@ These tests require:
 ### Conformance test images
 
 The configuration for the images used for the existing conformance tests lives in
-[`test_images_node`](./conformance/test_images_node). See the [section about test images]
-(#test-images) for details about building and adding new ones.
+[`test_images_node`](./conformance/test_images_node). See the [section about test
+images](#test-images) for details about building and adding new ones.
 
 ### Running conformance tests with Bazel
 
@@ -131,8 +131,8 @@ These tests require:
 ### End-to-end test images
 
 The configuration for the images used for the existing e2e tests lives in
-[`test_images_node`](./e2e/test_images_node). See the [section about test images]
-(#test-images) for details about building and adding new ones.
+[`test_images_node`](./e2e/test_images_node). See the [section about test
+images](#test-images) for details about building and adding new ones.
 
 ### Running e2e tests with Bazel
 
