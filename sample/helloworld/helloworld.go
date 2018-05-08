@@ -25,7 +25,10 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Hello world received a request.")
+	log.Println("Hello world received a request.")
+	log.Printf("request\n%+v", r)
+	log.Printf("request.Host\n%+v", r.Host)
+	log.Printf("request.URL.Host\n%+v", r.URL.Host)
 	target := os.Getenv("TARGET")
 	if target == "" {
 		target = "NOT SPECIFIED"

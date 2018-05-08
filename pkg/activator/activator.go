@@ -101,7 +101,8 @@ func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL,
 		}
 		return nil, err
 	}
-	svc, err = services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
+	// TODO: in the future, the target service could have more than one ports.
+	// https://github.com/elafros/elafros/issues/837
 	if len(svc.Spec.Ports) != 1 {
 		return nil, fmt.Errorf("need just one port. Found %v ports", len(svc.Spec.Ports))
 	}
@@ -114,7 +115,6 @@ func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL,
 }
 
 func (a *Activator) proxyRequest(revRequest RevisionRequest, serviceURL *url.URL) {
-	glog.Infof("Sending the request to %q", serviceURL)
 	// TODO: We need to wait a bit after the revision is marked ready.
 	// See https://github.com/elafros/elafros/issues/660: Mark a revision ready at the right time.
 	time.Sleep(2 * time.Second)

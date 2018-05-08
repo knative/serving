@@ -62,13 +62,13 @@ data:
   autoscale.concurrency-quantum-of-time: "100ms"
 
   # Scale to zero feature flag
-  autoscale.enable-scale-to-zero: "false"
+  autoscale.enable-scale-to-zero: "true"
   
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the time a revision must be idle before
   # it is scaled to zero.
-  autoscale.scale-to-zero-threshold: "5m"
+  autoscale.scale-to-zero-threshold: "1m"
 
 
   # LOGGING CONFIGURATION
