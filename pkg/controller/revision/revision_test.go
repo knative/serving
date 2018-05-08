@@ -21,6 +21,7 @@ package revision
 - When a Revision is deleted TODO
 */
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -38,6 +39,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -196,6 +198,12 @@ func getTestControllerConfig() ControllerConfig {
 	}
 }
 
+type nopResolver struct{}
+
+func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
+	return nil
+}
+
 func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
@@ -224,6 +232,8 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		&rest.Config{},
 		controllerConfig,
 	).(*Controller)
+
+	controller.resolver = &nopResolver{}
 
 	return
 }
@@ -286,8 +296,25 @@ func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 	controller.syncHandler(KeyOrDie(rev))
 }
 
+type fixedResolver struct {
+	digest string
+}
+
+func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
+	pod := deploy.Spec.Template.Spec
+	for i := range pod.Containers {
+		pod.Containers[i].Image = r.digest
+	}
+	return nil
+}
+
 func TestCreateRevCreatesStuff(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// Resolve image references to this "digest"
+	digest := "foo@sha256:deadbeef"
+	controller.resolver = &fixedResolver{digest}
+
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
@@ -345,6 +372,10 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		},
 	}
 	for _, container := range deployment.Spec.Template.Spec.Containers {
+		// Our fixedResolver will replace all image references with "digest".
+		if container.Image != digest {
+			t.Errorf("container.Image = %v, want %v", container.Image, digest)
+		}
 		if container.Name == "queue-proxy" {
 			foundQueueProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
@@ -534,6 +565,52 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			Reason: "Deploying",
 		},
 	}
+	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	}
+}
+
+type errorResolver struct {
+	error string
+}
+
+func (r *errorResolver) Resolve(deploy *appsv1.Deployment) error {
+	return errors.New(r.error)
+}
+
+func TestResolutionFailed(t *testing.T) {
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// Unconditionally return this error during resolution.
+	errorMessage := "I am the expected error message, hear me ROAR!"
+	controller.resolver = &errorResolver{errorMessage}
+
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	rev, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// Ensure that the Revision status is updated.
+	want := []v1alpha1.RevisionCondition{{
+		Type:    "ContainerHealthy",
+		Status:  corev1.ConditionFalse,
+		Reason:  "ContainerMissing",
+		Message: errorMessage,
+	}, {
+		Type:    "Ready",
+		Status:  corev1.ConditionFalse,
+		Reason:  "ContainerMissing",
+		Message: errorMessage,
+	}}
 	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 	}

@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "delete.go",
+        "doc.go",
+        "error.go",
+        "image.go",
+        "write.go",
+    ],
+    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/remote",
+    importpath = "github.com/google/go-containerregistry/v1/remote",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/go-containerregistry/authn:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/name:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/v1:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/v1/partial:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/v1/remote/transport:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/v1/types:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/v1/v1util:go_default_library",
+    ],
+)

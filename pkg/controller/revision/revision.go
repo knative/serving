@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
@@ -105,6 +106,10 @@ func printErr(err error) error {
 	return err
 }
 
+type resolver interface {
+	Resolve(*appsv1.Deployment) error
+}
+
 // Controller implements the controller for Revision resources.
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
@@ -129,6 +134,8 @@ type Controller struct {
 	recorder record.EventRecorder
 
 	buildtracker *buildTracker
+
+	resolver resolver
 
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
@@ -205,6 +212,7 @@ func NewController(
 		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
 		recorder:         recorder,
 		buildtracker:     &buildTracker{builds: map[key]set{}},
+		resolver:         &digestResolver{client: kubeclientset, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
 	}
 
@@ -851,8 +859,6 @@ func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 }
 
 func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) error {
-	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
-	// https://kubernetes.io/docs/reference/workloads-18-19.
 	dc := c.kubeclientset.AppsV1().Deployments(ns)
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
@@ -864,6 +870,8 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 		}
 		log.Printf("Deployment %q doesn't exist, creating", deploymentName)
 	} else {
+		// TODO(mattmoor): Compare the deployments and update if it has changed
+		// out from under us.
 		log.Printf("Found existing deployment %q", deploymentName)
 		return nil
 	}
@@ -875,9 +883,34 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
+
 	deployment.Spec.Template.Spec = *podSpec
 
-	//Set the ProgressDeadlineSeconds
+	// Resolve tag image references to digests.
+	if err := c.resolver.Resolve(deployment); err != nil {
+		glog.Errorf("Error resolving deployment: %v", err)
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionContainerHealthy,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ContainerMissing",
+				Message: err.Error(),
+			})
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ContainerMissing",
+				Message: err.Error(),
+			})
+		if _, err := c.updateStatus(rev); err != nil {
+			log.Printf("Error recording resolution problem: %s", err)
+			return err
+		}
+		return err
+	}
+
+	// Set the ProgressDeadlineSeconds
 	deployment.Spec.ProgressDeadlineSeconds = new(int32)
 	*deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
 

@@ -1,0 +1,45 @@
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#   name = "github.com/x/y"
+#   version = "2.4.0"
+#
+
+# Used for deep copy code generation
+required = [
+  "k8s.io/code-generator/cmd/deepcopy-gen",
+]
+
+[[constraint]]
+  name = "k8s.io/code-generator"
+  version = "kubernetes-1.10.0"
+
+[[constraint]]
+  name = "github.com/google/go-cmp"
+  version = "0.2.0"
+
+# Use HEAD (2018-04-21) to pick up:
+# https://github.com/spf13/cobra/pull/662
+[[constraint]]
+  name = "github.com/spf13/cobra"
+  revision = "615425954c3b0d9485a7027d4d451fdcdfdee84e"
+
+[prune]
+  go-tests = true
+  unused-packages = true
+  non-go = true

@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "basic.go",
+        "bearer.go",
+        "doc.go",
+        "ping.go",
+        "scheme.go",
+        "scope.go",
+        "transport.go",
+    ],
+    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/remote/transport",
+    importpath = "github.com/google/go-containerregistry/v1/remote/transport",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/go-containerregistry/authn:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/name:go_default_library",
+    ],
+)
