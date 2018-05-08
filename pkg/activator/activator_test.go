@@ -173,7 +173,7 @@ func TestGetRevisionTargetURL(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error in getRevisionTargetURL %v", err)
 	}
-	expectedURL := "http://abc:1234"
+	expectedURL := "http://test-rev-service.default.svc.cluster.local:1234"
 	if targetURL.String() != expectedURL {
 		t.Errorf("getRevisionTargetURL returned unexpected url %s, expected %s", targetURL, expectedURL)
 	}

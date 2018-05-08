@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -92,34 +93,42 @@ func getRevisionNameFromKey(key string) (namespace string, name string, err erro
 }
 
 func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL, error) {
-	endpoint, err := a.kubeClient.CoreV1().Endpoints(revision.GetNamespace()).Get(
-		controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
+	services := a.kubeClient.CoreV1().Services(revision.GetNamespace())
+	svc, err := services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	if len(endpoint.Subsets[0].Ports) != 1 {
-		return nil, fmt.Errorf("need just one port. Found %v ports", len(endpoint.Subsets[0].Ports))
+	svc, err = services.Get(controller.GetElaK8SServiceNameForRevision(revision), metav1.GetOptions{})
+	if len(svc.Spec.Ports) != 1 {
+		return nil, fmt.Errorf("need just one port. Found %v ports", len(svc.Spec.Ports))
 	}
-	// TODO: figure out why do we need to use the pod IP directly to avoid the delay.
-	// We should be able to use the k8s service cluster IP.
-	// https://github.com/elafros/elafros/issues/660
-	ip := endpoint.Subsets[0].Addresses[0].IP
-	port := endpoint.Subsets[0].Ports[0].Port
 	u := &url.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", ip, port),
+		Host: fmt.Sprintf("%s.%s.svc.cluster.local:%d",
+			controller.GetElaK8SServiceNameForRevision(revision), revision.Namespace, svc.Spec.Ports[0].Port),
 	}
 	return u, nil
 }
 
 func (a *Activator) proxyRequest(revRequest RevisionRequest, serviceURL *url.URL) {
-	glog.Infof("Sending a proxy request to %q", serviceURL)
+	glog.Infof("Sending the request to %q", serviceURL)
+	// TODO: We need to wait a bit after the revision is marked ready.
+	// See https://github.com/elafros/elafros/issues/660: Mark a revision ready at the right time.
+	time.Sleep(2 * time.Second)
 	proxy := httputil.NewSingleHostReverseProxy(serviceURL)
 	proxy.Transport = a.tripper
+
+	// We are passing host header as a hack in tests, so the request can be matched to the right route.
+	// https://github.com/elafros/elafros/blob/2b3ee4f3c46118b3759aa95d9e6c41747c32d6c5/pkg/controller/route/ela_ingress.go#L38
+	// Since host values like "route-example.default.demo-domain.com" do not exist, we need to
+	// clear it to make istio sidecar happy if it's injected.
+	revRequest.r.Host = ""
+
 	proxy.ServeHTTP(revRequest.w, revRequest.r)
+
 	// Make sure the handler function exits after ServeHTTP function.
 	revRequest.doneCh <- struct{}{}
 	glog.Info("End proxy request")
