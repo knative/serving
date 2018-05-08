@@ -777,7 +777,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {
 		configName := tt.ConfigurationName
-		if tt.ConfigurationName != "" {
+		if configName != "" {
 			// Get the configuration's LatestReadyRevisionName
 			latestReadyRevName := configMap[tt.ConfigurationName].Status.LatestReadyRevisionName
 			revs, err := revClient.List(metav1.ListOptions{
