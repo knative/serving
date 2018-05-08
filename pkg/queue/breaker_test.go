@@ -120,7 +120,16 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 		got[i] = <-g
 	}
 
-	if !reflect.DeepEqual(want, got) {
+	// Check the first few suceeded
+	if !reflect.DeepEqual(want[:10], got[:10]) {
+		t.Fatalf("Wanted %v. Got %v.", want, got)
+	}
+	// Check the breaker tripped
+	if !reflect.DeepEqual(want[60:70], got[60:70]) {
+		t.Fatalf("Wanted %v. Got %v.", want, got)
+	}
+	// Check the breaker reset
+	if !reflect.DeepEqual(want[len(want)-10:], got[len(got)-10:]) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
 	}
 }
