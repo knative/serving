@@ -27,7 +27,9 @@ import (
 	"testing"
 	"time"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
+	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
@@ -196,6 +198,7 @@ func getTestControllerConfig() ControllerConfig {
 
 func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
+	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -203,11 +206,13 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
+	buildClient = fakebuildclientset.NewSimpleClientset()
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	buildInformer := buildinformers.NewSharedInformerFactory(buildClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
 	controller = NewController(
@@ -215,6 +220,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		elaClient,
 		kubeInformer,
 		elaInformer,
+		buildInformer,
 		&rest.Config{},
 		controllerConfig,
 	).(*Controller)
@@ -224,6 +230,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 
 func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
+	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -240,7 +247,7 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+	kubeClient, _, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
@@ -280,7 +287,7 @@ func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 }
 
 func TestCreateRevCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
@@ -535,7 +542,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.EnableVarLogCollection = false
-	kubeClient, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
@@ -576,7 +583,7 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 }
 
 func TestCreateRevPreservesAppLabel(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
@@ -641,7 +648,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 }
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
@@ -658,7 +665,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 			}},
 		},
 	}
-	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
@@ -685,7 +692,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 }
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -710,7 +717,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			}},
 		},
 	}
-	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
@@ -770,7 +777,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	h := NewHooks()
@@ -803,7 +810,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 			}},
 		},
 	}
-	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
@@ -851,7 +858,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 }
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -872,7 +879,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 		},
 	}
 
-	elaClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
@@ -924,7 +931,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 
 	var testProgressDeadlineSeconds int32 = 10
@@ -972,7 +979,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 }
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -1031,7 +1038,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
@@ -1059,7 +1066,7 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 }
 
 func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{
@@ -1092,7 +1099,7 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 }
 
 func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
 	creationTime := time.Now().Add(-10 * time.Minute)
@@ -1134,7 +1141,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 }
 
 func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
 	createRevision(elaClient, elaInformer, controller, rev)
@@ -1154,7 +1161,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 }
 
 func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1181,7 +1188,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 }
 
 func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1207,7 +1214,7 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 }
 
 func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision. The k8s resources should not be created.
@@ -1234,7 +1241,7 @@ func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
 }
 
 func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision. The k8s resources should not be created.

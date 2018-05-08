@@ -16,7 +16,6 @@ limitations under the License.
 package versioned
 
 import (
-	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
 	glog "github.com/golang/glog"
@@ -27,9 +26,6 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	BuildV1alpha1() buildv1alpha1.BuildV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Build() buildv1alpha1.BuildV1alpha1Interface
 	ElafrosV1alpha1() elafrosv1alpha1.ElafrosV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Elafros() elafrosv1alpha1.ElafrosV1alpha1Interface
@@ -42,20 +38,8 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	buildV1alpha1   *buildv1alpha1.BuildV1alpha1Client
 	elafrosV1alpha1 *elafrosv1alpha1.ElafrosV1alpha1Client
 	configV1alpha2  *configv1alpha2.ConfigV1alpha2Client
-}
-
-// BuildV1alpha1 retrieves the BuildV1alpha1Client
-func (c *Clientset) BuildV1alpha1() buildv1alpha1.BuildV1alpha1Interface {
-	return c.buildV1alpha1
-}
-
-// Deprecated: Build retrieves the default version of BuildClient.
-// Please explicitly pick a version.
-func (c *Clientset) Build() buildv1alpha1.BuildV1alpha1Interface {
-	return c.buildV1alpha1
 }
 
 // ElafrosV1alpha1 retrieves the ElafrosV1alpha1Client
@@ -96,10 +80,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.buildV1alpha1, err = buildv1alpha1.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 	cs.elafrosV1alpha1, err = elafrosv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -121,7 +101,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.buildV1alpha1 = buildv1alpha1.NewForConfigOrDie(c)
 	cs.elafrosV1alpha1 = elafrosv1alpha1.NewForConfigOrDie(c)
 	cs.configV1alpha2 = configv1alpha2.NewForConfigOrDie(c)
 
@@ -132,7 +111,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.buildV1alpha1 = buildv1alpha1.New(c)
 	cs.elafrosV1alpha1 = elafrosv1alpha1.New(c)
 	cs.configV1alpha2 = configv1alpha2.New(c)
 

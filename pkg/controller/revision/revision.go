@@ -45,7 +45,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
@@ -178,6 +179,7 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
+	buildInformerFactory buildinformers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig *ControllerConfig) controller.Interface {
 
@@ -216,7 +218,7 @@ func NewController(
 	})
 
 	// Obtain a reference to a shared index informer for the Build type.
-	buildInformer := elaInformerFactory.Build().V1alpha1().Builds()
+	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addBuildEvent,
 		UpdateFunc: controller.updateBuildEvent,

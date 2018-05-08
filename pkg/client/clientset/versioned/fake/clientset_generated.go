@@ -17,8 +17,6 @@ package fake
 
 import (
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	buildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1"
-	fakebuildv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/build/v1alpha1/fake"
 	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	fakeelafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
 	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
@@ -70,16 +68,6 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 var _ clientset.Interface = &Clientset{}
-
-// BuildV1alpha1 retrieves the BuildV1alpha1Client
-func (c *Clientset) BuildV1alpha1() buildv1alpha1.BuildV1alpha1Interface {
-	return &fakebuildv1alpha1.FakeBuildV1alpha1{Fake: &c.Fake}
-}
-
-// Build retrieves the BuildV1alpha1Client
-func (c *Clientset) Build() buildv1alpha1.BuildV1alpha1Interface {
-	return &fakebuildv1alpha1.FakeBuildV1alpha1{Fake: &c.Fake}
-}
 
 // ElafrosV1alpha1 retrieves the ElafrosV1alpha1Client
 func (c *Clientset) ElafrosV1alpha1() elafrosv1alpha1.ElafrosV1alpha1Interface {

@@ -16,7 +16,6 @@ limitations under the License.
 package scheme
 
 import (
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
 	elafrosv1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	configv1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +48,6 @@ func init() {
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
-	buildv1alpha1.AddToScheme(scheme)
 	elafrosv1alpha1.AddToScheme(scheme)
 	configv1alpha2.AddToScheme(scheme)
 }
