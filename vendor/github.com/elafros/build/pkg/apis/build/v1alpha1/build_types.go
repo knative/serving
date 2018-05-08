@@ -126,7 +126,9 @@ type BuildStatus struct {
 	StartTime      metav1.Time `json:"startTime,omitEmpty"`
 	CompletionTime metav1.Time `json:"completionTime,omitEmpty"`
 
-	Conditions []BuildCondition `json:"conditions,omitempty"`
+	// Parallel list to spec.Containers
+	StepStates []corev1.ContainerState `json:"stepStates,omitEmpty"`
+	Conditions []BuildCondition        `json:"conditions,omitempty"`
 }
 
 type ClusterSpec struct {

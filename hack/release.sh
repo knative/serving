@@ -63,9 +63,8 @@ fi
 
 echo "Cleaning up"
 bazel clean --expunge
-# TODO(mattmoor): Remove this once we depend on Build CRD releases
-echo "Building build-crd"
-bazel run @buildcrd//:everything > release.yaml
+echo "Copying Build release"
+cp ${ELAFROS_ROOT}/third_party/config/build/release.yaml release.yaml
 echo "---" >> release.yaml
 echo "Building Elafros"
 bazel run :elafros >> release.yaml

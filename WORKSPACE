@@ -79,31 +79,6 @@ new_http_archive(
     url = "https://github.com/istio/istio/releases/download/" + ISTIO_RELEASE + "/istio-" + ISTIO_RELEASE + "-linux.tar.gz",
 )
 
-# Until the Build repo is public, we must use the Skylark-based git_repository rules
-# per the documentation: https://docs.bazel.build/versions/master/be/workspace.html#git_repository
-load(
-    "@bazel_tools//tools/build_defs/repo:git.bzl",
-    private_git_repository = "git_repository",
-)
-
-private_git_repository(
-    name = "buildcrd",
-    # HEAD as of 2018-03-29
-    commit = "f43fbe2f385b7a54b1cbf635b18fa5e16b1ceba1",
-    remote = "git@github.com:elafros/build.git",
-)
-
-# If you would like to test changes to both repositories,
-# you can comment the above and uncomment this:
-# local_repository(
-#    name = "buildcrd",
-#    path = "../build",
-# )
-
-load("@buildcrd//:deps.bzl", "repositories")
-
-repositories()
-
 load(":ca_bundle.bzl", "cluster_ca_bundle")
 
 cluster_ca_bundle(name = "cluster_ca_bundle")
