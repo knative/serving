@@ -764,6 +764,48 @@ func (c *Controller) computeRevisionRoutes(
 	return ret, nil
 }
 
+// computeEmptyRevisionRoutes is a hack to work around https://github.com/istio/istio/issues/5204.
+// Here we add empty/dummy route rules for non-target revisions to prepare to switch traffic to
+// them in the future.  We are tracking this issue in https://github.com/elafros/elafros/issues/348.
+//
+// TODO:  Even though this fixes the 503s when switching revisions, revisions will have empty route
+// rules to them for perpetuity, therefore not ideal.  We should remove this hack once
+// https://github.com/istio/istio/issues/5204 is fixed, probably in 0.8.1.
+func (c *Controller) computeEmptyRevisionRoutes(
+	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+	ns := route.Namespace
+	elaNS := controller.GetElaNamespaceName(ns)
+	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
+	revRoutes := []RevisionRoute{}
+	for _, tt := range route.Spec.Traffic {
+		configName := tt.ConfigurationName
+		if configName != "" {
+			// Get the configuration's LatestReadyRevisionName
+			latestReadyRevName := configMap[configName].Status.LatestReadyRevisionName
+			revs, err := revClient.List(metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s", ela.ConfigurationLabelKey, configName),
+			})
+			if err != nil {
+				glog.Errorf("Failed to fetch revisions of Configuration %q: %s", configName, err)
+				return nil, err
+			}
+			for _, rev := range revs.Items {
+				if _, ok := revMap[rev.Name]; !ok && rev.Name != latestReadyRevName {
+					// This is a non-target revision.  Adding a dummy rule to make Istio happy,
+					// so that if we switch traffic to them later we won't cause Istio to
+					// throw spurious 503s. See https://github.com/istio/istio/issues/5204.
+					revRoutes = append(revRoutes, RevisionRoute{
+						RevisionName: rev.Name,
+						Service:      fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS),
+						Weight:       0,
+					})
+				}
+			}
+		}
+	}
+	return revRoutes, nil
+}
+
 func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
 	revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	// grab a client that's specific to RouteRule.
@@ -789,7 +831,13 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		glog.Errorf("Failed to check if should direct traffic to activator: %s", err)
 		return nil, err
 	}
-
+	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixed.
+	emptyRoutes, err := c.computeEmptyRevisionRoutes(route, configMap, revMap)
+	if err != nil {
+		glog.Errorf("Failed to get empty routes for %s : %q", route.Name, err)
+		return nil, err
+	}
+	revisionRoutes = append(revisionRoutes, emptyRoutes...)
 	// Create route rule for the route domain
 	routeRuleName := controller.GetRouteRuleName(route, nil)
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})

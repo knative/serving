@@ -318,6 +318,90 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	}
 }
 
+func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// A configuration and associated revision. Normally the revision would be
+	// created by the configuration controller.
+	config := getTestConfiguration()
+	latestReadyRev := getTestRevisionForConfig(config)
+	otherRev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-livebeef",
+			Name:      "p-livebeef",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				ela.ConfigurationLabelKey: config.Name,
+			},
+		},
+		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: "p-livebeef-service",
+		},
+	}
+	config.Status.LatestReadyRevisionName = latestReadyRev.Name
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(latestReadyRev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(otherRev)
+
+	// A route targeting both the config and standalone revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+			},
+		},
+	)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting routerule: %v", err)
+	}
+
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: fmt.Sprintf("%s-service", route.Name),
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
+						),
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", latestReadyRev.Name),
+				},
+				Weight: 100,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", otherRev.Name),
+				},
+				Weight: 0,
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+	}
+}
+
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	// A standalone revision
