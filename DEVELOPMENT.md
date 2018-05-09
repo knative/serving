@@ -135,7 +135,6 @@ bazel run config/monitoring:everything-dev.apply
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
 
-
 ## Enabling Istio Sidecar Injection
 After standing up elafros, perform the following steps to enable automatic
 sidecar injection.
@@ -160,7 +159,6 @@ First, stand up `Elafros` with:
 bazel run :everything.apply --define istio_debug_mode=true
 ```
 Once complete, follow the instructions at [Enabling Istio Sidecar Injection](#enabling-istio-sidecar-injection) to inject Istio sidecar. The injected sidecar will be debug version.
-
 
 ## Iterating
 
