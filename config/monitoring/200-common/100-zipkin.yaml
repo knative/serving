@@ -12,6 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  # istio assumes that zipkin is installed in istio-system namespace - 
+  # we have to install to istio-system until istio allows overriding this behavior.
+  namespace: istio-system
+spec:
+  ports:
+  - name: http
+    port: 9411
+  selector:
+    app: zipkin
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -46,3 +60,4 @@ spec:
           value: zipkin
         - name: ZIPKIN_UI_LOGS_URL
           value: http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana#/
+---

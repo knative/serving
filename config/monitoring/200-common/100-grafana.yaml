@@ -12,6 +12,130 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  prometheus.yaml: |+
+    datasources:
+     - name: prometheus
+       type: prometheus
+       access: proxy
+       org_id: 1
+       url: http://prometheus-system-np:8080
+       version: 1
+       editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+data:
+  dashboards.yaml: |+
+    - name: 'elafros'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/elafros
+    - name: 'elafros-efficiency'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/elafros-efficiency
+    - name: 'istio'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/istio
+    - name: 'mixer'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/mixer
+    - name: 'pilot'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/pilot
+    - name: 'kubernetes-deployment'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-deployment
+    - name: 'kubernetes-capacity-planning'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-capacity-planning
+    - name: 'kubernetes-cluster-health'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-cluster-health
+    - name: 'kubernetes-cluster-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-cluster-status
+    - name: 'kubernetes-control-plane-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-control-plane-status
+    - name: 'kubernetes-resource-requests'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-resource-requests
+    - name: 'kubernetes-nodes'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-nodes
+    - name: 'kubernetes-pods'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-pods
+    - name: 'kubernetes-statefulset'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/kubernetes-statefulset
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+spec:
+  type: NodePort
+  ports:
+  - port: 30802
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: grafana
+---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -126,3 +250,4 @@ spec:
       - name: grafana-dashboard-definition-kubernetes-statefulset
         configMap:
           name: grafana-dashboard-definition-kubernetes-statefulset
+---

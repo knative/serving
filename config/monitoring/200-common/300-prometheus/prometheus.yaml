@@ -1,0 +1,216 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-system
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: prometheus-system
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: prometheus-system
+  namespace: monitoring
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: prometheus-system
+  namespace: kube-system
+rules:
+- apiGroups: [""]
+  resources:
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: prometheus-system
+  namespace: istio-system
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes/metrics
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: prometheus-system
+  namespace: monitoring
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes/metrics
+  - nodes
+  - services
+  - endpoints
+  - pods
+  - nodes/proxy
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: prometheus-system
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-system
+subjects:
+- kind: ServiceAccount
+  name: prometheus-system
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: prometheus-system
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-system
+subjects:
+- kind: ServiceAccount
+  name: prometheus-system
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: prometheus-system
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-system
+subjects:
+- kind: ServiceAccount
+  name: prometheus-system
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: prometheus-system
+  namespace: istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-system
+subjects:
+- kind: ServiceAccount
+  name: prometheus-system
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-system
+subjects:
+- kind: ServiceAccount
+  name: prometheus-system
+  namespace: monitoring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-system-np
+  namespace: monitoring
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/path:   /
+      prometheus.io/port:   '8080'
+spec:
+  type: NodePort
+  selector:
+    app: prometheus
+    prometheus: system
+  ports:
+    - port: 8080
+      targetPort: 9090
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: system
+  namespace: monitoring
+  labels:
+    app: prometheus
+    prometheus: system
+spec:
+  replicas: 2
+  version: v2.2.1
+  serviceAccountName: prometheus-system
+  serviceMonitorSelector:
+    matchExpressions:
+    - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,ela-system]}
+  resources:
+    requests:
+      # TODO: Needs to be modified based on the actual usage.
+      memory: 400Mi

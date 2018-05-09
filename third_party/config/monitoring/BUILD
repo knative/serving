@@ -15,42 +15,16 @@
 licenses(["notice"])  # Apache 2
 
 load("@k8s_object//:defaults.bzl", "k8s_object")
-
-k8s_object(
-    name = "cluster-role-binding",
-    template = "201-node-exporter-cluster-role-binding.yaml",
-)
-
-k8s_object(
-    name = "cluster-role",
-    template = "200-node-exporter-cluster-role.yaml",
-)
-
-k8s_object(
-    name = "daemonset",
-    template = "300-node-exporter-daemonset.yaml",
-)
-
-k8s_object(
-    name = "service-account",
-    template = "100-node-exporter-service-account.yaml",
-)
-
-k8s_object(
-    name = "service",
-    template = "301-node-exporter-service.yaml",
-)
-
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
     name = "everything",
     objects = [
-        "service-account",
-        "cluster-role",
-        "cluster-role-binding",
-        "daemonset",
-        "service",
+        "//third_party/config/monitoring/kubernetes/elasticsearch:everything",
+        "//third_party/config/monitoring/kubernetes/kube-state-metrics:everything",
+        "//third_party/config/monitoring/istio:everything",
+        "//third_party/config/monitoring/prometheus-operator/dashboards:everything",
+        "//third_party/config/monitoring/prometheus-operator/node-exporter:everything",
     ],
     visibility = ["//visibility:public"],
 )

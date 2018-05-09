@@ -1,13 +1,13 @@
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
-    name = "service",
-    template = "service.yaml",
+    name = "kube-controller-metrics",
+    template = "kube-controller-metrics.yaml",
 )
 
 k8s_object(
-    name = "deployment",
-    template = "deployment.yaml",
+    name = "prometheus",
+    template = "prometheus.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
@@ -15,8 +15,8 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-        ":service",
-        ":deployment",
+        ":prometheus",
+        ":kube-controller-metrics",
     ],
     visibility = ["//visibility:public"],
 )

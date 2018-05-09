@@ -55,6 +55,11 @@ k8s_object(
     template = "fluentd-es.yaml",
 )
 
+k8s_object(
+    name = "node-exporter",
+    template = "node-exporter.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -71,7 +76,7 @@ k8s_objects(
         ":kube-scheduler",
         ":kube-state-metrics",
         ":kubelet",
-        "//third_party/config/monitoring/prometheus-operator/node-exporter:node-exporter-monitor",
+        ":node-exporter",
     ],
     visibility = ["//visibility:public"],
 )

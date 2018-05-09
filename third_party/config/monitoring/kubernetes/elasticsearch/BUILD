@@ -44,27 +44,13 @@ k8s_object(
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
-    name = "elasticsearch",
+    name = "everything",
     objects = [
         "es-service",
         "es-statefulset",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-k8s_objects(
-    name = "fluentd",
-    objects = [
-        "fluentd-es-ds",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-k8s_objects(
-    name = "kibana",
-    objects = [
         "kibana-deployment",
         "kibana-service",
+        "fluentd-es-ds",
     ],
     visibility = ["//visibility:public"],
 )

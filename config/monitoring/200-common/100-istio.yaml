@@ -13,6 +13,52 @@
 # limitations under the License.
 
 apiVersion: "config.istio.io/v1alpha2"
+kind: fluentd
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  address: "fluentd-es.monitoring:24224"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: requestlogstofluentd
+  namespace: istio-system
+spec:
+  match: "true" # match for all requests -- to filter out istio-ingress destination (as all requests hit that once), use: destination.service != "istio-ingress.istio-system.svc.cluster.local"
+  actions:
+   - handler: handler.fluentd
+     instances:
+     - requestlog.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: requestlog
+  namespace: istio-system
+spec:
+  severity: '"Default"'
+  timestamp: request.time
+  variables:
+    method: request.method | ""
+    url: request.path | ""
+    protocol: request.scheme | "http"
+    requestSize: request.size | 0
+    requestHost: request.host | ""
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    latency: response.duration | "0ms"
+    sourceService: source.service | "unknown"
+    destinationService: destination.service | ""
+    destinationNamespace: destination.namespace | ""
+    destinationRevision: destination.labels["elafros.dev/revision"] | "unknown"
+    destinationConfiguration: destination.labels["elafros.dev/configuration"] | "unknown"
+    traceId: request.headers["x-b3-traceid"] | "unknown"
+    userAgent: request.useragent | "unknown"
+    referer: request.referer | "unknown"
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: revisionrequestcount
@@ -152,3 +198,4 @@ spec:
     - revisionrequestduration.metric
     - revisionrequestsize.metric
     - revisionresponsesize.metric
+---
