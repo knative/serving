@@ -15,24 +15,18 @@ This is based on the source code available from: github.com/steren/sample-app
 
 You can deploy this to Elafros from the root directory via:
 ```shell
-$ bazel run sample/steren-app:everything.create
-INFO: Analysed target //sample/steren-app:everything.create (1 packages loaded).
-INFO: Found 1 target...
-Target //sample/steren-app:everything.create up-to-date:
-  bazel-bin/sample/steren-app/everything.create
-INFO: Elapsed time: 0.634s, Critical Path: 0.07s
-INFO: Build completed successfully, 4 total actions
+# Replace the token string with a suitable registry
+REPO="gcr.io/<your-project-here>"
+sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
 
-INFO: Running command line: bazel-bin/sample/steren-app/everything.create
-buildtemplate "node-app" created
-route "steren-sample-app" created
-configuration "steren-sample-app" created
+# Create the Kubernetes resources
+kubectl apply -f ../templates/node-app.yaml -f sample.yaml
 ```
 
 Once deployed, you will see that it first builds:
 
 ```shell
-$ kubectl get revision -o yaml
+kubectl get revision -o yaml
 apiVersion: v1
 items:
 - apiVersion: elafros.dev/v1alpha1
@@ -63,7 +57,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route steren-sample-app -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
@@ -85,5 +79,5 @@ $ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/
 To clean up the sample service:
 
 ```shell
-bazel run sample/steren-app:everything.delete
+kubectl delete -f ../templates/node-app.yaml -f sample.yaml
 ```

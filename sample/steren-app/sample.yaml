@@ -13,6 +13,16 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
+kind: Route
+metadata:
+  name: steren-sample-app
+  namespace: default
+spec:
+  traffic:
+  - configurationName: steren-sample-app
+    percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
 kind: Configuration
 metadata:
   name: steren-sample-app
