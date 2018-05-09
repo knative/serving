@@ -17,10 +17,10 @@ You can deploy this to Elafros from the root directory via:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
-sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
+sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-app/sample.yaml
 
 # Create the Kubernetes resources
-kubectl apply -f ../templates/node-app.yaml -f sample.yaml
+kubectl apply -f sample/templates/node-app.yaml -f sample/steren-app/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:
@@ -79,5 +79,5 @@ $ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/
 To clean up the sample service:
 
 ```shell
-kubectl delete -f ../templates/node-app.yaml -f sample.yaml
+kubectl delete -f sample/templates/node-app.yaml -f sample/steren-app/sample.yaml
 ```

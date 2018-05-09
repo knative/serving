@@ -21,3 +21,31 @@ spec:
   traffic:
   - configurationName: steren-sample-function
     percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: steren-sample-function
+  namespace: default
+spec:
+  build:
+    source:
+      git:
+        url: https://github.com/steren/sample-function
+        branch: master
+    template:
+      name: node-fn
+      arguments:
+      - name: IMAGE
+        value: &image DOCKER_REPO_OVERRIDE/sample-fn
+
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: function
+    spec:
+      container:
+        image: *image
+        env:
+        - name: FUNCTION_TRIGGER_TYPE
+          value: HTTP_TRIGGER
