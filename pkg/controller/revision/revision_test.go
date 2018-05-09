@@ -36,6 +36,7 @@ import (
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	ctrl "github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/queue"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -367,8 +368,8 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	foundFluentdProxy := false
 	expectedPreStop := &corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.FromInt(RequestQueueAdminPort),
-			Path: RequestQueueQuitPath,
+			Port: intstr.FromInt(queue.RequestQueueAdminPort),
+			Path: queue.RequestQueueQuitPath,
 		},
 	}
 	for _, container := range deployment.Spec.Template.Spec.Containers {
@@ -388,9 +389,9 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		if container.Name == elaContainerName {
 			foundElaContainer = true
 			// verify that the ReadinessProbe has our port.
-			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(RequestQueuePort) {
+			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(queue.RequestQueuePort) {
 				t.Errorf("Expect ReadinessProbe handler to have port %d, saw %v",
-					RequestQueuePort, container.ReadinessProbe.Handler.HTTPGet.Port)
+					queue.RequestQueuePort, container.ReadinessProbe.Handler.HTTPGet.Port)
 			}
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)

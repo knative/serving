@@ -193,7 +193,7 @@ func assertConcurrency(t *testing.T, stat *autoscaler.Stat, avg float64) {
 	}
 }
 
-func assertQps(t *testing.T, stat *autoscaler.Stat, qps int32) {
+func assertQPS(t *testing.T, stat *autoscaler.Stat, qps int32) {
 	if stat.RequestCount != qps {
 		t.Errorf("Total requests this period was incorrect. Expected %v. Got %v.", qps, stat.RequestCount)
 	}

@@ -69,14 +69,6 @@ const (
 	queueHttpPortName string = "queue-http-port"
 
 	requestQueueContainerName string = "request-queue"
-	RequestQueuePortName      string = "queue-port"
-	RequestQueuePort                 = 8012
-	// Queue proxy admin port and paths provide health check and
-	// lifecycle hooks.
-	RequestQueueAdminPortName string = "queueadm-port"
-	RequestQueueAdminPort            = 8022
-	RequestQueueQuitPath             = "quitquitquit"
-	RequestQueueHealthPath           = "health"
 
 	controllerAgentName = "revision-controller"
 	autoscalerPort      = 8080

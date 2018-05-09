@@ -20,6 +20,7 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +45,7 @@ func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 				{
 					Name:       httpServicePortName,
 					Port:       int32(servicePort),
-					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: RequestQueuePortName},
+					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
 				},
 			},
 			Type: "NodePort",
