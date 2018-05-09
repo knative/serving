@@ -24,9 +24,7 @@ spec:
         elafros.dev/type: container
     spec:
       container:
-        # This is the Go import path for the binary to containerize
-        # and substitute here.
-        image: github.com/elafros/elafros/sample/stock-rest-app
+        image: REPLACE_ME
         env:
           - name: RESOURCE
             value: share

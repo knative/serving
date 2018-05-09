@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+FROM golang
 
-apiVersion: elafros.dev/v1alpha1
-kind: Route
-metadata:
-  name: stock-route-example
-  namespace: default
-spec:
-  traffic:
-  - configurationName: stock-configuration-example
-    percent: 100
+ENV SRC_DIR=/go/src/github.com/elafros/elafros
+
+WORKDIR $SRC_DIR
+ADD . $SRC_DIR
+
+RUN go build ./sample/stock-rest-app
+
+ENTRYPOINT $SRC_DIR/stock-rest-app

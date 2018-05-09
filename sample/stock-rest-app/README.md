@@ -9,12 +9,25 @@ name from environment defined in configuration.
 1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
 2. [Start Elafros](../../README.md#start-elafros)
 
-## Running
+## Setup
 
-You can deploy this to Elafros from the root directory via:
+Build the app container and publish it to your registry of choice:
+
 ```shell
- bazel run sample/stock-rest-app:everything.create
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build -t "${REPO}/sample/stock-rest-app" --file=sample/stock-rest-app/Dockerfile .
+docker push "${REPO}/sample/stock-rest-app"
+
+# Replace the image reference with our published image.
+sed -i "s@REPLACE_ME@${REPO}/sample/stock-rest-app@g" sample/stock-rest-app/*.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/stock-rest-app/sample.yaml
 ```
+
+## Exploring
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
@@ -84,7 +97,7 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/stock/<ticker>
 
 You can update this to a new version. For example, update it with a new configuration.yaml via:
 ```shell
-bazel run sample/stock-rest-app:updated_everything.apply
+kubectl apply -f sample/stock-rest-app/updated_configuration.yaml
 ```
 
 Once deployed, traffic will shift to the new revision automatically. You can verify the new version
@@ -125,7 +138,7 @@ stock-configuration-example-00001   11m
 stock-configuration-example-00002   4m
 ```
 
-Update `traffic` part in sample/stock-rest-app/route.yaml as:
+Update `traffic` part in [sample/stock-rest-app/sample.yaml](./sample.yaml) as:
 ```yaml
 traffic:
   - revisionName: <YOUR_FIRST_REVISION_NAME>
@@ -136,7 +149,7 @@ traffic:
 
 Then update your change via:
 ```shell
-bazel run sample/stock-rest-app:everything.apply
+kubectl apply -f sample/stock-rest-app/sample.yaml
 ```
 
 Once updated, you can verify the traffic splitting by looking at route status and/or curling
@@ -147,5 +160,5 @@ the service.
 To clean up the sample service:
 
 ```shell
-bazel run sample/stock-rest-app:everything.delete
+kubectl delete -f sample/stock-rest-app/sample.yaml
 ```
