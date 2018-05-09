@@ -155,7 +155,7 @@ kubectl label namespace default istio-injection=enabled
 ```
 
 ## Turn on Istio Sidecar Debug Mode
-The debug version of Istio sidecar includes debug proxy images and additional logging and core dump functionality using for debugging the sidecar proxy.
+The debug version of Istio sidecar includes debug proxy image that preinstalls debugging tools such as "curl", and additional logging and core dump functionality using for debugging the sidecar proxy.
 
 First, stand up `Elafros` with:
 ```shell
