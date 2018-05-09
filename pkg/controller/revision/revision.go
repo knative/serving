@@ -406,15 +406,8 @@ func (c *Controller) syncHandler(key string) error {
 	if rev.Spec.BuildName != "" {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				rev.Status.SetCondition(
-					&v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionBuildSucceeded,
-						Status: corev1.ConditionUnknown,
-						Reason: "Building",
-					})
-				// Let this trigger a reconciliation loop.
-				if _, err := c.updateStatus(rev); err != nil {
-					glog.Errorf("Error recording the BuildComplete=False condition: %s", err)
+				if err := c.markRevisionBuilding(rev); err != nil {
+					glog.Errorf("Error recording the BuildSucceeded=Unknown condition: %s", err)
 					return err
 				}
 			}
@@ -495,6 +488,26 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 			Reason:  reason,
 			Message: message,
 		})
+	_, err := c.updateStatus(rev)
+	return err
+}
+
+func (c *Controller) markRevisionBuilding(rev *v1alpha1.Revision) error {
+	reason := "Building"
+	glog.Infof("Marking Revision %q %s", rev.Name, reason)
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionBuildSucceeded,
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
+		})
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
+		})
+	// Let this trigger a reconciliation loop.
 	_, err := c.updateStatus(rev)
 	return err
 }
