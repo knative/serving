@@ -135,15 +135,6 @@ bazel run config/monitoring:everything-dev.apply
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
 
-## Turn on Istio Sidecar Debug Mode
-The debug version of Istio sidecar includes debug proxy images and additional logging and core dump functionality using for debugging the sidecar proxy.
-
-First, stand up `Elafros` with:
-```shell
-bazel run :everything.apply --define istio_debug_mode=true
-```
-Once complete, follow the instructions at [Enabling Istio Sidecar Injection](#enabling-istio-sidecar-injection) to inject Istio sidecar. The injected sidecar will be debug version.
-
 
 ## Enabling Istio Sidecar Injection
 After standing up elafros, perform the following steps to enable automatic
@@ -160,6 +151,16 @@ Second, label namespaces with `istio-injection=enabled`:
 ```shell
 kubectl label namespace default istio-injection=enabled
 ```
+
+## Turn on Istio Sidecar Debug Mode
+The debug version of Istio sidecar includes debug proxy images and additional logging and core dump functionality using for debugging the sidecar proxy.
+
+First, stand up `Elafros` with:
+```shell
+bazel run :everything.apply --define istio_debug_mode=true
+```
+Once complete, follow the instructions at [Enabling Istio Sidecar Injection](#enabling-istio-sidecar-injection) to inject Istio sidecar. The injected sidecar will be debug version.
+
 
 ## Iterating
 
