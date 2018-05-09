@@ -155,13 +155,20 @@ kubectl label namespace default istio-injection=enabled
 ```
 
 ## Turn on Istio Sidecar Debug Mode
-The debug version of Istio sidecar includes debug proxy image that preinstalls debugging tools such as "curl", and additional logging and core dump functionality using for debugging the sidecar proxy.
-
-First, stand up `Elafros` with:
+The debug version of Istio sidecar includes debug proxy image that preinstalls debugging tools such as "curl", and additional logging and core dump functionality using for debugging the sidecar proxy. By default, Istio sidecar uses release version.
+You can swtich from release version to debug version with:
 ```shell
-bazel run :everything.apply --define istio_debug_mode=true
+kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 ```
-Once complete, follow the instructions at [Enabling Istio Sidecar Injection](#enabling-istio-sidecar-injection) to inject Istio sidecar. The injected sidecar will be debug version.
+Once complete, you have to wait at least one sync cycle (around 1 minute) to make sure the new configmap is fully synced. After this point, any newly created Istio sidecar should be debug version. You can see below terminal prompt after you log into your Istio sidecar:
+```shell
+istio-proxy@
+```
+
+Similarly, you can switch from debug version to release version with:
+```shell
+kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+```
 
 ## Iterating
 
