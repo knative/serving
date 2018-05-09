@@ -21,3 +21,28 @@ spec:
   traffic:
   - configurationName: steren-sample-app
     percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: steren-sample-app
+  namespace: default
+spec:
+  build:
+    source:
+      git:
+        url: https://github.com/steren/sample-app
+        branch: master
+    template:
+      name: node-app
+      arguments:
+      - name: IMAGE
+        value: &image DOCKER_REPO_OVERRIDE/sample-app
+
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: app
+    spec:
+      container:
+        image: *image
