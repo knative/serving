@@ -14,15 +14,16 @@ import (
 
 const (
 	testNamespace = "test-namespace"
+	testRevision  = "test-rev"
 )
 
-func TestActivate_AlreadyActive(t *testing.T) {
+func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 	k8s, ela := fakeClients()
 	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
 	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
 	a := NewRevisionActivator(k8s, ela)
 
-	got, status, err := a.ActiveEndpoint(testNamespace, "test-rev")
+	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
 	want := Endpoint{"ip", 8080}
 	if got != want {
@@ -36,7 +37,7 @@ func TestActivate_AlreadyActive(t *testing.T) {
 	}
 }
 
-func TestActivate_Reserve(t *testing.T) {
+func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 	k8s, ela := fakeClients()
 	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
@@ -45,7 +46,7 @@ func TestActivate_Reserve(t *testing.T) {
 	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
 	a := NewRevisionActivator(k8s, ela)
 
-	got, status, err := a.ActiveEndpoint(testNamespace, "test-rev")
+	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
 	want := Endpoint{"ip", 8080}
 	if got != want {
@@ -58,9 +59,37 @@ func TestActivate_Reserve(t *testing.T) {
 		t.Errorf("Unexpected error. Want nil. Got %v.", err)
 	}
 
-	rev, _ := ela.ElafrosV1alpha1().Revisions(testNamespace).Get("test-rev", metav1.GetOptions{})
+	rev, _ := ela.ElafrosV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
 		t.Errorf("Unexpected serving state. Want Active. Got %v.", rev.Spec.ServingState)
+	}
+}
+
+func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
+	k8s, ela := fakeClients()
+	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder().
+			withServingState(v1alpha1.RevisionServingStateRetired).
+			build())
+	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
+	a := NewRevisionActivator(k8s, ela)
+
+	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+
+	want := Endpoint{}
+	if got != want {
+		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
+	}
+	if status != Status(412) {
+		t.Errorf("Unexpected error status. Want 412. Got %v.", status)
+	}
+	if err == nil {
+		t.Errorf("Expected error. Want error. Got nil.")
+	}
+
+	rev, _ := ela.ElafrosV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	if rev.Spec.ServingState != v1alpha1.RevisionServingStateRetired {
+		t.Errorf("Unexpected serving state. Want Retired. Got %v.", rev.Spec.ServingState)
 	}
 }
 
@@ -82,7 +111,7 @@ func newRevisionBuilder() *revisionBuilder {
 	return &revisionBuilder{
 		revision: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-rev",
+				Name:      testRevision,
 				Namespace: testNamespace,
 			},
 			Spec: v1alpha1.RevisionSpec{
