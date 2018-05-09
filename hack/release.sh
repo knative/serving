@@ -17,33 +17,26 @@
 set -o errexit
 set -o pipefail
 
-readonly ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
-readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
-
-function header() {
-  echo "*************************************************"
-  echo "** $1"
-  echo "*************************************************"
-}
+source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
 function cleanup() {
-  export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
+  restore_override_vars
   bazel clean --expunge || true
 }
 
-cd ${ELAFROS_ROOT}
+cd ${ELAFROS_ROOT_DIR}
 trap cleanup EXIT
 
-header "TEST PHASE"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+echo "@@@@ RUNNING RELEASE VALIDATION TESTS @@@@"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 # Run tests.
 ./test/presubmit-tests.sh
 
-header "BUILD PHASE"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+echo "@@@@     BUILDING THE RELEASE    @@@@"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 # Set the repository to the official one:
 export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
@@ -52,19 +45,14 @@ export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 
 # If this is a prow job, authenticate against GCR.
-if [[ $USER == "prow" ]]; then
-  echo "Authenticating to GCR"
-  # kubekins-e2e images lack docker-credential-gcr, install it manually.
-  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
-  gcloud components install docker-credential-gcr
-  docker-credential-gcr configure-docker
-  echo "Successfully authenticated"
+if (( IS_PROW )); then
+  gcr_auth
 fi
 
 echo "Cleaning up"
 bazel clean --expunge
 echo "Copying Build release"
-cp ${ELAFROS_ROOT}/third_party/config/build/release.yaml release.yaml
+cp ${ELAFROS_ROOT_DIR}/third_party/config/build/release.yaml release.yaml
 echo "---" >> release.yaml
 echo "Building Elafros"
 bazel run config:everything >> release.yaml
