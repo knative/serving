@@ -67,7 +67,7 @@ echo "Copying Build release"
 cp ${ELAFROS_ROOT}/third_party/config/build/release.yaml release.yaml
 echo "---" >> release.yaml
 echo "Building Elafros"
-bazel run :elafros >> release.yaml
+bazel run config:everything >> release.yaml
 echo "---" >> release.yaml
 echo "Building Monitoring & Logging"
 bazel run config/monitoring:everything >> release.yaml
