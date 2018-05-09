@@ -46,9 +46,19 @@ k8s_object(
     template = "istio.yaml",
 )
 
+config_setting(
+    name = "turn_on_istio_debug",
+    values = {
+        "define": "istio_debug_mode=true",
+    }
+)
+
 k8s_object(
-    name = "istio-sidecar-injector-configmap",
-    template = ":istio-sidecar-injector-configmap-release.yaml",
+    name = "istio-sidecar-injector-configmap"
+    template = select({
+        "turn_on_istio_debug": "istio-sidecar-injector-configmap-debug.yaml",
+        "//conditions:default": "istio-sidecar-injector-configmap-release.yaml",
+    }),
 )
 
 sh_binary(
