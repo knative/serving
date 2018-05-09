@@ -12,4 +12,7 @@ third_party {
   license_type: NOTICE
 }
 
-local_modifications: "Removed the bin subdirectory because binaries and DVCS don't mix."
+local_modifications:
+    "Removed the bin subdirectory because binaries and DVCS don't mix. "
+    "Disable sidecar injection by default. "
+    "Add a pre-stop hook the istio proxy that sleeps for 20 seconds. "
