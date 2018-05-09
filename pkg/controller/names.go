@@ -77,6 +77,10 @@ func GetRevisionHeaderName() string {
 	return "Elafros-Revision"
 }
 
+func GetRevisionHeaderNamespace() string {
+	return "Elafros-Namespace"
+}
+
 func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {
 	return GetOrCreateNamespace(GetElaNamespaceName(ns), c)
 }
