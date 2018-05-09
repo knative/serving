@@ -54,10 +54,10 @@ config_setting(
 )
 
 k8s_object(
-    name = "istio-sidecar-injector-configmap"
+    name = "istio-sidecar-injector-configmap",
     template = select({
-        "turn_on_istio_debug": "istio-sidecar-injector-configmap-debug.yaml",
-        "//conditions:default": "istio-sidecar-injector-configmap-release.yaml",
+        "turn_on_istio_debug": ":istio-sidecar-injector-configmap-debug.yaml",
+        "//conditions:default": ":istio-sidecar-injector-configmap-release.yaml",
     }),
 )
 
