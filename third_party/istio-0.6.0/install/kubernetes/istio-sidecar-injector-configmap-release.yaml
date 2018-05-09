@@ -7,7 +7,7 @@ metadata:
 apiVersion: v1
 data:
   config: |
-    policy: enabled
+    policy: disabled
     template: |-
       initContainers:
       - name: istio-init
@@ -25,6 +25,12 @@ data:
         restartPolicy: Always
       containers:
       - name: istio-proxy
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "20"
         image: docker.io/istio/proxy:0.6.0
         args:
         - proxy
