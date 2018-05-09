@@ -4,27 +4,25 @@ import (
 	"testing"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	fakeEla "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
-func TestActivate_AlreadyActive(t *testing.T) {
-	fakeElaClient := fakeEla.NewSimpleClientset()
-	fakeK8sClient := fakeK8s.NewSimpleClientset()
-	nsObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-namespace",
-			Namespace: "",
-		},
-	}
-	fakeK8sClient.CoreV1().Namespaces().Create(nsObj)
-	fakeElaClient.ElafrosV1alpha1().Revisions("test-namespace").Create(newRevisionBuilder().build())
-	fakeK8sClient.CoreV1().Endpoints("test-namespace").Create(newEndpointBuilder().build())
-	a := NewRevisionActivator(fakeK8sClient, fakeElaClient)
+const (
+	testNamespace = "test-namespace"
+)
 
-	got, status, err := a.ActiveEndpoint("test-namespace", "test-rev")
+func TestActivate_AlreadyActive(t *testing.T) {
+	k8s, ela := fakeClients()
+	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
+	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
+	a := NewRevisionActivator(k8s, ela)
+
+	got, status, err := a.ActiveEndpoint(testNamespace, "test-rev")
 
 	want := Endpoint{"ip", 8080}
 	if got != want {
@@ -38,6 +36,44 @@ func TestActivate_AlreadyActive(t *testing.T) {
 	}
 }
 
+func TestActivate_Reserve(t *testing.T) {
+	k8s, ela := fakeClients()
+	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder().
+			withServingState(v1alpha1.RevisionServingStateReserve).
+			build())
+	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
+	a := NewRevisionActivator(k8s, ela)
+
+	got, status, err := a.ActiveEndpoint(testNamespace, "test-rev")
+
+	want := Endpoint{"ip", 8080}
+	if got != want {
+		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
+	}
+	if status != Status(0) {
+		t.Errorf("Unexpected error status. Want 0. Got %v.", status)
+	}
+	if err != nil {
+		t.Errorf("Unexpected error. Want nil. Got %v.", err)
+	}
+
+	rev, _ := ela.ElafrosV1alpha1().Revisions(testNamespace).Get("test-rev", metav1.GetOptions{})
+	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
+		t.Errorf("Unexpected serving state. Want Active. Got %v.", rev.Spec.ServingState)
+	}
+}
+
+func fakeClients() (kubernetes.Interface, clientset.Interface) {
+	nsObj := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNamespace,
+			Namespace: "",
+		},
+	}
+	return fakeK8s.NewSimpleClientset(nsObj), fakeEla.NewSimpleClientset()
+}
+
 type revisionBuilder struct {
 	revision *v1alpha1.Revision
 }
@@ -47,7 +83,7 @@ func newRevisionBuilder() *revisionBuilder {
 		revision: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-rev",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 			Spec: v1alpha1.RevisionSpec{
 				Container: corev1.Container{
@@ -100,7 +136,7 @@ func newEndpointBuilder() *endpointBuilder {
 		endpoint: &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-rev-service",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 			Subsets: []corev1.EndpointSubset{
 				corev1.EndpointSubset{
