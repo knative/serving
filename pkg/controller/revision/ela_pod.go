@@ -22,6 +22,7 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/queue"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -93,8 +94,8 @@ func MakeElaPodSpec(
 	elaContainer.Lifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(RequestQueueAdminPort),
-				Path: RequestQueueQuitPath,
+				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Path: queue.RequestQueueQuitPath,
 			},
 		},
 	}
@@ -105,7 +106,7 @@ func MakeElaPodSpec(
 	// TODO(tcnghia): Fail validation webhook when users specify their
 	// own port in readiness checks.
 	if hasHttpPath(elaContainer.ReadinessProbe) {
-		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(RequestQueuePort)
+		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
 	queueContainer := corev1.Container{
@@ -118,13 +119,13 @@ func MakeElaPodSpec(
 		},
 		Ports: []corev1.ContainerPort{
 			{
-				Name:          RequestQueuePortName,
-				ContainerPort: int32(RequestQueuePort),
+				Name:          queue.RequestQueuePortName,
+				ContainerPort: int32(queue.RequestQueuePort),
 			},
 			// Provides health checks and lifecycle hooks.
 			{
-				Name:          RequestQueueAdminPortName,
-				ContainerPort: int32(RequestQueueAdminPort),
+				Name:          queue.RequestQueueAdminPortName,
+				ContainerPort: int32(queue.RequestQueueAdminPort),
 			},
 		},
 		// This handler (1) marks the service as not ready and (2)
@@ -132,16 +133,16 @@ func MakeElaPodSpec(
 		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(RequestQueueAdminPort),
-					Path: RequestQueueQuitPath,
+					Port: intstr.FromInt(queue.RequestQueueAdminPort),
+					Path: queue.RequestQueueQuitPath,
 				},
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(RequestQueueAdminPort),
-					Path: RequestQueueHealthPath,
+					Port: intstr.FromInt(queue.RequestQueueAdminPort),
+					Path: queue.RequestQueueHealthPath,
 				},
 			},
 			// We want to mark the service as not ready as soon as the

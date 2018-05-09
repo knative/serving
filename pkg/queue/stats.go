@@ -39,11 +39,13 @@ type Channels struct {
 	StatChan chan *autoscaler.Stat
 }
 
+// Stats is a structure for holding channels per pod.
 type Stats struct {
 	podName string
 	ch      Channels
 }
 
+// NewStats instantiates a new instance of Stats.
 func NewStats(podName string, channels Channels) *Stats {
 	s := &Stats{
 		podName: podName,
@@ -51,9 +53,9 @@ func NewStats(podName string, channels Channels) *Stats {
 	}
 
 	go func() {
-		var requestCount int32 = 0
-		var concurrentCount int32 = 0
-		var bucketedRequestCount int32 = 0
+		var requestCount int32
+		var concurrentCount int32
+		var bucketedRequestCount int32
 		buckets := make([]int32, 0)
 		for {
 			select {
@@ -85,13 +87,13 @@ func NewStats(podName string, channels Channels) *Stats {
 			case now := <-s.ch.ReportChan:
 				// Report the average bucket level. Does not
 				// include the current bucket.
-				var total float64 = 0
-				var count float64 = 0
+				var total float64
+				var count float64
 				for _, val := range buckets {
 					total = total + float64(val)
 					count = count + 1
 				}
-				var avg float64 = 0
+				var avg float64
 				if count != 0 {
 					avg = total / count
 				}

@@ -65,11 +65,11 @@ curl -X POST -H "Content-Type: application/json" http://localhost:8080/image \
 
 ## Deploy (Prebuilt)
 
-You can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `thumbnailer-prebuilt.yaml`.
+You can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `sample-prebuilt.yaml`.
 
 ```
 # From inside this directory
-kubectl apply -f thumbnailer-prebuilt.yaml
+kubectl apply -f sample-prebuilt.yaml
 ```
 
 If you would like to publish your own copy of the container image, you can update the image reference in this file.
@@ -77,31 +77,15 @@ If you would like to publish your own copy of the container image, you can updat
 
 ## Deploy (with Build)
 
-You can also build the image as part of deployment.
-
-First, be sure you have the `DOCKER_REPO_OVERRIDE` variable set to where you want images published (e.g. `gcr.io/foo-bar`).
-
-Next, build a version of the yaml containing your repository name:
+You can also build the image as part of deployment:
 
 ```shell
-# From the root of this repository
-$ bazel build sample/thumbnailer:thumbnailer.yaml
-INFO: Analysed target //sample/thumbnailer:thumbnailer.yaml (1 packages loaded).
-INFO: Found 1 target...
-Target //sample/thumbnailer:thumbnailer.yaml up-to-date:
-  bazel-genfiles/sample/thumbnailer/thumbnailer.yaml
-INFO: Elapsed time: 0.383s, Critical Path: 0.07s
-INFO: Build completed successfully, 2 total actions
-```
+# Replace the token string with a suitable registry
+REPO="gcr.io/<your-project-here>"
+sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
 
-Then you can simply issue the following `kubectl` commands:
-
-```shell
-# First, be sure you have the latest docker-build-helper template installed with:
-kubectl apply -f sample/templates/docker-build-helper.yaml
-
-# From the root of this repository
-kubectl apply -f bazel-genfiles/sample/thumbnailer/thumbnailer.yaml
+# Create the Kubernetes resources from this directory
+kubectl apply -f ../templates/docker-build-helper.yaml -f sample.yaml
 ```
 
 Now, if you look at the `status` of the revision, you will see that a build is in progress:
@@ -121,7 +105,7 @@ items:
 ...
 ```
 
-Once `BuildComplete` has a `status: "True"`, the revision will get deployed as in the Prebuilt case above.
+Once `BuildComplete` has a `status: "True"`, the revision will get deployed as in the "prebuilt" case above.
 
 
 ## Demo

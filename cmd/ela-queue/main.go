@@ -34,7 +34,6 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/autoscaler"
-	"github.com/elafros/elafros/pkg/controller/revision"
 	"github.com/elafros/elafros/pkg/queue"
 
 	"github.com/golang/glog"
@@ -113,7 +112,7 @@ func init() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, revision.AutoscalerNamespace, elaAutoscalerPort)
+		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
 	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
@@ -252,8 +251,8 @@ func setupAdminHandlers(server *http.Server) {
 		alive: true,
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s", revision.RequestQueueHealthPath), h.healthHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s", revision.RequestQueueQuitPath), h.quitHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueHealthPath), h.healthHandler)
+	mux.HandleFunc(fmt.Sprintf("/%s", queue.RequestQueueQuitPath), h.quitHandler)
 	server.Handler = mux
 	server.ListenAndServe()
 }
@@ -290,9 +289,9 @@ func main() {
 	}()
 
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", revision.RequestQueuePort), Handler: nil}
+		Addr: fmt.Sprintf(":%d", queue.RequestQueuePort), Handler: nil}
 	adminServer := &http.Server{
-		Addr: fmt.Sprintf(":%d", revision.RequestQueueAdminPort), Handler: nil}
+		Addr: fmt.Sprintf(":%d", queue.RequestQueueAdminPort), Handler: nil}
 
 	// Add a SIGTERM handler to gracefully shutdown the servers during
 	// pod termination.
