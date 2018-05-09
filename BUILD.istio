@@ -47,9 +47,19 @@ k8s_object(
 
 # Adds a PreStop sleep so that the envoy proxy doesn't go away before
 # the pod is removed from service.
+config_setting(
+    name = "turn_on_istio_debug",
+    values = {
+        "define": "istio_debug_mode",
+    }
+)
+
 add_prestop_sleep(
     name = "istio-sidecar-injector-configmap-prestop-sleep",
-    template = "istio-sidecar-injector-configmap-release.yaml",
+    template = select({
+        "turn_on_istio_debug": "istio-sidecar-injector-configmap-debug.yaml",
+        "//conditions:default": "istio-sidecar-injector-configmap-release.yaml",
+        }),
 )
 
 disable_policy(
