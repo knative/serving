@@ -70,32 +70,34 @@ func (r *RevisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// Wait for the revision to be ready
-	wi, err := r.elaClient.ElafrosV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
-	})
-	if err != nil {
-		internalError("Failed to watch the revision %s/%s", rev.namespace, rev.name)
-		return
-	}
-	defer wi.Stop()
-	ch := wi.ResultChan()
-RevisionReady:
-	for {
-		select {
-		case event := <-ch:
-			if revision, ok := event.Object.(*v1alpha1.Revision); ok {
-				if !revision.Status.IsReady() {
-					log.Printf("Revision %s/%s is not yet ready", rev.namespace, rev.name)
-					continue
+	if !revision.Status.IsReady() {
+		wi, err := r.elaClient.ElafrosV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
+		})
+		if err != nil {
+			internalError("Failed to watch the revision %s/%s", rev.namespace, rev.name)
+			return
+		}
+		defer wi.Stop()
+		ch := wi.ResultChan()
+	RevisionReady:
+		for {
+			select {
+			case event := <-ch:
+				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
+					if !revision.Status.IsReady() {
+						log.Printf("Revision %s/%s is not yet ready", rev.namespace, rev.name)
+						continue
+					}
+					break RevisionReady
+				} else {
+					internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
+					return
 				}
-				break RevisionReady
-			} else {
-				internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
+			case <-time.After(60 * time.Second):
+				internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
 				return
 			}
-		case <-time.After(60 * time.Second):
-			internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
-			return
 		}
 	}
 
