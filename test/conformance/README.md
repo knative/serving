@@ -11,8 +11,6 @@ this implementation could be ported to other implementations as well.
 
 _The precedent for these tests is [the k8s conformance tests](https://github.com/cncf/k8s-conformance)._
 
-
-
 These tests use [the test library](../adding_tests.md#test-library).
 
 ### Requirements

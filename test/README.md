@@ -26,12 +26,12 @@ go test -v ./pkg/...
 To run [the conformance tests](./conformance), you need to have a running environment that meets
 [the conformance test environment requirements](#conformance-test-environment-requirements).
 
+Since these tests are fairly slow (~1 minute), running them with logging
+enabled is recommended.
+
 To run the conformance tests against the current cluster in `~/.kube/config`
 using `go test` using the environment specified in [your environment
 variables](/DEVELOPMENT.md#environment-setup):
-
-Since these tests are fairly slow (~1 minute),  running them with logging
-enabled is recommended:
 
 ```bash
 go test -v ./test/conformance
@@ -63,21 +63,8 @@ These tests require:
 ### Conformance test images
 
 The configuration for the images used for the existing conformance tests lives in
-[`test_images_node`](./conformance/test_images_node).
-
-[`upload-test-images.sh`](./upload-test-images.sh) can be used to build and push the
-docker images. It requires:
-
-* [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
-* You to be [authenticated with your
-  `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
-* [`docker`](https://docs.docker.com/install/) to be installed
-
-To run the script:
-
-```bash
-./test/conformance/upload-test-images.sh
-```
+[`test_images_node`](./conformance/test_images_node). See the [section about test
+images](#test-images) for details about building and adding new ones.
 
 ### Running conformance tests with Bazel
 
@@ -101,6 +88,7 @@ bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=-
 ```
 
 ## Running end-to-end tests
+
 The e2e tests have almost the exact same requirements and specs as the conformance tests, but they will be enumerated for clarity.
 
 To run [the e2e tests](./e2e), you need to have a running environment that meets
@@ -142,22 +130,9 @@ These tests require:
 
 ### End-to-end test images
 
-The configuration for the images used for the existing e2e tests lives in the subdirectories found in
-[`test_images_node`](./e2e/test_images_node/).
-
-[`upload-test-images.sh`](./upload-test-images.sh) can be used to build and push the
-docker images. It requires:
-
-* [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
-* You to be [authenticated with your
-  `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
-* [`docker`](https://docs.docker.com/install/) to be installed
-
-To run the script:
-
-```bash
-./test/e2e/upload-test-images.sh
-```
+The configuration for the images used for the existing e2e tests lives in
+[`test_images_node`](./e2e/test_images_node). See the [section about test
+images](#test-images) for details about building and adding new ones.
 
 ### Running e2e tests with Bazel
 
@@ -179,6 +154,35 @@ to the location where [you have pushed the e2e test images](#e2e-test-images)):
 ```bash
 bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
 ```
+
+## Test images
+
+### Building the test images
+
+The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to build and push the
+test images used by the conformance and e2e tests. It requires:
+
+* [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
+* You to be [authenticated with your
+  `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
+* [`docker`](https://docs.docker.com/install/) to be installed
+
+To run the script:
+
+```bash
+./test/upload-test-images.sh /path/containing/test/images
+```
+
+The path containing test images is any directory whose subdirectories contain the `Dockerfile`
+and any required files to build Docker images (e.g., `./test/e2e/test_images_node`).
+
+### Adding new test images
+
+New test images should be placed in their own subdirectories. Be sure to to include a `Dockerfile`
+for building and running the test image.
+
+The new test images will also need to be uploaded to the e2e tests Docker repo. You will need one
+of the owners found in [`/test/OWNERS`](OWNERS) to do this.
 
 ## Flags
 
@@ -247,7 +251,7 @@ go test ./test/e2e --dockerrepo gcr.myhappyproject
 #### Using a resolvable domain
 
 If you setup your cluster using [the getting started
-docs](../../DEVELOPMENT.md#getting-started), Routes created in the test will
+docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `demo-domain.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
