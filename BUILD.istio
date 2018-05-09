@@ -50,7 +50,7 @@ k8s_object(
 config_setting(
     name = "turn_on_istio_debug",
     values = {
-        "define": "istio_debug_mode",
+        "define": "istio_debug_mode=true",
     }
 )
 
@@ -59,7 +59,7 @@ add_prestop_sleep(
     template = select({
         "turn_on_istio_debug": "istio-sidecar-injector-configmap-debug.yaml",
         "//conditions:default": "istio-sidecar-injector-configmap-release.yaml",
-        }),
+    }),
 )
 
 disable_policy(
