@@ -8,7 +8,7 @@ k8s_objects(
     name = "everything",
     objects = [
         "//config/monitoring/100-common:everything",
-        "//config/monitoring/101-prod:everything",
+        "//config/monitoring/150-prod:everything",
         "//third_party/config/monitoring:everything",
         "//config/monitoring/200-common:everything",
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need
@@ -25,7 +25,7 @@ k8s_objects(
     name = "everything-dev",
     objects = [
         "//config/monitoring/100-common:everything",
-        "//config/monitoring/101-dev:everything",
+        "//config/monitoring/150-dev:everything",
         "//third_party/config/monitoring:everything",
         "//config/monitoring/200-common:everything",
         # Istio has an issue where deploying metric & logging rules once doesn't work and they need

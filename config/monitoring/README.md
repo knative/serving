@@ -4,7 +4,7 @@ These can be installed by running the following at the root of the repository:
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/101-prod \
+    -f config/monitoring/150-prod \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
