@@ -33,7 +33,7 @@ bazel run //:everything > everything.yaml
 bazel run //:istio > istio.yaml
 
 # Just resources from Build CRD
-bazel run @buildcrd//:everything > buildcrd.yaml
+bazel run //third_party/config/build:everything > buildcrd.yaml
 
 # Just resources from Elafros itself
 bazel run //:elafros > elafros.yaml

@@ -1,8 +1,11 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./CONTRIBUTING.md) to `Elafros`. Also take a look at [the
-development workflow](./CONTRIBUTING.md#workflow) and [the test docs](./test/README.md).
+[contributing](./community/CONTRIBUTING.md) to `Elafros`. Also take a look at:
+
+* [The pull request workflow](./community/CONTRIBUTING.md#pull-requests)
+* [How to add and run tests](./test/README.md)
+* [Iterating](#iterating)
 
 ## Getting started
 
@@ -124,13 +127,34 @@ page to ensure that all services are up and running (and not blocked by a quota 
 ## Enable log and metric collection
 You can use two different setups for collecting logs and metrics:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+
+To install using bazel, run:
+
 ```shell
 bazel run config/monitoring:everything.apply
+```
+
+To install using kubectl, run:
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/300-prod \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
 ```shell
 bazel run config/monitoring:everything-dev.apply
+```
+
+To install using kubectl, run:
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/300-dev \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
@@ -142,13 +166,33 @@ sidecar injection.
 First, create a signed cert for the Istio webhook:
 
 ```shell
-bazel run @istio_release//:webhook-create-signed-cert
+bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
 ```
 
 Second, label namespaces with `istio-injection=enabled`:
 
 ```shell
 kubectl label namespace default istio-injection=enabled
+```
+
+## Turn on Istio Sidecar Debug Mode
+The debug version of Istio sidecar includes debug proxy image that preinstalls debugging tools such as "curl", and additional logging and core dump functionality using for debugging the sidecar proxy. By default, Istio sidecar uses release version.
+You can switch from release version to debug version with:
+```shell
+kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
+```
+Once complete, you have to wait at least one sync cycle (around 1 minute) to make sure the new configmap is fully synced. After this point, any newly created Istio sidecar should be debug version. You can verify this by logging into your Istio sidecar with:
+```shell
+kubectl exec -it <pod_name> -c istio-proxy /bin/bash
+```
+And you should see below terminal prompt that is for debug version sidecar:
+```shell
+istio-proxy@
+```
+
+Similarly, you can switch from debug version to release version with:
+```shell
+kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 ```
 
 ## Iterating
@@ -162,17 +206,11 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
 ```shell
-bazel run :controller.apply
+bazel run //config:controller.apply
 ```
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Elafros`](./README.md#start-elafros).
-
-## Tests
-
-Tests are run automatically for every PR. For more details, see [the development workflow](./CONTRIBUTING.md#prow).
-
-For more details about the tests themselves and how to run them, see [the test docs](./test/README.md).
 
 ## Clean up
 

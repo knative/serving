@@ -103,3 +103,24 @@ Prow has several other features that make PR management easier, like running the
 go linter or assigning labels. A full list of commands understood by Prow can be
 found in the [command help
 page](https://prow-internal.gcpnode.com/command-help?repo=elafros%2Felafros).
+
+### Viewing test logs
+
+Currently the Prow instance is internal to Google, which means that only Google
+employees are able to access the "Details" link of the test job (provided by
+Prow in the PR thread).
+
+However, if you're an Elafros team member outside Google, and provided that you
+are a member of the [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Google group, you can see the test logs by following these instructions:
+
+1. Wait for prow to finish the test execution. Note down the PR number.
+
+2. Open the URL http://gcsweb.k8s.io/gcs/ela-prow/pr-logs/pull/elafros_elafros/###/pull-elafros-elafros-test/
+where ### is the PR number.
+
+3. You'll see one or more numbered directories, the highest number is the latest
+test execution (called "build" by Prow).
+
+4. The raw test log is the text file named `build-log.txt` inside each numbered
+directory.

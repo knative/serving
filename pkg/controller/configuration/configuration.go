@@ -18,7 +18,6 @@ package configuration
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
@@ -38,7 +37,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -51,8 +51,9 @@ const controllerAgentName = "configuration-controller"
 // Controller implements the controller for Configuration resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
-	kubeclientset kubernetes.Interface
-	elaclientset  clientset.Interface
+	kubeclientset  kubernetes.Interface
+	elaclientset   clientset.Interface
+	buildclientset buildclientset.Interface
 
 	// lister indexes properties about Configuration
 	lister listers.ConfigurationLister
@@ -77,6 +78,7 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	elaclientset clientset.Interface,
+	buildclientset buildclientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
@@ -97,6 +99,7 @@ func NewController(
 	controller := &Controller{
 		kubeclientset:   kubeclientset,
 		elaclientset:    elaclientset,
+		buildclientset:  buildclientset,
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,
 		revisionsSynced: revisionInformer.Informer().HasSynced,
@@ -145,7 +148,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	glog.Info("Starting workers")
-	// Launch two workers to process Foo resources
+	// Launch workers to process Configuration resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
@@ -201,7 +204,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Foo resource to be synced.
+		// Configuration resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
@@ -236,8 +239,8 @@ func (c *Controller) enqueueConfiguration(obj interface{}) {
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Foo resource
-// with the current status of the resource.
+// converge the two. It then updates the Status block of the Configuration
+// resource with the current status of the resource.
 //TODO(grantr): not generic
 func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
@@ -285,7 +288,7 @@ func (c *Controller) syncHandler(key string) error {
 			Spec: *config.Spec.Build,
 		}
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
-		created, err := c.elaclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
+		created, err := c.buildclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
 			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
@@ -296,43 +299,54 @@ func (c *Controller) syncHandler(key string) error {
 		spec.BuildName = created.Name
 	}
 
-	rev := &v1alpha1.Revision{
-		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
-		Spec:       spec,
-	}
 	revName, err := generateRevisionName(config)
 	if err != nil {
 		return err
 	}
-	// TODO: Should this just use rev.ObjectMeta.GenerateName =
-	rev.ObjectMeta.Name = revName
-	// Can't generate objects in a different namespace from what the call is made against,
-	// so use the namespace of the configuration that's being updated for the Revision being
-	// created.
-	rev.ObjectMeta.Namespace = config.Namespace
 
-	if rev.ObjectMeta.Labels == nil {
-		rev.ObjectMeta.Labels = make(map[string]string)
-	}
-	rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
-
-	if rev.ObjectMeta.Annotations == nil {
-		rev.ObjectMeta.Annotations = make(map[string]string)
-	}
-	rev.ObjectMeta.Annotations[ela.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
-
-	// Delete revisions when the parent Configuration is deleted.
-	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
-
-	created, err := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace).Create(rev)
+	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(config.Namespace)
+	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-		c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
-		return err
-	}
-	c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
-	glog.Infof("Created Revision:\n%+v", created)
+		if !errors.IsNotFound(err) {
+			glog.Errorf("Revisions Get for %q failed: %s", revName, err)
+			return err
+		}
 
+		rev := &v1alpha1.Revision{
+			ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
+			Spec:       spec,
+		}
+		// TODO: Should this just use rev.ObjectMeta.GenerateName =
+		rev.ObjectMeta.Name = revName
+		// Can't generate objects in a different namespace from what the call is made against,
+		// so use the namespace of the configuration that's being updated for the Revision being
+		// created.
+		rev.ObjectMeta.Namespace = config.Namespace
+
+		if rev.ObjectMeta.Labels == nil {
+			rev.ObjectMeta.Labels = make(map[string]string)
+		}
+		rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
+
+		if rev.ObjectMeta.Annotations == nil {
+			rev.ObjectMeta.Annotations = make(map[string]string)
+		}
+		rev.ObjectMeta.Annotations[ela.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
+
+		// Delete revisions when the parent Configuration is deleted.
+		rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
+
+		created, err = revClient.Create(rev)
+		if err != nil {
+			glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
+			return err
+		}
+		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
+		glog.Infof("Created Revision:\n%+v", created)
+	} else {
+		glog.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
+	}
 	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.
 	// Also update the LatestCreatedRevisionName so that we'll know revision to check
@@ -340,10 +354,10 @@ func (c *Controller) syncHandler(key string) error {
 	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
 	config.Status.ObservedGeneration = config.Spec.Generation
 
-	log.Printf("Updating the configuration status:\n%+v", config)
+	glog.Infof("Updating the configuration status:\n%+v", config)
 
 	if _, err = c.updateStatus(config); err != nil {
-		log.Printf("Failed to update the configuration %s", err)
+		glog.Errorf("Failed to update the configuration %s", err)
 		return err
 	}
 

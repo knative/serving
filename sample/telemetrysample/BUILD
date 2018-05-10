@@ -38,7 +38,7 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 k8s_object(
     name = "configuration",
     images = {
-        "telemetrysample:latest": ":image",
+        "github.com/elafros/elafros/sample/telemetrysample": ":image",
     },
     template = ":configuration.yaml",
 )

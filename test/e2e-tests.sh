@@ -26,43 +26,19 @@
 # project $PROJECT_ID, start elafros in it, run the tests and delete the
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
+source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
+
 # Test cluster parameters and location of generated test images
 readonly E2E_CLUSTER_NAME=ela-e2e-cluster
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly GKE_VERSION=v1.9.6-gke.1
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
-# Unique identifier for this test execution
-# uuidgen is not available in kubekins images
-readonly UUID=$(cat /proc/sys/kernel/random/uuid)
-
-# Useful environment variables
-[[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
-readonly IS_PROW
+# This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
-readonly ELAFROS_ROOT="$(dirname ${SCRIPT_CANONICAL_PATH})/.."
 
-# Save *_OVERRIDE variables in case a bazel cleanup if required.
-readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
-
-function header() {
-  echo "================================================="
-  echo $1
-  echo "================================================="
-}
-
-function cleanup_bazel() {
-  header "Cleaning up Bazel"
-  export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
-  # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-  bazel clean --expunge
-}
+# Helper functions.
 
 function teardown() {
   header "Tearing down test environment"
@@ -75,23 +51,10 @@ function teardown() {
   if (( IS_PROW )); then
     delete_elafros_images
   else
-    cleanup_bazel
+    restore_override_vars
+    # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
+    bazel clean --expunge
   fi
-}
-
-function wait_for_elafros() {
-  echo -n "Waiting for Elafros to come up"
-  for i in {1..150}; do  # timeout after 5 minutes
-    if [[ $(kubectl -n ela-system get pods | grep "Running" | wc -l) == 2 ]]; then
-      echo -e "\nElafros is up:"
-      kubectl -n ela-system get pods
-      return 0
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo -e "\n\nERROR: timeout waiting for Elafros to come up"
-  return 1
 }
 
 function delete_elafros_images() {
@@ -104,58 +67,47 @@ function delete_elafros_images() {
 
 function exit_if_failed() {
   [[ $? -eq 0 ]] && return 0
-  echo "*** TEST FAILED ***"
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***    Start of information dump    ***"
+  echo "***************************************"
+  if (( IS_PROW )) || [[ $PROJECT_ID != "" ]]; then
+    echo ">>> Project info:"
+    gcloud compute project-info describe
+  fi
+  echo ">>> All resources:"
+  kubectl get all --all-namespaces
+  echo ">>> Services:"
+  kubectl get services --all-namespaces
+  echo ">>> Events:"
+  kubectl get events --all-namespaces
+  echo ">>> Routes:"
+  kubectl get routes -o yaml --all-namespaces
+  echo ">>> Configurations:"
+  kubectl get configurations -o yaml --all-namespaces
+  echo ">>> Revisions:"
+  kubectl get revisions -o yaml --all-namespaces
+  echo ">>> Ingress:"
+  kubectl get ingress --all-namespaces
+  echo ">>> Elafros controller log:"
+  kubectl logs $(get_ela_pod ela-controller) -n ela-system
+  echo "***************************************"
+  echo "***           TEST FAILED           ***"
+  echo "***     End of information dump     ***"
+  echo "***************************************"
   exit 1
 }
 
-# End-to-end tests
-
-function run_conformance_tests() {
-  header "Running conformance tests"
-  echo -e "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: pizzaplanet" | kubectl create -f -
-  go test -v ./test/conformance -ginkgo.v -dockerrepo gcr.io/elafros-e2e-tests/ela-conformance-test
-}
-
-function run_hello_world() {
-  header "Running hello world"
-  bazel run //sample/helloworld:everything.create || return 1
-  echo "Route:"
-  kubectl get route -o yaml
-  echo "Configuration:"
-  kubectl get configurations -o yaml
-  echo "Revision:"
-  kubectl get revisions -o yaml
-  echo "Pods:"
-  kubectl get pods
-  local service_host=""
-  local service_ip=""
-  for i in {1..150}; do  # timeout after 5 minutes
-    echo "Waiting for Ingress to come up"
-    if [[ $(kubectl get ingress | grep example | wc -w) == 5 ]]; then
-      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
-      service_ip=$(kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
-      echo -e -n "Ingress is at $service_ip / $service_host"
-      break
-    fi
-    sleep 2
-  done
-  if [[ -z $service_ip || -z $service_host ]]; then
-    echo -e "\nERROR: timeout waiting for Ingress to come up"
-    return 1
-  fi
-  local output=$(curl --header "Host:$service_host" http://${service_ip})
-  local result=0
-  if [[ $output != "Hello World: shiniestnewestversion!" ]]; then
-    echo "ERROR: unexpected output [$output]"
-    result=1
-  fi
-  bazel run //sample/helloworld:everything.delete  # ignore errors
-  return $result
+function run_tests() {
+  header "Running tests in $1"
+  kubectl create namespace $2
+  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  exit_if_failed
 }
 
 # Script entry point.
 
-cd ${ELAFROS_ROOT}
+cd ${ELAFROS_ROOT_DIR}
 
 # Show help if bad arguments are passed.
 if [[ -n $1 && $1 != "--run-tests" ]]; then
@@ -196,7 +148,7 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "${GKE_VERSION}" \
+    --extract "${ELAFROS_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   result="$(cat ${TEST_RESULT_FILE})"
@@ -216,14 +168,7 @@ USING_EXISTING_CLUSTER=1
 if [[ -z ${K8S_CLUSTER_OVERRIDE} ]]; then
   USING_EXISTING_CLUSTER=0
   export K8S_CLUSTER_OVERRIDE=$(kubectl config current-context)
-  # Fresh new test cluster, set cluster-admin.
-  # Get the password of the admin and use it, as the service account (or the user)
-  # might not have the necessary permission.
-  passwd=$(gcloud container clusters describe ${E2E_CLUSTER_NAME} --zone=${E2E_CLUSTER_ZONE} | \
-    grep password | cut -d' ' -f4)
-  kubectl --username=admin --password=$passwd create clusterrolebinding cluster-admin-binding \
-    --clusterrole=cluster-admin \
-    --user=${K8S_USER_OVERRIDE}
+  acquire_cluster_admin_role ${K8S_USER_OVERRIDE} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_ZONE}
   # Make sure we're in the default namespace. Currently kubetest switches to
   # test-pods namespace when creating the cluster.
   kubectl config set-context $K8S_CLUSTER_OVERRIDE --namespace=default
@@ -237,12 +182,9 @@ readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
 # Build and start Elafros.
 
-echo "================================================="
-echo "* Cluster is ${K8S_CLUSTER_OVERRIDE}"
-echo "* User is ${K8S_USER_OVERRIDE}"
-echo "* Docker is ${DOCKER_REPO_OVERRIDE}"
-echo "*** Project info ***"
-gcloud compute project-info describe
+echo "- Cluster is ${K8S_CLUSTER_OVERRIDE}"
+echo "- User is ${K8S_USER_OVERRIDE}"
+echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
 header "Building and starting Elafros"
 trap teardown EXIT
@@ -254,28 +196,21 @@ if (( USING_EXISTING_CLUSTER )); then
   bazel run //:everything.delete  # ignore if not running
 fi
 if (( IS_PROW )); then
-  echo "Authenticating to GCR"
-  # kubekins-e2e images lack docker-credential-gcr, install it manually.
-  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
-  gcloud components install docker-credential-gcr
-  docker-credential-gcr configure-docker
-  echo "Successfully authenticated"
+  gcr_auth
 fi
 
 bazel run //:everything.apply
-wait_for_elafros
+wait_until_pods_running ela-system
 exit_if_failed
 
 # Enable Istio sidecar injection
-bazel run @istio_release//:webhook-create-signed-cert
+bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
 kubectl label namespace default istio-injection=enabled
 
 # Run the tests
 
-run_hello_world
-exit_if_failed
-run_conformance_tests
-exit_if_failed
+run_tests conformance pizzaplanet ela-conformance-test
+run_tests e2e noodleburg ela-e2e-test
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
@@ -283,5 +218,7 @@ exit_if_failed
 # failure in kubetest.
 # TODO(adrcunha): Get rid of this workaround.
 echo -n "0"> ${TEST_RESULT_FILE}
-echo "*** ALL TESTS PASSED ***"
+echo "**************************************"
+echo "***        ALL TESTS PASSED        ***"
+echo "**************************************"
 exit 0

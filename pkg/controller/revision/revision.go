@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/golang/glog"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +46,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
@@ -66,22 +69,14 @@ const (
 	queueHttpPortName string = "queue-http-port"
 
 	requestQueueContainerName string = "request-queue"
-	RequestQueuePortName      string = "queue-port"
-	RequestQueuePort                 = 8012
-	// Queue proxy admin port and paths provide health check and
-	// lifecycle hooks.
-	RequestQueueAdminPortName string = "queueadm-port"
-	RequestQueueAdminPort            = 8022
-	RequestQueueQuitPath             = "quitquitquit"
-	RequestQueueHealthPath           = "health"
 
 	controllerAgentName = "revision-controller"
+	autoscalerPort      = 8080
 
-	autoscalerPort = 8080
-
-	serviceTimeoutDuration = 5 * time.Minute
-
+	serviceTimeoutDuration       = 5 * time.Minute
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	// TODO (arvtiwar): this should be a config option.
+	progressDeadlineSeconds int32 = 120
 )
 
 var (
@@ -101,6 +96,10 @@ func printErr(err error) error {
 		log.Printf("Logging error: %s", err)
 	}
 	return err
+}
+
+type resolver interface {
+	Resolve(*appsv1.Deployment) error
 }
 
 // Controller implements the controller for Revision resources.
@@ -128,20 +127,44 @@ type Controller struct {
 
 	buildtracker *buildTracker
 
+	resolver resolver
+
 	// don't start the workers until endpoints cache have been synced
 	endpointsSynced cache.InformerSynced
 
-	// fluentdSidecarImage is the name of the image used for the fluentd sidecar injected into the revision pod
-	fluentdSidecarImage string
+	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
+	// collect logs under /var/log/.
+	enableVarLogCollection bool
 
-	// queueSidecarImage is the name of the image used for the queue sidecar injected into the revision pod
-	queueSidecarImage string
+	// controllerConfig includes the configurations for the controller
+	controllerConfig *ControllerConfig
+}
 
-	// autoscalerImage is the name of the image used for the autoscaler pod.
-	autoscalerImage string
+// ControllerConfig includes the configurations for the controller.
+type ControllerConfig struct {
+	// Autoscale part
 
 	// see (elaconfig.yaml)
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
+	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
+	AutoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
+
+	// AutoscalerImage is the name of the image used for the autoscaler pod.
+	AutoscalerImage string
+
+	// QueueSidecarImage is the name of the image used for the queue sidecar
+	// injected into the revision pod
+	QueueSidecarImage string
+
+	// logging part
+
+	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
+	// collect logs under /var/log/.
+	EnableVarLogCollection bool
+
+	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
+	// injected into the revision pod. It is used only when enableVarLogCollection
+	// is true.
+	FluentdSidecarImage string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -155,17 +178,15 @@ func NewController(
 	elaclientset clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
+	buildInformerFactory buildinformers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
-	fluentdSidecarImage string,
-	queueSidecarImage string,
-	autoscalerImage string,
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) controller.Interface {
+	controllerConfig *ControllerConfig) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and
 	// Endpoint type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
 	// Create event broadcaster
 	glog.V(4).Info("Creating event broadcaster")
@@ -175,18 +196,16 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:                     kubeclientset,
-		elaclientset:                      elaclientset,
-		lister:                            informer.Lister(),
-		synced:                            informer.Informer().HasSynced,
-		endpointsSynced:                   endpointsInformer.Informer().HasSynced,
-		workqueue:                         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:                          recorder,
-		buildtracker:                      &buildTracker{builds: map[key]set{}},
-		fluentdSidecarImage:               fluentdSidecarImage,
-		queueSidecarImage:                 queueSidecarImage,
-		autoscalerImage:                   autoscalerImage,
-		autoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
+		kubeclientset:    kubeclientset,
+		elaclientset:     elaclientset,
+		lister:           informer.Lister(),
+		synced:           informer.Informer().HasSynced,
+		endpointsSynced:  endpointsInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
+		recorder:         recorder,
+		buildtracker:     &buildTracker{builds: map[key]set{}},
+		resolver:         &digestResolver{client: kubeclientset, transport: http.DefaultTransport},
+		controllerConfig: controllerConfig,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -199,7 +218,7 @@ func NewController(
 	})
 
 	// Obtain a reference to a shared index informer for the Build type.
-	buildInformer := elaInformerFactory.Build().V1alpha1().Builds()
+	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addBuildEvent,
 		UpdateFunc: controller.updateBuildEvent,
@@ -208,6 +227,11 @@ func NewController(
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addEndpointsEvent,
 		UpdateFunc: controller.updateEndpointsEvent,
+	})
+
+	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addDeploymentProgressEvent,
+		UpdateFunc: controller.updateDeploymentProgressEvent,
 	})
 
 	return controller
@@ -257,7 +281,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	glog.Info("Starting workers")
-	// Launch threadiness workers to process resources
+	// Launch workers to process Revision resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
@@ -313,7 +337,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return nil, controller.PromLabelValueInvalid
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Foo resource to be synced.
+		// Revision resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
 		}
@@ -353,7 +377,7 @@ func (c *Controller) enqueueRevision(obj interface{}) {
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Foo resource
+// converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
 //TODO(grantr): not generic
 func (c *Controller) syncHandler(key string) error {
@@ -382,15 +406,8 @@ func (c *Controller) syncHandler(key string) error {
 	if rev.Spec.BuildName != "" {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				rev.Status.SetCondition(
-					&v1alpha1.RevisionCondition{
-						Type:   v1alpha1.RevisionConditionBuildComplete,
-						Status: corev1.ConditionFalse,
-						Reason: "Building",
-					})
-				// Let this trigger a reconciliation loop.
-				if _, err := c.updateStatus(rev); err != nil {
-					glog.Errorf("Error recording the BuildComplete=False condition: %s", err)
+				if err := c.markRevisionBuilding(rev); err != nil {
+					glog.Errorf("Error recording the BuildSucceeded=Unknown condition: %s", err)
 					return err
 				}
 			}
@@ -423,15 +440,20 @@ func (c *Controller) reconcileWithImage(rev *v1alpha1.Revision, ns string) error
 // Checks whether the Revision knows whether the build is done.
 // TODO(mattmoor): Use a method on the Build type.
 func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
+	if rev.Spec.BuildName == "" {
+		return true, false
+	}
 	for _, cond := range rev.Status.Conditions {
-		if cond.Status != corev1.ConditionTrue {
+		if cond.Type != v1alpha1.RevisionConditionBuildSucceeded {
 			continue
 		}
-		switch cond.Type {
-		case v1alpha1.RevisionConditionBuildComplete:
+		switch cond.Status {
+		case corev1.ConditionTrue:
 			return true, false
-		case v1alpha1.RevisionConditionBuildFailed:
+		case corev1.ConditionFalse:
 			return true, true
+		case corev1.ConditionUnknown:
+			return false, false
 		}
 	}
 	return false, false
@@ -451,14 +473,41 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 
 func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 	glog.Infof("Marking Revision %q failed", rev.Name)
-	rev.Status.RemoveCondition(v1alpha1.RevisionConditionReady)
+	reason, message := "ServiceTimeout", "Timed out waiting for a service endpoint to become ready"
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionFailed,
-			Status:  corev1.ConditionTrue,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
+			Type:    v1alpha1.RevisionConditionResourcesAvailable,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
 		})
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:    v1alpha1.RevisionConditionReady,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
+		})
+	_, err := c.updateStatus(rev)
+	return err
+}
+
+func (c *Controller) markRevisionBuilding(rev *v1alpha1.Revision) error {
+	reason := "Building"
+	glog.Infof("Marking Revision %q %s", rev.Name, reason)
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionBuildSucceeded,
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
+		})
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
+		})
+	// Let this trigger a reconciliation loop.
 	_, err := c.updateStatus(rev)
 	return err
 }
@@ -466,19 +515,24 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
 	switch bc.Type {
 	case buildv1alpha1.BuildComplete:
-		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildFailed)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
-				Type:   v1alpha1.RevisionConditionBuildComplete,
+				Type:   v1alpha1.RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			})
 		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
-		rev.Status.RemoveCondition(v1alpha1.RevisionConditionBuildComplete)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionBuildFailed,
-				Status:  corev1.ConditionTrue,
+				Type:    v1alpha1.RevisionConditionBuildSucceeded,
+				Status:  corev1.ConditionFalse,
+				Reason:  bc.Reason,
+				Message: bc.Message,
+			})
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionReady,
+				Status:  corev1.ConditionFalse,
 				Reason:  bc.Reason,
 				Message: bc.Message,
 			})
@@ -519,6 +573,23 @@ func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
 	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
 }
 
+func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.DeploymentCondition {
+
+	//as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
+	for _, cond := range deployment.Status.Conditions {
+		// Look for Deployment with status False
+		if cond.Status != corev1.ConditionFalse {
+			continue
+		}
+		// with Type Progressing and Reason Timeout
+		// TODO (arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
+		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
+			return &cond
+		}
+	}
+	return nil
+}
+
 func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
@@ -546,6 +617,45 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 
 func (c *Controller) updateBuildEvent(old, new interface{}) {
 	c.addBuildEvent(new)
+}
+
+func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
+	deployment := obj.(*appsv1.Deployment)
+	cond := getDeploymentProgressCondition(deployment)
+
+	if cond == nil {
+		return
+	}
+
+	//Get the handle of Revision in context
+	revName := deployment.Name
+	namespace := deployment.Namespace
+
+	rev, err := c.lister.Revisions(namespace).Get(revName)
+	if err != nil {
+		glog.Errorf("Error fetching revision '%s/%s': %v", namespace, revName, err)
+		return
+	}
+	//Set the revision condition reason to ProgressDeadlineExceeded
+	rev.Status.SetCondition(
+		&v1alpha1.RevisionCondition{
+			Type:    v1alpha1.RevisionConditionReady,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ProgressDeadlineExceeded",
+			Message: fmt.Sprintf("Unable to create pods for more than %d seconds.", progressDeadlineSeconds),
+		})
+
+	glog.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
+	if _, err := c.updateStatus(rev); err != nil {
+		glog.Errorf("Error recording revision completion: %s", err)
+		return
+	}
+	c.recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout", revName)
+	return
+}
+
+func (c *Controller) updateDeploymentProgressEvent(old, new interface{}) {
+	c.addDeploymentProgressEvent(new)
 }
 
 func (c *Controller) addEndpointsEvent(obj interface{}) {
@@ -682,8 +792,10 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 	if err := c.reconcileAutoscalerService(rev); err != nil {
 		log.Printf("Failed to create autoscaler Service: %s", err)
 	}
-	if err := c.reconcileFluentdConfigMap(rev); err != nil {
-		log.Printf("Failed to create fluent config map: %s", err)
+	if c.controllerConfig.EnableVarLogCollection {
+		if err := c.reconcileFluentdConfigMap(rev); err != nil {
+			log.Printf("Failed to create fluent config map: %s", err)
+		}
 	}
 
 	// Create k8s service
@@ -702,13 +814,26 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 		return nil
 	}
 
+	// Checking existing revision condition to see if it is the initial deployment or
+	// during the reactivating process. If a revision is in condition "Inactive" or "Activating",
+	// we need to route traffic to the activator; if a revision is in condition "Deploying",
+	// we need to route traffic to the revision directly.
+	reason := "Deploying"
+	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	if cond != nil {
+		if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+			(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+			reason = "Activating"
+		}
+	}
+
 	// By updating our deployment status we will trigger a Reconcile()
 	// that will watch for service to become ready for serving traffic.
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
 			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Deploying",
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
 		})
 	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
@@ -721,7 +846,7 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 
 func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 	deploymentName := controller.GetRevisionDeploymentName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.AppsV1().Deployments(ns)
 	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -739,9 +864,7 @@ func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 }
 
 func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) error {
-	//TODO(grantr): migrate this to AppsV1 when it goes GA. See
-	// https://kubernetes.io/docs/reference/workloads-18-19.
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(ns)
+	dc := c.kubeclientset.AppsV1().Deployments(ns)
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
@@ -752,6 +875,8 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 		}
 		log.Printf("Deployment %q doesn't exist, creating", deploymentName)
 	} else {
+		// TODO(mattmoor): Compare the deployments and update if it has changed
+		// out from under us.
 		log.Printf("Found existing deployment %q", deploymentName)
 		return nil
 	}
@@ -760,13 +885,43 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.fluentdSidecarImage, c.queueSidecarImage, c.autoscaleConcurrencyQuantumOfTime)
+	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
+
 	deployment.Spec.Template.Spec = *podSpec
+
+	// Resolve tag image references to digests.
+	if err := c.resolver.Resolve(deployment); err != nil {
+		glog.Errorf("Error resolving deployment: %v", err)
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionContainerHealthy,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ContainerMissing",
+				Message: err.Error(),
+			})
+		rev.Status.SetCondition(
+			&v1alpha1.RevisionCondition{
+				Type:    v1alpha1.RevisionConditionReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ContainerMissing",
+				Message: err.Error(),
+			})
+		if _, err := c.updateStatus(rev); err != nil {
+			log.Printf("Error recording resolution problem: %s", err)
+			return err
+		}
+		return err
+	}
+
+	// Set the ProgressDeadlineSeconds
+	deployment.Spec.ProgressDeadlineSeconds = new(int32)
+	*deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
 
 	log.Printf("Creating Deployment: %q", deployment.Name)
 	_, createErr := dc.Create(deployment)
+
 	return createErr
 }
 
@@ -877,7 +1032,7 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 
 func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
+	dc := c.kubeclientset.AppsV1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -896,7 +1051,7 @@ func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 
 func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.ExtensionsV1beta1().Deployments(AutoscalerNamespace)
+	dc := c.kubeclientset.AppsV1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -910,7 +1065,7 @@ func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error
 	}
 
 	controllerRef := controller.NewRevisionControllerRef(rev)
-	deployment := MakeElaAutoscalerDeployment(rev, c.autoscalerImage)
+	deployment := MakeElaAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	log.Printf("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)

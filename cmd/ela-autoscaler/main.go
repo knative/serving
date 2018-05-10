@@ -19,9 +19,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"flag"
+	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/stats/view"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	ela_autoscaler "github.com/elafros/elafros/pkg/autoscaler"
@@ -54,12 +58,20 @@ var (
 	kubeClient        *kubernetes.Clientset
 	statChan          = make(chan ela_autoscaler.Stat, statBufferSize)
 	scaleChan         = make(chan int32, scaleBufferSize)
+	statsReporter     ela_autoscaler.StatsReporter
 	elaNamespace      string
 	elaDeployment     string
+	elaConfig         string
 	elaRevision       string
 	elaAutoscalerPort string
 
-	enableScaleToZero = k8sflag.Bool("autoscale.enable-scale-to-zero", false, k8sflag.Dynamic)
+	// Revision-level configuration
+	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
+
+	// Cluster-level configuration
+	enableScaleToZero       = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	multiConcurrencyTarget  = k8sflag.Float64("autoscale.multi-concurrency-target", 0.0, k8sflag.Required)
+	singleConcurrencyTarget = k8sflag.Float64("autoscale.single-concurrency-target", 0.0, k8sflag.Required)
 )
 
 func init() {
@@ -75,8 +87,14 @@ func init() {
 	}
 	glog.Infof("ELA_DEPLOYMENT=%v", elaDeployment)
 
+	elaConfig = os.Getenv("ELA_CONFIGURATION")
+	if elaConfig == "" {
+		glog.Fatal("No ELA_CONFIGURATION provided.")
+	}
+	glog.Infof("ELA_CONFIGURATION=%v", elaConfig)
+
 	elaRevision = os.Getenv("ELA_REVISION")
-	if elaDeployment == "" {
+	if elaRevision == "" {
 		glog.Fatal("No ELA_REVISION provided.")
 	}
 	glog.Infof("ELA_REVISION=%v", elaRevision)
@@ -89,14 +107,23 @@ func init() {
 }
 
 func autoscaler() {
+	var targetConcurrency *k8sflag.Float64Flag
+	switch *concurrencyModel {
+	case string(v1alpha1.RevisionRequestConcurrencyModelSingle):
+		targetConcurrency = singleConcurrencyTarget
+	case string(v1alpha1.RevisionRequestConcurrencyModelMulti):
+		targetConcurrency = multiConcurrencyTarget
+	default:
+		log.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
+	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    k8sflag.Float64("autoscale.target-concurrency", 0.0, k8sflag.Required),
+		TargetConcurrency:    targetConcurrency,
 		MaxScaleUpRate:       k8sflag.Float64("autoscale.max-scale-up-rate", 0.0, k8sflag.Required),
 		StableWindow:         k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required),
 		PanicWindow:          k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required),
 		ScaleToZeroThreshold: k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic),
 	}
-	a := ela_autoscaler.NewAutoscaler(config)
+	a := ela_autoscaler.NewAutoscaler(config, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
 
 	for {
@@ -158,6 +185,10 @@ func scaleTo(podCount int32) {
 		deployment.Status.Replicas,
 		deployment.Status.AvailableReplicas,
 		deployment.Status.ReadyReplicas)
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
+	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (int64)(deployment.Status.Replicas))
+	statsReporter.Report(ela_autoscaler.ActualPodCountM, (int64)(deployment.Status.ReadyReplicas))
+
 	if *deployment.Spec.Replicas == podCount {
 		return
 	}
@@ -229,8 +260,25 @@ func main() {
 		glog.Fatal(err)
 	}
 	elaClient = ec
+
+	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "autoscaler"})
+	if err != nil {
+		glog.Fatal(err)
+	}
+	view.RegisterExporter(exporter)
+	view.SetReportingPeriod(1 * time.Second)
+
+	reporter, err := ela_autoscaler.NewStatsReporter(elaNamespace, elaConfig, elaRevision)
+	if err != nil {
+		glog.Fatal(err)
+	}
+	statsReporter = reporter
+
 	go autoscaler()
 	go scaleSerializer()
-	http.HandleFunc("/", handler)
-	http.ListenAndServe(":"+elaAutoscalerPort, nil)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler)
+	mux.Handle("/metrics", exporter)
+	http.ListenAndServe(":"+elaAutoscalerPort, mux)
 }

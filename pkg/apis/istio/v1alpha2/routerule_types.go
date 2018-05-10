@@ -49,6 +49,7 @@ type RouteRule struct {
 //      weight: 90
 //    - destination:
 //        name: revision-service-2
+//        namespace: revision-2-namespace
 //      weight: 10
 //  # https://github.com/istio/istio/blob/master/tests/helm/templates/rule-default-route-append-headers.yaml
 //    appendHeaders:
@@ -59,7 +60,9 @@ type DestinationWeight struct {
 }
 
 type IstioService struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Domain    string `json:"domain"`
 }
 
 type Match struct {

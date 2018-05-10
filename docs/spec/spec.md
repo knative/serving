@@ -1,3 +1,8 @@
+# Elafros API spec
+
+This file contains the [resource paths](#resource-paths) and [yaml
+schemas](#resource-yaml-definitions) that make up the Elafros API.
+
 ## Resource Paths
 
 Resource paths in the Elafros API have the following standard k8s form:
@@ -29,13 +34,13 @@ prod.my-service.default.mydomain.com
 ```
 
 
-# Resource YAML Definitions
+## Resource YAML Definitions
 
 YAMLs for the Elafros API resources are described below, describing the
 basic k8s structure: metadata, spec and status, along with comments on
 specific fields.
 
-## Route
+### Route
 
 For a high-level description of Routes,
 [see the overview](overview.md#route).
@@ -92,7 +97,7 @@ status:
 ```
 
 
-## Configuration
+### Configuration
 
 For a high-level description of Configurations,
 [see the overview](overview.md#configuration).
@@ -114,7 +119,7 @@ metadata:
   ...
 spec:
   # +optional. composable Build spec, if omitted provide image directly
-  build:  # This is a build.dev/v1alpha1.BuildTemplateSpec
+  build:  # This is a elafros.dev/v1alpha1.BuildTemplateSpec
     source:
       # oneof git|gcs|custom: 
       
@@ -176,14 +181,14 @@ spec:
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
 
-      # +optional concurrency strategy. SingleThreaded default value for functions
-      concurrencyModel: SingleThreaded
+      # +optional concurrency strategy.  Defaults to Multi.
+      concurrencyModel: ...
       # +optional. max time the instance is allowed for responding to a request
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as.
 
 status:
-  # the latest created and ready to serve. Watched by route
+  # the latest created and ready to serve. Watched by Route
   latestReadyRevisionName: abc
   # latest created revision, may still be in the process of being materialized
   latestCreatedRevisionName: def
@@ -196,7 +201,7 @@ status:
 ```
 
 
-## Revision
+### Revision
 
 For a high-level description of Revisions,
 [see the overview](overview.md#revision).
@@ -222,7 +227,7 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. name of the build.dev/v1alpha1.Build if built from source
+  # +optional. name of the elafros.dev/v1alpha1.Build if built from source
   buildName: ...
 
   container:  # corev1.Container
@@ -249,11 +254,10 @@ spec:
   # scaling to/from 0.
   servingState: Active | Reserve | Retired
 
-  # NYI: https://github.com/elafros/elafros/issues/456
   # Some function or server frameworks or application code may be written to
   # expect that each request will be granted a single-tenant process to run
   # (i.e. that the request code is run single-threaded).
-  concurrencyModel: ...
+  concurrencyModel: Single | Multi
 
   # NYI: https://github.com/elafros/elafros/issues/457
   # Many higher-level systems impose a per-request response deadline.
@@ -282,3 +286,94 @@ status:
 ```
 
 
+## Service
+
+For a high-level description of Services,
+[see the overview](overview.md#service).
+
+
+```yaml
+apiVersion: elafros.dev/v1alpha1
+kind: :
+metadata:
+  name: myservice
+  namespace: default
+  labels:
+    elafros.dev/type: "function"  # convention, one of "function" or "app"
+  # system generated meta
+  uid: ...
+  resourceVersion: ...  # used for optimistic concurrency control
+  creationTimestamp: ...
+  generation: ... 
+  selfLink: ...
+  ...
+
+# spec contains one of several possible rollout styles
+spec:  # One of "runLatest" or "pinned"
+  # Example, only one of runLatest or pinned can be set in practice.
+  runLatest:
+    configuration:  # elafros.dev/v1alpha1.Configuration
+      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+      buildName: ...
+
+      container:  # core.v1.Container
+        image: gcr.io/...
+        command: ['run']
+        args: []
+        env:  # list of environment vars
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+        - ...
+        livenessProbe: ...  # Optional
+        readinessProbe: ...  # Optional
+      concurrencyModel: ...
+      timeoutSeconds: ...
+      serviceAccountName: ...  # Name of the service account the code should run as
+  # Example, only one of runLatest or pinned can be set in practice.
+  pinned:
+    revisionName: myservice-00013  # Auto-generated revision name
+    configuration:  # elafros.dev/v1alpha1.Configuration
+      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+      buildName: ...
+
+      container:  # core.v1.Container
+        image: gcr.io/...
+        command: ['run']
+        args: []
+        env:  # list of environment vars
+        - name: FOO
+          value: bar
+        - name: HELLO
+          value: world
+        - ...
+        livenessProbe: ...  # Optional
+        readinessProbe: ...  # Optional
+      concurrencyModel: ...
+      timeoutSeconds: ...
+      serviceAccountName: ...  # Name of the service account the code should run as
+status:
+  # This information is copied from the owned Configuration and Route.
+
+  # The latest created and ready to serve Revision.
+  latestReadyRevisionName: abc
+  # Latest created Revision, may still be in the process of being materialized.
+  latestCreatedRevisionName: def
+
+  # domain: The hostname used to access the default (traffic-split)
+  #   route. Typically, this will be composed of the name and namespace
+  #   along with a cluster-specific prefix (here, mydomain.com).
+  domain: my-service.default.mydomain.com
+
+  conditions:  # See also the documentation in errors.md
+  - type: Ready
+    status: True
+    message: "Revision starting"
+  - type: LatestRevisionReady
+    status: False
+    reason: ContainerMissing
+    message: "Unable to start because container is missing and build failed."
+
+  observedGeneration: ...  # last generation being reconciled
+```

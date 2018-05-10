@@ -1,0 +1,13 @@
+name: "Build"
+description: "elafros/build is a CRD for performing on-cluster builds"
+
+third_party {
+  url {
+    type: GIT
+    value: "https://github.com/elafros/build"
+  }
+  last_upgrade_date { year: 2018 month: 5 day: 8 }
+  license_type: NOTICE
+}
+
+local_modifications: "Added BUILD files for K8s release."

@@ -68,6 +68,21 @@ const (
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
+// RevisionRequestConcurrencyModelType is an enumeration of the
+// concurrency models supported by a Revision.
+type RevisionRequestConcurrencyModelType string
+
+const (
+	// RevisionRequestConcurrencyModelSingle guarantees that only one
+	// request will be handled at a time (concurrently) per instance
+	// of Revision Container.
+	RevisionRequestConcurrencyModelSingle RevisionRequestConcurrencyModelType = "Single"
+	// RevisionRequestConcurencyModelMulti allows more than one request to
+	// be handled at a time (concurrently) per instance of Revision
+	// Container.
+	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -81,6 +96,11 @@ type RevisionSpec struct {
 	// Users must not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
 	ServingState RevisionServingStateType `json:"servingState"`
+
+	// ConcurrencyModel specifies the desired concurrency model
+	// (SingleConcurrency or MultiConcurrency) for the
+	// Revision. Defaults to MultiConcurrency.
+	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified
@@ -111,14 +131,14 @@ const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady RevisionConditionType = "Ready"
-	// RevisionConditionFailed is set when the revision readiness check exceeds 3.
-	RevisionConditionFailed RevisionConditionType = "Failed"
 	// RevisionConditionBuildComplete is set when the revision has an associated build
 	// and is marked True if/once the Build has completed succesfully.
-	RevisionConditionBuildComplete RevisionConditionType = "BuildComplete"
-	// RevisionConditionBuildFailed is set when the revision has an associated build
-	// that has failed for some reason.
-	RevisionConditionBuildFailed RevisionConditionType = "BuildFailed"
+	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
+	// RevisionConditionResourcesAvailable is set when underlying
+	// Kubernetes resources have been provisioned.
+	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
+	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
+	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -188,11 +208,13 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-// IsFailed looks at the conditions and if the Status has a condition
-// RevisionConditionFailed returns true if ConditionStatus is True
+// IsFailed looks to all non-Ready conditions; if any are false, then
+// this node is in a terminal failure state.
 func (rs *RevisionStatus) IsFailed() bool {
-	if c := rs.GetCondition(RevisionConditionFailed); c != nil {
-		return c.Status == corev1.ConditionTrue
+	for _, cond := range rs.Conditions {
+		if cond.Type != RevisionConditionReady && cond.Status == corev1.ConditionFalse {
+			return true
+		}
 	}
 	return false
 }

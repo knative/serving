@@ -6,8 +6,8 @@ go_library(
     importpath = "github.com/elafros/elafros/cmd/ela-queue",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/apis/ela/v1alpha1:go_default_library",
         "//pkg/autoscaler:go_default_library",
-        "//pkg/controller/revision:go_default_library",
         "//pkg/queue:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",

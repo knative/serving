@@ -1,0 +1,18 @@
+name: "Istio"
+description:
+    "Istio is an open platform to connect, manage, and secure microservices."
+
+third_party {
+  url {
+    type: URL
+    value: "//github.com/istio/istio/releases/download/0.6.0/istio-0.6.0-linux.tar.gz"
+  }
+  version: "0.6.0"
+  last_upgrade_date { year: 2018 month: 5 day: 8 }
+  license_type: NOTICE
+}
+
+local_modifications:
+    "Removed the bin subdirectory because binaries and DVCS don't mix. "
+    "Disable sidecar injection by default. "
+    "Add a pre-stop hook the istio proxy that sleeps for 20 seconds. "

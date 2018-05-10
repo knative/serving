@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "and_closer.go",
+        "nop.go",
+        "verify.go",
+        "zip.go",
+    ],
+    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/v1util",
+    importpath = "github.com/google/go-containerregistry/v1/v1util",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/google/go-containerregistry/v1:go_default_library"],
+)

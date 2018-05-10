@@ -157,3 +157,39 @@ When reporting a bug please include the following key pieces of information:
 *   The exact, minimal, steps needed to reproduce the issue. Submitting a 5 line
     script will get a much faster response from the team than one that's
     hundreds of lines long.
+
+## Third-party code
+* All third-party code must be placed in `vendor/` or `third_party/` folders.
+* `vendor/` folder is managed by [dep](https://github.com/golang/dep) and stores
+the source code of third-party Go dependencies. `vendor/` folder should not be 
+modified manually.
+* Other third-party code belongs in `third_party/` folder.
+* Third-party code must include licenses.
+
+A non-exclusive list of code that must be places in `vendor/` and `third_party/`:
+* Open source, free software, or commercially-licensed code.
+* Tools or libraries or protocols that are open source, free software, or commercially licensed.
+* Derivative works of third-party code.
+* Excerpts from third-party code.
+
+### Adding a new third-party dependency to `third_party/` folder
+* Create a sub-folder under `third_party/` for each component.
+* In each sub-folder, make sure there is a file called LICENSE which contains the appropriate
+ license text for the dependency. If one doesn't exist then create it. More details on this below.
+* Check in a pristine copy of the code with LICENSE and METADATA files. 
+ You do not have to include unused files, and you can move or rename files if necessary,
+ but do not modify the contents of any files yet.
+* Once the pristine copy is merged into master, you may modify the code.
+
+### LICENSE
+The license for the code must be in a file named LICENSE. If it was distributed like that,
+you're good. If not, you need to make LICENSE be a file containing the full text of the license. 
+If there's another file in the distribution with the license in it, rename it to LICENSE 
+(e.g., rename a LICENSE.txt or COPYING file to LICENSE). If the license is only available in 
+the comments or at a URL, extract and copy the text of the license into LICENSE.
+
+You may optionally document the generation of the LICENSE file in the local_modifications 
+field of the METADATA file.
+
+If there are multiple licenses for the code, put the text of all the licenses into LICENSE 
+along with separators and comments as to the applications.

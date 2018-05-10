@@ -7,6 +7,7 @@
   * [Configuration](./elafros-api-configuration.md)
   * [Revision](./elafros-api-revision.md)
   * [Route](./elafros-api-route.md)
+  * [Service](./elafros-api-service.md)
 * [Components](./elafros-components.md)
 * Code layout
   * [Resources](./elafros-code-layout-resources.md)

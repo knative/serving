@@ -16,11 +16,12 @@ sample app for Cloud Foundry.
 
 You can deploy this to Elafros from the root directory via:
 ```shell
-$ bazel run sample/buildpack-app:everything.create
-...
-buildtemplate "buildpack" created
-route "buildpack-sample-app" created
-configuration "buildpack-sample-app" created
+# Replace the token string with a suitable registry
+REPO="gcr.io/<your-project-here>"
+sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/buildpack-app/sample.yaml
+
+# Create the Kubernetes resources
+kubectl apply -f sample/templates/buildpack.yaml -f sample/buildpack-app/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:
@@ -69,5 +70,5 @@ $ curl --header "Host: $SERVICE_HOST" http://${SERVICE_IP}/
 To clean up the sample service:
 
 ```shell
-bazel run sample/buildpack-app:everything.delete
+kubectl delete -f sample/templates/buildpack.yaml -f sample/buildpack-app/sample.yaml
 ```

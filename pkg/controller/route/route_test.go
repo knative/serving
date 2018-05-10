@@ -41,6 +41,7 @@ import (
 	ctrl "github.com/elafros/elafros/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -52,9 +53,11 @@ import (
 	. "github.com/elafros/elafros/pkg/controller/testing"
 )
 
-const testNamespace string = "test"
-const defaultDomainSuffix string = "test-domain.dev"
-const prodDomainSuffix string = "prod-domain.com"
+const (
+	testNamespace       string = "test"
+	defaultDomainSuffix string = "test-domain.dev"
+	prodDomainSuffix    string = "prod-domain.com"
+)
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
@@ -160,6 +163,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 				},
 			},
 		},
+		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
 	).(*Controller)
 
 	return
@@ -311,6 +315,90 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// A configuration and associated revision. Normally the revision would be
+	// created by the configuration controller.
+	config := getTestConfiguration()
+	latestReadyRev := getTestRevisionForConfig(config)
+	otherRev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/p-livebeef",
+			Name:      "p-livebeef",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				ela.ConfigurationLabelKey: config.Name,
+			},
+		},
+		Spec: *config.Spec.RevisionTemplate.Spec.DeepCopy(),
+		Status: v1alpha1.RevisionStatus{
+			ServiceName: "p-livebeef-service",
+		},
+	}
+	config.Status.LatestReadyRevisionName = latestReadyRev.Name
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(latestReadyRev)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(otherRev)
+
+	// A route targeting both the config and standalone revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+			},
+		},
+	)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting routerule: %v", err)
+	}
+
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name: fmt.Sprintf("%s-service", route.Name),
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
+						),
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", latestReadyRev.Name),
+				},
+				Weight: 100,
+			},
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name: fmt.Sprintf("%s-service.test", otherRev.Name),
+				},
+				Weight: 0,
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
 	}
 }
 
@@ -741,7 +829,63 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	}
 }
 
-func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
+func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           100,
+			},
+		},
+	)
+
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	rev, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting revision: %v", err)
+	}
+
+	// Revision should not have route label as the revision is not marked as the Config's latest ready revision
+	expectedLabels := map[string]string{
+		ela.ConfigurationLabelKey: config.Name,
+	}
+
+	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+	}
+
+	// Mark the revision as the Config's latest ready revision
+	config.Status.LatestReadyRevisionName = rev.Name
+
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Update(config)
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting revision: %v", err)
+	}
+
+	// Revision should have the route label
+	expectedLabels = map[string]string{
+		ela.ConfigurationLabelKey: config.Name,
+		ela.RouteLabelKey:         route.Name,
+	}
+
+	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+	}
+}
+
+func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -769,7 +913,22 @@ func TestSetLabelToConfigurationIndirectlyConfigured(t *testing.T) {
 	// Configuration should be labeled for this route
 	expectedLabels := map[string]string{ela.RouteLabelKey: route.Name}
 	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		t.Errorf("Unexpected label in configuration diff (-want +got): %v", diff)
+	}
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting revision: %v", err)
+	}
+
+	// Revision should have the route label
+	expectedLabels = map[string]string{
+		ela.ConfigurationLabelKey: config.Name,
+		ela.RouteLabelKey:         route.Name,
+	}
+
+	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
+		t.Errorf("Unexpected label in revision diff (-want +got): %v", diff)
 	}
 }
 
@@ -818,7 +977,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	}
 }
 
-func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
+func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -834,13 +993,17 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 	// by function setLabelForGivenConfigurations.
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
 
+	// Set revision's route label with route name to make sure revision's label will not be set
+	// by function setLabelForGivenRevisions.
+	rev.Labels[ela.RouteLabelKey] = route.Name
+
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
 	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	// No configuration updates
+	// Assert that the configuration is not updated when updateRouteEvent is called.
 	elaClient.Fake.PrependReactor("update", "configurations",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Configuration was updated unexpectedly")
@@ -848,16 +1011,26 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 		},
 	)
 
+	// Assert that the revision is not updated when updateRouteEvent is called.
+	elaClient.Fake.PrependReactor("update", "revision",
+		func(a kubetesting.Action) (bool, runtime.Object, error) {
+			t.Error("Revision was updated unexpectedly")
+			return true, nil, nil
+		},
+	)
+
 	controller.updateRouteEvent(route.Namespace + "/" + route.Name)
 }
 
-func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
+func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
-	// Set a label which is expected to be deleted.
+	// Set a route label in configuration which is expected to be deleted.
 	config.Labels = map[string]string{ela.RouteLabelKey: route.Name}
 	rev := getTestRevisionForConfig(config)
+	// Set a route label in revision which is expected to be deleted.
+	rev.Labels[ela.RouteLabelKey] = route.Name
 
 	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
@@ -871,11 +1044,26 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 		t.Fatalf("error getting config: %v", err)
 	}
 
-	// Check labels, should be empty.
+	// Check labels in configuration, should be empty.
 	expectedLabels := map[string]string{}
 	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+		t.Errorf("Unexpected label in Configuration diff (-want +got): %v", diff)
 	}
+
+	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting revision: %v", err)
+	}
+
+	expectedLabels = map[string]string{
+		ela.ConfigurationLabelKey: config.Name,
+	}
+
+	// Check labels in revision, should be empty.
+	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
+		t.Errorf("Unexpected label in revision diff (-want +got): %v", diff)
+	}
+
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
@@ -1043,6 +1231,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	controller.addConfigurationEvent(config)
 }
 
+// Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	kubeClient, elaClient, controller, _, _ := newTestController(t)
 

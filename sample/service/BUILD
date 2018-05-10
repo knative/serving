@@ -26,15 +26,15 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 k8s_object(
     name = "service",
     images = {
-        "sample:latest": ":image",
+        "github.com/elafros/elafros/sample/service": ":image",
     },
-    template = ":service.yaml",
+    template = ":sample.yaml",
 )
 
 k8s_object(
     name = "updated_service",
     images = {
-        "sample:latest": ":image",
+        "github.com/elafros/elafros/sample/service": ":image",
     },
     template = ":updated_service.yaml",
 )
@@ -42,7 +42,7 @@ k8s_object(
 k8s_object(
     name = "pinned_service",
     images = {
-        "sample:latest": ":image",
+        "github.com/elafros/elafros/sample/service": ":image",
     },
     template = ":pinned_service.yaml",
 )

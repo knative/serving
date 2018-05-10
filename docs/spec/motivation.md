@@ -1,3 +1,5 @@
+# Motivation
+
 The goal of the Elafros project is to provide a common toolkit and API
 framework for serverless workloads.
 

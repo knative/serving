@@ -6,6 +6,12 @@ spec:
   parameters:
   - name: IMAGE
     description: The name of the image to push
+  - name: BUILDPACK_ORDER
+    description: A comma separated list of names or URLs for the buildpacks to use. Each buildpack is applied in order.
+    default: ""
+  - name: SKIP_DETECT
+    description: By default, the first buildpack to match is used. If true, detection is skipped and each buildpack contributes in order.
+    default: "false"
   - name: DIRECTORY
     description: The directory containing the app
     default: /workspace
@@ -19,8 +25,8 @@ spec:
   # Out: a build cache in /cache
   - name: build
     image: packs/cf:build
+    args: ["-skipDetect=${SKIP_DETECT}", "-buildpackOrder=${BUILDPACK_ORDER}"]
     workingdir: "${DIRECTORY}"
-    env:
     volumeMounts:
     - name: droplet
       mountPath: /out
@@ -30,24 +36,18 @@ spec:
   # In: a CF app droplet in /in
   # Out: an image published as $IMAGE
   - name: export
-    image: packs/cf:export-gcr
+    image: packs/cf:export
     workingdir: /in
     args: ["${IMAGE}"]
     env:
-    - name: DOCKER_CONFIG
-      value: /root/.docker
+    - name: PACK_REGISTRY_GCR
+      value: "true"
     volumeMounts:
     - name: droplet
       mountPath: /in
-    - name: docker-socket
-      mountPath: /var/run/docker.sock
 
   volumes:
   - name: droplet
     emptyDir: {}
   - name: app-cache
     emptyDir: {}
-  - name: docker-socket
-    hostPath:
-      path: /var/run/docker.sock
-      type: Socket

@@ -259,6 +259,12 @@ type linearSeries struct {
 	podCount         int
 }
 
+type mockReporter struct{}
+
+func (r *mockReporter) Report(m Measurement, v int64) error {
+	return nil
+}
+
 func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
 	stableWindow := 60 * time.Second
 	panicWindow := 6 * time.Second
@@ -270,7 +276,7 @@ func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
 		PanicWindow:          k8sflag.Duration("panic-window", &panicWindow),
 		ScaleToZeroThreshold: k8sflag.Duration("scale-to-zero-threshold", &scaleToZeroThreshold),
 	}
-	return NewAutoscaler(config)
+	return NewAutoscaler(config, &mockReporter{})
 }
 
 // Record a data point every second, for every pod, for duration of the

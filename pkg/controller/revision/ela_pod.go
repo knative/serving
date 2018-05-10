@@ -22,10 +22,10 @@ import (
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/elafros/elafros/pkg/queue"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -54,23 +54,11 @@ func hasHttpPath(p *corev1.Probe) bool {
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(
 	rev *v1alpha1.Revision,
-	fluentdSidecarImage,
-	queueSidecarImage string,
-	autoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag) *corev1.PodSpec {
+	controllerConfig *ControllerConfig) *corev1.PodSpec {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-	fluentdConfigMapVolume := corev1.Volume{
-		Name: fluentdConfigMapVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "fluentd-varlog-config",
-				},
-			},
 		},
 	}
 
@@ -106,8 +94,8 @@ func MakeElaPodSpec(
 	elaContainer.Lifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(RequestQueueAdminPort),
-				Path: RequestQueueQuitPath,
+				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Path: queue.RequestQueueQuitPath,
 			},
 		},
 	}
@@ -118,61 +106,12 @@ func MakeElaPodSpec(
 	// TODO(tcnghia): Fail validation webhook when users specify their
 	// own port in readiness checks.
 	if hasHttpPath(elaContainer.ReadinessProbe) {
-		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(RequestQueuePort)
+		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
-	fluentdContainer := corev1.Container{
-		Name:  fluentdContainerName,
-		Image: fluentdSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
-			},
-		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "FLUENTD_ARGS",
-				Value: "--no-supervisor -q",
-			},
-			{
-				Name:  "ELA_CONTAINER_NAME",
-				Value: elaContainerName,
-			},
-			{
-				Name:  "ELA_CONFIGURATION",
-				Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
-			},
-			{
-				Name:  "ELA_REVISION",
-				Value: rev.Name,
-			},
-			{
-				Name:  "ELA_NAMESPACE",
-				Value: rev.Namespace,
-			},
-			{
-				Name: "ELA_POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
-				},
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      varLogVolumeName,
-				MountPath: "/var/log/revisions",
-			},
-			{
-				Name:      fluentdConfigMapVolumeName,
-				MountPath: "/etc/fluent/config.d",
-			},
-		},
-	}
 	queueContainer := corev1.Container{
 		Name:  queueContainerName,
-		Image: queueSidecarImage,
+		Image: controllerConfig.QueueSidecarImage,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCPU),
@@ -180,13 +119,13 @@ func MakeElaPodSpec(
 		},
 		Ports: []corev1.ContainerPort{
 			{
-				Name:          RequestQueuePortName,
-				ContainerPort: int32(RequestQueuePort),
+				Name:          queue.RequestQueuePortName,
+				ContainerPort: int32(queue.RequestQueuePort),
 			},
 			// Provides health checks and lifecycle hooks.
 			{
-				Name:          RequestQueueAdminPortName,
-				ContainerPort: int32(RequestQueueAdminPort),
+				Name:          queue.RequestQueueAdminPortName,
+				ContainerPort: int32(queue.RequestQueueAdminPort),
 			},
 		},
 		// This handler (1) marks the service as not ready and (2)
@@ -194,16 +133,16 @@ func MakeElaPodSpec(
 		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(RequestQueueAdminPort),
-					Path: RequestQueueQuitPath,
+					Port: intstr.FromInt(queue.RequestQueueAdminPort),
+					Path: queue.RequestQueueQuitPath,
 				},
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(RequestQueueAdminPort),
-					Path: RequestQueueHealthPath,
+					Port: intstr.FromInt(queue.RequestQueueAdminPort),
+					Path: queue.RequestQueueHealthPath,
 				},
 			},
 			// We want to mark the service as not ready as soon as the
@@ -215,7 +154,7 @@ func MakeElaPodSpec(
 		Args: []string{
 			"-logtostderr=true",
 			"-stderrthreshold=INFO",
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -244,16 +183,86 @@ func MakeElaPodSpec(
 			},
 		},
 	}
-	return &corev1.PodSpec{
-		Containers:         []corev1.Container{*elaContainer, fluentdContainer, queueContainer},
-		Volumes:            []corev1.Volume{varLogVolume, fluentdConfigMapVolume},
+
+	podSpe := &corev1.PodSpec{
+		Containers:         []corev1.Container{*elaContainer, queueContainer},
+		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
+
+	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
+	if controllerConfig.EnableVarLogCollection {
+		fluentdConfigMapVolume := corev1.Volume{
+			Name: fluentdConfigMapVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "fluentd-varlog-config",
+					},
+				},
+			},
+		}
+
+		fluentdContainer := corev1.Container{
+			Name:  fluentdContainerName,
+			Image: controllerConfig.FluentdSidecarImage,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "FLUENTD_ARGS",
+					Value: "--no-supervisor -q",
+				},
+				{
+					Name:  "ELA_CONTAINER_NAME",
+					Value: elaContainerName,
+				},
+				{
+					Name:  "ELA_CONFIGURATION",
+					Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+				},
+				{
+					Name:  "ELA_REVISION",
+					Value: rev.Name,
+				},
+				{
+					Name:  "ELA_NAMESPACE",
+					Value: rev.Namespace,
+				},
+				{
+					Name: "ELA_POD_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.name",
+						},
+					},
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      varLogVolumeName,
+					MountPath: "/var/log/revisions",
+				},
+				{
+					Name:      fluentdConfigMapVolumeName,
+					MountPath: "/etc/fluent/config.d",
+				},
+			},
+		}
+
+		podSpe.Containers = append(podSpe.Containers, fluentdContainer)
+		podSpe.Volumes = append(podSpe.Volumes, fluentdConfigMapVolume)
+	}
+
+	return podSpe
 }
 
 // MakeElaDeployment creates a deployment.
-func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployment {
-	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
+func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deployment {
+	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
 	}
@@ -261,16 +270,17 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *v1beta1.Deployme
 	podTemplateAnnotations := MakeElaResourceAnnotations(u)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
-	return &v1beta1.Deployment{
+	return &appsv1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionDeploymentName(u),
 			Namespace:   namespace,
 			Labels:      MakeElaResourceLabels(u),
 			Annotations: MakeElaResourceAnnotations(u),
 		},
-		Spec: v1beta1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
-			Strategy: v1beta1.DeploymentStrategy{
+			Selector: MakeElaResourceSelector(u),
+			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},

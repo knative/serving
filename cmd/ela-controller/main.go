@@ -32,6 +32,8 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
+	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	"github.com/elafros/elafros/pkg/controller/configuration"
@@ -50,22 +52,28 @@ const (
 )
 
 var (
-	masterURL           string
-	kubeconfig          string
-	fluentdSidecarImage string
-	queueSidecarImage   string
-	autoscalerImage     string
+	masterURL         string
+	kubeconfig        string
+	queueSidecarImage string
+	autoscalerImage   string
 
 	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
+	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	autoscaleEnableSingleConcurrency  = k8sflag.Bool("autoscale.enable-single-concurrency", false)
+
+	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
+	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
 )
 
 func main() {
 	flag.Parse()
 
-	if len(fluentdSidecarImage) != 0 {
-		glog.Infof("Using fluentd sidecar image: %s", fluentdSidecarImage)
-	} else {
-		glog.Fatal("missing required flag: -fluentdSidecarImage")
+	if loggingEnableVarLogCollection.Get() {
+		if len(loggingFluentSidecarImage.Get()) != 0 {
+			glog.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
+		} else {
+			glog.Fatal("missing required flag: -fluentdSidecarImage")
+		}
 	}
 
 	if len(queueSidecarImage) != 0 {
@@ -97,25 +105,42 @@ func main() {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
 
+	buildClient, err := buildclientset.NewForConfig(cfg)
+	if err != nil {
+		glog.Fatalf("Error building build clientset: %v", err)
+	}
+
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
+	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 
 	controllerConfig, err := controller.NewConfig(kubeClient)
 	if err != nil {
 		glog.Fatalf("Error loading controller config: %v", err)
 	}
 
+	revControllerConfig := revision.ControllerConfig{
+		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
+		AutoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
+		AutoscalerImage:                   autoscalerImage,
+		QueueSidecarImage:                 queueSidecarImage,
+
+		EnableVarLogCollection: loggingEnableVarLogCollection.Get(),
+		FluentdSidecarImage:    loggingFluentSidecarImage.Get(),
+	}
+
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, fluentdSidecarImage, queueSidecarImage, autoscalerImage, autoscaleConcurrencyQuantumOfTime),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
 
 	go kubeInformerFactory.Start(stopCh)
 	go elaInformerFactory.Start(stopCh)
+	go buildInformerFactory.Start(stopCh)
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {
@@ -160,7 +185,6 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&fluentdSidecarImage, "fluentdSidecarImage", "", "The digest of the fluentd sidecar image.")
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
 }
