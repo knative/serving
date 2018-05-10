@@ -2,6 +2,7 @@ package activator
 
 import (
 	"testing"
+	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
@@ -91,6 +92,57 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateRetired {
 		t.Errorf("Unexpected serving state. Want Retired. Got %v.", rev.Spec.ServingState)
 	}
+}
+
+func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
+	k8s, ela := fakeClients()
+	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder().
+			withServingState(v1alpha1.RevisionServingStateReserve).
+			withReady(false).
+			build())
+	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
+	a := NewRevisionActivator(k8s, ela)
+
+	ch := make(chan activationResult)
+	go func() {
+		endpoint, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+		ch <- activationResult{endpoint, status, err}
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-ch:
+		t.Errorf("Unexpected result before revision is ready.")
+	default:
+	}
+
+	rev, _ := ela.ElafrosV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.SetCondition(&v1alpha1.RevisionCondition{
+		Type:   v1alpha1.RevisionConditionReady,
+		Status: corev1.ConditionTrue,
+	})
+
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case result := <-ch:
+		want := Endpoint{"ip", 8080}
+		if result.endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
+		}
+		if result.status != Status(0) {
+			t.Errorf("Unexpected error state. Want 0. Got %v.", result.status)
+		}
+		if result.err != nil {
+			t.Errorf("Unexpected error. Want nil. Got %v.", result.err)
+		}
+	default:
+		t.Errorf("Expected result after revision ready.")
+	}
+}
+
+func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
+
 }
 
 func fakeClients() (kubernetes.Interface, clientset.Interface) {
