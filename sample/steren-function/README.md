@@ -7,8 +7,7 @@ This is based on the source code available from: github.com/steren/sample-functi
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
 
 ## Running
 

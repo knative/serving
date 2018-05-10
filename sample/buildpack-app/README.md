@@ -8,9 +8,7 @@ sample app for Cloud Foundry.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
-3. Enable the Google Cloud Datastore API.
+[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
 
 ## Running
 

@@ -7,9 +7,8 @@ This is based on the source code available from: github.com/steren/sample-app
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
-3. Enable the Google Cloud Datastore API.
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Enable the Google Cloud Datastore API.
 
 ## Running
 
