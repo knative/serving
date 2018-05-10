@@ -28,8 +28,8 @@ should follow these patterns:
 2. Where it makes sense, resources should define a top-level "happy
    state" condition type which indicates that the resource is set up
    correctly and ready to serve. For long-running resources, this
-   should be named `Ready`. For objects which run to completion, the
-   object should be named `Succeeded`.
+   condition type should be `Ready`. For objects which run to completion,
+   the condition type should be `Succeeded`.
 3. Each condition's status should be one of:
    * `Unknown` when the controller is actively working to achieve the
      condition.
