@@ -215,6 +215,8 @@ metadata:
   labels:
     elafros.dev/configuration: ...  # to list configurations/revisions by service
     elafros.dev/type: "function"  # convention, one of "function" or "app"
+    elafros.dev/revision: ... # generated revision name
+    elafros.dev/revisionUID: ... # generated revision UID
   annotations:
     elafros.dev/configurationGeneration: ...  # generation of configuration that created this Revision
   # system generated meta
