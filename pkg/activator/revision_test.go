@@ -122,6 +122,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 	})
+	ela.ElafrosV1alpha1().Revisions(testNamespace).Update(rev)
 
 	time.Sleep(100 * time.Millisecond)
 	select {
