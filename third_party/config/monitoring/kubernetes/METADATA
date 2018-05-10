@@ -15,3 +15,5 @@ third_party {
 
 local_modifications:
     "YAML files in node-exporter are modified to work in Elafros."
+    "File names are prefixed with a number to enforce the "
+    "installation order in kubectl."

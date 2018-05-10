@@ -18,37 +18,37 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
     name = "cluster-role-binding",
-    template = "kube-state-metrics-cluster-role-binding.yaml",
+    template = "203-kube-state-metrics-cluster-role-binding.yaml",
 )
 
 k8s_object(
     name = "cluster-role",
-    template = "kube-state-metrics-cluster-role.yaml",
+    template = "202-kube-state-metrics-cluster-role.yaml",
 )
 
 k8s_object(
     name = "deployment",
-    template = "kube-state-metrics-deployment.yaml",
+    template = "300-kube-state-metrics-deployment.yaml",
 )
 
 k8s_object(
     name = "role-binding",
-    template = "kube-state-metrics-role-binding.yaml",
+    template = "201-kube-state-metrics-role-binding.yaml",
 )
 
 k8s_object(
     name = "role",
-    template = "kube-state-metrics-role.yaml",
+    template = "200-kube-state-metrics-role.yaml",
 )
 
 k8s_object(
     name = "service-account",
-    template = "kube-state-metrics-service-account.yaml",
+    template = "100-kube-state-metrics-service-account.yaml",
 )
 
 k8s_object(
     name = "service",
-    template = "kube-state-metrics-service.yaml",
+    template = "300-kube-state-metrics-service.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")

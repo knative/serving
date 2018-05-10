@@ -127,13 +127,34 @@ page to ensure that all services are up and running (and not blocked by a quota 
 ## Enable log and metric collection
 You can use two different setups for collecting logs and metrics:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+
+To install using bazel, run:
+
 ```shell
 bazel run config/monitoring:everything.apply
+```
+
+To install using kubectl, run:
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/300-prod \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
 ```shell
 bazel run config/monitoring:everything-dev.apply
+```
+
+To install using kubectl, run:
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/300-dev \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
