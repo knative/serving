@@ -9,12 +9,25 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
 2. [Start Elafros](../../README.md#start-elafros)
 
-## Running
+## Setup
 
-You can deploy this to Elafros from the root directory via:
+Build the app container and publish it to your registry of choice:
+
 ```shell
-bazel run sample/helloworld:everything.apply
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build -t "${REPO}/sample/helloworld" --file=sample/helloworld/Dockerfile .
+docker push "${REPO}/sample/helloworld"
+
+# Replace the image reference with our published image.
+sed -i "s@github.com/elafros/elafros/sample/helloworld@${REPO}/sample/helloworld@g" sample/helloworld/*.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/helloworld/sample.yaml
 ```
+
+## Exploring
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
@@ -74,7 +87,7 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 
 You can update this to a new version. For example, update it with a new configuration.yaml via:
 ```shell
-bazel run sample/helloworld:updated_everything.apply
+kubectl apply -f sample/helloworld/updated_configuration.yaml
 ```
 
 Once deployed, traffic will shift to the new revision automatically. You can verify the new version
@@ -114,7 +127,7 @@ traffic:
 
 Then update your change via:
 ```shell
-bazel run sample/helloworld:everything.apply
+kubectl apply -f sample/helloworld/sample.yaml
 ```
 
 Once updated, you can verify the traffic splitting by looking at route status and/or curling
@@ -125,5 +138,5 @@ the service.
 To clean up the sample service:
 
 ```shell
-bazel run sample/helloworld:everything.delete
+kubectl delete -f sample/helloworld/sample.yaml
 ```

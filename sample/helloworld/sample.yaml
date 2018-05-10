@@ -21,3 +21,28 @@ spec:
   traffic:
   - configurationName: configuration-example
     percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: configuration-example
+  namespace: default
+spec:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: app
+    spec:
+      container:
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/elafros/elafros/sample/helloworld
+        env:
+          - name: TARGET
+            value: shiniestnewestversion
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
