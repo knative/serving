@@ -29,7 +29,8 @@
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_NAME=ela-e2e-cluster
+readonly E2E_CLUSTER_NAME=ela-e2e-cluster${BUILD_NUMBER}
+readonly E2E_NETWORK_NAME=ela-e2e-net${BUILD_NUMBER}
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
@@ -128,7 +129,7 @@ if [[ -z $1 ]]; then
     --gcp-node-image=cos
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
-    --gcp-network=ela-e2e-net
+    --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
   if (( ! IS_PROW )); then
@@ -148,7 +149,7 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "${ELAFROS_GKE_VERSION}" \
+    --extract "v${ELAFROS_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   result="$(cat ${TEST_RESULT_FILE})"
