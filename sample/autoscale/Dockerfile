@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+FROM golang
 
-apiVersion: elafros.dev/v1alpha1
-kind: Route
-metadata:
-  name: autoscale-route
-  namespace: default
-spec:
-  traffic:
-  - configurationName: autoscale-configuration
-    percent: 100
+ENV SRC_DIR=/go/src/github.com/elafros/elafros
+
+WORKDIR $SRC_DIR
+ADD . $SRC_DIR
+
+RUN go build ./sample/autoscale
+
+ENTRYPOINT $SRC_DIR/autoscale
