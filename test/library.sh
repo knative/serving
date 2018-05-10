@@ -19,10 +19,10 @@
 # called from command line.
 
 # Default GKE version to be used with Elafros
-readonly ELAFROS_GKE_VERSION=v1.9.6-gke.1
+readonly ELAFROS_GKE_VERSION=1.9.6-gke.1
 
 # Useful environment variables
-[[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
+[[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly ELAFROS_ROOT_DIR="$(dirname $(readlink -f ${BASH_SOURCE}))/.."
 
