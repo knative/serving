@@ -136,7 +136,11 @@ bazel run config/monitoring:everything.apply
 
 To install using kubectl, run:
 ```shell
-kubectl apply -R -f config/monitoring/100-common -f third_party/config/monitoring -f config/monitoring/200-common -f config/monitoring/300-prod -f config/monitoring/200-common/100-istio.yaml
+kubectl apply -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/300-prod \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
@@ -146,7 +150,11 @@ bazel run config/monitoring:everything-dev.apply
 
 To install using kubectl, run:
 ```shell
-kubectl apply -R -f config/monitoring/100-common -f third_party/config/monitoring -f config/monitoring/200-common -f config/monitoring/300-dev -f config/monitoring/200-common/100-istio.yaml
+kubectl apply -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/300-dev \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
