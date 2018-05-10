@@ -17,16 +17,18 @@ import (
 // to active if necessary. Then it returns the endpoint once the revision
 // is ready to serve traffic.
 type RevisionActivator struct {
-	kubeClient kubernetes.Interface
-	elaClient  clientset.Interface
+	readyTimout time.Duration // for testing
+	kubeClient  kubernetes.Interface
+	elaClient   clientset.Interface
 }
 
 // NewRevisionActivator creates and starts a new RevisionActivator.
 func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) Activator {
 	return Activator(
 		&RevisionActivator{
-			kubeClient: kubeClient,
-			elaClient:  elaClient,
+			readyTimout: 60 * time.Second,
+			kubeClient:  kubeClient,
+			elaClient:   elaClient,
 		},
 	)
 }
@@ -93,7 +95,7 @@ func (r *RevisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 					internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
 					return
 				}
-			case <-time.After(60 * time.Second):
+			case <-time.After(r.readyTimout):
 				internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
 				return
 			}

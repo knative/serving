@@ -143,7 +143,45 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 }
 
 func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
+	k8s, ela := fakeClients()
+	ela.ElafrosV1alpha1().Revisions(testNamespace).Create(
+		newRevisionBuilder().
+			withServingState(v1alpha1.RevisionServingStateReserve).
+			withReady(false).
+			build())
+	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
+	a := NewRevisionActivator(k8s, ela)
+	a.(*RevisionActivator).readyTimout = 200 * time.Millisecond
 
+	ch := make(chan activationResult)
+	go func() {
+		endpoint, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+		ch <- activationResult{endpoint, status, err}
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-ch:
+		t.Errorf("Unexpected result before revision is ready.")
+	default:
+	}
+
+	time.Sleep(200 * time.Millisecond)
+	select {
+	case result := <-ch:
+		want := Endpoint{}
+		if result.endpoint != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
+		}
+		if result.status != Status(500) {
+			t.Errorf("Unexpected error state. Want 500. Got %v.", result.status)
+		}
+		if result.err == nil {
+			t.Errorf("Expected error. Want error. Got nil.")
+		}
+	default:
+		t.Errorf("Expected result after timeout.")
+	}
 }
 
 func fakeClients() (kubernetes.Interface, clientset.Interface) {
