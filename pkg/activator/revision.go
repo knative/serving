@@ -53,9 +53,8 @@ func (r *RevisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 			rev.namespace, rev.name, revision.Spec.ServingState)
 		return
 	case v1alpha1.RevisionServingStateRetired:
-		msg := fmt.Sprintf("Disregarding activation request for retired revision %s/%s", rev.namespace, rev.name)
-		log.Printf(msg)
-		return end, http.StatusPreconditionFailed, fmt.Errorf(msg)
+		internalError("Disregarding activation request for retired revision %s/%s", rev.namespace, rev.name)
+		return
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do
 	case v1alpha1.RevisionServingStateReserve:

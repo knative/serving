@@ -80,8 +80,8 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 	if got != want {
 		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
 	}
-	if status != Status(412) {
-		t.Errorf("Unexpected error status. Want 412. Got %v.", status)
+	if status != Status(500) {
+		t.Errorf("Unexpected error status. Want 500. Got %v.", status)
 	}
 	if err == nil {
 		t.Errorf("Expected error. Want error. Got nil.")
