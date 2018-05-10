@@ -22,7 +22,7 @@ docker build -t "${REPO}/sample/gitwebhook" --file=sample/gitwebhook/Dockerfile 
 docker push "${REPO}/sample/gitwebhook"
 
 # Replace the image reference with our published image.
-sed -i "s@github.com/elafros/elafros/sample/gitwebhook@${REPO}/sample/gitwebhook@g" sample/gitwebhook/*.yaml
+perl -pi -e "s@github.com/elafros/elafros/sample/gitwebhook@${REPO}/sample/gitwebhook@g" sample/gitwebhook/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/gitwebhook/sample.yaml

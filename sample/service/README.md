@@ -21,7 +21,7 @@ docker build -t "${REPO}/sample/service" --file=sample/service/Dockerfile .
 docker push "${REPO}/sample/service"
 
 # Replace the image reference with our published image.
-sed -i "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
+perl -pi -e "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/service/sample.yaml

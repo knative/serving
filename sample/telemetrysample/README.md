@@ -25,7 +25,7 @@ docker build -t "${REPO}/sample/telemetrysample" --file=sample/telemetrysample/D
 docker push "${REPO}/sample/telemetrysample"
 
 # Replace the image reference with our published image.
-sed -i "s@github.com/elafros/elafros/sample/telemetrysample@${REPO}/sample/telemetrysample@g" sample/telemetrysample/*.yaml
+perl -pi -e "s@github.com/elafros/elafros/sample/telemetrysample@${REPO}/sample/telemetrysample@g" sample/telemetrysample/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/telemetrysample/

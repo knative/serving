@@ -18,7 +18,7 @@ You can deploy this to Elafros from the root directory via:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
-sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/buildpack-app/sample.yaml
+perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/buildpack-app/sample.yaml
 
 # Create the Kubernetes resources
 kubectl apply -f sample/templates/buildpack.yaml -f sample/buildpack-app/sample.yaml
