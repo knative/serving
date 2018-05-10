@@ -75,9 +75,9 @@ type RevisionRoute struct {
 	RevisionName string
 	// Service is the name of the k8s service we route to
 	Service string
-	Weight  int
 	// The k8s service namespace
 	Namespace string
+	Weight    int
 }
 
 // Controller implements the controller for Route resources.
@@ -690,11 +690,46 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	return nil
 }
 
+// computeRevisionRoute computes RevisionRoute for a revision if it's active. If the revision is inactive,
+// let inactiveRev be the inactive revision with the larget traffic weight.
+func computeRevisionRoute(enableScaleToZero bool, elaNS string, tt v1alpha1.TrafficTarget, rev *v1alpha1.Revision,
+	maxPercent *int, totalPercent *int, inactiveRev *string) *RevisionRoute {
+	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	if enableScaleToZero && cond != nil {
+		// A revision is considered inactive (yet) if it's in
+		// "Inactive" condition or "Activating" condition.
+		if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+			(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+			// Let inactiveRev be the Reserve revision with the larget traffic weight.
+			if tt.Percent > *maxPercent {
+				*maxPercent = tt.Percent
+				*inactiveRev = rev.Name
+			}
+			*totalPercent += tt.Percent
+			return nil
+		}
+	}
+	return &RevisionRoute{
+		Name:         tt.Name,
+		RevisionName: rev.Name,
+		Service:      rev.Status.ServiceName,
+		Namespace:    elaNS,
+		Weight:       tt.Percent,
+	}
+}
+
+// computeRevisionRoutes computes RevisionRoute for a route object. If there is one or more inactive revisions and enableScaleToZero
+// is true, a route rule with the activator service as the destination will be added.
 func (c *Controller) computeRevisionRoutes(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, string, error) {
-	glog.Infof("Figuring out routes for Route: %s", route.Name)
+	glog.V(4).Infof("Figuring out routes for Route: %s", route.Name)
 	enableScaleToZero := c.enableScaleToZero.Get()
+	// The inactive revision name which has the larget traffic weight.
 	inactiveRev := ""
+	// The max percent in all inactive revisions.
+	maxInactivePercent := 0
+	// The total percent of all inactive revisions.
+	totalInactivePercent := 0
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
 	ret := []RevisionRoute{}
@@ -726,27 +761,21 @@ func (c *Controller) computeRevisionRoutes(
 			return nil, "", err
 		}
 
-		rr := RevisionRoute{
-			Name:         tt.Name,
-			RevisionName: rev.Name,
-			Service:      rev.Status.ServiceName,
-			Namespace:    elaNS,
-			Weight:       tt.Percent,
+		rr := computeRevisionRoute(enableScaleToZero, elaNS, tt, rev, &maxInactivePercent, &totalInactivePercent, &inactiveRev)
+		if rr != nil {
+			ret = append(ret, *rr)
 		}
-		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
-		if tt.Percent > 0 && enableScaleToZero && cond != nil {
-			// A revision is considered inactive (yet) if it's in
-			// "Inactive" condition or "Activating" condition.
-			// Note the weight of the revision route stays the same.
-			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
-				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
-				inactiveRev = rev.Name
-				rr.Service = controller.GetElaK8SActivatorServiceName()
-				rr.Namespace = controller.GetElaK8SActivatorNamespace()
-			}
-		}
+	}
 
-		ret = append(ret, rr)
+	if totalInactivePercent > 0 {
+		activatorRoute := RevisionRoute{
+			Name:         controller.GetElaK8SActivatorServiceName(),
+			RevisionName: inactiveRev,
+			Service:      controller.GetElaK8SActivatorServiceName(),
+			Namespace:    controller.GetElaK8SActivatorNamespace(),
+			Weight:       totalInactivePercent,
+		}
+		ret = append(ret, activatorRoute)
 	}
 	return ret, inactiveRev, nil
 }

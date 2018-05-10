@@ -49,13 +49,15 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		Route: destinationWeights,
 	}
 
-	if len(inactiveRev) > 0 {
+	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
+	// See https://github.com/istio/issues/issues/332
+	// Since appendHeaders is a field for RouteRule Spec, we don't have that granularity.
+	// We will direct traffic for all inactive revisions to activator service; and the activator will send
+	// the request to the inactive revision with the largest traffic weight.
+	// The consequence of using appendHeaders at Spec is: if there are more than one inactive revisions, the
+	// traffic split percentage would be distorted in a short period of time.
+	if inactiveRev != "" {
 		appendHeaders := make(map[string]string)
-		// TODO: The ideal solution is to append different revision name as headers for each activator-service destination.
-		// See https://github.com/istio/issues/issues/332
-		// Since appendHeaders is a field for RouteRule Spec, we don't have that granularity.
-		// The consequence of using appendHeaders at Spec is: if there are more than one inactive revisions, the
-		// traffic split percentage might be distorted slightly in a short period of time.
 		appendHeaders[controller.GetRevisionHeaderName()] = inactiveRev
 		appendHeaders[controller.GetRevisionHeaderNamespace()] = u.Namespace
 		spec.AppendHeaders = appendHeaders
