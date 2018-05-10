@@ -21,3 +21,30 @@ spec:
   traffic:
   - configurationName: git-webhook
     percent: 100
+---
+apiVersion: elafros.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: git-webhook
+  namespace: default
+spec:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: app
+    spec:
+      container:
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/elafros/elafros/sample/gitwebhook
+        env:
+          - name: SECRET_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: githubsecret
+                key: secretToken
+          - name: ACCESS_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: githubsecret
+                key: accessToken
