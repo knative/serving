@@ -16,7 +16,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -31,7 +30,7 @@ import (
 )
 
 var (
-	deduper *activator.Deduper
+	act activator.Activator
 )
 
 func main() {
@@ -40,7 +39,7 @@ func main() {
 
 	// set up signals so we handle the first shutdown signal gracefully
 	// TODO: wire shutdown signal into sub-components.
-	stopCh := signals.SetupSignalHandler()
+	_ = signals.SetupSignalHandler()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -56,7 +55,7 @@ func main() {
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, elaClient)
-	deduper = activator.NewDeduppingActivator(a)
+	act = activator.NewDeduppingActivator(a)
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
@@ -65,15 +64,13 @@ func main() {
 func handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Use the namespace from the header.
 	// https://github.com/elafros/elafros/issues/693
-	id := RevisionId{
-		namespace: "default",
-		name:      r.Header.Get(controller.GetRevisionHeaderName()),
-	}
-	endpoint, status, err := deduper.ActiveEndpoint(id)
+	namespace := "default"
+	name := r.Header.Get(controller.GetRevisionHeaderName())
+	endpoint, status, err := act.ActiveEndpoint(namespace, name)
 	if err != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-		log.Errorf(msg)
-		http.Error(w, msg, status)
+		glog.Errorf(msg)
+		http.Error(w, msg, int(status))
 		return
 	}
 	target := &url.URL{

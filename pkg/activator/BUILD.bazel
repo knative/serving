@@ -23,7 +23,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "activator_test.go",
         "dedupe_test.go",
 	"revision_test.go",
     ],
