@@ -763,6 +763,11 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 			Status: corev1.ConditionUnknown,
 			Reason: "Building",
 		},
+		{
+			Type:   "Ready",
+			Status: corev1.ConditionUnknown,
+			Reason: "Building",
+		},
 	}
 	if diff := compareRevisionConditions(want, waitRev.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
