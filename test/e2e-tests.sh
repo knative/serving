@@ -29,7 +29,9 @@
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_NAME=ela-e2e-cluster
+readonly RESOURCE_UID=$(date +%s)
+readonly E2E_CLUSTER_NAME=ela-e2e-cluster-${RESOURCE_UID}
+readonly E2E_NETWORK_NAME=ela-e2e-net-${RESOURCE_UID}
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
@@ -128,7 +130,7 @@ if [[ -z $1 ]]; then
     --gcp-node-image=cos
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
-    --gcp-network=ela-e2e-net
+    --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
   if (( ! IS_PROW )); then
