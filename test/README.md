@@ -187,7 +187,7 @@ of the owners found in [`/test/OWNERS`](OWNERS) to do this.
 ## Flags
 
 These flags are useful for running against an existing cluster, making use of your existing
-[environment setup])(/DEVELOPMENT.md#environment-setup).
+[environment setup](/DEVELOPMENT.md#environment-setup).
 
 Tests importing [`github.com/elafros/elafros/test`](adding_tests.md#test-library) recognize these flags:
 
@@ -200,7 +200,7 @@ Tests importing [`github.com/elafros/elafros/test`](adding_tests.md#test-library
 
 By default the tests will use the [kubeconfig
 file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-at `~./kube/config`.
+at `~/.kube/config`.
 You can specify a different config file with the argument `--kubeconfig`.
 
 To run the tests with a non-default kubeconfig file:
