@@ -18,10 +18,10 @@ package webhook
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -81,13 +81,13 @@ func unmarshalServiceCRDs(old GenericCRD, new GenericCRD, fnName string) (*v1alp
 			return nil, nil, fmt.Errorf("Failed to convert old into Service: %+v", old)
 		}
 	}
-	glog.Infof("%s: OLD Service is\n%+v", fnName, oldS)
+	log.Printf("%s: OLD Service is\n%+v", fnName, oldS)
 
 	newS, ok := new.(*v1alpha1.Service)
 	if !ok {
 		return nil, nil, fmt.Errorf("Failed to convert new into Service: %+v", new)
 	}
-	glog.Infof("%s: NEW Service is\n%+v", fnName, newS)
+	log.Printf("%s: NEW Service is\n%+v", fnName, newS)
 
 	return oldS, newS, nil
 }

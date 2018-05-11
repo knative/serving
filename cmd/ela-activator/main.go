@@ -15,40 +15,40 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net/http"
 
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/signals"
-	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 func main() {
+	log.SetFlags(log.Lmicroseconds | log.Lshortfile)
 	flag.Parse()
-	glog.Info("Starting the elafros activator...")
+	log.Print("Starting the elafros activator...")
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 	elaClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %v", err)
+		log.Fatalf("Error building ela clientset: %v", err)
 	}
 	a, err := activator.NewActivator(kubeClient, elaClient, http.DefaultTransport.(*http.Transport))
 	if err != nil {
-		glog.Fatalf("Failed to create an activator: %v", err)
+		log.Fatalf("Failed to create an activator: %v", err)
 	}
 
 	a.Run(stopCh)
-	glog.Flush()
 }

@@ -15,6 +15,7 @@ package activator
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -24,7 +25,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/controller"
-	"github.com/golang/glog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -85,7 +85,7 @@ func getRevisionKey(namespace string, name string) string {
 func getRevisionNameFromKey(key string) (namespace string, name string, err error) {
 	arr := strings.Split(key, "/")
 	if len(arr) != 2 {
-		glog.Errorf("Invalid revision key ", key)
+		log.Printf("Invalid revision key ", key)
 		return "", "", fmt.Errorf("Invalid revision key %s", key)
 	}
 	return arr[0], arr[1], nil
@@ -116,30 +116,30 @@ func (a *Activator) getRevisionTargetURL(revision *v1alpha1.Revision) (*url.URL,
 }
 
 func (a *Activator) proxyRequest(revRequest RevisionRequest, serviceURL *url.URL) {
-	glog.Infof("Sending a proxy request to %q", serviceURL)
+	log.Printf("Sending a proxy request to %q", serviceURL)
 	proxy := httputil.NewSingleHostReverseProxy(serviceURL)
 	proxy.Transport = a.tripper
 	proxy.ServeHTTP(revRequest.w, revRequest.r)
 	// Make sure the handler function exits after ServeHTTP function.
 	revRequest.doneCh <- struct{}{}
-	glog.Info("End proxy request")
+	log.Print("End proxy request")
 }
 
 func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest) {
-	glog.Infof("Sending %d requests to revision %s.", len(requests), revKey)
+	log.Printf("Sending %d requests to revision %s.", len(requests), revKey)
 	if len(requests) == 0 {
 		return
 	}
 
 	revision, err := a.getRevision(requests[0].namespace, requests[0].name)
 	if err != nil {
-		glog.Errorf("Failed to get revision %s, %q", revKey, err)
+		log.Printf("Failed to get revision %s, %q", revKey, err)
 		a.stopRequests(revKey, requests)
 		return
 	}
 	serviceURL, err := a.getRevisionTargetURL(revision)
 	if err != nil {
-		glog.Errorf("Failed to get service URL for revision %s, %q", revKey, err)
+		log.Printf("Failed to get service URL for revision %s, %q", revKey, err)
 		a.stopRequests(revKey, requests)
 		return
 	}
@@ -150,7 +150,7 @@ func (a *Activator) proxyRequests(revKey string, requests []RevisionRequest) {
 }
 
 func (a *Activator) stopRequests(revKey string, requests []RevisionRequest) {
-	glog.Infof("Write to response for %d bad requests for revision %s.", len(requests), revKey)
+	log.Printf("Write to response for %d bad requests for revision %s.", len(requests), revKey)
 	for _, revRequest := range requests {
 		http.Error(revRequest.w, "Bad request.", http.StatusInternalServerError)
 		revRequest.doneCh <- struct{}{}
@@ -161,7 +161,7 @@ func (a *Activator) updateRevision(revision *v1alpha1.Revision) error {
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(revision.Namespace)
 	_, err := revisionClient.Update(revision)
 	if err != nil {
-		glog.Errorf("Failed to update the revision: %s/%s", revision.GetNamespace(), revision.GetName())
+		log.Printf("Failed to update the revision: %s/%s", revision.GetNamespace(), revision.GetName())
 		return err
 	}
 	return nil
@@ -179,34 +179,34 @@ func (a *Activator) getRevision(ns string, name string) (*v1alpha1.Revision, err
 	revisionClient := a.elaClient.ElafrosV1alpha1().Revisions(ns)
 	revision, err := revisionClient.Get(name, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("Unable to get revision %s/%s", ns, name)
+		log.Printf("Unable to get revision %s/%s", ns, name)
 		return nil, err
 	}
 	return revision, nil
 }
 
 func (a *Activator) activate(revKey string) {
-	glog.Info("Revision to be activated: ", revKey)
+	log.Print("Revision to be activated: ", revKey)
 	revision, err := a.getRevisionFromKey(revKey)
 	if err != nil {
-		glog.Errorf("Failed to get revision from the key.")
+		log.Printf("Failed to get revision from the key.")
 		a.chans.badRevisionCh <- revKey
 		return
 	}
 	revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 	if err := a.updateRevision(revision); err != nil {
-		glog.Errorf("Failed to update revision.")
+		log.Printf("Failed to update revision.")
 		a.chans.badRevisionCh <- revKey
 		return
 	}
-	glog.Infof("Updated the revision: %s", revision.GetName())
+	log.Printf("Updated the revision: %s", revision.GetName())
 }
 
 func (a *Activator) watchForReady(revKey string) {
-	glog.Infof("Watching for revision %s to be ready", revKey)
+	log.Printf("Watching for revision %s to be ready", revKey)
 	revision, err := a.getRevisionFromKey(revKey)
 	if err != nil {
-		glog.Errorf("Failed to get revision from the key.")
+		log.Printf("Failed to get revision from the key.")
 		a.chans.badRevisionCh <- revKey
 		return
 	}
@@ -214,7 +214,7 @@ func (a *Activator) watchForReady(revKey string) {
 		FieldSelector: fmt.Sprintf("metadata.name=%s", revision.GetName()),
 	})
 	if err != nil {
-		glog.Errorf("Failed to watch the revision %s.", revKey)
+		log.Printf("Failed to watch the revision %s.", revKey)
 		a.chans.badRevisionCh <- revKey
 		return
 	}
@@ -227,7 +227,7 @@ func (a *Activator) watchForReady(revKey string) {
 				continue
 			}
 			a.chans.activationDoneCh <- revKey
-			glog.Infof("Revision %s is ready.", revKey)
+			log.Printf("Revision %s is ready.", revKey)
 			return
 		}
 	}
@@ -246,11 +246,11 @@ func (a *Activator) process(quitCh chan struct{}) {
 				pendingRequests.Store(revKey, revRequests)
 				// Only put the first reserved revision to the activateCh.
 				if !revReq.active {
-					glog.Infof("Add %s to activate channel", revKey)
+					log.Printf("Add %s to activate channel", revKey)
 					a.chans.activateCh <- revKey
 				}
 				// Add a watch for each unique revision
-				glog.Infof("Add %s to watch channel", revKey)
+				log.Printf("Add %s to watch channel", revKey)
 				a.chans.watchCh <- revKey
 			}
 			pendingRequests.Store(revKey, append(revRequests.([]RevisionRequest), revReq))
@@ -264,7 +264,7 @@ func (a *Activator) process(quitCh chan struct{}) {
 				pendingRequests.Delete(revDone)
 				go a.proxyRequests(revDone, revRequests.([]RevisionRequest))
 			} else {
-				glog.Errorf("The revision %s is unexpected in activator", revDone)
+				log.Printf("The revision %s is unexpected in activator", revDone)
 			}
 		case badRev := <-a.chans.badRevisionCh:
 			revRequests, found := pendingRequests.Load(badRev)
@@ -272,7 +272,7 @@ func (a *Activator) process(quitCh chan struct{}) {
 				pendingRequests.Delete(badRev)
 				go a.stopRequests(badRev, revRequests.([]RevisionRequest))
 			} else {
-				glog.Errorf("The revision %s is unexpected in activator", badRev)
+				log.Printf("The revision %s is unexpected in activator", badRev)
 			}
 		case <-quitCh:
 			pendingRequests.Range(func(revKey, revRequests interface{}) bool {
@@ -293,10 +293,10 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unable to get revision.", http.StatusNotFound)
 		return
 	}
-	glog.Infof("Found revision %s in namespace %s", revision.GetName(), revision.GetNamespace())
+	log.Printf("Found revision %s in namespace %s", revision.GetName(), revision.GetNamespace())
 	switch revision.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
-		glog.Infof("The revision %s/%s is active.", revision.GetNamespace(), revision.GetName())
+		log.Printf("The revision %s/%s is active.", revision.GetNamespace(), revision.GetName())
 		revRequest := RevisionRequest{
 			name:      revision.GetName(),
 			namespace: revision.GetNamespace(),
@@ -308,7 +308,7 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 		a.chans.revisionRequestCh <- revRequest
 		<-revRequest.doneCh
 	case v1alpha1.RevisionServingStateReserve:
-		glog.Infof("The revision %s/%s is inactive.", revision.GetNamespace(), revision.GetName())
+		log.Printf("The revision %s/%s is inactive.", revision.GetNamespace(), revision.GetName())
 		revRequest := RevisionRequest{
 			name:      revision.GetName(),
 			namespace: revision.GetNamespace(),
@@ -320,23 +320,23 @@ func (a *Activator) handler(w http.ResponseWriter, r *http.Request) {
 		a.chans.revisionRequestCh <- revRequest
 		<-revRequest.doneCh
 	case v1alpha1.RevisionServingStateRetired:
-		glog.Info("revision is retired. do nothing.")
+		log.Print("revision is retired. do nothing.")
 		http.Error(w, "Retired revision.", http.StatusServiceUnavailable)
 	default:
-		glog.Errorf("unrecognized revision serving status: %s", revision.Spec.ServingState)
+		log.Printf("unrecognized revision serving status: %s", revision.Spec.ServingState)
 		http.Error(w, "Unknown revision status.", http.StatusServiceUnavailable)
 	}
 }
 
 // Run will set up the event handler for requests.
 func (a *Activator) Run(stopCh <-chan struct{}) error {
-	glog.Info("Started Activator")
+	log.Print("Started Activator")
 	quitCh := make(chan struct{})
 	go a.process(quitCh)
 	http.HandleFunc("/", a.handler)
 	http.ListenAndServe(":8080", nil)
 	<-stopCh
 	quitCh <- struct{}{}
-	glog.Info("Shutting down Activator")
+	log.Print("Shutting down Activator")
 	return nil
 }

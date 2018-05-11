@@ -18,12 +18,12 @@ package route
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	istiov1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
 	"github.com/elafros/elafros/pkg/controller"
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -58,7 +58,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 
 	// if enableScaleToZero flag is true, and there are reserved revisions,
 	// define the corresponding istio route rules.
-	glog.Info("using activator-service as the destination")
+	log.Print("using activator-service as the destination")
 	destinationWeights = append(destinationWeights,
 		istiov1alpha2.DestinationWeight{
 			Destination: istiov1alpha2.IstioService{

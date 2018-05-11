@@ -27,7 +27,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
-	"github.com/golang/glog"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
@@ -194,9 +193,9 @@ func NewController(
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
 	// Create event broadcaster
-	glog.V(4).Info("Creating event broadcaster")
+	log.Print("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -213,7 +212,7 @@ func NewController(
 		controllerConfig: controllerConfig,
 	}
 
-	glog.Info("Setting up event handlers")
+	log.Print("Setting up event handlers")
 	// Set up an event handler for when Revision resources change
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueRevision,
@@ -252,7 +251,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Revision controller")
+	log.Print("Starting Revision controller")
 
 	// Metrics setup: begin
 	// Create the tag keys that will be used to add tags to our measurements.
@@ -274,26 +273,26 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Metrics setup: end
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
+	log.Print("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for endpoints informer caches to sync")
+	log.Print("Waiting for endpoints informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.endpointsSynced); !ok {
 		return fmt.Errorf("failed to wait for endpoints caches to sync")
 	}
 
-	glog.Info("Starting workers")
+	log.Print("Starting workers")
 	// Launch workers to process Revision resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	log.Print("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	log.Print("Shutting down workers")
 
 	return nil
 }
@@ -349,7 +348,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced %q", key)
+		log.Printf("Successfully synced %q", key)
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
@@ -409,7 +408,7 @@ func (c *Controller) syncHandler(key string) error {
 	rev = rev.DeepCopy()
 
 	if err := c.updateRevisionLoggingURL(rev); err != nil {
-		glog.Errorf("Error updating the revisions logging url: %s", err)
+		log.Printf("Error updating the revisions logging url: %s", err)
 		return err
 	}
 
@@ -417,7 +416,7 @@ func (c *Controller) syncHandler(key string) error {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
 				if err := c.markRevisionBuilding(rev); err != nil {
-					glog.Errorf("Error recording the BuildSucceeded=Unknown condition: %s", err)
+					log.Printf("Error recording the BuildSucceeded=Unknown condition: %s", err)
 					return err
 				}
 			}
@@ -486,7 +485,7 @@ func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 }
 
 func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
-	glog.Infof("Marking Revision %q ready", rev.Name)
+	log.Printf("Marking Revision %q ready", rev.Name)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
 			Type:   v1alpha1.RevisionConditionReady,
@@ -498,7 +497,7 @@ func (c *Controller) markRevisionReady(rev *v1alpha1.Revision) error {
 }
 
 func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
-	glog.Infof("Marking Revision %q failed", rev.Name)
+	log.Printf("Marking Revision %q failed", rev.Name)
 	reason, message := "ServiceTimeout", "Timed out waiting for a service endpoint to become ready"
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
@@ -520,7 +519,7 @@ func (c *Controller) markRevisionFailed(rev *v1alpha1.Revision) error {
 
 func (c *Controller) markRevisionBuilding(rev *v1alpha1.Revision) error {
 	reason := "Building"
-	glog.Infof("Marking Revision %q %s", rev.Name, reason)
+	log.Printf("Marking Revision %q %s", rev.Name, reason)
 	rev.Status.SetCondition(
 		&v1alpha1.RevisionCondition{
 			Type:   v1alpha1.RevisionConditionBuildSucceeded,
@@ -631,10 +630,10 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 		namespace, name := splitKey(k)
 		rev, err := c.lister.Revisions(namespace).Get(name)
 		if err != nil {
-			glog.Errorf("Error fetching revision %q/%q upon build completion: %v", namespace, name, err)
+			log.Printf("Error fetching revision %q/%q upon build completion: %v", namespace, name, err)
 		}
 		if err := c.markBuildComplete(rev, cond); err != nil {
-			glog.Errorf("Error marking build completion for %q/%q: %v", namespace, name, err)
+			log.Printf("Error marking build completion for %q/%q: %v", namespace, name, err)
 		}
 	}
 
@@ -659,7 +658,7 @@ func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 
 	rev, err := c.lister.Revisions(namespace).Get(revName)
 	if err != nil {
-		glog.Errorf("Error fetching revision '%s/%s': %v", namespace, revName, err)
+		log.Printf("Error fetching revision '%s/%s': %v", namespace, revName, err)
 		return
 	}
 	//Set the revision condition reason to ProgressDeadlineExceeded
@@ -671,9 +670,9 @@ func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 			Message: fmt.Sprintf("Unable to create pods for more than %d seconds.", progressDeadlineSeconds),
 		})
 
-	glog.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
+	log.Printf("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
-		glog.Errorf("Error recording revision completion: %s", err)
+		log.Printf("Error recording revision completion: %s", err)
 		return
 	}
 	c.recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout", revName)
@@ -697,7 +696,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 
 	rev, err := c.lister.Revisions(namespace).Get(revName)
 	if err != nil {
-		glog.Errorf("Error fetching revision '%s/%s': %v", namespace, revName, err)
+		log.Printf("Error fetching revision '%s/%s': %v", namespace, revName, err)
 		return
 	}
 
@@ -716,9 +715,9 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	rev = rev.DeepCopy()
 
 	if getIsServiceReady(endpoint) {
-		glog.Infof("Endpoint %q is ready", eName)
+		log.Printf("Endpoint %q is ready", eName)
 		if err := c.markRevisionReady(rev); err != nil {
-			glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
+			log.Printf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
 			return
 		}
 		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready", endpoint.Name)
@@ -731,7 +730,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	}
 
 	if err := c.markRevisionFailed(rev); err != nil {
-		glog.Errorf("Error marking revision failed for '%s/%s': %v", namespace, revName, err)
+		log.Printf("Error marking revision failed for '%s/%s': %v", namespace, revName, err)
 		return
 	}
 	c.recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
@@ -919,7 +918,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
-		glog.Errorf("Error resolving deployment: %v", err)
+		log.Printf("Error resolving deployment: %v", err)
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
 				Type:    v1alpha1.RevisionConditionContainerHealthy,

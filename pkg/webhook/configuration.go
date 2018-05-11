@@ -18,11 +18,11 @@ package webhook
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -52,12 +52,12 @@ func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 			return errInvalidConfigurationInput
 		}
 	}
-	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldConfiguration)
+	log.Printf("ValidateConfiguration: OLD Configuration is\n%+v", oldConfiguration)
 	newConfiguration, ok := new.(*v1alpha1.Configuration)
 	if !ok {
 		return errInvalidConfigurationInput
 	}
-	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newConfiguration)
+	log.Printf("ValidateConfiguration: NEW Configuration is\n%+v", newConfiguration)
 
 	if err := validateConfiguration(newConfiguration); err != nil {
 		return err

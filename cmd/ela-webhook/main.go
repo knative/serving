@@ -16,32 +16,30 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"log"
 
 	"github.com/elafros/elafros/pkg/signals"
 	"github.com/elafros/elafros/pkg/webhook"
-
-	"github.com/golang/glog"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 func main() {
-	flag.Parse()
-	glog.Info("Starting the Configuration Webhook...")
+	log.SetFlags(log.Lmicroseconds | log.Lshortfile)
+	log.Print("Starting the Configuration Webhook...")
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatal(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	options := webhook.ControllerOptions{
@@ -53,7 +51,7 @@ func main() {
 	}
 	controller, err := webhook.NewAdmissionController(clientset, options)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 	controller.Run(stopCh)
 }

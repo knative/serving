@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"strings"
@@ -30,7 +31,6 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 
-	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -162,7 +162,7 @@ func getOrGenerateKeyCertsFromSecret(client kubernetes.Interface, name, namespac
 		if !apierrors.IsNotFound(err) {
 			return nil, nil, nil, err
 		}
-		glog.Infof("Did not find existing secret, creating one")
+		log.Printf("Did not find existing secret, creating one")
 		newSecret, err := generateSecret(name, namespace)
 		if err != nil {
 			return nil, nil, nil, err
@@ -240,7 +240,7 @@ func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*t
 func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	tlsConfig, caCert, err := configureCerts(ac.client, &ac.options)
 	if err != nil {
-		glog.Infof("Could not configure admission webhook certs: %v", err)
+		log.Printf("Could not configure admission webhook certs: %v", err)
 		return err
 	}
 
@@ -250,31 +250,31 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 		TLSConfig: tlsConfig,
 	}
 
-	glog.Info("Found certificates for webhook...")
+	log.Print("Found certificates for webhook...")
 	if ac.options.RegistrationDelay != 0 {
-		glog.Infof("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
+		log.Printf("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
 	}
 
 	select {
 	case <-time.After(ac.options.RegistrationDelay):
 		cl := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 		if err := ac.register(cl, caCert); err != nil {
-			glog.Infof("Failed to register webhook: %v", err)
+			log.Printf("Failed to register webhook: %v", err)
 			return err
 		}
 		defer func() {
 			if err := ac.unregister(cl); err != nil {
-				glog.Infof("Failed to unregister webhook: %v", err)
+				log.Printf("Failed to unregister webhook: %v", err)
 			}
 		}()
-		glog.Info("Successfully registered webhook")
+		log.Print("Successfully registered webhook")
 	case <-stop:
 		return nil
 	}
 
 	go func() {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
-			glog.Infof("ListenAndServeTLS for admission webhook returned error: %v", err)
+			log.Printf("ListenAndServeTLS for admission webhook returned error: %v", err)
 		}
 	}()
 	<-stop
@@ -284,7 +284,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 
 // Unregister unregisters the external admission webhook
 func (ac *AdmissionController) unregister(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface) error {
-	glog.Info("Exiting..")
+	log.Print("Exiting..")
 	return nil
 }
 
@@ -337,23 +337,23 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 		if !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failed to create a webhook: %s", err)
 		}
-		glog.Infof("Webhook already exists")
+		log.Printf("Webhook already exists")
 		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("Error retrieving webhook: %s", err)
 		}
 		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
-			glog.Infof("Updating webhook")
+			log.Printf("Updating webhook")
 			// Set the ResourceVersion as required by update.
 			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
 			if _, err := client.Update(webhook); err != nil {
 				return fmt.Errorf("Failed to update webhook: %s", err)
 			}
 		} else {
-			glog.Infof("Webhook is already valid")
+			log.Printf("Webhook is already valid")
 		}
 	} else {
-		glog.Infof("Created a webhook")
+		log.Printf("Created a webhook")
 	}
 	return nil
 }
@@ -361,7 +361,7 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 // ServeHTTP implements the external admission webhook for mutating
 // ela resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.Infof("Webhook ServeHTTP request=%#v", r)
+	log.Printf("Webhook ServeHTTP request=%#v", r)
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
@@ -384,7 +384,7 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		response.Response.UID = review.Request.UID
 	}
 
-	glog.Infof("AdmissionReview for %s: %v/%v response=%v",
+	log.Printf("AdmissionReview for %s: %v/%v response=%v",
 		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -405,7 +405,7 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
-		glog.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
+		log.Printf("Unhandled webhook operation, letting it through %v", request.Operation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
@@ -413,7 +413,7 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 	if err != nil {
 		return makeErrorStatus("mutation failed: %v", err)
 	}
-	glog.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
+	log.Printf("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
 	return &admissionv1beta1.AdmissionResponse{
 		Patch:   patchBytes,
@@ -428,7 +428,7 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
 	handler, ok := ac.handlers[kind]
 	if !ok {
-		glog.Warningf("Unhandled kind %q", kind)
+		log.Printf("Unhandled kind %q", kind)
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
 
@@ -461,13 +461,13 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 
 	err := updateGeneration(&patches, oldObj, newObj)
 	if err != nil {
-		glog.Warningf("Failed to update generation : %s", err)
+		log.Printf("Failed to update generation : %s", err)
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
 	if defaulter := handler.Defaulter; defaulter != nil {
 		if err := defaulter(&patches, oldObj, newObj); err != nil {
-			glog.Warningf("Failed the resource specific defaulter: %s", err)
+			log.Printf("Failed the resource specific defaulter: %s", err)
 			// Return the error message as-is to give the defaulter callback
 			// discretion over (our portion of) the message that the user sees.
 			return nil, err
@@ -475,14 +475,14 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	}
 
 	if err := handler.Validator(&patches, oldObj, newObj); err != nil {
-		glog.Warningf("Failed the resource specific validation: %s", err)
+		log.Printf("Failed the resource specific validation: %s", err)
 		// Return the error message as-is to give the validation callback
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
 
 	if err := validateMetadata(newObj); err != nil {
-		glog.Warningf("Failed to validate : %s", err)
+		log.Printf("Failed to validate : %s", err)
 		return nil, fmt.Errorf("Failed to validate: %s", err)
 	}
 	return json.Marshal(patches)
@@ -512,12 +512,12 @@ func validateMetadata(new GenericCRD) error {
 func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 	var oldGeneration int64
 	if old == nil {
-		glog.Infof("Old is nil")
+		log.Printf("Old is nil")
 	} else {
 		oldGeneration = old.GetGeneration()
 	}
 	if oldGeneration == 0 {
-		glog.Infof("Creating an object, setting generation to 1")
+		log.Printf("Creating an object, setting generation to 1")
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/generation",
@@ -528,11 +528,11 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 
 	oldSpecJSON, err := old.GetSpecJSON()
 	if err != nil {
-		glog.Warningf("Failed to get Spec JSON for old: %s", err)
+		log.Printf("Failed to get Spec JSON for old: %s", err)
 	}
 	newSpecJSON, err := new.GetSpecJSON()
 	if err != nil {
-		glog.Warningf("Failed to get Spec JSON for new: %s", err)
+		log.Printf("Failed to get Spec JSON for new: %s", err)
 	}
 
 	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
@@ -543,10 +543,10 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 	if len(specPatches) > 0 {
 		specPatchesJSON, err := json.Marshal(specPatches)
 		if err != nil {
-			glog.Infof("Failed to marshal spec patches: %s", err)
+			log.Printf("Failed to marshal spec patches: %s", err)
 			return err
 		}
-		glog.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+		log.Printf("Specs differ:\n%+v\n", string(specPatchesJSON))
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "replace",
 			Path:      "/spec/generation",
@@ -554,7 +554,7 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 		})
 		return nil
 	}
-	glog.Infof("No changes in the spec, not bumping generation...")
+	log.Printf("No changes in the spec, not bumping generation...")
 	return nil
 }
 

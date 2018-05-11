@@ -17,9 +17,9 @@ package webhook
 
 import (
 	"errors"
+	"log"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -41,12 +41,12 @@ func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new 
 			return errInvalidRouteInput
 		}
 	}
-	glog.Infof("ValidateRoute: OLD Route is\n%+v", oldRoute)
+	log.Printf("ValidateRoute: OLD Route is\n%+v", oldRoute)
 	newRoute, ok := new.(*v1alpha1.Route)
 	if !ok {
 		return errInvalidRouteInput
 	}
-	glog.Infof("ValidateRoute: NEW Route is\n%+v", newRoute)
+	log.Printf("ValidateRoute: NEW Route is\n%+v", newRoute)
 
 	if err := validateTrafficTarget(newRoute); err != nil {
 		return err
