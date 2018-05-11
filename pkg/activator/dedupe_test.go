@@ -199,6 +199,37 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	}
 }
 
+func TestShutdown_ReturnError(t *testing.T) {
+	ep := Endpoint{"ip", 8080}
+	f := newFakeActivator(t,
+		map[revisionId]activationResult{
+			revisionId{"default", "rev1"}: activationResult{
+				endpoint: ep,
+				status:   Status(0),
+				err:      nil,
+			},
+		})
+	d := NewDedupingActivator(Activator(f))
+	f.hold(revisionId{"default", "rev1"})
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		d.Shutdown()
+	}()
+	endpoint, status, err := d.ActiveEndpoint("default", "rev1")
+
+	want := Endpoint{}
+	if endpoint != want {
+		t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, endpoint)
+	}
+	if status != Status(500) {
+		t.Errorf("Unexpected error stats. Want 500. Got %v.", status)
+	}
+	if err == nil {
+		t.Errorf("Expected error. Want error. Got nil.")
+	}
+}
+
 type fakeActivator struct {
 	t         *testing.T
 	responses map[revisionId]activationResult
@@ -227,6 +258,10 @@ func (f *fakeActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status
 		f.t.Fatalf("Unexpected call to activator: %v", id)
 		return Endpoint{}, Status(0), nil
 	}
+}
+
+func (f *fakeActivator) Shutdown() {
+	// Nothing to do.
 }
 
 func (f *fakeActivator) hold(id revisionId) {

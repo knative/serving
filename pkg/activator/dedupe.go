@@ -1,6 +1,15 @@
 package activator
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
+
+var shuttingDownError = activationResult{
+	endpoint: Endpoint{},
+	status:   Status(500),
+	err:      fmt.Errorf("Activator shutting down."),
+}
 
 type activationResult struct {
 	endpoint Endpoint
@@ -12,6 +21,7 @@ type DedupingActivator struct {
 	mux             sync.Mutex
 	pendingRequests map[revisionId][]chan activationResult
 	activator       Activator
+	shutdown        bool
 }
 
 func NewDedupingActivator(a Activator) Activator {
@@ -31,9 +41,25 @@ func (a *DedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, St
 	return result.endpoint, result.status, result.err
 }
 
+func (a *DedupingActivator) Shutdown() {
+	a.activator.Shutdown()
+	a.mux.Lock()
+	defer func() { a.mux.Unlock() }()
+	a.shutdown = true
+	for _, reqs := range a.pendingRequests {
+		for _, ch := range reqs {
+			ch <- shuttingDownError
+		}
+	}
+}
+
 func (a *DedupingActivator) dedupe(id revisionId, ch chan activationResult) {
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()
+	if a.shutdown {
+		ch <- shuttingDownError
+		return
+	}
 	if reqs, ok := a.pendingRequests[id]; ok {
 		a.pendingRequests[id] = append(reqs, ch)
 	} else {

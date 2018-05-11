@@ -7,6 +7,7 @@ type Status int
 // status code indicating why it could not.
 type Activator interface {
 	ActiveEndpoint(namespace, name string) (Endpoint, Status, error)
+	Shutdown()
 }
 
 type revisionId struct {

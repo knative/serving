@@ -33,6 +33,10 @@ func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.I
 	)
 }
 
+func (r *RevisionActivator) Shutdown() {
+	// nothing to do
+}
+
 func (r *RevisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
 	rev := revisionId{namespace: namespace, name: name}
 

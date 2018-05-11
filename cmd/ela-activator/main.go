@@ -37,10 +37,6 @@ func main() {
 	flag.Parse()
 	glog.Info("Starting the elafros activator...")
 
-	// set up signals so we handle the first shutdown signal gracefully
-	// TODO: wire shutdown signal into sub-components.
-	_ = signals.SetupSignalHandler()
-
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
 		glog.Fatal(err)
@@ -56,6 +52,13 @@ func main() {
 
 	a := activator.NewRevisionActivator(kubeClient, elaClient)
 	act = activator.NewDedupingActivator(a)
+
+	// set up signals so we handle the first shutdown signal gracefully
+	stopCh := signals.SetupSignalHandler()
+	go func() {
+		<-stopCh
+		act.Shutdown()
+	}()
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
