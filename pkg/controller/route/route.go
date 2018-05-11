@@ -73,7 +73,8 @@ type RevisionRoute struct {
 	// routing to. Could be resolved from the Configuration or
 	// specified explicitly in TrafficTarget
 	RevisionName string
-	// Service is the name of the k8s service we route to
+	// Service is the name of the k8s service we route to.
+	// Note we should not put service namespace as a suffix in this field.
 	Service string
 	// The k8s service namespace
 	Namespace string
@@ -690,41 +691,14 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	return nil
 }
 
-// computeRevisionRoute computes RevisionRoute for a revision if it's active. If the revision is inactive,
-// let inactiveRev be the inactive revision with the larget traffic weight.
-func computeRevisionRoute(enableScaleToZero bool, elaNS string, tt v1alpha1.TrafficTarget, rev *v1alpha1.Revision,
-	maxPercent *int, totalPercent *int, inactiveRev *string) *RevisionRoute {
-	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
-	if enableScaleToZero && cond != nil {
-		// A revision is considered inactive (yet) if it's in
-		// "Inactive" condition or "Activating" condition.
-		if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
-			(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
-			// Let inactiveRev be the Reserve revision with the larget traffic weight.
-			if tt.Percent > *maxPercent {
-				*maxPercent = tt.Percent
-				*inactiveRev = rev.Name
-			}
-			*totalPercent += tt.Percent
-			return nil
-		}
-	}
-	return &RevisionRoute{
-		Name:         tt.Name,
-		RevisionName: rev.Name,
-		Service:      rev.Status.ServiceName,
-		Namespace:    elaNS,
-		Weight:       tt.Percent,
-	}
-}
-
 // computeRevisionRoutes computes RevisionRoute for a route object. If there is one or more inactive revisions and enableScaleToZero
-// is true, a route rule with the activator service as the destination will be added.
+// is true, a route rule with the activator service as the destination will be added. It returns the revision routes, the inactive
+// revision name to which the activator should forward requests to, and error if there is any.
 func (c *Controller) computeRevisionRoutes(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, string, error) {
 	glog.V(4).Infof("Figuring out routes for Route: %s", route.Name)
 	enableScaleToZero := c.enableScaleToZero.Get()
-	// The inactive revision name which has the larget traffic weight.
+	// The inactive revision name which has the largest traffic weight.
 	inactiveRev := ""
 	// The max percent in all inactive revisions.
 	maxInactivePercent := 0
@@ -761,12 +735,37 @@ func (c *Controller) computeRevisionRoutes(
 			return nil, "", err
 		}
 
-		rr := computeRevisionRoute(enableScaleToZero, elaNS, tt, rev, &maxInactivePercent, &totalInactivePercent, &inactiveRev)
-		if rr != nil {
-			ret = append(ret, *rr)
+		hasRouteRule := true
+		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+		if enableScaleToZero && cond != nil {
+			// A revision is considered inactive (yet) if it's in
+			// "Inactive" condition or "Activating" condition.
+			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+				// Let inactiveRev be the Reserve revision with the largest traffic weight.
+				if tt.Percent > maxInactivePercent {
+					maxInactivePercent = tt.Percent
+					inactiveRev = rev.Name
+				}
+				totalInactivePercent += tt.Percent
+				hasRouteRule = false
+			}
+		}
+
+		if hasRouteRule {
+			rr := RevisionRoute{
+				Name:         tt.Name,
+				RevisionName: rev.Name,
+				Service:      rev.Status.ServiceName,
+				Namespace:    elaNS,
+				Weight:       tt.Percent,
+			}
+			ret = append(ret, rr)
 		}
 	}
 
+	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
+	// https://github.com/elafros/elafros/issues/882
 	if totalInactivePercent > 0 {
 		activatorRoute := RevisionRoute{
 			Name:         controller.GetElaK8SActivatorServiceName(),
