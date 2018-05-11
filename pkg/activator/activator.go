@@ -85,7 +85,7 @@ func getRevisionKey(namespace string, name string) string {
 func getRevisionNameFromKey(key string) (namespace string, name string, err error) {
 	arr := strings.Split(key, "/")
 	if len(arr) != 2 {
-		log.Printf("Invalid revision key ", key)
+		log.Print("Invalid revision key ", key)
 		return "", "", fmt.Errorf("Invalid revision key %s", key)
 	}
 	return arr[0], arr[1], nil
@@ -189,13 +189,13 @@ func (a *Activator) activate(revKey string) {
 	log.Print("Revision to be activated: ", revKey)
 	revision, err := a.getRevisionFromKey(revKey)
 	if err != nil {
-		log.Printf("Failed to get revision from the key.")
+		log.Print("Failed to get revision from the key.")
 		a.chans.badRevisionCh <- revKey
 		return
 	}
 	revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 	if err := a.updateRevision(revision); err != nil {
-		log.Printf("Failed to update revision.")
+		log.Print("Failed to update revision.")
 		a.chans.badRevisionCh <- revKey
 		return
 	}
@@ -206,7 +206,7 @@ func (a *Activator) watchForReady(revKey string) {
 	log.Printf("Watching for revision %s to be ready", revKey)
 	revision, err := a.getRevisionFromKey(revKey)
 	if err != nil {
-		log.Printf("Failed to get revision from the key.")
+		log.Print("Failed to get revision from the key.")
 		a.chans.badRevisionCh <- revKey
 		return
 	}

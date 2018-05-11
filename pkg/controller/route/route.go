@@ -576,8 +576,8 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 
 				revName := config.Status.LatestReadyRevisionName
 				if revName == "" {
-					log.Printf("Configuration %s is not ready. Skipping Configuration %q during route reconcile",
-						tt.ConfigurationName)
+					log.Printf("Configuration %q is not ready. Skipping Configuration %q during route reconcile",
+						tt.ConfigurationName, tt.ConfigurationName)
 					continue
 				}
 				// Check if it is a duplicated revision
@@ -986,7 +986,7 @@ func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route) error {
 		if _, ok := routeRuleNames[r.Name]; ok {
 			continue
 		}
-		log.Print("Deleting outdated route: %s", r.Name)
+		log.Printf("Deleting outdated route: %s", r.Name)
 		if err := routeClient.Delete(r.Name, nil); err != nil {
 			if !apierrs.IsNotFound(err) {
 				return err
