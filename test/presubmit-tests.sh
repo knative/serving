@@ -33,7 +33,7 @@ function cleanup() {
 cd ${ELAFROS_ROOT_DIR}
 
 # Skip presubmit tests if only markdown files were changed.
-if [[ -z "$(git status -s | grep -v '.md$')" ]]; then
+if [[ -z "$(git status -s | grep -v '^??' | grep -v '.md$')" ]]; then
   header "Documentation only PR, skipping tests"
   exit 0
 fi
