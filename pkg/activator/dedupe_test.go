@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
@@ -259,6 +260,7 @@ func concurrentTest(a Activator, f *fakeActivator, ids []revisionId) []activatio
 		}(i, id)
 	}
 	start.Wait()
+	time.Sleep(100 * time.Millisecond) // wait for concurrent requests to land
 	for _, id := range ids {
 		f.release(id)
 	}
