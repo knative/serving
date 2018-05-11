@@ -73,9 +73,12 @@ type RevisionRoute struct {
 	// routing to. Could be resolved from the Configuration or
 	// specified explicitly in TrafficTarget
 	RevisionName string
-	// Service is the name of the k8s service we route to
+	// Service is the name of the k8s service we route to.
+	// Note we should not put service namespace as a suffix in this field.
 	Service string
-	Weight  int
+	// The k8s service namespace
+	Namespace string
+	Weight    int
 }
 
 // Controller implements the controller for Route resources.
@@ -507,38 +510,6 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route) (
 	return configMap, revMap, nil
 }
 
-// Activator is used when the enableScaleToZero in elaconfig.yaml is true and there is
-// inactive traffic target.
-func (c *Controller) shouldUseActivatorInRouteRules(route *v1alpha1.Route) (bool, error) {
-	if !c.enableScaleToZero.Get() {
-		return false, nil
-	}
-
-	ns := route.Namespace
-	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
-
-	for _, tt := range route.Status.Traffic {
-		revName := tt.RevisionName
-		rev, err := revClient.Get(revName, metav1.GetOptions{})
-		if err != nil {
-			glog.Errorf("Failed to fetch Revision %q: %v", revName, err)
-			return false, err
-		}
-		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
-		if cond != nil {
-			// A revision is considered inactive (yet) if it's in
-			// "Inactive" condition or "Activating" condition.
-			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
-				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
-				glog.Infof("Revision %s is inactive.", revName)
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) error {
 	ns := route.Namespace
@@ -720,9 +691,19 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	return nil
 }
 
+// computeRevisionRoutes computes RevisionRoute for a route object. If there is one or more inactive revisions and enableScaleToZero
+// is true, a route rule with the activator service as the destination will be added. It returns the revision routes, the inactive
+// revision name to which the activator should forward requests to, and error if there is any.
 func (c *Controller) computeRevisionRoutes(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
-	glog.Infof("Figuring out routes for Route: %s", route.Name)
+	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, string, error) {
+	glog.V(4).Infof("Figuring out routes for Route: %s", route.Name)
+	enableScaleToZero := c.enableScaleToZero.Get()
+	// The inactive revision name which has the largest traffic weight.
+	inactiveRev := ""
+	// The max percent in all inactive revisions.
+	maxInactivePercent := 0
+	// The total percent of all inactive revisions.
+	totalInactivePercent := 0
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
 	ret := []RevisionRoute{}
@@ -737,7 +718,7 @@ func (c *Controller) computeRevisionRoutes(
 			if revName == "" {
 				glog.Errorf("Configuration %s is not ready. Should skip updating route rules",
 					tt.ConfigurationName)
-				return nil, nil
+				return nil, "", nil
 			}
 			// Revision has been already fetched indirectly in extendRevisionsWithIndirectTrafficTargets
 			rev = revMap[revName]
@@ -751,17 +732,51 @@ func (c *Controller) computeRevisionRoutes(
 		if rev == nil {
 			// For safety, which should never happen.
 			glog.Errorf("Failed to fetch Revision %s: %s", revName, err)
-			return nil, err
+			return nil, "", err
 		}
-		rr := RevisionRoute{
-			Name:         tt.Name,
-			RevisionName: rev.Name,
-			Service:      fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS),
-			Weight:       tt.Percent,
+
+		hasRouteRule := true
+		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
+		if enableScaleToZero && cond != nil {
+			// A revision is considered inactive (yet) if it's in
+			// "Inactive" condition or "Activating" condition.
+			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
+				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+				// Let inactiveRev be the Reserve revision with the largest traffic weight.
+				if tt.Percent > maxInactivePercent {
+					maxInactivePercent = tt.Percent
+					inactiveRev = rev.Name
+				}
+				totalInactivePercent += tt.Percent
+				hasRouteRule = false
+			}
 		}
-		ret = append(ret, rr)
+
+		if hasRouteRule {
+			rr := RevisionRoute{
+				Name:         tt.Name,
+				RevisionName: rev.Name,
+				Service:      rev.Status.ServiceName,
+				Namespace:    elaNS,
+				Weight:       tt.Percent,
+			}
+			ret = append(ret, rr)
+		}
 	}
-	return ret, nil
+
+	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
+	// https://github.com/elafros/elafros/issues/882
+	if totalInactivePercent > 0 {
+		activatorRoute := RevisionRoute{
+			Name:         controller.GetElaK8SActivatorServiceName(),
+			RevisionName: inactiveRev,
+			Service:      controller.GetElaK8SActivatorServiceName(),
+			Namespace:    controller.GetElaK8SActivatorNamespace(),
+			Weight:       totalInactivePercent,
+		}
+		ret = append(ret, activatorRoute)
+	}
+	return ret, inactiveRev, nil
 }
 
 // computeEmptyRevisionRoutes is a hack to work around https://github.com/istio/istio/issues/5204.
@@ -796,7 +811,8 @@ func (c *Controller) computeEmptyRevisionRoutes(
 					// throw spurious 503s. See https://github.com/istio/istio/issues/5204.
 					revRoutes = append(revRoutes, RevisionRoute{
 						RevisionName: rev.Name,
-						Service:      fmt.Sprintf("%s.%s", rev.Status.ServiceName, elaNS),
+						Service:      rev.Status.ServiceName,
+						Namespace:    elaNS,
 						Weight:       0,
 					})
 				}
@@ -816,7 +832,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		return nil, fmt.Errorf("Couldn't get a routeClient")
 	}
 
-	revisionRoutes, err := c.computeRevisionRoutes(route, configMap, revMap)
+	revisionRoutes, inactiveRev, err := c.computeRevisionRoutes(route, configMap, revMap)
 	if err != nil {
 		glog.Errorf("Failed to get routes for %s : %q", route.Name, err)
 		return nil, err
@@ -826,11 +842,6 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		return nil, nil
 	}
 
-	useActivator, err := c.shouldUseActivatorInRouteRules(route)
-	if err != nil {
-		glog.Errorf("Failed to check if should direct traffic to activator: %s", err)
-		return nil, err
-	}
 	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixed.
 	emptyRoutes, err := c.computeEmptyRevisionRoutes(route, configMap, revMap)
 	if err != nil {
@@ -845,14 +856,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), useActivator)
+		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
 		}
 		c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 	} else {
-		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), useActivator)
+		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 		if _, err := routeClient.Update(routeRules); err != nil {
 			c.recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
 			return nil, err
@@ -871,14 +882,14 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 			if !apierrs.IsNotFound(err) {
 				return nil, err
 			}
-			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), useActivator)
+			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 			if _, err := routeClient.Create(routeRules); err != nil {
 				c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
 				return nil, err
 			}
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 		} else {
-			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), useActivator)
+			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 			if _, err := routeClient.Update(routeRules); err != nil {
 				return nil, err
 			}

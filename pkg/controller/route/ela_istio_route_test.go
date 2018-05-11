@@ -1,12 +1,9 @@
 /*
 Copyright 2018 Google LLC
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,27 +24,33 @@ import (
 )
 
 const (
-	testDomain   string = "test-domain"
-	useActivator bool   = true
+	testDomain       string = "test-domain"
+	emptyInactiveRev string = ""
+	testInactiveRev  string = "test-rev"
 )
 
 func getTestRevisionRoutes() []RevisionRoute {
 	return []RevisionRoute{
 		RevisionRoute{
-			Service: "p-deadbeef-service.test", Weight: 98,
+			Service:   "p-deadbeef-service",
+			Namespace: testNamespace,
+			Weight:    98,
 		},
 		RevisionRoute{
-			Service: "test-rev-service.test", Weight: 2,
+			Service:   "test-rev-service",
+			Namespace: testNamespace,
+			Weight:    2,
 		},
 	}
 }
 
-func TestMakeIstioRouteSpecDoNotUseActivator(t *testing.T) {
+func TestMakeIstioRouteSpecRevisionsActive(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(nil)
 	rr := getTestRevisionRoutes()
 	expectedIstioRouteSpec := istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
 		},
 		Match: istiov1alpha2.Match{
 			Request: istiov1alpha2.MatchRequest{
@@ -61,33 +64,53 @@ func TestMakeIstioRouteSpecDoNotUseActivator(t *testing.T) {
 		Route: calculateDestinationWeights(route, nil, rr),
 	}
 
-	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, !useActivator)
+	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, emptyInactiveRev)
 
 	if diff := cmp.Diff(expectedIstioRouteSpec, istioRouteSpec); diff != "" {
 		t.Errorf("Unexpected istio route spec diff (-want +got): %v", diff)
 	}
 }
 
-func TestMakeIstioRouteSpecUseActivator(t *testing.T) {
+func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(nil)
 	rr := getTestRevisionRoutes()
+	appendHeaders := make(map[string]string)
+	appendHeaders[controller.GetRevisionHeaderName()] = testInactiveRev
+	appendHeaders[controller.GetRevisionHeaderNamespace()] = testNamespace
 	expectedIstioRouteSpec := istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
+		},
+		Match: istiov1alpha2.Match{
+			Request: istiov1alpha2.MatchRequest{
+				Headers: istiov1alpha2.Headers{
+					Authority: istiov1alpha2.MatchString{
+						Regex: regexp.QuoteMeta(testDomain),
+					},
+				},
+			},
 		},
 		Route: []istiov1alpha2.DestinationWeight{
 			istiov1alpha2.DestinationWeight{
 				Destination: istiov1alpha2.IstioService{
-					Name:      controller.GetElaK8SActivatorServiceName(),
-					Namespace: controller.GetElaK8SActivatorNamespace(),
+					Name:      "p-deadbeef-service",
+					Namespace: testNamespace,
 				},
-				Weight: 100,
+				Weight: 98,
+			},
+			istiov1alpha2.DestinationWeight{
+				Destination: istiov1alpha2.IstioService{
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
+				},
+				Weight: 2,
 			},
 		},
-		AppendHeaders: map[string]string{},
+		AppendHeaders: appendHeaders,
 	}
 
-	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, useActivator)
+	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, testInactiveRev)
 
 	if diff := cmp.Diff(expectedIstioRouteSpec, istioRouteSpec); diff != "" {
 		t.Errorf("Unexpected istio route spec diff (-want +got): %v", diff)
@@ -101,13 +124,15 @@ func TestCalculateDestinationWeightsNoTrafficTarget(t *testing.T) {
 	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{
 		istiov1alpha2.DestinationWeight{
 			Destination: istiov1alpha2.IstioService{
-				Name: "p-deadbeef-service.test",
+				Name:      "p-deadbeef-service",
+				Namespace: testNamespace,
 			},
 			Weight: 98,
 		},
 		istiov1alpha2.DestinationWeight{
 			Destination: istiov1alpha2.IstioService{
-				Name: "test-rev-service.test",
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
 			Weight: 2,
 		},
@@ -130,7 +155,8 @@ func TestCalculateDestinationWeightsWithTrafficTarget(t *testing.T) {
 	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{
 		istiov1alpha2.DestinationWeight{
 			Destination: istiov1alpha2.IstioService{
-				Name: "test-rev-service.test",
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
 			Weight: 100,
 		},
