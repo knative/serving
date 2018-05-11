@@ -21,36 +21,22 @@
 set -o errexit
 set -o pipefail
 
-# Useful environment variables
-readonly ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
-[[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
-readonly IS_PROW
-
-# Save *_OVERRIDE variables in case a cleanup is required.
-readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
-
-function restore_env() {
-  export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
-}
+source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 function cleanup() {
-  header "Cleanup (teardown)"
-  restore_env
+  "Cleaning up for teardown"
+  restore_override_vars
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge || true
 }
 
-function header() {
-  echo "================================================="
-  echo $1
-  echo "================================================="
-}
+cd ${ELAFROS_ROOT_DIR}
 
-cd ${ELAFROS_ROOT}
+# Skip presubmit tests if only markdown files were changed.
+if [[ -z "$(git status -s | grep -v '.md$')" ]]; then
+  header "Documentation only PR, skipping tests"
+  exit 0
+fi
 
 # Set the required env vars to dummy values to satisfy bazel.
 export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
@@ -60,7 +46,7 @@ export K8S_USER_OVERRIDE=USER_NOT_SET
 # For local runs, cleanup before and after the tests.
 if (( ! IS_PROW )); then
   trap cleanup EXIT
-  header "Cleanup (setup)"
+  echo "Cleaning up for setup"
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge
 fi
@@ -68,17 +54,17 @@ fi
 # Tests to be performed.
 
 # Step 1: Build relevant packages to ensure nothing is broken.
-header "Building phase"
+header "Verifying that everything builds"
 bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
 bazel build :everything
 
 # Step 2: Run unit tests.
-header "Testing phase"
+header "Running unit tests"
 bazel test //cmd/... //pkg/...
 # Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
 go test ./cmd/... ./pkg/...
 
 # Step 3: Run end-to-end tests.
 # Restore environment variables, let e2e-tests.sh handle them.
-restore_env
+restore_override_vars
 ./test/e2e-tests.sh
