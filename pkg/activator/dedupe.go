@@ -8,22 +8,22 @@ type activationResult struct {
 	err      error
 }
 
-type DeduppingActivator struct {
+type DedupingActivator struct {
 	mux             sync.Mutex
 	pendingRequests map[revisionId][]chan activationResult
 	activator       Activator
 }
 
-func NewDeduppingActivator(a Activator) Activator {
+func NewDedupingActivator(a Activator) Activator {
 	return Activator(
-		&DeduppingActivator{
+		&DedupingActivator{
 			pendingRequests: make(map[revisionId][]chan activationResult),
 			activator:       a,
 		},
 	)
 }
 
-func (a *DeduppingActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
+func (a *DedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
 	id := revisionId{namespace: namespace, name: name}
 	ch := make(chan activationResult, 1)
 	a.dedupe(id, ch)
@@ -31,7 +31,7 @@ func (a *DeduppingActivator) ActiveEndpoint(namespace, name string) (Endpoint, S
 	return result.endpoint, result.status, result.err
 }
 
-func (a *DeduppingActivator) dedupe(id revisionId, ch chan activationResult) {
+func (a *DedupingActivator) dedupe(id revisionId, ch chan activationResult) {
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()
 	if reqs, ok := a.pendingRequests[id]; ok {
@@ -42,7 +42,7 @@ func (a *DeduppingActivator) dedupe(id revisionId, ch chan activationResult) {
 	}
 }
 
-func (a *DeduppingActivator) activate(id revisionId) {
+func (a *DedupingActivator) activate(id revisionId) {
 	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.name)
 	a.mux.Lock()
 	defer func() { a.mux.Unlock() }()

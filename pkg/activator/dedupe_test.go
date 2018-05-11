@@ -18,7 +18,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDeduppingActivator(Activator(f))
+	d := NewDedupingActivator(Activator(f))
 
 	endpoint, status, err := d.ActiveEndpoint("default", "rev1")
 
@@ -46,7 +46,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDeduppingActivator(f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionId{
 		revisionId{"default", "rev1"},
@@ -81,7 +81,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDeduppingActivator(f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionId{
 		revisionId{"default", "rev1"},
@@ -121,7 +121,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 				err:      error2,
 			},
 		})
-	d := NewDeduppingActivator(f)
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionId{
 		revisionId{"default", "rev1"},
@@ -156,7 +156,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 				err:      failErr,
 			},
 		})
-	d := NewDeduppingActivator(Activator(f))
+	d := NewDedupingActivator(Activator(f))
 
 	// Activation initially fails
 	endpoint, status, err := d.ActiveEndpoint("default", "rev1")
