@@ -71,14 +71,14 @@ func main() {
 
 	if loggingEnableVarLogCollection.Get() {
 		if len(loggingFluentSidecarImage.Get()) != 0 {
-			log.Printf("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
+			log.Printf("Using fluentd sidecar image: %s", loggingFluentSidecarImage.Get())
 		} else {
 			log.Fatal("missing required flag: -fluentdSidecarImage")
 		}
 	}
 
 	if loggingUrlTemplate.Get() != "" {
-		log.Printf("Using logging url template: %s", loggingUrlTemplate)
+		log.Printf("Using logging url template: %s", loggingUrlTemplate.Get())
 	}
 
 	if len(queueSidecarImage) != 0 {
@@ -172,7 +172,7 @@ func main() {
 	srv := &http.Server{Addr: metricsScrapeAddr}
 	http.Handle(metricsScrapePath, promExporter)
 	go func() {
-		log.Print("Starting metrics listener at %s", metricsScrapeAddr)
+		log.Printf("Starting metrics listener at %s", metricsScrapeAddr)
 		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("Httpserver: ListenAndServe() finished with error: %v", err)
 		}
