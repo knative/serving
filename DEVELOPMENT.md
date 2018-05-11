@@ -137,9 +137,9 @@ bazel run config/monitoring:everything.apply
 To install using kubectl, run:
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-prod \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
-    -f config/monitoring/300-prod \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
@@ -151,9 +151,9 @@ bazel run config/monitoring:everything-dev.apply
 To install using kubectl, run:
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-dev \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
-    -f config/monitoring/300-dev \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
