@@ -177,7 +177,7 @@ func scaleTo(podCount int32) {
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
 	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
-		log.Print("Error getting Deployment %q: %s", elaDeployment, err)
+		log.Printf("Error getting Deployment %q: %s", elaDeployment, err)
 		return
 	}
 	log.Printf("===SCALE=== %v %v %v %v %v",
