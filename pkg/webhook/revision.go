@@ -17,9 +17,9 @@ package webhook
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/mattbaird/jsonpatch"
 )
@@ -79,13 +79,13 @@ func unmarshal(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revisio
 			return nil, nil, fmt.Errorf("Failed to convert old into Revision: %+v", old)
 		}
 	}
-	glog.Infof("%s: OLD Revision is\n%+v", fnName, oldR)
+	log.Printf("%s: OLD Revision is\n%+v", fnName, oldR)
 
 	newR, ok := new.(*v1alpha1.Revision)
 	if !ok {
 		return nil, nil, fmt.Errorf("Failed to convert new into Revision: %+v", new)
 	}
-	glog.Infof("%s: NEW Revision is\n%+v", fnName, newR)
+	log.Printf("%s: NEW Revision is\n%+v", fnName, newR)
 
 	return oldR, newR, nil
 }

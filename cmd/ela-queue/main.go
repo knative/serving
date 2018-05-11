@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -36,7 +37,6 @@ import (
 	"github.com/elafros/elafros/pkg/autoscaler"
 	"github.com/elafros/elafros/pkg/queue"
 
-	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -79,33 +79,35 @@ var (
 )
 
 func init() {
+	log.SetFlags(log.Lmicroseconds | log.Lshortfile)
+
 	podName = os.Getenv("ELA_POD")
 	if podName == "" {
-		glog.Fatal("No ELA_POD provided.")
+		log.Fatal("No ELA_POD provided.")
 	}
-	glog.Infof("ELA_POD=%v", podName)
+	log.Printf("ELA_POD=%v", podName)
 
 	elaRevision = os.Getenv("ELA_REVISION")
 	if elaRevision == "" {
-		glog.Fatal("No ELA_REVISION provided.")
+		log.Fatal("No ELA_REVISION provided.")
 	}
-	glog.Infof("ELA_REVISION=%v", elaRevision)
+	log.Printf("ELA_REVISION=%v", elaRevision)
 
 	elaAutoscaler = os.Getenv("ELA_AUTOSCALER")
 	if elaAutoscaler == "" {
-		glog.Fatal("No ELA_AUTOSCALER provided.")
+		log.Fatal("No ELA_AUTOSCALER provided.")
 	}
-	glog.Infof("ELA_AUTOSCALER=%v", elaRevision)
+	log.Printf("ELA_AUTOSCALER=%v", elaRevision)
 
 	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
 	if elaAutoscalerPort == "" {
-		glog.Fatal("No ELA_AUTOSCALER_PORT provided.")
+		log.Fatal("No ELA_AUTOSCALER_PORT provided.")
 	}
-	glog.Infof("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
+	log.Printf("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
 
 	target, err := url.Parse("http://localhost:8080")
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 	proxy = httputil.NewSingleHostReverseProxy(target)
 }
@@ -113,7 +115,7 @@ func init() {
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
 		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
-	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
+	log.Printf("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
 		// second first to let the autoscaler start serving.  And
@@ -126,13 +128,13 @@ func connectStatSink() {
 		}
 		conn, _, err := dialer.Dial(autoscalerEndpoint, nil)
 		if err != nil {
-			glog.Error(err)
+			log.Print(err)
 		} else {
-			glog.Info("Connected to stat sink.")
+			log.Print("Connected to stat sink.")
 			statSink = conn
 			return
 		}
-		glog.Error("Retrying connection to autoscaler.")
+		log.Print("Retrying connection to autoscaler.")
 	}
 }
 
@@ -140,21 +142,21 @@ func statReporter() {
 	for {
 		s := <-statChan
 		if statSink == nil {
-			glog.Error("Stat sink not connected.")
+			log.Print("Stat sink not connected.")
 			continue
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
 		err := enc.Encode(s)
 		if err != nil {
-			glog.Error(err)
+			log.Print(err)
 			continue
 		}
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
-			glog.Error(err)
+			log.Print(err)
 			statSink = nil
-			glog.Error("Attempting reconnection to stat sink.")
+			log.Print("Attempting reconnection to stat sink.")
 			go connectStatSink()
 			continue
 		}
@@ -258,17 +260,15 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
-	// Even though we have no flags, glog has some hence requiring
-	// flag.Parse().
 	flag.Parse()
-	glog.Info("Queue container is running")
+	log.Print("Queue container is running")
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatalf("Error getting in cluster config: %v", err)
+		log.Fatalf("Error getting in cluster config: %v", err)
 	}
 	kc, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Fatalf("Error creating new config: %v", err)
+		log.Fatalf("Error creating new config: %v", err)
 	}
 	kubeClient = kc
 	go connectStatSink()

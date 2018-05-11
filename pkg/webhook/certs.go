@@ -22,10 +22,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"log"
 	"math/big"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -101,19 +100,19 @@ func createCert(template, parent *x509.Certificate, pub interface{}, parentPriv 
 func createCA() (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
 	rootKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		glog.Warningf("error generating random key: %s", err)
+		log.Printf("error generating random key: %s", err)
 		return nil, nil, nil, err
 	}
 
 	rootCertTmpl, err := createCACertTemplate()
 	if err != nil {
-		glog.Warningf("error generating CA cert: %s", err)
+		log.Printf("error generating CA cert: %s", err)
 		return nil, nil, nil, err
 	}
 
 	rootCert, rootCertPEM, err := createCert(rootCertTmpl, rootCertTmpl, &rootKey.PublicKey, rootKey)
 	if err != nil {
-		glog.Warningf("error signing the CA cert: %s", err)
+		log.Printf("error signing the CA cert: %s", err)
 		return nil, nil, nil, err
 	}
 	return rootKey, rootCert, rootCertPEM, nil
@@ -133,19 +132,19 @@ func CreateCerts() (serverKey, serverCert, caCert []byte, err error) {
 	// Then create the private key for the serving cert
 	servKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		glog.Warningf("error generating random key: %s", err)
+		log.Printf("error generating random key: %s", err)
 		return nil, nil, nil, err
 	}
 	servCertTemplate, err := createServerCertTemplate()
 	if err != nil {
-		glog.Warningf("failed to create the server certificate template: %s", err)
+		log.Printf("failed to create the server certificate template: %s", err)
 		return nil, nil, nil, err
 	}
 
 	// create a certificate which wraps the server's public key, sign it with the CA private key
 	_, servCertPEM, err := createCert(servCertTemplate, caCertificate, &servKey.PublicKey, caKey)
 	if err != nil {
-		glog.Warningf("error signing server certificate template: %s", err)
+		log.Printf("error signing server certificate template: %s", err)
 		return nil, nil, nil, err
 	}
 	servKeyPEM := pem.EncodeToMemory(&pem.Block{

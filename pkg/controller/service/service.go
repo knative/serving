@@ -19,10 +19,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,15 +91,15 @@ func NewController(
 	config *rest.Config,
 	controllerConfig controller.Config) controller.Interface {
 
-	glog.Infof("Service controller Init")
+	log.Printf("Service controller Init")
 
 	// obtain references to a shared index informer for the Services.
 	informer := elaInformerFactory.Elafros().V1alpha1().Services()
 
 	// Create event broadcaster
-	glog.V(4).Info("Creating event broadcaster")
+	log.Print("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -112,7 +112,7 @@ func NewController(
 		recorder:      recorder,
 	}
 
-	glog.Info("Setting up event handlers")
+	log.Print("Setting up event handlers")
 	// Set up an event handler for when Service resources change
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueService,
@@ -132,7 +132,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Service controller")
+	log.Print("Starting Service controller")
 
 	// Metrics setup: begin
 	// Create the tag keys that will be used to add tags to our measurements.
@@ -154,20 +154,20 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	// Metrics setup: end
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
+	log.Print("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	glog.Info("Starting workers")
+	log.Print("Starting workers")
 	// Launch workers to process Service resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	log.Print("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	log.Print("Shutting down workers")
 
 	return nil
 }
@@ -221,7 +221,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced %q", key)
+		log.Printf("Successfully synced %q", key)
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
@@ -281,7 +281,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// Don't modify the informers copy
 	service = service.DeepCopy()
 
-	glog.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
+	log.Printf("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
 	config := MakeServiceConfiguration(service)
 	if err := c.reconcileConfiguration(config); err != nil {

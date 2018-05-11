@@ -18,11 +18,11 @@ package configuration
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
 
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,9 +90,9 @@ func NewController(
 	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	// Create event broadcaster
-	glog.V(4).Info("Creating event broadcaster")
+	log.Print("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -107,7 +107,7 @@ func NewController(
 		recorder:        recorder,
 	}
 
-	glog.Info("Setting up event handlers")
+	log.Print("Setting up event handlers")
 	// Set up an event handler for when Configuration resources change
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueConfiguration,
@@ -133,29 +133,29 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Configuration controller")
+	log.Print("Starting Configuration controller")
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
+	log.Print("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	// Wait for the revisions caches to be synced before starting workers
-	glog.Info("Waiting for revisions informer caches to sync")
+	log.Print("Waiting for revisions informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.revisionsSynced); !ok {
 		return fmt.Errorf("failed to wait for revisions caches to sync")
 	}
 
-	glog.Info("Starting workers")
+	log.Print("Starting workers")
 	// Launch workers to process Configuration resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	log.Print("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	log.Print("Shutting down workers")
 
 	return nil
 }
@@ -211,7 +211,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced %q", key)
+		log.Printf("Successfully synced %q", key)
 		return nil
 	}(obj)
 
@@ -268,12 +268,12 @@ func (c *Controller) syncHandler(key string) error {
 	// Configuration business logic
 	if config.GetGeneration() == config.Status.ObservedGeneration {
 		// TODO(vaikas): Check to see if Status.LatestCreatedRevisionName is ready and update Status.LatestReady
-		glog.Infof("Skipping reconcile since already reconciled %d == %d",
+		log.Printf("Skipping reconcile since already reconciled %d == %d",
 			config.Spec.Generation, config.Status.ObservedGeneration)
 		return nil
 	}
 
-	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
+	log.Printf("Running reconcile Configuration for %s\n%+v\n%+v\n",
 		config.Name, config, config.Spec.RevisionTemplate)
 	spec := config.Spec.RevisionTemplate.Spec
 	controllerRef := controller.NewConfigurationControllerRef(config)
@@ -290,11 +290,11 @@ func (c *Controller) syncHandler(key string) error {
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
 		created, err := c.buildclientset.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
-			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
+			log.Printf("Failed to create Build:\n%+v\n%s", build, err)
 			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
 			return err
 		}
-		glog.Infof("Created Build:\n%+v", created.Name)
+		log.Printf("Created Build:\n%+v", created.Name)
 		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
 		spec.BuildName = created.Name
 	}
@@ -308,7 +308,7 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			glog.Errorf("Revisions Get for %q failed: %s", revName, err)
+			log.Printf("Revisions Get for %q failed: %s", revName, err)
 			return err
 		}
 
@@ -338,14 +338,14 @@ func (c *Controller) syncHandler(key string) error {
 
 		created, err = revClient.Create(rev)
 		if err != nil {
-			glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+			log.Printf("Failed to create Revision:\n%+v\n%s", rev, err)
 			c.recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
 			return err
 		}
 		c.recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
-		glog.Infof("Created Revision:\n%+v", created)
+		log.Printf("Created Revision:\n%+v", created)
 	} else {
-		glog.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
+		log.Printf("Revision already created %s: %s", created.ObjectMeta.Name, err)
 	}
 	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.
@@ -354,10 +354,10 @@ func (c *Controller) syncHandler(key string) error {
 	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
 	config.Status.ObservedGeneration = config.Spec.Generation
 
-	glog.Infof("Updating the configuration status:\n%+v", config)
+	log.Printf("Updating the configuration status:\n%+v", config)
 
 	if _, err = c.updateStatus(config); err != nil {
-		glog.Errorf("Failed to update the configuration %s", err)
+		log.Printf("Failed to update the configuration %s", err)
 		return err
 	}
 
@@ -399,14 +399,14 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 
 	config, err := c.lister.Configurations(namespace).Get(configName)
 	if err != nil {
-		glog.Errorf("Error fetching configuration '%s/%s' upon revision becoming ready: %v",
+		log.Printf("Error fetching configuration '%s/%s' upon revision becoming ready: %v",
 			namespace, configName, err)
 		return
 	}
 
 	if revision.Name != config.Status.LatestCreatedRevisionName {
 		// The revision isn't the latest created one, so ignore this event.
-		glog.Infof("Revision %q is not the latest created one", revisionName)
+		log.Printf("Revision %q is not the latest created one", revisionName)
 		return
 	}
 
@@ -414,31 +414,31 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	config = config.DeepCopy()
 
 	if !revision.Status.IsReady() {
-		glog.Infof("Revision %q of configuration %q is not ready", revisionName, config.Name)
+		log.Printf("Revision %q of configuration %q is not ready", revisionName, config.Name)
 
 		//add LatestRevision condition to be false with the status from the revision
 		c.markConfigurationLatestRevisionStatus(config, revision)
 
 		if _, err := c.updateStatus(config); err != nil {
-			glog.Errorf("Error updating configuration '%s/%s': %v",
+			log.Printf("Error updating configuration '%s/%s': %v",
 				namespace, configName, err)
 		}
 		c.recorder.Eventf(config, corev1.EventTypeNormal, "LatestRevisionUpdate",
 			"Latest revision of configuration is not ready")
 
 	} else {
-		glog.Infof("Revision %q is ready", revisionName)
+		log.Printf("Revision %q is ready", revisionName)
 
 		alreadyReady := config.Status.IsReady()
 		if !alreadyReady {
 			c.markConfigurationReady(config, revision)
 		}
-		glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
+		log.Printf("Setting LatestReadyRevisionName of Configuration %q to revision %q",
 			config.Name, revision.Name)
 		config.Status.LatestReadyRevisionName = revision.Name
 
 		if _, err := c.updateStatus(config); err != nil {
-			glog.Errorf("Error updating configuration '%s/%s': %v",
+			log.Printf("Error updating configuration '%s/%s': %v",
 				namespace, configName, err)
 		}
 		if !alreadyReady {
@@ -469,7 +469,7 @@ func getLatestRevisionStatusCondition(revision *v1alpha1.Revision) *v1alpha1.Rev
 // created revision is ready.
 func (c *Controller) markConfigurationReady(
 	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
-	glog.Infof("Marking Configuration %q ready", config.Name)
+	log.Printf("Marking Configuration %q ready", config.Name)
 	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
@@ -486,7 +486,7 @@ func (c *Controller) markConfigurationLatestRevisionStatus(
 	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionReady)
 	cond := getLatestRevisionStatusCondition(revision)
 	if cond == nil {
-		glog.Infof("Revision status is not updated yet")
+		log.Printf("Revision status is not updated yet")
 		return
 	}
 	config.Status.SetCondition(

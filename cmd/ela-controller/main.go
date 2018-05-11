@@ -19,13 +19,13 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
-	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -71,48 +71,48 @@ func main() {
 
 	if loggingEnableVarLogCollection.Get() {
 		if len(loggingFluentSidecarImage.Get()) != 0 {
-			glog.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
+			log.Printf("Using fluentd sidecar image: %s", loggingFluentSidecarImage.Get())
 		} else {
-			glog.Fatal("missing required flag: -fluentdSidecarImage")
+			log.Fatal("missing required flag: -fluentdSidecarImage")
 		}
 	}
 
 	if loggingUrlTemplate.Get() != "" {
-		glog.Infof("Using logging url template: %s", loggingUrlTemplate)
+		log.Printf("Using logging url template: %s", loggingUrlTemplate.Get())
 	}
 
 	if len(queueSidecarImage) != 0 {
-		glog.Infof("Using queue sidecar image: %s", queueSidecarImage)
+		log.Printf("Using queue sidecar image: %s", queueSidecarImage)
 	} else {
-		glog.Fatal("missing required flag: -queueSidecarImage")
+		log.Fatal("missing required flag: -queueSidecarImage")
 	}
 
 	if len(autoscalerImage) != 0 {
-		glog.Infof("Using autoscaler image: %s", autoscalerImage)
+		log.Printf("Using autoscaler image: %s", autoscalerImage)
 	} else {
-		glog.Fatal("missing required flag: -autoscalerImage")
+		log.Fatal("missing required flag: -autoscalerImage")
 	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeconfig: %v", err)
+		log.Fatalf("Error building kubeconfig: %v", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building kubernetes clientset: %v", err)
+		log.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
 	elaClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %v", err)
+		log.Fatalf("Error building ela clientset: %v", err)
 	}
 
 	buildClient, err := buildclientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building build clientset: %v", err)
+		log.Fatalf("Error building build clientset: %v", err)
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
@@ -121,7 +121,7 @@ func main() {
 
 	controllerConfig, err := controller.NewConfig(kubeClient)
 	if err != nil {
-		glog.Fatalf("Error loading controller config: %v", err)
+		log.Fatalf("Error loading controller config: %v", err)
 	}
 
 	revControllerConfig := revision.ControllerConfig{
@@ -154,16 +154,16 @@ func main() {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
-				glog.Fatalf("Error running controller: %v", runErr)
+				log.Fatalf("Error running controller: %v", runErr)
 			}
 		}(ctrlr)
 	}
 
 	// Setup the metrics to flow to Prometheus.
-	glog.Info("Initializing OpenCensus Prometheus exporter.")
+	log.Print("Initializing OpenCensus Prometheus exporter.")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "elafros"})
 	if err != nil {
-		glog.Fatalf("failed to create the Prometheus exporter: %v", err)
+		log.Fatalf("failed to create the Prometheus exporter: %v", err)
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(10 * time.Second)
@@ -172,9 +172,9 @@ func main() {
 	srv := &http.Server{Addr: metricsScrapeAddr}
 	http.Handle(metricsScrapePath, promExporter)
 	go func() {
-		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
+		log.Printf("Starting metrics listener at %s", metricsScrapeAddr)
 		if err := srv.ListenAndServe(); err != nil {
-			glog.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
+			log.Printf("Httpserver: ListenAndServe() finished with error: %v", err)
 		}
 	}()
 
@@ -184,11 +184,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)
-
-	glog.Flush()
 }
 
 func init() {
+	log.SetFlags(log.Lmicroseconds | log.Lshortfile)
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")

@@ -16,10 +16,10 @@ limitations under the License.
 package autoscaler
 
 import (
+	"log"
 	"math"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 )
 
@@ -79,7 +79,7 @@ func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
 // Record a data point. No safe for concurrent access or concurrent access with Scale.
 func (a *Autoscaler) Record(stat Stat) {
 	if stat.Time == nil {
-		glog.Errorf("Missing time from stat: %+v", stat)
+		log.Printf("Missing time from stat: %+v", stat)
 		return
 	}
 	key := statKey{
@@ -134,7 +134,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	}
 
 	if lastRequestTime.Add(*a.ScaleToZeroThreshold.Get()).Before(now) {
-		glog.Info("Threshold passed with no new requests. Scaling to 0.")
+		log.Print("Threshold passed with no new requests. Scaling to 0.")
 		return 0, true
 	}
 
@@ -145,11 +145,11 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		totalCurrentQPS = totalCurrentQPS + stat.RequestCount
 		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
 	}
-	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
+	log.Printf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
-		glog.Info("Un-panicking.")
+		log.Print("Un-panicking.")
 		a.reporter.Report(PanicM, 0)
 		a.panicking = false
 		a.panicTime = nil
@@ -158,7 +158,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	// Do nothing when we have no data.
 	if len(stablePods) == 0 {
-		glog.Info("No data to scale on.")
+		log.Print("No data to scale on.")
 		return 0, false
 	}
 
@@ -174,29 +174,29 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
-	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrency, a.StableWindow.Get(), stableCount, len(stablePods))
-	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+	log.Printf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedPanicConcurrency, a.PanicWindow.Get(), panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
-		glog.Info("PANICKING")
+		log.Print("PANICKING")
 		a.reporter.Report(PanicM, 1)
 		a.panicking = true
 		a.panicTime = &now
 	}
 
 	if a.panicking {
-		glog.Info("Operating in panic mode.")
+		log.Print("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
-			glog.Infof("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
+			log.Printf("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
 		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
 	}
-	glog.Info("Operating in stable mode.")
+	log.Print("Operating in stable mode.")
 	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 }
 

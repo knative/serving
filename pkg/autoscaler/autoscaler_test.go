@@ -17,10 +17,10 @@ package autoscaler
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 )
 
@@ -286,7 +286,7 @@ func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time
 	for i := 1; i <= s.durationSeconds; i++ {
 		points = append(points, int32(float64(s.startConcurrency)+float64(s.endConcurrency-s.startConcurrency)*(float64(i)/float64(s.durationSeconds))))
 	}
-	glog.Infof("Recording points: %v.", points)
+	log.Printf("Recording points: %v.", points)
 	for _, point := range points {
 		t := now
 		now = now.Add(time.Second)
