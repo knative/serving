@@ -39,13 +39,33 @@ readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
+readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
+
 # Helper functions.
+
+function create_everything() {
+  # TODO(mattmoor): This should use kubectl
+  bazel run //third_party/istio-0.6.0/install/kubernetes:istio.apply
+  kubectl apply -f third_party/config/build/release.yaml
+  "${OUTPUT_GOBIN}/ko" apply -f config/
+
+  # Enable Istio sidecar injection
+  bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
+  kubectl label namespace default istio-injection=enabled
+}
+
+function delete_everything() {
+  "${OUTPUT_GOBIN}/ko" delete --ignore-not-found=true -f config/
+  kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
+  # TODO(mattmoor): This should use kubectl
+  bazel run //third_party/istio-0.6.0/install/kubernetes:istio.delete
+}
 
 function teardown() {
   header "Tearing down test environment"
   # Free resources in GCP project.
   if (( ! USING_EXISTING_CLUSTER )); then
-    bazel run //:everything.delete
+    delete_everything
   fi
 
   # Delete Elafros images when using prow.
@@ -180,6 +200,7 @@ if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
   export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)
 fi
 readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
 # Build and start Elafros.
 
@@ -190,23 +211,21 @@ echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 header "Building and starting Elafros"
 trap teardown EXIT
 
+GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
+
 # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
 bazel clean --expunge
 if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Elafros instance"
-  bazel run //:everything.delete  # ignore if not running
+  delete_everything
 fi
 if (( IS_PROW )); then
   gcr_auth
 fi
 
-bazel run //:everything.apply
+create_everything
 wait_until_pods_running ela-system
 exit_if_failed
-
-# Enable Istio sidecar injection
-bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
-kubectl label namespace default istio-injection=enabled
 
 # Run the tests
 
