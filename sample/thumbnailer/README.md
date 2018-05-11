@@ -82,7 +82,7 @@ You can also build the image as part of deployment:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
-sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
+perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
 
 # Create the Kubernetes resources from this directory
 kubectl apply -f ../templates/docker-build-helper.yaml -f sample.yaml

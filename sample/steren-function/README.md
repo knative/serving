@@ -7,8 +7,7 @@ This is based on the source code available from: github.com/steren/sample-functi
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
 
 ## Running
 
@@ -16,7 +15,7 @@ You can deploy this to Elafros from the root directory via:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
-sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-function/sample.yaml
+perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-function/sample.yaml
 
 # Create the Kubernetes resources
 kubectl apply -f sample/templates/node-fn.yaml -f sample/steren-function/sample.yaml

@@ -7,9 +7,8 @@ This is based on the source code available from: github.com/steren/sample-app
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
-3. Enable the Google Cloud Datastore API.
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Enable the Google Cloud Datastore API.
 
 ## Running
 
@@ -17,7 +16,7 @@ You can deploy this to Elafros from the root directory via:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
-sed -i "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-app/sample.yaml
+perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-app/sample.yaml
 
 # Create the Kubernetes resources
 kubectl apply -f sample/templates/node-app.yaml -f sample/steren-app/sample.yaml

@@ -6,9 +6,8 @@ github.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
-
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
 ## Setup
 
@@ -22,7 +21,7 @@ docker build -t "${REPO}/sample/gitwebhook" --file=sample/gitwebhook/Dockerfile 
 docker push "${REPO}/sample/gitwebhook"
 
 # Replace the image reference with our published image.
-sed -i "s@github.com/elafros/elafros/sample/gitwebhook@${REPO}/sample/gitwebhook@g" sample/gitwebhook/*.yaml
+perl -pi -e "s@github.com/elafros/elafros/sample/gitwebhook@${REPO}/sample/gitwebhook@g" sample/gitwebhook/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/gitwebhook/sample.yaml

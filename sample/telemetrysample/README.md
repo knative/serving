@@ -9,8 +9,8 @@ that is installed by default as a showcase of installing dedicated Prometheus in
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
 
 ## Setup
@@ -25,7 +25,7 @@ docker build -t "${REPO}/sample/telemetrysample" --file=sample/telemetrysample/D
 docker push "${REPO}/sample/telemetrysample"
 
 # Replace the image reference with our published image.
-sed -i "s@github.com/elafros/elafros/sample/telemetrysample@${REPO}/sample/telemetrysample@g" sample/telemetrysample/*.yaml
+perl -pi -e "s@github.com/elafros/elafros/sample/telemetrysample@${REPO}/sample/telemetrysample@g" sample/telemetrysample/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/telemetrysample/

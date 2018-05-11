@@ -6,8 +6,8 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
 ## Setup
 
@@ -21,7 +21,7 @@ docker build -t "${REPO}/sample/service" --file=sample/service/Dockerfile .
 docker push "${REPO}/sample/service"
 
 # Replace the image reference with our published image.
-sed -i "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
+perl -pi -e "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/service/sample.yaml
