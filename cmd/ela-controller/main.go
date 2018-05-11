@@ -63,6 +63,7 @@ var (
 
 	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
 	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
+	loggingUrlTemplate            = k8sflag.String("logging.revision-url-template", "")
 )
 
 func main() {
@@ -74,6 +75,10 @@ func main() {
 		} else {
 			glog.Fatal("missing required flag: -fluentdSidecarImage")
 		}
+	}
+
+	if loggingUrlTemplate.Get() != "" {
+		glog.Infof("Using logging url template: %s", loggingUrlTemplate)
 	}
 
 	if len(queueSidecarImage) != 0 {
@@ -127,6 +132,7 @@ func main() {
 
 		EnableVarLogCollection: loggingEnableVarLogCollection.Get(),
 		FluentdSidecarImage:    loggingFluentSidecarImage.Get(),
+		LoggingURLTemplate:     loggingUrlTemplate.Get(),
 	}
 
 	// Build all of our controllers, with the clients constructed above.

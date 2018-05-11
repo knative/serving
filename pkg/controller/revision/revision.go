@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/elafros/elafros/pkg/apis/ela"
@@ -165,6 +166,10 @@ type ControllerConfig struct {
 	// injected into the revision pod. It is used only when enableVarLogCollection
 	// is true.
 	FluentdSidecarImage string
+
+	// LoggingURLTemplate is a string containing the logging url template where
+	// the variable REVISION_UID will be replaced with the created revision's UID.
+	LoggingURLTemplate string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -403,6 +408,11 @@ func (c *Controller) syncHandler(key string) error {
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
+	if err := c.updateRevisionLoggingURL(rev); err != nil {
+		glog.Errorf("Error updating the revisions logging url: %s", err)
+		return err
+	}
+
 	if rev.Spec.BuildName != "" {
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
@@ -435,6 +445,22 @@ func (c *Controller) syncHandler(key string) error {
 // reconcileWithImage handles enqueued messages that have an image.
 func (c *Controller) reconcileWithImage(rev *v1alpha1.Revision, ns string) error {
 	return printErr(c.reconcileOnceBuilt(rev, ns))
+}
+
+func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
+	logURLTmpl := c.controllerConfig.LoggingURLTemplate
+	if logURLTmpl == "" {
+		return nil
+	}
+
+	url := strings.Replace(logURLTmpl, "${REVISION_UID}", string(rev.UID), -1)
+
+	if rev.Status.LogURL == url {
+		return nil
+	}
+	rev.Status.LogURL = url
+	_, err := c.updateStatus(rev)
+	return err
 }
 
 // Checks whether the Revision knows whether the build is done.

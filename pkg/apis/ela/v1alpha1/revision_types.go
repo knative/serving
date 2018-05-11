@@ -175,6 +175,10 @@ type RevisionStatus struct {
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// LogURL specifies the generated logging url for this particular revision
+	// based on the revision url template specified in the controller's config.
+	LogURL string `json:"logUrl,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

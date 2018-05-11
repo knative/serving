@@ -244,7 +244,7 @@ GET /apis/elafros.dev/v1alpha1/namespaces/default/revisions/abc
 ```yaml
 ...
 status:
-  logUrl: "http://logging.infra.mycompany.com/...?filter=revision=abc&..."
+  logUrl: "http://logging.infra.mycompany.com/...?filter=revision_uid=a1e34&..."
   conditions:
   - type: Ready
     status: False

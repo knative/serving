@@ -35,6 +35,10 @@ const (
 	// which Revision triggered their creation.
 	RevisionLabelKey = GroupName + "/revision"
 
+	// RevisionUID is the label key attached to a revision to indicate
+	// its unique identifier
+	RevisionUID = GroupName + "/revisionUID"
+
 	// AutoscalerLabelKey is the label key attached to a autoscaler pod indicating by
 	// which Autoscaler deployment it is created.
 	AutoscalerLabelKey = GroupName + "/autoscaler"
