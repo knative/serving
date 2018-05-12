@@ -30,6 +30,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -185,6 +187,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 			},
 		},
 		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
+		zap.NewNop().Sugar(),
 	).(*Controller)
 
 	return
@@ -1004,7 +1007,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 	}
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := controller.removeOutdatedRouteRules(route); err != nil {
+	if err := controller.removeOutdatedRouteRules(route, zap.NewNop().Sugar()); err != nil {
 		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
 	}
 
@@ -1470,7 +1473,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Create an ingress owned by this route.
-	controller.reconcileIngress(route)
+	controller.reconcileIngress(route, zap.NewNop().Sugar())
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})

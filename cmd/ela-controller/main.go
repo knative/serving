@@ -18,14 +18,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"net/http"
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"go.uber.org/zap"
 
-	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -63,56 +64,73 @@ var (
 
 	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
 	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
-	loggingUrlTemplate            = k8sflag.String("logging.revision-url-template", "")
+	loggingURLTemplate            = k8sflag.String("logging.revision-url-template", "")
+	loggingZapCfg                 = k8sflag.String("logging.ela-controller.zap-config", "")
 )
 
 func main() {
 	flag.Parse()
 
+	zapJSON := loggingZapCfg.Get()
+	var loggingCfg zap.Config
+	if len(zapJSON) > 0 {
+		if err := json.Unmarshal([]byte(zapJSON), &loggingCfg); err != nil {
+			panic("Error parsing logging configuration")
+		}
+	} else {
+		loggingCfg = zap.NewProductionConfig()
+	}
+	rawLogger, err := loggingCfg.Build()
+	if err != nil {
+		panic(err)
+	}
+	defer rawLogger.Sync()
+	logger := rawLogger.Sugar()
+
 	if loggingEnableVarLogCollection.Get() {
 		if len(loggingFluentSidecarImage.Get()) != 0 {
-			glog.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
+			logger.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
 		} else {
-			glog.Fatal("missing required flag: -fluentdSidecarImage")
+			logger.Fatalf("missing required flag: -fluentdSidecarImage")
 		}
 	}
 
-	if loggingUrlTemplate.Get() != "" {
-		glog.Infof("Using logging url template: %s", loggingUrlTemplate)
+	if loggingURLTemplate.Get() != "" {
+		logger.Infof("Using logging url template: %s", loggingURLTemplate)
 	}
 
 	if len(queueSidecarImage) != 0 {
-		glog.Infof("Using queue sidecar image: %s", queueSidecarImage)
+		logger.Infof("Using queue sidecar image: %s", queueSidecarImage)
 	} else {
-		glog.Fatal("missing required flag: -queueSidecarImage")
+		logger.Fatal("missing required flag: -queueSidecarImage")
 	}
 
 	if len(autoscalerImage) != 0 {
-		glog.Infof("Using autoscaler image: %s", autoscalerImage)
+		logger.Infof("Using autoscaler image: %s", autoscalerImage)
 	} else {
-		glog.Fatal("missing required flag: -autoscalerImage")
+		logger.Fatal("missing required flag: -autoscalerImage")
 	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeconfig: %v", err)
+		logger.Fatalf("Error building kubeconfig: %v", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building kubernetes clientset: %v", err)
+		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
 	elaClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %v", err)
+		logger.Fatalf("Error building ela clientset: %v", err)
 	}
 
 	buildClient, err := buildclientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building build clientset: %v", err)
+		logger.Fatalf("Error building build clientset: %v", err)
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
@@ -121,7 +139,7 @@ func main() {
 
 	controllerConfig, err := controller.NewConfig(kubeClient)
 	if err != nil {
-		glog.Fatalf("Error loading controller config: %v", err)
+		logger.Fatalf("Error loading controller config: %v", err)
 	}
 
 	revControllerConfig := revision.ControllerConfig{
@@ -132,7 +150,7 @@ func main() {
 
 		EnableVarLogCollection: loggingEnableVarLogCollection.Get(),
 		FluentdSidecarImage:    loggingFluentSidecarImage.Get(),
-		LoggingURLTemplate:     loggingUrlTemplate.Get(),
+		LoggingURLTemplate:     loggingURLTemplate.Get(),
 	}
 
 	// Build all of our controllers, with the clients constructed above.
@@ -140,7 +158,7 @@ func main() {
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig),
 	}
 
@@ -154,16 +172,16 @@ func main() {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {
-				glog.Fatalf("Error running controller: %v", runErr)
+				logger.Fatalf("Error running controller: %v", runErr)
 			}
 		}(ctrlr)
 	}
 
 	// Setup the metrics to flow to Prometheus.
-	glog.Info("Initializing OpenCensus Prometheus exporter.")
+	logger.Info("Initializing OpenCensus Prometheus exporter.")
 	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "elafros"})
 	if err != nil {
-		glog.Fatalf("failed to create the Prometheus exporter: %v", err)
+		logger.Fatalf("failed to create the Prometheus exporter: %v", err)
 	}
 	view.RegisterExporter(promExporter)
 	view.SetReportingPeriod(10 * time.Second)
@@ -172,9 +190,9 @@ func main() {
 	srv := &http.Server{Addr: metricsScrapeAddr}
 	http.Handle(metricsScrapePath, promExporter)
 	go func() {
-		glog.Info("Starting metrics listener at %s", metricsScrapeAddr)
+		logger.Info("Starting metrics listener at %s", metricsScrapeAddr)
 		if err := srv.ListenAndServe(); err != nil {
-			glog.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
+			logger.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
 		}
 	}()
 
@@ -184,8 +202,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)
-
-	glog.Flush()
 }
 
 func init() {

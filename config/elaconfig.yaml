@@ -88,3 +88,17 @@ data:
   logging.revision-url-template: |
     http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.elafros-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))
 
+  # Configuration for Elafros controllers
+  logging.ela-controller.zap-config: |
+    {
+      "level": "info",
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"],
+      "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "",
+        "levelKey": "level",
+        "levelEncoder": "lowercase",
+        "messageKey": "msg",
+      }
+    }
