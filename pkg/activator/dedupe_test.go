@@ -17,6 +17,7 @@ package activator
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"sync"
 	"testing"
@@ -121,7 +122,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 
 func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	ep1 := Endpoint{"ip1", 8080}
-	status2 := Status(500)
+	status2 := Status(http.StatusInternalServerError)
 	error2 := fmt.Errorf("Test error")
 	f := newFakeActivator(t,
 		map[revisionId]activationResult{
@@ -237,8 +238,8 @@ func TestShutdown_ReturnError(t *testing.T) {
 	if endpoint != want {
 		t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, endpoint)
 	}
-	if status != Status(500) {
-		t.Errorf("Unexpected error stats. Want 500. Got %v.", status)
+	if status != Status(http.StatusInternalServerError) {
+		t.Errorf("Unexpected error stats. Want %v. Got %v.", http.StatusInternalServerError, status)
 	}
 	if err == nil {
 		t.Errorf("Expected error. Want error. Got nil.")

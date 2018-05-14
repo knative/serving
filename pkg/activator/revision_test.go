@@ -16,6 +16,7 @@ limitations under the License.
 package activator
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -96,8 +97,8 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 	if got != want {
 		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
 	}
-	if status != Status(500) {
-		t.Errorf("Unexpected error status. Want 500. Got %v.", status)
+	if status != Status(http.StatusInternalServerError) {
+		t.Errorf("Unexpected error status. Want %v. Got %v.", http.StatusInternalServerError, status)
 	}
 	if err == nil {
 		t.Errorf("Expected error. Want error. Got nil.")
@@ -188,8 +189,8 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 		if result.endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
 		}
-		if result.status != Status(500) {
-			t.Errorf("Unexpected error state. Want 500. Got %v.", result.status)
+		if result.status != Status(http.StatusInternalServerError) {
+			t.Errorf("Unexpected error state. Want %v. Got %v.", http.StatusInternalServerError, result.status)
 		}
 		if result.err == nil {
 			t.Errorf("Expected error. Want error. Got nil.")
