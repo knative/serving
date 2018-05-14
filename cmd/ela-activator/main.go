@@ -80,7 +80,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		// TODO: Wire Activator into Istio mesh to support TLS
 		//       (https://github.com/elafros/elafros/issues/838)
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.Ip, endpoint.Port),
+		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.ServeHTTP(w, r)

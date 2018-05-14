@@ -32,6 +32,6 @@ type revisionId struct {
 
 // Endpoint is an ip, port pair for an active revision.
 type Endpoint struct {
-	Ip   string
+	IP   string
 	Port int32
 }

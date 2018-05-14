@@ -77,8 +77,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	case v1alpha1.RevisionServingStateReserve:
 		// Activate the revision
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-		_, err := revisionClient.Update(revision)
-		if err != nil {
+		if _, err := revisionClient.Update(revision); err != nil {
 			return internalError("Failed to activate revision %s/%s: %v", rev.namespace, rev.name, err)
 		}
 		log.Printf("Activated revision %s/%s", rev.namespace, rev.name)
@@ -97,6 +96,8 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	RevisionReady:
 		for {
 			select {
+			case <-time.After(r.readyTimout):
+				return internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
 			case event := <-ch:
 				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
 					if !revision.Status.IsReady() {
@@ -107,8 +108,6 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 				} else {
 					return internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
 				}
-			case <-time.After(r.readyTimout):
-				return internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
 			}
 		}
 	}
@@ -140,7 +139,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Return the endpoint and active=true
 	end = Endpoint{
-		Ip:   ip,
+		IP:   ip,
 		Port: port,
 	}
 	return end, 0, nil

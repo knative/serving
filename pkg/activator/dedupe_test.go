@@ -270,10 +270,10 @@ func (f *fakeActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status
 			<-hold
 		}
 		return result.endpoint, result.status, result.err
-	} else {
-		f.t.Fatalf("Unexpected call to activator: %v", id)
-		return Endpoint{}, Status(0), nil
 	}
+
+	f.t.Fatalf("Unexpected call to activator: %v", id)
+	return Endpoint{}, Status(0), nil
 }
 
 func (f *fakeActivator) Shutdown() {
