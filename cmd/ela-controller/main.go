@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -73,9 +74,12 @@ func main() {
 
 	zapJSON := loggingZapCfg.Get()
 	var loggingCfg zap.Config
+	var logInitFailure string
 	if len(zapJSON) > 0 {
 		if err := json.Unmarshal([]byte(zapJSON), &loggingCfg); err != nil {
-			panic("Error parsing logging configuration")
+			// Failed to parse the logging configuration. Fall back to production config
+			loggingCfg = zap.NewProductionConfig()
+			logInitFailure = fmt.Sprintf("Error parsing logging configuration. Using default config: %v", err)
 		}
 	} else {
 		loggingCfg = zap.NewProductionConfig()
@@ -86,6 +90,9 @@ func main() {
 	}
 	defer rawLogger.Sync()
 	logger := rawLogger.Sugar()
+	if len(logInitFailure) > 0 {
+		logger.Error(logInitFailure)
+	}
 
 	if loggingEnableVarLogCollection.Get() {
 		if len(loggingFluentSidecarImage.Get()) != 0 {
