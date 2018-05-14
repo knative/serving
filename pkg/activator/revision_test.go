@@ -174,7 +174,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 		ch <- activationResult{endpoint, status, err}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	<-time.After(100 * time.Millisecond)
 	select {
 	case <-ch:
 		t.Errorf("Unexpected result before revision is ready.")
