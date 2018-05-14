@@ -28,6 +28,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var _ Activator = (*revisionActivator)(nil)
+
 // RevisionActivator is a component that changes revision serving status
 // to active if necessary. Then it returns the endpoint once the revision
 // is ready to serve traffic.

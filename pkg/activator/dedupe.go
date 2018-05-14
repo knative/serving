@@ -32,7 +32,9 @@ type activationResult struct {
 	err      error
 }
 
-type DedupingActivator struct {
+var _ Activator = (*dedupingActivator)(nil)
+
+type dedupingActivator struct {
 	mux             sync.Mutex
 	pendingRequests map[revisionId][]chan activationResult
 	activator       Activator
@@ -40,13 +42,13 @@ type DedupingActivator struct {
 }
 
 func NewDedupingActivator(a Activator) Activator {
-	return &DedupingActivator{
+	return &dedupingActivator{
 		pendingRequests: make(map[revisionId][]chan activationResult),
 		activator:       a,
 	}
 }
 
-func (a *DedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
+func (a *dedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
 	id := revisionId{namespace: namespace, name: name}
 	ch := make(chan activationResult, 1)
 	a.dedupe(id, ch)
@@ -54,7 +56,7 @@ func (a *DedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, St
 	return result.endpoint, result.status, result.err
 }
 
-func (a *DedupingActivator) Shutdown() {
+func (a *dedupingActivator) Shutdown() {
 	a.activator.Shutdown()
 	a.mux.Lock()
 	defer a.mux.Unlock()
@@ -66,7 +68,7 @@ func (a *DedupingActivator) Shutdown() {
 	}
 }
 
-func (a *DedupingActivator) dedupe(id revisionId, ch chan activationResult) {
+func (a *dedupingActivator) dedupe(id revisionId, ch chan activationResult) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 	if a.shutdown {
@@ -81,7 +83,7 @@ func (a *DedupingActivator) dedupe(id revisionId, ch chan activationResult) {
 	}
 }
 
-func (a *DedupingActivator) activate(id revisionId) {
+func (a *dedupingActivator) activate(id revisionId) {
 	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.name)
 	a.mux.Lock()
 	defer a.mux.Unlock()
