@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logging
+package controller
 
 const (
 	// LogKeyControllerType is the key used for controller type in structured logs

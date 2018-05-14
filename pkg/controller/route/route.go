@@ -45,7 +45,6 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/controller/logging"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -136,7 +135,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// Enrich the logs with controller type set to route
-	logger = logger.With(zap.String(logging.LogKeyControllerType, "route"))
+	logger = logger.With(zap.String(controller.LogKeyControllerType, "route"))
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
@@ -336,7 +335,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// Enrich the logs with route name and route namespace.
 	// We will pass this instance of the logger to all function calls that
 	// will operate on this specific route.
-	logger := c.logger.With(zap.String(logging.LogKeyNamespace, namespace), zap.String(logging.LogKeyRoute, name))
+	logger := c.logger.With(zap.String(controller.LogKeyNamespace, namespace), zap.String(controller.LogKeyRoute, name))
 
 	// Get the Route resource with this namespace/name
 	route, err := c.lister.Routes(namespace).Get(name)
@@ -1045,7 +1044,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 		return
 	}
 
-	logger := c.logger.With(zap.String(logging.LogKeyNamespace, ns), zap.String(logging.LogKeyRoute, routeName))
+	logger := c.logger.With(zap.String(controller.LogKeyNamespace, ns), zap.String(controller.LogKeyRoute, routeName))
 	route, err := c.lister.Routes(ns).Get(routeName)
 	if err != nil {
 		logger.Error("Error fetching route upon configuration becoming ready", zap.Error(err))
@@ -1087,8 +1086,8 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		c.logger.Error(
 			"Error fetching route upon ingress becoming",
 			zap.Error(err),
-			zap.String(logging.LogKeyNamespace, ns),
-			zap.String(logging.LogKeyRoute, routeName))
+			zap.String(controller.LogKeyNamespace, ns),
+			zap.String(controller.LogKeyRoute, routeName))
 		return
 	}
 	if route.Status.IsReady() {
@@ -1104,8 +1103,8 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		c.logger.Error(
 			"Error updating readiness of route upon ingress becoming",
 			zap.Error(err),
-			zap.String(logging.LogKeyNamespace, ns),
-			zap.String(logging.LogKeyRoute, routeName))
+			zap.String(controller.LogKeyNamespace, ns),
+			zap.String(controller.LogKeyRoute, routeName))
 		return
 	}
 }
