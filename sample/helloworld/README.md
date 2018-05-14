@@ -116,7 +116,7 @@ p-1552447d-0690-4b15-96c9-f085e310e98d   22m
 p-30e6a938-b28b-4d5e-a791-2cb5fe016d74   10m
 ```
 
-Update `traffic` part in sample/helloworld/route.yaml as:
+Update `traffic` part in sample/helloworld/sample.yaml as:
 ```yaml
 traffic:
   - revisionName: <YOUR_FIRST_REVISION_NAME>
