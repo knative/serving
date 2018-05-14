@@ -167,7 +167,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			build())
 	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
 	a := NewRevisionActivator(k8s, ela)
-	a.(*RevisionActivator).readyTimout = 200 * time.Millisecond
+	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan activationResult)
 	go func() {
@@ -185,12 +185,11 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	select {
 	case result := <-ch:
-		want := Endpoint{}
-		if result.endpoint != want {
-			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
+		if got, want := result.endpoint, (Endpoint{}); got != want {
+			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, got)
 		}
-		if result.status != Status(http.StatusInternalServerError) {
-			t.Errorf("Unexpected error state. Want %v. Got %v.", http.StatusInternalServerError, result.status)
+		if got, want := result.status, Status(http.StatusInternalServerError); got != want {
+			t.Errorf("Unexpected error state. Want %v. Got %v.", want, got)
 		}
 		if result.err == nil {
 			t.Errorf("Expected error. Want error. Got nil.")
