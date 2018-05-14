@@ -53,27 +53,23 @@ func (r *revisionActivator) Shutdown() {
 func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
 	rev := revisionId{namespace: namespace, name: name}
 
-	internalError := func(msg string, args ...interface{}) {
+	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
 		log.Printf(msg, args...)
-		activationError = fmt.Errorf(msg, args...)
-		status = http.StatusInternalServerError
+		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(msg, args...)
 	}
 
 	// Get the current revision serving state
 	revisionClient := r.elaClient.ElafrosV1alpha1().Revisions(rev.namespace)
 	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
 	if err != nil {
-		internalError("Unable to get revision %s/%s: %v", rev.namespace, rev.name, err)
-		return
+		return internalError("Unable to get revision %s/%s: %v", rev.namespace, rev.name, err)
 	}
 	switch revision.Spec.ServingState {
 	default:
-		internalError("Disregarding activation request for revision %s/%s in unknown state %v",
+		return internalError("Disregarding activation request for revision %s/%s in unknown state %v",
 			rev.namespace, rev.name, revision.Spec.ServingState)
-		return
 	case v1alpha1.RevisionServingStateRetired:
-		internalError("Disregarding activation request for retired revision %s/%s", rev.namespace, rev.name)
-		return
+		return internalError("Disregarding activation request for retired revision %s/%s", rev.namespace, rev.name)
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do
 	case v1alpha1.RevisionServingStateReserve:
@@ -81,8 +77,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		_, err := revisionClient.Update(revision)
 		if err != nil {
-			internalError("Failed to activate revision %s/%s: %v", rev.namespace, rev.name, err)
-			return
+			return internalError("Failed to activate revision %s/%s: %v", rev.namespace, rev.name, err)
 		}
 		log.Printf("Activated revision %s/%s", rev.namespace, rev.name)
 	}
@@ -93,8 +88,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {
-			internalError("Failed to watch the revision %s/%s", rev.namespace, rev.name)
-			return
+			return internalError("Failed to watch the revision %s/%s", rev.namespace, rev.name)
 		}
 		defer wi.Stop()
 		ch := wi.ResultChan()
@@ -109,12 +103,10 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 					}
 					break RevisionReady
 				} else {
-					internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
-					return
+					return internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
 				}
 			case <-time.After(r.readyTimout):
-				internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
-				return
+				return internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
 			}
 		}
 	}
@@ -127,25 +119,21 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	endpointName := controller.GetElaK8SServiceNameForRevision(revision)
 	k8sEndpoint, err := r.kubeClient.CoreV1().Endpoints(rev.namespace).Get(endpointName, metav1.GetOptions{})
 	if err != nil {
-		internalError("Unable to get endpoint %s for revision %s/%s: %v",
+		return internalError("Unable to get endpoint %s for revision %s/%s: %v",
 			endpointName, rev.namespace, rev.name, err)
-		return
 	}
 	if len(k8sEndpoint.Subsets) != 1 {
-		internalError("Revision %s/%s needs one endpoint subset. Found %v", rev.namespace, rev.name, len(k8sEndpoint.Subsets))
-		return
+		return internalError("Revision %s/%s needs one endpoint subset. Found %v", rev.namespace, rev.name, len(k8sEndpoint.Subsets))
 	}
 	subset := k8sEndpoint.Subsets[0]
 	if len(subset.Addresses) != 1 || len(subset.Ports) != 1 {
-		internalError("Revision %s/%s needs one endpoint address and port. Found %v addresses and %v ports",
+		return internalError("Revision %s/%s needs one endpoint address and port. Found %v addresses and %v ports",
 			rev.namespace, rev.name, len(subset.Addresses), len(subset.Ports))
-		return
 	}
 	ip := subset.Addresses[0].IP
 	port := subset.Ports[0].Port
 	if ip == "" || port == 0 {
-		internalError("Invalid ip %q or port %q for revision %s/%s", ip, port, rev.namespace, rev.name)
-		return
+		return internalError("Invalid ip %q or port %q for revision %s/%s", ip, port, rev.namespace, rev.name)
 	}
 
 	// Return the endpoint and active=true
@@ -153,5 +141,5 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 		Ip:   ip,
 		Port: port,
 	}
-	return
+	return end, 0, nil
 }
