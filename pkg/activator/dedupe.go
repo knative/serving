@@ -42,7 +42,7 @@ func (a *DedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, St
 func (a *DedupingActivator) Shutdown() {
 	a.activator.Shutdown()
 	a.mux.Lock()
-	defer func() { a.mux.Unlock() }()
+	defer a.mux.Unlock()
 	a.shutdown = true
 	for _, reqs := range a.pendingRequests {
 		for _, ch := range reqs {
@@ -53,7 +53,7 @@ func (a *DedupingActivator) Shutdown() {
 
 func (a *DedupingActivator) dedupe(id revisionId, ch chan activationResult) {
 	a.mux.Lock()
-	defer func() { a.mux.Unlock() }()
+	defer a.mux.Unlock()
 	if a.shutdown {
 		ch <- shuttingDownError
 		return
@@ -69,7 +69,7 @@ func (a *DedupingActivator) dedupe(id revisionId, ch chan activationResult) {
 func (a *DedupingActivator) activate(id revisionId) {
 	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.name)
 	a.mux.Lock()
-	defer func() { a.mux.Unlock() }()
+	defer a.mux.Unlock()
 	result := activationResult{
 		endpoint: endpoint,
 		status:   status,
