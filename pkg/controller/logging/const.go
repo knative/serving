@@ -17,8 +17,12 @@ limitations under the License.
 package logging
 
 const (
+	// LogKeyControllerType is the key used for controller type in structured logs
+	LogKeyControllerType = "elafros.dev/controller"
+
 	// LogKeyRoute is the key used for route name in structured logs
 	LogKeyRoute = "elafros.dev/route"
+
 	// LogKeyNamespace is the key used for namespace in structured logs
 	LogKeyNamespace = "elafros.dev/namespace"
 )

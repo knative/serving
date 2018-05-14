@@ -135,7 +135,8 @@ func NewController(
 	enableScaleToZero *k8sflag.BoolFlag,
 	logger *zap.SugaredLogger) controller.Interface {
 
-	logger = logger.With(zap.String("controller", "route"))
+	// Enrich the logs with controller type set to route
+	logger = logger.With(zap.String(logging.LogKeyControllerType, "route"))
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
@@ -332,7 +333,9 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return nil
 	}
 
-	// Enrich the logs with route name and route namespace
+	// Enrich the logs with route name and route namespace.
+	// We will pass this instance of the logger to all function calls that
+	// will operate on this specific route.
 	logger := c.logger.With(zap.String(logging.LogKeyNamespace, namespace), zap.String(logging.LogKeyRoute, name))
 
 	// Get the Route resource with this namespace/name
@@ -379,7 +382,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 
-	c.logger.Info("Route successfully synced")
+	logger.Info("Route successfully synced")
 	return nil
 }
 
