@@ -29,9 +29,31 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var (
+type activationHandler struct {
 	act activator.Activator
-)
+}
+
+func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
+	// TODO: Use the namespace from the header.
+	// https://github.com/elafros/elafros/issues/693
+	namespace := "default"
+	name := r.Header.Get(controller.GetRevisionHeaderName())
+	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)
+	if err != nil {
+		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
+		glog.Errorf(msg)
+		http.Error(w, msg, int(status))
+		return
+	}
+	target := &url.URL{
+		// TODO: Wire Activator into Istio mesh to support TLS
+		//       (https://github.com/elafros/elafros/issues/838)
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
+	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ServeHTTP(w, r)
+}
 
 func main() {
 	flag.Parse()
@@ -51,37 +73,16 @@ func main() {
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, elaClient)
-	act = activator.NewDedupingActivator(a)
+	a = activator.NewDedupingActivator(a)
+	ah := &activationHandler{a}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 	go func() {
 		<-stopCh
-		act.Shutdown()
+		a.Shutdown()
 	}()
 
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", ah.handler)
 	http.ListenAndServe(":8080", nil)
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Use the namespace from the header.
-	// https://github.com/elafros/elafros/issues/693
-	namespace := "default"
-	name := r.Header.Get(controller.GetRevisionHeaderName())
-	endpoint, status, err := act.ActiveEndpoint(namespace, name)
-	if err != nil {
-		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-		glog.Errorf(msg)
-		http.Error(w, msg, int(status))
-		return
-	}
-	target := &url.URL{
-		// TODO: Wire Activator into Istio mesh to support TLS
-		//       (https://github.com/elafros/elafros/issues/838)
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ServeHTTP(w, r)
 }
