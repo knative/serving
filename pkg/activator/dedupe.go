@@ -25,12 +25,10 @@ type DedupingActivator struct {
 }
 
 func NewDedupingActivator(a Activator) Activator {
-	return Activator(
-		&DedupingActivator{
-			pendingRequests: make(map[revisionId][]chan activationResult),
-			activator:       a,
-		},
-	)
+	return &DedupingActivator{
+		pendingRequests: make(map[revisionId][]chan activationResult),
+		activator:       a,
+	}
 }
 
 func (a *DedupingActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {

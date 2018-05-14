@@ -24,13 +24,11 @@ type RevisionActivator struct {
 
 // NewRevisionActivator creates and starts a new RevisionActivator.
 func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) Activator {
-	return Activator(
-		&RevisionActivator{
-			readyTimout: 60 * time.Second,
-			kubeClient:  kubeClient,
-			elaClient:   elaClient,
-		},
-	)
+	return &RevisionActivator{
+		readyTimout: 60 * time.Second,
+		kubeClient:  kubeClient,
+		elaClient:   elaClient,
+	}
 }
 
 func (r *RevisionActivator) Shutdown() {
