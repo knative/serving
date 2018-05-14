@@ -41,6 +41,8 @@ type dedupingActivator struct {
 	shutdown        bool
 }
 
+// NewDedupingActivator creates an Activator that deduplicates
+// activations requests for the same revision id and namespace.
 func NewDedupingActivator(a Activator) Activator {
 	return &dedupingActivator{
 		pendingRequests: make(map[revisionId][]chan activationResult),
