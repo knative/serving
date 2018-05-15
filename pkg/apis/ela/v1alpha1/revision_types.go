@@ -95,7 +95,7 @@ type RevisionSpec struct {
 	// resources should be in for this Revision.
 	// Users must not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
-	ServingState RevisionServingStateType `json:"servingState"`
+	ServingState RevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (SingleConcurrency or MultiConcurrency) for the
