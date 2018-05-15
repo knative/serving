@@ -17,7 +17,6 @@ limitations under the License.
 package revision
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -37,26 +36,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
 	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 )
 
 const (
@@ -84,11 +71,6 @@ var (
 	elaPodReplicaCount   = int32(1)
 	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	processItemCount     = stats.Int64(
-		"controller_revision_queue_process_count",
-		"Counter to keep track of items in the revision work queue.",
-		stats.UnitNone)
-	statusTagKey tag.Key
 )
 
 // Helper to make sure we log error messages returned by Reconcile().
@@ -106,25 +88,11 @@ type resolver interface {
 // Controller implements the controller for Revision resources.
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
-	// kubeClient allows us to talk to the k8s for core APIs
-	kubeclientset kubernetes.Interface
-
-	// elaClient allows us to configure Ela objects
-	elaclientset clientset.Interface
+	base *controller.ControllerBase
 
 	// lister indexes properties about Revision
 	lister listers.RevisionLister
 	synced cache.InformerSynced
-
-	// workqueue is a rate limited work queue. This is used to queue work to be
-	// processed instead of performing it as soon as a change happens. This
-	// means we can ensure we only process a fixed amount of resources at a
-	// time, and makes it easy to ensure we are never processing the same item
-	// simultaneously in two different workers.
-	workqueue workqueue.RateLimitingInterface
-	// recorder is an event recorder for recording Event resources to the
-	// Kubernetes API.
-	recorder record.EventRecorder
 
 	buildtracker *buildTracker
 
@@ -177,51 +145,29 @@ type ControllerConfig struct {
 // config - client configuration for talking to the apiserver
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // queue - message queue for handling new events.  unique to this controller.
-//TODO(vaikas): somewhat generic (generic behavior)
 func NewController(
-	kubeclientset kubernetes.Interface,
-	elaclientset clientset.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
+	base *controller.ControllerBase,
 	buildInformerFactory buildinformers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig *ControllerConfig) controller.Interface {
 
-	// obtain references to a shared index informer for the Revision and
-	// Endpoint type.
-	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
+	// obtain references to a shared index informer for the Revision and Endpoint type.
+	informer := base.ElaInformerFactory.Elafros().V1alpha1().Revisions()
+	endpointsInformer := base.KubeInformerFactory.Core().V1().Endpoints()
+	deploymentInformer := base.KubeInformerFactory.Apps().V1().Deployments()
 
-	// Create event broadcaster
-	glog.V(4).Info("Creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
-
+	base.Init(controllerAgentName, "Revisions", informer.Informer())
 	controller := &Controller{
-		kubeclientset:    kubeclientset,
-		elaclientset:     elaclientset,
+		base:             base,
 		lister:           informer.Lister(),
 		synced:           informer.Informer().HasSynced,
 		endpointsSynced:  endpointsInformer.Informer().HasSynced,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Revisions"),
-		recorder:         recorder,
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver:         &digestResolver{client: kubeclientset, transport: http.DefaultTransport},
+		resolver:         &digestResolver{client: base.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
 	}
 
 	glog.Info("Setting up event handlers")
-	// Set up an event handler for when Revision resources change
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueRevision,
-		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueRevision(new)
-		},
-	})
-
 	// Obtain a reference to a shared index informer for the Build type.
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -246,145 +192,14 @@ func NewController(
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-//TODO(grantr): generic
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	defer runtime.HandleCrash()
-	defer c.workqueue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Revision controller")
-
-	// Metrics setup: begin
-	// Create the tag keys that will be used to add tags to our measurements.
-	var err error
-	if statusTagKey, err = tag.NewKey("status"); err != nil {
-		return fmt.Errorf("failed to create tag key in OpenCensus: %v", err)
-	}
-	// Create view to see our measurements cumulatively.
-	countView := &view.View{
-		Description: "Counter to keep track of items in the revision work queue.",
-		Measure:     processItemCount,
-		Aggregation: view.Count(),
-		TagKeys:     []tag.Key{statusTagKey},
-	}
-	if err = view.Register(countView); err != nil {
-		return fmt.Errorf("failed to register the views in OpenCensus: %v", err)
-	}
-	defer view.Unregister(countView)
-	// Metrics setup: end
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.synced); !ok {
-		return fmt.Errorf("failed to wait for caches to sync")
-	}
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for endpoints informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.endpointsSynced); !ok {
-		return fmt.Errorf("failed to wait for endpoints caches to sync")
-	}
-
-	glog.Info("Starting workers")
-	// Launch workers to process Revision resources
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	glog.Info("Started workers")
-	<-stopCh
-	glog.Info("Shutting down workers")
-
-	return nil
-}
-
-// runWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
-//TODO(grantr): generic
-func (c *Controller) runWorker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-// processNextWorkItem will read a single work item off the workqueue and
-// attempt to process it, by calling the syncHandler.
-//TODO(vaikas): generic
-func (c *Controller) processNextWorkItem() bool {
-	obj, shutdown := c.workqueue.Get()
-
-	if shutdown {
-		return false
-	}
-
-	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err, processStatus := func(obj interface{}) (error, string) {
-		// We call Done here so the workqueue knows we have finished
-		// processing this item. We also must remember to call Forget if we
-		// do not want this work item being re-queued. For example, we do
-		// not call Forget if a transient error occurs, instead the item is
-		// put back on the workqueue and attempted again after a back-off
-		// period.
-		defer c.workqueue.Done(obj)
-		var key string
-		var ok bool
-		// We expect strings to come off the workqueue. These are of the
-		// form namespace/name. We do this as the delayed nature of the
-		// workqueue means the items in the informer cache may actually be
-		// more up to date that when the item was initially put onto the
-		// workqueue.
-		if key, ok = obj.(string); !ok {
-			// As the item in the workqueue is actually invalid, we call
-			// Forget here else we'd go into a loop of attempting to
-			// process a work item that is invalid.
-			c.workqueue.Forget(obj)
-			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil, controller.PromLabelValueInvalid
-		}
-		// Run the syncHandler, passing it the namespace/name string of the
-		// Revision resource to be synced.
-		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing %q: %v", key, err), controller.PromLabelValueFailure
-		}
-		// Finally, if no error occurs we Forget this item so it does not
-		// get queued again until another change happens.
-		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced %q", key)
-		return nil, controller.PromLabelValueSuccess
-	}(obj)
-
-	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
-		// Increment the request count by one.
-		stats.Record(ctx, processItemCount.M(1))
-	}
-
-	if err != nil {
-		runtime.HandleError(err)
-		return true
-	}
-
-	return true
-}
-
-// enqueueRevision takes a Revision resource and
-// converts it into a namespace/name string which is then put onto the work
-// queue. This method should *not* be passed resources of any type other than
-// Revision.
-//TODO(grantr): generic
-func (c *Controller) enqueueRevision(obj interface{}) {
-	var key string
-	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	c.workqueue.AddRateLimited(key)
+	return c.base.Run(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced},
+		c.syncHandler, "Revision")
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
-//TODO(grantr): not generic
 func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -432,7 +247,7 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	}
 
-	ns, err := controller.GetOrCreateRevisionNamespace(namespace, c.kubeclientset)
+	ns, err := controller.GetOrCreateRevisionNamespace(namespace, c.base.KubeClientSet)
 	if err != nil {
 		log.Printf("Failed to create namespace: %s", err)
 		panic("Failed to create namespace")
@@ -546,7 +361,7 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Type:   v1alpha1.RevisionConditionBuildSucceeded,
 				Status: corev1.ConditionTrue,
 			})
-		c.recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
+		c.base.Recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
 	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
@@ -562,7 +377,7 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 				Reason:  bc.Reason,
 				Message: bc.Message,
 			})
-		c.recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
+		c.base.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
 	}
 	// This will trigger a reconciliation that will cause us to stop tracking the build.
 	_, err := c.updateStatus(rev)
@@ -676,7 +491,7 @@ func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 		glog.Errorf("Error recording revision completion: %s", err)
 		return
 	}
-	c.recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout", revName)
+	c.base.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to Deployment timeout", revName)
 	return
 }
 
@@ -721,7 +536,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 			glog.Errorf("Error marking revision ready for '%s/%s': %v", namespace, revName, err)
 			return
 		}
-		c.recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready", endpoint.Name)
+		c.base.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon endpoint %q becoming ready", endpoint.Name)
 		return
 	}
 
@@ -734,7 +549,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		glog.Errorf("Error marking revision failed for '%s/%s': %v", namespace, revName, err)
 		return
 	}
-	c.recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
+	c.base.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
 }
 
@@ -872,7 +687,7 @@ func (c *Controller) createK8SResources(rev *v1alpha1.Revision, ns string) error
 
 func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 	deploymentName := controller.GetRevisionDeploymentName(rev)
-	dc := c.kubeclientset.AppsV1().Deployments(ns)
+	dc := c.base.KubeClientSet.AppsV1().Deployments(ns)
 	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -890,7 +705,7 @@ func (c *Controller) deleteDeployment(rev *v1alpha1.Revision, ns string) error {
 }
 
 func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) error {
-	dc := c.kubeclientset.AppsV1().Deployments(ns)
+	dc := c.base.KubeClientSet.AppsV1().Deployments(ns)
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
@@ -952,7 +767,7 @@ func (c *Controller) reconcileDeployment(rev *v1alpha1.Revision, ns string) erro
 }
 
 func (c *Controller) deleteService(rev *v1alpha1.Revision, ns string) error {
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.base.KubeClientSet.Core().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
 	log.Printf("Deleting service %q", serviceName)
@@ -968,7 +783,7 @@ func (c *Controller) deleteService(rev *v1alpha1.Revision, ns string) error {
 }
 
 func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string, error) {
-	sc := c.kubeclientset.Core().Services(ns)
+	sc := c.base.KubeClientSet.Core().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
 	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
@@ -994,7 +809,7 @@ func (c *Controller) reconcileService(rev *v1alpha1.Revision, ns string) (string
 
 func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
-	cmc := c.kubeclientset.Core().ConfigMaps(ns)
+	cmc := c.base.KubeClientSet.Core().ConfigMaps(ns)
 	_, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -1017,7 +832,7 @@ func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
 
 func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
+	sc := c.base.KubeClientSet.Core().Services(AutoscalerNamespace)
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -1035,7 +850,7 @@ func (c *Controller) deleteAutoscalerService(rev *v1alpha1.Revision) error {
 
 func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.kubeclientset.Core().Services(AutoscalerNamespace)
+	sc := c.base.KubeClientSet.Core().Services(AutoscalerNamespace)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -1058,7 +873,7 @@ func (c *Controller) reconcileAutoscalerService(rev *v1alpha1.Revision) error {
 
 func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.AppsV1().Deployments(AutoscalerNamespace)
+	dc := c.base.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -1077,7 +892,7 @@ func (c *Controller) deleteAutoscalerDeployment(rev *v1alpha1.Revision) error {
 
 func (c *Controller) reconcileAutoscalerDeployment(rev *v1alpha1.Revision) error {
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.kubeclientset.AppsV1().Deployments(AutoscalerNamespace)
+	dc := c.base.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -1112,7 +927,7 @@ func (c *Controller) removeFinalizers(rev *v1alpha1.Revision, ns string) error {
 		}
 	}
 	accessor.SetFinalizers(finalizers)
-	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(rev.Namespace)
+	prClient := c.base.ElaClientSet.ElafrosV1alpha1().Revisions(rev.Namespace)
 	prClient.Update(rev)
 	log.Printf("The finalizer 'controller' is removed.")
 
@@ -1120,7 +935,7 @@ func (c *Controller) removeFinalizers(rev *v1alpha1.Revision, ns string) error {
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.elaclientset.ElafrosV1alpha1().Revisions(rev.Namespace)
+	prClient := c.base.ElaClientSet.ElafrosV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

@@ -143,15 +143,8 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
-	controller = NewController(
-		kubeClient,
-		elaClient,
-		buildClient,
-		kubeInformer,
-		elaInformer,
-		&rest.Config{},
-		ctrl.Config{},
-	).(*Controller)
+	base := ctrl.NewControllerBase(kubeClient, elaClient, kubeInformer, elaInformer)
+	controller = NewController(base, buildClient, &rest.Config{}, ctrl.Config{}).(*Controller)
 
 	return
 }

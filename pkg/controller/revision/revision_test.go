@@ -225,15 +225,8 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	buildInformer := buildinformers.NewSharedInformerFactory(buildClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 
-	controller = NewController(
-		kubeClient,
-		elaClient,
-		kubeInformer,
-		elaInformer,
-		buildInformer,
-		&rest.Config{},
-		controllerConfig,
-	).(*Controller)
+	base := ctrl.NewControllerBase(kubeClient, elaClient, kubeInformer, elaInformer)
+	controller = NewController(base, buildInformer, &rest.Config{}, controllerConfig).(*Controller)
 
 	controller.resolver = &nopResolver{}
 
