@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "constants.go",
+        "logger.go",
+    ],
+    importpath = "github.com/elafros/elafros/pkg/logging",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/go.uber.org/zap:go_default_library"],
+)
