@@ -23,6 +23,8 @@ import (
 	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
 	"github.com/elafros/elafros/pkg/apis/ela"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 	"github.com/golang/glog"
@@ -30,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -38,7 +42,7 @@ const controllerAgentName = "configuration-controller"
 
 // Controller implements the controller for Configuration resources
 type Controller struct {
-	base *controller.ControllerBase
+	*controller.ControllerBase
 
 	buildClientSet buildclientset.Interface
 
@@ -52,19 +56,22 @@ type Controller struct {
 
 // NewController creates a new Configuration controller
 func NewController(
-	base *controller.ControllerBase,
+	kubeClientSet kubernetes.Interface,
+	elaClientSet clientset.Interface,
 	buildClientSet buildclientset.Interface,
+	kubeInformerFactory kubeinformers.SharedInformerFactory,
+	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig controller.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
-	informer := base.ElaInformerFactory.Elafros().V1alpha1().Configurations()
-	revisionInformer := base.ElaInformerFactory.Elafros().V1alpha1().Revisions()
+	informer := elaInformerFactory.Elafros().V1alpha1().Configurations()
+	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
-	base.Init(controllerAgentName, "Configurations", informer.Informer())
 	controller := &Controller{
-		base:            base,
+		ControllerBase: controller.NewControllerBase(kubeClientSet, elaClientSet, kubeInformerFactory,
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Configurations"),
 		buildClientSet:  buildClientSet,
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,
@@ -84,8 +91,8 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.base.Run(threadiness, stopCh, []cache.InformerSynced{c.synced, c.revisionsSynced},
-		c.syncHandler, "Configuration")
+	return c.RunController(threadiness, stopCh,
+		[]cache.InformerSynced{c.synced, c.revisionsSynced}, c.syncHandler, "Configuration")
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
@@ -140,11 +147,11 @@ func (c *Controller) syncHandler(key string) error {
 		created, err := c.buildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
-			c.base.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
+			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
 			return err
 		}
 		glog.Infof("Created Build:\n%+v", created.Name)
-		c.base.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
+		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
 		spec.BuildName = created.Name
 	}
 
@@ -153,7 +160,7 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	revClient := c.base.ElaClientSet.ElafrosV1alpha1().Revisions(config.Namespace)
+	revClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(config.Namespace)
 	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -188,10 +195,10 @@ func (c *Controller) syncHandler(key string) error {
 		created, err = revClient.Create(rev)
 		if err != nil {
 			glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
-			c.base.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
+			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
 			return err
 		}
-		c.base.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
+		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
 		glog.Infof("Created Revision:\n%+v", created)
 	} else {
 		glog.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
@@ -223,7 +230,7 @@ func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	configClient := c.base.ElaClientSet.ElafrosV1alpha1().Configurations(u.Namespace)
+	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(u.Namespace)
 	newu, err := configClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -272,7 +279,7 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 			glog.Errorf("Error updating configuration '%s/%s': %v",
 				namespace, configName, err)
 		}
-		c.base.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestRevisionUpdate",
+		c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestRevisionUpdate",
 			"Latest revision of configuration is not ready")
 
 	} else {
@@ -291,10 +298,10 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 				namespace, configName, err)
 		}
 		if !alreadyReady {
-			c.base.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
+			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
-		c.base.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+		c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
 			"LatestReadyRevisionName updated to %q", revision.Name)
 
 	}

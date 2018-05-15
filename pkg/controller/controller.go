@@ -17,7 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -73,46 +72,39 @@ type ControllerBase struct {
 }
 
 func NewControllerBase(
-	kubeclientset kubernetes.Interface,
-	elaclientset clientset.Interface,
+	kubeClientSet kubernetes.Interface,
+	elaClientSet clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory) *ControllerBase {
-
-	return &ControllerBase{
-		KubeClientSet:       kubeclientset,
-		ElaClientSet:        elaclientset,
-		KubeInformerFactory: kubeInformerFactory,
-		ElaInformerFactory:  elaInformerFactory,
-	}
-}
-
-func (c *ControllerBase) Init(
-	controllerAgentName string, workQueueName string,
-	informer cache.SharedIndexInformer) error {
-	if c.initialized {
-		return errors.New("This instance of ControllerBase is already initialized")
-	}
+	elaInformerFactory informers.SharedInformerFactory,
+	informer cache.SharedIndexInformer,
+	controllerAgentName string,
+	workQueueName string) *ControllerBase {
 
 	// Create event broadcaster
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: c.KubeClientSet.CoreV1().Events("")})
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	c.Recorder = recorder
-	c.WorkQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName)
+	base := &ControllerBase{
+		KubeClientSet:       kubeClientSet,
+		ElaClientSet:        elaClientSet,
+		KubeInformerFactory: kubeInformerFactory,
+		ElaInformerFactory:  elaInformerFactory,
+		Recorder:            recorder,
+		WorkQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+	}
 
 	// Set up an event handler for when the resource types of interest change
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueWork,
+		AddFunc: base.enqueueWork,
 		UpdateFunc: func(old, new interface{}) {
-			c.enqueueWork(new)
+			base.enqueueWork(new)
 		},
 	})
 
-	c.initialized = true
-	return nil
+	return base
 }
 
 // enqueueWork takes a resource and converts it into a
@@ -127,11 +119,11 @@ func (c *ControllerBase) enqueueWork(obj interface{}) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
-// Run will set up the event handlers for types we are interested in, as well
+// RunSyncHandler will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-func (c *ControllerBase) Run(
+func (c *ControllerBase) RunController(
 	threadiness int,
 	stopCh <-chan struct{},
 	informersSynced []cache.InformerSynced,
