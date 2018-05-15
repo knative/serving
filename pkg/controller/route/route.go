@@ -45,6 +45,7 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/logging"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -135,7 +136,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// Enrich the logs with controller type set to route
-	logger = logger.With(zap.String(controller.LogKeyControllerType, "route"))
+	logger = logger.With(zap.String(logging.LogKeyControllerType, "route"))
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
@@ -320,6 +321,11 @@ func (c *Controller) enqueueRoute(obj interface{}) {
 	c.workqueue.AddRateLimited(key)
 }
 
+// loggerWithRouteInfo enriches the logs with route name and route namespace.
+func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
+	return logger.With(zap.String(logging.LogKeyNamespace, ns), zap.String(logging.LogKeyRoute, name))
+}
+
 // updateRouteEvent compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
@@ -332,10 +338,8 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return nil
 	}
 
-	// Enrich the logs with route name and route namespace.
-	// We will pass this instance of the logger to all function calls that
-	// will operate on this specific route.
-	logger := c.logger.With(zap.String(controller.LogKeyNamespace, namespace), zap.String(controller.LogKeyRoute, name))
+	logger := loggerWithRouteInfo(c.logger, namespace, name)
+	ctx := logging.WithLogger(context.Background(), logger)
 
 	// Get the Route resource with this namespace/name
 	route, err := c.lister.Routes(namespace).Get(name)
@@ -363,20 +367,20 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// that selects nothing.
 	logger.Info("Creating/Updating placeholder k8s services")
 
-	if err = c.reconcilePlaceholderService(route, logger); err != nil {
+	if err = c.reconcilePlaceholderService(ctx, route); err != nil {
 		return err
 	}
 
 	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
 
-	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(route, logger); err != nil {
+	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
 		return err
 	}
 
 	// Then create or update the Ingress rule for this service
 	logger.Info("Creating or updating ingress rule")
-	if err = c.reconcileIngress(route, logger); err != nil {
+	if err = c.reconcileIngress(ctx, route); err != nil {
 		logger.Error("Failed to create or update ingress rule", zap.Error(err))
 		return err
 	}
@@ -393,36 +397,37 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 // syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
 // according to the traffic targets in Spec field for Route resource. It then updates the Status
 // block of the Route and returns the updated one.
-func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Route, logger *zap.SugaredLogger) (*v1alpha1.Route, error) {
-	c.consolidateTrafficTargets(route, logger)
-	configMap, revMap, err := c.getDirectTrafficTargets(route, logger)
+func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+	logger := logging.FromContext(ctx)
+	c.consolidateTrafficTargets(ctx, route)
+	configMap, revMap, err := c.getDirectTrafficTargets(ctx, route)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.extendConfigurationsWithIndirectTrafficTargets(route, configMap, revMap, logger); err != nil {
+	if err := c.extendConfigurationsWithIndirectTrafficTargets(ctx, route, configMap, revMap); err != nil {
 		return nil, err
 	}
-	if err := c.extendRevisionsWithIndirectTrafficTargets(route, configMap, revMap, logger); err != nil {
-		return nil, err
-	}
-
-	if err := c.deleteLabelForOutsideOfGivenConfigurations(route, configMap, logger); err != nil {
-		return nil, err
-	}
-	if err := c.setLabelForGivenConfigurations(route, configMap, logger); err != nil {
+	if err := c.extendRevisionsWithIndirectTrafficTargets(ctx, route, configMap, revMap); err != nil {
 		return nil, err
 	}
 
-	if err := c.deleteLabelForOutsideOfGivenRevisions(route, revMap, logger); err != nil {
+	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, route, configMap); err != nil {
 		return nil, err
 	}
-	if err := c.setLabelForGivenRevisions(route, revMap, logger); err != nil {
+	if err := c.setLabelForGivenConfigurations(ctx, route, configMap); err != nil {
+		return nil, err
+	}
+
+	if err := c.deleteLabelForOutsideOfGivenRevisions(ctx, route, revMap); err != nil {
+		return nil, err
+	}
+	if err := c.setLabelForGivenRevisions(ctx, route, revMap); err != nil {
 		return nil, err
 	}
 
 	// Then create the actual route rules.
 	logger.Info("Creating Istio route rules")
-	revisionRoutes, err := c.createOrUpdateRouteRules(route, configMap, revMap, logger)
+	revisionRoutes, err := c.createOrUpdateRouteRules(ctx, route, configMap, revMap)
 	if err != nil {
 		logger.Error("Failed to create routes", zap.Error(err))
 		return nil, err
@@ -451,23 +456,23 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(route *v1alpha1.Rout
 	return updated, nil
 }
 
-func (c *Controller) reconcilePlaceholderService(route *v1alpha1.Route, logger *zap.SugaredLogger) error {
+func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
 	service := MakeRouteK8SService(route)
 	if _, err := c.kubeclientset.Core().Services(route.Namespace).Create(service); err != nil {
 		if apierrs.IsAlreadyExists(err) {
 			// Service already exist.
 			return nil
 		}
-		logger.Error("Failed to create service", zap.Error(err))
+		logging.FromContext(ctx).Error("Failed to create service", zap.Error(err))
 		c.recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v", service.Name, err)
 		return err
 	}
-	logger.Infof("Created service %s", service.Name)
+	logging.FromContext(ctx).Infof("Created service %s", service.Name)
 	c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
 	return nil
 }
 
-func (c *Controller) reconcileIngress(route *v1alpha1.Route, logger *zap.SugaredLogger) error {
+func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route) error {
 	ingressNamespace := route.Namespace
 	ingressName := controller.GetElaK8SIngressName(route)
 	ingress := MakeRouteIngress(route)
@@ -477,7 +482,7 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route, logger *zap.Sugared
 	if err != nil {
 		if apierrs.IsNotFound(err) {
 			if _, err = ingressClient.Create(ingress); err == nil {
-				logger.Infof("Created ingress %q in namespace %q", ingressName, ingressNamespace)
+				logging.FromContext(ctx).Infof("Created ingress %q in namespace %q", ingressName, ingressNamespace)
 				c.recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Ingress %q in namespace %q", ingressName, ingressNamespace)
 			}
 		}
@@ -487,7 +492,7 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route, logger *zap.Sugared
 	if !reflect.DeepEqual(existing.Spec, ingress.Spec) {
 		existing.Spec = ingress.Spec
 		if _, err = ingressClient.Update(existing); err == nil {
-			logger.Infof("Updated ingress %q in namespace %q", ingressName, ingressNamespace)
+			logging.FromContext(ctx).Infof("Updated ingress %q in namespace %q", ingressName, ingressNamespace)
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Ingress %q in namespace %q", ingressName, ingressNamespace)
 		}
 		return err
@@ -495,7 +500,7 @@ func (c *Controller) reconcileIngress(route *v1alpha1.Route, logger *zap.Sugared
 	return nil
 }
 
-func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route, logger *zap.SugaredLogger) (
+func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha1.Route) (
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	ns := route.Namespace
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
@@ -508,7 +513,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route, logger *zap.
 			configName := tt.ConfigurationName
 			config, err := configClient.Get(configName, metav1.GetOptions{})
 			if err != nil {
-				logger.Infof("Failed to fetch Configuration %q: %v", configName, err)
+				logging.FromContext(ctx).Infof("Failed to fetch Configuration %q: %v", configName, err)
 				return nil, nil, err
 			}
 			configMap[configName] = config
@@ -516,7 +521,7 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route, logger *zap.
 			revName := tt.RevisionName
 			rev, err := revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
-				logger.Infof("Failed to fetch Revision %q: %v", revName, err)
+				logging.FromContext(ctx).Infof("Failed to fetch Revision %q: %v", revName, err)
 				return nil, nil, err
 			}
 			revMap[revName] = rev
@@ -527,7 +532,8 @@ func (c *Controller) getDirectTrafficTargets(route *v1alpha1.Route, logger *zap.
 }
 
 func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision, logger *zap.SugaredLogger) error {
+	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
+	revMap map[string]*v1alpha1.Revision) error {
 	ns := route.Namespace
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(ns)
 
@@ -538,13 +544,13 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 				// This is not a duplicated configuration
 				config, err := configClient.Get(configName, metav1.GetOptions{})
 				if err != nil {
-					logger.Errorf("Failed to fetch Configuration %s: %s", configName, err)
+					logging.FromContext(ctx).Errorf("Failed to fetch Configuration %s: %s", configName, err)
 					return err
 				}
 				configMap[configName] = config
 			}
 		} else {
-			logger.Infof("Revision %s does not have label %s", rev.Name, ela.ConfigurationLabelKey)
+			logging.FromContext(ctx).Infof("Revision %s does not have label %s", rev.Name, ela.ConfigurationLabelKey)
 		}
 	}
 
@@ -552,7 +558,8 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 }
 
 func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision, logger *zap.SugaredLogger) error {
+	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
+	revMap map[string]*v1alpha1.Revision) error {
 	ns := route.Namespace
 	revisionClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
 
@@ -563,7 +570,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 
 				revName := config.Status.LatestReadyRevisionName
 				if revName == "" {
-					logger.Infof("Configuration %s is not ready. Skipping Configuration %q during route reconcile",
+					logging.FromContext(ctx).Infof("Configuration %s is not ready. Skipping Configuration %q during route reconcile",
 						tt.ConfigurationName)
 					continue
 				}
@@ -571,7 +578,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 				if _, ok := revMap[revName]; !ok {
 					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
 					if err != nil {
-						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
+						logging.FromContext(ctx).Errorf("Failed to fetch Revision %s: %s", revName, err)
 						return err
 					}
 					revMap[revName] = rev
@@ -584,7 +591,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 }
 
 func (c *Controller) setLabelForGivenConfigurations(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, logger *zap.SugaredLogger) error {
+	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
 
 	// Validate
@@ -595,7 +602,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 				errMsg := fmt.Sprintf("Configuration %q is already in use by %q, and cannot be used by %q",
 					config.Name, routeName, route.Name)
 				c.recorder.Event(route, corev1.EventTypeWarning, "ConfigurationInUse", errMsg)
-				logger.Error(errMsg)
+				logging.FromContext(ctx).Error(errMsg)
 				return errors.New(errMsg)
 			}
 		}
@@ -610,7 +617,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 		}
 		config.Labels[ela.RouteLabelKey] = route.Name
 		if _, err := configClient.Update(config); err != nil {
-			logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+			logging.FromContext(ctx).Errorf("Failed to update Configuration %s: %s", config.Name, err)
 			return err
 		}
 	}
@@ -619,7 +626,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 }
 
 func (c *Controller) setLabelForGivenRevisions(
-	route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision, logger *zap.SugaredLogger) error {
+	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	revisionClient := c.elaclientset.ElafrosV1alpha1().Revisions(route.Namespace)
 
 	// Validate revision if it already has a route label
@@ -629,7 +636,7 @@ func (c *Controller) setLabelForGivenRevisions(
 				errMsg := fmt.Sprintf("Revision %q is already in use by %q, and cannot be used by %q",
 					rev.Name, routeName, route.Name)
 				c.recorder.Event(route, corev1.EventTypeWarning, "RevisionInUse", errMsg)
-				logger.Error(errMsg)
+				logging.FromContext(ctx).Error(errMsg)
 				return errors.New(errMsg)
 			}
 		}
@@ -643,7 +650,7 @@ func (c *Controller) setLabelForGivenRevisions(
 		}
 		rev.Labels[ela.RouteLabelKey] = route.Name
 		if _, err := revisionClient.Update(rev); err != nil {
-			logger.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
+			logging.FromContext(ctx).Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
 			return err
 		}
 	}
@@ -652,7 +659,7 @@ func (c *Controller) setLabelForGivenRevisions(
 }
 
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, logger *zap.SugaredLogger) error {
+	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	configClient := c.elaclientset.ElafrosV1alpha1().Configurations(route.Namespace)
 	// Get Configurations set as traffic target before this sync.
 	oldConfigsList, err := configClient.List(
@@ -661,7 +668,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 		},
 	)
 	if err != nil {
-		logger.Errorf("Failed to fetch configurations with label '%s=%s': %s",
+		logging.FromContext(ctx).Errorf("Failed to fetch configurations with label '%s=%s': %s",
 			ela.RouteLabelKey, route.Name, err)
 		return err
 	}
@@ -671,7 +678,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 		if _, ok := configMap[config.Name]; !ok {
 			delete(config.Labels, ela.RouteLabelKey)
 			if _, err := configClient.Update(&config); err != nil {
-				logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
+				logging.FromContext(ctx).Errorf("Failed to update Configuration %s: %s", config.Name, err)
 				return err
 			}
 		}
@@ -681,7 +688,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 }
 
 func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
-	route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision, logger *zap.SugaredLogger) error {
+	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(route.Namespace)
 
 	oldRevList, err := revClient.List(
@@ -690,7 +697,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 		},
 	)
 	if err != nil {
-		logger.Errorf("Failed to fetch revisions with label '%s=%s': %s",
+		logging.FromContext(ctx).Errorf("Failed to fetch revisions with label '%s=%s': %s",
 			ela.RouteLabelKey, route.Name, err)
 		return err
 	}
@@ -700,7 +707,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 		if _, ok := revMap[rev.Name]; !ok {
 			delete(rev.Labels, ela.RouteLabelKey)
 			if _, err := revClient.Update(&rev); err != nil {
-				logger.Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
+				logging.FromContext(ctx).Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
 				return err
 			}
 		}
@@ -713,9 +720,10 @@ func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 // is true, a route rule with the activator service as the destination will be added. It returns the revision routes, the inactive
 // revision name to which the activator should forward requests to, and error if there is any.
 func (c *Controller) computeRevisionRoutes(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision,
-	logger *zap.SugaredLogger) ([]RevisionRoute, string, error) {
+	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
+	revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, string, error) {
 
+	logger := logging.FromContext(ctx)
 	logger.Debug("Figuring out routes")
 	enableScaleToZero := c.enableScaleToZero.Get()
 	// The inactive revision name which has the largest traffic weight.
@@ -807,8 +815,8 @@ func (c *Controller) computeRevisionRoutes(
 // rules to them for perpetuity, therefore not ideal.  We should remove this hack once
 // https://github.com/istio/istio/issues/5204 is fixed, probably in 0.8.1.
 func (c *Controller) computeEmptyRevisionRoutes(
-	route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision,
-	logger *zap.SugaredLogger) ([]RevisionRoute, error) {
+	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
+	revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
 	revClient := c.elaclientset.ElafrosV1alpha1().Revisions(ns)
@@ -822,7 +830,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 				LabelSelector: fmt.Sprintf("%s=%s", ela.ConfigurationLabelKey, configName),
 			})
 			if err != nil {
-				logger.Errorf("Failed to fetch revisions of Configuration %q: %s", configName, err)
+				logging.FromContext(ctx).Errorf("Failed to fetch revisions of Configuration %q: %s", configName, err)
 				return nil, err
 			}
 			for _, rev := range revs.Items {
@@ -843,8 +851,9 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	return revRoutes, nil
 }
 
-func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration,
-	revMap map[string]*v1alpha1.Revision, logger *zap.SugaredLogger) ([]RevisionRoute, error) {
+func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alpha1.Route,
+	configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+	logger := logging.FromContext(ctx)
 	// grab a client that's specific to RouteRule.
 	ns := route.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
@@ -853,7 +862,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 		return nil, fmt.Errorf("Couldn't get a routeClient")
 	}
 
-	revisionRoutes, inactiveRev, err := c.computeRevisionRoutes(route, configMap, revMap, logger)
+	revisionRoutes, inactiveRev, err := c.computeRevisionRoutes(ctx, route, configMap, revMap)
 	if err != nil {
 		logger.Errorf("Failed to get routes for %s : %q", route.Name, err)
 		return nil, err
@@ -864,7 +873,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 	}
 
 	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixed.
-	emptyRoutes, err := c.computeEmptyRevisionRoutes(route, configMap, revMap, logger)
+	emptyRoutes, err := c.computeEmptyRevisionRoutes(ctx, route, configMap, revMap)
 	if err != nil {
 		logger.Errorf("Failed to get empty routes for %s : %q", route.Name, err)
 		return nil, err
@@ -917,7 +926,7 @@ func (c *Controller) createOrUpdateRouteRules(route *v1alpha1.Route, configMap m
 			c.recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 		}
 	}
-	if err := c.removeOutdatedRouteRules(route, logger); err != nil {
+	if err := c.removeOutdatedRouteRules(ctx, route); err != nil {
 		return nil, err
 	}
 	return revisionRoutes, nil
@@ -941,13 +950,14 @@ func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error
 // consolidateTrafficTargets will consolidate all duplicate revisions
 // and configurations. If the traffic target names are unique, the traffic
 // targets will not be consolidated.
-func (c *Controller) consolidateTrafficTargets(route *v1alpha1.Route, logger *zap.SugaredLogger) {
+func (c *Controller) consolidateTrafficTargets(ctx context.Context, route *v1alpha1.Route) {
 	type trafficTarget struct {
 		name              string
 		revisionName      string
 		configurationName string
 	}
 
+	logger := logging.FromContext(ctx)
 	logger.Infof("Attempting to consolidate traffic targets")
 	trafficTargets := route.Spec.Traffic
 	trafficMap := make(map[trafficTarget]int)
@@ -990,7 +1000,8 @@ func (c *Controller) consolidateTrafficTargets(route *v1alpha1.Route, logger *za
 	route.Spec.Traffic = consolidatedTraffic
 }
 
-func (c *Controller) removeOutdatedRouteRules(u *v1alpha1.Route, logger *zap.SugaredLogger) error {
+func (c *Controller) removeOutdatedRouteRules(ctx context.Context, u *v1alpha1.Route) error {
+	logger := logging.FromContext(ctx)
 	ns := u.Namespace
 	routeClient := c.elaclientset.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
@@ -1044,7 +1055,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 		return
 	}
 
-	logger := c.logger.With(zap.String(controller.LogKeyNamespace, ns), zap.String(controller.LogKeyRoute, routeName))
+	logger := loggerWithRouteInfo(c.logger, ns, routeName)
 	route, err := c.lister.Routes(ns).Get(routeName)
 	if err != nil {
 		logger.Error("Error fetching route upon configuration becoming ready", zap.Error(err))
@@ -1053,7 +1064,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(route, logger); err != nil {
+	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(logging.WithLogger(context.Background(), logger), route); err != nil {
 		logger.Errorf("Error updating route upon configuration becoming ready", zap.Error(err))
 	}
 }
@@ -1086,8 +1097,8 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		c.logger.Error(
 			"Error fetching route upon ingress becoming",
 			zap.Error(err),
-			zap.String(controller.LogKeyNamespace, ns),
-			zap.String(controller.LogKeyRoute, routeName))
+			zap.String(logging.LogKeyNamespace, ns),
+			zap.String(logging.LogKeyRoute, routeName))
 		return
 	}
 	if route.Status.IsReady() {
@@ -1103,8 +1114,8 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		c.logger.Error(
 			"Error updating readiness of route upon ingress becoming",
 			zap.Error(err),
-			zap.String(controller.LogKeyNamespace, ns),
-			zap.String(controller.LogKeyRoute, routeName))
+			zap.String(logging.LogKeyNamespace, ns),
+			zap.String(logging.LogKeyRoute, routeName))
 		return
 	}
 }

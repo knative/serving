@@ -14,15 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package logging
 
-const (
-	// LogKeyControllerType is the key used for controller type in structured logs
-	LogKeyControllerType = "elafros.dev/controller"
+import (
+	"context"
 
-	// LogKeyRoute is the key used for route name in structured logs
-	LogKeyRoute = "elafros.dev/route"
-
-	// LogKeyNamespace is the key used for namespace in structured logs
-	LogKeyNamespace = "elafros.dev/namespace"
+	"go.uber.org/zap"
 )
+
+type loggerKey struct{}
+
+func WithLogger(ctx context.Context, l *zap.SugaredLogger) context.Context {
+	return context.WithValue(ctx, loggerKey{}, l)
+}
+
+func FromContext(ctx context.Context) *zap.SugaredLogger {
+	if logger, ok := ctx.Value(loggerKey{}).(*zap.SugaredLogger); ok {
+		return logger
+	}
+	return nil
+}

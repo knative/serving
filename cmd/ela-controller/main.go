@@ -79,7 +79,8 @@ func main() {
 		if err := json.Unmarshal([]byte(zapJSON), &loggingCfg); err != nil {
 			// Failed to parse the logging configuration. Fall back to production config
 			loggingCfg = zap.NewProductionConfig()
-			logInitFailure = fmt.Sprintf("Error parsing logging configuration. Using default config: %v", err)
+			logInitFailure = fmt.Sprintf(
+				"Failed to parse the logging config. Will use default config. Parsing error: %v", err)
 		}
 	} else {
 		loggingCfg = zap.NewProductionConfig()
@@ -98,7 +99,7 @@ func main() {
 		if len(loggingFluentSidecarImage.Get()) != 0 {
 			logger.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
 		} else {
-			logger.Fatalf("missing required flag: -fluentdSidecarImage")
+			logger.Fatal("missing required flag: -fluentdSidecarImage")
 		}
 	}
 

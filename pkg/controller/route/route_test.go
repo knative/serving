@@ -24,6 +24,7 @@ package route
 - When a Revision is deleted TODO
 */
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -41,6 +42,7 @@ import (
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	ctrl "github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -1007,7 +1009,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 	}
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := controller.removeOutdatedRouteRules(route, zap.NewNop().Sugar()); err != nil {
+	if err := controller.removeOutdatedRouteRules(logging.WithLogger(context.Background(), zap.NewNop().Sugar()), route); err != nil {
 		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
 	}
 
@@ -1473,7 +1475,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Create an ingress owned by this route.
-	controller.reconcileIngress(route, zap.NewNop().Sugar())
+	controller.reconcileIngress(logging.WithLogger(context.Background(), zap.NewNop().Sugar()), route)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
