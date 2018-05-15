@@ -92,7 +92,7 @@ type resolver interface {
 // Controller implements the controller for Revision resources.
 // +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
-	*controller.ControllerBase
+	*controller.Base
 
 	// lister indexes properties about Revision
 	lister listers.RevisionLister
@@ -164,7 +164,7 @@ func NewController(
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
 	controller := &Controller{
-		ControllerBase: controller.NewControllerBase(kubeClientSet, elaClientSet, kubeInformerFactory,
+		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions"),
 		lister:           informer.Lister(),
 		synced:           informer.Informer().HasSynced,

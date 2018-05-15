@@ -76,7 +76,7 @@ type RevisionRoute struct {
 // Controller implements the controller for Route resources.
 // +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
-	*controller.ControllerBase
+	*controller.Base
 
 	// lister indexes properties about Route
 	lister listers.RouteLister
@@ -116,7 +116,7 @@ func NewController(
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 
 	controller := &Controller{
-		ControllerBase: controller.NewControllerBase(kubeClientSet, elaClientSet, kubeInformerFactory,
+		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes"),
 		lister:            informer.Lister(),
 		synced:            informer.Informer().HasSynced,

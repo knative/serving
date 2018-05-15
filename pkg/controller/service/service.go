@@ -55,7 +55,7 @@ const (
 // Controller implements the controller for Service resources.
 // +controller:group=ela,version=v1alpha1,kind=Service,resource=services
 type Controller struct {
-	*controller.ControllerBase
+	*controller.Base
 
 	// lister indexes properties about Services
 	lister listers.ServiceLister
@@ -88,7 +88,7 @@ func NewController(
 	informer := elaInformerFactory.Elafros().V1alpha1().Services()
 
 	controller := &Controller{
-		ControllerBase: controller.NewControllerBase(kubeClientSet, elaClientSet, kubeInformerFactory,
+		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions"),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,

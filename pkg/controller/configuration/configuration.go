@@ -42,7 +42,7 @@ const controllerAgentName = "configuration-controller"
 
 // Controller implements the controller for Configuration resources
 type Controller struct {
-	*controller.ControllerBase
+	*controller.Base
 
 	buildClientSet buildclientset.Interface
 
@@ -70,7 +70,7 @@ func NewController(
 	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
 
 	controller := &Controller{
-		ControllerBase: controller.NewControllerBase(kubeClientSet, elaClientSet, kubeInformerFactory,
+		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Configurations"),
 		buildClientSet:  buildClientSet,
 		lister:          informer.Lister(),

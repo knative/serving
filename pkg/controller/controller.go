@@ -47,9 +47,9 @@ func init() {
 	elascheme.AddToScheme(scheme.Scheme)
 }
 
-// ControllerBase implements most of the boilerplate and common code
+// Base implements most of the boilerplate and common code
 // we have in our controllers.
-type ControllerBase struct {
+type Base struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
@@ -76,16 +76,16 @@ type ControllerBase struct {
 	WorkQueue workqueue.RateLimitingInterface
 }
 
-// NewControllerBase instantiates a new instance of ControllerBase implementing
+// NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
-func NewControllerBase(
+func NewBase(
 	kubeClientSet kubernetes.Interface,
 	elaClientSet clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	informer cache.SharedIndexInformer,
 	controllerAgentName string,
-	workQueueName string) *ControllerBase {
+	workQueueName string) *Base {
 
 	// Create event broadcaster
 	glog.V(4).Info("Creating event broadcaster")
@@ -94,7 +94,7 @@ func NewControllerBase(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	base := &ControllerBase{
+	base := &Base{
 		KubeClientSet:       kubeClientSet,
 		ElaClientSet:        elaClientSet,
 		KubeInformerFactory: kubeInformerFactory,
@@ -116,7 +116,7 @@ func NewControllerBase(
 
 // enqueueWork takes a resource and converts it into a
 // namespace/name string which is then put onto the work queue.
-func (c *ControllerBase) enqueueWork(obj interface{}) {
+func (c *Base) enqueueWork(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -130,7 +130,7 @@ func (c *ControllerBase) enqueueWork(obj interface{}) {
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-func (c *ControllerBase) RunController(
+func (c *Base) RunController(
 	threadiness int,
 	stopCh <-chan struct{},
 	informersSynced []cache.InformerSynced,
@@ -168,7 +168,7 @@ func (c *ControllerBase) RunController(
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
-func (c *ControllerBase) processNextWorkItem(syncHandler func(string) error) bool {
+func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 	obj, shutdown := c.WorkQueue.Get()
 
 	if shutdown {
