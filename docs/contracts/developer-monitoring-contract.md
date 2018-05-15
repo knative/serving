@@ -18,13 +18,14 @@ The following logs types are supported.
   or functions.
 * **stdout/stderr**: Logs emitted by the applications, containers or functions
   to the stdout/stderr channels.
-* **/var/log**: All files under `/var/log` will be collected and parsed as single line.
-  If the single line message is a JSON payload, it will be treated as structured logs and parsed accordingly.
-  See the [Logs Formats](#log-formats) section for more information. **NOTE**: `/var/log` requires
-  a sidecar container. [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
+* **/var/log**: All files under `/var/log` will be collected and parsed line by line.
+  If a single line message is a JSON payload, it will be treated as structured logs and parsed accordingly.
+  See the [Logs Formats](#log-formats) section for more information.
+  **NOTE**: Collecting `/var/log` requires a sidecar container.
+  [Operators](../product/personas.md#operator-personas) can enable/disable this feature.
 * **/dev/log**: TBD.
 
-Elafros recommends to send logs to stdout/stderr.
+Elafros recommends sending logs to stdout/stderr.
 
 ### Log Destinations
 
@@ -40,16 +41,16 @@ The following formats are supported.
 
 * **Plain text**: A single line regarded as plain text. The following metadata
   will be extracted from the log record:
-  * *kubernetes.labels.elafros_dev/configuration*: Elafros configuration of the
-    application, container or function that emitted the log.
-  * *kubernetes.labels.elafros_dev/revision*: Elafros revision of the application,
+  * *kubernetes.labels.elafros_dev/configuration*: The name of Elafros configuration
+    of the application, container or function that emitted the log.
+  * *kubernetes.labels.elafros_dev/revision*: The name of Elafros revision of the application,
      container or function that emitted the log.
-  * *kubernetes.namespace_name*: Kubernetes namespace of the application, container
+  * *kubernetes.namespace_name*: The name of Kubernetes namespace of the application, container
     or function that emitted the log.
-  * *log*: If the original log content.
+  * *log*: The original log content.
   * *stream*: One of `stdout`, `stderr` or `varlog`.
   * *tag*: If the log was from stdout/stderr, the value is
-    `kubernetes.var.log.<pod_name>_<namespace>_<container_name>_<container_id>.log`.
+    `kubernetes.var.log.<pod_name>_<namespace>_<container_name>_<docker_id>.log`.
     If the log was from `/var/log/*`, the value is the relative path to `/var/log/`
     with "`/`" replaced with "`.`". For example, the value of a log from
     `/var/log/foo/bar.log` is `foo.bar.log`.
@@ -92,7 +93,8 @@ The following formats are supported.
 ### Log Cleanup
 
 Logs written to stdout and stderr are cleaned up by Kubernetes. Elafros will
-provide necessary functionality to rotate all the logs from `/var/log/*`.
+provide a [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/)
+per cluster to rotate all the logs from `/var/log/*`.
 
 ## Monitoring
 
@@ -100,7 +102,8 @@ provide necessary functionality to rotate all the logs from `/var/log/*`.
 
 #### revision_request_count
 
-Description: Number of times an application, a container or a function has been called.
+Description: Number of times an application, a container or a function has been called
+since it was deployed.
 
 Type: Counter
 
@@ -111,7 +114,7 @@ Labels:
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
 * *source_service*: If the request was from outside the cluster, this will be
-  istio-ingress service name. If the request was from inside the cluster (revisons
+  istio-ingress service name. If the request was from inside the cluster (revisions
   calling other revisions), this will be Kubernetes service name of the revision.
 
 #### revision_request_duration
@@ -127,7 +130,7 @@ Labels:
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
 * *source_service*: If the request was from outside the cluster, this will be
-  istio-ingress service name. If the request was from inside the cluster (revisons
+  istio-ingress service name. If the request was from inside the cluster (revisions
   calling other revisions), this will be Kubernetes service name of the revision.
 
 #### revision_request_size
@@ -143,7 +146,7 @@ Labels:
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
 * *source_service*: If the request was from outside the cluster, this will be
-  istio-ingress service name. If the request was from inside the cluster (revisons
+  istio-ingress service name. If the request was from inside the cluster (revisions
   calling other revisions), this will be Kubernetes service name of the revision.
 
 #### revision_response_size
@@ -159,7 +162,7 @@ Labels:
 * *destination_revision*: Elafros Revision that served the request.
 * *response_code*: HTTP response code.
 * *source_service*: If the request was from outside the cluster, this will be
-  istio-ingress service name. If the request was from inside the cluster (revisons
+  istio-ingress service name. If the request was from inside the cluster (revisions
   calling other revisions), this will be Kubernetes service name of the revision.
 
 #### container_memory_usage_bytes
