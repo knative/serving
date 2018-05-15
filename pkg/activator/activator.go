@@ -25,7 +25,7 @@ type Activator interface {
 	Shutdown()
 }
 
-type revisionId struct {
+type revisionID struct {
 	namespace string
 	name      string
 }

@@ -30,16 +30,15 @@ import (
 
 var _ Activator = (*revisionActivator)(nil)
 
-// RevisionActivator is a component that changes revision serving status
-// to active if necessary. Then it returns the endpoint once the revision
-// is ready to serve traffic.
 type revisionActivator struct {
 	readyTimout time.Duration // for testing
 	kubeClient  kubernetes.Interface
 	elaClient   clientset.Interface
 }
 
-// NewRevisionActivator creates and starts a new RevisionActivator.
+// NewRevisionActivator creates an Activator that changes revision
+// serving status to active if necessary, then returns the endpoint
+// once the revision is ready to serve traffic.
 func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
@@ -53,7 +52,7 @@ func (r *revisionActivator) Shutdown() {
 }
 
 func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
-	rev := revisionId{namespace: namespace, name: name}
+	rev := revisionID{namespace: namespace, name: name}
 
 	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
 		log.Printf(msg, args...)
