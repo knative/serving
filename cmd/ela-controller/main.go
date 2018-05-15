@@ -18,15 +18,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
-	"go.uber.org/zap"
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -71,29 +69,8 @@ var (
 
 func main() {
 	flag.Parse()
-
-	zapJSON := loggingZapCfg.Get()
-	var loggingCfg zap.Config
-	var logInitFailure string
-	if len(zapJSON) > 0 {
-		if err := json.Unmarshal([]byte(zapJSON), &loggingCfg); err != nil {
-			// Failed to parse the logging configuration. Fall back to production config
-			loggingCfg = zap.NewProductionConfig()
-			logInitFailure = fmt.Sprintf(
-				"Failed to parse the logging config. Will use default config. Parsing error: %v", err)
-		}
-	} else {
-		loggingCfg = zap.NewProductionConfig()
-	}
-	rawLogger, err := loggingCfg.Build()
-	if err != nil {
-		panic(err)
-	}
-	defer rawLogger.Sync()
-	logger := rawLogger.Sugar()
-	if len(logInitFailure) > 0 {
-		logger.Error(logInitFailure)
-	}
+	logger := logging.NewLogger(loggingZapCfg.Get())
+	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {
 		if len(loggingFluentSidecarImage.Get()) != 0 {

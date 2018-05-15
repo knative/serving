@@ -24,10 +24,15 @@ import (
 
 type loggerKey struct{}
 
-func WithLogger(ctx context.Context, l *zap.SugaredLogger) context.Context {
-	return context.WithValue(ctx, loggerKey{}, l)
+// WithLogger returns a copy of parent context in which the
+// value associated with logger key is the supplied logger.
+func WithLogger(ctx context.Context, logger *zap.SugaredLogger) context.Context {
+	return context.WithValue(ctx, loggerKey{}, logger)
 }
 
+// FromContext returns the logger stored in context.
+// Returns nil if no logger is set in context, or if the stored value is
+// not of correct type.
 func FromContext(ctx context.Context) *zap.SugaredLogger {
 	if logger, ok := ctx.Value(loggerKey{}).(*zap.SugaredLogger); ok {
 		return logger

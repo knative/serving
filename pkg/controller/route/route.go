@@ -293,7 +293,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return nil, controller.PromLabelValueSuccess
 	}(obj)
 
-	if ctx, tagError := tag.New(context.Background(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
+	if ctx, tagError := tag.New(context.TODO(), tag.Insert(statusTagKey, processStatus)); tagError == nil {
 		// Increment the request count by one.
 		stats.Record(ctx, processItemCount.M(1))
 	}
@@ -339,7 +339,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	}
 
 	logger := loggerWithRouteInfo(c.logger, namespace, name)
-	ctx := logging.WithLogger(context.Background(), logger)
+	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Route resource with this namespace/name
 	route, err := c.lister.Routes(namespace).Get(name)
@@ -1064,7 +1064,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(logging.WithLogger(context.Background(), logger), route); err != nil {
+	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(logging.WithLogger(context.TODO(), logger), route); err != nil {
 		logger.Errorf("Error updating route upon configuration becoming ready", zap.Error(err))
 	}
 }
