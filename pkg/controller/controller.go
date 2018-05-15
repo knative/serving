@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+// Interface defines the controller interface
 type Interface interface {
 	Run(threadiness int, stopCh <-chan struct{}) error
 }
@@ -46,31 +47,37 @@ func init() {
 	elascheme.AddToScheme(scheme.Scheme)
 }
 
+// ControllerBase implements most of the boilerplate and common code
+// we have in our controllers.
 type ControllerBase struct {
-	// kubeClient allows us to talk to the k8s for core APIs
+	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
-	// elaClient allows us to configure Ela objects
+	// ElaClientSet allows us to configure Ela objects
 	ElaClientSet clientset.Interface
 
+	// KubeInformerFactory provides shared informers for resources
+	// in all known API group versions
 	KubeInformerFactory kubeinformers.SharedInformerFactory
 
+	// ElaInformerFactory provides shared informers for resources
+	// in all known API group versions
 	ElaInformerFactory informers.SharedInformerFactory
 
-	// recorder is an event recorder for recording Event resources to the
+	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
 
-	// workqueue is a rate limited work queue. This is used to queue work to be
+	// WorkQueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
 	// time, and makes it easy to ensure we are never processing the same item
 	// simultaneously in two different workers.
 	WorkQueue workqueue.RateLimitingInterface
-
-	initialized bool
 }
 
+// NewControllerBase instantiates a new instance of ControllerBase implementing
+// the common & boilerplate code between our controllers.
 func NewControllerBase(
 	kubeClientSet kubernetes.Interface,
 	elaClientSet clientset.Interface,
@@ -119,7 +126,7 @@ func (c *ControllerBase) enqueueWork(obj interface{}) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
-// RunSyncHandler will set up the event handlers for types we are interested in, as well
+// RunController will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
