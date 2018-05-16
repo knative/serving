@@ -39,6 +39,8 @@ readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
+readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
+
 # Helper functions.
 
 function teardown() {
@@ -189,6 +191,8 @@ echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
 header "Building and starting Elafros"
 trap teardown EXIT
+
+GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
 
 # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
 bazel clean --expunge
