@@ -15,22 +15,49 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/elafros/elafros/pkg/activator"
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	"github.com/elafros/elafros/pkg/controller"
 	"github.com/elafros/elafros/pkg/signals"
 	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
+type activationHandler struct {
+	act activator.Activator
+}
+
+func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
+	// TODO: Use the namespace from the header.
+	// https://github.com/elafros/elafros/issues/693
+	namespace := "default"
+	name := r.Header.Get(controller.GetRevisionHeaderName())
+	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)
+	if err != nil {
+		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
+		glog.Errorf(msg)
+		http.Error(w, msg, int(status))
+		return
+	}
+	target := &url.URL{
+		// TODO: Wire Activator into Istio mesh to support TLS
+		//       (https://github.com/elafros/elafros/issues/838)
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
+	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ServeHTTP(w, r)
+}
+
 func main() {
 	flag.Parse()
 	glog.Info("Starting the elafros activator...")
-
-	// set up signals so we handle the first shutdown signal gracefully
-	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -44,11 +71,18 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error building ela clientset: %v", err)
 	}
-	a, err := activator.NewActivator(kubeClient, elaClient, http.DefaultTransport.(*http.Transport))
-	if err != nil {
-		glog.Fatalf("Failed to create an activator: %v", err)
-	}
 
-	a.Run(stopCh)
-	glog.Flush()
+	a := activator.NewRevisionActivator(kubeClient, elaClient)
+	a = activator.NewDedupingActivator(a)
+	ah := &activationHandler{a}
+
+	// set up signals so we handle the first shutdown signal gracefully
+	stopCh := signals.SetupSignalHandler()
+	go func() {
+		<-stopCh
+		a.Shutdown()
+	}()
+
+	http.HandleFunc("/", ah.handler)
+	http.ListenAndServe(":8080", nil)
 }
