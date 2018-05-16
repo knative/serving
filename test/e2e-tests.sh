@@ -43,22 +43,43 @@ readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
 
 # Helper functions.
 
+function create_istio() {
+  kubectl create clusterrolebinding cluster-admin-binding \
+    --clusterrole=cluster-admin \
+    --user="${K8S_USER_OVERRIDE}"
+
+  kubectl apply -f ./third_party/istio-0.6.0/install/kubernetes/istio.yaml
+
+  ./third_party/istio-0.6.0/install/kubernetes/webhook-create-signed-cert.sh \
+    --service istio-sidecar-injector \
+    --namespace istio-system \
+    --secret sidecar-injector-certs
+
+  kubectl apply -f ./third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+
+  cat ./third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector.yaml | \
+    ./third_party/istio-0.6.0/install/kubernetes/webhook-patch-ca-bundle.sh | \
+    kubectl apply -f -
+}
+
 function create_everything() {
-  # TODO(mattmoor): This should use kubectl
-  bazel run //third_party/istio-0.6.0/install/kubernetes:istio.apply
+  create_istio
   kubectl apply -f third_party/config/build/release.yaml
   "${OUTPUT_GOBIN}/ko" apply -f config/
+}
 
-  # Enable Istio sidecar injection
-  bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
-  kubectl label namespace default istio-injection=enabled
+function delete_istio() {
+  kubectl delete --ignore-not-found=true \
+    -f ./third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector.yaml \
+    -f ./third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-release.yaml \
+    -f ./third_party/istio-0.6.0/install/kubernetes/istio.yaml
+  kubectl delete clusterrolebinding cluster-admin-binding
 }
 
 function delete_everything() {
   "${OUTPUT_GOBIN}/ko" delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
-  # TODO(mattmoor): This should use kubectl
-  bazel run //third_party/istio-0.6.0/install/kubernetes:istio.delete
+  delete_istio
 }
 
 function teardown() {
@@ -73,8 +94,6 @@ function teardown() {
     delete_elafros_images
   else
     restore_override_vars
-    # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-    bazel clean --expunge
   fi
 }
 
@@ -213,8 +232,6 @@ trap teardown EXIT
 
 GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
 
-# --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-bazel clean --expunge
 if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Elafros instance"
   delete_everything
