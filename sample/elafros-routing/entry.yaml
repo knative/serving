@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: entry-service
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: entry-ingress
+  namespace: default
+spec:
+  rules:
+  - host: entry.default.demo-domain.com
+    http:
+      paths:
+      - backend:
+          serviceName: entry-service
+          servicePort: http
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: entry-route
+  namespace: default
+spec:
+  destination:
+    name: entry-service
+    namespace: default
+  route:
+  - destination:
+      name: search-service-route-service
+      namespace: default
+    weight: 100

@@ -18,7 +18,6 @@ package route
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	istiov1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
@@ -36,15 +35,6 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		Destination: istiov1alpha2.IstioService{
 			Name:      controller.GetElaK8SServiceName(u),
 			Namespace: ns,
-		},
-		Match: istiov1alpha2.Match{
-			Request: istiov1alpha2.MatchRequest{
-				Headers: istiov1alpha2.Headers{
-					Authority: istiov1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(domain),
-					},
-				},
-			},
 		},
 		Route: destinationWeights,
 	}
