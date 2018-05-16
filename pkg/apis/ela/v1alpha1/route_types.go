@@ -84,7 +84,7 @@ type RouteSpec struct {
 // RouteCondition defines a readiness condition.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RouteCondition struct {
-	Type RouteConditionType `json:"state"`
+	Type RouteConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
