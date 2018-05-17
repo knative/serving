@@ -31,14 +31,43 @@ spec:
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
-  name: entry-route
+  name: entry-route-search
   namespace: default
 spec:
   destination:
     name: entry-service
     namespace: default
+  match:
+    request:
+      headers:
+        uri:
+          prefix: "/search"
+  rewrite:
+    authority: search-service-route.default.demo-domain.com
   route:
   - destination:
-      name: search-service-route-service
-      namespace: default
+      name: istio-ingress
+      namespace: istio-system
+    weight: 100
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: entry-route-login
+  namespace: default
+spec:
+  destination:
+    name: entry-service
+    namespace: default
+  match:
+    request:
+      headers:
+        uri:
+          prefix: "/login"
+  rewrite:
+    authority: login-service-route.default.demo-domain.com
+  route:
+  - destination:
+      name: istio-ingress
+      namespace: istio-system
     weight: 100
