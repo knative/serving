@@ -20,11 +20,11 @@ metadata:
   labels:
     addonmanager.kubernetes.io/mode: Reconcile
 data:
-  system.conf: |-
+  100.system.conf: |-
     <system>
       root_dir /tmp/fluentd-buffers/
     </system>
-  containers.input.conf: |-
+  200.containers.input.conf: |-
     <source>
       @id fluentd-containers.log
       @type tail
@@ -46,15 +46,16 @@ data:
       max_bytes 500000
       max_lines 1000
     </match>
-  forward.input.conf: |-
-    <source>
-      @type forward
-    </source>
-  output.conf: |-
-    # Add Kubernetes metadata and send to Elastic Search
+    # Add Kubernetes metadata
     <filter kubernetes.**>
       @type kubernetes_metadata
     </filter>
+  300.forward.input.conf: |-
+    <source>
+      @type forward
+    </source>
+  900.output.conf: |-
+    # Send to Elastic Search
     <match **>
       @id elasticsearch
       @type elasticsearch
