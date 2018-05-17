@@ -21,7 +21,6 @@ go_library(
         "//pkg/logging:go_default_library",
         "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.opencensus.io/stats:go_default_library",
-        "//vendor/go.opencensus.io/stats/view:go_default_library",
         "//vendor/go.opencensus.io/tag:go_default_library",
         "//vendor/go.uber.org/zap:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
@@ -30,15 +29,10 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/client-go/informers:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/k8s.io/client-go/tools/record:go_default_library",
-        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
     ],
 )
 
