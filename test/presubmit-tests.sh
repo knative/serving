@@ -35,10 +35,10 @@ cd ${ELAFROS_ROOT_DIR}
 # Skip presubmit tests if only markdown files were changed.
 if [[ -n "${PULL_NUMBER}" ]]; then
   # On a presubmit job
-  changes="$(git log -m -1 --name-only --pretty='format:')"
+  changes="$(git show --name-only --pretty='format:')"
   echo -e "Changed files:\n${changes}"
-  if [[ -z "$(echo "${changes}" | grep -v '.md$')" ]]; then
-    # Nothing changed other than .md files
+  if [[ -z "$(echo "${changes}" | grep -v '\(\.md\|\.png\)$')" ]]; then
+    # Nothing changed other than .md or .png files
     header "Presubmit on documentation only PR, skipping tests"
     exit 0
   fi
