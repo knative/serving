@@ -23,8 +23,11 @@ set -o pipefail
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
+# Extensions or file patterns that don't require presubmit tests
+readonly NO_PRESUBMIT_FILES=(\.md \.png ^OWNERS)
+
 function cleanup() {
-  "Cleaning up for teardown"
+  echo "Cleaning up for teardown"
   restore_override_vars
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge || true
@@ -37,8 +40,10 @@ if [[ -n "${PULL_NUMBER}" ]]; then
   # On a presubmit job
   commit="$(echo ${PULL_REFS} | cut -d, -f2 | cut -d: -f2)"
   changes="$(git show ${commit} --name-only --pretty='format:')"
+  no_presubmit_pattern="${NO_PRESUBMIT_FILES[*]}"
+  no_presubmit_pattern="\(${no_presubmit_pattern// /\\|}\)$"
   echo -e "Changed files in commit ${commit}:\n${changes}"
-  if [[ -z "$(echo "${changes}" | grep -v '\(\.md\|\.png\)$')" ]]; then
+  if [[ -z "$(echo "${changes}" | grep -v ${no_presubmit_pattern})" ]]; then
     # Nothing changed other than .md or .png files
     header "Presubmit on documentation only PR, skipping tests"
     exit 0
