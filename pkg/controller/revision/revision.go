@@ -162,10 +162,14 @@ type ControllerConfig struct {
 	// collect logs under /var/log/.
 	EnableVarLogCollection bool
 
+	// TODO(#818): Use the fluentd deamon set to collect /var/log.
 	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
 	// injected into the revision pod. It is used only when enableVarLogCollection
 	// is true.
 	FluentdSidecarImage string
+	// FluentdSidecarOutputConfig is the config for fluentd sidecar to specify
+	// logging output destination.
+	FluentdSidecarOutputConfig string
 
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
@@ -1008,7 +1012,7 @@ func (c *Controller) reconcileFluentdConfigMap(rev *v1alpha1.Revision) error {
 	}
 
 	controllerRef := controller.NewRevisionControllerRef(rev)
-	configMap := MakeFluentdConfigMap(rev, ns)
+	configMap := MakeFluentdConfigMap(rev, ns, c.controllerConfig.FluentdSidecarOutputConfig)
 	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
 	log.Printf("Creating configmap: %q", configMap.Name)
 	_, err = cmc.Create(configMap)

@@ -61,9 +61,10 @@ var (
 	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
 	autoscaleEnableSingleConcurrency  = k8sflag.Bool("autoscale.enable-single-concurrency", false)
 
-	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
-	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
-	loggingUrlTemplate            = k8sflag.String("logging.revision-url-template", "")
+	loggingEnableVarLogCollection    = k8sflag.Bool("logging.enable-var-log-collection", false)
+	loggingFluentSidecarImage        = k8sflag.String("logging.fluentd-sidecar-image", "")
+	loggingFluentSidecarOutputConfig = k8sflag.String("logging.fluentd-sidecar-output-config", "")
+	loggingURLTemplate               = k8sflag.String("logging.revision-url-template", "")
 )
 
 func main() {
@@ -75,10 +76,11 @@ func main() {
 		} else {
 			glog.Fatal("missing required flag: -fluentdSidecarImage")
 		}
+		glog.Infof("Using fluentd sidecar output config: %s", loggingFluentSidecarOutputConfig)
 	}
 
-	if loggingUrlTemplate.Get() != "" {
-		glog.Infof("Using logging url template: %s", loggingUrlTemplate)
+	if loggingURLTemplate.Get() != "" {
+		glog.Infof("Using logging url template: %s", loggingURLTemplate)
 	}
 
 	if len(queueSidecarImage) != 0 {
@@ -130,9 +132,10 @@ func main() {
 		AutoscalerImage:                   autoscalerImage,
 		QueueSidecarImage:                 queueSidecarImage,
 
-		EnableVarLogCollection: loggingEnableVarLogCollection.Get(),
-		FluentdSidecarImage:    loggingFluentSidecarImage.Get(),
-		LoggingURLTemplate:     loggingUrlTemplate.Get(),
+		EnableVarLogCollection:     loggingEnableVarLogCollection.Get(),
+		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
+		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
+		LoggingURLTemplate:         loggingURLTemplate.Get(),
 	}
 
 	// Build all of our controllers, with the clients constructed above.
