@@ -44,8 +44,8 @@ if [[ -n "${PULL_NUMBER}" ]]; then
   no_presubmit_pattern="\(${no_presubmit_pattern// /\\|}\)$"
   echo -e "Changed files in commit ${commit}:\n${changes}"
   if [[ -z "$(echo "${changes}" | grep -v ${no_presubmit_pattern})" ]]; then
-    # Nothing changed other than .md or .png files
-    header "Presubmit on documentation only PR, skipping tests"
+    # Nothing changed other than files that don't require presubmit tests
+    header "Commit only contains changes that don't affect tests, skipping"
     exit 0
   fi
 fi
