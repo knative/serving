@@ -53,18 +53,10 @@ func IsRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 			if r.Status.Conditions[0].Type != v1alpha1.RevisionConditionType("Ready") {
 				return true, fmt.Errorf("Expected Revision to have a \"Ready\" status but only had %s", r.Status.Conditions[0].Type)
 			}
-			if r.Status.Conditions[0].Status == corev1.ConditionStatus("Unknown") {
-				if r.Status.Conditions[0].Reason != "Deploying" {
-					return true, fmt.Errorf("If the Revision isn't ready the reason should be to be \"Deploying\" but was %s", r.Status.Conditions[0].Reason)
-				}
-			} else {
-				if r.Status.Conditions[0].Status != corev1.ConditionStatus("True") {
-					return true, fmt.Errorf("Expected Revision Status Condition Status to be True or Unknown but was %s", r.Status.Conditions[0].Status)
-				}
-				if r.Status.Conditions[0].Reason != "ServiceReady" {
-					return true, fmt.Errorf("If the Revision is ready the Reason should be \"ServiceReady\" but was %s", r.Status.Conditions[0].Status)
-				}
+			if r.Status.Conditions[0].Status == corev1.ConditionTrue {
 				return true, nil
+			} else if r.Status.Conditions[0].Status != corev1.ConditionUnknown {
+				return true, fmt.Errorf("Expected Revision Status Condition Status to be True or Unknown but was %s", r.Status.Conditions[0].Status)
 			}
 		}
 		return false, nil
