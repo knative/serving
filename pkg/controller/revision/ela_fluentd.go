@@ -23,7 +23,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// fluentdSidecarPreOutputConfig defines /var/log source and filter configurations.
+// fluentdSidecarPreOutputConfig defines source and filter configurations for
+// files under /var/log.
 const fluentdSidecarPreOutputConfig = `
 <source>
 	@type tail
@@ -72,7 +73,11 @@ func MakeFluentdConfigMap(
 			Labels:    MakeElaResourceLabels(rev),
 		},
 		Data: map[string]string{
-			"varlog.conf": fluentdSidecarPreOutputConfig + fluentdSidecarOutputConfig,
+			"varlog.conf": makeFullFluentdConfig(fluentdSidecarOutputConfig),
 		},
 	}
+}
+
+func makeFullFluentdConfig(fluentdSidecarOutputConfig string) string {
+	return fluentdSidecarPreOutputConfig + fluentdSidecarOutputConfig
 }

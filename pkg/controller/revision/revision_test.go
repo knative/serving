@@ -557,7 +557,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("Label not set correctly config map: expected %v got %v.",
 			expectedLabels, labels)
 	}
-	fluentdConfigSource := fluentdSidecarPreOutputConfig + testFluentdSidecarOutputConfig
+	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
 	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
 		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
 			want, got)
