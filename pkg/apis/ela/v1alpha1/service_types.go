@@ -71,7 +71,7 @@ type PinnedType struct {
 }
 
 type ServiceCondition struct {
-	Type ServiceConditionType `json:"state"`
+	Type ServiceConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 

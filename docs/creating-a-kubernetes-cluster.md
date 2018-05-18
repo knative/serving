@@ -127,11 +127,12 @@ You can use Google Container Registry as the registry for a Minikube cluster.
     export GCR_DOMAIN=gcr.io
     ```
 
-    To have Bazel builds push to GCR, set `DOCKER_REPO_OVERRIDE` to the GCR
-    repo's url.
+    To publish builds push to GCR, set `KO_DOCKER_REPO` or
+    `DOCKER_REPO_OVERRIDE` to the GCR repo's url.
 
     ```shell
-    export DOCKER_REPO_OVERRIDE="${GCR_DOMAIN}/${PROJECT_ID}"
+    export KO_DOCKER_REPO="${GCR_DOMAIN}/${PROJECT_ID}"
+    export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
     ```
 
 1.  Create a GCP service account:
@@ -163,8 +164,8 @@ and link them to Kubernetes service accounts. _A secret must be created and
 linked to a service account in each namespace that will pull images from GCR._
 
 For example, use these steps to allow Minikube to pull Elafros and Build images
-from GCR as built by Bazel (`bazel run :everything.create`). _This is only
-necessary if you are not using public Elafros and Build images._
+from GCR as published in our development flow (`ko apply -f config/`).
+_This is only necessary if you are not using public Elafros and Build images._
 
 1.  Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
 

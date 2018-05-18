@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "activator.go",
+        "dedupe.go",
+        "revision.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/activator",
     visibility = ["//visibility:public"],
@@ -11,8 +13,6 @@ go_library(
         "//pkg/apis/ela/v1alpha1:go_default_library",
         "//pkg/client/clientset/versioned:go_default_library",
         "//pkg/controller:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
     ],
@@ -20,16 +20,18 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["activator_test.go"],
+    srcs = [
+        "dedupe_test.go",
+        "revision_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/apis/ela:go_default_library",
         "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//pkg/client/clientset/versioned:go_default_library",
         "//pkg/client/clientset/versioned/fake:go_default_library",
-        "//pkg/controller:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
     ],
 )
