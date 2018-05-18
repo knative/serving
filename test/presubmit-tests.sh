@@ -36,13 +36,12 @@ function cleanup() {
 cd ${ELAFROS_ROOT_DIR}
 
 # Skip presubmit tests if only markdown files were changed.
-if [[ -n "${PULL_NUMBER}" ]]; then
+if [[ -n "${PULL_PULL_SHA}" ]]; then
   # On a presubmit job
-  commit="$(echo ${PULL_REFS} | cut -d, -f2 | cut -d: -f2)"
-  changes="$(git show ${commit} --name-only --pretty='format:')"
+  changes="$(git show ${PULL_PULL_SHA} --name-only --pretty='format:')"
   no_presubmit_pattern="${NO_PRESUBMIT_FILES[*]}"
   no_presubmit_pattern="\(${no_presubmit_pattern// /\\|}\)$"
-  echo -e "Changed files in commit ${commit}:\n${changes}"
+  echo -e "Changed files in commit ${PULL_PULL_SHA}:\n${changes}"
   if [[ -z "$(echo "${changes}" | grep -v ${no_presubmit_pattern})" ]]; then
     # Nothing changed other than files that don't require presubmit tests
     header "Commit only contains changes that don't affect tests, skipping"
