@@ -1,8 +1,11 @@
-# Helloworld
+# Routing accross Elafros Services
 
-A simple web server written in Go that you can use for testing. It reads in an
-env variable 'TARGET' and prints "Hello World: ${TARGET}!" if
-TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
+An example that shows how to configure Ingress and RouteRule to direct traffic based on URI. You can configure other routing rules (e.g. routing based on header, etc.) based on this example.
+
+We set up two simple web servers: "search" server and "login" server, which simplely read
+in an env variable 'TARGET' and prints "Search service TARGET env: ${TARGET}" or "Login service TARGET env: ${TARGET}" respectively.
+
+Then we set up an Ingress with placeholder service and a RouteRule which direct traffic to these two servers based on URL.
 
 ## Prerequisites
 
@@ -17,126 +20,44 @@ Build the app container and publish it to your registry of choice:
 REPO="gcr.io/<your-project-here>"
 
 # Build and publish the container, run from the root directory.
-docker build -t "${REPO}/sample/helloworld" --file=sample/helloworld/Dockerfile .
-docker push "${REPO}/sample/helloworld"
+docker build -t "${REPO}/sample/elafros-routing/search" --file=sample/elafros-routing/Dockerfile --build-arg INPUT_SERVICE=search_service --no-cache .
 
-# Replace the image reference with our published image.
-perl -pi -e "s@github.com/elafros/elafros/sample/helloworld@${REPO}/sample/helloworld@g" sample/helloworld/*.yaml
+docker push "${REPO}/sample/elafros-routing/search"
 
-# Deploy the Elafros sample
-kubectl apply -f sample/helloworld/sample.yaml
+docker build -t "${REPO}/sample/elafros-routing/login" --file=sample/elafros-routing/Dockerfile --build-arg INPUT_SERVICE=login_service --no-cache .
+
+docker push "${REPO}/sample/elafros-routing/login"
+
+
+# Deploy the "search" and "login" servers.
+kubectl apply -f sample/elafros-routing/sample.yaml
+
+# Deploy the routing components.
+kubectl apply -f sample/elafros-routing/routing.yaml
 ```
 
 ## Exploring
-
-Once deployed, you can inspect the created resources with `kubectl` commands:
-
-```shell
-# This will show the route that we created:
-kubectl get route -o yaml
-```
+Once deployed, you can inspect Ingress with:
 
 ```shell
-# This will show the configuration that we created:
-kubectl get configurations -o yaml
+kubectl get Ingress
 ```
 
-```shell
-# This will show the Revision that was created by our configuration:
-kubectl get revisions -o yaml
-
+You should see 3 Ingress objects:
+```
+NAME                                 HOSTS
+login-service-route-ela-ingress login-service-route.default.demo-domain.com,*.login-service-route.default.demo-domain.com
 ```
 
-To access this service via `curl`, we first need to determine its ingress address:
-```shell
-watch kubectl get ingress
-```
+## How It Works
 
-When the ingress is ready, you'll see an IP address in the ADDRESS field:
-
-```
-NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-route-example-ela-ingress   demo.myhost.net             80        14s
-```
-
-Once the `ADDRESS` gets assigned to the cluster, you can run:
-
-```shell
-# Put the Ingress Host name into an environment variable.
-export SERVICE_HOST=`kubectl get route route-example -o jsonpath="{.status.domain}"`
-
-# Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
-```
-
-If your cluster is running outside a cloud provider (for example on Minikube),
-your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
-
-```shell
-export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
-```
-
-Now curl the service IP as if DNS were properly configured:
-
-```shell
-curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
-# Hello World: shiniestnewestversion!
-```
-
-## Updating
-
-You can update this to a new version. For example, update it with a new configuration.yaml via:
-```shell
-kubectl apply -f sample/helloworld/updated_configuration.yaml
-```
-
-Once deployed, traffic will shift to the new revision automatically. You can verify the new version
-by checking route status:
-```shell
-# This will show the route that we created:
-kubectl get route -o yaml
-```
-
-Or curling the service:
-```shell
-curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
-# Hello World: nextversion!
-```
-
-## Manual traffic splitting
-
-You can manually split traffic to specific revisions. Get your revisions names via:
-```shell
-kubectl get revisions
-```
-
-```
-NAME                                     AGE
-p-1552447d-0690-4b15-96c9-f085e310e98d   22m
-p-30e6a938-b28b-4d5e-a791-2cb5fe016d74   10m
-```
-
-Update `traffic` part in sample/helloworld/route.yaml as:
-```yaml
-traffic:
-  - revisionName: <YOUR_FIRST_REVISION_NAME>
-    percent: 50
-  - revisionName: <YOUR_SECOND_REVISION_NAME>
-    percent: 50
-```
-
-Then update your change via:
-```shell
-kubectl apply -f sample/helloworld/sample.yaml
-```
-
-Once updated, you can verify the traffic splitting by looking at route status and/or curling
-the service.
 
 ## Cleaning up
 
 To clean up the sample service:
 
 ```shell
-kubectl delete -f sample/helloworld/sample.yaml
+kubectl delete -f sample/elafros-routing/sample.yaml
+
+kubectl delete -f sample/elafros-routing/routing.yaml
 ```

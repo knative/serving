@@ -13,11 +13,14 @@
 # limitations under the License.
 FROM golang
 
+ARG INPUT_SERVICE
+ENV SERVICE="${INPUT_SERVICE}"
+
 ENV SRC_DIR=/go/src/github.com/elafros/elafros
 
 WORKDIR $SRC_DIR
 ADD . $SRC_DIR
 
-RUN go build ./sample/elafros-routing/login_service.go
+RUN go build ./sample/elafros-routing/$SERVICE.go
 
-ENTRYPOINT $SRC_DIR/login_service
+ENTRYPOINT $SRC_DIR/$SERVICE
