@@ -46,8 +46,8 @@ kubectl get Ingress
 You should see 3 Ingress objects:
 ```
 NAME                                 HOSTS                                                                                         ADDRESS        PORTS
-login-service-route-ela-ingress     login-service-route.default.demo-domain.com,*.login-service-route.default.demo-domain.com    35.229.43.224  80
-search-service-route-ela-ingress    search-service-route.default.demo-domain.com,*.search-service-route.default.demo-domain.com
+login-service-route-ela-ingress     login-service-route.default.demo-domain.com,*.login-service-route.default.demo-domain.com    35.229.43.224      80
+search-service-route-ela-ingress    search-service-route.default.demo-domain.com,*.search-service-route.default.demo-domain.com     35.229.43.224      80
 entry-ingress     entry.default.demo-domain.com
 ```
 The login-service-route-ela-ingress and search-service-route-ela-ingress are Ingresses corresponding to "login" server and "search" server.
