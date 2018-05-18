@@ -1,12 +1,13 @@
 # The Activator Network Configurations
 
-## Traffic flow overview
+## Traffic configuration overview
+
 An ingress object is created per Route to direct external traffic to reach desired revisions. This ingress
 object has annotations "istio" so Istio is the ingress controller which fulfills the ingress. The ingress
 uses domain based routing to map the requests to the placeholder service. The placeholder service is then
-mapped to Istio routerules which controll traffic across revisions and the activator service.
+mapped to Istio routerules which control traffic across revisions and the activator service.
 
-The picture below shows traffic flow for a route "abc-route".
+The picture below shows traffic configuration for a route "abc-route".
 
 ![traffic](images/routeTraffic.png)
 
