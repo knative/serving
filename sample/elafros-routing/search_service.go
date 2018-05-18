@@ -30,7 +30,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	if target == "" {
 		target = "NOT SPECIFIED"
 	}
-	fmt.Fprintf(w, "Login service TARGET env: %s!\n", target)
+	fmt.Fprintf(w, "Search service TARGET env: %s!\n", target)
 }
 
 func main() {

@@ -18,6 +18,6 @@ ENV SRC_DIR=/go/src/github.com/elafros/elafros
 WORKDIR $SRC_DIR
 ADD . $SRC_DIR
 
-RUN go build ./sample/elafros-routing
+RUN go build ./sample/elafros-routing/login_service.go
 
-ENTRYPOINT $SRC_DIR/elafros-routing
+ENTRYPOINT $SRC_DIR/login_service
