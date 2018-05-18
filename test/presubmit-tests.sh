@@ -14,17 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the presubmit tests, in the right order.
-# It is started by prow for each PR.
+# This script runs the presubmit tests; it is started by prow for each PR.
 # For convenience, it can also be executed manually.
+# Running the script without parameters, or with the --all-tests
+# flag, causes all tests to be executed, in the right order.
+# Use the flags --build-tests, --unit-tests and --integration-tests
+# to run a specific set of tests.
 
 set -o errexit
 set -o pipefail
 
-source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
-
 # Extensions or file patterns that don't require presubmit tests
 readonly NO_PRESUBMIT_FILES=(\.md \.png ^OWNERS)
+
+source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
+
+# Helper functions.
 
 function cleanup() {
   echo "Cleaning up for teardown"
@@ -32,6 +37,59 @@ function cleanup() {
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge || true
 }
+
+# Set the required env vars to dummy values to satisfy bazel.
+function set_environment() {
+  export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
+  export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
+  export K8S_USER_OVERRIDE=USER_NOT_SET
+}
+
+function build_tests() {
+  header "Running build tests"
+  set_environment
+  bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
+  bazel build :everything
+}
+
+function unit_tests() {
+  header "Running unit tests"
+  set_environment
+  bazel test //cmd/... //pkg/...
+  # Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
+  go test ./cmd/... ./pkg/...
+}
+
+function integration_tests() {
+  # Make sure environment variables are intact.
+  restore_override_vars
+  ./test/e2e-tests.sh
+}
+
+# Script entry point.
+
+# Parse script argument:
+# --all-tests or no arguments: run all tests
+# --build-tests: run only the build tests
+# --unit-tests: run only the unit tests
+# --integration-tests: run only the integration tests
+RUN_ALL_TESTS=0
+RUN_BUILD_TESTS=0
+RUN_UNIT_TESTS=0
+RUN_INTEGRATION_TESTS=0
+[[ -z "$1" || "$1" == "--all-tests" ]] && RUN_ALL_TESTS=1
+[[ "$1" == "--build-tests" ]] && RUN_BUILD_TESTS=1
+[[ "$1" == "--unit-tests" ]] && RUN_UNIT_TESTS=1
+[[ "$1" == "--integration-tests" ]] && RUN_INTEGRATION_TESTS=1
+readonly RUN_ALL_TESTS
+readonly RUN_BUILD_TESTS
+readonly RUN_UNIT_TESTS
+readonly RUN_INTEGRATION_TESTS
+
+if ! (( RUN_ALL_TESTS+RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
+  echo "error: unknown argument $1";
+  exit 1
+fi
 
 cd ${ELAFROS_ROOT_DIR}
 
@@ -50,11 +108,6 @@ if [[ -n "${PULL_NUMBER}" ]]; then
   fi
 fi
 
-# Set the required env vars to dummy values to satisfy bazel.
-export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
-export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
-export K8S_USER_OVERRIDE=USER_NOT_SET
-
 # For local runs, cleanup before and after the tests.
 if (( ! IS_PROW )); then
   trap cleanup EXIT
@@ -65,18 +118,14 @@ fi
 
 # Tests to be performed.
 
-# Step 1: Build relevant packages to ensure nothing is broken.
-header "Verifying that everything builds"
-bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
-bazel build :everything
+if (( RUN_ALL_TESTS | RUN_BUILD_TESTS )); then
+  build_tests
+fi
 
-# Step 2: Run unit tests.
-header "Running unit tests"
-bazel test //cmd/... //pkg/...
-# Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
-go test ./cmd/... ./pkg/...
+if (( RUN_ALL_TESTS | RUN_UNIT_TESTS )); then
+  unit_tests
+fi
 
-# Step 3: Run end-to-end tests.
-# Restore environment variables, let e2e-tests.sh handle them.
-restore_override_vars
-./test/e2e-tests.sh
+if (( RUN_ALL_TESTS | RUN_INTEGRATION_TESTS )); then
+  integration_tests
+fi
