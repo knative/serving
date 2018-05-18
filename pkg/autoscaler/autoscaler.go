@@ -79,7 +79,7 @@ func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
 // Record a data point. No safe for concurrent access or concurrent access with Scale.
 func (a *Autoscaler) Record(stat Stat) {
 	if stat.Time == nil {
-		glog.Errorf("Missing time from stat: %+v", stat)
+		glog.Errorf("Missing time from stat - : %+v", stat)
 		return
 	}
 	key := statKey{

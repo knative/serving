@@ -140,7 +140,7 @@ func (c *Base) RunController(
 	defer runtime.HandleCrash()
 	defer c.WorkQueue.ShutDown()
 
-	glog.Infof("Starting %s controller", controllerName)
+	glog.Infof("Starting %s controller - ", controllerName)
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
