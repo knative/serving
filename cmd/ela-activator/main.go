@@ -34,9 +34,7 @@ type activationHandler struct {
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Use the namespace from the header.
-	// https://github.com/elafros/elafros/issues/693
-	namespace := "default"
+	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
 	name := r.Header.Get(controller.GetRevisionHeaderName())
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)
 	if err != nil {

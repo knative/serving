@@ -32,6 +32,7 @@ dep prune
 # that PR makes it here.
 git apply $ELAFROS_ROOT/hack/61195.patch
 
+rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name 'BUILD')
 rm -rf $(find vendor/ -name 'BUILD.bazel')
 rm -rf $(find vendor/ -name '*_test.go')
