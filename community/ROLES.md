@@ -62,7 +62,7 @@ role in terms of permissions and privileges.
         <p>Approve contributions from other members</p>
     </td>
     <td>Highly experienced and active reviewer and contributor to an area</td>
-    <td>Entry in one or more CODEOWNERS files in GitHub, and write permissions
+    <td>Entry in one or more OWNERS files in GitHub, and write permissions
         on one or more repos allowing PRs to be merged.
     </td>
     <td>GitHub Directory</td>
@@ -183,7 +183,7 @@ status is scoped to a part of the codebase.
 ### Requirements
 
 The following apply to the part of the codebase for which one would be an
-approver in a CODEOWNERS file:
+approver in an OWNERS file:
 
 *   Reviewer of the codebase for at least 3 months or 50% of project lifetime,
     whichever is shorter
@@ -196,12 +196,12 @@ approver in a CODEOWNERS file:
 
     *   With no objections from other leads
 
-    *   Done through PR to update a CODEOWNERS file
+    *   Done through PR to update an OWNERS file
 
 ### Responsibilities and privileges
 
 The following apply to the part of the codebase for which one would be an
-approver in a CODEOWNERS file:
+approver in an OWNERS file:
 
 *   Approver status may be a precondition to accepting large code contributions
 
@@ -246,7 +246,7 @@ Additional requirements for leads of a new working group:
 
 *   Originally authored or contributed major functionality to the group's area
 
-*   An approver in the CODEOWNERS file for the group’s code
+*   An approver in the OWNERS file for the group’s code
 
 ### Responsibilities and privileges
 
@@ -267,7 +267,7 @@ The following apply to the area / component for which one would be an owner.
 
 *   Capable of directly applying lgtm + approve labels for any PR
 
-    *   Expected to respect CODEOWNERS files approvals and use [standard
+    *   Expected to respect OWNERS files approvals and use [standard
         procedure for merging code](REVIEWING.md#merging-prs).
 
 *   Expected to work to holistically maintain the health of the project through:
