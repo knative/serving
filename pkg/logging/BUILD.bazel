@@ -4,12 +4,14 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
-        "constants.go",
         "logger.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/logging",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/go.uber.org/zap:go_default_library"],
+    deps = [
+        "//pkg/logging/logkey:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
+    ],
 )
 
 go_test(

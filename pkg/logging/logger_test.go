@@ -39,11 +39,11 @@ func TestContext(t *testing.T) {
 
 	// Empty logger
 	ctx = context.Background()
-	checkFromContext(ctx, nil, t)
+	checkFromContext(ctx, fallbackLogger, t)
 
 	// Logger with a wrong type
 	ctx = context.WithValue(context.Background(), loggerKey{}, zap.NewNop())
-	checkFromContext(ctx, nil, t)
+	checkFromContext(ctx, fallbackLogger, t)
 }
 
 func checkFromContext(ctx context.Context, want *zap.SugaredLogger, t *testing.T) {

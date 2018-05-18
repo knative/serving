@@ -63,6 +63,9 @@ const (
 	prodDomainSuffix    string = "prod-domain.com"
 )
 
+var testLogger = zap.NewNop().Sugar()
+var testCtx = logging.WithLogger(context.Background(), testLogger)
+
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -189,7 +192,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 			},
 		},
 		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
-		zap.NewNop().Sugar(),
+		testLogger,
 	).(*Controller)
 
 	return
@@ -1009,7 +1012,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 	}
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := controller.removeOutdatedRouteRules(logging.WithLogger(context.Background(), zap.NewNop().Sugar()), route); err != nil {
+	if err := controller.removeOutdatedRouteRules(testCtx, route); err != nil {
 		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
 	}
 
@@ -1475,7 +1478,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Create an ingress owned by this route.
-	controller.reconcileIngress(logging.WithLogger(context.Background(), zap.NewNop().Sugar()), route)
+	controller.reconcileIngress(testCtx, route)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})

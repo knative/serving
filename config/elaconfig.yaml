@@ -99,6 +99,6 @@ data:
         "timeKey": "",
         "levelKey": "level",
         "levelEncoder": "lowercase",
-        "messageKey": "msg",
+        "messageKey": "msg"
       }
     }

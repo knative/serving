@@ -69,7 +69,7 @@ var (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLogger(loggingZapCfg.Get())
+	logger := logging.NewLogger(loggingZapCfg.Get()).Named("ela-controller")
 	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {

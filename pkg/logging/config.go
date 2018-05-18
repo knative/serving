@@ -18,8 +18,9 @@ package logging
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 
+	"github.com/elafros/elafros/pkg/logging/logkey"
 	"go.uber.org/zap"
 )
 
@@ -28,28 +29,30 @@ import (
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
 func NewLogger(configJSON string) *zap.SugaredLogger {
+	logger, err := newLoggerFromConfig(configJSON)
+	if err == nil {
+		logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
+		return logger.Sugar()
+	}
+
+	logger, err2 := zap.NewProduction()
+	if err2 != nil {
+		panic(err2)
+	}
+
+	logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
+	return logger.Sugar()
+}
+
+func newLoggerFromConfig(configJSON string) (*zap.Logger, error) {
+	if len(configJSON) == 0 {
+		return nil, errors.New("empty logging configuration")
+	}
+
 	var loggingCfg zap.Config
-	var logInitFailure string
-	if len(configJSON) > 0 {
-		if err := json.Unmarshal([]byte(configJSON), &loggingCfg); err != nil {
-			// Failed to parse the logging configuration. Fall back to production config
-			loggingCfg = zap.NewProductionConfig()
-			logInitFailure = fmt.Sprintf(
-				"Failed to parse the logging config. Will use default config. Parsing error: %v", err)
-		}
-	} else {
-		loggingCfg = zap.NewProductionConfig()
+	if err := json.Unmarshal([]byte(configJSON), &loggingCfg); err != nil {
+		return nil, err
 	}
 
-	rawLogger, err := loggingCfg.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	logger := rawLogger.Sugar()
-	if len(logInitFailure) > 0 {
-		logger.Error(logInitFailure)
-	}
-
-	return logger
+	return loggingCfg.Build()
 }

@@ -14,18 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logging
+package logkey
 
 const (
-	// LogKeyControllerType is the key used for controller type in structured logs
-	LogKeyControllerType = "elafros.dev/controller"
+	// ControllerType is the key used for controller type in structured logs
+	ControllerType = "elafros.dev/controller"
 
-	// LogKeyNamespace is the key used for namespace in structured logs
-	LogKeyNamespace = "elafros.dev/namespace"
+	// Namespace is the key used for namespace in structured logs
+	Namespace = "elafros.dev/namespace"
 
-	// LogKeyRevision is the key used for revision name in structured logs
-	LogKeyRevision = "elafros.dev/revision"
+	// Revision is the key used for revision name in structured logs
+	Revision = "elafros.dev/revision"
 
-	// LogKeyRoute is the key used for route name in structured logs
-	LogKeyRoute = "elafros.dev/route"
+	// Route is the key used for route name in structured logs
+	Route = "elafros.dev/route"
+
+	// JSONConfig is the key used for JSON configurations (not to be confused by the Configuration object)
+	JSONConfig = "elafros.dev/jsonconfig"
 )
