@@ -53,11 +53,25 @@ entry-ingress     entry.default.demo-domain.com                                 
 The login-service-route-ela-ingress and search-service-route-ela-ingress are Ingresses corresponding to "login" server and "search" server.
 The entry-ingress is the Ingress entry that can route traffic to "login" and "search" servers based on URI.
 
-Above result should also show the IP address and exposed ports of Ingress. Or you can get them by running
+You can directly access "search" server by running
 ```shell
-kubectl get Ingress
+curl http://35.229.43.224 --header "Host:search-service-route.default.demo-domain.com"
 ```
+You should see
+```
+Search service TARGET env: search-target!
+```
+Similarly, you can also directly access "login" server.
 
+You can also send request to "search" server and "login" server through "entry-ingress" by setting different URI.
+```shell
+# send request to search server
+curl http://35.229.43.224/search --header "Host:entry.default.demo-domain.com"
+
+# send request to login server
+curl http://35.229.43.224/login --header "Host:entry.default.demo-domain.com"
+```
+You should get the same results as you directly access the servers.
 
 
 ## How It Works
