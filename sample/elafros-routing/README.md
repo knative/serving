@@ -46,7 +46,7 @@ kubectl get Ingress
 You should see 3 Ingress objects:
 ```
 NAME                                 HOSTS
-login-service-route-ela-ingress login-service-route.default.demo-domain.com,*.login-service-route.default.demo-domain.com
+login-service-route-ela-ingress     login-service-route.default.demo-domain.com,*.login-service-route.default.demo-domain.com
 ```
 
 ## How It Works
