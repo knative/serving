@@ -70,3 +70,13 @@ k8s_defaults(
 load(":ca_bundle.bzl", "cluster_ca_bundle")
 
 cluster_ca_bundle(name = "cluster_ca_bundle")
+
+git_repository(
+    name="fejta_autogo",
+    remote="https://github.com/fejta/test-infra.git",
+    commit="fdeeb70b2af50fbc6503dd47ebdced5e8e73cebd",
+)
+load("@fejta_autogo//autogo:deps.bzl", "autogo_dependencies")
+autogo_dependencies()
+load("@fejta_autogo//autogo:def.bzl", "autogo_generate")
+autogo_generate(name="autogo", prefix="github.com/elafros/elafros")
