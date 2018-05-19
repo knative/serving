@@ -73,20 +73,18 @@ function integration_tests() {
 # --build-tests: run only the build tests
 # --unit-tests: run only the unit tests
 # --integration-tests: run only the integration tests
-RUN_ALL_TESTS=0
 RUN_BUILD_TESTS=0
 RUN_UNIT_TESTS=0
 RUN_INTEGRATION_TESTS=0
-[[ -z "$1" || "$1" == "--all-tests" ]] && RUN_ALL_TESTS=1
+[[ -z "$1" || "$1" == "--all-tests" ]] && RUN_BUILD_TESTS=1 && RUN_UNIT_TESTS=1 && RUN_INTEGRATION_TESTS=1
 [[ "$1" == "--build-tests" ]] && RUN_BUILD_TESTS=1
 [[ "$1" == "--unit-tests" ]] && RUN_UNIT_TESTS=1
 [[ "$1" == "--integration-tests" ]] && RUN_INTEGRATION_TESTS=1
-readonly RUN_ALL_TESTS
 readonly RUN_BUILD_TESTS
 readonly RUN_UNIT_TESTS
 readonly RUN_INTEGRATION_TESTS
 
-if ! (( RUN_ALL_TESTS+RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
+if ! (( RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
   echo "error: unknown argument $1";
   exit 1
 fi
@@ -115,16 +113,8 @@ if (( ! IS_PROW )); then
   bazel clean --expunge
 fi
 
-# Tests to be performed.
+# Tests to be performed, in the right order if --all-tests is passed.
 
-if (( RUN_ALL_TESTS | RUN_BUILD_TESTS )); then
-  build_tests
-fi
-
-if (( RUN_ALL_TESTS | RUN_UNIT_TESTS )); then
-  unit_tests
-fi
-
-if (( RUN_ALL_TESTS | RUN_INTEGRATION_TESTS )); then
-  integration_tests
-fi
+if (( RUN_BUILD_TESTS )); then build_tests; fi
+if (( RUN_UNIT_TESTS )); then unit_tests; fi
+if (( RUN_INTEGRATION_TESTS )); then integration_tests; fi
