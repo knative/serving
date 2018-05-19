@@ -1,11 +1,11 @@
 # Routing accross Elafros Services
 
-An example that shows how to configure Ingress and RouteRule to direct traffic based on URI. You can configure other routing rules (e.g. routing based on header, etc.) based on this example.
+An example that shows how to configure Ingress and RouteRule to direct traffic based on URI. You can set up other routing rules (e.g. routing based on header, etc.) based on this example.
 
-We set up two simple web servers: "search" server and "login" server, which simplely read
-in an env variable 'TARGET' and prints "Search service TARGET env: ${TARGET}" or "Login service TARGET env: ${TARGET}" respectively.
+In this sample, we set up two simple web servers: "search" server and "login" server, which simplely read
+in an env variable 'TARGET' and prints "Search service TARGET env: ${TARGET}" and "Login service TARGET env: ${TARGET}" respectively.
 
-Then we set up an Ingress with placeholder service and a RouteRule which direct traffic to these two servers based on URL.
+Then we set up an Ingress with placeholder service and a RouteRule which direct traffic to these two servers based on URI.
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ search-service-route-ela-ingress    search-service-route.default.demo-domain.com
 entry-ingress     entry.default.demo-domain.com                                        35.229.43.224      80
 ```
 The login-service-route-ela-ingress and search-service-route-ela-ingress are Ingresses corresponding to "login" server and "search" server.
-The entry-ingress is the Ingress entry that can route traffic to "login" and "search" servers based on URI.
+The "entry-ingress" is the Ingress entry that can route traffic to "login" and "search" servers based on URI.
 
 You can directly access "search" server by running
 ```shell
