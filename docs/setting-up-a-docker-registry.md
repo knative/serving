@@ -64,14 +64,15 @@ Install the following tools:
     docker-credential-gcr configure-docker
     ```
 
-1.  If you need to, update your `DOCKER_REPO_OVERRIDE` in your `.bashrc`. It
-    should now be
+1.  If you need to, update your `KO_DOCKER_REPO` and/or `DOCKER_REPO_OVERRIDE`
+    in your `.bashrc`. It should now be
 
     ```shell
-    export DOCKER_REPO_OVERRIDE='us.gcr.io/<your-project-id>'
+    export KO_DOCKER_REPO='us.gcr.io/<your-project-id>'
+    export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
     ```
 
-    (You may need to use a different region than `us` if you didn`t pick a`us`
+    (You may need to use a different region than `us` if you didn't pick a`us`
     Google Cloud region.)
 
 1.  You may need to run `bazel clean` after updating your `DOCKER_REPO_OVERRIDE`
