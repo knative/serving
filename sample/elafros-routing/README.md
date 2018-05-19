@@ -75,11 +75,18 @@ You should get the same results as you directly access the servers.
 
 
 ## How It Works
+4 comopnents are defined in order to implement the routing.
+1. Service "entry-service": a placehoder service needed for setting up Ingress and RouteRule
+2. Ingress "entry-ingress": a new Ingress entry for routing traffic.
+3. RouteRule "entry-route-search": a RouteRule that checks if request has URI "/search", and forwards the request to "search" server.
+4. RouteRule "entry-route-login": a RouteRule that checks if request has URI "/login", and forwards the request to "login" server.
 
+When an external request reaches "entry-ingress" Ingress, the Ingress proxy will check if it has "/search" or "/login" URI. If it has, then the host of request will be rewritten into the host of "search" server or "login" server correspondingly, which actually resets the final destination of the request. The host rewriting is defined in RouteRule ""entry-route-search" and "entry-route-login".
+The request with updated host will be forwared to Ingress again. The Ingress proxy checks the updated host, and forwards it to "search" or "login" server according to its host setting.
 
 ## Cleaning up
 
-To clean up the sample service:
+To clean up the sample resources:
 
 ```shell
 kubectl delete -f sample/elafros-routing/sample.yaml
