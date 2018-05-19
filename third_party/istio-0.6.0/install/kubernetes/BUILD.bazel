@@ -48,7 +48,7 @@ k8s_object(
 
 k8s_object(
     name = "istio-sidecar-injector-configmap",
-    template = ":istio-sidecar-injector-configmap-debug.yaml",
+    template = ":istio-sidecar-injector-configmap-release.yaml",
 )
 
 sh_binary(
