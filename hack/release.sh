@@ -24,6 +24,20 @@ function cleanup() {
   bazel clean --expunge || true
 }
 
+# Recursively tag all :latest images in the given GCR repo.
+# Parameters: $1 - GCR repo.
+#             $2 - tag.
+function tag_elafros_images() {
+  for image in $(gcloud --format='value(name)' container images list --repository=$1); do
+    echo "Checking ${image} for tagging"
+    tag_elafros_images ${image} $2
+    if [[ -n "$(gcloud --format='get(digest)' container images list-tags ${image} --limit=1)" ]]; then
+      echo "Tagging ${image}:latest"
+      gcloud -q container images add-tag ${image}:latest ${image}:$2
+    fi
+  done
+}
+
 cd ${ELAFROS_ROOT_DIR}
 trap cleanup EXIT
 
@@ -44,10 +58,16 @@ export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 
-# If this is a prow job, authenticate against GCR.
+# If this is a prow job,
+TAG=""
 if (( IS_PROW )); then
+  # Authenticate against GCR.
   gcr_auth
+  commit=$(git describe --tags --always --dirty)
+  # Like kubernetes, image tag is vYYYYMMDD-commit
+  TAG="v$(date +%Y%m%d)-${commit}"
 fi
+readonly TAG
 
 echo "Cleaning up"
 bazel clean --expunge
@@ -60,8 +80,16 @@ echo "---" >> release.yaml
 echo "Building Monitoring & Logging"
 bazel run config/monitoring:everything >> release.yaml
 
+if [[ -n ${TAG} ]]; then
+  echo "Tagging images with ${TAG}"
+  tag_elafros_images ${DOCKER_REPO_OVERRIDE} ${TAG}
+fi
+
 echo "Publishing release.yaml"
 gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+if [[ -n ${TAG} ]]; then
+  gsutil cp release.yaml gs://elafros-releases/previous/${TAG}/
+fi
 
 echo "New release published successfully"
 
