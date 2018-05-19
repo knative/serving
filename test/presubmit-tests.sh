@@ -23,8 +23,11 @@ set -o pipefail
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
+# Extensions or file patterns that don't require presubmit tests
+readonly NO_PRESUBMIT_FILES=(\.md \.png ^OWNERS)
+
 function cleanup() {
-  "Cleaning up for teardown"
+  echo "Cleaning up for teardown"
   restore_override_vars
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge || true
@@ -33,13 +36,15 @@ function cleanup() {
 cd ${ELAFROS_ROOT_DIR}
 
 # Skip presubmit tests if only markdown files were changed.
-if [[ -n "${PULL_NUMBER}" ]]; then
+if [[ -n "${PULL_PULL_SHA}" ]]; then
   # On a presubmit job
-  changes="$(git log -m -1 --name-only --pretty='format:')"
-  echo -e "Changed files:\n${changes}"
-  if [[ -z "$(echo "${changes}" | grep -v '.md$')" ]]; then
-    # Nothing changed other than .md files
-    header "Presubmit on documentation only PR, skipping tests"
+  changes="$(git show ${PULL_PULL_SHA} --name-only --pretty='format:')"
+  no_presubmit_pattern="${NO_PRESUBMIT_FILES[*]}"
+  no_presubmit_pattern="\(${no_presubmit_pattern// /\\|}\)$"
+  echo -e "Changed files in commit ${PULL_PULL_SHA}:\n${changes}"
+  if [[ -z "$(echo "${changes}" | grep -v ${no_presubmit_pattern})" ]]; then
+    # Nothing changed other than files that don't require presubmit tests
+    header "Commit only contains changes that don't affect tests, skipping"
     exit 0
   fi
 fi
