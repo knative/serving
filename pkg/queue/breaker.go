@@ -22,7 +22,7 @@ type token struct{}
 // Breaker is a component that enforces a concurrency limit on the
 // execution of a function. It also maintains a queue of function
 // executions in excess of the concurrency limit. Function call attempts
-// beyond the limit of the queue are failed immediately.
+// beyond the limit of the queue are failed immediately
 type Breaker struct {
 	pendingRequests chan token
 	activeRequests  chan token
