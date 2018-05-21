@@ -24,7 +24,7 @@ import (
 
 type loggerKey struct{}
 
-// This logger is used when there is no logger atached to the context.
+// This logger is used when there is no logger attached to the context.
 // Rather than returning nil and causing a panic, we will use the fallback
 // logger. Fallback logger is tagged with logger=fallback to make sure
 // that code that doesn't set the logger correctly can be caught at runtime.
@@ -36,7 +36,7 @@ func init() {
 		// unfortunately falls back to noop.
 		fallbackLogger = zap.NewNop().Sugar()
 	} else {
-		fallbackLogger = logger.With(zap.String("elafros.dev/logger", "fallback")).Sugar()
+		fallbackLogger = logger.Named("fallback").Sugar()
 	}
 }
 

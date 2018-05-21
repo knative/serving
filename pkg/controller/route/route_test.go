@@ -63,8 +63,10 @@ const (
 	prodDomainSuffix    string = "prod-domain.com"
 )
 
-var testLogger = zap.NewNop().Sugar()
-var testCtx = logging.WithLogger(context.Background(), testLogger)
+var (
+	testLogger = zap.NewNop().Sugar()
+	testCtx    = logging.WithLogger(context.Background(), testLogger)
+)
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
 	return &v1alpha1.Route{
