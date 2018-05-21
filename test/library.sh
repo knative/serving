@@ -58,6 +58,20 @@ function restore_override_vars() {
   export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
 }
 
+# Remove ALL images in the given GCR repository.
+# Parameters: $1 - GCR repository.
+function delete_gcr_images() {
+  for image in $(gcloud --format='value(name)' container images list --repository=$1); do
+    echo "Checking ${image} for removal"
+    delete_gcr_images ${image}
+    for digest in $(gcloud --format='get(digest)' container images list-tags ${image} --limit=99999); do
+      local full_image="${image}@${digest}"
+      echo "Removing ${full_image}"
+      gcloud container images delete -q --force-delete-tags ${full_image}
+    done
+  done
+}
+
 # Waits until all pods are running in the given namespace.
 # Parameters: $1 - namespace.
 function wait_until_pods_running() {
