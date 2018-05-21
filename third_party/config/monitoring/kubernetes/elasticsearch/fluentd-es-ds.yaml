@@ -87,8 +87,12 @@ spec:
             cpu: 100m
             memory: 200Mi
         volumeMounts:
-        - name: varlog
-          mountPath: /var/log
+        - name: varlogcontainers
+          mountPath: /var/log/containers
+          readOnly: true
+        - name: varlogpods
+          mountPath: /var/log/pods
+          readOnly: true
         - name: varlibdockercontainers
           mountPath: /var/lib/docker/containers
           readOnly: true
@@ -101,9 +105,14 @@ spec:
         beta.kubernetes.io/fluentd-ds-ready: "true"
       terminationGracePeriodSeconds: 30
       volumes:
-      - name: varlog
+      - name: varlogcontainers
         hostPath:
-          path: /var/log
+          path: /var/log/containers
+      # It is needed because files under /var/log/contianers link to /var/log/pods
+      - name: varlogpods
+        hostPath:
+          path: /var/log/pods
+      # It is needed because files under /var/log/pods link to /var/lib/docker/containers
       - name: varlibdockercontainers
         hostPath:
           path: /var/lib/docker/containers

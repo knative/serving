@@ -13,6 +13,4 @@ third_party {
 }
 
 local_modifications:
-    "Contents of JSON files are converted to YAML files "
-    "but file names are kept intact to preserve the original files "
-    "as well as to keep a clear change history."
+    "Contents of JSON files are converted to YAML files."

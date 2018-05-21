@@ -63,7 +63,7 @@ data:
 
   # Scale to zero feature flag
   autoscale.enable-scale-to-zero: "false"
-  
+
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the time a revision must be idle before
@@ -81,3 +81,10 @@ data:
   # The fluentd sidecar image used to collect logs from /var/log as a sidecar.
   # Must be presented if logging.enable-var-log-collection is true.
   logging.fluentd-sidecar-image: "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
+
+  # The revision log url template, where ${REVISION_UID} will be replaced by the actual
+  # revision uid. For the url to work you'll need to set up monitoring and have access to
+  # the kibana dashboard using `kubectl proxy`.
+  logging.revision-url-template: |
+    http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.elafros-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))
+

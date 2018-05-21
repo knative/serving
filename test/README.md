@@ -30,18 +30,18 @@ Since these tests are fairly slow (~1 minute), running them with logging
 enabled is recommended.
 
 To run the conformance tests against the current cluster in `~/.kube/config`
-using `go test` using the environment specified in [your environment
+use `go test` with test caching disabled and the environment specified in [your environment
 variables](/DEVELOPMENT.md#environment-setup):
 
 ```bash
-go test -v ./test/conformance
+go test -v -count=1 ./test/conformance
 ```
 
 You can [use test flags](#flags) to control the environment
 your tests run against, i.e. override [your environment variables](/DEVELOPMENT.md#environment-setup):
 
 ```bash
-go test -v ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
+go test -v -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
 ```
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
@@ -49,7 +49,7 @@ your only option is to use a domain which will resolve to the IP of the running 
 [#609](https://github.com/elafros/elafros/issues/609)):
 
 ```bash
-go test -v ./test/conformance --resolvabledomain
+go test -v -count=1 ./test/conformance --resolvabledomain
 ```
 
 ## Conformance test environment requirements
@@ -187,7 +187,7 @@ of the owners found in [`/test/OWNERS`](OWNERS) to do this.
 ## Flags
 
 These flags are useful for running against an existing cluster, making use of your existing
-[environment setup])(/DEVELOPMENT.md#environment-setup).
+[environment setup](/DEVELOPMENT.md#environment-setup).
 
 Tests importing [`github.com/elafros/elafros/test`](adding_tests.md#test-library) recognize these flags:
 
@@ -200,7 +200,7 @@ Tests importing [`github.com/elafros/elafros/test`](adding_tests.md#test-library
 
 By default the tests will use the [kubeconfig
 file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-at `~./kube/config`.
+at `~/.kube/config`.
 You can specify a different config file with the argument `--kubeconfig`.
 
 To run the tests with a non-default kubeconfig file:
@@ -250,7 +250,7 @@ go test ./test/e2e --dockerrepo gcr.myhappyproject
 
 #### Using a resolvable domain
 
-If you setup your cluster using [the getting started
+If you set up your cluster using [the getting started
 docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `demo-domain.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be

@@ -14,71 +14,107 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the presubmit tests, in the right order.
-# It is started by prow for each PR.
+# This script runs the presubmit tests; it is started by prow for each PR.
 # For convenience, it can also be executed manually.
+# Running the script without parameters, or with the --all-tests
+# flag, causes all tests to be executed, in the right order.
+# Use the flags --build-tests, --unit-tests and --integration-tests
+# to run a specific set of tests.
 
 set -o errexit
 set -o pipefail
 
-# Useful environment variables
-readonly ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
-[[ $USER == "prow" ]] && IS_PROW=1 || IS_PROW=0
-readonly IS_PROW
+# Extensions or file patterns that don't require presubmit tests
+readonly NO_PRESUBMIT_FILES=(\.md \.png ^OWNERS)
 
-# Save *_OVERRIDE variables in case a cleanup is required.
-readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
+source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
-function restore_env() {
-  export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
-}
+# Helper functions.
 
 function cleanup() {
-  header "Cleanup (teardown)"
-  restore_env
+  echo "Cleaning up for teardown"
+  restore_override_vars
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge || true
 }
 
-function header() {
-  echo "================================================="
-  echo $1
-  echo "================================================="
+# Set the required env vars to dummy values to satisfy bazel.
+function set_environment() {
+  export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
+  export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
+  export K8S_USER_OVERRIDE=USER_NOT_SET
 }
 
-cd ${ELAFROS_ROOT}
+function build_tests() {
+  header "Running build tests"
+  set_environment
+  bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
+  bazel build :everything
+}
 
-# Set the required env vars to dummy values to satisfy bazel.
-export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
-export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
-export K8S_USER_OVERRIDE=USER_NOT_SET
+function unit_tests() {
+  header "Running unit tests"
+  set_environment
+  bazel test //cmd/... //pkg/...
+  # Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
+  go test ./cmd/... ./pkg/...
+}
+
+function integration_tests() {
+  # Make sure environment variables are intact.
+  restore_override_vars
+  ./test/e2e-tests.sh
+}
+
+# Script entry point.
+
+# Parse script argument:
+# --all-tests or no arguments: run all tests
+# --build-tests: run only the build tests
+# --unit-tests: run only the unit tests
+# --integration-tests: run only the integration tests
+RUN_BUILD_TESTS=0
+RUN_UNIT_TESTS=0
+RUN_INTEGRATION_TESTS=0
+[[ -z "$1" || "$1" == "--all-tests" ]] && RUN_BUILD_TESTS=1 && RUN_UNIT_TESTS=1 && RUN_INTEGRATION_TESTS=1
+[[ "$1" == "--build-tests" ]] && RUN_BUILD_TESTS=1
+[[ "$1" == "--unit-tests" ]] && RUN_UNIT_TESTS=1
+[[ "$1" == "--integration-tests" ]] && RUN_INTEGRATION_TESTS=1
+readonly RUN_BUILD_TESTS
+readonly RUN_UNIT_TESTS
+readonly RUN_INTEGRATION_TESTS
+
+if ! (( RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
+  echo "error: unknown argument $1";
+  exit 1
+fi
+
+cd ${ELAFROS_ROOT_DIR}
+
+# Skip presubmit tests if only markdown files were changed.
+if [[ -n "${PULL_PULL_SHA}" ]]; then
+  # On a presubmit job
+  changes="$(git diff --name-only ${PULL_PULL_SHA} ${PULL_BASE_SHA})"
+  no_presubmit_pattern="${NO_PRESUBMIT_FILES[*]}"
+  no_presubmit_pattern="\(${no_presubmit_pattern// /\\|}\)$"
+  echo -e "Changed files in commit ${PULL_PULL_SHA}:\n${changes}"
+  if [[ -z "$(echo "${changes}" | grep -v ${no_presubmit_pattern})" ]]; then
+    # Nothing changed other than files that don't require presubmit tests
+    header "Commit only contains changes that don't affect tests, skipping"
+    exit 0
+  fi
+fi
 
 # For local runs, cleanup before and after the tests.
 if (( ! IS_PROW )); then
   trap cleanup EXIT
-  header "Cleanup (setup)"
+  echo "Cleaning up for setup"
   # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
   bazel clean --expunge
 fi
 
-# Tests to be performed.
+# Tests to be performed, in the right order if --all-tests is passed.
 
-# Step 1: Build relevant packages to ensure nothing is broken.
-header "Building phase"
-bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
-bazel build :everything
-
-# Step 2: Run unit tests.
-header "Testing phase"
-bazel test //cmd/... //pkg/...
-# Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
-go test ./cmd/... ./pkg/...
-
-# Step 3: Run end-to-end tests.
-# Restore environment variables, let e2e-tests.sh handle them.
-restore_env
-./test/e2e-tests.sh
+if (( RUN_BUILD_TESTS )); then build_tests; fi
+if (( RUN_UNIT_TESTS )); then unit_tests; fi
+if (( RUN_INTEGRATION_TESTS )); then integration_tests; fi

@@ -27,6 +27,7 @@ const appLabelKey = "app"
 func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+2)
 	labels[ela.RevisionLabelKey] = revision.Name
+	labels[ela.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
 		labels[k] = v
@@ -42,7 +43,7 @@ func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
 
 // MakeElaResourceSelector constructs the Selector we will apply to K8s resources.
 func MakeElaResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels:MakeElaResourceLabels(revision)}
+	return &metav1.LabelSelector{MatchLabels: MakeElaResourceLabels(revision)}
 }
 
 // MakeElaResourceAnnotations creates the annotations we will apply to

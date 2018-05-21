@@ -76,6 +76,14 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
+	return getTestRevisionWithCondition(name, v1alpha1.RevisionCondition{
+		Type:   v1alpha1.RevisionConditionReady,
+		Status: corev1.ConditionTrue,
+		Reason: "ServiceReady",
+	})
+}
+
+func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/test/revisions/%s", name),
@@ -89,6 +97,9 @@ func getTestRevision(name string) *v1alpha1.Revision {
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
+			Conditions: []v1alpha1.RevisionCondition{
+				cond,
+			},
 		},
 	}
 }
@@ -128,6 +139,16 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: "p-deadbeef-service",
 		},
+	}
+}
+
+func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
+	return v1alpha2.DestinationWeight{
+		Destination: v1alpha2.IstioService{
+			Name:      ctrl.GetElaK8SActivatorServiceName(),
+			Namespace: ctrl.GetElaK8SActivatorNamespace(),
+		},
+		Weight: w,
 	}
 }
 
@@ -286,7 +307,8 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -302,11 +324,108 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "test-rev-service.test",
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
 				},
 				Weight: 100,
 			},
 		},
+	}
+
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
+	}
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+// Test the only revision in the route is in Reserve (inactive) serving status.
+func TestCreateRouteForOneReserveRevision(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	controller.enableScaleToZero = k8sflag.Bool("autoscaler.enable-scale-to-zero", true)
+
+	h := NewHooks()
+	// Look for the events. Events are delivered asynchronously so we need to use
+	// hooks here. Each hook tests for a specific event.
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Istio route rule "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
+
+	// An inactive revision
+	rev := getTestRevisionWithCondition("test-rev",
+		v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Inactive",
+		})
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A route targeting the revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      100,
+			},
+		},
+	)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	// Look for the route rule with activator as the destination.
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting routerule: %v", err)
+	}
+
+	// Check labels
+	expectedLabels := map[string]string{"route": route.Name}
+	if diff := cmp.Diff(expectedLabels, routerule.Labels); diff != "" {
+		t.Errorf("Unexpected label diff (-want +got): %v", diff)
+	}
+
+	// Check owner refs
+	expectedRefs := []metav1.OwnerReference{
+		metav1.OwnerReference{
+			APIVersion: "elafros.dev/v1alpha1",
+			Kind:       "Route",
+			Name:       route.Name,
+		},
+	}
+
+	if diff := cmp.Diff(expectedRefs, routerule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
+		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
+	}
+
+	appendHeaders := make(map[string]string)
+	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
+	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name:      "test-route-service",
+			Namespace: testNamespace,
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
+						),
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			getActivatorDestinationWeight(100),
+		},
+		AppendHeaders: appendHeaders,
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -368,7 +487,8 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: fmt.Sprintf("%s-service", route.Name),
+			Name:      fmt.Sprintf("%s-service", route.Name),
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -384,13 +504,15 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: fmt.Sprintf("%s-service.test", latestReadyRev.Name),
+					Name:      fmt.Sprintf("%s-service", latestReadyRev.Name),
+					Namespace: testNamespace,
 				},
 				Weight: 100,
 			},
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: fmt.Sprintf("%s-service.test", otherRev.Name),
+					Name:      fmt.Sprintf("%s-service", otherRev.Name),
+					Namespace: testNamespace,
 				},
 				Weight: 0,
 			},
@@ -444,7 +566,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: fmt.Sprintf("%s-service", route.Name),
+			Name:      fmt.Sprintf("%s-service", route.Name),
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -460,17 +583,105 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: fmt.Sprintf("%s-service.test", cfgrev.Name),
+					Name:      fmt.Sprintf("%s-service", cfgrev.Name),
+					Namespace: testNamespace,
 				},
 				Weight: 90,
 			},
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: fmt.Sprintf("%s-service.test", rev.Name),
+					Name:      fmt.Sprintf("%s-service", rev.Name),
+					Namespace: testNamespace,
 				},
 				Weight: 10,
 			},
 		},
+	}
+
+	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
+		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
+	}
+
+}
+
+// Test one out of multiple target revisions is in Reserve serving state.
+func TestCreateRouteWithOneTargetReserve(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	controller.enableScaleToZero = k8sflag.Bool("autoscaler.enable-scale-to-zero", true)
+
+	// A standalone inactive revision
+	rev := getTestRevisionWithCondition("test-rev",
+		v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Inactive",
+		})
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A configuration and associated revision. Normally the revision would be
+	// created by the configuration controller.
+	config := getTestConfiguration()
+	cfgrev := getTestRevisionForConfig(config)
+	config.Status.LatestReadyRevisionName = cfgrev.Name
+	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(cfgrev)
+
+	// A route targeting both the config and standalone revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				ConfigurationName: config.Name,
+				Percent:           90,
+			},
+			v1alpha1.TrafficTarget{
+				RevisionName: rev.Name,
+				Percent:      10,
+			},
+		},
+	)
+	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("error getting routerule: %v", err)
+	}
+
+	appendHeaders := make(map[string]string)
+	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
+	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	expectedRouteSpec := v1alpha2.RouteRuleSpec{
+		Destination: v1alpha2.IstioService{
+			Name:      fmt.Sprintf("%s-service", route.Name),
+			Namespace: testNamespace,
+		},
+		Match: v1alpha2.Match{
+			Request: v1alpha2.MatchRequest{
+				Headers: v1alpha2.Headers{
+					Authority: v1alpha2.MatchString{
+						Regex: regexp.QuoteMeta(
+							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
+						),
+					},
+				},
+			},
+		},
+		Route: []v1alpha2.DestinationWeight{
+			v1alpha2.DestinationWeight{
+				Destination: v1alpha2.IstioService{
+					Name:      fmt.Sprintf("%s-service", cfgrev.Name),
+					Namespace: testNamespace,
+				},
+				Weight: 90,
+			},
+			getActivatorDestinationWeight(10),
+		},
+		AppendHeaders: appendHeaders,
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -545,7 +756,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -561,25 +773,29 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "p-deadbeef-service.test",
+					Name:      "p-deadbeef-service",
+					Namespace: testNamespace,
 				},
 				Weight: 50,
 			},
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "test-rev-service.test",
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
 				},
 				Weight: 15,
 			},
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "test-rev-service.test",
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
 				},
 				Weight: 20,
 			},
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "test-rev-service.test",
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
 				},
 				Weight: 15,
 			},
@@ -645,7 +861,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Expects authority header to be the domain suffix
 	expectRouteSpec(t, "test-route-istio", v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -659,13 +876,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "test-rev-service.test",
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
 				},
 				Weight: 50,
 			},
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "p-deadbeef-service.test",
+					Name:      "p-deadbeef-service",
+					Namespace: testNamespace,
 				},
 				Weight: 50,
 			},
@@ -677,7 +896,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// target's revision.
 	expectRouteSpec(t, "test-route-foo-istio", v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -693,7 +913,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "test-rev-service.test",
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
 				},
 				Weight: 100,
 			},
@@ -705,7 +926,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// target's revision.
 	expectRouteSpec(t, "test-route-bar-istio", v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
-			Name: "test-route-service",
+			Name:      "test-route-service",
+			Namespace: testNamespace,
 		},
 		Match: v1alpha2.Match{
 			Request: v1alpha2.MatchRequest{
@@ -721,7 +943,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
-					Name: "p-deadbeef-service.test",
+					Name:      "p-deadbeef-service",
+					Namespace: testNamespace,
 				},
 				Weight: 100,
 			},

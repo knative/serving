@@ -4,15 +4,26 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
 ## Setup
 
-Deploy the autoscale app to Elafros from the root directory.
+Build the autoscale app container and publish it to your registry of choice:
 
 ```shell
-bazel run sample/autoscale:everything.create
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build -t "${REPO}/sample/autoscale" --file=sample/autoscale/Dockerfile .
+docker push "${REPO}/sample/autoscale"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/elafros/elafros/sample/autoscale@${REPO}/sample/autoscale@g" sample/autoscale/sample.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/autoscale/sample.yaml
+
 ```
 
 Export your Ingress IP as SERVICE_IP.
@@ -62,5 +73,5 @@ for i in `seq 4 4 120`; do kubectl -n hey logs hey-$i ; done | less
 
 ```shell
 kubectl delete namespace hey
-bazel run sample/autoscale:everything.delete
+kubectl delete -f sample/autoscale/sample.yaml
 ```

@@ -31,8 +31,10 @@ You must install these tools:
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
-1. [`bazel`](https://docs.bazel.build/versions/master/getting-started.html): For
-   performing builds.
+1. [`ko`](https://github.com/google/go-containerregistry/tree/master/cmd/ko): For
+development.
+1. or [`bazel`](https://docs.bazel.build/versions/master/getting-started.html): For
+   development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
@@ -41,38 +43,40 @@ You must install these tools:
 To [start your environment](./README.md#start-elafros) you'll need to set these environment
 variables (we recommend adding them to your `.bashrc`):
 
-1. `GOPATH`: If you don't have one, simply pick a directory and add `export GOPATH=...`
-1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will work properly.
-1. `DOCKER_REPO_OVERRIDE`: The docker repository to which developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development environments should be managed.
-1. `K8S_USER_OVERRIDE`: The Kubernetes user that you use to manage your cluster.  This depends on your cluster setup,
-    please take a look at [cluster setup instruction](./docs/creating-a-kubernetes-cluster.md).
+1. `GOPATH`: If you don't have one, simply pick a directory and add
+`export GOPATH=...`
+1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
+work properly.
+1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
+developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
+1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development
+environments should be managed.
+1. `K8S_USER_OVERRIDE`: The Kubernetes user that you use to manage your cluster.
+This depends on your cluster setup, please take a look at [cluster setup
+instruction](./docs/creating-a-kubernetes-cluster.md).
 
 `.bashrc` example:
 
 ```shell
 export GOPATH="$HOME/go"
 export PATH="${PATH}:${GOPATH}/bin"
-export DOCKER_REPO_OVERRIDE='gcr.io/my-gcloud-project-name'
+export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
+export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
 export K8S_USER_OVERRIDE='my-k8s-user'
 ```
 
-(Make sure to configure [authentication](https://github.com/bazelbuild/rules_docker#authentication) for your
-`DOCKER_REPO_OVERRIDE` if required.)
+(Make sure to configure [authentication](
+https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper)
+for your `KO_DOCKER_REPO` if required.)
 
 For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with authentication configured
 with `kubectl`.  You can list the clusters you currently have configured via:
 `kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
 
-These environment variables will be provided to `bazel` via
-[`print-workspace-status.sh`](print-workspace-status.sh) to
-[stamp](https://github.com/bazelbuild/rules_docker#stamping) the variables in
-[`WORKSPACE`](WORKSPACE).
-
 _It is notable that if you change the `*_OVERRIDE` variables, you may need to
-`bazel clean` in order to properly pick up the change._
+`bazel clean` in order to properly pick up the change (if using bazel)._
 
 ### Checkout your fork
 
@@ -102,8 +106,54 @@ Once you reach this point you are ready to do a full build and deploy as describ
 
 Once you've [setup your development environment](#getting-started), stand up `Elafros` with:
 
+### Deploy Istio
+
 ```shell
-bazel run :everything.apply
+kubectl create clusterrolebinding cluster-admin-binding \
+  --clusterrole=cluster-admin \
+  --user="${K8S_USER_OVERRIDE}"
+
+kubectl apply -f ./third_party/istio-0.6.0/install/kubernetes/istio.yaml
+```
+
+Enable the Istio sidecar injector:
+
+```shell
+./third_party/istio-0.6.0/install/kubernetes/webhook-create-signed-cert.sh \
+  --service istio-sidecar-injector \
+  --namespace istio-system \
+  --secret sidecar-injector-certs
+
+kubectl apply -f ./third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+
+cat ./third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector.yaml | \
+  ./third_party/istio-0.6.0/install/kubernetes/webhook-patch-ca-bundle.sh | \
+  kubectl apply -f -
+```
+
+Then label namespaces with `istio-injection=enabled`:
+
+```shell
+kubectl label namespace default istio-injection=enabled
+```
+
+See [here](DEVELOPMENT.md#turn-on-istio-sidecar-debug-mode) for how to enable
+debug sidecar injection.
+
+### Deploy Build
+
+```shell
+kubectl apply -f ./third_party/config/build/release.yaml
+```
+
+### Deploy Elafros
+
+```shell
+# With ko
+ko apply -f config/
+
+# With bazel
+bazel run //config:everything.apply
 ```
 
 You can see things running with:
@@ -124,34 +174,56 @@ If you're using a GCP project to host your Kubernetes cluster, it's good to chec
 [Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
 page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
-## Enable log and metric collection
+### Enable log and metric collection
 You can use two different setups for collecting logs and metrics:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+
 ```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-prod \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
 bazel run config/monitoring:everything.apply
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+
 ```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-dev \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
 bazel run config/monitoring:everything-dev.apply
 ```
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
 
-## Enabling Istio Sidecar Injection
-After standing up elafros, perform the following steps to enable automatic
-sidecar injection.
-
-First, create a signed cert for the Istio webhook:
-
+## Turn on Istio Sidecar Debug Mode
+The debug version of Istio sidecar includes debug proxy image that preinstalls debugging tools such as "curl", and additional logging and core dump functionality using for debugging the sidecar proxy. By default, Istio sidecar uses release version.
+You can switch from release version to debug version with:
 ```shell
-bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
+kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
+```
+Once complete, you have to wait at least one sync cycle (around 1 minute) to make sure the new configmap is fully synced. After this point, any newly created Istio sidecar should be debug version. You can verify this by logging into your Istio sidecar with:
+```shell
+kubectl exec -it <pod_name> -c istio-proxy /bin/bash
+```
+And you should see below terminal prompt that is for debug version sidecar:
+```shell
+istio-proxy@
 ```
 
-Second, label namespaces with `istio-injection=enabled`:
-
+Similarly, you can switch from debug version to release version with:
 ```shell
-kubectl label namespace default istio-injection=enabled
+kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 ```
 
 ## Iterating
@@ -165,6 +237,10 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
 ```shell
+# With ko
+ko apply -f config/controller.yaml
+
+# With bazel
 bazel run //config:controller.apply
 ```
 
@@ -175,12 +251,14 @@ redeploy `Elafros`](./README.md#start-elafros).
 
 You can delete all of the service components with:
 ```shell
-bazel run :everything.delete
-```
+# With ko
+ko delete --ignore-not-found=true \
+  -f config/ \
+  -f ./third_party/config/build/release.yaml \
+  -f ./third_party/istio-0.6.0/install/kubernetes/istio.yaml
 
-Delete all cached environment variables (e.g. `DOCKER_REPO_OVERRIDE`):
-```shell
-bazel clean
+# With bazel
+bazel run //config:everything.delete
 ```
 
 ## Telemetry

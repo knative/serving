@@ -6,15 +6,28 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
-## Running
+## Setup
 
-You can deploy this to Elafros from the root directory via:
+Build the app container and publish it to your registry of choice:
+
 ```shell
-bazel run sample/service:everything.create
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build -t "${REPO}/sample/service" --file=sample/service/Dockerfile .
+docker push "${REPO}/sample/service"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/service/sample.yaml
 ```
+
+## Exploring
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
@@ -77,9 +90,9 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 
 ## Updating
 
-You can update this to a new version. For example, update it with a new configuration.yaml via:
+You can update this to a new version. For example, update it with a new service.yaml via:
 ```shell
-bazel run sample/service:updated_everything.apply
+kubectl apply -f sample/service/updated_service.yaml
 ```
 
 Once deployed, traffic will shift to the new revision automatically. You can verify the new version
@@ -99,7 +112,7 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 
 You can pin a Service to a specific revision. For example, update it with a new service.yaml via:
 ```shell
-bazel run sample/service:pinned_everything.apply
+kubectl apply -f sample/service/pinned_service.yaml
 ```
 
 Once deployed, traffic will shift to the previous (first) revision automatically. You can verify the new version
@@ -120,5 +133,5 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 To clean up the sample service:
 
 ```shell
-bazel run sample/service:everything.delete
+kubectl delete -f sample/service/sample.yaml
 ```

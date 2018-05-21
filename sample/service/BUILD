@@ -28,7 +28,7 @@ k8s_object(
     images = {
         "github.com/elafros/elafros/sample/service": ":image",
     },
-    template = ":service.yaml",
+    template = ":sample.yaml",
 )
 
 k8s_object(

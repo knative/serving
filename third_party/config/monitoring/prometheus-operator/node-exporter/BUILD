@@ -18,52 +18,39 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
     name = "cluster-role-binding",
-    template = "node-exporter-cluster-role-binding.yaml",
+    template = "201-node-exporter-cluster-role-binding.yaml",
 )
 
 k8s_object(
     name = "cluster-role",
-    template = "node-exporter-cluster-role.yaml",
+    template = "200-node-exporter-cluster-role.yaml",
 )
 
 k8s_object(
     name = "daemonset",
-    template = "node-exporter-daemonset.yaml",
+    template = "300-node-exporter-daemonset.yaml",
 )
 
 k8s_object(
     name = "service-account",
-    template = "node-exporter-service-account.yaml",
-)
-
-k8s_object(
-    name = "service-monitor",
-    template = "node-exporter-service-monitor.yaml",
+    template = "100-node-exporter-service-account.yaml",
 )
 
 k8s_object(
     name = "service",
-    template = "node-exporter-service.yaml",
+    template = "301-node-exporter-service.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
-    name = "node-exporter",
+    name = "everything",
     objects = [
         "service-account",
         "cluster-role",
         "cluster-role-binding",
         "daemonset",
         "service",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-k8s_objects(
-    name = "node-exporter-monitor",
-    objects = [
-        "service-monitor",
     ],
     visibility = ["//visibility:public"],
 )

@@ -9,7 +9,7 @@ Elafros depends on two other projects in order to function: [Istio][istio] and t
 You can find out more about both from their respective websites.
 
 [istio]: https://istio.io/
-[build-crd]: https://github.com/google/build-crd
+[build-crd]: https://github.com/elafros/build
 
 ## Components
 
@@ -21,22 +21,22 @@ All of the Elafros components are deployed into the `ela-system` namespace. You 
 
 The Elafros controller creates Kubernetes, Istio, and Build CRD resources when Elafros resources are created and updated. These sub-resources will be created in the same namespace as their parent Elafros resource, _not_ the `ela-system` namespace.
 
-## Precise Object Listing
+## Kubernetes Resource Configs
 
-You can get a single file which contains a list of the Kubernetes resources that are installed with Elafros by using the following Bazel commands:
+The various Kubernetes resource configurations are organized as follows:
 
 ```
-# All resources including dependencies
-bazel run //:everything > everything.yaml
+# Elafros resources
+config/*.yaml
 
-# Just resources from Istio
-bazel run //:istio > istio.yaml
+# Elafros Monitoring configs
+config/monitoring/...
 
-# Just resources from Build CRD
-bazel run //third_party/config/build:everything > buildcrd.yaml
+# Build resources
+third_party/config/build/release.yaml
 
-# Just resources from Elafros itself
-bazel run //:elafros > elafros.yaml
+# Istio release configuration
+third_party/istio-0.6.0/install/kubernetes/...
 ```
 
 ## Viewing resources after deploying Elafros

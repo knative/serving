@@ -9,15 +9,29 @@ that is installed by default as a showcase of installing dedicated Prometheus in
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
-## Running
 
-Deploy the sample via:
+## Setup
+
+Build the app container and publish it to your registry of choice:
+
 ```shell
-bazel run sample/telemetrysample:everything.apply
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build -t "${REPO}/sample/telemetrysample" --file=sample/telemetrysample/Dockerfile .
+docker push "${REPO}/sample/telemetrysample"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/elafros/elafros/sample/telemetrysample@${REPO}/sample/telemetrysample@g" sample/telemetrysample/*.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/telemetrysample/
 ```
+
+## Exploring
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
@@ -80,5 +94,5 @@ Then browse to http://localhost:9090.
 To clean up the sample service:
 
 ```shell
-bazel run sample/telemetrysample:everything.delete
+kubectl delete -f sample/telemetrysample/
 ```

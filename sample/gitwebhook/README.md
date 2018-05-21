@@ -6,16 +6,28 @@ github.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
+## Setup
 
-## Running
+Build the app container and publish it to your registry of choice:
 
-You can deploy this to Elafros from the root directory via:
 ```shell
-bazel run sample/gitwebhook:everything.create
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build -t "${REPO}/sample/gitwebhook" --file=sample/gitwebhook/Dockerfile .
+docker push "${REPO}/sample/gitwebhook"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/elafros/elafros/sample/gitwebhook@${REPO}/sample/gitwebhook@g" sample/gitwebhook/*.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/gitwebhook/sample.yaml
 ```
+
+## Exploring
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
@@ -66,5 +78,5 @@ will be modified with the suffix '(looks pretty legit)'
 To clean up the sample service:
 
 ```shell
-bazel run sample/gitwebhook:everything.delete
+kubectl delete -f sample/gitwebhook/sample.yaml
 ```

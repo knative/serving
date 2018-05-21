@@ -3,11 +3,27 @@
 First, deploy monitoring components. You can use two different setups:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
 ```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-prod \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
 bazel run config/monitoring:everything.apply
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
 ```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-dev \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
 bazel run config/monitoring:everything-dev.apply
 ```
 
@@ -196,11 +212,9 @@ spec:
 config/grafana/dashboard-definition folder. An easy way to generate JSON
 definitions is to use Grafana UI (make sure to login with as admin user) and [export JSON](http://docs.grafana.org/reference/export_import) from it.
 
-8. Add the YAML files to BUILD files.
+8. Redeploy changes.
 
-9. Deploy changes with bazel.
-
-10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
+9. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
 above to enable Prometheus UI)
 
 ## Generating logs

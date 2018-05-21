@@ -29,7 +29,8 @@
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_NAME=ela-e2e-cluster
+readonly E2E_CLUSTER_NAME=ela-e2e-cluster${BUILD_NUMBER}
+readonly E2E_NETWORK_NAME=ela-e2e-net${BUILD_NUMBER}
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
@@ -37,6 +38,8 @@ readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
 
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
+
+readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
 
 # Helper functions.
 
@@ -49,20 +52,14 @@ function teardown() {
 
   # Delete Elafros images when using prow.
   if (( IS_PROW )); then
-    delete_elafros_images
+    echo "Images in ${DOCKER_REPO_OVERRIDE}:"
+    gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
+    delete_gcr_images ${DOCKER_REPO_OVERRIDE}
   else
     restore_override_vars
     # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
     bazel clean --expunge
   fi
-}
-
-function delete_elafros_images() {
-  local all_images=""
-  for image in build-controller creds-image ela-autoscaler ela-controller ela-queue ela-webhook git-image ; do
-    all_images="${all_images} ${ELA_DOCKER_REPO}/${image}"
-  done
-  gcloud -q container images delete ${all_images}
 }
 
 function exit_if_failed() {
@@ -128,7 +125,7 @@ if [[ -z $1 ]]; then
     --gcp-node-image=cos
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
-    --gcp-network=ela-e2e-net
+    --gcp-network="${E2E_NETWORK_NAME}"
     --gke-environment=prod
   )
   if (( ! IS_PROW )); then
@@ -148,7 +145,7 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "${ELAFROS_GKE_VERSION}" \
+    --extract "v${ELAFROS_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   result="$(cat ${TEST_RESULT_FILE})"
@@ -176,9 +173,8 @@ fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/ela-e2e-img
 fi
-readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
 # Build and start Elafros.
 
@@ -188,6 +184,8 @@ echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
 header "Building and starting Elafros"
 trap teardown EXIT
+
+GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
 
 # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
 bazel clean --expunge
