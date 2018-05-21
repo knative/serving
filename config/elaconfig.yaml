@@ -92,13 +92,25 @@ data:
   logging.ela-controller.zap-config: |
     {
       "level": "info",
+      "development": false,
+      "sampling": {
+        "initial": 100,
+        "thereafter": 100
+      },
       "outputPaths": ["stdout"],
       "errorOutputPaths": ["stderr"],
       "encoding": "json",
       "encoderConfig": {
         "timeKey": "",
         "levelKey": "level",
-        "levelEncoder": "lowercase",
-        "messageKey": "msg"
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "msg",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "",
+        "durationEncoder": "",
+        "callerEncoder": ""
       }
     }
