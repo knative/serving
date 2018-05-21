@@ -46,38 +46,44 @@ const fluentdConfigSource = `
 
 <filter var.log.**>
 	@type record_transformer
+	enable_ruby true
 	<record>
-		kubernetes.container_name "#{ENV['ELA_CONTAINER_NAME']}"
-		kubernetes.labels.elafros_dev/configuration "#{ENV['ELA_CONFIGURATION']}"
-		kubernetes.labels.elafros_dev/revision "#{ENV['ELA_REVISION']}"
-		kubernetes.namespace_name "#{ENV['ELA_NAMESPACE']}"
-		kubernetes.pod_name "#{ENV['ELA_POD_NAME']}"
+	  kubernetes ${ {"container_name": "#{ENV['ELA_CONTAINER_NAME']}", "namespace_name": "#{ENV['ELA_NAMESPACE']}", "pod_name": "#{ENV['ELA_POD_NAME']}", "labels": {"elafros_dev/configuration": "#{ENV['ELA_CONFIGURATION']}", "elafros_dev/revision": "#{ENV['ELA_REVISION']}"} } }
 		stream varlog
 	</record>
 </filter>
 
-<match var.log.**>
-	@id elasticsearch
-	@type elasticsearch
-	@log_level info
-	include_tag_key true
-	# Elasticsearch service is in monitoring namespace.
-	host elasticsearch-logging.monitoring
-	port 9200
-	logstash_format true
-	<buffer>
-		@type file
-		path /var/log/fluentd-buffers/kubernetes.system.buffer
-		flush_mode interval
-		retry_type exponential_backoff
-		flush_thread_count 2
-		flush_interval 5s
-		retry_forever
-		retry_max_interval 30
-		chunk_limit_size 2M
-		queue_limit_length 8
-		overflow_action block
-	</buffer>
+<match **>
+	@type google_cloud
+
+	# Try to detect JSON formatted log entries.
+	detect_json true
+	# Collect metrics in Prometheus registry about plugin activity.
+	# enable_monitoring true
+	# monitoring_type prometheus
+	# Allow log entries from multiple containers to be sent in the same request.
+	split_logs_by_tag false
+	# Set the buffer type to file to improve the reliability and reduce the memory consumption
+	buffer_type file
+	buffer_path /var/log/fluentd-buffers/kubernetes.containers.buffer
+	# Set queue_full action to block because we want to pause gracefully
+	# in case of the off-the-limits load instead of throwing an exception
+	buffer_queue_full_action block
+	# Set the chunk limit conservatively to avoid exceeding the recommended
+	# chunk size of 5MB per write request.
+	buffer_chunk_limit 1M
+	# Cap the combined memory usage of this buffer and the one below to
+	# 1MiB/chunk * (6 + 2) chunks = 8 MiB
+	buffer_queue_limit 6
+	# Never wait more than 5 seconds before flushing logs in the non-error case.
+	flush_interval 5s
+	# Never wait longer than 30 seconds between retries.
+	max_retry_wait 30
+	# Disable the limit on the number of retries (retry forever).
+	disable_retry_limit
+	# Use multiple threads for processing.
+	num_threads 2
+	use_grpc true
 </match>
 `
 
