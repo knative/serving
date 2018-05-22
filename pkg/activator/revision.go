@@ -38,7 +38,7 @@ type revisionActivator struct {
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
-// once the revision is ready to serve traffic.
+// once the revision is ready to serve traffic
 func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
