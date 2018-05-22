@@ -91,3 +91,32 @@ func unmarshalServices(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1
 
 	return oldService, newService, nil
 }
+
+// Service does not have any defaults, per-se, but because it holds a Configuration,
+// we need to set the Configuration's defaults. SetServiceDefaults dispatches to
+// SetConfigurationSpecDefaults to accomplish this.
+func SetServiceDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+	_, service, err := unmarshalServices(nil, crd, "SetServiceDefaults")
+	if err != nil {
+		return err
+	}
+
+	var (
+		configSpec v1alpha1.ConfigurationSpec
+		patchBase  string
+	)
+
+	if service.Spec.RunLatest != nil {
+		configSpec = service.Spec.RunLatest.Configuration
+		patchBase = "/spec/runLatest/configuration"
+	} else if service.Spec.Pinned != nil {
+		configSpec = service.Spec.Pinned.Configuration
+		patchBase = "/spec/pinned/configuration"
+	} else {
+		// We could error here, but validateSpec should catch this.
+		glog.Info("could not find config in SetServiceDefaults")
+		return nil
+	}
+
+	return SetConfigurationSpecDefaults(patches, patchBase, configSpec)
+}

@@ -140,10 +140,22 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// Don't modify the informers copy
 	service = service.DeepCopy()
 
+	// We added the Generation to avoid fighting the Configuration controller,
+	// which adds a Generation to avoid fighting the Revision controller. We
+	// shouldn't need this once k8s 1.10 lands, see:
+	// https://github.com/kubernetes/kubernetes/issues/58778
+	// TODO(#642): Remove this.
+	if service.GetGeneration() == service.Status.ObservedGeneration {
+		logger.Infof("Skipping reconcile since already reconciled %d == %d",
+			service.Spec.Generation, service.Status.ObservedGeneration)
+		return nil
+	}
+
 	logger.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
 	config := MakeServiceConfiguration(service)
 	if err := c.reconcileConfiguration(config); err != nil {
+		logger.Errorf("Failed to update Configuration for %q: %v", service.Name, err)
 		return err
 	}
 
@@ -151,9 +163,24 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// switching routes to it. Though route controller might just do the right thing?
 
 	route := MakeServiceRoute(service, config.Name)
-	return c.reconcileRoute(route)
+	if err := c.reconcileRoute(route); err != nil {
+		logger.Errorf("Failed to update Route for %q: %v", service.Name, err)
+		return err
+	}
 
-	// TODO: update status appropriately.
+	// Update the Status of the Service with the latest generation that
+	// we just reconciled against so we don't keep generating Revisions.
+	// TODO(#642): Remove this.
+	service.Status.ObservedGeneration = service.Spec.Generation
+
+	logger.Infof("Updating the Service status:\n%+v", service)
+
+	if _, err := c.updateStatus(service); err != nil {
+		logger.Errorf("Failed to update Service %q: %v", service.Name, err)
+		return err
+	}
+
+	return nil
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
