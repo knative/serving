@@ -15,42 +15,16 @@
 licenses(["notice"])  # Apache 2
 
 load("@k8s_object//:defaults.bzl", "k8s_object")
-
-k8s_object(
-    name = "es-service",
-    template = "es-service.yaml",
-)
-
-k8s_object(
-    name = "es-statefulset",
-    template = "es-statefulset.yaml",
-)
-
-k8s_object(
-    name = "fluentd-es-ds",
-    template = "fluentd-es-ds.yaml",
-)
-
-k8s_object(
-    name = "kibana-deployment",
-    template = "kibana-deployment.yaml",
-)
-
-k8s_object(
-    name = "kibana-service",
-    template = "kibana-service.yaml",
-)
-
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
     name = "everything",
     objects = [
-        "es-service",
-        "es-statefulset",
-        "kibana-deployment",
-        "kibana-service",
-        "fluentd-es-ds",
+        "//third_party/config/monitoring/common/kubernetes/fluentd:everything",
+        "//third_party/config/monitoring/common/kubernetes/kube-state-metrics:everything",
+        "//third_party/config/monitoring/common/istio:everything",
+        "//third_party/config/monitoring/common/prometheus-operator/dashboards:everything",
+        "//third_party/config/monitoring/common/prometheus-operator/node-exporter:everything",
     ],
     visibility = ["//visibility:public"],
 )
