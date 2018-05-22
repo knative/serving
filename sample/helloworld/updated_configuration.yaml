@@ -26,7 +26,7 @@ spec:
       container:
         # This is the Go import path for the binary to containerize
         # and substitute here.
-        image: gcr.io/kcnicole-playground/sample/helloworld
+        image: github.com/knative/serving/sample/helloworld
         env:
           - name: TARGET
             value: updatedversion

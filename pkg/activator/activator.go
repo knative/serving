@@ -30,8 +30,8 @@ type revisionID struct {
 	name      string
 }
 
-// Endpoint is an ip, port pair for an active revision.
+// Endpoint is a fully-qualified domain name / port pair for an active revision.
 type Endpoint struct {
-	IP   string
+	FQDN string
 	Port int32
 }
