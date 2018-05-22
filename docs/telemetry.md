@@ -1,30 +1,34 @@
 # Logs and metrics
 
-First, deploy monitoring components. You can use two different setups:
-1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+First, deploy monitoring components. In this document, Elasticsearch&Kibana is used as logging storage and viewer.
+You can find how to configure another logging plugin [here](setting-up-a-logging-plugin.md).
+You can use two different setups:
+1. **everything-es**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 ```shell
 # With kubectl
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-prod \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 
 # With bazel
-bazel run config/monitoring:everything.apply
+bazel run config/monitoring:everything-es.apply
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+2. **everything-es-dev**: This configuration collects everything in (1) plus Elafros controller logs.
 ```shell
 # With kubectl
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-dev \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-dev \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 
 # With bazel
-bazel run config/monitoring:everything-dev.apply
+bazel run config/monitoring:everything-es-dev.apply
 ```
 
 ## Accessing logs
@@ -50,7 +54,7 @@ Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The foll
 * **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
 * **Nodes:** CPU, memory, network and disk metrics at node level
 * **Pods:** CPU, memory and network metrics at pod level
-* **Deployment:** CPU, memory and network metrics aggregated at deployment level 
+* **Deployment:** CPU, memory and network metrics aggregated at deployment level
 * **Istio, Mixer and Pilot:** Detailed Istio mesh, Mixer and Pilot metrics
 * **Kubernetes:** Dashboards giving insights into cluster health, deployments and capacity usage
 

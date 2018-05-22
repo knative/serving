@@ -18,8 +18,8 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 
 
 k8s_object(
-    name = "fluentd-es-ds",
-    template = "fluentd-es-ds.yaml",
+    name = "fluentd-ds",
+    template = "fluentd-ds.yaml",
 )
 
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
@@ -27,7 +27,7 @@ load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 k8s_objects(
     name = "everything",
     objects = [
-        "fluentd-es-ds",
+        "fluentd-ds",
     ],
     visibility = ["//visibility:public"],
 )
