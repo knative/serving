@@ -86,15 +86,20 @@ type ControllerOptions struct {
 	RegistrationDelay time.Duration
 }
 
-// ResourceCallback defines the signature that resource specific (Route, Configuration, etc.)
+// ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
 // handlers that can validate and mutate an object. If non-nil error is returned, object creation
-// is denied. Any mutations are to be appended to the patches operations.
+// is denied. Mutations should be appended to the patches operations.
 type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
+
+// ResourceDefaulter defines a signature for resource specific (Route, Configuration, etc.)
+// handlers that can set defaults on an object. If non-nil error is returned, object creation
+// is denied. Mutations should be appended to the patches operations.
+type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
 
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
 	Factory   runtime.Object
-	Defaulter ResourceCallback
+	Defaulter ResourceDefaulter
 	Validator ResourceCallback
 }
 
@@ -466,7 +471,7 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	}
 
 	if defaulter := handler.Defaulter; defaulter != nil {
-		if err := defaulter(&patches, oldObj, newObj); err != nil {
+		if err := defaulter(&patches, newObj); err != nil {
 			glog.Warningf("Failed the resource specific defaulter: %s", err)
 			// Return the error message as-is to give the defaulter callback
 			// discretion over (our portion of) the message that the user sees.

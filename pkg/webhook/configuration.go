@@ -132,13 +132,13 @@ func validateContainer(container corev1.Container) error {
 	return nil
 }
 
-func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	newC, ok := new.(*v1alpha1.Configuration)
+func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+	config, ok := crd.(*v1alpha1.Configuration)
 	if !ok {
-		return fmt.Errorf("Failed to convert new into a Configuration: %+v", new)
+		return fmt.Errorf("Failed to convert crd into a Configuration: %+v", config)
 	}
 
-	if newC.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
+	if config.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/revisionTemplate/spec/concurrencyModel",
