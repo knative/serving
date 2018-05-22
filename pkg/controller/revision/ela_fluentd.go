@@ -23,7 +23,9 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const fluentdConfigSource = `
+// fluentdSidecarPreOutputConfig defines source and filter configurations for
+// files under /var/log.
+const fluentdSidecarPreOutputConfig = `
 <source>
 	@type tail
 	path /var/log/revisions/**/*.*
@@ -56,36 +58,14 @@ const fluentdConfigSource = `
 	</record>
 </filter>
 
-<match var.log.**>
-	@id elasticsearch
-	@type elasticsearch
-	@log_level info
-	include_tag_key true
-	# Elasticsearch service is in monitoring namespace.
-	host elasticsearch-logging.monitoring
-	port 9200
-	logstash_format true
-	<buffer>
-		@type file
-		path /var/log/fluentd-buffers/kubernetes.system.buffer
-		flush_mode interval
-		retry_type exponential_backoff
-		flush_thread_count 2
-		flush_interval 5s
-		retry_forever
-		retry_max_interval 30
-		chunk_limit_size 2M
-		queue_limit_length 8
-		overflow_action block
-	</buffer>
-</match>
 `
 
 const fluentdConfigMapName = "fluentd-varlog-config"
 
 // MakeFluentdConfigMap creates a ConfigMap that gets mounted for fluentd
 // container on the pod.
-func MakeFluentdConfigMap(rev *v1alpha1.Revision, namespace string) *corev1.ConfigMap {
+func MakeFluentdConfigMap(
+	rev *v1alpha1.Revision, namespace string, fluentdSidecarOutputConfig string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      fluentdConfigMapName,
@@ -93,7 +73,11 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, namespace string) *corev1.Conf
 			Labels:    MakeElaResourceLabels(rev),
 		},
 		Data: map[string]string{
-			"varlog.conf": fluentdConfigSource,
+			"varlog.conf": makeFullFluentdConfig(fluentdSidecarOutputConfig),
 		},
 	}
+}
+
+func makeFullFluentdConfig(fluentdSidecarOutputConfig string) string {
+	return fluentdSidecarPreOutputConfig + fluentdSidecarOutputConfig
 }

@@ -61,10 +61,11 @@ var (
 	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
 	autoscaleEnableSingleConcurrency  = k8sflag.Bool("autoscale.enable-single-concurrency", false)
 
-	loggingEnableVarLogCollection = k8sflag.Bool("logging.enable-var-log-collection", false)
-	loggingFluentSidecarImage     = k8sflag.String("logging.fluentd-sidecar-image", "")
-	loggingURLTemplate            = k8sflag.String("logging.revision-url-template", "")
-	loggingZapCfg                 = k8sflag.String("logging.ela-controller.zap-config", "")
+	loggingEnableVarLogCollection    = k8sflag.Bool("logging.enable-var-log-collection", false)
+	loggingFluentSidecarImage        = k8sflag.String("logging.fluentd-sidecar-image", "")
+	loggingFluentSidecarOutputConfig = k8sflag.String("logging.fluentd-sidecar-output-config", "")
+	loggingURLTemplate               = k8sflag.String("logging.revision-url-template", "")
+	loggingZapCfg                    = k8sflag.String("logging.ela-controller.zap-config", "")
 )
 
 func main() {
@@ -78,6 +79,7 @@ func main() {
 		} else {
 			logger.Fatal("missing required flag: -fluentdSidecarImage")
 		}
+		logger.Infof("Using fluentd sidecar output config: %s", loggingFluentSidecarOutputConfig)
 	}
 
 	if loggingURLTemplate.Get() != "" {
@@ -133,9 +135,10 @@ func main() {
 		AutoscalerImage:                   autoscalerImage,
 		QueueSidecarImage:                 queueSidecarImage,
 
-		EnableVarLogCollection: loggingEnableVarLogCollection.Get(),
-		FluentdSidecarImage:    loggingFluentSidecarImage.Get(),
-		LoggingURLTemplate:     loggingURLTemplate.Get(),
+		EnableVarLogCollection:     loggingEnableVarLogCollection.Get(),
+		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
+		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
+		LoggingURLTemplate:         loggingURLTemplate.Get(),
 	}
 
 	// Build all of our controllers, with the clients constructed above.
