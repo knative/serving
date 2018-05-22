@@ -17,6 +17,7 @@ limitations under the License.
 package configuration
 
 import (
+	"context"
 	"fmt"
 
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
@@ -27,7 +28,9 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
-	"github.com/golang/glog"
+	"github.com/elafros/elafros/pkg/logging"
+	"github.com/elafros/elafros/pkg/logging/logkey"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +65,8 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
+	controllerConfig controller.Config,
+	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
@@ -71,14 +75,14 @@ func NewController(
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Configurations"),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Configurations", logger),
 		buildClientSet:  buildClientSet,
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,
 		revisionsSynced: revisionInformer.Informer().HasSynced,
 	}
 
-	glog.Info("Setting up event handlers")
+	controller.Logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addRevisionEvent,
 		UpdateFunc: controller.updateRevisionEvent,
@@ -95,6 +99,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		[]cache.InformerSynced{c.synced, c.revisionsSynced}, c.syncHandler, "Configuration")
 }
 
+// loggerWithConfigInfo enriches the logs with configuration name and namespace.
+func loggerWithConfigInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
+	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Configuration, name))
+}
+
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
@@ -105,6 +114,8 @@ func (c *Controller) syncHandler(key string) error {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
+
+	logger := loggerWithConfigInfo(c.Logger, namespace, name)
 
 	// Get the Configuration resource with this namespace/name
 	config, err := c.lister.Configurations(namespace).Get(name)
@@ -124,12 +135,12 @@ func (c *Controller) syncHandler(key string) error {
 	// Configuration business logic
 	if config.GetGeneration() == config.Status.ObservedGeneration {
 		// TODO(vaikas): Check to see if Status.LatestCreatedRevisionName is ready and update Status.LatestReady
-		glog.Infof("Skipping reconcile since already reconciled %d == %d",
+		logger.Infof("Skipping reconcile since already reconciled %d == %d",
 			config.Spec.Generation, config.Status.ObservedGeneration)
 		return nil
 	}
 
-	glog.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
+	logger.Infof("Running reconcile Configuration for %s\n%+v\n%+v\n",
 		config.Name, config, config.Spec.RevisionTemplate)
 	spec := config.Spec.RevisionTemplate.Spec
 	controllerRef := controller.NewConfigurationControllerRef(config)
@@ -146,11 +157,11 @@ func (c *Controller) syncHandler(key string) error {
 		build.OwnerReferences = append(build.OwnerReferences, *controllerRef)
 		created, err := c.buildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
-			glog.Errorf("Failed to create Build:\n%+v\n%s", build, err)
+			logger.Errorf("Failed to create Build:\n%+v\n%s", build, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Build %q: %v", build.Name, err)
 			return err
 		}
-		glog.Infof("Created Build:\n%+v", created.Name)
+		logger.Infof("Created Build:\n%+v", created.Name)
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
 		spec.BuildName = created.Name
 	}
@@ -164,7 +175,7 @@ func (c *Controller) syncHandler(key string) error {
 	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			glog.Errorf("Revisions Get for %q failed: %s", revName, err)
+			logger.Error("Revisions Get failed", zap.Error(err), zap.String(logkey.Revision, revName))
 			return err
 		}
 
@@ -194,14 +205,14 @@ func (c *Controller) syncHandler(key string) error {
 
 		created, err = revClient.Create(rev)
 		if err != nil {
-			glog.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
+			logger.Errorf("Failed to create Revision:\n%+v\n%s", rev, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", rev.Name, err)
 			return err
 		}
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
-		glog.Infof("Created Revision:\n%+v", created)
+		logger.Infof("Created Revision:\n%+v", created)
 	} else {
-		glog.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
+		logger.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
 	}
 	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.
@@ -210,10 +221,10 @@ func (c *Controller) syncHandler(key string) error {
 	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
 	config.Status.ObservedGeneration = config.Spec.Generation
 
-	glog.Infof("Updating the configuration status:\n%+v", config)
+	logger.Infof("Updating the configuration status:\n%+v", config)
 
 	if _, err = c.updateStatus(config); err != nil {
-		glog.Errorf("Failed to update the configuration %s", err)
+		logger.Error("Failed to update the configuration", zap.Error(err))
 		return err
 	}
 
@@ -253,16 +264,18 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		return
 	}
 
+	logger := loggerWithConfigInfo(c.Logger, namespace, configName).With(zap.String(logkey.Revision, revisionName))
+	ctx := logging.WithLogger(context.TODO(), logger)
+
 	config, err := c.lister.Configurations(namespace).Get(configName)
 	if err != nil {
-		glog.Errorf("Error fetching configuration '%s/%s' upon revision becoming ready: %v",
-			namespace, configName, err)
+		logger.Error("Error fetching configuration upon revision becoming ready", zap.Error(err))
 		return
 	}
 
 	if revision.Name != config.Status.LatestCreatedRevisionName {
 		// The revision isn't the latest created one, so ignore this event.
-		glog.Infof("Revision %q is not the latest created one", revisionName)
+		logger.Info("Revision is not the latest created one")
 		return
 	}
 
@@ -270,32 +283,30 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	config = config.DeepCopy()
 
 	if !revision.Status.IsReady() {
-		glog.Infof("Revision %q of configuration %q is not ready", revisionName, config.Name)
+		logger.Infof("Revision %q of configuration %q is not ready", revisionName, config.Name)
 
 		//add LatestRevision condition to be false with the status from the revision
-		c.markConfigurationLatestRevisionStatus(config, revision)
+		c.markConfigurationLatestRevisionStatus(ctx, config, revision)
 
 		if _, err := c.updateStatus(config); err != nil {
-			glog.Errorf("Error updating configuration '%s/%s': %v",
-				namespace, configName, err)
+			logger.Error("Error updating configuration", zap.Error(err))
 		}
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestRevisionUpdate",
 			"Latest revision of configuration is not ready")
 
 	} else {
-		glog.Infof("Revision %q is ready", revisionName)
+		logger.Info("Revision is ready")
 
 		alreadyReady := config.Status.IsReady()
 		if !alreadyReady {
-			c.markConfigurationReady(config, revision)
+			c.markConfigurationReady(ctx, config, revision)
 		}
-		glog.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
+		logger.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
 			config.Name, revision.Name)
 		config.Status.LatestReadyRevisionName = revision.Name
 
 		if _, err := c.updateStatus(config); err != nil {
-			glog.Errorf("Error updating configuration '%s/%s': %v",
-				namespace, configName, err)
+			logger.Error("Error updating configuration", zap.Error(err))
 		}
 		if !alreadyReady {
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
@@ -324,8 +335,10 @@ func getLatestRevisionStatusCondition(revision *v1alpha1.Revision) *v1alpha1.Rev
 // Mark ConfigurationConditionReady of Configuration ready as the given latest
 // created revision is ready.
 func (c *Controller) markConfigurationReady(
+	ctx context.Context,
 	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
-	glog.Infof("Marking Configuration %q ready", config.Name)
+	logger := logging.FromContext(ctx)
+	logger.Info("Marking Configuration ready")
 	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
 	config.Status.SetCondition(
 		&v1alpha1.ConfigurationCondition{
@@ -338,11 +351,13 @@ func (c *Controller) markConfigurationReady(
 // Mark ConfigurationConditionLatestRevisionReady of Configuration to false with the status
 // from the revision
 func (c *Controller) markConfigurationLatestRevisionStatus(
+	ctx context.Context,
 	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
+	logger := logging.FromContext(ctx)
 	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionReady)
 	cond := getLatestRevisionStatusCondition(revision)
 	if cond == nil {
-		glog.Infof("Revision status is not updated yet")
+		logger.Info("Revision status is not updated yet")
 		return
 	}
 	config.Status.SetCondition(
