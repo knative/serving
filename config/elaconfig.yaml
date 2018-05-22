@@ -80,7 +80,7 @@ data:
 
   # The fluentd sidecar image used to collect logs from /var/log as a sidecar.
   # Must be presented if logging.enable-var-log-collection is true.
-  logging.fluentd-sidecar-image: "gcr.io/yanweiguo-test/fluentd:latest"
+  logging.fluentd-sidecar-image: "k8s.gcr.io/fluentd-elasticsearch:v2.0.4"
 
   # The fluentd sidecar output config to specify logging destination.
   logging.fluentd-sidecar-output-config: |
