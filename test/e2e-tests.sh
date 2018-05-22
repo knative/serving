@@ -52,20 +52,14 @@ function teardown() {
 
   # Delete Elafros images when using prow.
   if (( IS_PROW )); then
-    delete_elafros_images
+    echo "Images in ${DOCKER_REPO_OVERRIDE}:"
+    gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
+    delete_gcr_images ${DOCKER_REPO_OVERRIDE}
   else
     restore_override_vars
     # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
     bazel clean --expunge
   fi
-}
-
-function delete_elafros_images() {
-  local all_images=""
-  for image in build-controller creds-image ela-autoscaler ela-controller ela-queue ela-webhook git-image ; do
-    all_images="${all_images} ${ELA_DOCKER_REPO}/${image}"
-  done
-  gcloud -q container images delete ${all_images}
 }
 
 function exit_if_failed() {
@@ -179,9 +173,8 @@ fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/ela-e2e-img
 fi
-readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
 # Build and start Elafros.
 

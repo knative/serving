@@ -1,5 +1,4 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
-# CODEOWNERS is the current authoritative source of ownership info.
 
 approvers:
 - adrcunha

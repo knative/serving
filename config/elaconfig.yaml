@@ -75,12 +75,38 @@ data:
 
   # Static parameters:
 
-  # Var log collection flag. The default value is false
+  # A fluentd sidecar will be set up to collect var log if this flag is true.
   logging.enable-var-log-collection: "true"
 
   # The fluentd sidecar image used to collect logs from /var/log as a sidecar.
   # Must be presented if logging.enable-var-log-collection is true.
   logging.fluentd-sidecar-image: "gcr.io/yanweiguo-test/fluentd:latest"
+
+  # The fluentd sidecar output config to specify logging destination.
+  logging.fluentd-sidecar-output-config: |
+    <match **>
+      @id elasticsearch
+      @type elasticsearch
+      @log_level info
+      include_tag_key true
+      # Elasticsearch service is in monitoring namespace.
+      host elasticsearch-logging.monitoring
+      port 9200
+      logstash_format true
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/kubernetes.system.buffer
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 2
+        flush_interval 5s
+        retry_forever
+        retry_max_interval 30
+        chunk_limit_size 2M
+        queue_limit_length 8
+        overflow_action block
+      </buffer>
+    </match>
 
   # The revision log url template, where ${REVISION_UID} will be replaced by the actual
   # revision uid. For the url to work you'll need to set up monitoring and have access to
@@ -88,3 +114,29 @@ data:
   logging.revision-url-template: |
     http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.elafros-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))
 
+  # Configuration for Elafros controllers
+  logging.ela-controller.zap-config: |
+    {
+      "level": "info",
+      "development": false,
+      "sampling": {
+        "initial": 100,
+        "thereafter": 100
+      },
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"],
+      "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "",
+        "levelKey": "level",
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "msg",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "",
+        "durationEncoder": "",
+        "callerEncoder": ""
+      }
+    }
