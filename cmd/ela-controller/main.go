@@ -65,7 +65,7 @@ var (
 	loggingFluentSidecarImage        = k8sflag.String("logging.fluentd-sidecar-image", "")
 	loggingFluentSidecarOutputConfig = k8sflag.String("logging.fluentd-sidecar-output-config", "")
 	loggingURLTemplate               = k8sflag.String("logging.revision-url-template", "")
-  loggingZapCfg                 = k8sflag.String("logging.ela-controller.zap-config", "")
+	loggingZapCfg                    = k8sflag.String("logging.ela-controller.zap-config", "")
 )
 
 func main() {
