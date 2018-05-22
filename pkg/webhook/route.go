@@ -33,21 +33,10 @@ var (
 
 // ValidateRoute is Route resource specific validation and mutation handler
 func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldRoute *v1alpha1.Route
-	if old != nil {
-		var ok bool
-		oldRoute, ok = old.(*v1alpha1.Route)
-		if !ok {
-			return errInvalidRouteInput
-		}
+	_, newRoute, err := unmarshalRoutes(old, new, "ValidateRoute")
+	if err != nil {
+		return err
 	}
-	glog.Infof("ValidateRoute: OLD Route is\n%+v", oldRoute)
-	newRoute, ok := new.(*v1alpha1.Route)
-	if !ok {
-		return errInvalidRouteInput
-	}
-	glog.Infof("ValidateRoute: NEW Route is\n%+v", newRoute)
-
 	if err := validateTrafficTarget(newRoute); err != nil {
 		return err
 	}
@@ -112,4 +101,24 @@ func validateUniqueTrafficTarget(route *v1alpha1.Route) error {
 		}
 	}
 	return nil
+}
+
+func unmarshalRoutes(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Route, *v1alpha1.Route, error) {
+	var oldRoute *v1alpha1.Route
+	if old != nil {
+		var ok bool
+		oldRoute, ok = old.(*v1alpha1.Route)
+		if !ok {
+			return nil, nil, errInvalidRouteInput
+		}
+	}
+	glog.Infof("%s: OLD Route is\n%+v", fnName, oldRoute)
+
+	newRoute, ok := new.(*v1alpha1.Route)
+	if !ok {
+		return nil, nil, errInvalidRouteInput
+	}
+	glog.Infof("%s: NEW Route is\n%+v", fnName, newRoute)
+
+	return oldRoute, newRoute, nil
 }
