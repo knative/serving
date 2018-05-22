@@ -21,7 +21,7 @@ metadata:
   namespace: default
 spec:
   rules:
-  - host: entry.default.demo-domain.com
+  - host: example.com
     http:
       paths:
       - backend:
