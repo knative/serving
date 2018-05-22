@@ -45,13 +45,13 @@ func ValidateRevision(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 	return nil
 }
 
-func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	_, newR, err := unmarshal(old, new, "SetRevisionDefaults")
+func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+	_, revision, err := unmarshal(nil, crd, "SetRevisionDefaults")
 	if err != nil {
 		return err
 	}
 
-	if newR.Spec.ServingState == "" {
+	if revision.Spec.ServingState == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/servingState",
@@ -59,7 +59,7 @@ func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD
 		})
 	}
 
-	if newR.Spec.ConcurrencyModel == "" {
+	if revision.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/concurrencyModel",
