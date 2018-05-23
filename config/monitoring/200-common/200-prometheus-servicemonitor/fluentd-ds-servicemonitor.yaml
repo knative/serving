@@ -15,14 +15,14 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: fluentd-es
+  name: fluentd-ds
   namespace: monitoring
   labels:
     monitor-category: ela-system
 spec:
   selector:
     matchLabels:
-      app: fluentd-es
+      app: fluentd-ds
   namespaceSelector:
     matchNames:
     - monitoring

@@ -51,8 +51,8 @@ k8s_object(
 )
 
 k8s_object(
-    name = "fluentd-es",
-    template = "fluentd-es.yaml",
+    name = "fluentd-ds-servicemonitor",
+    template = "fluentd-ds-servicemonitor.yaml",
 )
 
 k8s_object(
@@ -70,7 +70,7 @@ k8s_objects(
         ":prometheus-operator",
         ":ela-autoscaler",
         ":ela-controller",
-        ":fluentd-es",
+        ":fluentd-ds-servicemonitor",
         ":apiserver",
         ":kube-controller-manager",
         ":kube-scheduler",
