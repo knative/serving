@@ -36,7 +36,7 @@ spec:
       container:
         # This is the Go import path for the binary to containerize
         # and substitute here.
-        image: gcr.io/zhiminx-prod-test/sample/elafros-routing/login
+        image: github.com/elafros/elafros/sample/elafros-routing/login
         env:
           - name: TARGET
             value: login-target
@@ -71,7 +71,7 @@ spec:
       container:
         # This is the Go import path for the binary to containerize
         # and substitute here.
-        image: gcr.io/zhiminx-prod-test/sample/elafros-routing/search
+        image: github.com/elafros/elafros/sample/elafros-routing/search
         env:
           - name: TARGET
             value: search-target
