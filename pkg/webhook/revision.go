@@ -59,7 +59,7 @@ func SetRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase 
 	if spec.ServingState == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      path.Join(patchBase, "/servingState"),
+			Path:      path.Join(patchBase, "servingState"),
 			Value:     v1alpha1.RevisionServingStateActive,
 		})
 	}
@@ -67,7 +67,7 @@ func SetRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase 
 	if spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      path.Join(patchBase, "/concurrencyModel"),
+			Path:      path.Join(patchBase, "concurrencyModel"),
 			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
 		})
 	}
