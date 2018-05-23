@@ -93,9 +93,8 @@ type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 
 // ResourceDefaulter defines a signature for resource specific (Route, Configuration, etc.)
 // handlers that can set defaults on an object. If non-nil error is returned, object creation
-// is denied. Mutations should be appended to the patches operations. The patchBase specifies the
-// root for JsonPatchOperation paths, e.g. "/spec/".
-type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, patchBase string, crd GenericCRD) error
+// is denied. Mutations should be appended to the patches operations.
+type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
 
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
@@ -472,9 +471,7 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	}
 
 	if defaulter := handler.Defaulter; defaulter != nil {
-		// These are top-level objects, so patches should be rooted at "/spec/".
-		patchBase := "/spec/"
-		if err := defaulter(&patches, patchBase, newObj); err != nil {
+		if err := defaulter(&patches, newObj); err != nil {
 			glog.Warningf("Failed the resource specific defaulter: %s", err)
 			// Return the error message as-is to give the defaulter callback
 			// discretion over (our portion of) the message that the user sees.

@@ -133,13 +133,17 @@ func validateContainer(container corev1.Container) error {
 	return nil
 }
 
-func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, crd GenericCRD) error {
+func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
 	config, ok := crd.(*v1alpha1.Configuration)
 	if !ok {
 		return fmt.Errorf("Failed to convert crd into a Configuration: %+v", config)
 	}
 
-	if config.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
+	return SetConfigurationSpecDefaults(patches, "/spec", config.Spec)
+}
+
+func SetConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
+	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      path.Join(patchBase, "/revisionTemplate/spec/concurrencyModel"),
