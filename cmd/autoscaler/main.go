@@ -27,10 +27,10 @@ import (
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	ela_autoscaler "github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -64,6 +64,7 @@ var (
 	elaConfig         string
 	elaRevision       string
 	elaAutoscalerPort string
+	currentScale      int32
 
 	// Revision-level configuration
 	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
@@ -137,11 +138,6 @@ func autoscaler() {
 				}
 
 				scaleChan <- scale
-
-				// Stop the autoscaler from doing any more work.
-				if scale == 0 {
-					return
-				}
 			}
 		case s := <-statChan:
 			a.Record(s)
@@ -173,6 +169,10 @@ func scaleSerializer() {
 }
 
 func scaleTo(podCount int32) {
+	if currentScale == podCount {
+		glog.Info("Already at scale.")
+		return
+	}
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
 	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
@@ -190,6 +190,8 @@ func scaleTo(podCount int32) {
 	statsReporter.Report(ela_autoscaler.ActualPodCountM, (int64)(deployment.Status.ReadyReplicas))
 
 	if *deployment.Spec.Replicas == podCount {
+		glog.Info("Already at scale.")
+		currentScale = podCount
 		return
 	}
 
@@ -206,7 +208,8 @@ func scaleTo(podCount int32) {
 		if err != nil {
 			glog.Errorf("Error updating Revision %q: %s", elaRevision, err)
 		}
-
+		currentScale = podCount
+		return
 	}
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
@@ -214,6 +217,8 @@ func scaleTo(podCount int32) {
 		glog.Errorf("Error updating Deployment %q: %s", elaDeployment, err)
 	}
 	glog.Info("Successfully scaled.")
+	glog.Infof("===SCALE=== %v %v 1", int32(time.Now().Unix()), podCount)
+	currentScale = podCount
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
