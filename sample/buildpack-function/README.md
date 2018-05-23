@@ -3,7 +3,7 @@
 A sample function that demonstrates usage of Cloud Foundry buildpacks on
 Elafros, using the [packs Docker images](https://github.com/sclevine/packs).
 
-This deploys the [riff square](https://github.com/socthis/riff-square-buildpack)
+This deploys the [riff square](https://github.com/scothis/riff-square-buildpack)
 sample function for riff.
 
 ## Prerequisites
