@@ -6,7 +6,8 @@ This doc explains how to setup a development environment so you can get started
 ## Getting Started
 
 1. [Check out the repository](#checking-out-the-repository)
-1. [Run the controller](#running-the-controller)
+1. [Run the controller (ko)](#running-the-controller-ko)
+1. Or [run the controller (bazel)](#running-the-controller-bazel)
 1. [Running integration tests](#running-integration-tests)
 
 ## Checking out the repository
@@ -27,7 +28,57 @@ $ cd ${GOPATH}/src/github.com/elafros/build
 $ git remote add ${USER} https://github.com/${USER}/build
 ```
 
-## Running the Controller
+## Running the Controller (ko)
+
+### One-time setup
+
+Configure `ko` to point to your registry:
+
+```shell
+# You can put these definitions in .bashrc, so this is one-time setup.
+export KO_DOCKER_REPO=us.gcr.io/project
+
+# Install "ko" from our vendor snapshot.
+go install ./vendor/github.com/google/go-containerregistry/cmd/ko
+
+# Check that "ko" is on your path
+which ko
+```
+
+Note that this expects your Docker authorization is [properly configured](
+https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper).
+
+### Standing it up
+
+You can stand up a version of this controller on-cluster with:
+```shell
+# This will register the CRD and deploy the controller to start acting on them.
+ko apply -f config/
+```
+
+**NOTE:** This will deploy to `kubectl config current-context`.
+
+### Iterating
+
+As you make changes to the code, you can redeploy your controller with:
+```shell
+ko apply -f config/controller.yaml
+```
+
+**Two things of note:**
+1. If your (external) dependencies have changed, you should:
+   `./hack/update-deps.sh`.
+1. If your type definitions have changed, you should:
+   `./hack/update-codegen.sh`.
+
+### Cleanup
+
+You can clean up everything with:
+```shell
+ko delete -f config/
+```
+
+## Running the Controller (bazel)
 
 ### One-time setup
 
@@ -44,7 +95,7 @@ bazel clean
 ```
 
 Note that this expects your Docker authorization is [properly configured](
-https://github.com/bazelbuild/rules_docker#authentication).
+https://cloud.google.com/container-registry/docs/advanced-authentication#standalone_docker_credential_helper).
 
 ### Standing it up
 
@@ -87,14 +138,14 @@ To run integration tests, run the following steps:
 ```shell
 # First, have the version of the system that you want to test up.
 # e.g. to change between builders, alter the flag in controller.yaml
-bazel run //config:everything.apply
+ko apply -f config/
 
 # Next, make sure that you have no builds or build templates in your current namespace:
 kubectl delete builds --all
 kubectl delete buildtemplates --all
 
-# Launch the test suite (this can be cleaned up with //tests:all_tests.delete)
-bazel run //tests:all_tests.apply
+# Launch the test suite (this can be cleaned up with "ko delete -R -f tests/")
+ko apply -R -f tests/
 ```
 
 You can track the progress of your builds with this command, which will also

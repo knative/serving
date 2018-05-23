@@ -67,19 +67,6 @@ k8s_defaults(
     image_chroot = _REPOSITORY,
 )
 
-
-# Pull in cloud-builders as test data
-new_git_repository(
-    name = "cloudbuilders",
-    commit = "f85ec6e1e85b261e78f39cd0bac712dd651ab3b9",
-    remote = "https://github.com/googlecloudplatform/cloud-builders",
-    build_file_content = """
-package(default_visibility = ["//visibility:public"])
-
-exports_files(glob(["**/cloudbuild.yaml"]))
-""",
-)
-
 load(":deps.bzl", "repositories")
 
 repositories()

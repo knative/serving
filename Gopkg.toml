@@ -52,8 +52,8 @@ required = [
 
 [[constraint]]
   name = "github.com/elafros/build"
-  # HEAD as of 2018-05-08
-  revision = "066aa5dfe3fa057adc747fd74d5079759606c173"
+  # HEAD as of 2018-05-23
+  revision = "d1dbf4ee8836bcc6d63de11ef89a9e2db5cfa5cf"
 
 [[constraint]]
   name = "k8s.io/api"

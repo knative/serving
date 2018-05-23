@@ -47,9 +47,9 @@ spec:
     spec:
       containers:
       - args: [-builder, cluster, -logtostderr, -stderrthreshold, INFO, -creds-image,
-          'gcr.io/build-crd/github.com/elafros/build/cmd/creds-init@sha256:768ed8f4daa96194b65c161b073d80150b81ce10fd39d8be9a1fdf63a4ea6f1d',
-          -git-image, 'gcr.io/build-crd/github.com/elafros/build/cmd/git-init@sha256:8b63aecf0b9d492baf4b689a9699044518dcdc0879d77e8509dd505c1cf4cb5f']
-        image: gcr.io/build-crd/github.com/elafros/build/cmd/controller@sha256:009022eef0b6759932ecf502959a88fb2eefafe4da7445394dad2ccbe143494a
+          'gcr.io/build-crd/github.com/elafros/build/cmd/creds-init@sha256:a7281d37ea08587680eda1cca0b5f48e16ed59e77de43c6b3239c7ff0806a97c',
+          -git-image, 'gcr.io/build-crd/github.com/elafros/build/cmd/git-init@sha256:735823a7f88556f33530ca56326cb0828aae0ce98ccb113750655afaaed4c241']
+        image: gcr.io/build-crd/github.com/elafros/build/cmd/controller@sha256:0af871213dee2df6afd2ace310acaa9c1ceacb192a2e6cf64eaff37f01b327cd
         name: build-controller
       serviceAccountName: build-controller
 
