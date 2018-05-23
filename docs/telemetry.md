@@ -1,9 +1,15 @@
 # Logs and metrics
 
-First, deploy monitoring components. In this document, Elasticsearch&Kibana is used as logging storage and viewer.
-You can find how to configure another logging plugin [here](setting-up-a-logging-plugin.md).
+## Monitoring components Setuo
+
+First, deploy monitoring components.
+
+### Elasticsearch, Kibana, Prometheus & Grafana Setup
+
 You can use two different setups:
+
 1. **everything-es**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+
 ```shell
 # With kubectl
 kubectl apply -R -f config/monitoring/100-common \
@@ -18,6 +24,7 @@ bazel run config/monitoring:everything-es.apply
 ```
 
 2. **everything-es-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+
 ```shell
 # With kubectl
 kubectl apply -R -f config/monitoring/100-common \
@@ -31,16 +38,64 @@ kubectl apply -R -f config/monitoring/100-common \
 bazel run config/monitoring:everything-es-dev.apply
 ```
 
+### Stackdriver (logs), Prometheus & Grafana Setup
+
+If your Elafros is not built on a GCP based cluster or you want to send logs to
+another GCP project, you need to build your own Fluentd image and modify the
+configuration first. See
+
+1. [Fluentd image on Elafros](/image/fluentd/README.md)
+2. [Setting up a logging plugin](setting-up-a-logging-plugin.md)
+
+Then you can use two different setups:
+
+1. **everything-sd**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+
+```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-stackdriver-prod \
+    -f third_party/config/monitoring/common \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
+bazel run config/monitoring:everything-sd.apply
+```
+
+2. **everything-sd-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+
+```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-stackdriver-dev \
+    -f third_party/config/monitoring/common \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
+bazel run config/monitoring:everything-sd-dev.apply
+```
+
 ## Accessing logs
+
+### Elasticsearch & Kibana
+
 Run,
 
 ```shell
 kubectl proxy
 ```
+
 Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 (*it might take a couple of minutes for the proxy to work*).
 When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+### Stackdriver
+
+Go to [Pantheon logging page](https://pantheon.corp.google.com/logs/viewer) for
+your GCP project which stores your logs via Stackdriver.
 
 ## Accessing metrics
 
@@ -58,7 +113,7 @@ Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The foll
 * **Istio, Mixer and Pilot:** Detailed Istio mesh, Mixer and Pilot metrics
 * **Kubernetes:** Dashboards giving insights into cluster health, deployments and capacity usage
 
-## Accessing per request traces
+### Accessing per request traces
 First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.
 
 Next, start the proxy if it is not already running:

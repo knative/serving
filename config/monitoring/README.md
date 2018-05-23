@@ -1,7 +1,7 @@
 # Monitoring Deployment
 
 This folder contains deployment files for monitoring components. For example, if operators require sending standard logs to Elasticsearch,
-they can install monitoring components by running the following at the root of the repository():
+they can install monitoring components by running the following at the root of the repository:
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
