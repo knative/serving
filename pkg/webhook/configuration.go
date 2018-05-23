@@ -18,6 +18,7 @@ package webhook
 import (
 	"errors"
 	"fmt"
+	"path"
 	"reflect"
 	"strings"
 
@@ -138,10 +139,14 @@ func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, crd Gener
 		return fmt.Errorf("Failed to convert crd into a Configuration: %+v", config)
 	}
 
-	if config.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
+	return SetConfigurationSpecDefaults(patches, "/spec", config.Spec)
+}
+
+func SetConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
+	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/revisionTemplate/spec/concurrencyModel",
+			Path:      path.Join(patchBase, "revisionTemplate/spec/concurrencyModel"),
 			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
 		})
 	}
