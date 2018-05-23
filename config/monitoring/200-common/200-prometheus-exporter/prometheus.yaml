@@ -23,7 +23,6 @@ metadata:
   namespace: monitoring
   labels:
     app: prometheus
-    prometheus: system
 spec:
   clusterIP: None
   ports:
@@ -33,6 +32,5 @@ spec:
     targetPort: web
   selector:
     app: prometheus
-    prometheus: system
   sessionAffinity: None
   type: ClusterIP

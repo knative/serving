@@ -102,119 +102,126 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-See [Telemetry Sample](../sample/telemetrysample/README.md) for deploying a dedicated instance of Prometheus
-and emitting metrics to it.
+If you want to send metrics from your controller, follow the steps below. 
+These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
+simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
+instrument your code as described in step 3.
 
-If you want to generate metrics within Elafros services and send them to shared instance of Prometheus,
-follow the steps below. We will create a counter metric below:
-1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
-and read [Data model](https://prometheus.io/docs/concepts/data_model/) and
-[Metric types](https://prometheus.io/docs/concepts/metric_types/) sections.
-2. Create a top level variable in your go file and initialize it in init() - example:
-
-```go
-    import "github.com/prometheus/client_golang/prometheus"
-
-    var myCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-        Namespace: "elafros",
-        Name:      "mycomponent_something_count",
-        Help:      "Counter to keep track of something in my component",
-    }, []string{"status"})
-
-    func init() {
-        prometheus.MustRegister(myCounter)
-    }
-```
-3. In your code where you want to instrument, increment the counter with the appropriate label values - example:
+In the example below, we will setup the service to host the metrics and instrument a sample
+'Gauge' type metric using the setup.
+1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
+2. Add the following to your application startup:
 
 ```go
-    err := doSomething()
-    if err == nil {
-        myCounter.With(prometheus.Labels{"status": "success"}).Inc()
-    } else {
-        myCounter.With(prometheus.Labels{"status": "failure"}).Inc()
-    }
+import (
+	"context"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+)
+
+var (
+    desiredPodCountM *stats.Int64Measure
+    namespaceTagKey tag.Key
+    revisionTagKey tag.Key
+)
+
+func main() {
+	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: ela-autoscaler)}"})
+	if err != nil {
+		glog.Fatal(err)
+	}
+	view.RegisterExporter(exporter)
+	view.SetReportingPeriod(10 * time.Second)
+
+    // Create a sample gauge
+	var r = &Reporter{}
+	desiredPodCountM = stats.Int64(
+		"desired_pod_count",
+		"Number of pods autoscaler wants to allocate",
+		stats.UnitNone)
+
+    // Tag the statistics with namespace and revision labels
+    var err error
+	namespaceTagKey, err = tag.NewKey("namespace")
+	if err != nil {
+		// Error handling
+	}
+	revisionTagKey, err = tag.NewKey("revision")
+	if err != nil {
+		// Error handling
+	}
+
+	// Create view to see our measurement.
+	err = view.Register(
+		&view.View{
+			Description: "Number of pods autoscaler wants to allocate",
+			Measure:     r.measurements[DesiredPodCountM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+		},
+	)
+	if err != nil {
+		// Error handling
+	}
+
+	// Start the endpoint for Prometheus scraping
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", exporter)
+	http.ListenAndServe(":8080", mux)
+}
 ```
-4. Start an http listener to serve as the metrics endpoint for Prometheus scraping (_this step and onwards are needed
-only once in a service. ela-controller is already setup for metrics scraping and you can skip rest of these steps
-if you are targeting ela-controller_):
+3. In your code where you want to instrument, set the counter with the appropriate label values - example:
 
 ```go
-    import "github.com/prometheus/client_golang/prometheus/promhttp"
-
-    // In your main() func
-    srv := &http.Server{Addr: ":9090"}
-    http.Handle("/metrics", promhttp.Handler())
-    go func() {
-        if err := srv.ListenAndServe(); err != nil {
-            glog.Infof("Httpserver: ListenAndServe() finished with error: %s", err)
-        }
-    }()
-
-    // Wait for the service to shutdown
-    <-stopCh
-
-    // Close the http server gracefully
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    srv.Shutdown(ctx)
-
+ctx := context.TODO()
+tag.New(
+    ctx,
+    tag.Insert(namespaceTagKey, namespace),
+    tag.Insert(revisionTagKey, revision))
+stats.Record(ctx, desiredPodCountM.M({Measurement Value}))
 ```
 
-5. Add a Service for the metrics http endpoint:
+4. Add the following to scape config file located at config/monitoring/200-common/300-prometheus/100-scrape-config.yaml:
 
 ```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: myappname
-    prometheus: myappname
-  name: myappname
-  namespace: mynamespace
-spec:
-  ports:
-  - name: metrics
-    port: 9090
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    app: myappname # put the appropriate value here to select your application
+- job_name: <YOUR SERVICE NAME>
+    kubernetes_sd_configs:
+    - role: endpoints
+    relabel_configs:
+    # Scrape only the the targets matching the following metadata
+    - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+    action: keep
+    regex: {SERVICE NAMESPACE};{APP LABEL};{PORT NAME}
+    # Rename metadata labels to be reader friendly
+    - source_labels: [__meta_kubernetes_namespace]
+    action: replace
+    regex: (.*)
+    target_label: namespace
+    replacement: $1
+    - source_labels: [__meta_kubernetes_pod_name]
+    action: replace
+    regex: (.*)
+    target_label: pod
+    replacement: $1
+    - source_labels: [__meta_kubernetes_service_name]
+    action: replace
+    regex: (.*)
+    target_label: service
+    replacement: $1
 ```
 
-6. Add a ServiceMonitor to tell Prometheus to discover pods and scrape the service defined above:
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: myappname
-  namespace: monitoring
-  labels:
-    monitor-category: ela-system # Shared Prometheus instance only targets 'k8s', 'istio', 'node',
-                                 # 'prometheus' or 'ela-system' - if you pick something else,
-                                 # you need to deploy your own Prometheus instance or edit shared
-                                 # instance to target the new category
-spec:
-  selector:
-    matchLabels:
-      app: myappname
-      prometheus: myappname
-  namespaceSelector:
-    matchNames:
-    - mynamespace
-  endpoints:
-  - port: metrics
-    interval: 30s
+5. Redeploy prometheus and its configuration:
+```sh
+kubectl delete -f config/monitoring/200-common/300-prometheus
+kubectl apply -f config/monitoring/200-common/300-prometheus
 ```
 
-7. Add a dashboard for your metrics - you can see examples of it under
+6. Add a dashboard for your metrics - you can see examples of it under
 config/grafana/dashboard-definition folder. An easy way to generate JSON
 definitions is to use Grafana UI (make sure to login with as admin user) and [export JSON](http://docs.grafana.org/reference/export_import) from it.
 
-8. Redeploy changes.
-
-9. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
+7. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
 above to enable Prometheus UI)
 
 ## Generating logs

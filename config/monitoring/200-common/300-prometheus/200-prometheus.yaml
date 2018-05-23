@@ -182,35 +182,78 @@ kind: Service
 metadata:
   name: prometheus-system-np
   namespace: monitoring
-  annotations:
-      prometheus.io/scrape: 'true'
-      prometheus.io/path:   /
-      prometheus.io/port:   '8080'
 spec:
   type: NodePort
   selector:
     app: prometheus
-    prometheus: system
   ports:
     - port: 8080
       targetPort: 9090
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: Prometheus
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: system
+  name: prometheus-system
   namespace: monitoring
-  labels:
-    app: prometheus
-    prometheus: system
 spec:
   replicas: 2
-  version: v2.2.1
-  serviceAccountName: prometheus-system
-  serviceMonitorSelector:
-    matchExpressions:
-    - {key: monitor-category, operator: In, values: [k8s,istio,node,prometheus,ela-system]}
-  resources:
-    requests:
-      # TODO: Needs to be modified based on the actual usage.
-      memory: 400Mi
+  podManagementPolicy: Parallel
+  serviceName: prometheus-system
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - args:
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus
+        - --storage.tsdb.retention=2d
+        - --storage.tsdb.no-lockfile
+        - --web.enable-lifecycle
+        - --web.route-prefix=/
+        image: prom/prometheus:v2.2.1
+        imagePullPolicy: IfNotPresent
+        name: prometheus
+        ports:
+        - containerPort: 9090
+          name: web
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: web
+            scheme: HTTP
+          initialDelaySeconds: 30
+          failureThreshold: 10
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: web
+            scheme: HTTP
+          failureThreshold: 10
+          timeoutSeconds: 3
+        resources:
+          requests:
+            memory: 400Mi
+        terminationMessagePath: /dev/termination-log
+        volumeMounts:
+        - name: prometheus-config-volume
+          mountPath: /etc/prometheus/
+        - name: prometheus-storage-volume
+          mountPath: /prometheus/
+      serviceAccountName: prometheus-system
+      terminationGracePeriodSeconds: 600
+      volumes:
+      - name: prometheus-config-volume
+        configMap:
+          defaultMode: 420
+          name: prometheus-scrape-config
+      - name: prometheus-storage-volume
+        emptyDir: {}
+  updateStrategy:
+    type: RollingUpdate

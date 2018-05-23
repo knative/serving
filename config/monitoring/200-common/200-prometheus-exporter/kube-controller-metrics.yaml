@@ -19,7 +19,6 @@ metadata:
   name: kube-controller-manager
   labels:
     app: kube-controller-manager
-    prometheus: system
 spec:
   selector:
     k8s-app: kube-controller-manager
