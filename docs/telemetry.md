@@ -35,8 +35,34 @@ kubectl proxy
 ```
 Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 (*it might take a couple of minutes for the proxy to work*).
-When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As more logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+### Accessing configuration and revision logs
+To access to logs for a configuration, use the following search term in Kibana UI:
+```
+kubernetes.labels.elafros_dev\/configuration: "configuration-example"
+```
+Replace `configuration-example` with your configuration's name.
+
+To access logs for a revision, use the following search term in Kibana UI:
+```
+kubernetes.labels.elafros_dev\/revision: "configuration-example-00001"
+```
+Replace `configuration-example-00001` with your revision's name.
+
+### Accessing build logs
+To access to logs for a build, use the following search term in Kibana UI:
+```
+kubernetes.labels.build\-name: "test-build"
+```
+Replace `test-build` with your build's name. A build's name is specified in its YAML file as follows:
+```yaml
+apiVersion: build.dev/v1alpha1
+kind: Build
+metadata:
+  name: test-build
+```
 
 ## Accessing metrics
 
