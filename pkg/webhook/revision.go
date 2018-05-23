@@ -17,6 +17,7 @@ package webhook
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/golang/glog"
@@ -45,7 +46,7 @@ func ValidateRevision(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 	return nil
 }
 
-func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, crd GenericCRD) error {
 	_, revision, err := unmarshal(nil, crd, "SetRevisionDefaults")
 	if err != nil {
 		return err
@@ -54,7 +55,7 @@ func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD
 	if revision.Spec.ServingState == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/servingState",
+			Path:      path.Join(patchBase, "/servingState"),
 			Value:     v1alpha1.RevisionServingStateActive,
 		})
 	}
@@ -62,7 +63,7 @@ func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD
 	if revision.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/concurrencyModel",
+			Path:      path.Join(patchBase, "/concurrencyModel"),
 			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
 		})
 	}
