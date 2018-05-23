@@ -2,7 +2,7 @@
 
 An example that shows how to configure Ingress and RouteRule to direct traffic based on URI. You can set up other routing rules (e.g. routing based on header, etc.) based on this example.
 
-In this sample, we set up two simple web servers: "search" server and "login" server, which simplely read
+In this sample, we set up two web servers: "search" server and "login" server, which simplely read
 in an env variable 'TARGET' and prints "Search service TARGET env: ${TARGET}" and "Login service TARGET env: ${TARGET}" respectively.
 
 Then we set up an Ingress with placeholder service and a RouteRule which direct traffic to these two servers based on URI.
@@ -20,14 +20,20 @@ Build the app container and publish it to your registry of choice:
 REPO="gcr.io/<your-project-here>"
 
 # Build and publish the container, run from the root directory.
-docker build -t "${REPO}/sample/elafros-routing/search" --file=sample/elafros-routing/Dockerfile --build-arg INPUT_SERVICE=search_service --no-cache .
+docker build -t "${REPO}/sample/elafros-routing/search" \
+--file=sample/elafros-routing/Dockerfile \
+--build-arg INPUT_SERVICE=search_service --no-cache .
 
 docker push "${REPO}/sample/elafros-routing/search"
 
-docker build -t "${REPO}/sample/elafros-routing/login" --file=sample/elafros-routing/Dockerfile --build-arg INPUT_SERVICE=login_service --no-cache .
+docker build -t "${REPO}/sample/elafros-routing/login" \
+--file=sample/elafros-routing/Dockerfile \
+--build-arg INPUT_SERVICE=login_service --no-cache .
 
 docker push "${REPO}/sample/elafros-routing/login"
 
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/elafros/elafros/sample/elafros-routing@${REPO}/sample/elafros-routing@g" sample/elafros-routing/*.yaml
 
 # Deploy the "search" and "login" servers.
 kubectl apply -f sample/elafros-routing/sample.yaml
