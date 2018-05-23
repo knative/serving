@@ -28,6 +28,7 @@ data:
     <source>
       @id fluentd-containers.log
       @type tail
+      # path and exclude_path are different from prod configuration
       path /var/log/containers/*.log
       exclude_path ["/var/log/containers/istio-*.log", "/var/log/containers/kube-*.log", "/var/log/containers/kibana-*.log", "/var/log/containers/prometheus-*.log"]
       pos_file /var/log/es-containers.log.pos

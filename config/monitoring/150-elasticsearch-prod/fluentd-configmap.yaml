@@ -28,6 +28,7 @@ data:
     <source>
       @id fluentd-containers.log
       @type tail
+      # path is different from dev configuration
       path /var/log/containers/*ela-container-*.log,/var/log/containers/*build-step-*.log
       pos_file /var/log/es-containers.log.pos
       time_format %Y-%m-%dT%H:%M:%S.%NZ
