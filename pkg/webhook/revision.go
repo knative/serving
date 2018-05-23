@@ -16,6 +16,7 @@ limitations under the License.
 package webhook
 
 import (
+	"errors"
 	"fmt"
 	"path"
 
@@ -25,9 +26,13 @@ import (
 	"github.com/mattbaird/jsonpatch"
 )
 
+var (
+	errInvalidRevisionInput = errors.New("Failed to convert input into Revision.")
+)
+
 // ValidateRevision is Revision resource specific validation and mutation handler
 func ValidateRevision(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	o, n, err := unmarshal(old, new, "ValidateRevision")
+	o, n, err := unmarshalRevisions(old, new, "ValidateRevision")
 	if err != nil {
 		return err
 	}
@@ -47,7 +52,7 @@ func ValidateRevision(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 }
 
 func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-	_, revision, err := unmarshal(nil, crd, "SetRevisionDefaults")
+	_, revision, err := unmarshalRevisions(nil, crd, "SetRevisionDefaults")
 	if err != nil {
 		return err
 	}
@@ -75,22 +80,22 @@ func SetRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase 
 	return nil
 }
 
-func unmarshal(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revision, *v1alpha1.Revision, error) {
-	var oldR *v1alpha1.Revision
+func unmarshalRevisions(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revision, *v1alpha1.Revision, error) {
+	var oldRevision *v1alpha1.Revision
 	if old != nil {
 		var ok bool
-		oldR, ok = old.(*v1alpha1.Revision)
+		oldRevision, ok = old.(*v1alpha1.Revision)
 		if !ok {
-			return nil, nil, fmt.Errorf("Failed to convert old into Revision: %+v", old)
+			return nil, nil, errInvalidRevisionInput
 		}
 	}
-	glog.Infof("%s: OLD Revision is\n%+v", fnName, oldR)
+	glog.Infof("%s: OLD Revision is\n%+v", fnName, oldRevision)
 
-	newR, ok := new.(*v1alpha1.Revision)
+	newRevision, ok := new.(*v1alpha1.Revision)
 	if !ok {
-		return nil, nil, fmt.Errorf("Failed to convert new into Revision: %+v", new)
+		return nil, nil, errInvalidRevisionInput
 	}
-	glog.Infof("%s: NEW Revision is\n%+v", fnName, newR)
+	glog.Infof("%s: NEW Revision is\n%+v", fnName, newRevision)
 
-	return oldR, newR, nil
+	return oldRevision, newRevision, nil
 }
