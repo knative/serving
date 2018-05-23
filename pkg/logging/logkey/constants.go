@@ -23,11 +23,20 @@ const (
 	// Namespace is the key used for namespace in structured logs
 	Namespace = "elafros.dev/namespace"
 
+	// Service is the key used for service name in structured logs
+	Service = "elafros.dev/service"
+
+	// Configuration is the key used for configuration name in structured logs
+	Configuration = "elafros.dev/configuration"
+
 	// Revision is the key used for revision name in structured logs
 	Revision = "elafros.dev/revision"
 
 	// Route is the key used for route name in structured logs
 	Route = "elafros.dev/route"
+
+	// Build is the key used for build name in structured logs
+	Build = "elafros.dev/build"
 
 	// JSONConfig is the key used for JSON configurations (not to be confused by the Configuration object)
 	JSONConfig = "elafros.dev/jsonconfig"

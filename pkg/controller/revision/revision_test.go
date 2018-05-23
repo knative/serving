@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
@@ -239,6 +241,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		buildInformer,
 		&rest.Config{},
 		controllerConfig,
+		zap.NewNop().Sugar(),
 	).(*Controller)
 
 	controller.resolver = &nopResolver{}

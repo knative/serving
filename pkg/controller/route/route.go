@@ -93,13 +93,6 @@ type Controller struct {
 
 	// Autoscale enable scale to zero experiment flag.
 	enableScaleToZero *k8sflag.BoolFlag
-
-	// Sugared logger is easier to use but is not as performant as the
-	// raw logger. In performance critical paths, call logger.Desugar()
-	// and use the returned raw logger instead. In addition to the
-	// performance benefits, raw logger also preserves type-safety at
-	// the expense of slightly greater verbosity.
-	logger *zap.SugaredLogger
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -117,9 +110,6 @@ func NewController(
 	enableScaleToZero *k8sflag.BoolFlag,
 	logger *zap.SugaredLogger) controller.Interface {
 
-	// Enrich the logs with controller type set to route
-	logger = logger.Named("route").With(zap.String(logkey.ControllerType, "route"))
-
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
 	informer := elaInformerFactory.Elafros().V1alpha1().Routes()
@@ -128,16 +118,15 @@ func NewController(
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes"),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes", logger),
 		lister:            informer.Lister(),
 		synced:            informer.Informer().HasSynced,
 		configSynced:      configInformer.Informer().HasSynced,
 		controllerConfig:  controllerConfig,
 		enableScaleToZero: enableScaleToZero,
-		logger:            logger,
 	}
 
-	logger.Info("Setting up event handlers")
+	controller.Logger.Info("Setting up event handlers")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addConfigurationEvent,
 		UpdateFunc: controller.updateConfigurationEvent,
@@ -157,7 +146,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		c.updateRouteEvent, "Route")
 }
 
-// loggerWithRouteInfo enriches the logs with route name and route namespace.
+// loggerWithRouteInfo enriches the logs with route name and namespace.
 func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
 	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Route, name))
 }
@@ -173,7 +162,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return nil
 	}
 
-	logger := loggerWithRouteInfo(c.logger, namespace, name)
+	logger := loggerWithRouteInfo(c.Logger, namespace, name)
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Route resource with this namespace/name
@@ -890,17 +879,17 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	ns := config.Namespace
 
 	if config.Status.LatestReadyRevisionName == "" {
-		c.logger.Infof("Configuration %s is not ready", configName)
+		c.Logger.Infof("Configuration %s is not ready", configName)
 		return
 	}
 
 	routeName, ok := config.Labels[ela.RouteLabelKey]
 	if !ok {
-		c.logger.Infof("Configuration %s does not have label %s", configName, ela.RouteLabelKey)
+		c.Logger.Infof("Configuration %s does not have label %s", configName, ela.RouteLabelKey)
 		return
 	}
 
-	logger := loggerWithRouteInfo(c.logger, ns, routeName)
+	logger := loggerWithRouteInfo(c.Logger, ns, routeName)
 	ctx := logging.WithLogger(context.TODO(), logger)
 	route, err := c.lister.Routes(ns).Get(routeName)
 	if err != nil {
@@ -940,7 +929,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	routeClient := c.ElaClientSet.ElafrosV1alpha1().Routes(ns)
 	route, err := routeClient.Get(routeName, metav1.GetOptions{})
 	if err != nil {
-		c.logger.Error(
+		c.Logger.Error(
 			"Error fetching route upon ingress becoming",
 			zap.Error(err),
 			zap.String(logkey.Namespace, ns),
@@ -957,7 +946,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	})
 
 	if _, err = routeClient.Update(route); err != nil {
-		c.logger.Error(
+		c.Logger.Error(
 			"Error updating readiness of route upon ingress becoming",
 			zap.Error(err),
 			zap.String(logkey.Namespace, ns),
