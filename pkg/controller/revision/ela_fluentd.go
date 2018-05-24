@@ -17,8 +17,6 @@ limitations under the License.
 package revision
 
 import (
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -65,12 +63,11 @@ const fluentdConfigMapName = "fluentd-varlog-config"
 // MakeFluentdConfigMap creates a ConfigMap that gets mounted for fluentd
 // container on the pod.
 func MakeFluentdConfigMap(
-	rev *v1alpha1.Revision, namespace string, fluentdSidecarOutputConfig string) *corev1.ConfigMap {
+	namespace string, fluentdSidecarOutputConfig string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:      fluentdConfigMapName,
 			Namespace: namespace,
-			Labels:    MakeElaResourceLabels(rev),
 		},
 		Data: map[string]string{
 			"varlog.conf": makeFullFluentdConfig(fluentdSidecarOutputConfig),

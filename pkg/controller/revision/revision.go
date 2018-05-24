@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -841,25 +842,61 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := rev.Namespace
+
+	// One ConfigMap for Fluentd sidecar per namespace. It has multiple owner
+	// reference. Can not set blockOwnerDeletion and Controller to true.
+	revRef := newRevisionNonControllerRef(rev)
+
 	cmc := c.KubeClientSet.Core().ConfigMaps(ns)
-	_, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
+	configMap, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
+
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
 			return err
 		}
-		logger.Infof("ConfigMap %q doesn't exist, creating", fluentdConfigMapName)
-	} else {
-		logger.Infof("Found existing ConfigMap %q", fluentdConfigMapName)
-		return nil
+		// ConfigMap doesn't exist, going to create it
+		configMap = MakeFluentdConfigMap(ns, c.controllerConfig.FluentdSidecarOutputConfig)
+		configMap.OwnerReferences = append(configMap.OwnerReferences, *revRef)
+		logger.Infof("Creating configmap: %q", configMap.Name)
+		_, err = cmc.Create(configMap)
+		return err
 	}
 
-	controllerRef := controller.NewRevisionControllerRef(rev)
-	configMap := MakeFluentdConfigMap(rev, ns, c.controllerConfig.FluentdSidecarOutputConfig)
-	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
-	logger.Infof("Creating configmap: %q", configMap.Name)
-	_, err = cmc.Create(configMap)
-	return err
+	// ConfigMap exists, going to update it
+	desiredConfigMap := configMap.DeepCopy()
+	desiredConfigMap.Data = map[string]string{
+		"varlog.conf": makeFullFluentdConfig(c.controllerConfig.FluentdSidecarOutputConfig),
+	}
+	addOwnerReference(desiredConfigMap, revRef)
+	if !reflect.DeepEqual(desiredConfigMap, configMap) {
+		logger.Infof("Updating configmap: %q", desiredConfigMap.Name)
+		_, err = cmc.Update(desiredConfigMap)
+		return err
+	}
+	return nil
+}
+
+func newRevisionNonControllerRef(rev *v1alpha1.Revision) *metav1.OwnerReference {
+	blockOwnerDeletion := false
+	isController := false
+	revRef := controller.NewRevisionControllerRef(rev)
+	revRef.BlockOwnerDeletion = &blockOwnerDeletion
+	revRef.Controller = &isController
+	return revRef
+}
+
+func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.OwnerReference) {
+	isOwner := false
+	for _, existingOwner := range configMap.OwnerReferences {
+		if ownerReference.Name == existingOwner.Name {
+			isOwner = true
+			break
+		}
+	}
+	if !isOwner {
+		configMap.OwnerReferences = append(configMap.OwnerReferences, *ownerReference)
+	}
 }
 
 func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
