@@ -17,7 +17,10 @@ Build the app container and publish it to your registry of choice:
 REPO="gcr.io/<your-project-here>"
 
 # Build and publish the container, run from the root directory.
-docker build -t "${REPO}/sample/gitwebhook" --file=sample/gitwebhook/Dockerfile .
+docker build \
+  --build-arg SAMPLE=gitwebhook \
+  --tag "${REPO}/sample/gitwebhook" \
+  --file=sample/Dockerfile.golang .
 docker push "${REPO}/sample/gitwebhook"
 
 # Replace the image reference with our published image.

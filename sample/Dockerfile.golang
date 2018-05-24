@@ -13,11 +13,13 @@
 # limitations under the License.
 FROM golang
 
+ARG SAMPLE
+
 ENV SRC_DIR=/go/src/github.com/elafros/elafros
 
 WORKDIR $SRC_DIR
 ADD . $SRC_DIR
 
-RUN go build ./sample/stock-rest-app
+RUN go build ./sample/${SAMPLE}
 
-ENTRYPOINT $SRC_DIR/stock-rest-app
+ENTRYPOINT $SRC_DIR/${SAMPLE}
