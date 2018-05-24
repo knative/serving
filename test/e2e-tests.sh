@@ -73,7 +73,7 @@ function delete_istio() {
 }
 
 function delete_everything() {
-  "${OUTPUT_GOBIN}/ko" delete --ignore-not-found=true -f config/
+  ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
   delete_istio
 }
