@@ -420,6 +420,27 @@ func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
 	expectFailsWith(t, ac.admit(createCreateService(svc)), "spec.pinned.revisionName")
 }
 
+func TestValidServiceEnvChanges(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	old := createServicePinned(testGeneration, testServiceName)
+	new := createServicePinned(testGeneration, testServiceName)
+	new.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
+		corev1.EnvVar{
+			Name:  envVarName,
+			Value: "different",
+		},
+	}
+	resp := ac.admit(createUpdateService(&old, &new))
+	expectAllowed(t, resp)
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
+		jsonpatch.JsonPatchOperation{
+			Operation: "replace",
+			Path:      "/spec/generation",
+			Value:     2,
+		},
+	})
+}
+
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
@@ -538,6 +559,28 @@ func createDeployment(ac *AdmissionController) {
 		},
 	}
 	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+}
+
+func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {
+	return &admissionv1beta1.AdmissionRequest{
+		Operation: admissionv1beta1.Update,
+		Kind:      metav1.GroupVersionKind{Kind: "Service"},
+	}
+}
+
+func createUpdateService(old, new *v1alpha1.Service) *admissionv1beta1.AdmissionRequest {
+	req := createBaseUpdateService()
+	marshaled, err := json.Marshal(old)
+	if err != nil {
+		panic("failed to marshal service")
+	}
+	req.Object.Raw = marshaled
+	marshaledOld, err := json.Marshal(new)
+	if err != nil {
+		panic("failed to marshal service")
+	}
+	req.OldObject.Raw = marshaledOld
+	return req
 }
 
 func createCreateService(service v1alpha1.Service) *admissionv1beta1.AdmissionRequest {

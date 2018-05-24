@@ -218,6 +218,7 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 			},
 			"Service": GenericCRDHandler{
 				Factory:   &v1alpha1.Service{},
+				Defaulter: SetServiceDefaults,
 				Validator: ValidateService,
 			},
 		},
@@ -552,8 +553,18 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 			return err
 		}
 		glog.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+
+		operation := "replace"
+		if newGeneration := new.GetGeneration(); newGeneration == 0 {
+			// If new is missing Generation, we need to "add" instead of "replace".
+			// We see this for Service resources because the initial generation is
+			// added to the managed Configuration and Route, but not the Service
+			// that manages them.
+			// TODO(#642): Remove this.
+			operation = "add"
+		}
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "replace",
+			Operation: operation,
 			Path:      "/spec/generation",
 			Value:     oldGeneration + 1,
 		})

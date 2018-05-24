@@ -123,9 +123,9 @@ func validateContainer(container corev1.Container) error {
 }
 
 func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-	config, ok := crd.(*v1alpha1.Configuration)
-	if !ok {
-		return fmt.Errorf("Failed to convert crd into a Configuration: %+v", config)
+	_, config, err := unmarshalConfigurations(nil, crd, "SetConfigurationDefaults")
+	if err != nil {
+		return err
 	}
 
 	return SetConfigurationSpecDefaults(patches, "/spec", config.Spec)
