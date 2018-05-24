@@ -39,9 +39,6 @@ spec:
     image: packs/cf:export
     workingdir: /in
     args: ["${IMAGE}"]
-    env:
-    - name: PACK_REGISTRY_GCR
-      value: "true"
     volumeMounts:
     - name: droplet
       mountPath: /in
