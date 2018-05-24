@@ -39,11 +39,13 @@ is in process to get rid of the sidecar. The steps to configure are:
 
 1. Replace `logging.fluentd-sidecar-output-config` flag in
    [elaconfig](/config/elaconfig.yaml)  with the
-   desired output configuration.. In theory, this is the same
-   with the one for Fluentd DaemonSet.
+   desired output configuration. **NOTE**: The Fluentd DaemonSet is in
+   `monitoring` namespace while the Fluentd sidecar is in the namespace same with
+   the app. There may be small differences between the configuration for DaemonSet
+   and sidecar even though the desired backends are the same.
 1. Replace `logging.fluentd-sidecar-image` flag in
    [elaconfig](/config/elaconfig.yaml) with the Fluentd image including the
-   desired Fluentd output plugin.. In theory, this is the same
+   desired Fluentd output plugin. In theory, this is the same
    with the one for Fluentd DaemonSet.
 
 ## Deploying
@@ -52,10 +54,11 @@ Operators need to deploy Elafros components after the configuring:
 
 ```shell
 # In case there is no change with the controller code
-kubectl delete -f config/controller.yaml
-
+bazel run config:controller.delete
+# Deploy the configuration for sidecar
+kubectl apply -f config/elaconfig.yaml
 # Deploy the controller to make configuration for sidecar take effect
-kubectl apply -f config/elaconfig.yaml -f config/controller.yaml
+bazel run config:controller.apply
 
 # Deploy the DaemonSet to make configuration for DaemonSet take effect
 kubectl apply -f <the-fluentd-config-for-daemonset> \
