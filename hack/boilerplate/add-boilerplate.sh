@@ -14,18 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Add boilerplate.<ext>.txt to all .<ext> files missing it in a directory.
-#
-# Usage: (from repository root)
-#        ./hack/boilerplate/add-boilerplate.sh <ext> <DIR>
-#
-# Example: (from repository root)
-#          ./hack/boilerplate/add-boilerplate.sh go cmd
+USAGE=$(cat <<EOF
+Add boilerplate.<ext>.txt to all .<ext> files missing it in a directory.
+
+Usage: (from repository root)
+       ./hack/boilerplate/add-boilerplate.sh <ext> <DIR>
+
+Example: (from repository root)
+         ./hack/boilerplate/add-boilerplate.sh go cmd
+EOF
+)
 
 set -e
 
 if [[ -z $1 || -z $2 ]]; then
-  head -23 $0 | tail -7 | cut -b3-
+  echo "${USAGE}"
   exit 1
 fi
 
