@@ -25,11 +25,13 @@ readonly ELAFROS_GKE_VERSION=1.9.6-gke.1
 [[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
 readonly ELAFROS_ROOT_DIR="$(dirname $(readlink -f ${BASH_SOURCE}))/.."
+readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
 
 # Copy of *_OVERRIDE variables
 readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
 readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
 readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
+readonly OG_KO_DOCKER_REPO="${KO_DOCKER_REPO}"
 
 # Returns a UUID
 function uuid() {
@@ -56,6 +58,7 @@ function restore_override_vars() {
   export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
   export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
   export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
+  export KO_DOCKER_REPO="${OG_KO_DOCKER_REPO}"
 }
 
 # Remove ALL images in the given GCR repository.
@@ -121,4 +124,19 @@ function gcr_auth() {
   gcloud components install docker-credential-gcr
   docker-credential-gcr configure-docker
   echo "Successfully authenticated"
+}
+
+# Installs ko in $OUTPUT_GOBIN
+function install_ko() {
+  GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
+}
+
+# Runs ko; prefers using the one installed by install_ko().
+# Parameters: $1..$n - arguments to ko
+function ko() {
+  if [[ -e "${OUTPUT_GOBIN}/ko" ]]; then
+    "${OUTPUT_GOBIN}/ko" $@
+  else
+    ko $@
+  fi
 }
