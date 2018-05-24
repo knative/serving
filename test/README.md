@@ -63,7 +63,7 @@ These tests require:
 ### Conformance test images
 
 The configuration for the images used for the existing conformance tests lives in
-[`test_images_node`](./conformance/test_images_node). See the [section about test
+[`test_images_go`](./conformance/test_images_go). See the [section about test
 images](#test-images) for details about building and adding new ones.
 
 ### Running conformance tests with Bazel
