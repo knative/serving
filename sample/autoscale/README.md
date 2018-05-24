@@ -15,7 +15,10 @@ Build the autoscale app container and publish it to your registry of choice:
 REPO="gcr.io/<your-project-here>"
 
 # Build and publish the container, run from the root directory.
-docker build -t "${REPO}/sample/autoscale" --file=sample/autoscale/Dockerfile .
+docker build \
+  --build-arg SAMPLE=autoscale \
+  --tag "${REPO}/sample/autoscale" \
+  --file=sample/Dockerfile.golang .
 docker push "${REPO}/sample/autoscale"
 
 # Replace the image reference with our published image.

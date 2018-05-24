@@ -21,7 +21,10 @@ Build the app container and publish it to your registry of choice:
 REPO="gcr.io/<your-project-here>"
 
 # Build and publish the container, run from the root directory.
-docker build -t "${REPO}/sample/telemetrysample" --file=sample/telemetrysample/Dockerfile .
+docker build \
+  --build-arg SAMPLE=telemetrysample \
+  --tag "${REPO}/sample/telemetrysample" \
+  --file=sample/Dockerfile.golang .
 docker push "${REPO}/sample/telemetrysample"
 
 # Replace the image reference with our published image.

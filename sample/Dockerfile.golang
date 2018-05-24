@@ -11,13 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM golang
 
-ENV SRC_DIR=/go/src/github.com/elafros/elafros
+FROM golang AS builder
+ARG SAMPLE
 
-WORKDIR $SRC_DIR
-ADD . $SRC_DIR
+WORKDIR /go/src/github.com/elafros/elafros
+ADD . /go/src/github.com/elafros/elafros
 
-RUN go build ./sample/stock-rest-app
+RUN CGO_ENABLED=0 go build ./sample/${SAMPLE}
 
-ENTRYPOINT $SRC_DIR/stock-rest-app
+
+FROM gcr.io/distroless/base
+ARG SAMPLE
+
+COPY --from=builder /go/src/github.com/elafros/elafros/${SAMPLE} /sample
+
+ENTRYPOINT ["/sample"]
