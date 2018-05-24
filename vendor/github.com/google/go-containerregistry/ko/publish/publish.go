@@ -24,5 +24,5 @@ type Interface interface {
 	// Publish uploads the given v1.Image to a registry incorporating the
 	// provided string into the image's repository name.  Returns the digest
 	// of the published image.
-	Publish(v1.Image, string) (*name.Digest, error)
+	Publish(v1.Image, string) (name.Reference, error)
 }

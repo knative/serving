@@ -31,7 +31,7 @@ var (
 	baseImageOverrides map[string]name.Reference
 )
 
-func GetBaseImage(s string) (v1.Image, error) {
+func getBaseImage(s string) (v1.Image, error) {
 	ref, ok := baseImageOverrides[s]
 	if !ok {
 		ref = defaultBaseImage
@@ -40,7 +40,7 @@ func GetBaseImage(s string) (v1.Image, error) {
 	return remote.Image(ref, authn.Anonymous, http.DefaultTransport)
 }
 
-func GetMountPaths() []name.Repository {
+func getMountPaths() []name.Repository {
 	repos := make([]name.Repository, 0, len(baseImageOverrides)+1)
 	repos = append(repos, defaultBaseImage.Context())
 	for _, v := range baseImageOverrides {

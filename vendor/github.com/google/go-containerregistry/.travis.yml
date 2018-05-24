@@ -9,9 +9,6 @@ before_install:
   # Bazel requires JDK8
   - sudo apt-get install oracle-java8-installer
 
-install:
-  - go get -u github.com/bazelbuild/buildifier/buildifier
-
 services:
   - docker
 
@@ -26,10 +23,6 @@ addons:
 script:
   - bazel clean && bazel build //...
   - bazel clean && bazel test --test_output=errors //...
-
-  # Check for issues with the format of our bazel config files.
-  - buildifier -mode=check $(find . -name BUILD.bazel -type f)
-  - buildifier -mode=check $(find . -name WORKSPACE -type f)
 
   # Verify that all source files are correctly formatted.
   - find . -name "*.go" | grep -v vendor/ | xargs gofmt -d -e -l

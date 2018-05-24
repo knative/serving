@@ -8,7 +8,7 @@ with Kubernetes and minimal configuration.
 `ko` can be installed via:
 
 ```shell
-go install github.com/google/go-containerregistry/cmd/ko
+go get -u github.com/google/go-containerregistry/cmd/ko
 ```
 
 ## The `ko` Model
@@ -83,18 +83,18 @@ roughly 10 seconds (dominated by two `go build`s).
 ~/go/src/github.com/mattmoor/warm-image$ ko apply -f config/
 2018/04/25 17:11:28 Go building github.com/mattmoor/warm-image/cmd/sleeper
 2018/04/25 17:11:28 Go building github.com/mattmoor/warm-image/cmd/controller
-2018/04/25 17:11:29 Publishing us.gcr.io/convoy-adapter/github.com/mattmoor/warm-image/cmd/sleeper:latest
+2018/04/25 17:11:29 Publishing gcr.io/my-project/github.com/mattmoor/warm-image/cmd/sleeper:latest
 2018/04/25 17:11:30 mounted sha256:eb05f3dbdb543cc610527248690575bacbbcebabe6ecf665b189cf18b541e3ca
 2018/04/25 17:11:30 mounted sha256:3ca7d60fa89dc8a1faea3046fd3516f23dab93489f3888ae539df4abc0973e52
 2018/04/25 17:11:30 mounted sha256:e2cc7c829942a768015dbcfdad7205c104cb85b84a79573555a8f4381b98110c
-2018/04/25 17:11:30 pushed us.gcr.io/convoy-adapter/github.com/mattmoor/warm-image/cmd/sleeper:latest
-2018/04/25 17:11:30 Published us.gcr.io/convoy-adapter/github.com/mattmoor/warm-image/cmd/sleeper@sha256:193acdbeff1ea9f105f49d97a6ceb7adbd30b3d64a8b9949382f4be9569cd06d
-2018/04/25 17:11:37 Publishing us.gcr.io/convoy-adapter/github.com/mattmoor/warm-image/cmd/controller:latest
+2018/04/25 17:11:30 pushed gcr.io/my-project/github.com/mattmoor/warm-image/cmd/sleeper:latest
+2018/04/25 17:11:30 Published gcr.io/my-project/github.com/mattmoor/warm-image/cmd/sleeper@sha256:193acdbeff1ea9f105f49d97a6ceb7adbd30b3d64a8b9949382f4be9569cd06d
+2018/04/25 17:11:37 Publishing gcr.io/my-project/github.com/mattmoor/warm-image/cmd/controller:latest
 2018/04/25 17:11:37 mounted sha256:dc0dd55edef1443e976c835825479c3dc713bb689547f8a170f8a0d14f9ff734
 2018/04/25 17:11:37 mounted sha256:eb05f3dbdb543cc610527248690575bacbbcebabe6ecf665b189cf18b541e3ca
 2018/04/25 17:11:37 mounted sha256:fbc44e14a1d848ed485b5c3f03611c3e21aaa197fcba579255e5f8416a1b7172
-2018/04/25 17:11:38 pushed us.gcr.io/convoy-adapter/github.com/mattmoor/warm-image/cmd/controller:latest
-2018/04/25 17:11:38 Published us.gcr.io/convoy-adapter/github.com/mattmoor/warm-image/cmd/controller@sha256:78794915fca48d0c4b339dc1df91a72f1e4bc6a7b33beaeef8aecda0947d5d31
+2018/04/25 17:11:38 pushed gcr.io/my-project/github.com/mattmoor/warm-image/cmd/controller:latest
+2018/04/25 17:11:38 Published gcr.io/my-project/github.com/mattmoor/warm-image/cmd/controller@sha256:78794915fca48d0c4b339dc1df91a72f1e4bc6a7b33beaeef8aecda0947d5d31
 clusterrolebinding "warmimage-controller-admin" configured
 deployment "warmimage-controller" unchanged
 namespace "warmimage-system" configured
@@ -104,7 +104,28 @@ customresourcedefinition "warmimages.mattmoor.io" configured
 
 ## Usage
 
-`ko` has three commands that interact with Kubernetes resources.
+`ko` has four commands:
+
+### `ko publish`
+
+`ko publish` simply builds and publishes images for each import path passed as
+an argument. It prints the images' published digests after each image is published.
+
+```shell
+$ ko publish github.com/mattmoor/warm-image/cmd/sleeper
+2018/04/25 17:11:28 Go building github.com/mattmoor/warm-image/cmd/sleeper
+2018/04/25 17:11:29 Publishing gcr.io/my-project/github.com/mattmoor/warm-image/cmd/sleeper:latest
+2018/04/25 17:11:30 mounted sha256:eb05f3dbdb543cc610527248690575bacbbcebabe6ecf665b189cf18b541e3ca
+2018/04/25 17:11:30 mounted sha256:3ca7d60fa89dc8a1faea3046fd3516f23dab93489f3888ae539df4abc0973e52
+2018/04/25 17:11:30 mounted sha256:e2cc7c829942a768015dbcfdad7205c104cb85b84a79573555a8f4381b98110c
+2018/04/25 17:11:30 pushed gcr.io/my-project/github.com/mattmoor/warm-image/cmd/sleeper:latest
+2018/04/25 17:11:30 Published gcr.io/my-project/github.com/mattmoor/warm-image/cmd/sleeper@sha256:193acdbeff1ea9f105f49d97a6ceb7adbd30b3d64a8b9949382f4be9569cd06d
+```
+
+To determine where to publish the images, `ko` currently requires the
+environment variable `KO_DOCKER_REPO` to be set to an acceptable docker
+repository (e.g. `gcr.io/your-project`). **This will likely change in a
+future version.**
 
 ### `ko resolve`
 
@@ -112,13 +133,8 @@ customresourcedefinition "warmimages.mattmoor.io" configured
 and (based on the [model above](#the-ko-model)) determines the set of
 Go import paths to build, containerize, and publish.
 
-To determine where to publish the images, `ko` currently requires the
-environment variable `KO_DOCKER_REPO` to be set to an acceptable docker
-repository (e.g. `gcr.io/your-project`). **This will likely change in a
-future version.**
-
 The output of `ko resolve` is the concatenated yaml with import paths
-replaced with published image digests.  Following the example above,
+replaced with published image digests. Following the example above,
 this would be:
 
 ```shell
@@ -153,7 +169,7 @@ would sacrifice some amount of identifiability.*
 
 `ko apply` is intended to parallel `kubectl apply`, but acts on the same
 resolved output as `ko resolve` emits. It is expected that `ko apply` will act
-as the vehicle for rapid iteration during development.  As changes are made to a
+as the vehicle for rapid iteration during development. As changes are made to a
 particular application, you can run: `ko apply -f unit.yaml` to rapidly
 rebuild, repush, and redeploy their changes.
 
@@ -162,22 +178,21 @@ to whatever `kubectl` context is active.
 
 ### `ko delete`
 
-`ko delete` simply passes through to `kubectl delete`, as with the `go`
-commands. It is exposed purely out of convenience for cleaning up resources
-created through `ko apply`.
+`ko delete` simply passes through to `kubectl delete`. It is exposed purely out
+of convenience for cleaning up resources created through `ko apply`.
 
 ## Configuration via `.ko.yaml`
 
 While `ko` aims to have zero configuration, there are certain scenarios where
 you will want to override `ko`'s default behavior. This is done via `.ko.yaml`.
 
-`.ko.yaml` is put into the directory from which `ko` will be invoked.  If it
+`.ko.yaml` is put into the directory from which `ko` will be invoked. If it
 is not present, then `ko` will rely on its default behaviors.
 
 ### Overriding the default base image
 
 By default, `ko` makes use of `gcr.io/distroless/base:latest` as the base image
-for containers.  There are a wide array of scenarios in which overriding this
+for containers. There are a wide array of scenarios in which overriding this
 makes sense, for example:
 1. Pinning to a particular digest of this image for repeatable builds,
 1. Replacing this streamlined base image with another with better debugging
