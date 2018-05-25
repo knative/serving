@@ -17,7 +17,6 @@ kind: Service
 metadata:
   labels:
     app: ela-controller
-    prometheus: ela-controller
   name: ela-controller
   namespace: ela-system
 spec:
