@@ -53,9 +53,10 @@ data:
       @type kubernetes_metadata
     </filter>
   300.forward.input.conf: |-
-    # Takes the messages sent over TCP
+    # Takes the messages sent over TCP, e.g. request logs from Istio
     <source>
       @type forward
+      port 24224
     </source>
   900.output.conf: |-
     # Send to Elastic Search
