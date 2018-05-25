@@ -40,10 +40,6 @@
   name = "k8s.io/kubernetes"
   version = "1.10.0"
 
-[[constraint]]
-  branch = "master"
-  name = "github.com/google/go-containerregistry"
-
 [prune]
   go-tests = true
   unused-packages = true

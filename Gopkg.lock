@@ -360,7 +360,7 @@
   branch = "master"
   name = "github.com/mattmoor/k8schain"
   packages = ["."]
-  revision = "2ff35c9d8b5ea68a46b76e52ad1ba251ac940ae3"
+  revision = "9f8b5c528673cdc2e8ebac0b2930ad1c00a7cb35"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
