@@ -50,8 +50,14 @@ const fluentdSidecarPreOutputConfig = `
 	@type record_transformer
 	enable_ruby true
 	<record>
-	  kubernetes ${ {"container_name": "#{ENV['ELA_CONTAINER_NAME']}", "namespace_name": "#{ENV['ELA_NAMESPACE']}", "pod_name": "#{ENV['ELA_POD_NAME']}", "labels": {"elafros_dev/configuration": "#{ENV['ELA_CONFIGURATION']}", "elafros_dev/revision": "#{ENV['ELA_REVISION']}"} } }
+		kubernetes.container_name "#{ENV['ELA_CONTAINER_NAME']}"
+		kubernetes.labels.elafros_dev/configuration "#{ENV['ELA_CONFIGURATION']}"
+		kubernetes.labels.elafros_dev/revision "#{ENV['ELA_REVISION']}"
+		kubernetes.namespace_name "#{ENV['ELA_NAMESPACE']}"
+		kubernetes.pod_name "#{ENV['ELA_POD_NAME']}"
 		stream varlog
+		# Line breaks may be trimmed when collecting from files. Add them back so that
+		# multi line logs are still in multi line after combined by detect_exceptions.
 		# Remove this if https://github.com/GoogleCloudPlatform/fluent-plugin-detect-exceptions/pull/10 is released
 		log ${ if record["log"].end_with?("\n") then record["log"] else record["log"] + "\n" end }
 	</record>
