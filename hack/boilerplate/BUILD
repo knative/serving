@@ -1,1 +1,4 @@
-exports_files(["boilerplate.go.txt", "boilerplate.sh.txt"])
+exports_files([
+    "boilerplate.go.txt",
+    "boilerplate.sh.txt",
+])
