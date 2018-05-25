@@ -612,18 +612,6 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 	logger.Info("Deleted deployment")
 
-	err = c.deleteAutoscalerDeployment(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Deployment")
-
-	err = c.deleteAutoscalerService(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Service")
-
 	err = c.deleteService(ctx, rev, ns)
 	if err != nil {
 		logger.Error("Failed to delete k8s service", zap.Error(err))
@@ -654,13 +642,6 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		return err
 	}
 
-	// Autoscale the service
-	if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
-		logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
-	}
-	if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
-		logger.Error("Failed to create autoscaler Service", zap.Error(err))
-	}
 	if c.controllerConfig.EnableVarLogCollection {
 		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
 			logger.Error("Failed to create fluent config map", zap.Error(err))
@@ -756,7 +737,10 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
+	podSpec, err := MakeElaPodSpec(rev, c.controllerConfig)
+	if err != nil {
+		return err
+	}
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 

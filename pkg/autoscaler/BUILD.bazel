@@ -11,7 +11,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/golang/glog:go_default_library",
-        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.opencensus.io/stats:go_default_library",
         "//vendor/go.opencensus.io/stats/view:go_default_library",
         "//vendor/go.opencensus.io/tag:go_default_library",
@@ -27,7 +26,6 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//vendor/github.com/golang/glog:go_default_library",
-        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.opencensus.io/stats/view:go_default_library",
     ],
 )

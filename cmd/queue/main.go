@@ -63,7 +63,9 @@ const (
 )
 
 var (
-	podName                  string
+	podName string
+	// elaRevision is the revision name prepended with its namespace, e.g.
+	// namespace/name.
 	elaRevision              string
 	elaAutoscaler            string
 	elaAutoscalerPort        string
@@ -95,7 +97,7 @@ func init() {
 	if elaAutoscaler == "" {
 		glog.Fatal("No ELA_AUTOSCALER provided.")
 	}
-	glog.Infof("ELA_AUTOSCALER=%v", elaRevision)
+	glog.Infof("ELA_AUTOSCALER=%v", elaAutoscaler)
 
 	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
 	if elaAutoscalerPort == "" {
@@ -115,10 +117,7 @@ func connectStatSink() {
 		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
 	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
-		// Everything is coming up at the same time.  We wait a
-		// second first to let the autoscaler start serving.  And
-		// we wait 1 second between attempts to connect so we
-		// don't overwhelm the autoscaler.
+		//TODO use exponential backoff here
 		time.Sleep(time.Second)
 
 		dialer := &websocket.Dialer{
@@ -130,9 +129,19 @@ func connectStatSink() {
 		} else {
 			glog.Info("Connected to stat sink.")
 			statSink = conn
-			return
+			waitForClose(conn)
 		}
 		glog.Error("Retrying connection to autoscaler.")
+	}
+}
+
+func waitForClose(c *websocket.Conn) {
+	for {
+		if _, _, err := c.NextReader(); err != nil {
+			glog.Errorf("Error reading from websocket: %v", err)
+			c.Close()
+			return
+		}
 	}
 }
 
@@ -143,20 +152,20 @@ func statReporter() {
 			glog.Error("Stat sink not connected.")
 			continue
 		}
+		sm := autoscaler.StatMessage{
+			Stat:        *s,
+			RevisionKey: elaRevision,
+		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
-		err := enc.Encode(s)
+		err := enc.Encode(sm)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
-			glog.Error(err)
-			statSink = nil
-			glog.Error("Attempting reconnection to stat sink.")
-			go connectStatSink()
-			continue
+			glog.Errorf("Error writing stat message: %v", err)
 		}
 	}
 }

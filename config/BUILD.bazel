@@ -39,6 +39,14 @@ k8s_object(
 )
 
 k8s_object(
+    name = "autoscaling-controller",
+    images = {
+        "github.com/elafros/elafros/cmd/autoscaling-controller": "//cmd/autoscaling-controller:image",
+    },
+    template = "autoscaling-controller.yaml",
+)
+
+k8s_object(
     name = "namespace",
     template = "a-namespace.yaml",
 )
@@ -88,6 +96,11 @@ k8s_object(
     template = "controller-service.yaml",
 )
 
+k8s_object(
+    name = "autoscaling-controller-service",
+    template = "autoscaling-controller-service.yaml",
+)
+
 load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
 
 k8s_objects(
@@ -122,5 +135,7 @@ k8s_objects(
         ":elawebhookservice",
         ":activator",
         ":ela-activator-service",
+        ":autoscaling-controller",
+        ":autoscaling-controller-service",
     ],
 )

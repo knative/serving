@@ -117,11 +117,11 @@ func autoscaler() {
 		log.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    targetConcurrency,
-		MaxScaleUpRate:       k8sflag.Float64("autoscale.max-scale-up-rate", 0.0, k8sflag.Required),
-		StableWindow:         k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required),
-		PanicWindow:          k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required),
-		ScaleToZeroThreshold: k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic),
+		TargetConcurrency:    targetConcurrency.Get(),
+		MaxScaleUpRate:       k8sflag.Float64("autoscale.max-scale-up-rate", 0.0, k8sflag.Required).Get(),
+		StableWindow:         *k8sflag.Duration("autoscale.stable-window", nil, k8sflag.Required).Get(),
+		PanicWindow:          *k8sflag.Duration("autoscale.panic-window", nil, k8sflag.Required).Get(),
+		ScaleToZeroThreshold: *k8sflag.Duration("autoscale.scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic).Get(),
 	}
 	a := ela_autoscaler.NewAutoscaler(config, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
@@ -232,13 +232,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var stat ela_autoscaler.Stat
-		err = dec.Decode(&stat)
+		var sm ela_autoscaler.StatMessage
+		err = dec.Decode(&sm)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
-		statChan <- stat
+		statChan <- sm.Stat
 	}
 }
 

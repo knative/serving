@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
@@ -270,11 +269,11 @@ func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
 	panicWindow := 6 * time.Second
 	scaleToZeroThreshold := 5 * time.Minute
 	config := Config{
-		TargetConcurrency:    k8sflag.Float64("target-concurrency", targetConcurrency),
-		MaxScaleUpRate:       k8sflag.Float64("max-scale-up-rate", 10.0),
-		StableWindow:         k8sflag.Duration("stable-window", &stableWindow),
-		PanicWindow:          k8sflag.Duration("panic-window", &panicWindow),
-		ScaleToZeroThreshold: k8sflag.Duration("scale-to-zero-threshold", &scaleToZeroThreshold),
+		TargetConcurrency:    targetConcurrency,
+		MaxScaleUpRate:       10.0,
+		StableWindow:         stableWindow,
+		PanicWindow:          panicWindow,
+		ScaleToZeroThreshold: scaleToZeroThreshold,
 	}
 	return NewAutoscaler(config, &mockReporter{})
 }
