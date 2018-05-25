@@ -100,7 +100,7 @@ To check out this repository:
 _Adding the `upstream` remote sets you up nicely for regularly [syncing your
 fork](https://help.github.com/articles/syncing-a-fork/)._
 
-Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-knative).
+Once you reach this point you are ready to do a full build and deploy as described below.
 
 ## Starting Knative Serving
 
@@ -129,6 +129,8 @@ kubectl apply -f ./third_party/config/build/release.yaml
 ```
 
 ### Deploy Knative Serving
+
+This step includes building Knative Serving, creating and pushing developer images and deploying them to your Kubernetes cluster.
 
 ```shell
 # With ko
