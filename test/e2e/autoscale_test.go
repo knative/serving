@@ -78,7 +78,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	imagePath := strings.Join(
 		[]string{
 			test.Flags.DockerRepo,
-			NamespaceName + "-autoscale"},
+			"autoscale"},
 		"/")
 
 	log.Println("Creating a new Route and Configuration")
