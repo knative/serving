@@ -94,7 +94,7 @@ new fields will be discovered and to have them indexed, go to Management -> Inde
 
 ### Stackdriver
 
-Go to [Pantheon logging page](https://pantheon.corp.google.com/logs/viewer) for
+Go to [Pantheon logging page](https://console.cloud.google.com/logs/viewer) for
 your GCP project which stores your logs via Stackdriver.
 
 ## Accessing metrics
@@ -161,7 +161,7 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-If you want to send metrics from your controller, follow the steps below. 
+If you want to send metrics from your controller, follow the steps below.
 These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
 simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
 instrument your code as described in step 3.

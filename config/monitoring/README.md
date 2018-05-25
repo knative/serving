@@ -1,7 +1,8 @@
 # Monitoring Deployment
 
-This folder contains deployment files for monitoring components. For example, if operators require sending standard logs to Elasticsearch,
-they can install monitoring components by running the following at the root of the repository:
+This folder contains deployment files for monitoring components. For example, if
+operators require sending standard logs to **Elasticsearch**, they can install
+monitoring components by running the following at the root of the repository:
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
@@ -22,10 +23,11 @@ a three digit prefix is added.
 * The root folder (`config/monitoring`) is special. It requires the following installation ordering:
 
   * `/config/monitoring/100-common`
-  * Only one of `/config/monitoring/150-*`. File with `dev` postfix is a
-  special configuration that enables verbose logging and should only be used for development purposes. File with `elasticsearch` or `stackdriver` indicates the logging destination.
+  * Only one of `/config/monitoring/150-*`. File with `dev` postfix is a special
+    configuration that enables verbose logging and should only be used for development
+    purposes. File with `elasticsearch` or `stackdriver` indicates the logging destination.
   * `/third_party/config/monitoring/common`
   * `/third_party/config/monitoring/elasticsearch`. Required only when Elasticsearch is used as logging destination.
   * `/config/monitoring/200-common`
   * `100-istio.yaml` is installed a second time due to a bug in Istio 0.6.0, which requires metric
-  and logging changes to be applied a second time to work.
+    and logging changes to be applied a second time to work.
