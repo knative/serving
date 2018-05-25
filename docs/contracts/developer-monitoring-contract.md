@@ -37,7 +37,20 @@ Cluster operator can implement their own plugins.
 
 ### Log Formats
 
-The following formats are supported.
+The following formats are supported. For each format, default metadata in Json
+will be added by Elafros to the log record. For example,
+`kubernetes.namespace_name` means
+
+```json
+{
+  kubernetes: {
+    namespace_name: "default",
+  }
+}
+```
+
+**NOTE**: Operators have the ability to custom log records. The metadata of log
+records can be different from the default mentioned below.
 
 * **Plain text**: A single line regarded as plain text. The following metadata
   will be added to the log record:
@@ -56,22 +69,6 @@ The following formats are supported.
     `/var/log/foo/bar.log` is `foo.bar.log`.
   * *time*: Time when the log was collected. **NOTE**: Developers need to add
     timestamp in the log content if they want the timestamp to be accurate.
-
-**NOTE**: The metadata mentioned in this contract is in Json format. For example,
-a log record looks like:
-
-```
-{
-  log: "Hello world",
-  kubernetes: {
-    container_name: "ela-container",
-    labels: {
-      kubernetes.labels.elafros_dev/revision: "sample-revision",
-    }
-  }
-  ...
-}
-```
 
 * **Structured**: A single line of serialized JSON. If a single line fails to be
   parsed into JSON, it will be treated as plain text. For example, if a log is
