@@ -18,6 +18,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
+	gb "go/build"
 	"io"
 	"io/ioutil"
 	"log"
@@ -58,7 +59,11 @@ func computeImportpath() (string, error) {
 		return "", err
 	}
 	// Go code lives under $GOPATH/src/...
-	src := path.Join(os.Getenv("GOPATH"), "src")
+	gopath := os.Getenv("GOPATH")
+	if gopath == "" {
+		gopath = gb.Default.GOPATH
+	}
+	src := path.Join(gopath, "src")
 	if !strings.HasPrefix(wd, src) {
 		return "", fmt.Errorf("working directory %q must be on GOPATH %q", wd, src)
 	}

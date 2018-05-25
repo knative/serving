@@ -27,6 +27,12 @@
   version = "v10.8.1"
 
 [[projects]]
+  name = "github.com/Microsoft/go-winio"
+  packages = ["."]
+  revision = "7da180ee92d8bd8bb8c37fc560e673e6557c392f"
+  version = "v0.4.7"
+
+[[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -80,25 +86,44 @@
   version = "v3.2.0"
 
 [[projects]]
+  name = "github.com/docker/distribution"
+  packages = [
+    "digest",
+    "reference"
+  ]
+  revision = "48294d928ced5dd9b378f7fd7c6f5da3ff3f2c89"
+  version = "v2.6.2"
+
+[[projects]]
   name = "github.com/docker/docker"
   packages = [
     "api/types",
     "api/types/blkiodev",
     "api/types/container",
+    "api/types/events",
     "api/types/filters",
     "api/types/mount",
     "api/types/network",
+    "api/types/reference",
     "api/types/registry",
     "api/types/strslice",
     "api/types/swarm",
-    "api/types/versions"
+    "api/types/time",
+    "api/types/versions",
+    "api/types/volume",
+    "client",
+    "pkg/tlsconfig"
   ]
   revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
   version = "v1.13.1"
 
 [[projects]]
   name = "github.com/docker/go-connections"
-  packages = ["nat"]
+  packages = [
+    "nat",
+    "sockets",
+    "tlsconfig"
+  ]
   revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
   version = "v0.3.0"
 
@@ -190,7 +215,6 @@
   version = "v0.2.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/google/go-containerregistry"
   packages = [
     "authn",
@@ -200,6 +224,7 @@
     "ko/resolve",
     "name",
     "v1",
+    "v1/daemon",
     "v1/empty",
     "v1/mutate",
     "v1/partial",
@@ -210,7 +235,7 @@
     "v1/types",
     "v1/v1util"
   ]
-  revision = "b90f2d2210b36a60a7e7ca5b0b5c9892f22e072e"
+  revision = "7f1e66edb3a89174cb95bbc9ab5324449cd80d69"
 
 [[projects]]
   name = "github.com/google/go-github"
@@ -369,6 +394,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/prometheus/client_golang"
   packages = [
     "prometheus",
@@ -505,7 +536,8 @@
     "http2",
     "http2/hpack",
     "idna",
-    "lex/httplex"
+    "lex/httplex",
+    "proxy"
   ]
   revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
 
@@ -520,6 +552,12 @@
     "jwt"
   ]
   revision = "30785a2c434e431ef7c507b54617d6a951d5f2b4"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sync"
+  packages = ["errgroup"]
+  revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
 
 [[projects]]
   branch = "master"
@@ -914,6 +952,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dedf4eb2d6d3e04114199e35c9dd62ba99e70e150cdc93a5846a8ce345004c83"
+  inputs-digest = "e716048490f73a3162787e82676ed0ef39cf034af5eed2cdb65758053e6c2cc3"
   solver-name = "gps-cdcl"
   solver-version = 1

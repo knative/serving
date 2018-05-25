@@ -62,6 +62,8 @@ func addKubeCommands(topLevel *cobra.Command) {
 			UnknownFlags: true,
 		},
 	})
+
+	lo := &LocalOptions{}
 	fo := &FilenameOptions{}
 	apply := &cobra.Command{
 		Use: "apply -f FILENAME",
@@ -70,7 +72,7 @@ func addKubeCommands(topLevel *cobra.Command) {
 		Run: func(cmd *cobra.Command, args []string) {
 			// TODO(mattmoor): Use io.Pipe to avoid buffering the whole thing.
 			buf := bytes.NewBuffer(nil)
-			resolveFilesToWriter(fo, buf)
+			resolveFilesToWriter(fo, lo, buf)
 
 			// Issue a "kubectl apply" command reading from stdin,
 			// to which we will pipe the resolved files.
@@ -89,16 +91,30 @@ func addKubeCommands(topLevel *cobra.Command) {
 			}
 		},
 	}
+	addLocalArg(apply, lo)
 	addFileArg(apply, fo)
 	topLevel.AddCommand(apply)
+
 	resolve := &cobra.Command{
 		// TODO(mattmoor): Pick a better name.
 		Use:   "resolve -f FILENAME",
-		Short: `Print the input files with image references resolved to built/pushed image digests.`,
+		Short: "Print the input files with image references resolved to built/pushed image digests.",
 		Run: func(cmd *cobra.Command, args []string) {
-			resolveFilesToWriter(fo, os.Stdout)
+			resolveFilesToWriter(fo, lo, os.Stdout)
 		},
 	}
+	addLocalArg(resolve, lo)
 	addFileArg(resolve, fo)
 	topLevel.AddCommand(resolve)
+
+	publish := &cobra.Command{
+		Use:   "publish IMPORTPATH...",
+		Short: "Build and publish container images from the given importpaths.",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(_ *cobra.Command, args []string) {
+			publishImages(args, lo)
+		},
+	}
+	addLocalArg(publish, lo)
+	topLevel.AddCommand(publish)
 }
