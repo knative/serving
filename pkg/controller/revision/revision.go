@@ -844,12 +844,11 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	ns := rev.Namespace
 
 	// One ConfigMap for Fluentd sidecar per namespace. It has multiple owner
-	// reference. Can not set blockOwnerDeletion and Controller to true.
+	// references. Can not set blockOwnerDeletion and Controller to true.
 	revRef := newRevisionNonControllerRef(rev)
 
 	cmc := c.KubeClientSet.Core().ConfigMaps(ns)
 	configMap, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
-
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
