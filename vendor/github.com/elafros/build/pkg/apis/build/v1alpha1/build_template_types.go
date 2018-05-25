@@ -76,7 +76,7 @@ type ParameterSpec struct {
 
 	// Default, if specified, defines the default value that should be applied if
 	// the build does not specify the value for this parameter.
-	Default string `json:"default,omitempty"`
+	Default *string `json:"default,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

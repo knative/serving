@@ -16,10 +16,13 @@ package resolve
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sync"
 
 	"gopkg.in/yaml.v2"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/google/go-containerregistry/ko/build"
 	"github.com/google/go-containerregistry/ko/publish"
@@ -28,10 +31,55 @@ import (
 // ImageReferences resolves supported references to images within the input yaml
 // to published image digests.
 func ImageReferences(input []byte, builder build.Interface, publisher publish.Interface) ([]byte, error) {
+	// First, walk the input objects and collect a list of supported references
+	refs := make(map[string]struct{})
 	// The loop is to support multi-document yaml files.
 	// This is handled by using a yaml.Decoder and reading objects until io.EOF, see:
 	// https://github.com/go-yaml/yaml/blob/v2.2.1/yaml.go#L124
 	decoder := yaml.NewDecoder(bytes.NewBuffer(input))
+	for {
+		var obj interface{}
+		if err := decoder.Decode(&obj); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		// This simply returns the replaced object, which we discard during the gathering phase.
+		if _, err := replaceRecursive(obj, func(ref string) (string, error) {
+			if builder.IsSupportedReference(ref) {
+				refs[ref] = struct{}{}
+			}
+			return ref, nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Next, perform parallel builds for each of the supported references.
+	var sm sync.Map
+	var errg errgroup.Group
+	for ref := range refs {
+		ref := ref
+		errg.Go(func() error {
+			img, err := builder.Build(ref)
+			if err != nil {
+				return err
+			}
+			digest, err := publisher.Publish(img, ref)
+			if err != nil {
+				return err
+			}
+			sm.Store(ref, digest.String())
+			return nil
+		})
+	}
+	if err := errg.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Last, walk the inputs again and replace the supported references with their published images.
+	decoder = yaml.NewDecoder(bytes.NewBuffer(input))
 	buf := bytes.NewBuffer(nil)
 	encoder := yaml.NewEncoder(buf)
 	for {
@@ -42,27 +90,15 @@ func ImageReferences(input []byte, builder build.Interface, publisher publish.In
 			}
 			return nil, err
 		}
-
-		// Recursively walk input, building and publishing supported references.
-		// TODO(mattmoor): It may be worth considering gathering the supported references in
-		// a first pass, performing the builds and pushes, and then performing the
-		// substitutions in a second pass.  This would enable us to eliminate the goroutine
-		// logic embedded in the recursive walk, naturally eliminate redundant build / publish
-		// for the same reference, and potentially enable us to create a single larger build
-		// (not clear if/how much this is possible in go build).
+		// Recursively walk input, replacing supported reference with our computed digests.
 		obj2, err := replaceRecursive(obj, func(ref string) (string, error) {
 			if !builder.IsSupportedReference(ref) {
 				return ref, nil
 			}
-			img, err := builder.Build(ref)
-			if err != nil {
-				return "", err
+			if val, ok := sm.Load(ref); ok {
+				return val.(string), nil
 			}
-			digest, err := publisher.Publish(img, ref)
-			if err != nil {
-				return "", err
-			}
-			return digest.String(), nil
+			return "", fmt.Errorf("resolved reference to %q not found", ref)
 		})
 		if err != nil {
 			return nil, err
@@ -88,67 +124,28 @@ type replaceString func(string) (string, error)
 func replaceRecursive(obj interface{}, rs replaceString) (interface{}, error) {
 	switch typed := obj.(type) {
 	case map[interface{}]interface{}:
-		var sm sync.Map
-		var wg sync.WaitGroup
-		var mapError error
-		// Launch go routines for all of the key/value pairs.
-		// We could perhaps further parallelize by doing keys and values
-		// in parallel, but the likelihood of that materially improving
-		// things is vanishingly small since most keys are fixed in K8s
-		// anyways.
-		for k, v := range typed {
-			wg.Add(1)
-			go func(k, v interface{}) {
-				defer wg.Done()
-
-				k2, err := replaceRecursive(k, rs)
-				if err != nil {
-					mapError = err
-					return
-				}
-				v2, err := replaceRecursive(v, rs)
-				if err != nil {
-					mapError = err
-					return
-				}
-				sm.Store(k2, v2)
-			}(k, v)
-		}
-		// Wait for all of the go routines to complete.
-		wg.Wait()
-		if mapError != nil {
-			return nil, mapError
-		}
-		// Load what we put into our sync.Map into a normal map.
 		m2 := make(map[interface{}]interface{}, len(typed))
-		sm.Range(func(k, v interface{}) bool {
-			m2[k] = v
-			return true // keep going
-		})
+		for k, v := range typed {
+			k2, err := replaceRecursive(k, rs)
+			if err != nil {
+				return nil, err
+			}
+			v2, err := replaceRecursive(v, rs)
+			if err != nil {
+				return nil, err
+			}
+			m2[k2] = v2
+		}
 		return m2, nil
 
 	case []interface{}:
 		a2 := make([]interface{}, len(typed))
-		var wg sync.WaitGroup
-		var arrayError error
-		// Launch go routines for each entry in the array.
 		for idx, v := range typed {
-			wg.Add(1)
-			go func(idx int, v interface{}) {
-				defer wg.Done()
-
-				v2, err := replaceRecursive(v, rs)
-				if err != nil {
-					arrayError = err
-					return
-				}
-				a2[idx] = v2
-			}(idx, v)
-		}
-		// Wait for all of the go routines to complete.
-		wg.Wait()
-		if arrayError != nil {
-			return nil, arrayError
+			v2, err := replaceRecursive(v, rs)
+			if err != nil {
+				return nil, err
+			}
+			a2[idx] = v2
 		}
 		return a2, nil
 

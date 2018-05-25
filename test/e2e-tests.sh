@@ -35,19 +35,54 @@ readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
+readonly ISTIO_VERSION=0.6.0
+readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/install/kubernetes
 
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
-readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
-
 # Helper functions.
+
+function create_istio() {
+  kubectl apply -f ${ISTIO_DIR}/istio.yaml
+
+  ${ISTIO_DIR}/webhook-create-signed-cert.sh \
+    --service istio-sidecar-injector \
+    --namespace istio-system \
+    --secret sidecar-injector-certs
+
+  kubectl apply -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml
+
+  cat ${ISTIO_DIR}/istio-sidecar-injector.yaml | \
+    ${ISTIO_DIR}/webhook-patch-ca-bundle.sh | \
+    kubectl apply -f -
+}
+
+function create_everything() {
+  create_istio
+  kubectl apply -f third_party/config/build/release.yaml
+  ko apply -f config/
+}
+
+function delete_istio() {
+  kubectl delete --ignore-not-found=true \
+    -f ${ISTIO_DIR}/istio-sidecar-injector.yaml \
+    -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml \
+    -f ${ISTIO_DIR}/istio.yaml
+  kubectl delete clusterrolebinding cluster-admin-binding
+}
+
+function delete_everything() {
+  ko delete --ignore-not-found=true -f config/
+  kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
+  delete_istio
+}
 
 function teardown() {
   header "Tearing down test environment"
   # Free resources in GCP project.
   if (( ! USING_EXISTING_CLUSTER )); then
-    bazel run //:everything.delete
+    delete_everything
   fi
 
   # Delete Elafros images when using prow.
@@ -57,8 +92,6 @@ function teardown() {
     delete_gcr_images ${DOCKER_REPO_OVERRIDE}
   else
     restore_override_vars
-    # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-    bazel clean --expunge
   fi
 }
 
@@ -155,6 +188,10 @@ fi
 
 # --run-tests passed as first argument, run the tests.
 
+# Fail fast during setup.
+set -o errexit
+set -o pipefail
+
 # Set the required variables if necessary.
 
 if [[ -z ${K8S_USER_OVERRIDE} ]]; then
@@ -175,6 +212,7 @@ readonly USING_EXISTING_CLUSTER
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
   export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/ela-e2e-img
 fi
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
 # Build and start Elafros.
 
@@ -185,25 +223,24 @@ echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 header "Building and starting Elafros"
 trap teardown EXIT
 
-GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
+install_ko
 
-# --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-bazel clean --expunge
 if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Elafros instance"
-  bazel run //:everything.delete  # ignore if not running
+  delete_everything
 fi
 if (( IS_PROW )); then
   gcr_auth
 fi
 
-bazel run //:everything.apply
+create_everything
+
+# Handle failures ourselves, so we can dump useful info.
+set +o errexit
+set +o pipefail
+
 wait_until_pods_running ela-system
 exit_if_failed
-
-# Enable Istio sidecar injection
-bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
-kubectl label namespace default istio-injection=enabled
 
 # Run the tests
 

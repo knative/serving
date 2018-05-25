@@ -41,7 +41,7 @@ const (
 	varLogVolumeName           = "varlog"
 )
 
-func hasHttpPath(p *corev1.Probe) bool {
+func hasHTTPPath(p *corev1.Probe) bool {
 	if p == nil {
 		return false
 	}
@@ -105,7 +105,7 @@ func MakeElaPodSpec(
 	//
 	// TODO(tcnghia): Fail validation webhook when users specify their
 	// own port in readiness checks.
-	if hasHttpPath(elaContainer.ReadinessProbe) {
+	if hasHTTPPath(elaContainer.ReadinessProbe) {
 		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 

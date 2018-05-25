@@ -23,7 +23,8 @@ import (
 	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
 	elascheme "github.com/elafros/elafros/pkg/client/clientset/versioned/scheme"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	"github.com/golang/glog"
+	"github.com/elafros/elafros/pkg/logging/logkey"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -74,6 +75,13 @@ type Base struct {
 	// time, and makes it easy to ensure we are never processing the same item
 	// simultaneously in two different workers.
 	WorkQueue workqueue.RateLimitingInterface
+
+	// Sugared logger is easier to use but is not as performant as the
+	// raw logger. In performance critical paths, call logger.Desugar()
+	// and use the returned raw logger instead. In addition to the
+	// performance benefits, raw logger also preserves type-safety at
+	// the expense of slightly greater verbosity.
+	Logger *zap.SugaredLogger
 }
 
 // NewBase instantiates a new instance of Base implementing
@@ -85,12 +93,16 @@ func NewBase(
 	elaInformerFactory informers.SharedInformerFactory,
 	informer cache.SharedIndexInformer,
 	controllerAgentName string,
-	workQueueName string) *Base {
+	workQueueName string,
+	logger *zap.SugaredLogger) *Base {
+
+	// Enrich the logs with controller name
+	logger = logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
 	// Create event broadcaster
-	glog.V(4).Info("Creating event broadcaster")
+	logger.Debug("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -101,6 +113,7 @@ func NewBase(
 		ElaInformerFactory:  elaInformerFactory,
 		Recorder:            recorder,
 		WorkQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		Logger:              logger,
 	}
 
 	// Set up an event handler for when the resource types of interest change
@@ -140,10 +153,11 @@ func (c *Base) RunController(
 	defer runtime.HandleCrash()
 	defer c.WorkQueue.ShutDown()
 
-	glog.Infof("Starting %s controller", controllerName)
+	logger := c.Logger
+	logger.Infof("Starting %s controller", controllerName)
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
+	logger.Info("Waiting for informer caches to sync")
 	for i, synced := range informersSynced {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			return fmt.Errorf("failed to wait for cache at index %v to sync", i)
@@ -151,7 +165,7 @@ func (c *Base) RunController(
 	}
 
 	// Launch workers to process Revision resources
-	glog.Info("Starting workers")
+	logger.Info("Starting workers")
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(func() {
 			for c.processNextWorkItem(syncHandler) {
@@ -159,9 +173,9 @@ func (c *Base) RunController(
 		}, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	logger.Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	logger.Info("Shutting down workers")
 
 	return nil
 }
@@ -207,7 +221,7 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.WorkQueue.Forget(obj)
-		glog.Infof("Successfully synced %q", key)
+		c.Logger.Infof("Successfully synced %q", key)
 		return nil
 	}(obj)
 

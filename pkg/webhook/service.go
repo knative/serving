@@ -28,7 +28,7 @@ import (
 var (
 	errInvalidRollouts     = errors.New("The service must have exactly one of runLatest or pinned in spec field.")
 	errMissingRevisionName = errors.New("The PinnedType must have revision specified.")
-	errInvalidService      = errors.New("Failed to convert input into Route.")
+	errInvalidServiceInput = errors.New("Failed to convert input into Service.")
 )
 
 func errServiceMissingField(fieldPath string) error {
@@ -42,7 +42,7 @@ func errServiceDisallowedFields(fieldPaths string) error {
 // ValidateService is Service resource specific validation and mutation handler
 func ValidateService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 	// We only care about the new one, old one gets flagged as an error in unmarshal.
-	_, newService, err := unmarshalServiceCRDs(old, new, "ValidateService")
+	_, newService, err := unmarshalServices(old, new, "ValidateService")
 	if err != nil {
 		return err
 	}
@@ -72,22 +72,51 @@ func validateSpec(s *v1alpha1.Service) error {
 	return validateConfigurationSpec(&runLatest.Configuration)
 }
 
-func unmarshalServiceCRDs(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Service, *v1alpha1.Service, error) {
-	var oldS *v1alpha1.Service
+func unmarshalServices(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Service, *v1alpha1.Service, error) {
+	var oldService *v1alpha1.Service
 	if old != nil {
 		var ok bool
-		oldS, ok = old.(*v1alpha1.Service)
+		oldService, ok = old.(*v1alpha1.Service)
 		if !ok {
-			return nil, nil, fmt.Errorf("Failed to convert old into Service: %+v", old)
+			return nil, nil, errInvalidServiceInput
 		}
 	}
-	glog.Infof("%s: OLD Service is\n%+v", fnName, oldS)
+	glog.Infof("%s: OLD Service is\n%+v", fnName, oldService)
 
-	newS, ok := new.(*v1alpha1.Service)
+	newService, ok := new.(*v1alpha1.Service)
 	if !ok {
-		return nil, nil, fmt.Errorf("Failed to convert new into Service: %+v", new)
+		return nil, nil, errInvalidServiceInput
 	}
-	glog.Infof("%s: NEW Service is\n%+v", fnName, newS)
+	glog.Infof("%s: NEW Service is\n%+v", fnName, newService)
 
-	return oldS, newS, nil
+	return oldService, newService, nil
+}
+
+// Service does not have any defaults, per-se, but because it holds a Configuration,
+// we need to set the Configuration's defaults. SetServiceDefaults dispatches to
+// SetConfigurationSpecDefaults to accomplish this.
+func SetServiceDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+	_, service, err := unmarshalServices(nil, crd, "SetServiceDefaults")
+	if err != nil {
+		return err
+	}
+
+	var (
+		configSpec v1alpha1.ConfigurationSpec
+		patchBase  string
+	)
+
+	if service.Spec.RunLatest != nil {
+		configSpec = service.Spec.RunLatest.Configuration
+		patchBase = "/spec/runLatest/configuration"
+	} else if service.Spec.Pinned != nil {
+		configSpec = service.Spec.Pinned.Configuration
+		patchBase = "/spec/pinned/configuration"
+	} else {
+		// We could error here, but validateSpec should catch this.
+		glog.Info("could not find config in SetServiceDefaults")
+		return nil
+	}
+
+	return SetConfigurationSpecDefaults(patches, patchBase, configSpec)
 }

@@ -3,7 +3,6 @@ kind: Service
 metadata:
   labels:
     app: node-exporter
-    prometheus: system
   name: node-exporter
   namespace: monitoring
 spec:
@@ -15,4 +14,3 @@ spec:
     protocol: TCP
   selector:
     app: node-exporter
-    prometheus: system

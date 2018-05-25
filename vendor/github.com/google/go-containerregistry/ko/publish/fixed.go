@@ -33,7 +33,7 @@ func NewFixed(base name.Repository, entries map[string]v1.Hash) Interface {
 }
 
 // Publish implements publish.Interface
-func (f *fixed) Publish(_ v1.Image, s string) (*name.Digest, error) {
+func (f *fixed) Publish(_ v1.Image, s string) (name.Reference, error) {
 	h, ok := f.entries[s]
 	if !ok {
 		return nil, fmt.Errorf("unsupported importpath: %q", s)

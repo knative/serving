@@ -18,6 +18,7 @@ package webhook
 import (
 	"errors"
 	"fmt"
+	"path"
 	"reflect"
 	"strings"
 
@@ -39,26 +40,15 @@ var (
 	errEmptySpecInConfiguration         = errMissingField("spec")
 	errEmptyRevisionTemplateInSpec      = errMissingField("spec.revisionTemplate")
 	errEmptyContainerInRevisionTemplate = errMissingField("spec.revisionTemplate.spec.container")
-	errInvalidConfigurationInput        = errors.New(`Failed to convert input into configuration`)
+	errInvalidConfigurationInput        = errors.New("Failed to convert input into Configuration.")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
 func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldConfiguration *v1alpha1.Configuration
-	if old != nil {
-		var ok bool
-		oldConfiguration, ok = old.(*v1alpha1.Configuration)
-		if !ok {
-			return errInvalidConfigurationInput
-		}
+	_, newConfiguration, err := unmarshalConfigurations(old, new, "ValidateConfiguration")
+	if err != nil {
+		return err
 	}
-	glog.Infof("ValidateConfiguration: OLD Configuration is\n%+v", oldConfiguration)
-	newConfiguration, ok := new.(*v1alpha1.Configuration)
-	if !ok {
-		return errInvalidConfigurationInput
-	}
-	glog.Infof("ValidateConfiguration: NEW Configuration is\n%+v", newConfiguration)
-
 	if err := validateConfiguration(newConfiguration); err != nil {
 		return err
 	}
@@ -132,18 +122,42 @@ func validateContainer(container corev1.Container) error {
 	return nil
 }
 
-func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	newC, ok := new.(*v1alpha1.Configuration)
-	if !ok {
-		return fmt.Errorf("Failed to convert new into a Configuration: %+v", new)
+func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+	_, config, err := unmarshalConfigurations(nil, crd, "SetConfigurationDefaults")
+	if err != nil {
+		return err
 	}
 
-	if newC.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
+	return SetConfigurationSpecDefaults(patches, "/spec", config.Spec)
+}
+
+func SetConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
+	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
-			Path:      "/spec/revisionTemplate/spec/concurrencyModel",
+			Path:      path.Join(patchBase, "revisionTemplate/spec/concurrencyModel"),
 			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
 		})
 	}
 	return nil
+}
+
+func unmarshalConfigurations(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Configuration, *v1alpha1.Configuration, error) {
+	var oldConfiguration *v1alpha1.Configuration
+	if old != nil {
+		var ok bool
+		oldConfiguration, ok = old.(*v1alpha1.Configuration)
+		if !ok {
+			return nil, nil, errInvalidConfigurationInput
+		}
+	}
+	glog.Infof("%s: OLD Configuration is\n%+v", fnName, oldConfiguration)
+
+	newConfiguration, ok := new.(*v1alpha1.Configuration)
+	if !ok {
+		return nil, nil, errInvalidConfigurationInput
+	}
+	glog.Infof("%s: NEW Configuration is\n%+v", fnName, newConfiguration)
+
+	return oldConfiguration, newConfiguration, nil
 }

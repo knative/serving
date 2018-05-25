@@ -61,6 +61,10 @@ type TemplateInstantiationSpec struct {
 	// Arguments, if specified, lists values that should be applied to the
 	// parameters specified by the template.
 	Arguments []ArgumentSpec `json:"arguments,omitempty"`
+
+	// Env, if specified will provide variables to all build template steps.
+	// This will override any of the template's steps environment variables
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // ArgumentSpec defines the actual values to use to populate a template's
