@@ -8,6 +8,11 @@ k8s_object(
 )
 
 k8s_object(
+    name = "elawebhookconfig",
+    template = "elawebhookconfig.yaml",
+)
+
+k8s_object(
     name = "controller",
     images = {
         "github.com/elafros/elafros/cmd/ela-controller": "//cmd/ela-controller:image",
@@ -110,6 +115,7 @@ k8s_objects(
         ":authz",
         ":crds",
         ":elaconfig",
+        ":elawebhookconfig",
         ":controller",
         ":controllerservice",
         ":webhook",

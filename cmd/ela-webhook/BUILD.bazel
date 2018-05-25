@@ -6,9 +6,11 @@ go_library(
     importpath = "github.com/elafros/elafros/cmd/ela-webhook",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/logging:go_default_library",
         "//pkg/signals:go_default_library",
         "//pkg/webhook:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
     ],

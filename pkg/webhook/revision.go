@@ -16,51 +16,57 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/google/go-cmp/cmp"
 	"github.com/mattbaird/jsonpatch"
 )
 
 var (
-	errInvalidRevisionInput = errors.New("Failed to convert input into Revision.")
+	errInvalidRevisionInput = errors.New("failed to convert input into Revision")
 )
 
 // ValidateRevision is Revision resource specific validation and mutation handler
-func ValidateRevision(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	o, n, err := unmarshalRevisions(old, new, "ValidateRevision")
-	if err != nil {
-		return err
-	}
-
-	// When we have an "old" object, check for changes.
-	if o != nil {
-		// The autoscaler is allowed to change these fields, so clear them.
-		o.Spec.ServingState = ""
-		n.Spec.ServingState = ""
-
-		if diff := cmp.Diff(o.Spec, n.Spec); diff != "" {
-			return fmt.Errorf("Revision spec should not change (-old +new): %s", diff)
+func ValidateRevision(ctx context.Context) ResourceCallback {
+	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+		o, n, err := unmarshalRevisions(ctx, old, new, "ValidateRevision")
+		if err != nil {
+			return err
 		}
-	}
 
-	return nil
+		// When we have an "old" object, check for changes.
+		if o != nil {
+			// The autoscaler is allowed to change these fields, so clear them.
+			o.Spec.ServingState = ""
+			n.Spec.ServingState = ""
+
+			if diff := cmp.Diff(o.Spec, n.Spec); diff != "" {
+				return fmt.Errorf("Revision spec should not change (-old +new): %s", diff)
+			}
+		}
+
+		return nil
+	}
 }
 
-func SetRevisionDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-	_, revision, err := unmarshalRevisions(nil, crd, "SetRevisionDefaults")
-	if err != nil {
-		return err
-	}
+// SetRevisionDefaults set defaults on an revisions.
+func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
+	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+		_, revision, err := unmarshalRevisions(ctx, nil, crd, "SetRevisionDefaults")
+		if err != nil {
+			return err
+		}
 
-	return SetRevisionSpecDefaults(patches, "/spec", revision.Spec)
+		return setRevisionSpecDefaults(patches, "/spec", revision.Spec)
+	}
 }
 
-func SetRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.RevisionSpec) error {
+func setRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.RevisionSpec) error {
 	if spec.ServingState == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
@@ -80,7 +86,8 @@ func SetRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase 
 	return nil
 }
 
-func unmarshalRevisions(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revision, *v1alpha1.Revision, error) {
+func unmarshalRevisions(ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revision, *v1alpha1.Revision, error) {
+	logger := logging.FromContext(ctx)
 	var oldRevision *v1alpha1.Revision
 	if old != nil {
 		var ok bool
@@ -89,13 +96,13 @@ func unmarshalRevisions(old GenericCRD, new GenericCRD, fnName string) (*v1alpha
 			return nil, nil, errInvalidRevisionInput
 		}
 	}
-	glog.Infof("%s: OLD Revision is\n%+v", fnName, oldRevision)
+	logger.Infof("%s: OLD Revision is\n%+v", fnName, oldRevision)
 
 	newRevision, ok := new.(*v1alpha1.Revision)
 	if !ok {
 		return nil, nil, errInvalidRevisionInput
 	}
-	glog.Infof("%s: NEW Revision is\n%+v", fnName, newRevision)
+	logger.Infof("%s: NEW Revision is\n%+v", fnName, newRevision)
 
 	return oldRevision, newRevision, nil
 }

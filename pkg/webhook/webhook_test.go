@@ -16,13 +16,17 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -54,6 +58,11 @@ const (
 	testServiceName       = "test-service-name"
 )
 
+var (
+	testLogger = zap.NewNop().Sugar()
+	testCtx    = logging.WithLogger(context.TODO(), testLogger)
+)
+
 func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) (
 	kubeClient *fakekubeclientset.Clientset,
 	ac *AdmissionController,
@@ -61,7 +70,7 @@ func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 
-	ac, err := NewAdmissionController(kubeClient, options)
+	ac, err := NewAdmissionController(kubeClient, options, testLogger)
 	if err != nil {
 		t.Fatalf("Failed to create new admission controller: %s", err)
 	}
@@ -81,7 +90,7 @@ func newNonRunningTestAdmissionController(t *testing.T, options ControllerOption
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 
-	ac, err := NewAdmissionController(kubeClient, options)
+	ac, err := NewAdmissionController(kubeClient, options, testLogger)
 	if err != nil {
 		t.Fatalf("Failed to create new admission controller: %s", err)
 	}
@@ -95,7 +104,7 @@ func TestDeleteAllowed(t *testing.T) {
 		Operation: admissionv1beta1.Delete,
 	}
 
-	resp := ac.admit(&req)
+	resp := ac.admit(testCtx, &req)
 	if !resp.Allowed {
 		t.Fatalf("unexpected denial of delete")
 	}
@@ -108,7 +117,7 @@ func TestConnectAllowed(t *testing.T) {
 		Operation: admissionv1beta1.Connect,
 	}
 
-	resp := ac.admit(&req)
+	resp := ac.admit(testCtx, &req)
 	if !resp.Allowed {
 		t.Fatalf("unexpected denial of connect")
 	}
@@ -122,7 +131,7 @@ func TestUnknownKindFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Garbage"},
 	}
 
-	expectFailsWith(t, ac.admit(&req), "unhandled kind")
+	expectFailsWith(t, ac.admit(testCtx, &req), "unhandled kind")
 }
 
 func TestInvalidNewConfigurationNameFails(t *testing.T) {
@@ -138,7 +147,7 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal configuration: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
 	config = createConfiguration(0, invalidName)
@@ -147,12 +156,12 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal configuration: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 }
 
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateConfiguration())
+	resp := ac.admit(testCtx, createValidCreateConfiguration())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -162,7 +171,7 @@ func TestValidConfigurationNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createConfiguration(testGeneration, testConfigurationName)
 	new := createConfiguration(testGeneration, testConfigurationName)
-	resp := ac.admit(createUpdateConfiguration(&old, &new))
+	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
@@ -177,7 +186,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 			Value: "different",
 		},
 	}
-	resp := ac.admit(createUpdateConfiguration(&old, &new))
+	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -201,7 +210,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal route: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
 	config = createRoute(0, invalidName)
@@ -210,12 +219,12 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal route: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 }
 
 func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateRoute())
+	resp := ac.admit(testCtx, createValidCreateRoute())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -225,7 +234,7 @@ func TestValidRouteNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1, testRouteName)
 	new := createRoute(1, testRouteName)
-	resp := ac.admit(createUpdateRoute(&old, &new))
+	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
@@ -238,7 +247,7 @@ func TestInvalidOldRoute(t *testing.T) {
 		t.Errorf("Marshal(%v) = %v", new, err)
 	}
 	oldBytes := []byte(`{"bad": "field"}`)
-	resp := ac.admit(createUpdateRouteRaw(oldBytes, newBytes))
+	resp := ac.admit(testCtx, createUpdateRouteRaw(oldBytes, newBytes))
 	expectFailsWith(t, resp, `unknown field "bad"`)
 }
 
@@ -250,7 +259,7 @@ func TestInvalidNewRoute(t *testing.T) {
 		t.Errorf("Marshal(%v) = %v", old, err)
 	}
 	newBytes := []byte(`{"sepc": {}}`)
-	resp := ac.admit(createUpdateRouteRaw(oldBytes, newBytes))
+	resp := ac.admit(testCtx, createUpdateRouteRaw(oldBytes, newBytes))
 	expectFailsWith(t, resp, `unknown field "sepc"`)
 }
 
@@ -264,7 +273,7 @@ func TestValidRouteChanges(t *testing.T) {
 			Percent:      100,
 		},
 	}
-	resp := ac.admit(createUpdateRoute(&old, &new))
+	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -288,7 +297,7 @@ func TestValidNewRevisionObject(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	resp := ac.admit(req)
+	resp := ac.admit(testCtx, req)
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -326,7 +335,7 @@ func TestValidRevisionUpdates(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	resp := ac.admit(req)
+	resp := ac.admit(testCtx, req)
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -360,7 +369,7 @@ func TestInvalidRevisionUpdate(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 
-	expectFailsWith(t, ac.admit(req), "Revision spec should not change")
+	expectFailsWith(t, ac.admit(testCtx, req), "Revision spec should not change")
 }
 
 func TestInvalidNewRevisionNameFails(t *testing.T) {
@@ -377,7 +386,7 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
 	revision = createRevision(invalidName)
@@ -387,12 +396,12 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 }
 
 func TestValidNewServicePinned(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateServicePinned())
+	resp := ac.admit(testCtx, createValidCreateServicePinned())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -400,7 +409,7 @@ func TestValidNewServicePinned(t *testing.T) {
 
 func TestValidNewServiceRunLatest(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(createValidCreateServiceRunLatest())
+	resp := ac.admit(testCtx, createValidCreateServiceRunLatest())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -410,14 +419,14 @@ func TestInvalidNewServiceNoSpecs(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	svc := createServicePinned(0, testServiceName)
 	svc.Spec.Pinned = nil
-	expectFailsWith(t, ac.admit(createCreateService(svc)), "exactly one of runLatest or pinned")
+	expectFailsWith(t, ac.admit(testCtx, createCreateService(svc)), "exactly one of runLatest or pinned")
 }
 
 func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	svc := createServicePinned(0, testServiceName)
 	svc.Spec.Pinned.RevisionName = ""
-	expectFailsWith(t, ac.admit(createCreateService(svc)), "spec.pinned.revisionName")
+	expectFailsWith(t, ac.admit(testCtx, createCreateService(svc)), "spec.pinned.revisionName")
 }
 
 func TestValidServiceEnvChanges(t *testing.T) {
@@ -430,7 +439,7 @@ func TestValidServiceEnvChanges(t *testing.T) {
 			Value: "different",
 		},
 	}
-	resp := ac.admit(createUpdateService(&old, &new))
+	resp := ac.admit(testCtx, createUpdateService(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -444,7 +453,7 @@ func TestValidServiceEnvChanges(t *testing.T) {
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
-	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
 	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create webhook: %s", err)
@@ -468,7 +477,7 @@ func TestUpdatingWebhook(t *testing.T) {
 
 	createDeployment(ac)
 	createWebhook(ac, webhook)
-	ac.register(ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
+	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
 	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
 		t.Fatalf("Expected webhook to be updated")
