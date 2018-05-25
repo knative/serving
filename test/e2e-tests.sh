@@ -56,6 +56,8 @@ function create_istio() {
   cat ${ISTIO_DIR}/istio-sidecar-injector.yaml | \
     ${ISTIO_DIR}/webhook-patch-ca-bundle.sh | \
     kubectl apply -f -
+
+  kubectl label namespace default istio-injection=enabled
 }
 
 function create_everything() {
