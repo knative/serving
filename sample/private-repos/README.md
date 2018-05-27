@@ -132,11 +132,12 @@ data:
 
 ### Installing Build Templates (one-time)
 
-This sample uses the `docker-build.yaml` build template.  Make sure that this
-exists on your cluster via:
+This sample uses the [Kaniko build
+template](https://github.com/elafros/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/elafros/build-templates/) repo.
 
 ```shell
-kubectl create -f ../templates/docker-build.yaml
+kubectl apply -f kaniko.yaml
 ```
 
 ### Using this in Configuration.
