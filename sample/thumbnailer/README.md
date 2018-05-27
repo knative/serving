@@ -77,15 +77,19 @@ If you would like to publish your own copy of the container image, you can updat
 
 ## Deploy (with Build)
 
-You can also build the image as part of deployment:
+You can also build the image as part of deployment. This sample uses the
+[Kaniko build
+template](https://github.com/elafros/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/elafros/build-templates/) repo.
 
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
 perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
 
-# Create the Kubernetes resources from this directory
-kubectl apply -f ../templates/docker-build-helper.yaml -f sample.yaml
+# Install the Kaniko build template used to build this sample (in the
+# build-templates repo).
+kubectl apply -f kaniko.yaml
 ```
 
 Now, if you look at the `status` of the revision, you will see that a build is in progress:
