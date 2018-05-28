@@ -136,9 +136,38 @@ func Config(base v1.Image, cfg v1.Config) (v1.Image, error) {
 		Image:      base,
 		manifest:   m.DeepCopy(),
 		configFile: cf.DeepCopy(),
-		diffIDMap:  make(map[v1.Hash]v1.Layer),
 		digestMap:  make(map[v1.Hash]v1.Layer),
 	}
+
+	image.manifest.Config.Digest, err = image.ConfigName()
+	if err != nil {
+		return nil, err
+	}
+	return image, nil
+}
+
+// Created mutates the provided v1.Image to have the provided v1.Time
+func CreatedAt(base v1.Image, created v1.Time) (v1.Image, error) {
+	m, err := base.Manifest()
+	if err != nil {
+		return nil, err
+	}
+
+	cf, err := base.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := cf.DeepCopy()
+	cfg.Created = created
+
+	image := &image{
+		Image:      base,
+		manifest:   m.DeepCopy(),
+		configFile: cfg,
+		digestMap:  make(map[v1.Hash]v1.Layer),
+	}
+
 	image.manifest.Config.Digest, err = image.ConfigName()
 	if err != nil {
 		return nil, err

@@ -235,7 +235,7 @@
     "v1/types",
     "v1/v1util"
   ]
-  revision = "7f1e66edb3a89174cb95bbc9ab5324449cd80d69"
+  revision = "8bdfdfc3bd4146f40b7709f6b1b7d979a3385da8"
 
 [[projects]]
   name = "github.com/google/go-github"
@@ -952,6 +952,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e716048490f73a3162787e82676ed0ef39cf034af5eed2cdb65758053e6c2cc3"
+  inputs-digest = "651ef43b4eb7a0b65ef1213f4cd10492ed15d70088ab657eef18dd5e09f52fc5"
   solver-name = "gps-cdcl"
   solver-version = 1

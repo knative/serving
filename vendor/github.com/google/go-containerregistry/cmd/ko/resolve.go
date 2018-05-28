@@ -33,7 +33,8 @@ import (
 
 func gobuildOptions() build.Options {
 	return build.Options{
-		GetBase: getBaseImage,
+		GetBase:         getBaseImage,
+		GetCreationTime: getCreationTime,
 	}
 }
 
