@@ -286,7 +286,7 @@ func (w *writer) commitImage() error {
 	}
 
 	// The image was successfully pushed!
-	fmt.Printf("%v: digest: %v size: %d\n", w.ref, digest, len(raw))
+	log.Printf("%v: digest: %v size: %d\n", w.ref, digest, len(raw))
 	return nil
 }
 
