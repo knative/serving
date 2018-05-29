@@ -40,4 +40,22 @@ const (
 
 	// JSONConfig is the key used for JSON configurations (not to be confused by the Configuration object)
 	JSONConfig = "elafros.dev/jsonconfig"
+
+	// Kind is the key used to represent kind of an object in logs
+	Kind = "elafros.dev/kind"
+
+	// Name is the key used to represent name of an object in logs
+	Name = "elafros.dev/name"
+
+	// Operation is the key used to represent an operation in logs
+	Operation = "elafros.dev/operation"
+
+	// Resource is the key used to represent a resource in logs
+	Resource = "elafros.dev/resource"
+
+	// SubResource is a generic key used to represent a sub-resource in logs
+	SubResource = "elafros.dev/subresource"
+
+	// UserInfo is the key used to represent a user information in logs
+	UserInfo = "elafros.dev/userinfo"
 )

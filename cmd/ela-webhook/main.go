@@ -18,10 +18,12 @@ package main
 import (
 	"flag"
 
+	"go.uber.org/zap"
+
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/elafros/elafros/pkg/signals"
 	"github.com/elafros/elafros/pkg/webhook"
-
-	"github.com/golang/glog"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -29,19 +31,23 @@ import (
 
 func main() {
 	flag.Parse()
-	glog.Info("Starting the Configuration Webhook...")
+	loggingZapCfg := k8sflag.String("logging.zap-config", "")
+	logger := logging.NewLogger(loggingZapCfg.Get()).Named("ela-webhook")
+	defer logger.Sync()
+
+	logger.Info("Starting the Configuration Webhook")
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatal(err.Error())
+		logger.Fatal("Failed to get in cluster config", zap.Error(err))
 	}
 
 	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatal(err)
+		logger.Fatal("Failed to get the client set", zap.Error(err))
 	}
 
 	options := webhook.ControllerOptions{
@@ -51,9 +57,9 @@ func main() {
 		SecretName:       "ela-webhook-certs",
 		WebhookName:      "webhook.elafros.dev",
 	}
-	controller, err := webhook.NewAdmissionController(clientset, options)
+	controller, err := webhook.NewAdmissionController(clientset, options, logger)
 	if err != nil {
-		glog.Fatal(err)
+		logger.Fatal("Failed to create the admission controller", zap.Error(err))
 	}
 	controller.Run(stopCh)
 }
