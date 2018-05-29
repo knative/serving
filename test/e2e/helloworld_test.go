@@ -41,7 +41,7 @@ func TestHelloWorld(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients) })
 
 	var imagePath string
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, NamespaceName + "-helloworld"}, "/")
+	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
 	log.Println("Creating a new Route and Configuration")
 	err := CreateRouteAndConfig(clients, imagePath)

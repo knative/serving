@@ -9,7 +9,6 @@ spec:
     metadata:
       labels:
         app: kube-state-metrics
-        prometheus: system
     spec:
       serviceAccountName: kube-state-metrics
       securityContext:

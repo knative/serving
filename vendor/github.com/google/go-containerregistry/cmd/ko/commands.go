@@ -62,15 +62,29 @@ func addKubeCommands(topLevel *cobra.Command) {
 			UnknownFlags: true,
 		},
 	})
+
+	lo := &LocalOptions{}
 	fo := &FilenameOptions{}
 	apply := &cobra.Command{
-		Use: "apply -f FILENAME",
-		// TODO(mattmoor): Expose our own apply surface.
-		Short: `See "kubectl help apply" for detailed usage.`,
+		Use:   "apply -f FILENAME",
+		Short: "Apply the input files with image references resolved to built/pushed image digests.",
+		Long:  `This sub-command finds import path references within the provided files, builds them into Go binaries, containerizes them, publishes them, and then feeds the resulting yaml into "kubectl apply".`,
+		Example: `
+  # Build and publish import path references to a Docker
+  # Registry as:
+  #   ${KO_DOCKER_REPO}/<import path>
+  # Then, feed the resulting yaml into "kubectl apply"
+  ko apply -f config/
+
+  # Build and publish import path references to a Docker
+  # daemon as:
+  #   ko.local/<import path>
+  # Then, feed the resulting yaml into "kubectl apply"
+  ko apply -L -f config/`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// TODO(mattmoor): Use io.Pipe to avoid buffering the whole thing.
 			buf := bytes.NewBuffer(nil)
-			resolveFilesToWriter(fo, buf)
+			resolveFilesToWriter(fo, lo, buf)
 
 			// Issue a "kubectl apply" command reading from stdin,
 			// to which we will pipe the resolved files.
@@ -89,16 +103,51 @@ func addKubeCommands(topLevel *cobra.Command) {
 			}
 		},
 	}
+	addLocalArg(apply, lo)
 	addFileArg(apply, fo)
 	topLevel.AddCommand(apply)
+
 	resolve := &cobra.Command{
-		// TODO(mattmoor): Pick a better name.
 		Use:   "resolve -f FILENAME",
-		Short: `Print the input files with image references resolved to built/pushed image digests.`,
+		Short: "Print the input files with image references resolved to built/pushed image digests.",
+		Long:  `This sub-command finds import path references within the provided files, builds them into Go binaries, containerizes them, publishes them, and prints the resulting yaml.`,
+		Example: `
+  # Build and publish import path references to a Docker
+  # Registry as:
+  #   ${KO_DOCKER_REPO}/<import path>
+  ko resolve -f config/
+
+  # Build and publish import path references to a Docker
+  # daemon as:
+  #   ko.local/<import path>
+  ko resolve -L -f config/`,
 		Run: func(cmd *cobra.Command, args []string) {
-			resolveFilesToWriter(fo, os.Stdout)
+			resolveFilesToWriter(fo, lo, os.Stdout)
 		},
 	}
+	addLocalArg(resolve, lo)
 	addFileArg(resolve, fo)
 	topLevel.AddCommand(resolve)
+
+	publish := &cobra.Command{
+		Use:   "publish IMPORTPATH...",
+		Short: "Build and publish container images from the given importpaths.",
+		Long:  `This sub-command builds the provided import paths into Go binaries, containerizes them, and publishes them.`,
+		Example: `
+  # Build and publish import path references to a Docker
+  # Registry as:
+  #   ${KO_DOCKER_REPO}/<import path>
+  ko publish github.com/foo/bar/cmd/baz github.com/foo/bar/cmd/blah
+
+  # Build and publish import path references to a Docker
+  # daemon as:
+  #   ko.local/<import path>
+  ko publish -L github.com/foo/bar/cmd/baz github.com/foo/bar/cmd/blah`,
+		Args: cobra.MinimumNArgs(1),
+		Run: func(_ *cobra.Command, args []string) {
+			publishImages(args, lo)
+		},
+	}
+	addLocalArg(publish, lo)
+	topLevel.AddCommand(publish)
 }

@@ -17,7 +17,10 @@ Build the app container and publish it to your registry of choice:
 REPO="gcr.io/<your-project-here>"
 
 # Build and publish the container, run from the root directory.
-docker build -t "${REPO}/sample/helloworld" --file=sample/helloworld/Dockerfile .
+docker build \
+  --build-arg SAMPLE=helloworld \
+  --tag "${REPO}/sample/helloworld" \
+  --file=sample/Dockerfile.golang .
 docker push "${REPO}/sample/helloworld"
 
 # Replace the image reference with our published image.
@@ -116,7 +119,7 @@ p-1552447d-0690-4b15-96c9-f085e310e98d   22m
 p-30e6a938-b28b-4d5e-a791-2cb5fe016d74   10m
 ```
 
-Update `traffic` part in sample/helloworld/route.yaml as:
+Update `traffic` part in sample/helloworld/sample.yaml as:
 ```yaml
 traffic:
   - revisionName: <YOUR_FIRST_REVISION_NAME>

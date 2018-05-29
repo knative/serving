@@ -17,9 +17,12 @@ limitations under the License.
 package controller
 
 import (
-	"log"
+	"context"
+
+	"go.uber.org/zap"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/elafros/elafros/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -81,18 +84,19 @@ func GetRevisionHeaderNamespace() string {
 	return "Elafros-Namespace"
 }
 
-func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {
-	return GetOrCreateNamespace(GetElaNamespaceName(ns), c)
+func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.Interface) (string, error) {
+	return GetOrCreateNamespace(ctx, GetElaNamespaceName(ns), c)
 }
 
-func GetOrCreateNamespace(namespace string, c clientset.Interface) (string, error) {
+func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Interface) (string, error) {
 	_, err := c.Core().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
+		logger := logging.FromContext(ctx)
 		if !apierrs.IsNotFound(err) {
-			log.Printf("namespace: %v, unable to get namespace due to error: %v", namespace, err)
+			logger.Errorf("namespace: %v, unable to get namespace due to error: %v", namespace, err)
 			return "", err
 		}
-		log.Printf("namespace: %v, not found. Creating...", namespace)
+		logger.Infof("namespace: %v, not found. Creating...", namespace)
 		nsObj := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace,
@@ -101,7 +105,7 @@ func GetOrCreateNamespace(namespace string, c clientset.Interface) (string, erro
 		}
 		_, err := c.Core().Namespaces().Create(nsObj)
 		if err != nil {
-			log.Printf("Unexpected error while creating namespace: %v", err)
+			logger.Error("Unexpected error while creating namespace", zap.Error(err))
 			return "", err
 		}
 	}

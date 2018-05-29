@@ -39,7 +39,7 @@ func NewDefault(base name.Repository, t http.RoundTripper, wo remote.WriteOption
 }
 
 // Publish implements publish.Interface
-func (d *defalt) Publish(img v1.Image, s string) (*name.Digest, error) {
+func (d *defalt) Publish(img v1.Image, s string) (name.Reference, error) {
 	auth, err := authn.DefaultKeychain.Resolve(d.base.Registry)
 	if err != nil {
 		return nil, err

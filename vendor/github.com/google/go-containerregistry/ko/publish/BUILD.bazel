@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "daemon.go",
         "default.go",
         "doc.go",
         "fixed.go",
@@ -15,6 +16,7 @@ go_library(
         "//vendor/github.com/google/go-containerregistry/authn:go_default_library",
         "//vendor/github.com/google/go-containerregistry/name:go_default_library",
         "//vendor/github.com/google/go-containerregistry/v1:go_default_library",
+        "//vendor/github.com/google/go-containerregistry/v1/daemon:go_default_library",
         "//vendor/github.com/google/go-containerregistry/v1/remote:go_default_library",
     ],
 )

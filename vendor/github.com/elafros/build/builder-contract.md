@@ -24,7 +24,7 @@ The images `gcr.io/cloud-builders/gcloud` and `gcr.io/cloud-builders/docker` are
 
 ### Typical Builders
 
-Builders are typically purpose-built containers whose entrypoint is a tool that
+A Builder is typically a purpose-built container whose entrypoint is a tool that
 performs some action and exits with a zero status on success.  These are often
 command-line tools, e.g. `git`, `docker`, `mvn`, ...
 

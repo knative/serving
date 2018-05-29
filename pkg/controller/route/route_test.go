@@ -24,11 +24,14 @@ package route
 - When a Revision is deleted TODO
 */
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +42,7 @@ import (
 	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	ctrl "github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -57,6 +61,11 @@ const (
 	testNamespace       string = "test"
 	defaultDomainSuffix string = "test-domain.dev"
 	prodDomainSuffix    string = "prod-domain.com"
+)
+
+var (
+	testLogger = zap.NewNop().Sugar()
+	testCtx    = logging.WithLogger(context.Background(), testLogger)
 )
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
@@ -185,6 +194,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 			},
 		},
 		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
+		testLogger,
 	).(*Controller)
 
 	return
@@ -1004,7 +1014,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 	}
 	elaClient.ElafrosV1alpha1().Routes("test").Create(route)
 
-	if err := controller.removeOutdatedRouteRules(route); err != nil {
+	if err := controller.removeOutdatedRouteRules(testCtx, route); err != nil {
 		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
 	}
 
@@ -1470,7 +1480,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	routeClient := elaClient.ElafrosV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Create an ingress owned by this route.
-	controller.reconcileIngress(route)
+	controller.reconcileIngress(testCtx, route)
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})

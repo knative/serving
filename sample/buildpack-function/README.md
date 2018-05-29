@@ -3,7 +3,7 @@
 A sample function that demonstrates usage of Cloud Foundry buildpacks on
 Elafros, using the [packs Docker images](https://github.com/sclevine/packs).
 
-This deploys the [riff square](https://github.com/socthis/riff-square-buildpack)
+This deploys the [riff square](https://github.com/scothis/riff-square-buildpack)
 sample function for riff.
 
 ## Prerequisites
@@ -12,14 +12,24 @@ sample function for riff.
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+This sample uses the [Buildpack build
+template](https://github.com/elafros/build-templates/blob/master/buildpack/buildpack.yaml)
+in the [build-templates](https://github.com/elafros/build-templates/) repo.
+
+First, install the Buildpack build template from that repo:
+
+```shell
+kubectl apply -f buildpack.yaml
+```
+
+Then you can deploy this to Elafros from the root directory via:
+
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
 perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/buildpack-function/sample.yaml
 
-# Create the Kubernetes resources
-kubectl apply -f sample/templates/buildpack.yaml -f sample/buildpack-function/sample.yaml
+kubectl apply -f sample/buildpack-function/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:

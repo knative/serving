@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
@@ -56,10 +58,15 @@ import (
 	. "github.com/elafros/elafros/pkg/controller/testing"
 )
 
-const testNamespace string = "test"
-const testFluentdImage string = "fluentdImage"
-const testQueueImage string = "queueImage"
 const testAutoscalerImage string = "autoscalerImage"
+const testFluentdImage string = "fluentdImage"
+const testFluentdSidecarOutputConfig string = `
+<match **>
+  @type elasticsearch
+</match>
+`
+const testNamespace string = "test"
+const testQueueImage string = "queueImage"
 
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
@@ -195,8 +202,9 @@ func getTestControllerConfig() ControllerConfig {
 		AutoscalerImage:                   testAutoscalerImage,
 		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
 
-		EnableVarLogCollection: true,
-		FluentdSidecarImage:    testFluentdImage,
+		EnableVarLogCollection:     true,
+		FluentdSidecarImage:        testFluentdImage,
+		FluentdSidecarOutputConfig: testFluentdSidecarOutputConfig,
 	}
 }
 
@@ -233,6 +241,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		buildInformer,
 		&rest.Config{},
 		controllerConfig,
+		zap.NewNop().Sugar(),
 	).(*Controller)
 
 	controller.resolver = &nopResolver{}
@@ -551,6 +560,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("Label not set correctly config map: expected %v got %v.",
 			expectedLabels, labels)
 	}
+	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
 	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
 		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
 			want, got)

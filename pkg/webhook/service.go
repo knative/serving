@@ -16,19 +16,20 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
+	"github.com/elafros/elafros/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )
 
 var (
-	errInvalidRollouts     = errors.New("The service must have exactly one of runLatest or pinned in spec field.")
-	errMissingRevisionName = errors.New("The PinnedType must have revision specified.")
-	errInvalidService      = errors.New("Failed to convert input into Route.")
+	errInvalidRollouts     = errors.New("the service must have exactly one of runLatest or pinned in spec field")
+	errMissingRevisionName = errors.New("the PinnedType must have revision specified")
+	errInvalidServiceInput = errors.New("failed to convert input into Service")
 )
 
 func errServiceMissingField(fieldPath string) error {
@@ -40,14 +41,16 @@ func errServiceDisallowedFields(fieldPaths string) error {
 }
 
 // ValidateService is Service resource specific validation and mutation handler
-func ValidateService(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	// We only care about the new one, old one gets flagged as an error in unmarshal.
-	_, newService, err := unmarshalServiceCRDs(old, new, "ValidateService")
-	if err != nil {
-		return err
-	}
+func ValidateService(ctx context.Context) ResourceCallback {
+	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+		// We only care about the new one, old one gets flagged as an error in unmarshal.
+		_, newService, err := unmarshalServices(ctx, old, new, "ValidateService")
+		if err != nil {
+			return err
+		}
 
-	return validateSpec(newService)
+		return validateSpec(newService)
+	}
 }
 
 func validateSpec(s *v1alpha1.Service) error {
@@ -72,22 +75,57 @@ func validateSpec(s *v1alpha1.Service) error {
 	return validateConfigurationSpec(&runLatest.Configuration)
 }
 
-func unmarshalServiceCRDs(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Service, *v1alpha1.Service, error) {
-	var oldS *v1alpha1.Service
+func unmarshalServices(
+	ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Service, *v1alpha1.Service, error) {
+	logger := logging.FromContext(ctx)
+	var oldService *v1alpha1.Service
 	if old != nil {
 		var ok bool
-		oldS, ok = old.(*v1alpha1.Service)
+		oldService, ok = old.(*v1alpha1.Service)
 		if !ok {
-			return nil, nil, fmt.Errorf("Failed to convert old into Service: %+v", old)
+			return nil, nil, errInvalidServiceInput
 		}
 	}
-	glog.Infof("%s: OLD Service is\n%+v", fnName, oldS)
+	logger.Infof("%s: OLD Service is\n%+v", fnName, oldService)
 
-	newS, ok := new.(*v1alpha1.Service)
+	newService, ok := new.(*v1alpha1.Service)
 	if !ok {
-		return nil, nil, fmt.Errorf("Failed to convert new into Service: %+v", new)
+		return nil, nil, errInvalidServiceInput
 	}
-	glog.Infof("%s: NEW Service is\n%+v", fnName, newS)
+	logger.Infof("%s: NEW Service is\n%+v", fnName, newService)
 
-	return oldS, newS, nil
+	return oldService, newService, nil
+}
+
+// SetServiceDefaults set defaults on an services.
+// Service does not have any defaults, per-se, but because it holds a Configuration,
+// we need to set the Configuration's defaults. SetServiceDefaults dispatches to
+// SetConfigurationSpecDefaults to accomplish this.
+func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
+	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+		logger := logging.FromContext(ctx)
+		_, service, err := unmarshalServices(ctx, nil, crd, "SetServiceDefaults")
+		if err != nil {
+			return err
+		}
+
+		var (
+			configSpec v1alpha1.ConfigurationSpec
+			patchBase  string
+		)
+
+		if service.Spec.RunLatest != nil {
+			configSpec = service.Spec.RunLatest.Configuration
+			patchBase = "/spec/runLatest/configuration"
+		} else if service.Spec.Pinned != nil {
+			configSpec = service.Spec.Pinned.Configuration
+			patchBase = "/spec/pinned/configuration"
+		} else {
+			// We could error here, but validateSpec should catch this.
+			logger.Info("could not find config in SetServiceDefaults")
+			return nil
+		}
+
+		return setConfigurationSpecDefaults(patches, patchBase, configSpec)
+	}
 }

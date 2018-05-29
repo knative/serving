@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/glog"
+	"go.uber.org/zap"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -36,6 +36,7 @@ import (
 	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
 	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
+	"github.com/elafros/elafros/pkg/logging/logkey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 )
@@ -80,16 +81,15 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config) controller.Interface {
-
-	glog.Infof("Service controller Init")
+	controllerConfig controller.Config,
+	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
 	informer := elaInformerFactory.Elafros().V1alpha1().Services()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions"),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,
 	}
@@ -106,6 +106,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		c.updateServiceEvent, "Service")
 }
 
+// loggerWithServiceInfo enriches the logs with service name and namespace.
+func loggerWithServiceInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
+	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Service, name))
+}
+
 // updateServiceEvent compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
@@ -116,6 +121,8 @@ func (c *Controller) updateServiceEvent(key string) error {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
+
+	logger := loggerWithServiceInfo(c.Logger, namespace, name)
 
 	// Get the Service resource with this namespace/name
 	service, err := c.lister.Services(namespace).Get(name)
@@ -133,10 +140,22 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// Don't modify the informers copy
 	service = service.DeepCopy()
 
-	glog.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
+	// We added the Generation to avoid fighting the Configuration controller,
+	// which adds a Generation to avoid fighting the Revision controller. We
+	// shouldn't need this once k8s 1.10 lands, see:
+	// https://github.com/kubernetes/kubernetes/issues/58778
+	// TODO(#642): Remove this.
+	if service.GetGeneration() == service.Status.ObservedGeneration {
+		logger.Infof("Skipping reconcile since already reconciled %d == %d",
+			service.Spec.Generation, service.Status.ObservedGeneration)
+		return nil
+	}
+
+	logger.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
 
 	config := MakeServiceConfiguration(service)
 	if err := c.reconcileConfiguration(config); err != nil {
+		logger.Errorf("Failed to update Configuration for %q: %v", service.Name, err)
 		return err
 	}
 
@@ -144,9 +163,24 @@ func (c *Controller) updateServiceEvent(key string) error {
 	// switching routes to it. Though route controller might just do the right thing?
 
 	route := MakeServiceRoute(service, config.Name)
-	return c.reconcileRoute(route)
+	if err := c.reconcileRoute(route); err != nil {
+		logger.Errorf("Failed to update Route for %q: %v", service.Name, err)
+		return err
+	}
 
-	// TODO: update status appropriately.
+	// Update the Status of the Service with the latest generation that
+	// we just reconciled against so we don't keep generating Revisions.
+	// TODO(#642): Remove this.
+	service.Status.ObservedGeneration = service.Spec.Generation
+
+	logger.Infof("Updating the Service status:\n%+v", service)
+
+	if _, err := c.updateStatus(service); err != nil {
+		logger.Errorf("Failed to update Service %q: %v", service.Name, err)
+		return err
+	}
+
+	return nil
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {

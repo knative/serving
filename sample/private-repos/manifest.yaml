@@ -33,7 +33,7 @@ spec:
         url: git@github.com:dewitt/elafros-build.git
         branch: master
     template:
-      name: docker-build-push
+      name: kaniko
       arguments:
       - name: IMAGE
         value: &image REPLACE_ME

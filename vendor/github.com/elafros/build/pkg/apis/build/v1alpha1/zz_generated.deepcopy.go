@@ -189,6 +189,13 @@ func (in *BuildStatus) DeepCopyInto(out *BuildStatus) {
 	}
 	in.StartTime.DeepCopyInto(&out.StartTime)
 	in.CompletionTime.DeepCopyInto(&out.CompletionTime)
+	if in.StepStates != nil {
+		in, out := &in.StepStates, &out.StepStates
+		*out = make([]v1.ContainerState, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]BuildCondition, len(*in))
@@ -470,6 +477,13 @@ func (in *TemplateInstantiationSpec) DeepCopyInto(out *TemplateInstantiationSpec
 		in, out := &in.Arguments, &out.Arguments
 		*out = make([]ArgumentSpec, len(*in))
 		copy(*out, *in)
+	}
+	if in.Env != nil {
+		in, out := &in.Env, &out.Env
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }
