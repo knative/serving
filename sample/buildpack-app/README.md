@@ -12,14 +12,25 @@ sample app for Cloud Foundry.
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+This sample uses the [Buildpack build
+template](https://github.com/elafros/build-templates/blob/master/buildpack/buildpack.yaml)
+in the [build-templates](https://github.com/elafros/build-templates/) repo.
+
+First, install the Buildpack build template from that repo:
+
+```shell
+kubectl apply -f buildpack.yaml
+```
+
+Then you can deploy this to Elafros from the root directory via:
+
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
 perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/buildpack-app/sample.yaml
 
 # Create the Kubernetes resources
-kubectl apply -f sample/templates/buildpack.yaml -f sample/buildpack-app/sample.yaml
+kubectl apply -f sample/buildpack-app/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:

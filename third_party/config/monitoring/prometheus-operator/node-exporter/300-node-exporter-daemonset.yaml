@@ -12,7 +12,6 @@ spec:
     metadata:
       labels:
         app: node-exporter
-        prometheus: system
       name: node-exporter
       namespace: monitoring
     spec:

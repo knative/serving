@@ -42,7 +42,6 @@ k8s_objects(
         ":grafana-dash-elafros",
         ":grafana-dash-elafros-efficiency",
         "//config/monitoring/200-common/200-prometheus-exporter:everything",
-        "//config/monitoring/200-common/200-prometheus-servicemonitor:everything",
         "//config/monitoring/200-common/300-prometheus:everything",
     ],
     visibility = ["//visibility:public"],
