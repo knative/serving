@@ -3,12 +3,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/elafros/elafros/test/conformance/test_images_go/pizzaplanetv2",
+    importpath = "github.com/elafros/elafros/test/conformance/test_images/pizzaplanetv1",
     visibility = ["//visibility:private"],
 )
 
 go_binary(
-    name = "pizzaplanetv2",
+    name = "pizzaplanetv1",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )

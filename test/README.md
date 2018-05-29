@@ -63,7 +63,7 @@ These tests require:
 ### Conformance test images
 
 The configuration for the images used for the existing conformance tests lives in
-[`test_images_go`](./conformance/test_images_go). See the [section about test
+[`test_images`](./conformance/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
 
 ### Running conformance tests with Bazel
@@ -131,7 +131,7 @@ These tests require:
 ### End-to-end test images
 
 The configuration for the images used for the existing e2e tests lives in
-[`test_images_node`](./e2e/test_images_node). See the [section about test
+[`test_images`](./e2e/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
 
 ### Running e2e tests with Bazel
@@ -174,7 +174,7 @@ To run the script:
 ```
 
 The path containing test images is any directory whose subdirectories contain the `Dockerfile`
-and any required files to build Docker images (e.g., `./test/e2e/test_images_node`).
+and any required files to build Docker images (e.g., `./test/e2e/test_images`).
 
 ### Adding new test images
 
