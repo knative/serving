@@ -58,7 +58,7 @@ echo "Building Elafros"
 bazel run config:everything >> release.yaml
 echo "---" >> release.yaml
 echo "Building Monitoring & Logging"
-bazel run config/monitoring:everything >> release.yaml
+bazel run config/monitoring:everything-es >> release.yaml
 
 echo "Publishing release.yaml"
 gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
