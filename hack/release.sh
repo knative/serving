@@ -19,27 +19,36 @@ set -o pipefail
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
+# Set default GCS/GCR
+: ${ELAFROS_RELEASE_GCS:="elafros-releases/latest"}
+: ${ELAFROS_RELEASE_GCR:="gcr.io/elafros-releases"}
+readonly ELAFROS_RELEASE_GCS
+readonly ELAFROS_RELEASE_GCR
+
 function cleanup() {
   restore_override_vars
   bazel clean --expunge || true
 }
 
+function banner() {
+  echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+  echo "@@@@ $1 @@@@"
+  echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+}
+
 cd ${ELAFROS_ROOT_DIR}
 trap cleanup EXIT
 
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "@@@@ RUNNING RELEASE VALIDATION TESTS @@@@"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+if [[ "$1" != "--skip-tests" ]]; then
+  banner "RUNNING RELEASE VALIDATION TESTS"
+  # Run tests.
+  ./test/presubmit-tests.sh
+fi
 
-# Run tests.
-./test/presubmit-tests.sh
+banner "    BUILDING THE RELEASE   "
 
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "@@@@     BUILDING THE RELEASE    @@@@"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-# Set the repository to the official one:
-export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
+# Set the repository
+export DOCKER_REPO_OVERRIDE=${ELAFROS_RELEASE_GCR}
 # Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
@@ -48,6 +57,9 @@ export K8S_USER_OVERRIDE=USER_NOT_SET
 if (( IS_PROW )); then
   gcr_auth
 fi
+
+echo "- Destination GCR: ${ELAFROS_RELEASE_GCR}"
+echo "- Destination GCS: ${ELAFROS_RELEASE_GCS}"
 
 echo "Cleaning up"
 bazel clean --expunge
@@ -61,7 +73,7 @@ echo "Building Monitoring & Logging"
 bazel run config/monitoring:everything >> release.yaml
 
 echo "Publishing release.yaml"
-gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+gsutil cp release.yaml gs://${ELAFROS_RELEASE_GCS}/release.yaml
 
 echo "New release published successfully"
 
