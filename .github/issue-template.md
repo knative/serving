@@ -1,7 +1,6 @@
 **Leave one or more of the following to ensure that the appropriate
 working groups are aware of the issue:**
 
-```
 > /area API
 > /area autoscale
 > /area build
