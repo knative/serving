@@ -30,7 +30,7 @@ const fluentdSidecarPreOutputConfig = `
 	@type tail
 	path /var/log/revisions/**/*.*
 	pos_file /var/log/varlog.log.pos
-	tag *
+	tag raw.*
 	<parse>
 		@type multi_format
 		<pattern>
@@ -46,8 +46,9 @@ const fluentdSidecarPreOutputConfig = `
 	read_from_head true
 </source>
 
-<filter var.log.**>
+<filter raw.var.log.**>
 	@type record_transformer
+	enable_ruby true
 	<record>
 		kubernetes.container_name "#{ENV['ELA_CONTAINER_NAME']}"
 		kubernetes.labels.elafros_dev/configuration "#{ENV['ELA_CONFIGURATION']}"
@@ -55,8 +56,23 @@ const fluentdSidecarPreOutputConfig = `
 		kubernetes.namespace_name "#{ENV['ELA_NAMESPACE']}"
 		kubernetes.pod_name "#{ENV['ELA_POD_NAME']}"
 		stream varlog
+		# Line breaks may be trimmed when collecting from files. Add them back so that
+		# multi line logs are still in multi line after combined by detect_exceptions.
+		# Remove this if https://github.com/GoogleCloudPlatform/fluent-plugin-detect-exceptions/pull/10 is released
+		log ${ if record["log"].end_with?("\n") then record["log"] else record["log"] + "\n" end }
 	</record>
 </filter>
+
+<match raw.var.log.**>
+	@id raw.var.log
+	@type detect_exceptions
+	remove_tag_prefix raw
+	message log
+	stream stream
+	multiline_flush_interval 5
+	max_bytes 500000
+	max_lines 1000
+</match>
 
 `
 
