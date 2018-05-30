@@ -19,22 +19,22 @@ set -o pipefail
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
+# Local generated yaml file.
+readonly OUTPUT_YAML=release.yaml
+
 function cleanup() {
   restore_override_vars
   bazel clean --expunge || true
 }
 
-# Recursively tag all :latest images in the given GCR repo.
-# Parameters: $1 - GCR repo.
-#             $2 - tag.
+# Tag Elafros images in the yaml file with a tag.
+# Parameters: $1 - yaml file to parse for images.
+#             $2 - tag to apply.
 function tag_elafros_images() {
-  for image in $(gcloud --format='value(name)' container images list --repository=$1); do
-    echo "Checking ${image} for tagging"
-    tag_elafros_images ${image} $2
-    if [[ -n "$(gcloud --format='get(digest)' container images list-tags ${image} --limit=1)" ]]; then
-      echo "Tagging ${image}:latest"
-      gcloud -q container images add-tag ${image}:latest ${image}:$2
-    fi
+  [[ -z $2 ]] && return 0
+  echo "Tagging images with $2"
+  for image in $(grep -o "${DOCKER_REPO_OVERRIDE}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
+    gcloud -q container images add-tag ${image} ${image%%@*}:$2
   done
 }
 
@@ -72,23 +72,19 @@ readonly TAG
 echo "Cleaning up"
 bazel clean --expunge
 echo "Copying Build release"
-cp ${ELAFROS_ROOT_DIR}/third_party/config/build/release.yaml release.yaml
-echo "---" >> release.yaml
+cp ${ELAFROS_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
+echo "---" >> ${OUTPUT_YAML}
 echo "Building Elafros"
-bazel run config:everything >> release.yaml
-echo "---" >> release.yaml
+bazel run config:everything >> ${OUTPUT_YAML}
+echo "---" >> ${OUTPUT_YAML}
 echo "Building Monitoring & Logging"
-bazel run config/monitoring:everything >> release.yaml
-
-if [[ -n ${TAG} ]]; then
-  echo "Tagging images with ${TAG}"
-  tag_elafros_images ${DOCKER_REPO_OVERRIDE} ${TAG}
-fi
+bazel run config/monitoring:everything >> ${OUTPUT_YAML}
+tag_elafros_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
-gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+gsutil cp ${OUTPUT_YAML} gs://elafros-releases/latest/release.yaml
 if [[ -n ${TAG} ]]; then
-  gsutil cp release.yaml gs://elafros-releases/previous/${TAG}/
+  gsutil cp ${OUTPUT_YAML} gs://elafros-releases/previous/${TAG}/
 fi
 
 echo "New release published successfully"
