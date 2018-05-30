@@ -47,25 +47,39 @@ var (
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
 func ValidateConfiguration(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		_, newConfiguration, err := unmarshalConfigurations(ctx, old, new, "ValidateConfiguration")
+		oldConfig, newConfig, err := unmarshalConfigurations(ctx, old, new, "ValidateConfiguration")
 		if err != nil {
 			return err
 		}
-		if err := validateConfiguration(newConfiguration); err != nil {
+		if err := validateConfiguration(newConfig); err != nil {
+			return err
+		}
+		if err := validateProtocolUnchanged(oldConfig, newConfig); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
+func validateProtocolUnchanged(oldConfiguration, newConfiguration *v1alpha1.Configuration) error {
+	if oldConfiguration == nil {
+		return nil
+	}
+
+	oldProtcol := oldConfiguration.Spec.RevisionTemplate.Spec.Protocol
+	newProtcol := newConfiguration.Spec.RevisionTemplate.Spec.Protocol
+
+	if oldProtcol != newProtcol {
+		return fmt.Errorf("The Revision protocol cannot be changed on update - old: %s, new: %s", oldProtcol, newProtcol)
+	}
+	return nil
+}
+
 func validateConfiguration(configuration *v1alpha1.Configuration) error {
 	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
 		return errEmptySpecInConfiguration
 	}
-	if err := validateConfigurationSpec(&configuration.Spec); err != nil {
-		return err
-	}
-	return validateConcurrencyModel(configuration.Spec.RevisionTemplate.Spec.ConcurrencyModel)
+	return validateConfigurationSpec(&configuration.Spec)
 }
 
 func validateConfigurationSpec(configurationSpec *v1alpha1.ConfigurationSpec) error {
@@ -82,9 +96,38 @@ func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
 	if template.Spec.ServingState != "" {
 		return errDisallowedFields("revisionTemplate.spec.servingState")
 	}
+	if err := validateConcurrencyModel(template.Spec.ConcurrencyModel); err != nil {
+		return err
+	}
+	if err := validateRevisionProtocol(template.Spec.Protocol); err != nil {
+		return err
+	}
 	if err := validateContainer(template.Spec.Container); err != nil {
 		return err
 	}
+	if err := validateContainerProbes(template.Spec); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateContainerProbes(spec v1alpha1.RevisionSpec) error {
+	if probe := spec.Container.ReadinessProbe; probe != nil {
+		if spec.Protocol == v1alpha1.RevisionProtocolGRPC {
+			if probe.HTTPGet != nil {
+				return fmt.Errorf("GRPC protocol should use a TCP readiness probe instead of HTTPGet")
+			}
+		}
+	}
+
+	if probe := spec.Container.LivenessProbe; probe != nil {
+		if spec.Protocol == v1alpha1.RevisionProtocolGRPC {
+			if probe.HTTPGet != nil {
+				return fmt.Errorf("GRPC protocol should use a TCP liveness probe instead of HTTPGet")
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -94,6 +137,17 @@ func validateConcurrencyModel(value v1alpha1.RevisionRequestConcurrencyModelType
 		return nil
 	default:
 		return fmt.Errorf("Unrecognized value for concurrencyModel: %q", value)
+	}
+}
+
+func validateRevisionProtocol(value v1alpha1.RevisionProtocolType) error {
+	switch value {
+	case v1alpha1.RevisionProtocolType(""),
+		v1alpha1.RevisionProtocolHTTP,
+		v1alpha1.RevisionProtocolGRPC:
+		return nil
+	default:
+		return fmt.Errorf("Unrecognized value for protocol: %q", value)
 	}
 }
 
@@ -143,6 +197,14 @@ func setConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patch
 			Operation: "add",
 			Path:      path.Join(patchBase, "revisionTemplate/spec/concurrencyModel"),
 			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
+		})
+	}
+
+	if spec.RevisionTemplate.Spec.Protocol == "" {
+		*patches = append(*patches, jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/revisionTemplate/spec/protocol",
+			Value:     v1alpha1.RevisionProtocolHTTP,
 		})
 	}
 	return nil

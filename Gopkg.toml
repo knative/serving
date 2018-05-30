@@ -44,6 +44,10 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "v2.2.1"
 
+[[override]]
+  name = "github.com/golang/protobuf"
+  version = "v1.1.0"
+
 [[constraint]]
   branch = "master"
   name = "github.com/golang/glog"

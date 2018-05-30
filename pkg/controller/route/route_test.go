@@ -102,6 +102,7 @@ func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) 
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
+			Protocol: v1alpha1.RevisionProtocolHTTP,
 			Container: corev1.Container{
 				Image: "test-image",
 			},
@@ -128,6 +129,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 					Container: corev1.Container{
 						Image: "test-image",
 					},
+					Protocol: v1alpha1.RevisionProtocolHTTP,
 				},
 			},
 		},
@@ -1664,5 +1666,76 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		if ingress.Spec.Rules[1].Host != expectedWildcardHost {
 			t.Errorf("Expected ingress host %q but saw %q", expectedWildcardHost, ingress.Spec.Rules[1].Host)
 		}
+	}
+}
+
+func TestCreateRouteWithGRPCProtocol(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+
+	h := NewHooks()
+	// Look for the events. Events are delivered asynchronously so we need to use
+	// hooks here. Each hook tests for a specific event.
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Istio route rule "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	rev.Spec.Protocol = "grpc"
+
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A route targeting the revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      100,
+			},
+		},
+	)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	// Look for the placeholder service.
+	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("error getting service: %v", err)
+	}
+
+	expectedPorts := []corev1.ServicePort{
+		corev1.ServicePort{
+			Name: "grpc",
+			Port: 80,
+		},
+	}
+
+	if diff := cmp.Diff(expectedPorts, service.Spec.Ports); diff != "" {
+		t.Errorf("Unexpected service ports diff (-want +got): %v", diff)
+	}
+
+	// Look for the ingress.
+	expectedIngressName := fmt.Sprintf("%s-ingress", route.Name)
+	ingress, err := kubeClient.ExtensionsV1beta1().Ingresses(testNamespace).Get(expectedIngressName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("error getting ingress: %v", err)
+	}
+
+	for i, rule := range ingress.Spec.Rules {
+		for j, path := range rule.HTTP.Paths {
+			actualServicePort := path.Backend.ServicePort.StrVal
+			if actualServicePort != "grpc" {
+				t.Errorf("Ingress backend servicePort is not 'grpc' - got %q at rule[%d], path[%d] ", actualServicePort, i, j)
+			}
+		}
+	}
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,9 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/knative/serving/pkg"
-
+	"github.com/google/tcpproxy"
 	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
@@ -70,8 +71,10 @@ var (
 	elaNamespace             string
 	elaConfiguration         string
 	elaRevision              string
+	elaProtocol              string
 	elaAutoscaler            string
 	elaAutoscalerPort        string
+	allowedProtocols         = []string{"http", "grpc"}
 	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
 	reqChan                  = make(chan queue.ReqEvent, requestCountingQueueLength)
 	kubeClient               *kubernetes.Clientset
@@ -83,6 +86,11 @@ var (
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
+type Proxy struct {
+	HttpProxy *http.Server
+	TcpProxy  *tcpproxy.Proxy
+}
+
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("ELA_POD", logger)
 	elaNamespace = util.GetRequiredEnvOrFatal("ELA_NAMESPACE", logger)
@@ -90,6 +98,20 @@ func initEnv() {
 	elaRevision = util.GetRequiredEnvOrFatal("ELA_REVISION", logger)
 	elaAutoscaler = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER", logger)
 	elaAutoscalerPort = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER_PORT", logger)
+}
+
+func (p *Proxy) Run() error {
+	if p.HttpProxy != nil {
+		if err := p.HttpProxy.ListenAndServe(); err != nil {
+			return err
+		}
+	}
+	if p.TcpProxy != nil {
+		if err := p.TcpProxy.Run(); err != nil {
+			return err
+		}
+	}
+	return errors.New("No proxies to run - both HttpProxy and TcpProxy are nil.")
 }
 
 func connectStatSink() {
@@ -281,10 +303,10 @@ func main() {
 		}
 	}()
 
-	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", queue.RequestQueuePort), Handler: nil}
 	adminServer := &http.Server{
 		Addr: fmt.Sprintf(":%d", queue.RequestQueueAdminPort), Handler: nil}
+
+	proxy := createProxy(elaProtocol)
 
 	// Add a SIGTERM handler to gracefully shutdown the servers during
 	// pod termination.
@@ -294,11 +316,31 @@ func main() {
 		<-sigTermChan
 		// Calling server.Shutdown() allows pending requests to
 		// complete, while no new work is accepted.
-		server.Shutdown(context.Background())
+		if proxy.HttpProxy != nil {
+			proxy.HttpProxy.Shutdown(context.Background())
+		}
+		if proxy.TcpProxy != nil {
+			proxy.TcpProxy.Close()
+		}
 		adminServer.Shutdown(context.Background())
 		os.Exit(0)
 	}()
-	http.HandleFunc("/", handler)
-	go server.ListenAndServe()
+
+	go proxy.Run()
 	setupAdminHandlers(adminServer)
+}
+
+func createProxy(protocol string) Proxy {
+	if elaProtocol == "http" {
+		httpServer := &http.Server{
+			Addr:    fmt.Sprintf(":%d", queue.RequestQueuePort),
+			Handler: nil,
+		}
+		http.HandleFunc("/", handler)
+		return Proxy{HttpProxy: httpServer}
+	}
+
+	tcpProxy := &tcpproxy.Proxy{}
+	tcpProxy.AddRoute(fmt.Sprintf(":%d", queue.RequestQueuePort), tcpproxy.To(":8080"))
+	return Proxy{TcpProxy: tcpProxy}
 }

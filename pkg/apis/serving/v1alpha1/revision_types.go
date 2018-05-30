@@ -90,6 +90,17 @@ const (
 	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
 )
 
+type RevisionProtocolType string
+
+const (
+	// RevisionProtocolHTTP specifies that the container will
+	// exclusively receive HTTP traffic.
+	RevisionProtocolHTTP RevisionProtocolType = "http"
+	// RevisionProtocolGRPC specifies that the container will
+	// exclusively receive gRPC traffic.
+	RevisionProtocolGRPC RevisionProtocolType = "grpc"
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -111,6 +122,10 @@ type RevisionSpec struct {
 	// Revision. Defaults to Multi.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+
+	// Protocol specifies the exclusive network protocol
+	// for the Revision. Defaults to HTTP.
+	Protocol RevisionProtocolType `json:"protocol,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified

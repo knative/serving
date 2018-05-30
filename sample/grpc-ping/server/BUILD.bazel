@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["server.go"],
+    importpath = "github.com/elafros/elafros/sample/grpc-ping/server",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//sample/grpc-ping/proto:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "server",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -181,6 +181,8 @@ spec:
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
 
+      # +optional protcol (http or grpc). Defaults to http.
+      protocol: ...
       # +optional concurrency strategy.  Defaults to Multi.
       concurrencyModel: ...
       # +optional. max time the instance is allowed for responding to a request
@@ -255,6 +257,10 @@ spec:
   # and is used by the controllers and activator to enable
   # scaling to/from 0.
   servingState: Active | Reserve | Retired
+
+  # The protocol used for this Revision. This will define the Istio ingress spec
+  # and service spec required for this Revision.
+  protocol: grpc | http
 
   # Some function or server frameworks or application code may be written to
   # expect that each request will be granted a single-tenant process to run
@@ -331,6 +337,7 @@ spec:  # One of "runLatest" or "pinned"
         - ...
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
+      protocol: ...
       concurrencyModel: ...
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
@@ -353,6 +360,7 @@ spec:  # One of "runLatest" or "pinned"
         - ...
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
+      protocol: ...
       concurrencyModel: ...
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as

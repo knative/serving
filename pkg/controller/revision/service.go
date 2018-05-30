@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var httpServicePortName = "http"
 var servicePort = 80
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same
@@ -44,7 +43,7 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name:       httpServicePortName,
+					Name:       string(u.Spec.Protocol),
 					Port:       int32(servicePort),
 					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
 				},
