@@ -35,8 +35,8 @@ readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
-readonly ISTIO_VERSION=0.6.0
-readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/install/kubernetes
+readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
@@ -45,17 +45,6 @@ readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
 function create_istio() {
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
-
-  ${ISTIO_DIR}/webhook-create-signed-cert.sh \
-    --service istio-sidecar-injector \
-    --namespace istio-system \
-    --secret sidecar-injector-certs
-
-  kubectl apply -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml
-
-  cat ${ISTIO_DIR}/istio-sidecar-injector.yaml | \
-    ${ISTIO_DIR}/webhook-patch-ca-bundle.sh | \
-    kubectl apply -f -
 }
 
 function create_everything() {
@@ -65,10 +54,7 @@ function create_everything() {
 }
 
 function delete_istio() {
-  kubectl delete --ignore-not-found=true \
-    -f ${ISTIO_DIR}/istio-sidecar-injector.yaml \
-    -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml \
-    -f ${ISTIO_DIR}/istio.yaml
+  kubectl delete -f ${ISTIO_DIR}/istio.yaml
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
