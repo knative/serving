@@ -25,17 +25,17 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Login service received a request.")
-	target := os.Getenv("TARGET")
-	if target == "" {
-		target = "NOT SPECIFIED"
+	serviceName := os.Getenv("SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "NOT SPECIFIED"
 	}
-	fmt.Fprintf(w, "Login service TARGET env: %s!\n", target)
+	log.Printf("%s received a request.", serviceName)
+	fmt.Fprintf(w, "%s is called !\n", serviceName)
 }
 
 func main() {
 	flag.Parse()
-	log.Print("Login service sample started.")
+	log.Print("Sample started.")
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)

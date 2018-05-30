@@ -13,71 +13,49 @@
 # limitations under the License.
 
 apiVersion: elafros.dev/v1alpha1
-kind: Route
+kind: Service
 metadata:
-  name: login-service-route
+  name: search-service
   namespace: default
 spec:
-  traffic:
-  - configurationName: login-config
-    percent: 100
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            # This is the Go import path for the binary to containerize
+            # and substitute here.
+            image: github.com/elafros/elafros/sample/elafros-routing
+            env:
+              - name: SERVICE_NAME
+                value: Search Service
+            readinessProbe:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 3
+              periodSeconds: 3
 ---
 apiVersion: elafros.dev/v1alpha1
-kind: Configuration
+kind: Service
 metadata:
-  name: login-config
+  name: login-service
   namespace: default
 spec:
-  revisionTemplate:
-    metadata:
-      labels:
-        elafros.dev/type: app
-    spec:
-      container:
-        # This is the Go import path for the binary to containerize
-        # and substitute here.
-        image: github.com/elafros/elafros/sample/elafros-routing/login
-        env:
-          - name: TARGET
-            value: login-target
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 3
-          periodSeconds: 3
----
-apiVersion: elafros.dev/v1alpha1
-kind: Route
-metadata:
-  name: search-service-route
-  namespace: default
-spec:
-  traffic:
-  - configurationName: search-config
-    percent: 100
----
-apiVersion: elafros.dev/v1alpha1
-kind: Configuration
-metadata:
-  name: search-config
-  namespace: default
-spec:
-  revisionTemplate:
-    metadata:
-      labels:
-        elafros.dev/type: app
-    spec:
-      container:
-        # This is the Go import path for the binary to containerize
-        # and substitute here.
-        image: github.com/elafros/elafros/sample/elafros-routing/search
-        env:
-          - name: TARGET
-            value: search-target
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 3
-          periodSeconds: 3
+  runLatest:
+    configuration:
+      revisionTemplate:
+        spec:
+          container:
+            # This is the Go import path for the binary to containerize
+            # and substitute here.
+            image: github.com/elafros/elafros/sample/elafros-routing
+            env:
+              - name: SERVICE_NAME
+                value: Login Service
+            readinessProbe:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 3
+              periodSeconds: 3
