@@ -173,8 +173,9 @@ func MakeElaPodSpec(
 			},
 			{
 				Name: "ELA_AUTOSCALER",
-				// This is hardcoded to the autoscaling-controller service name.
-				Value: "autoscaling-controller",
+				// This is hardcoded to the autoscaler service name. It shouldn't
+				// include the namespace because queue-proxy adds that.
+				Value: "autoscaler",
 			},
 			{
 				Name:  "ELA_AUTOSCALER_PORT",

@@ -41,7 +41,7 @@ k8s_object(
 k8s_object(
     name = "autoscaling-controller",
     images = {
-        "github.com/elafros/elafros/cmd/autoscaling-controller": "//cmd/autoscaling-controller:image",
+        "github.com/elafros/elafros/cmd/autoscaler": "//cmd/autoscaler:image",
     },
     template = "autoscaling-controller.yaml",
 )
