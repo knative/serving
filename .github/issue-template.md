@@ -1,30 +1,29 @@
 <!--
 Uncomment leaving one or more of the following to ensure that the appropriate
 working groups are aware of the issue:
-
-/area API
-/area autoscale
-/area build
-/area monitoring
-/area networking
-/area test-and-release
-
 -->
+
+> /area API
+> /area autoscale
+> /area build
+> /area monitoring
+> /area networking
+> /area test-and-release
 
 <!--
 Uncomment leaving one or more of the following to classify the kind of issue:
-
-/kind bug
-/kind cleanup
-/kind dev
-/kind doc
 -->
+
+> /kind bug
+> /kind cleanup
+> /kind dev
+> /kind doc
 
 <!--
 You may also assign an issue via:
-
-/assign @user
 -->
+
+> /assign @user
 
 ## Expected Behavior
 
