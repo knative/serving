@@ -268,7 +268,7 @@ func setupAdminHandlers(server *http.Server) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL"))
+	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("ela-queueproxy")
 	defer logger.Sync()
 
 	initEnv()
