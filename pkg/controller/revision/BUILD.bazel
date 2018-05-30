@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "buildtracker.go",
-        "ela_autoscaler.go",
         "ela_fluentd.go",
         "ela_pod.go",
         "ela_resolve.go",
