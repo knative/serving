@@ -58,4 +58,7 @@ const (
 
 	// UserInfo is the key used to represent a user information in logs
 	UserInfo = "elafros.dev/userinfo"
+
+	// Pod is the key used to represent a pod's name in logs
+	Pod = "elafros.dev/pod"
 )

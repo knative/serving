@@ -30,8 +30,8 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 )
 
-func GetElaConfigMapName() string {
-	return "ela-config"
+func GetDomainConfigMapName() string {
+	return "config-domain"
 }
 
 // Various functions for naming the resources for consistency

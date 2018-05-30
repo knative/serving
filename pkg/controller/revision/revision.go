@@ -141,6 +141,12 @@ type ControllerConfig struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
+
+	// QueueProxyLoggingConfig is a string containing the logger configuration for queue proxy.
+	QueueProxyLoggingConfig string
+
+	// QueueProxyLoggingLevel is a string containing the logger level for queue proxy.
+	QueueProxyLoggingLevel string
 }
 
 // NewController initializes the controller and is called by the generated code

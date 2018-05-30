@@ -3,13 +3,23 @@ package(default_visibility = ["//visibility:public"])
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
-    name = "elaconfig",
-    template = "elaconfig.yaml",
+    name = "config-domain",
+    template = "config-domain.yaml",
 )
 
 k8s_object(
-    name = "elawebhookconfig",
-    template = "elawebhookconfig.yaml",
+    name = "config-autoscaler",
+    template = "config-autoscaler.yaml",
+)
+
+k8s_object(
+    name = "config-logging",
+    template = "config-logging.yaml",
+)
+
+k8s_object(
+    name = "config-observability",
+    template = "config-observability.yaml",
 )
 
 k8s_object(
@@ -114,8 +124,10 @@ k8s_objects(
         ":namespace",
         ":authz",
         ":crds",
-        ":elaconfig",
-        ":elawebhookconfig",
+        ":config-domain",
+        ":config-autoscaler",
+        ":config-logging",
+        ":config-observability",
         ":controller",
         ":controllerservice",
         ":webhook",

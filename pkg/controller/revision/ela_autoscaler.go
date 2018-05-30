@@ -24,8 +24,8 @@ import (
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/controller"
 
-	corev1 "k8s.io/api/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -49,16 +49,30 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 
 	replicas := int32(1)
 
-	configVolume := corev1.Volume{
-		Name: "ela-config",
+	const autoscalerConfigName = "config-autoscaler"
+	autoscalerConfigVolume := corev1.Volume{
+		Name: autoscalerConfigName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "ela-config",
+					Name: autoscalerConfigName,
 				},
 			},
 		},
 	}
+
+	const loggingConfigName = "config-logging"
+	loggingConfigVolume := corev1.Volume{
+		Name: loggingConfigName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: loggingConfigName,
+				},
+			},
+		},
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
@@ -115,20 +129,22 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 								},
 							},
 							Args: []string{
-								"-logtostderr=true",
-								"-stderrthreshold=INFO",
 								fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								corev1.VolumeMount{
-									Name:      "ela-config",
-									MountPath: "/etc/config",
+									Name:      autoscalerConfigName,
+									MountPath: "/etc/config-autoscaler",
+								},
+								corev1.VolumeMount{
+									Name:      loggingConfigName,
+									MountPath: "/etc/config-logging",
 								},
 							},
 						},
 					},
 					ServiceAccountName: "ela-autoscaler",
-					Volumes:            []corev1.Volume{configVolume},
+					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
 				},
 			},
 		},

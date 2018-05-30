@@ -8,9 +8,11 @@ go_library(
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",
         "//pkg/autoscaler:go_default_library",
+        "//pkg/logging:go_default_library",
+        "//pkg/logging/logkey:go_default_library",
         "//pkg/queue:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
     ],

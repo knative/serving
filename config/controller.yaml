@@ -43,9 +43,19 @@ spec:
         - name: metrics
           containerPort: 9090
         volumeMounts:
-        - name: ela-config
-          mountPath: /etc/config
+        - name: config-autoscaler
+          mountPath: /etc/config-autoscaler
+        - name: config-logging
+          mountPath: /etc/config-logging
+        - name: config-observability
+          mountPath: /etc/config-observability
       volumes:
-        - name: ela-config
+        - name: config-autoscaler
           configMap:
-            name: ela-config
+            name: config-autoscaler
+        - name: config-logging
+          configMap:
+            name: config-logging
+        - name: config-observability
+          configMap:
+            name: config-observability

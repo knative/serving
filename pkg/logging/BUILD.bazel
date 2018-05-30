@@ -10,7 +10,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/logging/logkey:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.uber.org/zap:go_default_library",
+        "//vendor/go.uber.org/zap/zapcore:go_default_library",
     ],
 )
 

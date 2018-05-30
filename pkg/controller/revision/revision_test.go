@@ -20,6 +20,7 @@ package revision
 - When a Revision is updated TODO
 - When a Revision is deleted TODO
 */
+
 import (
 	"errors"
 	"fmt"
@@ -200,11 +201,14 @@ func getTestControllerConfig() ControllerConfig {
 	return ControllerConfig{
 		QueueSidecarImage:                 testQueueImage,
 		AutoscalerImage:                   testAutoscalerImage,
-		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
 
 		EnableVarLogCollection:     true,
 		FluentdSidecarImage:        testFluentdImage,
 		FluentdSidecarOutputConfig: testFluentdSidecarOutputConfig,
+
+		QueueProxyLoggingConfig: "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+		QueueProxyLoggingLevel:  "info",
 	}
 }
 
@@ -320,7 +324,8 @@ func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
 }
 
 func TestCreateRevCreatesStuff(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	controllerConfig := getTestControllerConfig()
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -390,8 +395,13 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		if container.Name == "queue-proxy" {
 			foundQueueProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
-			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
+			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
 			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
+			checkEnv(container.Env, "ELA_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
+			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			checkEnv(container.Env, "ELA_LOGGING_CONFIG", controllerConfig.QueueProxyLoggingConfig, "")
+			checkEnv(container.Env, "ELA_LOGGING_LEVEL", controllerConfig.QueueProxyLoggingLevel, "")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}
@@ -410,8 +420,8 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		if container.Name == "fluentd-proxy" {
 			foundFluentdProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
-			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
-			checkEnv(container.Env, "ELA_CONFIGURATION", "test-config", "")
+			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
 			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
 			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
 		}
@@ -517,11 +527,33 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
 			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
 			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			if got, want := len(container.VolumeMounts), 2; got != want {
+				t.Errorf("Unexpected number of volume mounts: got: %v, want: %v", got, want)
+			} else {
+				if got, want := container.VolumeMounts[0].MountPath, "/etc/config-autoscaler"; got != want {
+					t.Errorf("Unexpected volume mount path: got: %v, want: %v", got, want)
+				}
+				if got, want := container.VolumeMounts[1].MountPath, "/etc/config-logging"; got != want {
+					t.Errorf("Unexpected volume mount path: got: %v, want: %v", got, want)
+				}
+			}
 			break
 		}
 	}
 	if !foundAutoscaler {
 		t.Error("Missing autoscaler")
+	}
+
+	// Validate the config volumes for auto scaler
+	if got, want := len(asDeployment.Spec.Template.Spec.Volumes), 2; got != want {
+		t.Errorf("Unexpected number of volumes: got: %v, want: %v", got, want)
+	} else {
+		if got, want := asDeployment.Spec.Template.Spec.Volumes[0].ConfigMap.LocalObjectReference.Name, "config-autoscaler"; got != want {
+			t.Errorf("Unexpected configmap reference: got: %v, want: %v", got, want)
+		}
+		if got, want := asDeployment.Spec.Template.Spec.Volumes[1].ConfigMap.LocalObjectReference.Name, "config-logging"; got != want {
+			t.Errorf("Unexpected configmap reference: got: %v, want: %v", got, want)
+		}
 	}
 
 	// Look for the autoscaler service.

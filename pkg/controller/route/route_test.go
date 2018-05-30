@@ -193,7 +193,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 				},
 			},
 		},
-		k8sflag.Bool("autoscaler.enable-scale-to-zero", false),
+		k8sflag.Bool("enable-scale-to-zero", false),
 		testLogger,
 	).(*Controller)
 
@@ -354,7 +354,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
-	controller.enableScaleToZero = k8sflag.Bool("autoscaler.enable-scale-to-zero", true)
+	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -617,7 +617,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
-	controller.enableScaleToZero = k8sflag.Bool("autoscaler.enable-scale-to-zero", true)
+	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",

@@ -23,7 +23,6 @@ import (
 	"github.com/elafros/elafros/pkg/logging"
 	"github.com/elafros/elafros/pkg/signals"
 	"github.com/elafros/elafros/pkg/webhook"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -31,8 +30,7 @@ import (
 
 func main() {
 	flag.Parse()
-	loggingZapCfg := k8sflag.String("logging.zap-config", "")
-	logger := logging.NewLogger(loggingZapCfg.Get()).Named("ela-webhook")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("ela-webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")
