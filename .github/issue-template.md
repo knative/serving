@@ -1,8 +1,7 @@
-<!--
-Uncomment leaving one or more of the following to ensure that the appropriate
-working groups are aware of the issue:
--->
+**Leave one or more of the following to ensure that the appropriate
+working groups are aware of the issue:**
 
+```
 > /area API
 > /area autoscale
 > /area build
@@ -10,18 +9,14 @@ working groups are aware of the issue:
 > /area networking
 > /area test-and-release
 
-<!--
-Uncomment leaving one or more of the following to classify the kind of issue:
--->
+**Leave one or more of the following to classify the kind of issue:**
 
 > /kind bug
 > /kind cleanup
 > /kind dev
 > /kind doc
 
-<!--
-You may also assign an issue via:
--->
+**You may also assign an issue via:**
 
 > /assign @user
 
