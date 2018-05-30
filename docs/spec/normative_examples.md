@@ -217,7 +217,7 @@ status:
   - revisionName: def
     percent: 25
   conditions:
-  - type: RolloutComplete
+  - type: Ready
     status: False
 ```
 
@@ -243,7 +243,7 @@ status:
   - revisionName: def
     percent: 100
   conditions:
-  - type: RolloutComplete
+  - type: Ready
     status: True
   ...
 ```
@@ -475,7 +475,7 @@ status:
     percent: 100
 
   conditions:
-  - type: RolloutComplete
+  - type: Ready
     status: True
 
   observedGeneration: 2145
@@ -713,7 +713,7 @@ status:
     name: next # addressable as next.my-service.default.mydomain.com
     percent: 0
   conditions:
-  - type: RolloutComplete
+  - type: Ready
     status: True
 ```
 
@@ -787,7 +787,7 @@ status:
     name: next # addressable as next.my-service.default.mydomain.com
     percent: 0
   conditions:
-  - type: RolloutComplete
+  - type: Ready
     status: True
 ```
 
