@@ -181,6 +181,26 @@ if [[ -z $1 ]]; then
     --extract "v${ELAFROS_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
+  # Delete target pools and health checks that might have leaked.
+  # See https://github.com/elafros/elafros/issues/959 for details.
+  # TODO(adrcunha): Remove once the leak issue is resolved.
+  gcp_project=${PROJECT_ID}
+  [[ -z ${gcp_project} ]] && gcp_project=$(gcloud config get-value project)
+  http_health_checks="$(gcloud compute target-pools list \
+    --project=${gcp_project} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    grep httpHealthChecks | tr '\n' ' ')"
+  target_pools="$(gcloud compute target-pools list \
+    --project=${gcp_project} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    tr '\n' ' ')"
+  region="$(gcloud compute zones list --filter=name=${E2E_CLUSTER_ZONE} --format='value(region)')"
+  if [[ -n "${target_pools}" ]]; then
+    echo "Found leaked target pools, deleting"
+    gcloud compute target-pools delete -q --project=${gcp_project} --region=${region} ${target_pools}
+  fi
+  if [[ -n "${http_health_checks}" ]]; then
+    echo "Found leaked health checks, deleting"
+    gcloud compute http-health-checks delete -q --project=${gcp_project} ${http_health_checks}
+  fi
   result="$(cat ${TEST_RESULT_FILE})"
   echo "Test result code is $result"
   exit $result

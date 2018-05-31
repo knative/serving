@@ -116,8 +116,8 @@ Google group, you can see the test logs by following these instructions:
 
 1. Wait for prow to finish the test execution. Note down the PR number.
 
-2. Open the URL http://gcsweb.k8s.io/gcs/ela-prow/pr-logs/pull/elafros_elafros/###/pull-elafros-elafros-test/
-where ### is the PR number.
+2. Open the URL http://gcsweb.k8s.io/gcs/ela-prow/pr-logs/pull/elafros_elafros/###/pull-elafros-elafros-@@@-tests/
+where ### is the PR number and @@@ the test type (_build_, _unit_ or _integration_).
 
 3. You'll see one or more numbered directories, the highest number is the latest
 test execution (called "build" by Prow).

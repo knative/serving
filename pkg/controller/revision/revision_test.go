@@ -556,10 +556,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
 	}
-	if labels := configMap.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
-		t.Errorf("Label not set correctly config map: expected %v got %v.",
-			expectedLabels, labels)
-	}
 	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
 	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
 		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
@@ -670,6 +666,69 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 	_, err = kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Fatalf("The ConfigMap %s shouldn't exist: %v", fluentdConfigMapName, err)
+	}
+}
+
+func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+
+	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
+	existingConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fluentdConfigMapName,
+			Namespace: testNamespace,
+		},
+		Data: map[string]string{
+			"varlog.conf": "test-config",
+		},
+	}
+	kubeClient.Core().ConfigMaps(testNamespace).Create(existingConfigMap)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Look for the config map.
+	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config map: %v", err)
+	}
+	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
+		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
+			want, got)
+	}
+}
+
+func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	rev := getTestRevision()
+	revRef := *newRevisionNonControllerRef(rev)
+	oldRev := getTestRevision()
+	oldRev.Name = "old" + oldRev.Name
+	oldRevRef := *newRevisionNonControllerRef(oldRev)
+
+	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
+	existingConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            fluentdConfigMapName,
+			Namespace:       testNamespace,
+			OwnerReferences: []metav1.OwnerReference{oldRevRef},
+		},
+		Data: map[string]string{
+			"varlog.conf": fluentdConfigSource,
+		},
+	}
+	kubeClient.Core().ConfigMaps(testNamespace).Create(existingConfigMap)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	// Look for the config map.
+	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config map: %v", err)
+	}
+	expectedRefs := []metav1.OwnerReference{oldRevRef, revRef}
+	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences); diff != "" {
+		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
 	}
 }
 

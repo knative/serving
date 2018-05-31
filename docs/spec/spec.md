@@ -87,7 +87,7 @@ status:
   - ...
 
   conditions:  # See also the [error conditions documentation](errors.md)
-  - type: RolloutComplete
+  - type: Ready
     status: True
   - type: AllTrafficAssigned
     status: True
