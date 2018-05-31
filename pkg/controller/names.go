@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -80,8 +81,8 @@ func GetServiceRouteName(u *v1alpha1.Service) string {
 	return u.Name
 }
 
-func GetServingK8SActivatorServiceName() string {
-	return "activator-service"
+func GetServingK8SActivatorServiceName(protocol v1alpha1.RevisionProtocolType) string {
+	return fmt.Sprintf("activator-%s-service", protocol)
 }
 
 func GetRevisionHeaderName() string {

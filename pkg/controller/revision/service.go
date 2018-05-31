@@ -43,7 +43,7 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name:       string(u.Spec.Protocol),
+					Name:       string(rev.Spec.Protocol),
 					Port:       int32(servicePort),
 					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
 				},

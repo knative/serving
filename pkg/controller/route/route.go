@@ -725,10 +725,16 @@ func (c *Controller) computeRevisionRoutes(
 	// to workaround https://github.com/istio/istio/issues/5204
 	// Once migration to Istio Gateway completes, we should change this back so that activator
 	// is added to the list only if its weight is positive
+	revProtocol := v1alpha1.RevisionProtocolHTTP
+	if inactiveRev != "" {
+		rev := revMap[inactiveRev]
+		revProtocol = rev.Spec.Protocol
+	}
+
 	activatorRoute := RevisionRoute{
-		Name:         controller.GetServingK8SActivatorServiceName(),
+		Name:         controller.GetServingK8SActivatorServiceName(revProtocol),
 		RevisionName: inactiveRev,
-		Service:      controller.GetServingK8SActivatorServiceName(),
+		Service:      controller.GetServingK8SActivatorServiceName(revProtocol),
 		Namespace:    pkg.GetServingSystemNamespace(),
 		Weight:       totalInactivePercent,
 	}

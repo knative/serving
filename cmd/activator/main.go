@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/signals"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -45,7 +46,13 @@ type activationHandler struct {
 type retryRoundTripper struct{}
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	transport := http.DefaultTransport
+	var transport http.RoundTripper
+
+	transport = http.DefaultTransport
+	if r.ProtoMajor == 2 {
+		transport = h2c.NewTransport()
+	}
+
 	resp, err := transport.RoundTrip(r)
 	// TODO: Activator should retry with backoff.
 	// https://github.com/knative/serving/issues/1229
@@ -79,9 +86,11 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = retryRoundTripper{}
+
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/elafros/elafros/issues/964
 	r.Host = ""
+
 	proxy.ServeHTTP(w, r)
 }
 
@@ -114,5 +123,5 @@ func main() {
 	}()
 
 	http.HandleFunc("/", ah.handler)
-	http.ListenAndServe(":8080", nil)
+	h2c.ListenAndServe(":8080", nil)
 }

@@ -153,10 +153,10 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 	}
 }
 
-func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
+func getActivatorDestinationWeight(protocol v1alpha1.RevisionProtocolType, w int) v1alpha2.DestinationWeight {
 	return v1alpha2.DestinationWeight{
 		Destination: v1alpha2.IstioService{
-			Name:      ctrl.GetServingK8SActivatorServiceName(),
+			Name:      ctrl.GetServingK8SActivatorServiceName(protocol),
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Weight: w,
@@ -342,7 +342,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, getActivatorDestinationWeight(0)},
+		}, getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -432,7 +432,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				},
 			},
 		},
-		Route:         []v1alpha2.DestinationWeight{getActivatorDestinationWeight(100)},
+		Route: []v1alpha2.DestinationWeight{
+			getActivatorDestinationWeight(rev.Spec.Protocol, 100),
+		},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -513,7 +515,7 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, getActivatorDestinationWeight(0), {
+		}, getActivatorDestinationWeight(latestReadyRev.Spec.Protocol, 0), {
 			Destination: v1alpha2.IstioService{
 				Name:      fmt.Sprintf("%s-service", otherRev.Name),
 				Namespace: testNamespace,
@@ -592,7 +594,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 10,
-		}, getActivatorDestinationWeight(0)},
+		}, getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -672,7 +674,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 90,
-		}, getActivatorDestinationWeight(10)},
+		},
+			getActivatorDestinationWeight(rev.Spec.Protocol, 10),
+		},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -779,7 +783,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			},
 			Weight: 15,
 		},
-			getActivatorDestinationWeight(0)},
+			getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -862,7 +866,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 50,
-		}, getActivatorDestinationWeight(0)},
+		}, getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	})
 
 	// Expects authority header to have the traffic target name prefixed to the
@@ -1449,7 +1453,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 		RevisionName: rev.Name,
 		Percent:      100,
 	}, {
-		Name:    ctrl.GetServingK8SActivatorServiceName(),
+		Name:    ctrl.GetServingK8SActivatorServiceName(rev.Spec.Protocol),
 		Percent: 0,
 	}}
 	if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {

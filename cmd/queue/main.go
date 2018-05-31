@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -33,7 +32,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/tcpproxy"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -88,11 +86,6 @@ var (
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
-type Proxy struct {
-	HttpProxy *http.Server
-	TcpProxy  *tcpproxy.Proxy
-}
-
 func initEnv() {
 	podName = util.GetRequiredEnvOrFatal("ELA_POD", logger)
 	elaNamespace = util.GetRequiredEnvOrFatal("ELA_NAMESPACE", logger)
@@ -100,20 +93,6 @@ func initEnv() {
 	elaRevision = util.GetRequiredEnvOrFatal("ELA_REVISION", logger)
 	elaAutoscaler = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER", logger)
 	elaAutoscalerPort = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER_PORT", logger)
-}
-
-func (p *Proxy) Run() error {
-	if p.HttpProxy != nil {
-		if err := p.HttpProxy.ListenAndServe(); err != nil {
-			return err
-		}
-	}
-	if p.TcpProxy != nil {
-		if err := p.TcpProxy.Run(); err != nil {
-			return err
-		}
-	}
-	return errors.New("No proxies to run - both HttpProxy and TcpProxy are nil.")
 }
 
 func connectStatSink() {
@@ -290,7 +269,10 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to parse localhost url", zap.Error(err))
 	}
-	proxy = httputil.NewSingleHostReverseProxy(target)
+
+	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	h2cProxy = httputil.NewSingleHostReverseProxy(target)
+	h2cProxy.Transport = h2c.NewTransport()
 
 	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()

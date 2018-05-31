@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "h2c.go",
+        "transport.go",
     ],
     importpath = "github.com/elafros/elafros/pkg/h2c",
     visibility = ["//visibility:public"],

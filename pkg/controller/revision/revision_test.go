@@ -661,7 +661,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 }
 
 func TestCreateRevisionWithGRPCProtocol(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
 
 	config := getTestConfiguration()
 	config.Spec.RevisionTemplate.Spec.Protocol = v1alpha1.RevisionProtocolGRPC

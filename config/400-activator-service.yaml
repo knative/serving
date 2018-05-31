@@ -28,3 +28,20 @@ spec:
     port: 80
     targetPort: 8080
   type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: activator-grpc-service
+  namespace: ela-system
+  labels:
+    app: ela-activator
+spec:
+  selector:
+    app: ela-activator
+  ports:
+  - name: grpc
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: NodePort
