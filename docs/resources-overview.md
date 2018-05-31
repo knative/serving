@@ -9,7 +9,7 @@ Elafros depends on two other projects in order to function: [Istio][istio] and t
 You can find out more about both from their respective websites.
 
 [istio]: https://istio.io/
-[build-crd]: https://github.com/elafros/build
+[build-crd]: https://github.com/knative/build
 
 ## Components
 

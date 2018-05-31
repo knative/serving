@@ -16,7 +16,7 @@ limitations under the License.
 package versioned
 
 import (
-	buildv1alpha1 "github.com/elafros/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
+	buildv1alpha1 "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	glog "github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"

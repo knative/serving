@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/ela"
 	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"

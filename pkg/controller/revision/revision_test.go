@@ -30,9 +30,9 @@ import (
 
 	"go.uber.org/zap"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/apis/ela"
 	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"

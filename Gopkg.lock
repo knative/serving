@@ -134,7 +134,7 @@
   version = "v0.3.3"
 
 [[projects]]
-  name = "github.com/elafros/build"
+  name = "github.com/knative/build"
   packages = [
     "pkg/apis/build",
     "pkg/apis/build/v1alpha1",

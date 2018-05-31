@@ -20,9 +20,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/elafros/build/pkg/client/clientset/versioned"
-	build "github.com/elafros/build/pkg/client/informers/externalversions/build"
-	internalinterfaces "github.com/elafros/build/pkg/client/informers/externalversions/internalinterfaces"
+	versioned "github.com/knative/build/pkg/client/clientset/versioned"
+	build "github.com/knative/build/pkg/client/informers/externalversions/build"
+	internalinterfaces "github.com/knative/build/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

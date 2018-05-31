@@ -133,8 +133,8 @@ data:
 ### Installing Build Templates (one-time)
 
 This sample uses the [Kaniko build
-template](https://github.com/elafros/build-templates/blob/master/kaniko/kaniko.yaml)
-in the [build-templates](https://github.com/elafros/build-templates/) repo.
+template](https://github.com/knative/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 ```shell
 kubectl apply -f kaniko.yaml

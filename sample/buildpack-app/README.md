@@ -13,8 +13,8 @@ sample app for Cloud Foundry.
 ## Running
 
 This sample uses the [Buildpack build
-template](https://github.com/elafros/build-templates/blob/master/buildpack/buildpack.yaml)
-in the [build-templates](https://github.com/elafros/build-templates/) repo.
+template](https://github.com/knative/build-templates/blob/master/buildpack/buildpack.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 First, install the Buildpack build template from that repo:
 

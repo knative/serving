@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 )
 

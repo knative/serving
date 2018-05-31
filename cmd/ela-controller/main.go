@@ -32,8 +32,8 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
+	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller/configuration"

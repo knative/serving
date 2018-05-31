@@ -833,7 +833,7 @@ BuildSpec of a Build resource in the Configuration. This describes:
   archive, manifest file, or repository.
 
 * **How** to build (`build.template`): a
-  [BuildTemplate](https://github.com/elafros/build) is referenced,
+  [BuildTemplate](https://github.com/knative/build) is referenced,
   which describes how to build the container via a builder with
   arguments to the build process.
 

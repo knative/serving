@@ -52,7 +52,7 @@ A **Configuration** describes the desired latest Revision state, and
 creates and tracks the status of Revisions as the desired state is
 updated. A configuration might include instructions on how to transform
 a source package (either git repo or archive) into a container by
-referencing a [Build](https://github.com/elafros/build), or might
+referencing a [Build](https://github.com/knative/build), or might
 simply reference a container image and associated execution metadata
 needed by the Revision. On updates to a Configuration, a new build
 and/or deployment (creating a Revision) may be performed; the

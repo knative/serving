@@ -85,7 +85,7 @@ template documentation](./build-templates.md).
 spec:
   source:
     git:
-      url: https://github.com/elafros/build.git
+      url: https://github.com/knative/build.git
       branch: master
   steps:
   - image: ubuntu

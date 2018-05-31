@@ -46,8 +46,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/ela/v1alpha1"
 	"github.com/knative/serving/pkg/controller"

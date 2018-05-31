@@ -13,7 +13,7 @@ This doc explains how to setup a development environment so you can get started
 ## Checking out the repository
 
 To set the paths of the imports right, make sure you clone into the directory
-`${GOPATH}/src/github.com/elafros/build`.  For example:
+`${GOPATH}/src/github.com/knative/build`.  For example:
 
 ```shell
 # Set up GOPATH
@@ -21,8 +21,8 @@ $ export GOPATH=$(pwd)/go  # Choose your directory.
 $ mkdir -p ${GOPATH}
 
 # Grab the repo itself.
-$ go get github.com/elafros/build
-$ cd ${GOPATH}/src/github.com/elafros/build
+$ go get github.com/knative/build
+$ cd ${GOPATH}/src/github.com/knative/build
 
 # Optionally add your remote.
 $ git remote add ${USER} https://github.com/${USER}/build

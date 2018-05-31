@@ -79,8 +79,8 @@ If you would like to publish your own copy of the container image, you can updat
 
 You can also build the image as part of deployment. This sample uses the
 [Kaniko build
-template](https://github.com/elafros/build-templates/blob/master/kaniko/kaniko.yaml)
-in the [build-templates](https://github.com/elafros/build-templates/) repo.
+template](https://github.com/knative/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 ```shell
 # Replace the token string with a suitable registry

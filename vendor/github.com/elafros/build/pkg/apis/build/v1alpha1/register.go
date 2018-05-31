@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/elafros/build/pkg/apis/build"
+	"github.com/knative/build/pkg/apis/build"
 )
 
 // SchemeGroupVersion is group version used to register these objects

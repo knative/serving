@@ -37,8 +37,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/apis/ela"
 	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"

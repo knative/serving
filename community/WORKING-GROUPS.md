@@ -45,7 +45,7 @@ Slack Channel              | [#api](https://knative.slack.com)
 
 ## Build
 
-[Build](https://github.com/elafros/build), Builders, and Build templates
+[Build](https://github.com/knative/build), Builders, and Build templates
 
 Artifact                   | Link
 -------------------------- | ----
