@@ -900,7 +900,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	// Don't modify the informers copy
 	route = route.DeepCopy()
 	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
-		logger.Errorf("Error updating route upon configuration becoming ready", zap.Error(err))
+		logger.Error("Error updating route upon configuration becoming ready", zap.Error(err))
 	}
 }
 

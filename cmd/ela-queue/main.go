@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/elafros/elafros/cmd/util"
 	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
 	"github.com/elafros/elafros/pkg/autoscaler"
 	"github.com/elafros/elafros/pkg/logging"
@@ -84,41 +85,12 @@ var (
 )
 
 func initEnv() {
-	podName = os.Getenv("ELA_POD")
-	if podName == "" {
-		logger.Fatal("No ELA_POD provided.")
-	}
-	logger.Infof("ELA_POD=%v", podName)
-
-	elaNamespace = os.Getenv("ELA_NAMESPACE")
-	if elaNamespace == "" {
-		logger.Fatal("No ELA_NAMESPACE provided.")
-	}
-	logger.Infof("ELA_REVISION=%v", elaNamespace)
-
-	elaConfiguration = os.Getenv("ELA_CONFIGURATION")
-	if elaConfiguration == "" {
-		logger.Fatal("No ELA_CONFIGURATION provided.")
-	}
-	logger.Infof("ELA_CONFIGURATION=%v", elaConfiguration)
-
-	elaRevision = os.Getenv("ELA_REVISION")
-	if elaRevision == "" {
-		logger.Fatal("No ELA_REVISION provided.")
-	}
-	logger.Infof("ELA_REVISION=%v", elaRevision)
-
-	elaAutoscaler = os.Getenv("ELA_AUTOSCALER")
-	if elaAutoscaler == "" {
-		logger.Fatal("No ELA_AUTOSCALER provided.")
-	}
-	logger.Infof("ELA_AUTOSCALER=%v", elaAutoscaler)
-
-	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
-	if elaAutoscalerPort == "" {
-		logger.Fatal("No ELA_AUTOSCALER_PORT provided.")
-	}
-	logger.Infof("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
+	podName = util.GetRequiredEnvOrFatal("ELA_POD", logger)
+	elaNamespace = util.GetRequiredEnvOrFatal("ELA_NAMESPACE", logger)
+	elaConfiguration = util.GetRequiredEnvOrFatal("ELA_CONFIGURATION", logger)
+	elaRevision = util.GetRequiredEnvOrFatal("ELA_REVISION", logger)
+	elaAutoscaler = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER", logger)
+	elaAutoscalerPort = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER_PORT", logger)
 }
 
 func connectStatSink() {

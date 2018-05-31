@@ -112,7 +112,7 @@ type Controller struct {
 type ControllerConfig struct {
 	// Autoscale part
 
-	// see (elaconfig.yaml)
+	// see (config-autoscaler.yaml)
 	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
 	AutoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
 
