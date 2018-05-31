@@ -20,9 +20,8 @@ generates a raw log record for each user log.
 #### User Logs Locations
 
 * `stdout` / `stderr`: Developer MUST be able to write logs to `stdout/stderr` channels.
-* any file under `/var/log`: Developer SHOULD be able to write logs to any file
-  under `/var/log` if [cluster operator](../product/personas.md#operator-personas)
-  enables this feature.
+* `/var/log`: Developer SHOULD be able to write logs to any file under `/var/log`
+  if [cluster operator](../product/personas.md#operator-personas) enables this feature.
 * syslog(`/dev/log`): This is a TBD [issue](https://github.com/elafros/elafros/issues/822).
 
 #### User Logs Formats
@@ -34,14 +33,16 @@ be treated as **plain text**.
 For **plain text** logs, the original log message SHOULD be present as `log` field in
 raw user log record.
 
-For **structured** logs, all fields from the JSON dictionary SHOULD be added to the
+For **structured** logs, all fields from the JSON payload SHOULD be added to the
 raw user log record.
 
 ##### Multi-line
 
-If the contents of `log` field in a consecutive sequence of raw user log records
-form an exception stack trace, these raw user log records SHOULD be combined into
-one single user log record.
+If the contents of `log` field in a consecutive sequence of raw user log records,
+which from the same source, form an exception stack trace, these raw user log records
+SHOULD be combined into one single user log record by taking the first log record
+of the sequence and replacing the content of `log` field with the concatenated content
+of all `log` fields in the sequence.
 
 #### User Logs Metadata
 
@@ -154,8 +155,8 @@ The following metadata SHOULD be added to container metrics:
 
 * *container_name*: Name of the container.
 * *cpu*: CPU identification, cpu00, cpu01, etc.
-* *namespace*: Kubernetes namespace that the container was served on.
-* *pod_name*: Name of Kubernetes pod that the container was served on.
+* *namespace*: Name of Kubernetes Namespace that the container was served on.
+* *pod_name*: Name of Kubernetes Pod that the container was served on.
 
 ### Metrics Destinations
 
