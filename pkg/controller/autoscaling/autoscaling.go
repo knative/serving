@@ -332,8 +332,15 @@ func (c *Controller) createScaler(rev *v1alpha1.Revision) (*ScalerRunner, error)
 		PanicWindow:          time.Second * 6,
 		ScaleToZeroThreshold: time.Minute * 5,
 	}
-	controller := metav1.GetControllerOf(rev)
-	reporter, err := autoscaler.NewStatsReporter(rev.Namespace, controller.Name, rev.Name)
+
+	// If the revision has no controller, use the empty string as the controller
+	// name.
+	var controllerName string
+	if controller := metav1.GetControllerOf(rev); controller != nil {
+		controllerName = controller.Name
+	}
+
+	reporter, err := autoscaler.NewStatsReporter(rev.Namespace, controllerName, rev.Name)
 	if err != nil {
 		return nil, err
 	}
