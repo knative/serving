@@ -20,7 +20,7 @@ set -o pipefail
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
 # Set default GCS/GCR
-: ${ELAFROS_RELEASE_GCS:="elafros-releases/latest"}
+: ${ELAFROS_RELEASE_GCS:="elafros-releases"}
 : ${ELAFROS_RELEASE_GCR:="gcr.io/elafros-releases"}
 readonly ELAFROS_RELEASE_GCS
 readonly ELAFROS_RELEASE_GCR
@@ -94,9 +94,9 @@ bazel run config/monitoring:everything >> ${OUTPUT_YAML}
 tag_elafros_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
-gsutil cp ${OUTPUT_YAML} gs://${ELAFROS_RELEASE_GCS}/release.yaml
+gsutil cp ${OUTPUT_YAML} gs://${ELAFROS_RELEASE_GCS}/latest/release.yaml
 if [[ -n ${TAG} ]]; then
-  gsutil cp ${OUTPUT_YAML} gs://elafros-releases/previous/${TAG}/
+  gsutil cp ${OUTPUT_YAML} gs://${ELAFROS_RELEASE_GCS}/previous/${TAG}/
 fi
 
 echo "New release published successfully"
