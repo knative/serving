@@ -38,7 +38,7 @@ You can:
 These flags are useful for running against an existing cluster, making use of your existing
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
-By importing `github.com/elafros/elafros/test` you get access to a global variable called
+By importing `github.com/knative/serving/test` you get access to a global variable called
 `test.Flags` which holds the values of [the command line flags](/test/README.md#flags).
 
 ```go

@@ -17,8 +17,8 @@ limitations under the License.
 package service
 
 import (
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

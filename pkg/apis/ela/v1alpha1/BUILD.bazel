@@ -11,7 +11,7 @@ go_library(
         "service_types.go",
         "zz_generated.deepcopy.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/apis/ela/v1alpha1",
+    importpath = "github.com/knative/serving/pkg/apis/ela/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela:go_default_library",

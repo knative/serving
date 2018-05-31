@@ -36,13 +36,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
-	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	ctrl "github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -54,7 +54,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/elafros/elafros/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 const (

@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -34,13 +34,13 @@ import (
 
 	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
 	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/controller/configuration"
-	"github.com/elafros/elafros/pkg/controller/revision"
-	"github.com/elafros/elafros/pkg/controller/route"
-	"github.com/elafros/elafros/pkg/controller/service"
-	"github.com/elafros/elafros/pkg/signals"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/controller/configuration"
+	"github.com/knative/serving/pkg/controller/revision"
+	"github.com/knative/serving/pkg/controller/route"
+	"github.com/knative/serving/pkg/controller/service"
+	"github.com/knative/serving/pkg/signals"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 )

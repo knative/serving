@@ -261,7 +261,7 @@ spec:
   # (i.e. that the request code is run single-threaded).
   concurrencyModel: Single | Multi
 
-  # NYI: https://github.com/elafros/elafros/issues/457
+  # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 

@@ -68,9 +68,9 @@ If you're looking for something to do to get your feet wet working on Elafros,
 look for GitHub issues marked with the Help Wanted label:
 
 *   [Primary Elafros
-    repo](https://github.com/elafros/elafros/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
+    repo](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
 *   [Documentation
-    repo](https://github.com/elafros/elafros.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
+    repo](https://github.com/knative/serving.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
 
 Of course, even if there's not an issue opened for it, we can always use more
 testing throughout the platform. Similarly, we can always use more docs, richer

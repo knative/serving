@@ -20,9 +20,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/signals"
-	"github.com/elafros/elafros/pkg/webhook"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/signals"
+	"github.com/knative/serving/pkg/webhook"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"k8s.io/client-go/kubernetes"

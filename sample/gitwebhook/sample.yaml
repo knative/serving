@@ -36,7 +36,7 @@ spec:
       container:
         # This is the Go import path for the binary to containerize
         # and substitute here.
-        image: github.com/elafros/elafros/sample/gitwebhook
+        image: github.com/knative/serving/sample/gitwebhook
         env:
           - name: SECRET_TOKEN
             valueFrom:

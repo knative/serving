@@ -16,11 +16,11 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
-	fakeelafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
-	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
-	fakeconfigv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	elafrosv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	fakeelafrosv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
+	configv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	fakeconfigv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

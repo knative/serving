@@ -75,7 +75,7 @@ optional but recommended.
 # Orchestration
 
 The system will be configured to disallow users from creating
-([NYI](https://github.com/elafros/elafros/issues/664)) or changing
+([NYI](https://github.com/knative/serving/issues/664)) or changing
 Revisions. Instead, Revisions are created indirectly when a Configuration
 is created or updated. This provides:
 

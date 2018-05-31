@@ -29,7 +29,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Revision is an immutable snapshot of code and configuration.
-// See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#revision
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -50,7 +50,7 @@ type RevisionTemplateSpec struct {
 }
 
 // RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
-// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
+// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RevisionServingStateType string
 
 const (
@@ -119,12 +119,12 @@ type RevisionSpec struct {
 	// In the context of a Revision, we disallow a number of the fields of
 	// this Container, including: name, resources, ports, and volumeMounts.
 	// TODO(mattmoor): Link to the runtime contract tracked by:
-	// https://github.com/elafros/elafros/issues/627
+	// https://github.com/knative/serving/issues/627
 	Container corev1.Container `json:"container,omitempty"`
 }
 
 // RevisionConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
+// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type RevisionConditionType string
 
 const (

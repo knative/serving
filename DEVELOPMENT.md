@@ -80,7 +80,7 @@ _It is notable that if you change the `*_OVERRIDE` variables, you may need to
 
 ### Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/elafros/elafros` directory
+The Go tools require that you clone the repository to the `src/github.com/knative/serving` directory
 in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
@@ -93,7 +93,7 @@ To check out this repository:
   cd ${GOPATH}/src/github.com/elafros
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
   cd elafros
-  git remote add upstream git@github.com:elafros/elafros.git
+  git remote add upstream git@github.com:knative/serving.git
   git remote set-url --push upstream no_push
   ```
 

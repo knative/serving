@@ -83,7 +83,7 @@ working group:
     document.
 
 *   **Create a Wiki**. Create a wiki page on
-    [GitHub](https://github.com/elafros/elafros) titled "GROUP_NAME Design
+    [GitHub](https://github.com/knative/serving) titled "GROUP_NAME Design
     Decisions". This page will be used to track important design decisions made
     by the working group.
 
@@ -97,7 +97,7 @@ working group:
     Google group to the meeting.
 
 *   **Register the Working Group**. Go to
-    [WORKING-GROUPS.md](https://github.com/elafros/elafros/blob/master/community/WORKING-GROUPS.md)
+    [WORKING-GROUPS.md](https://github.com/knative/serving/blob/master/community/WORKING-GROUPS.md)
     and add your working group name, the names of the leads, the working group
     charter, and a link to the meeting you created.
 
@@ -187,5 +187,5 @@ agreeable conclusion.
 
 In all cases, remaining blocking issues can be raised to the [technical
 oversight committee](TECH-OVERSIGHT-COMMITTEE.md) to help resolve the situation.
-To trigger an escalation, create an issue in the `elafros/elafros` repo and
+To trigger an escalation, create an issue in the `knative/serving` repo and
 assign it to the **@elafros/tech-oversight-committee** team.

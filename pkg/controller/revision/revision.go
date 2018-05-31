@@ -24,18 +24,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,9 +48,9 @@ import (
 
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
 	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/ela/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 )
 
 const (

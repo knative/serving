@@ -16,7 +16,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

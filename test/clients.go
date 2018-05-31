@@ -18,8 +18,8 @@ limitations under the License.
 package test
 
 import (
-	"github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/knative/serving/pkg/client/clientset/versioned"
+	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/ela/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"

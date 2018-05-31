@@ -29,4 +29,4 @@ Additional items, that while still important can be completed after opening the 
 - [ ] Team Drive and mailing lists created
 - [ ] Finalize logo design and apply it in Slack/GitHub
 - [ ] Migrate to public prow
-- [ ] Potentially rename elafros/elafros to elafros/serving or elafros/compute
+- [ ] Potentially rename knative/serving to elafros/serving or elafros/compute

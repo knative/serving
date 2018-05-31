@@ -6,7 +6,7 @@ conformance tests](/test/conformance).
 
 **Updates to this spec should include a corresponding change to [the
 API implementation](/pkg/apis/ela/v1alpha1) and [the conformance
-tests](/test/conformance).** ([#780](https://github.com/elafros/elafros/issues/780))
+tests](/test/conformance).** ([#780](https://github.com/knative/serving/issues/780))
 
 Docs in this directory:
 

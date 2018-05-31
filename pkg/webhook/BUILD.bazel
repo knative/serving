@@ -10,7 +10,7 @@ go_library(
         "service.go",
         "webhook.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/webhook",
+    importpath = "github.com/knative/serving/pkg/webhook",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela:go_default_library",

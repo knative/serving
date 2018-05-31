@@ -33,12 +33,12 @@ import (
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	ctrl "github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/queue"
+	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/queue"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -55,7 +55,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	kubetesting "k8s.io/client-go/testing"
 
-	. "github.com/elafros/elafros/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 const testAutoscalerImage string = "autoscalerImage"

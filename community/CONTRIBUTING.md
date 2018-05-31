@@ -93,11 +93,11 @@ following steps:
         note with the design decision and the general execution plan to the
         working group's mailing list and on the feature's issue.
 
-*   Submit PRs to elafros/elafros with your code changes.
+*   Submit PRs to knative/serving with your code changes.
 
-*   Submit PRs to elafros/elafros with user documentation for your feature,
+*   Submit PRs to knative/serving with user documentation for your feature,
     including usage examples when possible.
-    <!-- TODO: switch to elafros/elafros.dev) -->
+    <!-- TODO: switch to knative/serving.dev) -->
 
 *Note that we prefer bite-sized PRs instead of giant monster PRs. It's therefore
 preferable if you can introduce large features in small, individually-reviewable
@@ -113,9 +113,9 @@ so the choice is up to you.
 ## Setting up to contribute to Elafros
 
 Check out this
-[README](https://github.com/elafros/elafros/blob/master/README.md) to learn
+[README](https://github.com/knative/serving/blob/master/README.md) to learn
 about the Elafros source base and setting up your [development
-environment](https://github.com/elafros/elafros/blob/master/DEVELOPMENT.md).
+environment](https://github.com/knative/serving/blob/master/DEVELOPMENT.md).
 
 ## Pull requests
 

@@ -16,8 +16,8 @@ package service
 import (
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"

@@ -6,7 +6,7 @@ go_library(
         "clientset.go",
         "doc.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/client/clientset/versioned",
+    importpath = "github.com/knative/serving/pkg/client/clientset/versioned",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/client/clientset/versioned/typed/ela/v1alpha1:go_default_library",

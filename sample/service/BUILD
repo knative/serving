@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["helloworld.go"],
-    importpath = "github.com/elafros/elafros/sample/service",
+    importpath = "github.com/knative/serving/sample/service",
     visibility = ["//visibility:private"],
 )
 
@@ -26,7 +26,7 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 k8s_object(
     name = "service",
     images = {
-        "github.com/elafros/elafros/sample/service": ":image",
+        "github.com/knative/serving/sample/service": ":image",
     },
     template = ":sample.yaml",
 )
@@ -34,7 +34,7 @@ k8s_object(
 k8s_object(
     name = "updated_service",
     images = {
-        "github.com/elafros/elafros/sample/service": ":image",
+        "github.com/knative/serving/sample/service": ":image",
     },
     template = ":updated_service.yaml",
 )
@@ -42,7 +42,7 @@ k8s_object(
 k8s_object(
     name = "pinned_service",
     images = {
-        "github.com/elafros/elafros/sample/service": ":image",
+        "github.com/knative/serving/sample/service": ":image",
     },
     template = ":pinned_service.yaml",
 )

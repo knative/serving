@@ -16,8 +16,8 @@ limitations under the License.
 package service
 
 import (
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 )
 
 // MakeElaResourceLabels constructs the labels we will apply to Route and Configuration

@@ -8,7 +8,7 @@ go_library(
         "service_configuration.go",
         "service_route.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/controller/service",
+    importpath = "github.com/knative/serving/pkg/controller/service",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela:go_default_library",

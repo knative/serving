@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 )
 
 type key string

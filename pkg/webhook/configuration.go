@@ -23,8 +23,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 )

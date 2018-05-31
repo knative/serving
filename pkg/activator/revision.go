@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -115,7 +115,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	//
 	// TODO: figure out why do we need to use the pod IP directly to avoid the delay.
 	// We should be able to use the k8s service cluster IP.
-	// https://github.com/elafros/elafros/issues/660
+	// https://github.com/knative/serving/issues/660
 	endpointName := controller.GetElaK8SServiceNameForRevision(revision)
 	k8sEndpoint, err := r.kubeClient.CoreV1().Endpoints(rev.namespace).Get(endpointName, metav1.GetOptions{})
 	if err != nil {

@@ -182,7 +182,7 @@ if [[ -z $1 ]]; then
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.
-  # See https://github.com/elafros/elafros/issues/959 for details.
+  # See https://github.com/knative/serving/issues/959 for details.
   # TODO(adrcunha): Remove once the leak issue is resolved.
   gcp_project=${PROJECT_ID}
   [[ -z ${gcp_project} ]] && gcp_project=$(gcloud config get-value project)

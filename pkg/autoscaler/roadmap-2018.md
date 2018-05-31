@@ -22,14 +22,14 @@ In 2018 we will focus primarily on making autoscaling correct, fast and light.
 
 ### Correctness
 
-1. **Write autoscaler end-to-end tests** to cover low-scale regressions, runnable by individual developers before checkin. ([#420](https://github.com/elafros/elafros/issues/420))
-2. **Test error rates at high scale** to cover regressions at larger scales (~1000 QPS and ~1000 clients). ([#421](https://github.com/elafros/elafros/issues/421))
-3. **Test error rates around idle states** to cover various scale-to-zero edge cases. ([#422](https://github.com/elafros/elafros/issues/422))
+1. **Write autoscaler end-to-end tests** to cover low-scale regressions, runnable by individual developers before checkin. ([#420](https://github.com/knative/serving/issues/420))
+2. **Test error rates at high scale** to cover regressions at larger scales (~1000 QPS and ~1000 clients). ([#421](https://github.com/knative/serving/issues/421))
+3. **Test error rates around idle states** to cover various scale-to-zero edge cases. ([#422](https://github.com/knative/serving/issues/422))
 
 ### Performance
 
 1. **Establish canonical load test scenarios** to prove autoscaler performance and guide development.  We need to establish the code to run, the request load to generate, and the performance expected.  This will tell us where we need to improve.
-2. **Reproducable load tests** which can be run by anyone with minimal setup.  These must be transparent and easy to run.  They must be meaningful tests which prove autoscaler performance. ([#424](https://github.com/elafros/elafros/pull/424))
+2. **Reproducable load tests** which can be run by anyone with minimal setup.  These must be transparent and easy to run.  They must be meaningful tests which prove autoscaler performance. ([#424](https://github.com/knative/serving/pull/424))
 3. **Vertical pod autoscaling** to allow revisions to adapt the differing requirements of user's code.  Rather than applying the same resource requests to all revision deployments, use vertical pod autoscaler (or something) to adjust the resources required.  Resource requirements for one revision should be inherited by the next revision so there isn't always a learning period with new revisions.
 
 ### Scale to Zero

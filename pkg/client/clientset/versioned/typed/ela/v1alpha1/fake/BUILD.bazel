@@ -10,7 +10,7 @@ go_library(
         "fake_route.go",
         "fake_service.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake",
+    importpath = "github.com/knative/serving/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",

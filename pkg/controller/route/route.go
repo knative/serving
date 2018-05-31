@@ -33,14 +33,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	listers "github.com/knative/serving/pkg/client/listers/ela/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
@@ -626,7 +626,7 @@ func (c *Controller) computeRevisionRoutes(
 	}
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
-	// https://github.com/elafros/elafros/issues/882
+	// https://github.com/knative/serving/issues/882
 	if totalInactivePercent > 0 {
 		activatorRoute := RevisionRoute{
 			Name:         controller.GetElaK8SActivatorServiceName(),
@@ -642,7 +642,7 @@ func (c *Controller) computeRevisionRoutes(
 
 // computeEmptyRevisionRoutes is a hack to work around https://github.com/istio/istio/issues/5204.
 // Here we add empty/dummy route rules for non-target revisions to prepare to switch traffic to
-// them in the future.  We are tracking this issue in https://github.com/elafros/elafros/issues/348.
+// them in the future.  We are tracking this issue in https://github.com/knative/serving/issues/348.
 //
 // TODO:  Even though this fixes the 503s when switching revisions, revisions will have empty route
 // rules to them for perpetuity, therefore not ideal.  We should remove this hack once

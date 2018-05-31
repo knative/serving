@@ -19,7 +19,7 @@ metadata:
   namespace: ela-system
 spec:
   # TODO: Increase the replicas
-  # https://github.com/elafros/elafros/issues/695
+  # https://github.com/knative/serving/issues/695
   replicas: 1
   template:
     metadata:
@@ -32,7 +32,7 @@ spec:
       - name: ela-activator
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/elafros/elafros/cmd/ela-activator
+        image: github.com/knative/serving/cmd/ela-activator
         ports:
         - name: http
           containerPort: 8080

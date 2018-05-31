@@ -33,7 +33,7 @@ import (
 // Users create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
-// See also: https://github.com/elafros/elafros/blob/master/docs/spec/overview.md#configuration
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#configuration
 type Configuration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -65,7 +65,7 @@ type ConfigurationSpec struct {
 }
 
 // ConfigurationConditionType is used to communicate the status of the reconciliation process.
-// See also: https://github.com/elafros/elafros/blob/master/docs/spec/errors.md#error-conditions-and-reporting
+// See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
 type ConfigurationConditionType string
 
 const (

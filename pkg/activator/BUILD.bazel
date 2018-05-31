@@ -7,7 +7,7 @@ go_library(
         "dedupe.go",
         "revision.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/activator",
+    importpath = "github.com/knative/serving/pkg/activator",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/ela/v1alpha1:go_default_library",

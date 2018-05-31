@@ -27,9 +27,9 @@ import (
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	ela_autoscaler "github.com/elafros/elafros/pkg/autoscaler"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	ela_autoscaler "github.com/knative/serving/pkg/autoscaler"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/golang/glog"

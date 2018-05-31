@@ -6,4 +6,4 @@ conformance tests](/test/conformance).
 
 **Updates to this implementation should include a corresponding change to
 [the spec](/docs/spec/spec.md) and [the conformance
-tests](/test/conformance).** ([#780](https://github.com/elafros/elafros/issues/780))
+tests](/test/conformance).** ([#780](https://github.com/knative/serving/issues/780))

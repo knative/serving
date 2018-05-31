@@ -24,7 +24,7 @@ docker build \
 docker push "${REPO}/sample/service"
 
 # Replace the image reference with our published image.
-perl -pi -e "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
+perl -pi -e "s@github.com/knative/serving/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/service/sample.yaml

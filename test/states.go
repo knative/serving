@@ -18,13 +18,13 @@ package test
 import (
 	"fmt"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // states contains functions for asserting against the state of Elafros
 // crds to see if they have achieved the states specified in the spec
-// (https://github.com/elafros/elafros/blob/master/docs/spec/spec.md).
+// (https://github.com/knative/serving/blob/master/docs/spec/spec.md).
 
 // AllRouteTrafficeAtRevision will check the revision that routeName is routing
 // traffic to and return true if 100% of the traffic is routing to revisionName.

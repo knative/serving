@@ -16,7 +16,7 @@ package service
 import (
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/ela"
 )
 
 const (

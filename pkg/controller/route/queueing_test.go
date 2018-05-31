@@ -22,10 +22,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
-	. "github.com/elafros/elafros/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 /* TODO tests:
