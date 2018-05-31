@@ -14,16 +14,16 @@ described in [RFC 2119](https://tools.ietf.org/html/rfc2119).
 
 ### User Logs
 
-User logs are logs emitted from the applications, containers and functions.
+User logs are logs emitted from the applications, containers and functions. Elafros
+generates a raw log record for each user log.
 
 #### User Logs Locations
 
-Developer MUST be able to write logs to all of the following locations configured
-by the [cluster operator](../product/personas.md#operator-personas):
-
-* `stdout` / `stderr`: Developer MUST be always able to write logs to.
-* any file under `/var/log`: Developer MUST be able to write logs to if operator enable this feature.
-* syslog(`/dev/log`): This is a TBD feature.
+* `stdout` / `stderr`: Developer MUST be able to write logs to `stdout/stderr` channels.
+* any file under `/var/log`: Developer SHOULD be able to write logs to any file
+  under `/var/log` if [cluster operator](../product/personas.md#operator-personas)
+  enables this feature.
+* syslog(`/dev/log`): This is a TBD [issue](https://github.com/elafros/elafros/issues/822).
 
 #### User Logs Formats
 
@@ -32,26 +32,26 @@ it SHOULD be treated as **structured** log and parsed accordingly. Otherwise it 
 be treated as **plain text**.
 
 For **plain text** logs, the original log message SHOULD be present as `log` field in
-Elafros raw user log record.
+raw user log record.
 
 For **structured** logs, all fields from the JSON dictionary SHOULD be added to the
-Elafros raw user log record.
+raw user log record.
 
 ##### Multi-line
 
-If the contents of `log` field in a consecutive sequence of Elafros raw log records
-form an exception stack trace, these Elafros raw log records SHOULD be combined into
-one single log record.
+If the contents of `log` field in a consecutive sequence of raw user log records
+form an exception stack trace, these raw user log records SHOULD be combined into
+one single user log record.
 
 #### User Logs Metadata
 
-The following metadata SHOULD be added to Elafros raw user log records:
+The following metadata SHOULD be added to raw user log records:
 
-* *kubernetes.labels.elafros_dev/configuration*: The name of Elafros configuration
+* *kubernetes.labels.elafros_dev/configuration*: Name of Elafros configuration
   of the application, container or function that emitted the log.
-* *kubernetes.labels.elafros_dev/revision*: The name of Elafros revision of the application,
+* *kubernetes.labels.elafros_dev/revision*: Name of Elafros revision of the application,
   container or function that emitted the log.
-* *kubernetes.namespace_name*: The name of Kubernetes namespace of the application, container
+* *kubernetes.namespace_name*: Name of Kubernetes Namespace of the application, container
   or function that emitted the log.
 * *stream*: One of `stdout`, `stderr` or `varlog`.
 * *file_path*: If the log was from `/var/log/*`, the value is the relative path to `/var/log/`.
@@ -64,8 +64,8 @@ For example, a field `kubernetes.namespace_name` with value `default` means
 
 ```json
 {
-  kubernetes: {
-    namespace_name: "default",
+  "kubernetes": {
+    "namespace_name": "default",
   }
 }
 ```
@@ -75,15 +75,15 @@ For example, a field `kubernetes.namespace_name` with value `default` means
 #### Requests Logs
 
 Status of requests or invocations sent to the applications, containers or functions
-SHOULD be automatically collected as raw log records.
+SHOULD be automatically collected as raw request log records.
 
 ##### Request Logs Metadata
 
-The following metadata SHOULD be added to Elafros raw requests log records:
+The following metadata SHOULD be added to raw requests log records:
 
-* *destinationConfiguration*: Elafros Configuration that served the request.
-* *destinationNamespace*: Namespace that the request was served on.
-* *destinationRevision*: Elafros Revision that served the request.
+* *destinationConfiguration*: Name of Elafros Configuration that served the request.
+* *destinationNamespace*: Name of Kubernetes Namespace that the request was served on.
+* *destinationRevision*: Name of Elafros Revision that served the request.
 * *latency*: Time with unit took for the request to complete.
 * *method*: HTTP request method (GET, POST, etc).
 * *protocol*: http, https or tcp.
@@ -107,7 +107,7 @@ by the [cluster operator](../product/personas.md#operator-personas). Operator
 MUST document to developer how to access logs.
 
 Depending on the log aggregation configuration, a final log entry visible to developer
-MAY be different from its Elafros raw log record.
+MAY be different from its raw log record provided by Elafros.
 
 ### Log Cleanup
 
@@ -127,7 +127,7 @@ Elafros MUST perform the rotation configured by the
 #### Revision Request Metrics
 
 | Name | Type | Description |
-| :--- | :---: | :---: |
+| :--- | :--- | :--- |
 | **revision_request_count** | Counter | Number of times an application, a container or a function has been called since it was deployed. |
 | **revision_request_duration** | Histogram | Time it took for an application, a container or a function to handle request. |
 | **revision_request_size** | Histogram | Size of requests to an application, a container or a function. |
@@ -135,9 +135,9 @@ Elafros MUST perform the rotation configured by the
 
 The following metadata SHOULD be added to revision request metrics:
 
-* *destination_configuration*: Elafros Configuration that served the request.
-* *destination_namespace*: Kubernetes namespace that the request was served on.
-* *destination_revision*: Elafros Revision that served the request.
+* *destination_configuration*: Name of Elafros Configuration that served the request.
+* *destination_namespace*: Name of Kubernetes Namespace that the request was served on.
+* *destination_revision*: Name of Elafros Revision that served the request.
 * *response_code*: HTTP response code.
 * *source_service*: If the request was from outside the cluster, this will be
   istio-ingress service name. If the request was from inside the cluster (revisions
@@ -146,7 +146,7 @@ The following metadata SHOULD be added to revision request metrics:
 #### Container Metrics
 
 | Name | Type | Description |
-| :--- | :---: | :---: |
+| :--- | :--- | :--- |
 | **container_memory_usage_bytes** | Gauge | Memory usage of a container. |
 | **container_cpu_usage_seconds_total** | Counter | CPU usage of a container. |
 
@@ -176,16 +176,8 @@ in order to support custom metrics.
 Operators MAY choose to enable distributed tracing. If it is enabled, request traces
 are automatically generated on behalf of the developer by [Istio](https://istio.io/).
 
-### Distributed Tracing Destinations
+### Traces Destinations
 
 Elafros MUST automatically perform traces aggregation to the destination configured
 by the [cluster operator](../product/personas.md#operator-personas). Operator
 MUST document to developer how to access the traces.
-
-### Custom Spans
-
-Custom spans is an as-yet unsolved problem.
-
-### Custom Sampling Policy
-
-Custom sampling policy is an as-yet unsolved problem.
