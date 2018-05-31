@@ -19,7 +19,7 @@ package route
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 
 	v1beta1 "k8s.io/api/extensions/v1beta1"

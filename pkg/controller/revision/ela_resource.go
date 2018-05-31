@@ -17,8 +17,8 @@ limitations under the License.
 package revision
 
 import (
-	"github.com/knative/serving/pkg/apis/ela"
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,8 +27,8 @@ const appLabelKey = "app"
 // MakeElaResourceLabels constructs the labels we will apply to K8s resources.
 func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+2)
-	labels[ela.RevisionLabelKey] = revision.Name
-	labels[ela.RevisionUID] = string(revision.UID)
+	labels[serving.RevisionLabelKey] = revision.Name
+	labels[serving.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
 		labels[k] = v

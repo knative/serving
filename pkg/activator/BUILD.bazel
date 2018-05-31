@@ -10,7 +10,7 @@ go_library(
     importpath = "github.com/knative/serving/pkg/activator",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//pkg/apis/serving/v1alpha1:go_default_library",
         "//pkg/client/clientset/versioned:go_default_library",
         "//pkg/controller:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -26,7 +26,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//pkg/apis/serving/v1alpha1:go_default_library",
         "//pkg/client/clientset/versioned:go_default_library",
         "//pkg/client/clientset/versioned/fake:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",

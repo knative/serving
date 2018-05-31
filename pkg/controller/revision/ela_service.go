@@ -17,8 +17,8 @@ limitations under the License.
 package revision
 
 import (
-	"github.com/knative/serving/pkg/apis/ela"
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/queue"
 
@@ -31,7 +31,7 @@ var httpServicePortName = "http"
 var servicePort = 80
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same
-// ela.RevisionLabelKey label. Traffic is routed to queue-proxy port.
+// serving.RevisionLabelKey label. Traffic is routed to queue-proxy port.
 func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -50,7 +50,7 @@ func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				ela.RevisionLabelKey: u.Name,
+				serving.RevisionLabelKey: u.Name,
 			},
 		},
 	}

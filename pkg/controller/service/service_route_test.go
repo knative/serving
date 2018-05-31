@@ -16,7 +16,7 @@ package service
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/ela"
+	"github.com/knative/serving/pkg/apis/serving"
 )
 
 const (
@@ -53,7 +53,7 @@ func TestRouteRunLatest(t *testing.T) {
 	if got, want := r.Labels[testLabelKey], testLabelValueRunLatest; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
-	if got, want := r.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
 }
@@ -88,7 +88,7 @@ func TestRoutePinned(t *testing.T) {
 	if got, want := r.Labels[testLabelKey], testLabelValuePinned; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
-	if got, want := r.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
 }

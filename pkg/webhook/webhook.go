@@ -32,8 +32,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/apis/ela"
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 
 	"github.com/mattbaird/jsonpatch"
@@ -329,7 +329,7 @@ func (ac *AdmissionController) register(
 						admissionregistrationv1beta1.Update,
 					},
 					Rule: admissionregistrationv1beta1.Rule{
-						APIGroups:   []string{ela.GroupName},
+						APIGroups:   []string{serving.GroupName},
 						APIVersions: []string{knativeAPIVersion},
 						Resources:   resources,
 					},

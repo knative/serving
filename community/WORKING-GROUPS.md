@@ -28,7 +28,7 @@ The current working groups are:
 
 ## API Core
 
-API [resources](../pkg/apis/ela), [validation](../pkg/webhook), and [semantics](../pkg/controller).
+API [resources](../pkg/apis/serving), [validation](../pkg/webhook), and [semantics](../pkg/controller).
 
 Artifact                   | Link
 -------------------------- | ----

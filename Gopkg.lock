@@ -134,24 +134,6 @@
   version = "v0.3.3"
 
 [[projects]]
-  name = "github.com/knative/build"
-  packages = [
-    "pkg/apis/build",
-    "pkg/apis/build/v1alpha1",
-    "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/fake",
-    "pkg/client/clientset/versioned/scheme",
-    "pkg/client/clientset/versioned/typed/build/v1alpha1",
-    "pkg/client/clientset/versioned/typed/build/v1alpha1/fake",
-    "pkg/client/informers/externalversions",
-    "pkg/client/informers/externalversions/build",
-    "pkg/client/informers/externalversions/build/v1alpha1",
-    "pkg/client/informers/externalversions/internalinterfaces",
-    "pkg/client/listers/build/v1alpha1"
-  ]
-  revision = "d1dbf4ee8836bcc6d63de11ef89a9e2db5cfa5cf"
-
-[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
@@ -343,6 +325,24 @@
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
   version = "1.0.4"
+
+[[projects]]
+  name = "github.com/knative/build"
+  packages = [
+    "pkg/apis/build",
+    "pkg/apis/build/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/fake",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/build/v1alpha1",
+    "pkg/client/clientset/versioned/typed/build/v1alpha1/fake",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/build",
+    "pkg/client/informers/externalversions/build/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/listers/build/v1alpha1"
+  ]
+  revision = "bfc0222e894da677b45fd63828a89676aa706589"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -952,6 +952,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "651ef43b4eb7a0b65ef1213f4cd10492ed15d70088ab657eef18dd5e09f52fc5"
+  inputs-digest = "e0cca64b11ad0438011753c10c7b31158051dfbef454f31c5d00c3c5ee1d70d2"
   solver-name = "gps-cdcl"
   solver-version = 1

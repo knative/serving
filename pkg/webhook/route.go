@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )

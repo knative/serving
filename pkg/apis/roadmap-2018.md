@@ -20,7 +20,7 @@ specification.
 1. **Process**.  It must be clear to contributors how to drive changes to the
   Elafros API.
 1. **Schema**.  [The Elafros API schema](../../docs/spec/spec.md) matches
-  [our implementation.](./ela/).
+  [our implementation.](./serving/).
 1. **Semantics**.  The [semantics](../controller/) of Elafros API interactions
   match [our specification](../../docs/spec/normative_examples.md), and are well
   covered by [conformance testing](../../test/conformance/README.md).

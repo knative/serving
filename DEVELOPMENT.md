@@ -229,7 +229,7 @@ kubectl apply -f third_party/istio-0.6.0/install/kubernetes/istio-sidecar-inject
 ## Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
-* **If you change a type definition ([pkg/apis/ela/v1alpha1/](./pkg/apis/ela/v1alpha1/.)),** then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh).
+* **If you change a type definition ([pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.)),** then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh).
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
 

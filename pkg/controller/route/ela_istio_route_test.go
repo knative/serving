@@ -17,7 +17,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/google/go-cmp/cmp"

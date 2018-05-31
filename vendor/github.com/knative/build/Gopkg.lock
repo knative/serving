@@ -135,7 +135,7 @@
     "v1/types",
     "v1/v1util"
   ]
-  revision = "7d3c67809c1abe924b74944acf55fdeb279de1b0"
+  revision = "8bdfdfc3bd4146f40b7709f6b1b7d979a3385da8"
 
 [[projects]]
   name = "github.com/google/gofuzz"

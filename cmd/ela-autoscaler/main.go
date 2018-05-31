@@ -27,7 +27,7 @@ import (
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	ela_autoscaler "github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -195,7 +195,7 @@ func scaleTo(podCount int32) {
 
 	glog.Infof("Scaling to %v", podCount)
 	if podCount == 0 {
-		revisionClient := elaClient.ElafrosV1alpha1().Revisions(elaNamespace)
+		revisionClient := elaClient.KnativeV1alpha1().Revisions(elaNamespace)
 		revision, err := revisionClient.Get(elaRevision, metav1.GetOptions{})
 
 		if err != nil {

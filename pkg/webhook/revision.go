@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/google/go-cmp/cmp"
 	"github.com/mattbaird/jsonpatch"

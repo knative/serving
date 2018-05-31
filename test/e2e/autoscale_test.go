@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"

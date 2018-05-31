@@ -82,8 +82,8 @@ a Kubernetes-native Build{Template} CRD resource.
 Many users want to build automatically when they push to a repo, or in response
 to some outside event, or on a schedule. How to get notified of repo changes,
 and knowing what to build when we get that notification, are open questions. It
-probably makes sense to share concepts and infrastructure with Elafros' ongoing
-[eventing](https://github.com/elafros/eventing) work, rather than build and
+probably makes sense to share concepts and infrastructure with knative' ongoing
+[eventing](https://github.com/knative/eventing) work, rather than build and
 maintain our own.
 
 This work could also be informed by expertise gained by the Prow project, and

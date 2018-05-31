@@ -19,7 +19,7 @@ package test
 
 import (
 	"github.com/knative/serving/pkg/client/clientset/versioned"
-	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -52,9 +52,9 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
-	clients.Routes = cs.ElafrosV1alpha1().Routes(namespace)
-	clients.Configs = cs.ElafrosV1alpha1().Configurations(namespace)
-	clients.Revisions = cs.ElafrosV1alpha1().Revisions(namespace)
+	clients.Routes = cs.KnativeV1alpha1().Routes(namespace)
+	clients.Configs = cs.KnativeV1alpha1().Configurations(namespace)
+	clients.Revisions = cs.KnativeV1alpha1().Revisions(namespace)
 
 	return clients, nil
 }
