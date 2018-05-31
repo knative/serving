@@ -18,8 +18,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	v1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

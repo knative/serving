@@ -27,7 +27,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${ELAFROS_ROOT}; ls -d -1 ./vendor/k8s.io/code-g
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
-  "ela:v1alpha1 istio:v1alpha2" \
+  "serving:v1alpha1 istio:v1alpha2" \
   --go-header-file ${ELAFROS_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Make sure our dependencies are up-to-date

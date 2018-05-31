@@ -16,8 +16,8 @@ limitations under the License.
 package scheme
 
 import (
-	knativev1alpha1 "github.com/knative/serving/pkg/apis/ela/v1alpha1"
 	configv1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	knativev1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,6 +48,6 @@ func init() {
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
-	knativev1alpha1.AddToScheme(scheme)
 	configv1alpha2.AddToScheme(scheme)
+	knativev1alpha1.AddToScheme(scheme)
 }
