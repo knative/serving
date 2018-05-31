@@ -91,8 +91,8 @@ To check out this repository:
   ```shell
   mkdir -p ${GOPATH}/src/github.com/knative
   cd ${GOPATH}/src/github.com/knative
-  git clone git@github.com:${YOUR_GITHUB_USERNAME}/knative.git
-  cd knative
+  git clone git@github.com:${YOUR_GITHUB_USERNAME}/serving.git
+  cd serving
   git remote add upstream git@github.com:knative/serving.git
   git remote set-url --push upstream no_push
   ```
