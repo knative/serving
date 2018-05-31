@@ -671,21 +671,6 @@ func TestCreateRevisionWithGRPCProtocol(t *testing.T) {
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
-	// Look for the revision deployment.
-	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get ela deployment: %v", err)
-	}
-
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if container.Name == "queue-proxy" {
-			if err := checkEnv(container.Env, "ELA_PROTOCOL", "grpc", ""); err != nil {
-				t.Error(err)
-			}
-		}
-	}
-
 	expectedServiceName := fmt.Sprintf("%s-service", rev.Name)
 	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
 	if err != nil {

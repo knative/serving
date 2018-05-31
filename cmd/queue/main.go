@@ -38,6 +38,7 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
@@ -67,20 +68,21 @@ const (
 )
 
 var (
-	podName                  string
-	elaNamespace             string
-	elaConfiguration         string
-	elaRevision              string
-	elaProtocol              string
-	elaAutoscaler            string
-	elaAutoscalerPort        string
-	allowedProtocols         = []string{"http", "grpc"}
-	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan                  = make(chan queue.ReqEvent, requestCountingQueueLength)
-	kubeClient               *kubernetes.Clientset
-	statSink                 *websocket.Conn
-	proxy                    *httputil.ReverseProxy
-	logger                   *zap.SugaredLogger
+	podName           string
+	elaNamespace      string
+	elaConfiguration  string
+	elaRevision       string
+	elaAutoscaler     string
+	elaAutoscalerPort string
+	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan           = make(chan queue.ReqEvent, requestCountingQueueLength)
+	kubeClient        *kubernetes.Clientset
+	statSink          *websocket.Conn
+	logger            *zap.SugaredLogger
+
+	h2cProxy  *httputil.ReverseProxy
+	httpProxy *httputil.ReverseProxy
+
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
@@ -163,6 +165,14 @@ func statReporter() {
 	}
 }
 
+func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
+	if req.ProtoMajor == 2 {
+		return h2cProxy
+	}
+
+	return httpProxy
+}
+
 func isProbe(r *http.Request) bool {
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
@@ -170,11 +180,16 @@ func isProbe(r *http.Request) bool {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	proxy := proxyForRequest(r)
+
 	if isProbe(r) {
 		// Do not count health checks for concurrency metrics
 		proxy.ServeHTTP(w, r)
 		return
 	}
+
+	fmt.Println("Request received")
+
 	// Metrics for autoscaling
 	reqChan <- queue.ReqIn
 	defer func() {
@@ -304,9 +319,14 @@ func main() {
 	}()
 
 	adminServer := &http.Server{
-		Addr: fmt.Sprintf(":%d", queue.RequestQueueAdminPort), Handler: nil}
+		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
+		Handler: nil,
+	}
 
-	proxy := createProxy(elaProtocol)
+	h2cServer := h2c.Server{Server: &http.Server{
+		Addr:    fmt.Sprintf(":%d", queue.RequestQueuePort),
+		Handler: http.HandlerFunc(handler),
+	}}
 
 	// Add a SIGTERM handler to gracefully shutdown the servers during
 	// pod termination.
@@ -316,31 +336,12 @@ func main() {
 		<-sigTermChan
 		// Calling server.Shutdown() allows pending requests to
 		// complete, while no new work is accepted.
-		if proxy.HttpProxy != nil {
-			proxy.HttpProxy.Shutdown(context.Background())
-		}
-		if proxy.TcpProxy != nil {
-			proxy.TcpProxy.Close()
-		}
+
+		h2cServer.Shutdown(context.Background())
 		adminServer.Shutdown(context.Background())
 		os.Exit(0)
 	}()
 
-	go proxy.Run()
+	go h2cServer.ListenAndServe()
 	setupAdminHandlers(adminServer)
-}
-
-func createProxy(protocol string) Proxy {
-	if elaProtocol == "http" {
-		httpServer := &http.Server{
-			Addr:    fmt.Sprintf(":%d", queue.RequestQueuePort),
-			Handler: nil,
-		}
-		http.HandleFunc("/", handler)
-		return Proxy{HttpProxy: httpServer}
-	}
-
-	tcpProxy := &tcpproxy.Proxy{}
-	tcpProxy.AddRoute(fmt.Sprintf(":%d", queue.RequestQueuePort), tcpproxy.To(":8080"))
-	return Proxy{TcpProxy: tcpProxy}
 }
