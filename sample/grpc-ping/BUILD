@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["server.go"],
+    srcs = ["grpc-ping.go"],
     importpath = "github.com/elafros/elafros/sample/grpc-ping/server",
     visibility = ["//visibility:private"],
     deps = [

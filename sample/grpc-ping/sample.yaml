@@ -22,5 +22,4 @@ spec:
     spec:
       protocol: grpc
       container:
-        image: github.com/elafros/elafros/sample/grpc-ping/server
-        imagePullPolicy: Always
+        image: github.com/elafros/elafros/sample/grpc-ping

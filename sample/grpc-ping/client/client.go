@@ -73,7 +73,7 @@ func pingStream(client pb.PingServiceClient, msg string) {
 }
 
 func ping(client pb.PingServiceClient, msg string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	rep, err := client.Ping(ctx, &pb.Request{Msg: msg})
 	if err != nil {

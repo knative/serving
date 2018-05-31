@@ -6,14 +6,27 @@ A simple gRPC server written in Go that you can use for testing.
 
 1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
-1. Install [ko](https://github.com/google/go-containerregistry/tree/master/cmd/ko)
 
 ## Build and run the gRPC server
 
 Build and run the gRPC server. This command will build the server and use `kubectl` to apply the configuration.
 
 ```
-ko apply -f configuration.yml
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build \
+  --build-arg SAMPLE=grpc-ping \
+  --tag "${REPO}/sample/grpc-ping" \
+  --file=sample/Dockerfile.golang .
+docker push "${REPO}/sample/grpc-ping"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/elafros/elafros/sample/grpc-ping@${REPO}/sample/grpc-ping@g" sample/grpc-ping/*.yaml
+
+# Deploy the Elafros sample
+kubectl apply -f sample/grpc-ping/sample.yaml
+
 ```
 
 ## Use the client to stream messages to the gRPC server
