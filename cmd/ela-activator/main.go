@@ -55,7 +55,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	glog.Info("Starting the elafros activator...")
+	glog.Info("Starting the knative activator...")
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {

@@ -51,7 +51,7 @@ type revisions struct {
 }
 
 // newRevisions returns a Revisions
-func newRevisions(c *ElafrosV1alpha1Client, namespace string) *revisions {
+func newRevisions(c *KnativeV1alpha1Client, namespace string) *revisions {
 	return &revisions{
 		client: c.RESTClient(),
 		ns:     namespace,

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Route
 metadata:
   name: autoscale-route
@@ -21,7 +21,7 @@ spec:
   - configurationName: autoscale-configuration
     percent: 100
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: autoscale-configuration
@@ -30,7 +30,7 @@ spec:
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: app
+        knative.dev/type: app
     spec:
       container:
         # This is the Go import path for the binary to containerize

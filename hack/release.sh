@@ -20,8 +20,8 @@ set -o pipefail
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
 # Set default GCS/GCR
-: ${ELAFROS_RELEASE_GCS:="elafros-releases"}
-: ${ELAFROS_RELEASE_GCR:="gcr.io/elafros-releases"}
+: ${ELAFROS_RELEASE_GCS:="knative-releases"}
+: ${ELAFROS_RELEASE_GCR:="gcr.io/knative-releases"}
 readonly ELAFROS_RELEASE_GCS
 readonly ELAFROS_RELEASE_GCR
 
@@ -42,7 +42,7 @@ function banner() {
 # Tag Elafros images in the yaml file with a tag.
 # Parameters: $1 - yaml file to parse for images.
 #             $2 - tag to apply.
-function tag_elafros_images() {
+function tag_knative_images() {
   [[ -z $2 ]] && return 0
   echo "Tagging images with $2"
   for image in $(grep -o "${DOCKER_REPO_OVERRIDE}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
@@ -91,7 +91,7 @@ bazel run config:everything >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 echo "Building Monitoring & Logging"
 bazel run config/monitoring:everything >> ${OUTPUT_YAML}
-tag_elafros_images ${OUTPUT_YAML} ${TAG}
+tag_knative_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
 gsutil cp ${OUTPUT_YAML} gs://${ELAFROS_RELEASE_GCS}/latest/release.yaml

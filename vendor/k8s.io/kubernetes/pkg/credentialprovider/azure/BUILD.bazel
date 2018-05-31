@@ -6,7 +6,7 @@ go_library(
         "azure_acr_helper.go",
         "azure_credentials.go",
     ],
-    importmap = "elafros/vendor/k8s.io/kubernetes/pkg/credentialprovider/azure",
+    importmap = "knative/vendor/k8s.io/kubernetes/pkg/credentialprovider/azure",
     importpath = "k8s.io/kubernetes/pkg/credentialprovider/azure",
     visibility = ["//visibility:public"],
     deps = [

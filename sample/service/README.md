@@ -6,7 +6,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -36,7 +36,7 @@ Once deployed, you can inspect the created resources with `kubectl` commands:
 
 ```shell
 # This will show the service that we created:
-kubectl get service.elafros.dev -oyaml
+kubectl get service.knative.dev -oyaml
 ```
 
 ```shell

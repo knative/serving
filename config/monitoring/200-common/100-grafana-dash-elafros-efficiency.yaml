@@ -15,10 +15,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-definition-elafros-efficiency
+  name: grafana-dashboard-definition-knative-efficiency
   namespace: monitoring
 data:
-  elafros-control-plane-efficiency-dashboard.json: |+
+  knative-control-plane-efficiency-dashboard.json: |+
     {
       "__inputs": [
         {

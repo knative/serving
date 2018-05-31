@@ -19,5 +19,5 @@ limitations under the License.
 // of the same resource
 
 // +k8s:deepcopy-gen=package
-// +groupName=elafros.dev
+// +groupName=knative.dev
 package v1alpha1

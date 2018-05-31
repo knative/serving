@@ -90,7 +90,7 @@ role in terms of permissions and privileges.
         <p>Admin privileges on the GitHub Elafros org and all its repos</p>
         <p>Admin privileges on the Elafros Slack workspace</p>
         <p>Admin privileges on the Elafros Team Drive</p>
-        <p>Admin privileges on the Google Search Console for elafros.dev</p>
+        <p>Admin privileges on the Google Search Console for knative.dev</p>
         <p>Admin privilege to the Elafros email lists.</p>
     </td>
     <td>
@@ -146,7 +146,7 @@ this is not a requirement.
     *   Contributing to working group or community discussions
 
 *   Subscribed to
-    [elafros-dev@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-dev)
+    [knative-dev@googlegroups.com](https://groups.google.com/forum/#!forum/knative-dev)
 
 *   Actively contributing to 1 or more areas.
 
@@ -300,4 +300,4 @@ Administrators are responsible for the bureaucratic aspects of the project.
 *   Expected to be responsive to membership and permission change requests
     <!-- TODO SLA for admin response -->
 
-<!-- * TODO Manage the Google Search Console settings for elafros.dev -->
+<!-- * TODO Manage the Google Search Console settings for knative.dev -->

@@ -9,7 +9,7 @@ go_library(
         "plugins.go",
         "provider.go",
     ],
-    importmap = "elafros/vendor/k8s.io/kubernetes/pkg/credentialprovider",
+    importmap = "knative/vendor/k8s.io/kubernetes/pkg/credentialprovider",
     importpath = "k8s.io/kubernetes/pkg/credentialprovider",
     visibility = ["//visibility:public"],
     deps = [

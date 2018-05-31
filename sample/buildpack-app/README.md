@@ -8,7 +8,7 @@ sample app for Cloud Foundry.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+[Install Elafros](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
@@ -39,7 +39,7 @@ Once deployed, you will see that it first builds:
 $ kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: knative.dev/v1alpha1
   kind: Revision
   ...
   status:

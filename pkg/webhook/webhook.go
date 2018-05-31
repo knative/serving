@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	elafrosAPIVersion = "v1alpha1"
+	knativeAPIVersion = "v1alpha1"
 	secretServerKey   = "server-key.pem"
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
@@ -330,7 +330,7 @@ func (ac *AdmissionController) register(
 					},
 					Rule: admissionregistrationv1beta1.Rule{
 						APIGroups:   []string{ela.GroupName},
-						APIVersions: []string{elafrosAPIVersion},
+						APIVersions: []string{knativeAPIVersion},
 						Resources:   resources,
 					},
 				}},

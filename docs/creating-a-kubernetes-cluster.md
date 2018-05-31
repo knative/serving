@@ -35,7 +35,7 @@ To use a k8s cluster running in GKE:
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
-      elafros-demo
+      knative-demo
     ```
 
     *   Version 1.9+ is required
@@ -123,7 +123,7 @@ You can use Google Container Registry as the registry for a Minikube cluster.
     region-specific variant like `us.gcr.io`.
 
     ```shell
-    export PROJECT_ID=elafros-demo-project
+    export PROJECT_ID=knative-demo-project
     export GCR_DOMAIN=gcr.io
     ```
 

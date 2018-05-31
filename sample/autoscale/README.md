@@ -4,7 +4,7 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup

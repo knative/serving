@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["providers.go"],
-    importmap = "elafros/vendor/k8s.io/kubernetes/pkg/cloudprovider/providers",
+    importmap = "knative/vendor/k8s.io/kubernetes/pkg/cloudprovider/providers",
     importpath = "k8s.io/kubernetes/pkg/cloudprovider/providers",
     visibility = ["//visibility:public"],
     deps = [

@@ -10,7 +10,7 @@ go_library(
         "table.go",
         "trie.go",
     ],
-    importmap = "elafros/vendor/golang.org/x/text/collate/build",
+    importmap = "knative/vendor/golang.org/x/text/collate/build",
     importpath = "golang.org/x/text/collate/build",
     visibility = ["//visibility:public"],
     deps = [

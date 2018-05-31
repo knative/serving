@@ -7,7 +7,7 @@ go_library(
         "jsonvalue.go",
         "unmarshal.go",
     ],
-    importmap = "elafros/vendor/github.com/aws/aws-sdk-go/private/protocol",
+    importmap = "knative/vendor/github.com/aws/aws-sdk-go/private/protocol",
     importpath = "github.com/aws/aws-sdk-go/private/protocol",
     visibility = ["//visibility:public"],
     deps = [

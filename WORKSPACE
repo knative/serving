@@ -1,4 +1,4 @@
-workspace(name = "elafros")
+workspace(name = "knative")
 
 http_archive(
     name = "io_kubernetes_build",

@@ -121,11 +121,11 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Elafros() ela.Interface
+	Knative() ela.Interface
 	Config() istio.Interface
 }
 
-func (f *sharedInformerFactory) Elafros() ela.Interface {
+func (f *sharedInformerFactory) Knative() ela.Interface {
 	return ela.New(f, f.namespace, f.tweakListOptions)
 }
 

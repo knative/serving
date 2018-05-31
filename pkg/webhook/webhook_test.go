@@ -42,7 +42,7 @@ func newDefaultOptions() ControllerOptions {
 		ServiceNamespace: "ela-system",
 		Port:             443,
 		SecretName:       "ela-webhook-certs",
-		WebhookName:      "webhook.elafros.dev",
+		WebhookName:      "webhook.knative.dev",
 	}
 }
 

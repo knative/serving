@@ -98,7 +98,7 @@ Now, if you look at the `status` of the revision, you will see that a build is i
 $ kubectl get revisions -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: knative.dev/v1alpha1
   kind: Revision
   ...
   status:

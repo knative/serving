@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["factory_interfaces.go"],
-    importmap = "elafros/vendor/github.com/elafros/build/pkg/client/informers/externalversions/internalinterfaces",
+    importmap = "knative/vendor/github.com/elafros/build/pkg/client/informers/externalversions/internalinterfaces",
     importpath = "github.com/elafros/build/pkg/client/informers/externalversions/internalinterfaces",
     visibility = ["//visibility:public"],
     deps = [

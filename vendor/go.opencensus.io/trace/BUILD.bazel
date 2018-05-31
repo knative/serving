@@ -12,7 +12,7 @@ go_library(
         "spanstore.go",
         "trace.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/trace",
+    importmap = "knative/vendor/go.opencensus.io/trace",
     importpath = "go.opencensus.io/trace",
     visibility = ["//visibility:public"],
     deps = [

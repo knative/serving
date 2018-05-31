@@ -27,13 +27,13 @@ import (
 
 // FakeRoutes implements RouteInterface
 type FakeRoutes struct {
-	Fake *FakeElafrosV1alpha1
+	Fake *FakeKnativeV1alpha1
 	ns   string
 }
 
-var routesResource = schema.GroupVersionResource{Group: "elafros.dev", Version: "v1alpha1", Resource: "routes"}
+var routesResource = schema.GroupVersionResource{Group: "knative.dev", Version: "v1alpha1", Resource: "routes"}
 
-var routesKind = schema.GroupVersionKind{Group: "elafros.dev", Version: "v1alpha1", Kind: "Route"}
+var routesKind = schema.GroupVersionKind{Group: "knative.dev", Version: "v1alpha1", Kind: "Route"}
 
 // Get takes name of the route, and returns the corresponding route object, and an error if there is any.
 func (c *FakeRoutes) Get(name string, options v1.GetOptions) (result *v1alpha1.Route, err error) {

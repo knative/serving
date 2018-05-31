@@ -189,11 +189,11 @@ FROM golang
 
 ENV GOPATH /go
 
-ADD . /go/src/github.com/dewitt/elafros-build
+ADD . /go/src/github.com/dewitt/knative-build
 
-RUN CGO_ENABLED=0 go build github.com/dewitt/elafros-build
+RUN CGO_ENABLED=0 go build github.com/dewitt/knative-build
 
-ENTRYPOINT ["elafros-build"]
+ENTRYPOINT ["knative-build"]
 ```
 
 1. `main.go`

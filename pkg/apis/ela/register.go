@@ -17,7 +17,7 @@ limitations under the License.
 package ela
 
 const (
-	GroupName = "elafros.dev"
+	GroupName = "knative.dev"
 
 	// ConfigurationLabelKey is the label key attached to a Revision indicating by
 	// which Configuration it is created.

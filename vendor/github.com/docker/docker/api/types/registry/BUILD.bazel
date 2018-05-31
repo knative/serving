@@ -6,7 +6,7 @@ go_library(
         "authenticate.go",
         "registry.go",
     ],
-    importmap = "elafros/vendor/github.com/docker/docker/api/types/registry",
+    importmap = "knative/vendor/github.com/docker/docker/api/types/registry",
     importpath = "github.com/docker/docker/api/types/registry",
     visibility = ["//visibility:public"],
 )

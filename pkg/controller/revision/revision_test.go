@@ -465,7 +465,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	// The revision service should be owned by rev.
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "elafros.dev/v1alpha1",
+			APIVersion: "knative.dev/v1alpha1",
 			Kind:       "Revision",
 			Name:       rev.Name,
 			UID:        rev.UID,

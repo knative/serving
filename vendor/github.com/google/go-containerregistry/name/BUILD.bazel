@@ -11,7 +11,7 @@ go_library(
         "repository.go",
         "tag.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/name",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/name",
     importpath = "github.com/google/go-containerregistry/name",
     visibility = ["//visibility:public"],
 )

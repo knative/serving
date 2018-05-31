@@ -49,8 +49,8 @@ const fluentdSidecarPreOutputConfig = `
 	enable_ruby true
 	<record>
 		kubernetes.container_name "#{ENV['ELA_CONTAINER_NAME']}"
-		kubernetes.labels.elafros_dev/configuration "#{ENV['ELA_CONFIGURATION']}"
-		kubernetes.labels.elafros_dev/revision "#{ENV['ELA_REVISION']}"
+		kubernetes.labels.knative_dev/configuration "#{ENV['ELA_CONFIGURATION']}"
+		kubernetes.labels.knative_dev/revision "#{ENV['ELA_REVISION']}"
 		kubernetes.namespace_name "#{ENV['ELA_NAMESPACE']}"
 		kubernetes.pod_name "#{ENV['ELA_POD_NAME']}"
 		stream varlog

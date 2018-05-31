@@ -12,7 +12,7 @@ go_library(
         "profile_not19.go",
         "validate.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/tag",
+    importmap = "knative/vendor/go.opencensus.io/tag",
     importpath = "go.opencensus.io/tag",
     visibility = ["//visibility:public"],
 )

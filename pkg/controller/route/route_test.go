@@ -305,7 +305,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	// Check owner refs
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "elafros.dev/v1alpha1",
+			APIVersion: "knative.dev/v1alpha1",
 			Kind:       "Route",
 			Name:       route.Name,
 		},
@@ -403,7 +403,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// Check owner refs
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "elafros.dev/v1alpha1",
+			APIVersion: "knative.dev/v1alpha1",
 			Kind:       "Route",
 			Name:       route.Name,
 		},

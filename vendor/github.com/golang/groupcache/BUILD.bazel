@@ -9,7 +9,7 @@ go_library(
         "peers.go",
         "sinks.go",
     ],
-    importmap = "elafros/vendor/github.com/golang/groupcache",
+    importmap = "knative/vendor/github.com/golang/groupcache",
     importpath = "github.com/golang/groupcache",
     visibility = ["//visibility:public"],
     deps = [

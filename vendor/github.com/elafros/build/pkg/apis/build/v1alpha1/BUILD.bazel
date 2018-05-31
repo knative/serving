@@ -9,7 +9,7 @@ go_library(
         "register.go",
         "zz_generated.deepcopy.go",
     ],
-    importmap = "elafros/vendor/github.com/elafros/build/pkg/apis/build/v1alpha1",
+    importmap = "knative/vendor/github.com/elafros/build/pkg/apis/build/v1alpha1",
     importpath = "github.com/elafros/build/pkg/apis/build/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [

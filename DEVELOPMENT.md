@@ -19,7 +19,7 @@ This doc explains how to setup a development environment so you can get started
 1. Set up your [shell environment](#environment-setup)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
-Once you meet these requirements, you can [start Elafros](#starting-elafros)!
+Once you meet these requirements, you can [start Elafros](#starting-knative)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
@@ -40,7 +40,7 @@ development.
 
 ### Environment setup
 
-To [start your environment](./README.md#start-elafros) you'll need to set these environment
+To [start your environment](./README.md#start-knative) you'll need to set these environment
 variables (we recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
@@ -89,10 +89,10 @@ To check out this repository:
   repo](https://help.github.com/articles/fork-a-repo/)
 2. Clone it to your machine:
   ```shell
-  mkdir -p ${GOPATH}/src/github.com/elafros
-  cd ${GOPATH}/src/github.com/elafros
-  git clone git@github.com:${YOUR_GITHUB_USERNAME}/elafros.git
-  cd elafros
+  mkdir -p ${GOPATH}/src/github.com/knative
+  cd ${GOPATH}/src/github.com/knative
+  git clone git@github.com:${YOUR_GITHUB_USERNAME}/knative.git
+  cd knative
   git remote add upstream git@github.com:knative/serving.git
   git remote set-url --push upstream no_push
   ```
@@ -100,7 +100,7 @@ To check out this repository:
 _Adding the `upstream` remote sets you up nicely for regularly [syncing your
 fork](https://help.github.com/articles/syncing-a-fork/)._
 
-Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-elafros).
+Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-knative).
 
 ## Starting Elafros
 
@@ -245,7 +245,7 @@ bazel run //config:controller.apply
 ```
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
-redeploy `Elafros`](./README.md#start-elafros).
+redeploy `Elafros`](./README.md#start-knative).
 
 ## Clean up
 

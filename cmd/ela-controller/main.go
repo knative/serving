@@ -167,7 +167,7 @@ func main() {
 
 	// Setup the metrics to flow to Prometheus.
 	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "elafros"})
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "knative"})
 	if err != nil {
 		logger.Fatalf("failed to create the Prometheus exporter: %v", err)
 	}

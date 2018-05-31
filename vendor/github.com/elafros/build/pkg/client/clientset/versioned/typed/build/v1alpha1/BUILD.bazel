@@ -9,7 +9,7 @@ go_library(
         "doc.go",
         "generated_expansion.go",
     ],
-    importmap = "elafros/vendor/github.com/elafros/build/pkg/client/clientset/versioned/typed/build/v1alpha1",
+    importmap = "knative/vendor/github.com/elafros/build/pkg/client/clientset/versioned/typed/build/v1alpha1",
     importpath = "github.com/elafros/build/pkg/client/clientset/versioned/typed/build/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [

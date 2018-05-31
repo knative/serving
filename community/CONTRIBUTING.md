@@ -13,7 +13,7 @@ are given the same level of review.
 *   [Contributor license agreements](#contributor-license-agreements)
 *   [Design documents](#design-documents)
 *   [Contributing a feature](#contributing-a-feature)
-*   [Setting up to contribute to Elafros](#setting-up-to-contribute-to-elafros)
+*   [Setting up to contribute to Elafros](#setting-up-to-contribute-to-knative)
 *   [Pull requests](#pull-requests)
 *   [Issues](#issues)
 
@@ -57,7 +57,7 @@ to be a [member](ROLES.md#member) of the Elafros organization.
 We do not yet have a common design document template(TODO).
 
 The team drive is shared with the
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) Google
+[knative-dev@](https://groups.google.com/forum/#!forum/knative-dev) Google
 group for editing and commenting. If you're not part of that group, the
 first time you try to access the team drive or a specific doc, you'll be
 asked to request permission. This permission will always be granted and we

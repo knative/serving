@@ -7,7 +7,7 @@ go_library(
         "doc.go",
         "register.go",
     ],
-    importmap = "elafros/vendor/github.com/elafros/build/pkg/client/clientset/versioned/fake",
+    importmap = "knative/vendor/github.com/elafros/build/pkg/client/clientset/versioned/fake",
     importpath = "github.com/elafros/build/pkg/client/clientset/versioned/fake",
     visibility = ["//visibility:public"],
     deps = [

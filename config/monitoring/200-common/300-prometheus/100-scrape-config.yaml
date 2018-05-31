@@ -34,7 +34,7 @@ data:
       - role: endpoints
       relabel_configs:
       # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_service_label_elafros_dev_autoscaler]
+      - source_labels: [__meta_kubernetes_service_label_knative_dev_autoscaler]
         action: keep
         regex: .+
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_endpoint_port_name]

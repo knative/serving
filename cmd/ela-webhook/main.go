@@ -55,7 +55,7 @@ func main() {
 		ServiceNamespace: "ela-system",
 		Port:             443,
 		SecretName:       "ela-webhook-certs",
-		WebhookName:      "webhook.elafros.dev",
+		WebhookName:      "webhook.knative.dev",
 	}
 	controller, err := webhook.NewAdmissionController(clientset, options, logger)
 	if err != nil {

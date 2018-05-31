@@ -11,7 +11,7 @@ go_library(
         "manifest.go",
         "zz_deepcopy_generated.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/v1",
     importpath = "github.com/google/go-containerregistry/v1",
     visibility = ["//visibility:public"],
     deps = ["//vendor/github.com/google/go-containerregistry/v1/types:go_default_library"],

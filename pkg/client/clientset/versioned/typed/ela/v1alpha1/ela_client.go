@@ -22,7 +22,7 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-type ElafrosV1alpha1Interface interface {
+type KnativeV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ConfigurationsGetter
 	RevisionsGetter
@@ -30,29 +30,29 @@ type ElafrosV1alpha1Interface interface {
 	ServicesGetter
 }
 
-// ElafrosV1alpha1Client is used to interact with features provided by the elafros.dev group.
-type ElafrosV1alpha1Client struct {
+// KnativeV1alpha1Client is used to interact with features provided by the knative.dev group.
+type KnativeV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ElafrosV1alpha1Client) Configurations(namespace string) ConfigurationInterface {
+func (c *KnativeV1alpha1Client) Configurations(namespace string) ConfigurationInterface {
 	return newConfigurations(c, namespace)
 }
 
-func (c *ElafrosV1alpha1Client) Revisions(namespace string) RevisionInterface {
+func (c *KnativeV1alpha1Client) Revisions(namespace string) RevisionInterface {
 	return newRevisions(c, namespace)
 }
 
-func (c *ElafrosV1alpha1Client) Routes(namespace string) RouteInterface {
+func (c *KnativeV1alpha1Client) Routes(namespace string) RouteInterface {
 	return newRoutes(c, namespace)
 }
 
-func (c *ElafrosV1alpha1Client) Services(namespace string) ServiceInterface {
+func (c *KnativeV1alpha1Client) Services(namespace string) ServiceInterface {
 	return newServices(c, namespace)
 }
 
-// NewForConfig creates a new ElafrosV1alpha1Client for the given config.
-func NewForConfig(c *rest.Config) (*ElafrosV1alpha1Client, error) {
+// NewForConfig creates a new KnativeV1alpha1Client for the given config.
+func NewForConfig(c *rest.Config) (*KnativeV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -61,12 +61,12 @@ func NewForConfig(c *rest.Config) (*ElafrosV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ElafrosV1alpha1Client{client}, nil
+	return &KnativeV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new ElafrosV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new KnativeV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *ElafrosV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *KnativeV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -74,9 +74,9 @@ func NewForConfigOrDie(c *rest.Config) *ElafrosV1alpha1Client {
 	return client
 }
 
-// New creates a new ElafrosV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *ElafrosV1alpha1Client {
-	return &ElafrosV1alpha1Client{c}
+// New creates a new KnativeV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *KnativeV1alpha1Client {
+	return &KnativeV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -94,7 +94,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *ElafrosV1alpha1Client) RESTClient() rest.Interface {
+func (c *KnativeV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

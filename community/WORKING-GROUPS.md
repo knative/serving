@@ -14,7 +14,7 @@ The working groups generate design docs which are kept in a
 [shared drive](https://drive.google.com/corp/drive/folders/0APnJ_hRs30R2Uk9PVA)
 and are available for anyone to read and comment on. The shared drive
 currently grants edit and comment access to the
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+[knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Google group.
 
 The current working groups are:
@@ -32,12 +32,12 @@ API [resources](../pkg/apis/ela), [validation](../pkg/webhook), and [semantics](
 
 Artifact                   | Link
 -------------------------- | ----
-Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Forum                      | [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](https://docs.google.com/document/d/1NC4klOdNaU-N-PsKLyXBqDKgNSHtxCDep29Ta2b5FK0/edit)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1fpBW7VyiBISsKuVdgn1MrgFdtx_JGoC5)
-Slack Channel              | [#api](https://elafros.slack.com)
+Slack Channel              | [#api](https://knative.slack.com)
 
 &nbsp;                                                   | Leads      | Company | Profile
 -------------------------------------------------------- | ---------- | ------- | -------
@@ -49,12 +49,12 @@ Slack Channel              | [#api](https://elafros.slack.com)
 
 Artifact                   | Link
 -------------------------- | ----
-Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Forum                      | [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](https://docs.google.com/document/d/1e7gMVFlJfkFdTcaWj2qETeRD9kSBG2Vh8mASPmQMYC0/edit)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1ov16HvPam-v_FXAGEaUdHok6_hUAoIoe)
-Slack Channel              | [#build-crd](https://elafros.slack.com)
+Slack Channel              | [#build-crd](https://knative.slack.com)
 
 &nbsp;                                                   | Leads      | Company | Profile
 -------------------------------------------------------- | ---------- | ------- | -------
@@ -67,12 +67,12 @@ Event sources, bindings, FaaS framework, and orchestration
 
 Artifact                   | Link
 -------------------------- | ----
-Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Forum                      | [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Community Meeting VC       | [meet.google.com/uea-zcwt-drt](https://meet.google.com/uea-zcwt-drt) <br>Or dial in:<br>(US) +1 919 525 1825<br>PIN: 356 842#
 Community Meeting Calendar | Wednesdays 9:00a-9:30a PST<br>[Calendar Invitation](https://calendar.google.com/calendar/embed?src=google.com_5pce19kpifu8avnj0eo74sg84c%40group.calendar.google.com&ctz=America%2FLos_Angeles)
 Meeting Notes              | [Notes](https://docs.google.com/document/d/1uGDehQu493N_XCAT5H4XEw5T9IWlPN1o19ULOWKuPnY/edit)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1S22YmGl6B1ppYApwa1j5j9Nc6rEChlPo)
-Slack Channel              | [#eventing](https://elafros.slack.com/messages/C9JP909F0/)
+Slack Channel              | [#eventing](https://knative.slack.com/messages/C9JP909F0/)
 
 &nbsp;                                                        | Leads       | Company | Profile
 ------------------------------------------------------------- | ----------- | ------- | -------
@@ -84,12 +84,12 @@ Autoscaling
 
 Artifact                   | Link
 -------------------------- | ----
-Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Forum                      | [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Community Meeting VC       | [scaling-wg](https://hangouts.google.com/hangouts/_/google.com/scaling-wg)
 Community Meeting Calendar | [Calendar](https://calendar.google.com/calendar?cid=Z29vZ2xlLmNvbV9sNHY5NnJocWJoMGk1dWsyMnU1MGhudDY2c0Bncm91cC5jYWxlbmRhci5nb29nbGUuY29t)
 Meeting Notes              | [Notes](https://docs.google.com/document/d/1FoLJqbDJM8_tw7CON-CJZsO2mlF8Ia1cWzCjWX8HDAI/edit#heading=h.c0ufqy5rucfa)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1qpGIPXVGoMm6IXb74gPrrHkudV_bjIZ9)
-Slack Channel              | [#autoscaling](https://elafros.slack.com)
+Slack Channel              | [#autoscaling](https://knative.slack.com)
 
 &nbsp;                                                        | Leads          | Company | Profile
 ------------------------------------------------------------- | -------------- | ------- | -------
@@ -102,12 +102,12 @@ Routing, Observability
 
 Artifact                   | Link
 -------------------------- | ----
-Forum                      | [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev)
+Forum                      | [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1pfcc6z8oQl6S7bOl1MnfZJ2o32FtgvRB)
-Slack Channel              | [#metrics](https://elafros.slack.com)
+Slack Channel              | [#metrics](https://knative.slack.com)
 
 &nbsp;                                                    | Leads            | Company | Profile
 --------------------------------------------------------- | ---------------- | ------- | -------

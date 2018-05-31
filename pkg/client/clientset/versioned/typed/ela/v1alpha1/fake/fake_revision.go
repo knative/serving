@@ -27,13 +27,13 @@ import (
 
 // FakeRevisions implements RevisionInterface
 type FakeRevisions struct {
-	Fake *FakeElafrosV1alpha1
+	Fake *FakeKnativeV1alpha1
 	ns   string
 }
 
-var revisionsResource = schema.GroupVersionResource{Group: "elafros.dev", Version: "v1alpha1", Resource: "revisions"}
+var revisionsResource = schema.GroupVersionResource{Group: "knative.dev", Version: "v1alpha1", Resource: "revisions"}
 
-var revisionsKind = schema.GroupVersionKind{Group: "elafros.dev", Version: "v1alpha1", Kind: "Revision"}
+var revisionsKind = schema.GroupVersionKind{Group: "knative.dev", Version: "v1alpha1", Kind: "Revision"}
 
 // Get takes name of the revision, and returns the corresponding revision object, and an error if there is any.
 func (c *FakeRevisions) Get(name string, options v1.GetOptions) (result *v1alpha1.Revision, err error) {

@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["doc.go"],
-    importmap = "elafros/vendor/go.opencensus.io",
+    importmap = "knative/vendor/go.opencensus.io",
     importpath = "go.opencensus.io",
     visibility = ["//visibility:public"],
 )

@@ -27,13 +27,13 @@ import (
 
 // FakeConfigurations implements ConfigurationInterface
 type FakeConfigurations struct {
-	Fake *FakeElafrosV1alpha1
+	Fake *FakeKnativeV1alpha1
 	ns   string
 }
 
-var configurationsResource = schema.GroupVersionResource{Group: "elafros.dev", Version: "v1alpha1", Resource: "configurations"}
+var configurationsResource = schema.GroupVersionResource{Group: "knative.dev", Version: "v1alpha1", Resource: "configurations"}
 
-var configurationsKind = schema.GroupVersionKind{Group: "elafros.dev", Version: "v1alpha1", Kind: "Configuration"}
+var configurationsKind = schema.GroupVersionKind{Group: "knative.dev", Version: "v1alpha1", Kind: "Configuration"}
 
 // Get takes name of the configuration, and returns the corresponding configuration object, and an error if there is any.
 func (c *FakeConfigurations) Get(name string, options v1.GetOptions) (result *v1alpha1.Configuration, err error) {

@@ -7,7 +7,7 @@ go_library(
         "token.go",
         "transport.go",
     ],
-    importmap = "elafros/vendor/golang.org/x/oauth2",
+    importmap = "knative/vendor/golang.org/x/oauth2",
     importpath = "golang.org/x/oauth2",
     visibility = ["//visibility:public"],
     deps = [

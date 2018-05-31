@@ -19,11 +19,11 @@
 # For convenience, it can also be executed manually.
 
 # If you already have the *_OVERRIDE environment variables set, call
-# this script with the --run-tests arguments and it will start elafros in
+# this script with the --run-tests arguments and it will start knative in
 # the cluster and run the tests.
 
 # Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start elafros in it, run the tests and delete the
+# project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
@@ -131,7 +131,7 @@ function exit_if_failed() {
 function run_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  go test -v ./test/$1 -dockerrepo gcr.io/knative-e2e-tests/$3
   exit_if_failed
 }
 

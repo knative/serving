@@ -6,7 +6,7 @@ go_library(
         "duration_convert.go",
         "timestamp.go",
     ],
-    importmap = "elafros/vendor/github.com/docker/docker/api/types/time",
+    importmap = "knative/vendor/github.com/docker/docker/api/types/time",
     importpath = "github.com/docker/docker/api/types/time",
     visibility = ["//visibility:public"],
 )

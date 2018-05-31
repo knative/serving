@@ -6,7 +6,7 @@ go_library(
         "doc.go",
         "k8schain.go",
     ],
-    importmap = "elafros/vendor/github.com/mattmoor/k8schain",
+    importmap = "knative/vendor/github.com/mattmoor/k8schain",
     importpath = "github.com/mattmoor/k8schain",
     visibility = ["//visibility:public"],
     deps = [

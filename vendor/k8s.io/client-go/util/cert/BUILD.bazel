@@ -8,7 +8,7 @@ go_library(
         "io.go",
         "pem.go",
     ],
-    importmap = "elafros/vendor/k8s.io/client-go/util/cert",
+    importmap = "knative/vendor/k8s.io/client-go/util/cert",
     importpath = "k8s.io/client-go/util/cert",
     visibility = ["//visibility:public"],
 )

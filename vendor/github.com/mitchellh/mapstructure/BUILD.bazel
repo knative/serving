@@ -7,7 +7,7 @@ go_library(
         "error.go",
         "mapstructure.go",
     ],
-    importmap = "elafros/vendor/github.com/mitchellh/mapstructure",
+    importmap = "knative/vendor/github.com/mitchellh/mapstructure",
     importpath = "github.com/mitchellh/mapstructure",
     visibility = ["//visibility:public"],
 )

@@ -6,7 +6,7 @@ go_library(
         "doc.go",
         "parse.go",
     ],
-    importmap = "elafros/vendor/k8s.io/gengo/parser",
+    importmap = "knative/vendor/k8s.io/gengo/parser",
     importpath = "k8s.io/gengo/parser",
     visibility = ["//visibility:public"],
     deps = [

@@ -15,10 +15,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-definition-elafros
+  name: grafana-dashboard-definition-knative
   namespace: monitoring
 data:
-  elafros-dashboard.json: |+
+  knative-dashboard.json: |+
     {
       "__inputs": [
         {
@@ -78,21 +78,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros_controller_revision_queue_process_count{status = \"success\"}[1m]) * 60",
+              "expr": "rate(knative_controller_revision_queue_process_count{status = \"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros_controller_revision_queue_process_count{status = \"failure\"}[1m]) * 60",
+              "expr": "rate(knative_controller_revision_queue_process_count{status = \"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros_controller_revision_queue_process_count{status = \"invalid\"}[1m]) * 60",
+              "expr": "rate(knative_controller_revision_queue_process_count{status = \"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -176,21 +176,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros_controller_route_queue_process_count{status=\"success\"}[1m]) * 60",
+              "expr": "rate(knative_controller_route_queue_process_count{status=\"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros_controller_route_queue_process_count{status=\"failure\"}[1m]) * 60",
+              "expr": "rate(knative_controller_route_queue_process_count{status=\"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros_controller_route_queue_process_count{status=\"invalid\"}[1m]) * 60",
+              "expr": "rate(knative_controller_route_queue_process_count{status=\"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",
@@ -270,21 +270,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "rate(elafros_controller_service_queue_process_count{status = \"success\"}[1m]) * 60",
+              "expr": "rate(knative_controller_service_queue_process_count{status = \"success\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "success",
               "refId": "A"
             },
             {
-              "expr": "rate(elafros_controller_service_queue_process_count{status = \"failure\"}[1m]) * 60",
+              "expr": "rate(knative_controller_service_queue_process_count{status = \"failure\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "failure",
               "refId": "B"
             },
             {
-              "expr": "rate(elafros_controller_service_queue_process_count{status = \"invalid\"}[1m]) * 60",
+              "expr": "rate(knative_controller_service_queue_process_count{status = \"invalid\"}[1m]) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "invalid",

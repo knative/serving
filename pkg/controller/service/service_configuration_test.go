@@ -139,7 +139,7 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "elafros.dev/v1alpha1",
+			APIVersion: "knative.dev/v1alpha1",
 			Kind:       "Service",
 			Name:       testServiceName,
 		},
