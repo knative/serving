@@ -83,10 +83,16 @@ type MatchString struct {
 	Prefix string `json:"prefix,omitempty"`
 }
 
+type HTTPRewrite struct {
+	URI       string `json:"uri"`
+	Authority string `json:"authority"`
+}
+
 type RouteRuleSpec struct {
 	Destination   IstioService        `json:"destination"`
 	Match         Match               `json:"match,omitempty"`
 	Route         []DestinationWeight `json:"route"`
+	Rewrite       HTTPRewrite         `json:"rewrite"`
 	AppendHeaders map[string]string   `json:"appendHeaders"`
 }
 
