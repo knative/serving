@@ -19,9 +19,23 @@ set -o pipefail
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
+# Local generated yaml file.
+readonly OUTPUT_YAML=release.yaml
+
 function cleanup() {
   restore_override_vars
   bazel clean --expunge || true
+}
+
+# Tag Elafros images in the yaml file with a tag.
+# Parameters: $1 - yaml file to parse for images.
+#             $2 - tag to apply.
+function tag_elafros_images() {
+  [[ -z $2 ]] && return 0
+  echo "Tagging images with $2"
+  for image in $(grep -o "${DOCKER_REPO_OVERRIDE}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
+    gcloud -q container images add-tag ${image} ${image%%@*}:$2
+  done
 }
 
 cd ${ELAFROS_ROOT_DIR}
@@ -44,24 +58,34 @@ export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
 
-# If this is a prow job, authenticate against GCR.
+# If this is a prow job,
+TAG=""
 if (( IS_PROW )); then
+  # Authenticate against GCR.
   gcr_auth
+  commit=$(git describe --tags --always --dirty)
+  # Like kubernetes, image tag is vYYYYMMDD-commit
+  TAG="v$(date +%Y%m%d)-${commit}"
 fi
+readonly TAG
 
 echo "Cleaning up"
 bazel clean --expunge
 echo "Copying Build release"
-cp ${ELAFROS_ROOT_DIR}/third_party/config/build/release.yaml release.yaml
-echo "---" >> release.yaml
+cp ${ELAFROS_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
+echo "---" >> ${OUTPUT_YAML}
 echo "Building Elafros"
-bazel run config:everything >> release.yaml
-echo "---" >> release.yaml
+bazel run config:everything >> ${OUTPUT_YAML}
+echo "---" >> ${OUTPUT_YAML}
 echo "Building Monitoring & Logging"
-bazel run config/monitoring:everything >> release.yaml
+bazel run config/monitoring:everything >> ${OUTPUT_YAML}
+tag_elafros_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
-gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+gsutil cp ${OUTPUT_YAML} gs://elafros-releases/latest/release.yaml
+if [[ -n ${TAG} ]]; then
+  gsutil cp ${OUTPUT_YAML} gs://elafros-releases/previous/${TAG}/
+fi
 
 echo "New release published successfully"
 
