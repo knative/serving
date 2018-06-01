@@ -31,6 +31,7 @@ To use a k8s cluster running in GKE:
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
       --cluster-version=1.10.2-gke.3 \
+      --image-type "UBUNTU" \
       --zone=us-east1-d \
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
