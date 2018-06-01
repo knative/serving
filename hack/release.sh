@@ -30,7 +30,6 @@ readonly OUTPUT_YAML=release.yaml
 
 function cleanup() {
   restore_override_vars
-  bazel clean --expunge || true
 }
 
 function banner() {
@@ -57,11 +56,14 @@ if [[ "$1" != "--skip-tests" ]]; then
   banner "RUNNING RELEASE VALIDATION TESTS"
   # Run tests.
   ./test/presubmit-tests.sh
+else
+  install_ko
 fi
 
 banner "    BUILDING THE RELEASE   "
 
 # Set the repository
+export KO_DOCKER_REPO=${SERVING_RELEASE_GCR}
 export DOCKER_REPO_OVERRIDE=${SERVING_RELEASE_GCR}
 # Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
@@ -81,16 +83,22 @@ readonly TAG
 echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
 echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
 
-echo "Cleaning up"
-bazel clean --expunge
 echo "Copying Build release"
 cp ${SERVING_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
+
 echo "Building Knative Serving"
-bazel run config:everything >> ${OUTPUT_YAML}
+ko resolve -f config/ >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
+
 echo "Building Monitoring & Logging"
-bazel run config/monitoring:everything >> ${OUTPUT_YAML}
+# Use ko to concatenate them all together.
+ko resolve -R -f config/monitoring/100-common \
+    -f config/monitoring/150-prod \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
+
 tag_knative_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
