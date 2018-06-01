@@ -1,4 +1,4 @@
-# Elafros Components
+# Knative Serving Components
 
 * Controller
   * Watches for changes to resources and reconciles

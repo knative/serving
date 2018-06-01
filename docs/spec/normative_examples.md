@@ -1,6 +1,6 @@
 # Sample API Usage
 
-Following are several normative sample scenarios utilizing the Elafros
+Following are several normative sample scenarios utilizing the Knative Serving
 API. These scenarios are arranged to provide a flavor of the API and
 building from the smallest, most frequent operations.
 
@@ -296,7 +296,7 @@ steps may occur in in parallel.
 In the `runLatest` style of Service, the Route always references the
 latest ready revision of a Configuration, as this example
 illustrates. This is the most straightforward scenario that many
-Elafros customers are expected to use, and is consistent with the
+Knative Serving customers are expected to use, and is consistent with the
 experience of deploying code that is rolled out immediately.  A Route
 may also directly reference a Revision, which is shown in
 [example 3](#3-manual-rollout-of-a-new-revision---config-change-only).

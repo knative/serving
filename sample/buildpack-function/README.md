@@ -1,14 +1,14 @@
 # Buildpack Sample Function
 
 A sample function that demonstrates usage of Cloud Foundry buildpacks on
-Elafros, using the [packs Docker images](https://github.com/sclevine/packs).
+Knative Serving, using the [packs Docker images](https://github.com/sclevine/packs).
 
 This deploys the [riff square](https://github.com/scothis/riff-square-buildpack)
 sample function for riff.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/knative/install/blob/master/README.md)
+[Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
@@ -22,7 +22,7 @@ First, install the Buildpack build template from that repo:
 kubectl apply -f buildpack.yaml
 ```
 
-Then you can deploy this to Elafros from the root directory via:
+Then you can deploy this to Knative Serving from the root directory via:
 
 ```shell
 # Replace the token string with a suitable registry

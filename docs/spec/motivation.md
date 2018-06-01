@@ -1,6 +1,6 @@
 # Motivation
 
-The goal of the Elafros project is to provide a common toolkit and API
+The goal of the Knative Serving project is to provide a common toolkit and API
 framework for serverless workloads.
 
 We define serverless workloads as computing workloads that are:
@@ -19,6 +19,6 @@ infrastructure, it should be possible to build consistent toolkits
 that provide a richer experience than updating yaml files with
 `kubectl`.
 
-The Elafros APIs consist of Compute API (these documents),
+The Knative Serving APIs consist of Compute API (these documents),
 [Build API](https://github.com/knative/build) and
 [Eventing API](https://github.com/knative/eventing).

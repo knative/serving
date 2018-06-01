@@ -1,11 +1,11 @@
-# Elafros Personas
+# Knative Serving Personas
 
 When discussing user actions, it is often helpful to [define specific
 user roles](https://en.wikipedia.org/wiki/Persona_(user_experience)) who
 might want to do the action.
 
 
-## Elafros Compute
+## Knative Serving Compute
 
 ### Developer Personas
 
@@ -29,7 +29,7 @@ User stories:
 ### Operator Personas
 
 The operator personas are focused on deploying and managing both
-Elafros and the underlying Kubernetes cluster, as well as applying
+Knative Serving and the underlying Kubernetes cluster, as well as applying
 organization policy and security patches.
 
 * Hobbyist / Contributor
@@ -38,7 +38,7 @@ organization policy and security patches.
 * Capacity Planner
 
 User stories:
-* Create an Elafros cluster
+* Create an Knative Serving cluster
 * Apply policy / RBAC
 * Control or charge back for resource usage
 * Choose logging or monitoring plugins
@@ -47,7 +47,7 @@ User stories:
 
 ## Contributors
 
-Contributors are an important part of the Elafros project. As such, we
+Contributors are an important part of the Knative Serving project. As such, we
 will also consider how various infrastructure encourages and enables
 contributors to the project, as well as the impact on end-users.
 

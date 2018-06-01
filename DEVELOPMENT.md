@@ -1,7 +1,7 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./community/CONTRIBUTING.md) to `Elafros`. Also take a look at:
+[contributing](./community/CONTRIBUTING.md) to `Knative Serving`. Also take a look at:
 
 * [The pull request workflow](./community/CONTRIBUTING.md#pull-requests)
 * [How to add and run tests](./test/README.md)
@@ -19,7 +19,7 @@ This doc explains how to setup a development environment so you can get started
 1. Set up your [shell environment](#environment-setup)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
-Once you meet these requirements, you can [start Elafros](#starting-knative)!
+Once you meet these requirements, you can [start Knative Serving](#starting-knative-serving)!
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
@@ -27,7 +27,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 You must install these tools:
 
-1. [`go`](https://golang.org/doc/install): The language `Elafros` is built in
+1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is built in
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
@@ -102,9 +102,9 @@ fork](https://help.github.com/articles/syncing-a-fork/)._
 
 Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-knative).
 
-## Starting Elafros
+## Starting Knative Serving
 
-Once you've [setup your development environment](#getting-started), stand up `Elafros` with:
+Once you've [setup your development environment](#getting-started), stand up `Knative Serving` with:
 
 ### Deploy Istio
 
@@ -146,7 +146,7 @@ debug sidecar injection.
 kubectl apply -f ./third_party/config/build/release.yaml
 ```
 
-### Deploy Elafros
+### Deploy Knative Serving
 
 ```shell
 # With ko
@@ -164,7 +164,7 @@ ela-controller-77897cc687-vp27q   1/1       Running   0          16s
 ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
 ```
 
-You can access the Elafros Controller's logs with:
+You can access the Knative Serving Controller's logs with:
 
 ```shell
 kubectl -n ela-system logs $(kubectl -n ela-system get pods -l app=ela-controller -o name)
@@ -190,7 +190,7 @@ kubectl apply -R -f config/monitoring/100-common \
 bazel run config/monitoring:everything.apply
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
 # With kubectl
@@ -245,7 +245,7 @@ bazel run //config:controller.apply
 ```
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
-redeploy `Elafros`](./README.md#start-knative).
+redeploy `Knative Serving`](./README.md#start-knative).
 
 ## Clean up
 
