@@ -25,7 +25,7 @@ readonly K8S_CLUSTER_ZONE=us-central1-a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
 readonly ISTIO_VERSION=0.6.0
-readonly ELAFROS_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
+readonly SERVING_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
 export ISTIO_VERSION
 readonly PROJECT_USER=$(gcloud config get-value core/account)
 readonly CURRENT_PROJECT=$(gcloud config get-value project)
@@ -34,7 +34,7 @@ function cleanup() {
   gcloud config set project ${CURRENT_PROJECT}
 }
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 trap cleanup EXIT
 
 echo "Using project ${PROJECT_ID} and user ${PROJECT_USER}"
@@ -50,7 +50,7 @@ fi
 
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
 gcloud --project=${PROJECT_ID} container clusters create \
-  --cluster-version=${ELAFROS_GKE_VERSION} \
+  --cluster-version=${SERVING_GKE_VERSION} \
   --zone=${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
@@ -90,7 +90,7 @@ header "Installing Elafros"
 # For details, see https://github.com/knative/install/issues/13
 installed=0
 for i in {1..10}; do
-  kubectl apply -f ${ELAFROS_RELEASE} && installed=1 && break
+  kubectl apply -f ${SERVING_RELEASE} && installed=1 && break
   sleep 30
 done
 if (( ! installed )); then
