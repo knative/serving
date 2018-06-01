@@ -28,7 +28,7 @@ You can:
 * [Use common test flags](#use-common-test-flags)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
-* [Poll Knative Serving resources](#poll-knative-resources)
+* [Poll Knative Serving resources](#poll-knative-serving-resources)
 * [Verify resource state transitions](#verify-resource-state-transitions)
 * [Generate boilerplate CRDs](#generate-boilerplate-crds)
 * [Ensure test cleanup](#ensure-test-cleanup)
