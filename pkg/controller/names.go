@@ -36,7 +36,7 @@ func GetElaConfigMapName() string {
 
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
-	// We create resources in the same namespace as the Elafros resources by default.
+	// We create resources in the same namespace as the Knative Serving resources by default.
 	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
 	return ns
 }
@@ -77,11 +77,11 @@ func GetElaK8SActivatorNamespace() string {
 }
 
 func GetRevisionHeaderName() string {
-	return "Elafros-Revision"
+	return "Knative-Serving-Revision"
 }
 
 func GetRevisionHeaderNamespace() string {
-	return "Elafros-Namespace"
+	return "Knative-Serving-Namespace"
 }
 
 func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.Interface) (string, error) {

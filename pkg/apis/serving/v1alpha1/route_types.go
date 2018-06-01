@@ -77,7 +77,7 @@ type RouteSpec struct {
 	// ObjectMeta.Generation instead.
 	Generation int64 `json:"generation,omitempty"`
 
-	// Traffic specifies how to distribute traffic over a collection of Elafros Revisions and Configurations.
+	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 

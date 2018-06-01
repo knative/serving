@@ -101,7 +101,7 @@ func validateContainer(container corev1.Container) error {
 	if reflect.DeepEqual(container, corev1.Container{}) {
 		return errEmptyContainerInRevisionTemplate
 	}
-	// Some corev1.Container fields are set by Elafros controller.  We disallow them
+	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
 	// the users.  See pkg/controller/revision.MakeElaPodSpec for the list of fields
 	// overridden.
