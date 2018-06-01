@@ -33,7 +33,7 @@ data:
       "annotations": {
         "list": []
       },
-      "description": "Elafros Controller Dashboard",
+      "description": "Knative Serving Controller Dashboard",
       "editable": false,
       "gnetId": null,
       "graphTooltip": 0,
@@ -365,7 +365,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Elafros Controller",
+      "title": "Knative Serving Controller",
       "uid": "geGcSi6zk",
       "version": 2
     }
@@ -384,7 +384,7 @@ data:
       "annotations": {
         "list": []
       },
-      "description": "Elafros - Revision HTTP Requests",
+      "description": "Knative Serving - Revision HTTP Requests",
       "editable": false,
       "gnetId": null,
       "graphTooltip": 0,
@@ -1430,7 +1430,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Elafros - Revision HTTP Requests",
+      "title": "Knative Serving - Revision HTTP Requests",
       "uid": "im_gFbWik",
       "version": 2
     }
@@ -1449,7 +1449,7 @@ data:
       "annotations": {
         "list": []
       },
-      "description": "Elafros - Revision CPU and Memory Usage",
+      "description": "Knative Serving - Revision CPU and Memory Usage",
       "editable": false,
       "gnetId": null,
       "graphTooltip": 0,
@@ -1714,7 +1714,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Elafros - Revision CPU and Memory Usage",
+      "title": "Knative Serving - Revision CPU and Memory Usage",
       "uid": "bKOoE9Wmk",
       "version": 4
     }
@@ -1733,7 +1733,7 @@ data:
       "annotations": {
         "list": []
       },
-      "description": "Elafros - Autoscaler",
+      "description": "Knative Serving - Autoscaler",
       "editable": false,
       "gnetId": null,
       "graphTooltip": 0,
@@ -2149,7 +2149,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Elafros - Autoscaler",
+      "title": "Knative Serving - Autoscaler",
       "uid": "u_-9SIMiz",
       "version": 4
     }
