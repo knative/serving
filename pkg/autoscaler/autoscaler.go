@@ -162,10 +162,14 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		return 0, false
 	}
 
+	a.reporter.Report(ObservedPodCountM, float64(len(stablePods)))
 	// Observed concurrency is the average of all data points in each window
 	observedStableConcurrency := stableTotal / stableCount
+	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrency)
 	observedPanicConcurrency := panicTotal / panicCount
+	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrency)
 
+	a.reporter.Report(TargetConcurrencyM, a.TargetConcurrency.Get())
 	// Desired scaling ratio is observed concurrency over desired
 	// (stable) concurrency. Rate limited to within MaxScaleUpRate.
 	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())

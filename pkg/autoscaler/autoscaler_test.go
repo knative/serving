@@ -261,7 +261,7 @@ type linearSeries struct {
 
 type mockReporter struct{}
 
-func (r *mockReporter) Report(m Measurement, v int64) error {
+func (r *mockReporter) Report(m Measurement, v float64) error {
 	return nil
 }
 
