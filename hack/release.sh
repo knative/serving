@@ -39,7 +39,7 @@ function banner() {
   echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 }
 
-# Tag Elafros images in the yaml file with a tag.
+# Tag Knative Serving images in the yaml file with a tag.
 # Parameters: $1 - yaml file to parse for images.
 #             $2 - tag to apply.
 function tag_knative_images() {
@@ -86,7 +86,7 @@ bazel clean --expunge
 echo "Copying Build release"
 cp ${SERVING_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
-echo "Building Elafros"
+echo "Building Knative Serving"
 bazel run config:everything >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 echo "Building Monitoring & Logging"
