@@ -8,7 +8,7 @@ go_library(
         "fixed.go",
         "gobuild.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/ko/build",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/ko/build",
     importpath = "github.com/google/go-containerregistry/ko/build",
     visibility = ["//visibility:public"],
     deps = [

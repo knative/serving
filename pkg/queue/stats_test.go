@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elafros/elafros/pkg/autoscaler"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/google/go-cmp/cmp"
 )
 

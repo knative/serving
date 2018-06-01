@@ -16,11 +16,11 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
-	fakeelafrosv1alpha1 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1/fake"
-	configv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2"
-	fakeconfigv1alpha2 "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	configv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	fakeconfigv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
+	knativev1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	fakeknativev1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -69,16 +69,6 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// ElafrosV1alpha1 retrieves the ElafrosV1alpha1Client
-func (c *Clientset) ElafrosV1alpha1() elafrosv1alpha1.ElafrosV1alpha1Interface {
-	return &fakeelafrosv1alpha1.FakeElafrosV1alpha1{Fake: &c.Fake}
-}
-
-// Elafros retrieves the ElafrosV1alpha1Client
-func (c *Clientset) Elafros() elafrosv1alpha1.ElafrosV1alpha1Interface {
-	return &fakeelafrosv1alpha1.FakeElafrosV1alpha1{Fake: &c.Fake}
-}
-
 // ConfigV1alpha2 retrieves the ConfigV1alpha2Client
 func (c *Clientset) ConfigV1alpha2() configv1alpha2.ConfigV1alpha2Interface {
 	return &fakeconfigv1alpha2.FakeConfigV1alpha2{Fake: &c.Fake}
@@ -87,4 +77,14 @@ func (c *Clientset) ConfigV1alpha2() configv1alpha2.ConfigV1alpha2Interface {
 // Config retrieves the ConfigV1alpha2Client
 func (c *Clientset) Config() configv1alpha2.ConfigV1alpha2Interface {
 	return &fakeconfigv1alpha2.FakeConfigV1alpha2{Fake: &c.Fake}
+}
+
+// KnativeV1alpha1 retrieves the KnativeV1alpha1Client
+func (c *Clientset) KnativeV1alpha1() knativev1alpha1.KnativeV1alpha1Interface {
+	return &fakeknativev1alpha1.FakeKnativeV1alpha1{Fake: &c.Fake}
+}
+
+// Knative retrieves the KnativeV1alpha1Client
+func (c *Clientset) Knative() knativev1alpha1.KnativeV1alpha1Interface {
+	return &fakeknativev1alpha1.FakeKnativeV1alpha1{Fake: &c.Fake}
 }

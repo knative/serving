@@ -20,7 +20,7 @@ go_library(
         "tee.go",
         "write_syncer.go",
     ],
-    importmap = "elafros/vendor/go.uber.org/zap/zapcore",
+    importmap = "knative/vendor/go.uber.org/zap/zapcore",
     importpath = "go.uber.org/zap/zapcore",
     visibility = ["//visibility:public"],
     deps = [

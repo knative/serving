@@ -6,7 +6,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -24,7 +24,7 @@ docker build \
 docker push "${REPO}/sample/service"
 
 # Replace the image reference with our published image.
-perl -pi -e "s@github.com/elafros/elafros/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
+perl -pi -e "s@github.com/knative/serving/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/service/sample.yaml
@@ -36,7 +36,7 @@ Once deployed, you can inspect the created resources with `kubectl` commands:
 
 ```shell
 # This will show the service that we created:
-kubectl get service.elafros.dev -oyaml
+kubectl get service.knative.dev -oyaml
 ```
 
 ```shell

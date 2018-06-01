@@ -8,13 +8,13 @@ sample function for riff.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+[Install Elafros](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
 This sample uses the [Buildpack build
-template](https://github.com/elafros/build-templates/blob/master/buildpack/buildpack.yaml)
-in the [build-templates](https://github.com/elafros/build-templates/) repo.
+template](https://github.com/knative/build-templates/blob/master/buildpack/buildpack.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 First, install the Buildpack build template from that repo:
 
@@ -38,7 +38,7 @@ Once deployed, you will see that it first builds:
 $ kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: knative.dev/v1alpha1
   kind: Revision
   ...
   status:

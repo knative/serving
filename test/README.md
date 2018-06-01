@@ -46,7 +46,7 @@ go test -v -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --clust
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
 your only option is to use a domain which will resolve to the IP of the running node (see 
-[#609](https://github.com/elafros/elafros/issues/609)):
+[#609](https://github.com/knative/serving/issues/609)):
 
 ```bash
 go test -v -count=1 ./test/conformance --resolvabledomain
@@ -114,7 +114,7 @@ go test -v ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialclust
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
 your only option is to use a domain which will resolve to the IP of the running node (see 
-[#609](https://github.com/elafros/elafros/issues/609)):
+[#609](https://github.com/knative/serving/issues/609)):
 
 ```bash
 go test -v ./test/e2e --resolvabledomain
@@ -189,7 +189,7 @@ of the owners found in [`/test/OWNERS`](OWNERS) to do this.
 These flags are useful for running against an existing cluster, making use of your existing
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
-Tests importing [`github.com/elafros/elafros/test`](adding_tests.md#test-library) recognize these flags:
+Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library) recognize these flags:
 
 * [`--kubeconfig`](#specifying-kubeconfig)
 * [`--cluster`](#specifying-cluster)

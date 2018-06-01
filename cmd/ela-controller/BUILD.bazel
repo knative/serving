@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/elafros/elafros/cmd/ela-controller",
+    importpath = "github.com/knative/serving/cmd/ela-controller",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/client/clientset/versioned:go_default_library",
@@ -15,9 +15,9 @@ go_library(
         "//pkg/controller/service:go_default_library",
         "//pkg/logging:go_default_library",
         "//pkg/signals:go_default_library",
-        "//vendor/github.com/elafros/build/pkg/client/clientset/versioned:go_default_library",
-        "//vendor/github.com/elafros/build/pkg/client/informers/externalversions:go_default_library",
         "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
+        "//vendor/github.com/knative/build/pkg/client/clientset/versioned:go_default_library",
+        "//vendor/github.com/knative/build/pkg/client/informers/externalversions:go_default_library",
         "//vendor/go.opencensus.io/exporter/prometheus:go_default_library",
         "//vendor/go.opencensus.io/stats/view:go_default_library",
         "//vendor/k8s.io/client-go/informers:go_default_library",

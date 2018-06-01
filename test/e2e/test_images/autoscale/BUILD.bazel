@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["autoscale.go"],
-    importpath = "github.com/elafros/elafros/test/e2e/test_images/autoscale",
+    importpath = "github.com/knative/serving/test/e2e/test_images/autoscale",
     visibility = ["//visibility:private"],
 )
 

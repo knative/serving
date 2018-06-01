@@ -19,5 +19,5 @@ See [CONFIG.md](./install/CONFIG.md).
 You can install the latest release of Elafros via:
 
 ```shell
-kubectl apply -f https://storage.googleapis.com/elafros-releases/latest/release.yaml
+kubectl apply -f https://storage.googleapis.com/knative-releases/latest/release.yaml
 ```

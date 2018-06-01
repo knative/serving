@@ -7,7 +7,7 @@ go_library(
         "mutate.go",
         "rebase.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/mutate",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/v1/mutate",
     importpath = "github.com/google/go-containerregistry/v1/mutate",
     visibility = ["//visibility:public"],
     deps = [

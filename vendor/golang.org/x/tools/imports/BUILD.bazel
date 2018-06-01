@@ -49,7 +49,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/golang.org/x/tools/imports",
+    importmap = "knative/vendor/golang.org/x/tools/imports",
     importpath = "golang.org/x/tools/imports",
     visibility = ["//visibility:public"],
     deps = [

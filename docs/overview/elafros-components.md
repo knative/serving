@@ -6,6 +6,6 @@
   * Gets called before resources are put into k8s etcd storage
   * Validates + mutates
 * Resource Definitions
-  * elafros
+  * knative
   * build + istio
 

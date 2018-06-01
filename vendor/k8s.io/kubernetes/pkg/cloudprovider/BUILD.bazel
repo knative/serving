@@ -7,7 +7,7 @@ go_library(
         "doc.go",
         "plugins.go",
     ],
-    importmap = "elafros/vendor/k8s.io/kubernetes/pkg/cloudprovider",
+    importmap = "knative/vendor/k8s.io/kubernetes/pkg/cloudprovider",
     importpath = "k8s.io/kubernetes/pkg/cloudprovider",
     visibility = ["//visibility:public"],
     deps = [

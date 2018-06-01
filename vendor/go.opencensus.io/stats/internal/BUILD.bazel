@@ -6,7 +6,7 @@ go_library(
         "record.go",
         "validation.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/stats/internal",
+    importmap = "knative/vendor/go.opencensus.io/stats/internal",
     importpath = "go.opencensus.io/stats/internal",
     visibility = ["//visibility:public"],
     deps = ["//vendor/go.opencensus.io/tag:go_default_library"],

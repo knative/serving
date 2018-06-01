@@ -41,13 +41,13 @@ new fields will be discovered and to have them indexed, go to Management -> Inde
 ### Accessing configuration and revision logs
 To access to logs for a configuration, use the following search term in Kibana UI:
 ```
-kubernetes.labels.elafros_dev\/configuration: "configuration-example"
+kubernetes.labels.knative_dev\/configuration: "configuration-example"
 ```
 Replace `configuration-example` with your configuration's name.
 
 To access logs for a revision, use the following search term in Kibana UI:
 ```
-kubernetes.labels.elafros_dev\/revision: "configuration-example-00001"
+kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
 ```
 Replace `configuration-example-00001` with your revision's name.
 

@@ -26,8 +26,8 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${ELAFROS_ROOT}; ls -d -1 ./vendor/k8s.io/code-g
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  github.com/elafros/elafros/pkg/client github.com/elafros/elafros/pkg/apis \
-  "ela:v1alpha1 istio:v1alpha2" \
+  github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
+  "serving:v1alpha1 istio:v1alpha2" \
   --go-header-file ${ELAFROS_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Make sure our dependencies are up-to-date

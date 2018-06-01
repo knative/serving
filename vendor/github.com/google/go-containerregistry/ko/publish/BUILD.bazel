@@ -9,7 +9,7 @@ go_library(
         "fixed.go",
         "publish.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/ko/publish",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/ko/publish",
     importpath = "github.com/google/go-containerregistry/ko/publish",
     visibility = ["//visibility:public"],
     deps = [

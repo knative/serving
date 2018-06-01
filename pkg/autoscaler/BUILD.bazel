@@ -7,7 +7,7 @@ go_library(
         "doc.go",
         "stats_reporter.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/autoscaler",
+    importpath = "github.com/knative/serving/pkg/autoscaler",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/golang/glog:go_default_library",

@@ -10,11 +10,11 @@ go_library(
         "service.go",
         "webhook.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/webhook",
+    importpath = "github.com/knative/serving/pkg/webhook",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apis/ela:go_default_library",
-        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//pkg/apis/serving:go_default_library",
+        "//pkg/apis/serving/v1alpha1:go_default_library",
         "//pkg/logging:go_default_library",
         "//pkg/logging/logkey:go_default_library",
         "//vendor/github.com/google/go-cmp/cmp:go_default_library",
@@ -42,7 +42,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/apis/ela/v1alpha1:go_default_library",
+        "//pkg/apis/serving/v1alpha1:go_default_library",
         "//pkg/logging:go_default_library",
         "//vendor/github.com/mattbaird/jsonpatch:go_default_library",
         "//vendor/go.uber.org/zap:go_default_library",

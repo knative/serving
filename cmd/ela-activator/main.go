@@ -20,10 +20,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/elafros/elafros/pkg/activator"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/signals"
+	"github.com/knative/serving/pkg/activator"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/signals"
 	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -45,7 +45,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	target := &url.URL{
 		// TODO: Wire Activator into Istio mesh to support TLS
-		//       (https://github.com/elafros/elafros/issues/838)
+		//       (https://github.com/knative/serving/issues/838)
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
 	}
@@ -55,7 +55,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	glog.Info("Starting the elafros activator...")
+	glog.Info("Starting the knative activator...")
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {

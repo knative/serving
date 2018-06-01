@@ -24,18 +24,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -46,11 +46,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 )
 
 const (
@@ -159,7 +159,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
-	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
+	informer := elaInformerFactory.Knative().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
@@ -999,7 +999,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 		}
 	}
 	accessor.SetFinalizers(finalizers)
-	prClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.KnativeV1alpha1().Revisions(rev.Namespace)
 	prClient.Update(rev)
 	logger.Infof("The finalizer 'controller' is removed.")
 
@@ -1007,7 +1007,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.KnativeV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -1025,7 +1025,7 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 // https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
 func lookupServiceOwner(endpoint *corev1.Endpoints) string {
 	// see if there's a label on this object marking it as ours.
-	if revisionName, ok := endpoint.Labels[ela.RevisionLabelKey]; ok {
+	if revisionName, ok := endpoint.Labels[serving.RevisionLabelKey]; ok {
 		return revisionName
 	}
 	return ""

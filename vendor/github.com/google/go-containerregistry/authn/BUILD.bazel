@@ -12,7 +12,7 @@ go_library(
         "helper.go",
         "keychain.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/authn",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/authn",
     importpath = "github.com/google/go-containerregistry/authn",
     visibility = ["//visibility:public"],
     deps = ["//vendor/github.com/google/go-containerregistry/name:go_default_library"],

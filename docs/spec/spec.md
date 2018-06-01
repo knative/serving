@@ -14,7 +14,7 @@ Resource paths in the Elafros API have the following standard k8s form:
 For example:
 
 ```
-/apis/elafros.dev/v1alpha1/namespaces/default/routes/my-service
+/apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 It is expected that each Route will provide a name within a
@@ -24,7 +24,7 @@ mapping), a common implementation would be to use the kubernetes
 namespace mechanism to produce a URL like the following:
 
 ```
-[$revisionname].$route.$namespace.<common elafros cluster suffix>
+[$revisionname].$route.$namespace.<common knative cluster suffix>
 ```
 
 For example:
@@ -46,13 +46,13 @@ For a high-level description of Routes,
 [see the overview](overview.md#route).
 
 ```yaml
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
   namespace: default
   labels:
-    elafros.dev/type: ...  # +optional convention: function|app
+    knative.dev/type: ...  # +optional convention: function|app
  
   # system generated meta
   uid: ...
@@ -104,7 +104,7 @@ For a high-level description of Configurations,
 
 
 ```yaml
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service
@@ -119,7 +119,7 @@ metadata:
   ...
 spec:
   # +optional. composable Build spec, if omitted provide image directly
-  build:  # This is a elafros.dev/v1alpha1.BuildTemplateSpec
+  build:  # This is a knative.dev/v1alpha1.BuildTemplateSpec
     source:
       # oneof git|gcs|custom: 
       
@@ -154,8 +154,8 @@ spec:
   revisionTemplate:  # template for building Revision
     metadata: ...
       labels:
-        elafros.dev/type: "function"  # One of "function" or "app"
-    spec:  # elafros.RevisionTemplateSpec. Copied to a new revision
+        knative.dev/type: "function"  # One of "function" or "app"
+    spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
       # +optional. if rolling back, the client may set this to the
       #   previous  revision's build to avoid triggering a rebuild
@@ -164,7 +164,7 @@ spec:
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container:
         # image either provided as pre-built container, or built by Elafros from
-        # source. When built by elafros, set to the same as build template, e.g. 
+        # source. When built by knative, set to the same as build template, e.g. 
         # build.template.arguments[_IMAGE], as the "promise" of a future build.
         # If buildName is provided, it is expected that this image will be
         # present when the referenced build is complete.
@@ -207,18 +207,18 @@ For a high-level description of Revisions,
 [see the overview](overview.md#revision).
 
 ```yaml
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Revision
 metadata:
   name: myservice-a1e34  # system generated
   namespace: default
   labels:
-    elafros.dev/configuration: ...  # to list configurations/revisions by service
-    elafros.dev/type: "function"  # convention, one of "function" or "app"
-    elafros.dev/revision: ... # generated revision name
-    elafros.dev/revisionUID: ... # generated revision UID
+    knative.dev/configuration: ...  # to list configurations/revisions by service
+    knative.dev/type: "function"  # convention, one of "function" or "app"
+    knative.dev/revision: ... # generated revision name
+    knative.dev/revisionUID: ... # generated revision UID
   annotations:
-    elafros.dev/configurationGeneration: ...  # generation of configuration that created this Revision
+    knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -229,7 +229,7 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+  # +optional. name of the knative.dev/v1alpha1.Build if built from source
   buildName: ...
 
   container:  # corev1.Container
@@ -261,7 +261,7 @@ spec:
   # (i.e. that the request code is run single-threaded).
   concurrencyModel: Single | Multi
 
-  # NYI: https://github.com/elafros/elafros/issues/457
+  # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 
@@ -296,13 +296,13 @@ For a high-level description of Services,
 
 
 ```yaml
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: :
 metadata:
   name: myservice
   namespace: default
   labels:
-    elafros.dev/type: "function"  # convention, one of "function" or "app"
+    knative.dev/type: "function"  # convention, one of "function" or "app"
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -315,8 +315,8 @@ metadata:
 spec:  # One of "runLatest" or "pinned"
   # Example, only one of runLatest or pinned can be set in practice.
   runLatest:
-    configuration:  # elafros.dev/v1alpha1.Configuration
-      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+    configuration:  # knative.dev/v1alpha1.Configuration
+      # +optional. name of the knative.dev/v1alpha1.Build if built from source
       buildName: ...
 
       container:  # core.v1.Container
@@ -337,8 +337,8 @@ spec:  # One of "runLatest" or "pinned"
   # Example, only one of runLatest or pinned can be set in practice.
   pinned:
     revisionName: myservice-00013  # Auto-generated revision name
-    configuration:  # elafros.dev/v1alpha1.Configuration
-      # +optional. name of the elafros.dev/v1alpha1.Build if built from source
+    configuration:  # knative.dev/v1alpha1.Configuration
+      # +optional. name of the knative.dev/v1alpha1.Build if built from source
       buildName: ...
 
       container:  # core.v1.Container

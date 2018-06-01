@@ -20,16 +20,16 @@ import (
 	"context"
 	"fmt"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -70,8 +70,8 @@ func NewController(
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
-	informer := elaInformerFactory.Elafros().V1alpha1().Configurations()
-	revisionInformer := elaInformerFactory.Elafros().V1alpha1().Revisions()
+	informer := elaInformerFactory.Knative().V1alpha1().Configurations()
+	revisionInformer := elaInformerFactory.Knative().V1alpha1().Revisions()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
@@ -171,7 +171,7 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	revClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(config.Namespace)
+	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(config.Namespace)
 	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -193,12 +193,12 @@ func (c *Controller) syncHandler(key string) error {
 		if rev.ObjectMeta.Labels == nil {
 			rev.ObjectMeta.Labels = make(map[string]string)
 		}
-		rev.ObjectMeta.Labels[ela.ConfigurationLabelKey] = config.Name
+		rev.ObjectMeta.Labels[serving.ConfigurationLabelKey] = config.Name
 
 		if rev.ObjectMeta.Annotations == nil {
 			rev.ObjectMeta.Annotations = make(map[string]string)
 		}
-		rev.ObjectMeta.Annotations[ela.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
+		rev.ObjectMeta.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 		// Delete revisions when the parent Configuration is deleted.
 		rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
@@ -241,7 +241,7 @@ func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(u.Namespace)
+	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(u.Namespace)
 	newu, err := configClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

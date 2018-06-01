@@ -89,7 +89,7 @@ The Autoscaler is also given the identity of the Revision through environment va
 
 #### Stable Mode
 
-In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod (currently [hardcoded](https://github.com/elafros/elafros/blob/c4a543ecce61f5cac96b0e334e57db305ff4bcb3/cmd/ela-autoscaler/main.go#L36), later provided by the Slow Brain).  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
+In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod (currently [hardcoded](https://github.com/knative/serving/blob/c4a543ecce61f5cac96b0e334e57db305ff4bcb3/cmd/ela-autoscaler/main.go#L36), later provided by the Slow Brain).  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
 
 #### Panic Mode
 
@@ -97,7 +97,7 @@ The Autoscaler evaluates its metrics every 2 seconds.  In addition to the 60-sec
 
 #### Deactivation
 
-When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/elafros/elafros/issues/305)), it will transistion the Revision into the Reserve state.  This causes the Deployment and the Autoscaler to be turned down (or scaled to 0) and routes all traffic for the Revision to the Activator.
+When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/knative/serving/issues/305)), it will transistion the Revision into the Reserve state.  This causes the Deployment and the Autoscaler to be turned down (or scaled to 0) and routes all traffic for the Revision to the Activator.
 
 ### Activator
 
@@ -105,5 +105,5 @@ The Activator is a single multi-tenant component that catches traffic for all Re
 
 ## Slow Brain Implementation
 
-*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/elafros/elafros/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
+*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/knative/serving/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
 

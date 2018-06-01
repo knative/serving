@@ -14,7 +14,7 @@ go_library(
         "net.go",
         "transaction.go",
     ],
-    importmap = "elafros/vendor/google.golang.org/appengine/internal",
+    importmap = "knative/vendor/google.golang.org/appengine/internal",
     importpath = "google.golang.org/appengine/internal",
     visibility = ["//visibility:public"],
     deps = [

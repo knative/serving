@@ -20,7 +20,7 @@ specification.
 1. **Process**.  It must be clear to contributors how to drive changes to the
   Elafros API.
 1. **Schema**.  [The Elafros API schema](../../docs/spec/spec.md) matches
-  [our implementation.](./ela/).
+  [our implementation.](./serving/).
 1. **Semantics**.  The [semantics](../controller/) of Elafros API interactions
   match [our specification](../../docs/spec/normative_examples.md), and are well
   covered by [conformance testing](../../test/conformance/README.md).
@@ -53,13 +53,13 @@ specification.
 
 1. **Fail gracefully and clearly** as outlined in our
   ["errors conditions and reporting"](../../docs/spec/errors.md) docs.
-<!-- TODO(mattmoor): https://github.com/elafros/elafros/issues/459 -->
+<!-- TODO(mattmoor): https://github.com/knative/serving/issues/459 -->
 
 1. **Ensure continued conformance** of our implementation with the API
   specification over time by ensuring semantics are well covered by our
   conformance testing.
-<!-- TODO(mattmoor): https://github.com/elafros/elafros/issues/234 -->
-<!-- TODO(mattmoor): https://github.com/elafros/elafros/issues/492 -->
+<!-- TODO(mattmoor): https://github.com/knative/serving/issues/234 -->
+<!-- TODO(mattmoor): https://github.com/knative/serving/issues/492 -->
 
 1. **Operator Extensions**.  Guidelines for how operators can/should customize
 an Elafros installation (e.g. runtime contract) are captured in documentation.

@@ -1,3 +1,0 @@
-baseImageOverrides:
-  github.com/elafros/build/cmd/creds-init: gcr.io/cloud-builders/gcloud:latest
-  github.com/elafros/build/cmd/git-init: gcr.io/cloud-builders/gcloud:latest

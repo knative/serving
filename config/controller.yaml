@@ -29,16 +29,16 @@ spec:
       - name: ela-controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/elafros/elafros/cmd/ela-controller
+        image: github.com/knative/serving/cmd/ela-controller
         args:
         - "-queueSidecarImage"
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        - github.com/elafros/elafros/cmd/ela-queue
+        - github.com/knative/serving/cmd/ela-queue
         - "-autoscalerImage"
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        - github.com/elafros/elafros/cmd/ela-autoscaler
+        - github.com/knative/serving/cmd/ela-autoscaler
         ports:
         - name: metrics
           containerPort: 9090

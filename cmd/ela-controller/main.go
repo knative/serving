@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -32,15 +32,15 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	buildclientset "github.com/elafros/build/pkg/client/clientset/versioned"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/controller/configuration"
-	"github.com/elafros/elafros/pkg/controller/revision"
-	"github.com/elafros/elafros/pkg/controller/route"
-	"github.com/elafros/elafros/pkg/controller/service"
-	"github.com/elafros/elafros/pkg/signals"
+	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/controller/configuration"
+	"github.com/knative/serving/pkg/controller/revision"
+	"github.com/knative/serving/pkg/controller/route"
+	"github.com/knative/serving/pkg/controller/service"
+	"github.com/knative/serving/pkg/signals"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 )
@@ -167,7 +167,7 @@ func main() {
 
 	// Setup the metrics to flow to Prometheus.
 	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "elafros"})
+	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "knative"})
 	if err != nil {
 		logger.Fatalf("failed to create the Prometheus exporter: %v", err)
 	}

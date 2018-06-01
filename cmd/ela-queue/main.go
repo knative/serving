@@ -32,9 +32,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/autoscaler"
-	"github.com/elafros/elafros/pkg/queue"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/queue"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"

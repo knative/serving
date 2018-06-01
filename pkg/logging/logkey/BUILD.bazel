@@ -3,6 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["constants.go"],
-    importpath = "github.com/elafros/elafros/pkg/logging/logkey",
+    importpath = "github.com/knative/serving/pkg/logging/logkey",
     visibility = ["//visibility:public"],
 )

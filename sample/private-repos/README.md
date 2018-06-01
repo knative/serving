@@ -5,7 +5,7 @@ This demo is a walk-through example that:
 * Pushes to a private DockerHub repository using a username / password
 * Deploys to Elafros using image pull secrets.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/knative/serving/blob/master/README.md) on how to deploy one.
 
 ## The resources involved.
 
@@ -133,8 +133,8 @@ data:
 ### Installing Build Templates (one-time)
 
 This sample uses the [Kaniko build
-template](https://github.com/elafros/build-templates/blob/master/kaniko/kaniko.yaml)
-in the [build-templates](https://github.com/elafros/build-templates/) repo.
+template](https://github.com/knative/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 ```shell
 kubectl apply -f kaniko.yaml
@@ -189,11 +189,11 @@ FROM golang
 
 ENV GOPATH /go
 
-ADD . /go/src/github.com/dewitt/elafros-build
+ADD . /go/src/github.com/dewitt/knative-build
 
-RUN CGO_ENABLED=0 go build github.com/dewitt/elafros-build
+RUN CGO_ENABLED=0 go build github.com/dewitt/knative-build
 
-ENTRYPOINT ["elafros-build"]
+ENTRYPOINT ["knative-build"]
 ```
 
 1. `main.go`

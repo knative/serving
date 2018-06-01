@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["gnostic.go"],
-    importmap = "elafros/vendor/github.com/googleapis/gnostic",
+    importmap = "knative/vendor/github.com/googleapis/gnostic",
     importpath = "github.com/googleapis/gnostic",
     visibility = ["//visibility:private"],
     deps = [

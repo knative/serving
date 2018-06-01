@@ -9,7 +9,7 @@ go_library(
         "uncompressed.go",
         "with.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/partial",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/v1/partial",
     importpath = "github.com/google/go-containerregistry/v1/partial",
     visibility = ["//visibility:public"],
     deps = [

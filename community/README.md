@@ -6,7 +6,7 @@ This is the starting point for becoming a contributor - improving code,
 improving docs, giving talks, etc.
 
 *   [Introduction](#introduction)
-*   [Elafros authors](#elafros-authors)
+*   [Elafros authors](#knative-authors)
 *   [Slack team](#slack-team)
 *   [How can I help?](#how-can-i-help-)
 *   [Questions and issues](#questions-and-issues)
@@ -34,7 +34,7 @@ Other Documents
 Elafros is an open source specification and implementation of a serverless
 container platform.
 
-<!-- TODO Visit [elafros.dev](https://elafros.dev) for in-depth information about using
+<!-- TODO Visit [knative.dev](https://knative.dev) for in-depth information about using
 Elafros. -->
 
 ## Elafros authors
@@ -44,7 +44,7 @@ project was started by Google.
 
 ## Slack team
 
-Real-time Elafros discussion is available at https://elafros.slack.com.
+Real-time Elafros discussion is available at https://knative.slack.com.
 
 <!-- TODO ## Community meeting
 
@@ -57,20 +57,20 @@ table](https://www.google.com/search?q=TODO). -->
 
 ## How can I help ?
 
-<!-- TODO See our [community page](https://elafros.dev/community) for ways to get involved
+<!-- TODO See our [community page](https://knative.dev/community) for ways to get involved
 in our community. -->
 
 <!-- TODO To dig deeper, check the
-[architecture](https://elafros.dev/docs/concepts/what-is-elafros/overview.html#architecture)
+[architecture](https://knative.dev/docs/concepts/what-is-knative/overview.html#architecture)
 and read some [design docs](./CONTRIBUTING.md#design-documents). -->
 
 If you're looking for something to do to get your feet wet working on Elafros,
 look for GitHub issues marked with the Help Wanted label:
 
 *   [Primary Elafros
-    repo](https://github.com/elafros/elafros/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
+    repo](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
 *   [Documentation
-    repo](https://github.com/elafros/elafros.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
+    repo](https://github.com/knative/serving.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
 
 Of course, even if there's not an issue opened for it, we can always use more
 testing throughout the platform. Similarly, we can always use more docs, richer
@@ -80,8 +80,8 @@ we could use your help in spiffing up our public-facing web site.
 ## Questions and issues
 
 <!-- TODO If you've got questions or issues with using Elafros, checkout our [help
-page](https://elafros.dev/help). -->
+page](https://knative.dev/help). -->
 
 If you're a developer trying to hack on or use the Elafros code, head to
-[elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) or [Elafros
-Slack](https://elafros.slack.com) for help.
+[knative-dev@](https://groups.google.com/forum/#!forum/knative-dev) or [Elafros
+Slack](https://knative.slack.com) for help.
