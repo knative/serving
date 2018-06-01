@@ -1,6 +1,6 @@
 # Error Conditions and Reporting
 
-Elafros uses [the standard Kubernetes API
+Knative Serving uses [the standard Kubernetes API
 pattern](https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties)
 for reporting configuration errors and current state of the system by writing the
 report in the `status` section. There are two mechanisms commonly used
@@ -20,12 +20,12 @@ controller has seen the latest updates to the spec).
 ## Conditions
 
 Conditions provide an easy mechanism for client user interfaces to
-indicate the current state of resources to a user. Elafros resources
+indicate the current state of resources to a user. Knative Serving resources
 should follow [the k8s API conventions for
 `condition`](https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties)
 and the patterns described in this section.
 
-### Elafros condition `type`
+### Knative Serving condition `type`
 
 Each resource should define a small number of success conditions as
 `type`s. This should bias towards fewer than **5** high-level progress
@@ -42,7 +42,7 @@ correctly and ready to serve.
 * For objects which run to completion, the condition `type` should
   be `Succeeded`.
 
-### Elafros condition `status`
+### Knative Serving condition `status`
 
 Each condition's `status` should be one of:
 
@@ -68,7 +68,7 @@ benefit of UI tools representing progress on the outcome.
 Conditions with a status of `False` will also supply additional details
 about the failure in [the "Reason" and "Message" sections](#condition-reason-and-message).
 
-### Elafros condition `reason` and `message`
+### Knative Serving condition `reason` and `message`
 
 The fields `reason` and `message` should be considered to have unlimited
 cardinality, unlike [`type`](#condition-type) and [`status`](#condition-status).
@@ -226,7 +226,7 @@ image referenced might not be present in the registry (either because
 of a typo or because it was deleted). In this case, the `Ready`
 condition will be set to `False` with a reason of
 `ContainerMissing`. This condition could be corrected if the image
-becomes available at a later time. Elafros could also make a defensive
+becomes available at a later time. Knative Serving could also make a defensive
 copy of the container image to avoid having to surface this error if
 the original docker image is deleted.
 

@@ -1,4 +1,4 @@
-# Configuring Elafros
+# Configuring Knative Serving
 
 ## Serving multiple domains:
 

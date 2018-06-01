@@ -4,8 +4,8 @@
 
 ## Adding conformance tests
 
-Elafros conformance tests [can be run against any implementation
-of the Elafros API](#requirements) to ensure the API has been implemented consistently.
+Knative Serving conformance tests [can be run against any implementation
+of the Knative Serving API](#requirements) to ensure the API has been implemented consistently.
 Passing these tests indicates that apps and functions deployed to
 this implementation could be ported to other implementations as well.
 
@@ -25,5 +25,5 @@ The conformance tests **MUST**:
 2. Follow Golang best practices.
 3. Not require any specific file system permissions to run or require any additional binaries to be installed in the target environment before
    the tests run.
-4. Not depend on any k8s resources outside of those added by Elafros OR
+4. Not depend on any k8s resources outside of those added by Knative Serving OR
    they should provide flags that allow the test to run without access to those resources.

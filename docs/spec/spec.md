@@ -1,11 +1,11 @@
-# Elafros API spec
+# Knative Serving API spec
 
 This file contains the [resource paths](#resource-paths) and [yaml
-schemas](#resource-yaml-definitions) that make up the Elafros API.
+schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 ## Resource Paths
 
-Resource paths in the Elafros API have the following standard k8s form:
+Resource paths in the Knative Serving API have the following standard k8s form:
 
 ```
 /apis/{apiGroup}/{apiVersion}/namespaces/{metadata.namespace}/{kind}/{metadata.name}
@@ -36,7 +36,7 @@ prod.my-service.default.mydomain.com
 
 ## Resource YAML Definitions
 
-YAMLs for the Elafros API resources are described below, describing the
+YAMLs for the Knative Serving API resources are described below, describing the
 basic k8s structure: metadata, spec and status, along with comments on
 specific fields.
 
@@ -163,7 +163,7 @@ spec:
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container:
-        # image either provided as pre-built container, or built by Elafros from
+        # image either provided as pre-built container, or built by Knative Serving from
         # source. When built by knative, set to the same as build template, e.g. 
         # build.template.arguments[_IMAGE], as the "promise" of a future build.
         # If buildName is provided, it is expected that this image will be

@@ -1,6 +1,6 @@
 # Buildpack Sample App
 
-A sample app that demonstrates usage of Cloud Foundry buildpacks on Elafros,
+A sample app that demonstrates usage of Cloud Foundry buildpacks on Knative Serving,
 using the [packs Docker images](https://github.com/sclevine/packs).
 
 This deploys the [.NET Core Hello World](https://github.com/cloudfoundry-samples/dotnet-core-hello-world)
@@ -8,7 +8,7 @@ sample app for Cloud Foundry.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/knative/install/blob/master/README.md)
+[Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
@@ -22,7 +22,7 @@ First, install the Buildpack build template from that repo:
 kubectl apply -f buildpack.yaml
 ```
 
-Then you can deploy this to Elafros from the root directory via:
+Then you can deploy this to Knative Serving from the root directory via:
 
 ```shell
 # Replace the token string with a suitable registry

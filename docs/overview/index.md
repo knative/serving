@@ -1,4 +1,4 @@
-# Elafros API/Code Overview
+# Knative Serving API/Code Overview
 
 ## What's covered
 

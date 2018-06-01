@@ -1,7 +1,7 @@
 # 2018 API Core Roadmap
 
 The purpose of the API Core group is to implement the control plane API for the
-Elafros project.  This includes the API governance process as well as
+Knative Serving project.  This includes the API governance process as well as
 implementation and supporting documentation.
 
 This roadmap is what we hope to accomplish in 2018.
@@ -12,16 +12,16 @@ This roadmap is what we hope to accomplish in 2018.
 * [Resource Overview](../../docs/spec/overview.md)
 * [Conformance Tests](../../test/conformance/README.md)
 
-In 2018, we will largely focus on curating and implementing the Elafros resource
+In 2018, we will largely focus on curating and implementing the Knative Serving resource
 specification.
 
 ## Areas of Interest and Requirements
 
 1. **Process**.  It must be clear to contributors how to drive changes to the
-  Elafros API.
-1. **Schema**.  [The Elafros API schema](../../docs/spec/spec.md) matches
+  Knative Serving API.
+1. **Schema**.  [The Knative Serving API schema](../../docs/spec/spec.md) matches
   [our implementation.](./serving/).
-1. **Semantics**.  The [semantics](../controller/) of Elafros API interactions
+1. **Semantics**.  The [semantics](../controller/) of Knative Serving API interactions
   match [our specification](../../docs/spec/normative_examples.md), and are well
   covered by [conformance testing](../../test/conformance/README.md).
 
@@ -32,7 +32,7 @@ specification.
 1. **Define the process** by which changes to the API are proposed, approved,
   and implemented.
 1. **Define our conventions** to which API changes should adhere for consistency
-  with the Elafros API.
+  with the Knative Serving API.
 
 ### Specification
 
@@ -62,7 +62,7 @@ specification.
 <!-- TODO(mattmoor): https://github.com/knative/serving/issues/492 -->
 
 1. **Operator Extensions**.  Guidelines for how operators can/should customize
-an Elafros installation (e.g. runtime contract) are captured in documentation.
+an Knative Serving installation (e.g. runtime contract) are captured in documentation.
 
 <!-- ## What We Are Not Doing -->
 
