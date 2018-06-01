@@ -52,9 +52,9 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
-	clients.Routes = cs.KnativeV1alpha1().Routes(namespace)
-	clients.Configs = cs.KnativeV1alpha1().Configurations(namespace)
-	clients.Revisions = cs.KnativeV1alpha1().Revisions(namespace)
+	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
+	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
+	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
 
 	return clients, nil
 }

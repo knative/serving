@@ -70,8 +70,8 @@ func NewController(
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
-	informer := elaInformerFactory.Knative().V1alpha1().Configurations()
-	revisionInformer := elaInformerFactory.Knative().V1alpha1().Revisions()
+	informer := elaInformerFactory.Serving().V1alpha1().Configurations()
+	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
@@ -171,7 +171,7 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(config.Namespace)
+	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(config.Namespace)
 	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -241,7 +241,7 @@ func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(u.Namespace)
+	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(u.Namespace)
 	newu, err := configClient.Get(u.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

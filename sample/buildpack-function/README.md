@@ -38,7 +38,7 @@ Once deployed, you will see that it first builds:
 $ kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: knative.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:

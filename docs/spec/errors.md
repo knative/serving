@@ -113,7 +113,7 @@ this with the `LatestRevisionReady` status, copying the reason and the
 message from the `Ready` condition on the Revision.
 
 ```http
-GET /api/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+GET /api/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 
 ```yaml
@@ -129,7 +129,7 @@ status:
 ```
 
 ```http
-GET /api/knative.dev/v1alpha1/namespaces/default/services/my-service
+GET /api/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 
 ```yaml
@@ -172,7 +172,7 @@ status:
 ```
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
@@ -198,7 +198,7 @@ environment, the customer might not have have access or visibility
 into the underlying resources in the hosting environment.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
@@ -231,7 +231,7 @@ copy of the container image to avoid having to surface this error if
 the original docker image is deleted.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
@@ -264,7 +264,7 @@ should be present, which provides the address of an endpoint which can
 be used to fetch the logs for the failed process.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
@@ -298,7 +298,7 @@ reason should be considered a terminal condition, even if Kubernetes
 might attempt to make progress even after the deadline.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 
 ```yaml
@@ -327,7 +327,7 @@ its' `Ready` condition. For example, for a newly-created Service where
 the first Revision is unable to serve:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
@@ -345,7 +345,7 @@ status:
 ```
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/services/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 
 ```yaml
@@ -373,7 +373,7 @@ with a reason of `RevisionMissing`, and the Revision will be omitted from the
 Route's  `status.traffic`.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
@@ -402,7 +402,7 @@ will be marked as False with a reason of `ConfigurationMissing`, and the
 Revision will be omitted from the Route's  `status.traffic`.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml
@@ -432,7 +432,7 @@ set the `AllTrafficAssigned` condition to False with reason
 `RevisionMissing`, as above.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 
 ```yaml
@@ -460,7 +460,7 @@ complete/update, the `RolloutInProgress` condition will remain at
 True, but the reason will be set to `ProgressDeadlineExceeded`.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 ```yaml

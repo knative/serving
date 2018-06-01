@@ -54,15 +54,15 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1alpha2.SchemeGroupVersion.WithResource("routerules"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Config().V1alpha2().RouteRules().Informer()}, nil
 
-		// Group=knative.dev, Version=v1alpha1
+		// Group=serving.knative.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("configurations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Knative().V1alpha1().Configurations().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Configurations().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("revisions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Knative().V1alpha1().Revisions().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Revisions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("routes"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Knative().V1alpha1().Routes().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Routes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("services"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Knative().V1alpha1().Services().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Services().Informer()}, nil
 
 	}
 
