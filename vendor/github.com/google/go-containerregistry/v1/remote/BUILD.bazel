@@ -10,7 +10,7 @@ go_library(
         "list.go",
         "write.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/remote",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/v1/remote",
     importpath = "github.com/google/go-containerregistry/v1/remote",
     visibility = ["//visibility:public"],
     deps = [

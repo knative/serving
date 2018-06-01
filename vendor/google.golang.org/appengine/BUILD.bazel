@@ -10,7 +10,7 @@ go_library(
         "namespace.go",
         "timeout.go",
     ],
-    importmap = "elafros/vendor/google.golang.org/appengine",
+    importmap = "knative/vendor/google.golang.org/appengine",
     importpath = "google.golang.org/appengine",
     visibility = ["//visibility:public"],
     deps = [

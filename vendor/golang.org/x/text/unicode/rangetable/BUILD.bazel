@@ -8,7 +8,7 @@ go_library(
         "tables10.0.0.go",
         "tables9.0.0.go",
     ],
-    importmap = "elafros/vendor/golang.org/x/text/unicode/rangetable",
+    importmap = "knative/vendor/golang.org/x/text/unicode/rangetable",
     importpath = "golang.org/x/text/unicode/rangetable",
     visibility = ["//visibility:public"],
 )

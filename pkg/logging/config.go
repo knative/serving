@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

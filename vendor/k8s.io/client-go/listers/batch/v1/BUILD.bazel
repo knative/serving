@@ -7,7 +7,7 @@ go_library(
         "job.go",
         "job_expansion.go",
     ],
-    importmap = "elafros/vendor/k8s.io/client-go/listers/batch/v1",
+    importmap = "knative/vendor/k8s.io/client-go/listers/batch/v1",
     importpath = "k8s.io/client-go/listers/batch/v1",
     visibility = ["//visibility:public"],
     deps = [

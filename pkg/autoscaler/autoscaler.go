@@ -20,8 +20,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/elafros/elafros/pkg/logging"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/knative/serving/pkg/logging"
 )
 
 // Stat defines a single measurement at a point in time

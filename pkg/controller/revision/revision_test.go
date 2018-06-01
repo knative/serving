@@ -31,15 +31,15 @@ import (
 
 	"go.uber.org/zap"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/elafros/build/pkg/client/clientset/versioned/fake"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	ctrl "github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/queue"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/queue"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
@@ -56,7 +56,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	kubetesting "k8s.io/client-go/testing"
 
-	. "github.com/elafros/elafros/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 const testAutoscalerImage string = "autoscalerImage"
@@ -72,13 +72,13 @@ const testQueueImage string = "queueImage"
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
 				"testLabel1":      "foo",
 				"testLabel2":      "bar",
-				ela.RouteLabelKey: "test-route",
+				serving.RouteLabelKey: "test-route",
 			},
 			Annotations: map[string]string{
 				"testAnnotation": "test",
@@ -119,7 +119,7 @@ func getTestRevision() *v1alpha1.Revision {
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
 			Name:      "test-config",
 			Namespace: testNamespace,
 		},
@@ -132,7 +132,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				ela.RevisionLabelKey: revName,
+				serving.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -153,7 +153,7 @@ func getTestAuxiliaryReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-auxiliary", revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				ela.RevisionLabelKey: revName,
+				serving.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -174,7 +174,7 @@ func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
 			Name:      fmt.Sprintf("%s-service", revName),
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				ela.RevisionLabelKey: revName,
+				serving.RevisionLabelKey: revName,
 			},
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -298,15 +298,15 @@ func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1
 }
 
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
-	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Create(rev)
+	elaClient.KnativeV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 }
 
 func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
-	elaClient.ElafrosV1alpha1().Revisions(rev.Namespace).Update(rev)
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
+	elaClient.KnativeV1alpha1().Revisions(rev.Namespace).Update(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 }
@@ -438,8 +438,8 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	expectedLabels := sumMaps(
 		rev.Labels,
 		map[string]string{
-			ela.RevisionLabelKey: rev.Name,
-			ela.RevisionUID:      string(rev.UID),
+			serving.RevisionLabelKey: rev.Name,
+			serving.RevisionUID:      string(rev.UID),
 			appLabelKey:          rev.Name,
 		},
 	)
@@ -475,7 +475,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	// The revision service should be owned by rev.
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "elafros.dev/v1alpha1",
+			APIVersion: "knative.dev/v1alpha1",
 			Kind:       "Revision",
 			Name:       rev.Name,
 			UID:        rev.UID,
@@ -498,7 +498,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 	expectedAutoscalerLabels := sumMaps(
 		expectedLabels,
-		map[string]string{ela.AutoscalerLabelKey: expectedAutoscalerName},
+		map[string]string{serving.AutoscalerLabelKey: expectedAutoscalerName},
 	)
 	expectedAutoscalerPodSpecAnnotations := sumMaps(
 		rev.Annotations,
@@ -574,7 +574,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			expectedAnnotations, annotations)
 	}
 
-	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			want, got)
 	}
 
-	rev, err = elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
-	rev, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err := elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -768,7 +768,7 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://logging.test.com?filter=${REVISION_UID}"
 	_, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
 	createRevision(elaClient, elaInformer, controller, rev)
@@ -788,7 +788,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"
 	_, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
 	createRevision(elaClient, elaInformer, controller, rev)
@@ -812,9 +812,9 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.KnativeV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 
@@ -827,8 +827,8 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	expectedLabels := sumMaps(
 		rev.Labels,
 		map[string]string{
-			ela.RevisionLabelKey: rev.Name,
-			ela.RevisionUID:      string(rev.UID),
+			serving.RevisionLabelKey: rev.Name,
+			serving.RevisionUID:      string(rev.UID),
 		},
 	)
 	if labels := deployment.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
@@ -853,7 +853,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 	expectedAutoscalerLabels := sumMaps(
 		expectedLabels,
-		map[string]string{ela.AutoscalerLabelKey: expectedAutoscalerName},
+		map[string]string{serving.AutoscalerLabelKey: expectedAutoscalerName},
 	)
 	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
@@ -876,7 +876,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
@@ -925,7 +925,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	kubeClient, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
@@ -956,7 +956,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 
@@ -1010,7 +1010,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	kubeClient, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 
 	h := NewHooks()
 	// Look for the build complete event. Events are delivered asynchronously so
@@ -1049,7 +1049,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 
@@ -1091,7 +1091,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
@@ -1118,7 +1118,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
@@ -1164,7 +1164,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 
 	var testProgressDeadlineSeconds int32 = 10
 
@@ -1173,7 +1173,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	revClient.Create(rev)
 
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 
 	// Look for revision's deployment.
@@ -1212,7 +1212,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.ElafrosV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
 	h := NewHooks()
@@ -1223,7 +1223,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 
 	deployingRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
@@ -1351,7 +1351,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	controller.addEndpointsEvent(endpoints)
 
-	currentRev, _ := elaClient.ElafrosV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	currentRev, _ := elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 
 	want := []v1alpha1.RevisionCondition{
 		{

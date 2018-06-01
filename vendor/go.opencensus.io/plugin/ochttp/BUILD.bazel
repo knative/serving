@@ -10,7 +10,7 @@ go_library(
         "stats.go",
         "trace.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/plugin/ochttp",
+    importmap = "knative/vendor/go.opencensus.io/plugin/ochttp",
     importpath = "go.opencensus.io/plugin/ochttp",
     visibility = ["//visibility:public"],
     deps = [

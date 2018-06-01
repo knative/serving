@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["http.go"],
-    importmap = "elafros/vendor/github.com/openzipkin/zipkin-go/reporter/http",
+    importmap = "knative/vendor/github.com/openzipkin/zipkin-go/reporter/http",
     importpath = "github.com/openzipkin/zipkin-go/reporter/http",
     visibility = ["//visibility:public"],
     deps = [

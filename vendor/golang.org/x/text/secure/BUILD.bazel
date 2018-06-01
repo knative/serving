@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["doc.go"],
-    importmap = "elafros/vendor/golang.org/x/text/secure",
+    importmap = "knative/vendor/golang.org/x/text/secure",
     importpath = "golang.org/x/text/secure",
     visibility = ["//visibility:public"],
 )

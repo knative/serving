@@ -2,7 +2,7 @@
 
 Thumbnailer demo is a walk-through example on how to deploy a 'dockerized' application to the Elafros service. In this demo we will use a sample `golang` application that takes video URL as an input and generates its thumbnail image.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/knative/serving/blob/master/README.md) on how to deploy one.
 
 ## Sample Code
 
@@ -79,8 +79,8 @@ If you would like to publish your own copy of the container image, you can updat
 
 You can also build the image as part of deployment. This sample uses the
 [Kaniko build
-template](https://github.com/elafros/build-templates/blob/master/kaniko/kaniko.yaml)
-in the [build-templates](https://github.com/elafros/build-templates/) repo.
+template](https://github.com/knative/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 ```shell
 # Replace the token string with a suitable registry
@@ -98,7 +98,7 @@ Now, if you look at the `status` of the revision, you will see that a build is i
 $ kubectl get revisions -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: knative.dev/v1alpha1
   kind: Revision
   ...
   status:

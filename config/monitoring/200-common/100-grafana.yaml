@@ -35,18 +35,18 @@ metadata:
   namespace: monitoring
 data:
   dashboards.yaml: |+
-    - name: 'elafros'
+    - name: 'knative'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/elafros
-    - name: 'elafros-efficiency'
+        folder: /grafana-dashboard-definition/knative
+    - name: 'knative-efficiency'
       org_id: 1
       folder: ''
       type: file
       options:
-        folder: /grafana-dashboard-definition/elafros-efficiency
+        folder: /grafana-dashboard-definition/knative-efficiency
     - name: 'istio'
       org_id: 1
       folder: ''
@@ -161,10 +161,10 @@ spec:
           mountPath: /grafana/conf/provisioning/datasources
         - name: grafana-dashboards
           mountPath: /grafana/conf/provisioning/dashboards
-        - name: grafana-dashboard-definition-elafros
-          mountPath: /grafana-dashboard-definition/elafros
-        - name: grafana-dashboard-definition-elafros-efficiency
-          mountPath: /grafana-dashboard-definition/elafros-efficiency
+        - name: grafana-dashboard-definition-knative
+          mountPath: /grafana-dashboard-definition/knative
+        - name: grafana-dashboard-definition-knative-efficiency
+          mountPath: /grafana-dashboard-definition/knative-efficiency
         - name: grafana-dashboard-definition-istio
           mountPath: /grafana-dashboard-definition/istio
         - name: grafana-dashboard-definition-mixer
@@ -208,12 +208,12 @@ spec:
       - name: grafana-dashboards
         configMap:
           name: grafana-dashboards
-      - name: grafana-dashboard-definition-elafros
+      - name: grafana-dashboard-definition-knative
         configMap:
-          name: grafana-dashboard-definition-elafros
-      - name: grafana-dashboard-definition-elafros-efficiency
+          name: grafana-dashboard-definition-knative
+      - name: grafana-dashboard-definition-knative-efficiency
         configMap:
-          name: grafana-dashboard-definition-elafros-efficiency
+          name: grafana-dashboard-definition-knative-efficiency
       - name: grafana-dashboard-definition-istio
         configMap:
           name: grafana-dashboard-definition-istio

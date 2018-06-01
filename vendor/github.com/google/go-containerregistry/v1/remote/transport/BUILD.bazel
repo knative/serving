@@ -11,7 +11,7 @@ go_library(
         "scope.go",
         "transport.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/remote/transport",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/v1/remote/transport",
     importpath = "github.com/google/go-containerregistry/v1/remote/transport",
     visibility = ["//visibility:public"],
     deps = [

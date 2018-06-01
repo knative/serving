@@ -6,7 +6,7 @@ go_library(
         "doc.go",
         "resolve.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/ko/resolve",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/ko/resolve",
     importpath = "github.com/google/go-containerregistry/ko/resolve",
     visibility = ["//visibility:public"],
     deps = [

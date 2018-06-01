@@ -7,7 +7,7 @@ This is based on the source code available from: github.com/steren/sample-app
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
 1. Enable the Google Cloud Datastore API.
 
 ## Running
@@ -28,7 +28,7 @@ Once deployed, you will see that it first builds:
 kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: knative.dev/v1alpha1
   kind: Revision
   ...
   status:

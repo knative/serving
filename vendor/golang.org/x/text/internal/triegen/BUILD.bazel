@@ -7,7 +7,7 @@ go_library(
         "print.go",
         "triegen.go",
     ],
-    importmap = "elafros/vendor/golang.org/x/text/internal/triegen",
+    importmap = "knative/vendor/golang.org/x/text/internal/triegen",
     importpath = "golang.org/x/text/internal/triegen",
     visibility = ["//vendor/golang.org/x/text:__subpackages__"],
 )

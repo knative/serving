@@ -44,7 +44,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/github.com/docker/docker/api/types/container",
+    importmap = "knative/vendor/github.com/docker/docker/api/types/container",
     importpath = "github.com/docker/docker/api/types/container",
     visibility = ["//visibility:public"],
     deps = [

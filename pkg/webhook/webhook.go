@@ -28,13 +28,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/logging/logkey"
 
 	"go.uber.org/zap"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	elafrosAPIVersion = "v1alpha1"
+	knativeAPIVersion = "v1alpha1"
 	secretServerKey   = "server-key.pem"
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
@@ -329,8 +329,8 @@ func (ac *AdmissionController) register(
 						admissionregistrationv1beta1.Update,
 					},
 					Rule: admissionregistrationv1beta1.Rule{
-						APIGroups:   []string{ela.GroupName},
-						APIVersions: []string{elafrosAPIVersion},
+						APIGroups:   []string{serving.GroupName},
+						APIVersions: []string{knativeAPIVersion},
 						Resources:   resources,
 					},
 				}},

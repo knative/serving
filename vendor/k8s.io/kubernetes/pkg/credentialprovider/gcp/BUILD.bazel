@@ -7,7 +7,7 @@ go_library(
         "jwt.go",
         "metadata.go",
     ],
-    importmap = "elafros/vendor/k8s.io/kubernetes/pkg/credentialprovider/gcp",
+    importmap = "knative/vendor/k8s.io/kubernetes/pkg/credentialprovider/gcp",
     importpath = "k8s.io/kubernetes/pkg/credentialprovider/gcp",
     visibility = ["//visibility:public"],
     deps = [

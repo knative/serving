@@ -16,8 +16,8 @@ package service
 import (
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
@@ -101,7 +101,7 @@ func TestRunLatest(t *testing.T) {
 	if got, want := c.Labels[testLabelKey], testLabelValueRunLatest; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
-	if got, want := c.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
 }
@@ -126,7 +126,7 @@ func TestPinned(t *testing.T) {
 	if got, want := c.Labels[testLabelKey], testLabelValuePinned; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
-	if got, want := c.Labels[ela.ServiceLabelKey], testServiceName; got != want {
+	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
 	}
 }
@@ -139,7 +139,7 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "elafros.dev/v1alpha1",
+			APIVersion: "knative.dev/v1alpha1",
 			Kind:       "Service",
 			Name:       testServiceName,
 		},

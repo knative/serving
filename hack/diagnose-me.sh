@@ -58,18 +58,18 @@ run_test() {
       object=(configuration routes revisions)
       for obj in ${object[*]}; do
         printf "* configured with $obj resource"
-        test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].rules[].resources} | grep $obj >/dev/null && echo $?"
+        test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].rules[].resources} | grep $obj >/dev/null && echo $?"
         expected_result=0
         test_command "$test_cmd" "$expected_result"
       done
 
       printf "* configured with correct service"
-      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
       expected_result="ela-webhook"
       test_command "$test_cmd" "$expected_result"
 
       printf "* configured with correct namespace"
-      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.namespace}"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.namespace}"
       expected_result="ela-system"
       test_command "$test_cmd" "$expected_result"
       ;;

@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -171,7 +171,7 @@ func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				ela.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
+				serving.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
 			},
 		},
 	}
@@ -181,6 +181,6 @@ func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // service and deployment specs for autoscaler.
 func makeElaAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
 	labels := MakeElaResourceLabels(rev)
-	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
+	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

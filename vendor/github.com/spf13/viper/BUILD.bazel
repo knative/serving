@@ -7,7 +7,7 @@ go_library(
         "util.go",
         "viper.go",
     ],
-    importmap = "elafros/vendor/github.com/spf13/viper",
+    importmap = "knative/vendor/github.com/spf13/viper",
     importpath = "github.com/spf13/viper",
     visibility = ["//visibility:public"],
     deps = [

@@ -11,7 +11,7 @@ go_library(
         "publish.go",
         "resolve.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/cmd/ko",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/cmd/ko",
     importpath = "github.com/google/go-containerregistry/cmd/ko",
     visibility = ["//visibility:private"],
     deps = [

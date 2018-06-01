@@ -19,11 +19,11 @@
 # For convenience, it can also be executed manually.
 
 # If you already have the *_OVERRIDE environment variables set, call
-# this script with the --run-tests arguments and it will start elafros in
+# this script with the --run-tests arguments and it will start knative in
 # the cluster and run the tests.
 
 # Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start elafros in it, run the tests and delete the
+# project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
@@ -182,7 +182,7 @@ if [[ -z $1 ]]; then
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.
-  # See https://github.com/elafros/elafros/issues/959 for details.
+  # See https://github.com/knative/serving/issues/959 for details.
   # TODO(adrcunha): Remove once the leak issue is resolved.
   gcp_project=${PROJECT_ID}
   [[ -z ${gcp_project} ]] && gcp_project=$(gcloud config get-value project)

@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -60,7 +60,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// Get the current revision serving state
-	revisionClient := r.elaClient.ElafrosV1alpha1().Revisions(rev.namespace)
+	revisionClient := r.elaClient.KnativeV1alpha1().Revisions(rev.namespace)
 	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get revision %s/%s: %v", rev.namespace, rev.name, err)
@@ -84,7 +84,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Wait for the revision to be ready
 	if !revision.Status.IsReady() {
-		wi, err := r.elaClient.ElafrosV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
+		wi, err := r.elaClient.KnativeV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {
@@ -115,7 +115,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	//
 	// TODO: figure out why do we need to use the pod IP directly to avoid the delay.
 	// We should be able to use the k8s service cluster IP.
-	// https://github.com/elafros/elafros/issues/660
+	// https://github.com/knative/serving/issues/660
 	endpointName := controller.GetElaK8SServiceNameForRevision(revision)
 	k8sEndpoint, err := r.kubeClient.CoreV1().Endpoints(rev.namespace).Get(endpointName, metav1.GetOptions{})
 	if err != nil {

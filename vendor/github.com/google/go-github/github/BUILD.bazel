@@ -82,7 +82,7 @@ go_library(
         "users_keys.go",
         "without_appengine.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-github/github",
+    importmap = "knative/vendor/github.com/google/go-github/github",
     importpath = "github.com/google/go-github/github",
     visibility = ["//visibility:public"],
     deps = ["//vendor/github.com/google/go-querystring/query:go_default_library"],

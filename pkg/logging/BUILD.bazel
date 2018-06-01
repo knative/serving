@@ -6,7 +6,7 @@ go_library(
         "config.go",
         "logger.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/logging",
+    importpath = "github.com/knative/serving/pkg/logging",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/logging/logkey:go_default_library",

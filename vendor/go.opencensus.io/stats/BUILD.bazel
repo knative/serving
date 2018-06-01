@@ -10,7 +10,7 @@ go_library(
         "record.go",
         "units.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/stats",
+    importmap = "knative/vendor/go.opencensus.io/stats",
     importpath = "go.opencensus.io/stats",
     visibility = ["//visibility:public"],
     deps = [

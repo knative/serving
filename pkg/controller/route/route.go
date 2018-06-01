@@ -33,14 +33,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
@@ -112,8 +112,8 @@ func NewController(
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
-	informer := elaInformerFactory.Elafros().V1alpha1().Routes()
-	configInformer := elaInformerFactory.Elafros().V1alpha1().Configurations()
+	informer := elaInformerFactory.Knative().V1alpha1().Routes()
+	configInformer := elaInformerFactory.Knative().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 
 	controller := &Controller{
@@ -330,8 +330,8 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(ns)
-	revClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(ns)
+	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(ns)
+	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(ns)
 	configMap := map[string]*v1alpha1.Configuration{}
 	revMap := map[string]*v1alpha1.Revision{}
 
@@ -363,11 +363,11 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 	revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(ns)
+	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(ns)
 
 	// Get indirect configurations.
 	for _, rev := range revMap {
-		if configName, ok := rev.Labels[ela.ConfigurationLabelKey]; ok {
+		if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 			if _, ok := configMap[configName]; !ok {
 				// This is not a duplicated configuration
 				config, err := configClient.Get(configName, metav1.GetOptions{})
@@ -378,7 +378,7 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 				configMap[configName] = config
 			}
 		} else {
-			logger.Infof("Revision %s does not have label %s", rev.Name, ela.ConfigurationLabelKey)
+			logger.Infof("Revision %s does not have label %s", rev.Name, serving.ConfigurationLabelKey)
 		}
 	}
 
@@ -390,7 +390,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 	revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	revisionClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(ns)
+	revisionClient := c.ElaClientSet.KnativeV1alpha1().Revisions(ns)
 
 	for _, tt := range route.Spec.Traffic {
 		if tt.ConfigurationName != "" {
@@ -422,11 +422,11 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 func (c *Controller) setLabelForGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(route.Namespace)
+	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(route.Namespace)
 
 	// Validate
 	for _, config := range configMap {
-		if routeName, ok := config.Labels[ela.RouteLabelKey]; ok {
+		if routeName, ok := config.Labels[serving.RouteLabelKey]; ok {
 			// TODO(yanweiguo): add a condition in status for this error
 			if routeName != route.Name {
 				errMsg := fmt.Sprintf("Configuration %q is already in use by %q, and cannot be used by %q",
@@ -442,10 +442,10 @@ func (c *Controller) setLabelForGivenConfigurations(
 	for _, config := range configMap {
 		if config.Labels == nil {
 			config.Labels = make(map[string]string)
-		} else if _, ok := config.Labels[ela.RouteLabelKey]; ok {
+		} else if _, ok := config.Labels[serving.RouteLabelKey]; ok {
 			continue
 		}
-		config.Labels[ela.RouteLabelKey] = route.Name
+		config.Labels[serving.RouteLabelKey] = route.Name
 		if _, err := configClient.Update(config); err != nil {
 			logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
 			return err
@@ -458,11 +458,11 @@ func (c *Controller) setLabelForGivenConfigurations(
 func (c *Controller) setLabelForGivenRevisions(
 	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	revisionClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(route.Namespace)
+	revisionClient := c.ElaClientSet.KnativeV1alpha1().Revisions(route.Namespace)
 
 	// Validate revision if it already has a route label
 	for _, rev := range revMap {
-		if routeName, ok := rev.Labels[ela.RouteLabelKey]; ok {
+		if routeName, ok := rev.Labels[serving.RouteLabelKey]; ok {
 			if routeName != route.Name {
 				errMsg := fmt.Sprintf("Revision %q is already in use by %q, and cannot be used by %q",
 					rev.Name, routeName, route.Name)
@@ -476,10 +476,10 @@ func (c *Controller) setLabelForGivenRevisions(
 	for _, rev := range revMap {
 		if rev.Labels == nil {
 			rev.Labels = make(map[string]string)
-		} else if _, ok := rev.Labels[ela.RouteLabelKey]; ok {
+		} else if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
 			continue
 		}
-		rev.Labels[ela.RouteLabelKey] = route.Name
+		rev.Labels[serving.RouteLabelKey] = route.Name
 		if _, err := revisionClient.Update(rev); err != nil {
 			logger.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
 			return err
@@ -492,23 +492,23 @@ func (c *Controller) setLabelForGivenRevisions(
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(route.Namespace)
+	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(route.Namespace)
 	// Get Configurations set as traffic target before this sync.
 	oldConfigsList, err := configClient.List(
 		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", ela.RouteLabelKey, route.Name),
+			LabelSelector: fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name),
 		},
 	)
 	if err != nil {
 		logger.Errorf("Failed to fetch configurations with label '%s=%s': %s",
-			ela.RouteLabelKey, route.Name, err)
+			serving.RouteLabelKey, route.Name, err)
 		return err
 	}
 
 	// Delete label for newly removed configurations as traffic target.
 	for _, config := range oldConfigsList.Items {
 		if _, ok := configMap[config.Name]; !ok {
-			delete(config.Labels, ela.RouteLabelKey)
+			delete(config.Labels, serving.RouteLabelKey)
 			if _, err := configClient.Update(&config); err != nil {
 				logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
 				return err
@@ -522,23 +522,23 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	revClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(route.Namespace)
+	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(route.Namespace)
 
 	oldRevList, err := revClient.List(
 		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", ela.RouteLabelKey, route.Name),
+			LabelSelector: fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name),
 		},
 	)
 	if err != nil {
 		logger.Errorf("Failed to fetch revisions with label '%s=%s': %s",
-			ela.RouteLabelKey, route.Name, err)
+			serving.RouteLabelKey, route.Name, err)
 		return err
 	}
 
 	// Delete label for newly removed revisions as traffic target.
 	for _, rev := range oldRevList.Items {
 		if _, ok := revMap[rev.Name]; !ok {
-			delete(rev.Labels, ela.RouteLabelKey)
+			delete(rev.Labels, serving.RouteLabelKey)
 			if _, err := revClient.Update(&rev); err != nil {
 				logger.Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
 				return err
@@ -626,7 +626,7 @@ func (c *Controller) computeRevisionRoutes(
 	}
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
-	// https://github.com/elafros/elafros/issues/882
+	// https://github.com/knative/serving/issues/882
 	if totalInactivePercent > 0 {
 		activatorRoute := RevisionRoute{
 			Name:         controller.GetElaK8SActivatorServiceName(),
@@ -642,7 +642,7 @@ func (c *Controller) computeRevisionRoutes(
 
 // computeEmptyRevisionRoutes is a hack to work around https://github.com/istio/istio/issues/5204.
 // Here we add empty/dummy route rules for non-target revisions to prepare to switch traffic to
-// them in the future.  We are tracking this issue in https://github.com/elafros/elafros/issues/348.
+// them in the future.  We are tracking this issue in https://github.com/knative/serving/issues/348.
 //
 // TODO:  Even though this fixes the 503s when switching revisions, revisions will have empty route
 // rules to them for perpetuity, therefore not ideal.  We should remove this hack once
@@ -653,7 +653,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
-	revClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(ns)
+	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(ns)
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {
 		configName := tt.ConfigurationName
@@ -661,7 +661,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 			// Get the configuration's LatestReadyRevisionName
 			latestReadyRevName := configMap[configName].Status.LatestReadyRevisionName
 			revs, err := revClient.List(metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("%s=%s", ela.ConfigurationLabelKey, configName),
+				LabelSelector: fmt.Sprintf("%s=%s", serving.ConfigurationLabelKey, configName),
 			})
 			if err != nil {
 				logger.Errorf("Failed to fetch revisions of Configuration %q: %s", configName, err)
@@ -767,7 +767,7 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 }
 
 func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
-	routeClient := c.ElaClientSet.ElafrosV1alpha1().Routes(route.Namespace)
+	routeClient := c.ElaClientSet.KnativeV1alpha1().Routes(route.Namespace)
 	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -883,9 +883,9 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 		return
 	}
 
-	routeName, ok := config.Labels[ela.RouteLabelKey]
+	routeName, ok := config.Labels[serving.RouteLabelKey]
 	if !ok {
-		c.Logger.Infof("Configuration %s does not have label %s", configName, ela.RouteLabelKey)
+		c.Logger.Infof("Configuration %s does not have label %s", configName, serving.RouteLabelKey)
 		return
 	}
 
@@ -926,7 +926,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		}
 	}
 	ns := ingress.Namespace
-	routeClient := c.ElaClientSet.ElafrosV1alpha1().Routes(ns)
+	routeClient := c.ElaClientSet.KnativeV1alpha1().Routes(ns)
 	route, err := routeClient.Get(routeName, metav1.GetOptions{})
 	if err != nil {
 		c.Logger.Error(

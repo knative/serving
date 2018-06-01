@@ -2,7 +2,7 @@
 
 There are two ready-to-use stable Elafros environments available for contributors.
 
-Currently the access is restricted to members of the [elafros-dev@](https://groups.google.com/forum/#!forum/elafros-dev) Google group.
+Currently the access is restricted to members of the [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev) Google group.
 
 ## The demo environment
 
@@ -11,17 +11,17 @@ This environment is rebuilt by the Steering Committee at the conclusion of a mil
 You can configure your access by running:
 
 ```
-gcloud container clusters get-credentials elafros-demo --zone us-central1-a --project elafros-environments
+gcloud container clusters get-credentials knative-demo --zone us-central1-a --project knative-environments
 ```
 
 ### The playground environment
 
-This environment is recreated by a prow periodic job every Saturday 1AM PST, using the latest stable Elafros release (i.e., the images available at gcr.io/elafros-images).
+This environment is recreated by a prow periodic job every Saturday 1AM PST, using the latest stable Elafros release (i.e., the images available at gcr.io/knative-images).
 
 You can configure your access by running:
 
 ```
-gcloud container clusters get-credentials elafros-playground --zone us-central1-a --project elafros-environments
+gcloud container clusters get-credentials knative-playground --zone us-central1-a --project knative-environments
 ```
 
 ### Manually recreating the environments
@@ -29,8 +29,8 @@ gcloud container clusters get-credentials elafros-playground --zone us-central1-
 To manually recreate an environment, call the `deploy.sh` script passing the environment name as parameter:
 
 ```
-./deploy.sh elafros-playground # or
-./deploy.sh elafros-demo
+./deploy.sh knative-playground # or
+./deploy.sh knative-demo
 ```
 
 The script will create the Kubernetes cluster (shutting down any existing instance) and install the latest stable Elafros release.

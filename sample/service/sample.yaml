@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Service
 metadata:
   name: service-example
@@ -25,7 +25,7 @@ spec:
           container:
             # This is the Go import path for the binary to containerize
             # and substitute here.
-            image: github.com/elafros/elafros/sample/service
+            image: github.com/knative/serving/sample/service
             env:
               - name: TARGET
                 value: shiniestnewestversion
