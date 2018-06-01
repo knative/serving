@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	// Each Elafros pod gets 1 cpu.
+	// Each Knative Serving pod gets 1 cpu.
 	elaContainerCPU     = "400m"
 	queueContainerCPU   = "25m"
 	fluentdContainerCPU = "75m"
