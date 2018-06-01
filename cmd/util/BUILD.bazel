@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["env.go"],
-    importpath = "github.com/elafros/elafros/cmd/util",
+    importpath = "github.com/knative/serving/cmd/util",
     visibility = ["//visibility:public"],
     deps = ["//vendor/go.uber.org/zap:go_default_library"],
 )
