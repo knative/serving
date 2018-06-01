@@ -22,7 +22,6 @@ generates a raw log record for each user log.
 * `stdout` / `stderr`: Developer MUST be able to write logs to `stdout/stderr` channels.
 * `/var/log`: Developer SHOULD be able to write logs to any file under `/var/log`
   if [cluster operator](../product/personas.md#operator-personas) enables this feature.
-* syslog(`/dev/log`): This is a TBD [issue](https://github.com/elafros/elafros/issues/822).
 
 #### User Logs Formats
 
@@ -161,16 +160,9 @@ The following metadata SHOULD be added to container metrics:
 ### Metrics Destinations
 
 Elafros MUST automatically perform metrics aggregation to the destination configured
-by the [cluster operator](../product/personas.md#operator-personas). Operator
+by the [cluster operator](../product/personas.md#operator-personas). The destination
+backend MUST be capable of handling metadata-keyed streams. Operator
 MUST document to developer how to access metrics, as well as any dashboards provided.
-
-### Custom Metrics
-
-Custom metrics is an as-yet unsolved problem.
-
-[OpenCensus](https://opencensus.io/) libraries are strongly recommended for users
-who want to generate custom metrics as the plan is to integrate with OpenCensus
-in order to support custom metrics.
 
 ## Distributed Tracing
 
