@@ -137,7 +137,7 @@ function run_tests() {
 
 # Script entry point.
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
 # Show help if bad arguments are passed.
 if [[ -n $1 && $1 != "--run-tests" ]]; then
@@ -178,7 +178,7 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "v${ELAFROS_GKE_VERSION}" \
+    --extract "v${SERVING_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.

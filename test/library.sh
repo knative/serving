@@ -19,13 +19,13 @@
 # called from command line.
 
 # Default GKE version to be used with Elafros
-readonly ELAFROS_GKE_VERSION=1.9.6-gke.1
+readonly SERVING_GKE_VERSION=1.9.6-gke.1
 
 # Useful environment variables
 [[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0
 readonly IS_PROW
-readonly ELAFROS_ROOT_DIR="$(dirname $(readlink -f ${BASH_SOURCE}))/.."
-readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
+readonly SERVING_ROOT_DIR="$(dirname $(readlink -f ${BASH_SOURCE}))/.."
+readonly OUTPUT_GOBIN="${SERVING_ROOT_DIR}/_output/bin"
 
 # Copy of *_OVERRIDE variables
 readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
