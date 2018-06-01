@@ -66,6 +66,7 @@ var (
 	elaConfig         string
 	elaRevision       string
 	elaAutoscalerPort string
+	currentScale      int32
 	logger            *zap.SugaredLogger
 
 	// Revision-level configuration
@@ -118,11 +119,6 @@ func autoscaler() {
 				}
 
 				scaleChan <- scale
-
-				// Stop the autoscaler from doing any more work.
-				if scale == 0 {
-					return
-				}
 			}
 		case s := <-statChan:
 			a.Record(ctx, s)
@@ -154,27 +150,26 @@ func scaleSerializer() {
 }
 
 func scaleTo(podCount int32) {
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
+	if currentScale == podCount {
+		return
+	}
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
 	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
 		logger.Error("Error getting Deployment %q: %s", elaDeployment, zap.Error(err))
 		return
 	}
-	logger.Debugf("===SCALE=== %v %v %v %v %v",
-		time.Now().Unix(),
-		podCount,
-		deployment.Status.Replicas,
-		deployment.Status.AvailableReplicas,
-		deployment.Status.ReadyReplicas)
 	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
 	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (int64)(deployment.Status.Replicas))
 	statsReporter.Report(ela_autoscaler.ActualPodCountM, (int64)(deployment.Status.ReadyReplicas))
 
 	if *deployment.Spec.Replicas == podCount {
+		currentScale = podCount
 		return
 	}
 
-	logger.Infof("Scaling to %v", podCount)
+	logger.Infof("Scaling from %v to %v", currentScale, podCount)
 	if podCount == 0 {
 		revisionClient := elaClient.ServingV1alpha1().Revisions(elaNamespace)
 		revision, err := revisionClient.Get(elaRevision, metav1.GetOptions{})
@@ -187,7 +182,8 @@ func scaleTo(podCount int32) {
 		if err != nil {
 			logger.Errorf("Error updating Revision %q: %s", elaRevision, zap.Error(err))
 		}
-
+		currentScale = 0
+		return
 	}
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
@@ -195,6 +191,7 @@ func scaleTo(podCount int32) {
 		logger.Errorf("Error updating Deployment %q: %s", elaDeployment, err)
 	}
 	logger.Info("Successfully scaled.")
+	currentScale = podCount
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
