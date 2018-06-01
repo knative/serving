@@ -217,7 +217,7 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-0.6.0/install/kubernetes/istio.yaml
+  -f ./third_party/istio-0.8.0/istio.yaml
 
 # With bazel
 bazel run //config:everything.delete
