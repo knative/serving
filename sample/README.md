@@ -21,7 +21,7 @@ functionality.
 * [telemetrysample](./telemetrysample) - A simple webserver emitting logs and metrics
 * [gitwebhook](./gitwebhook) - A function that listens for git PR changes and updates the title of them
 * [autoscaler](./autoscale) - A demonstration of revision autoscaling
-* [elafros routing](./elafros-routing) - A demonstration of routing across Elafros services.
+* [knative routing](./knative-routing) - A demonstration of routing across Knative services.
 
 ## Best Practices for Contributing to Samples
 * Minimize dependencies on third party libraries and prefer using standard libraries. Examples:
