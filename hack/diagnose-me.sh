@@ -48,7 +48,7 @@ run_test() {
       test_command "$test_cmd" "$expected_result"
       ;;
     webhook_running)
-      printf "Elafros webhook is installed"
+      printf "Knative Serving webhook is installed"
       test_cmd="kubectl get pods -n ela-system -l app=ela-webhook -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"
@@ -74,7 +74,7 @@ run_test() {
       test_command "$test_cmd" "$expected_result"
       ;;
     controllers_running)
-      printf "Elafros controllers are running"
+      printf "Knative Serving controllers are running"
       test_cmd="kubectl get pods -n ela-system -l app=ela-controller -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"

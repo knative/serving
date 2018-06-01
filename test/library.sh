@@ -18,7 +18,7 @@
 # to be used in test scripts and the like. It doesn't do anything when
 # called from command line.
 
-# Default GKE version to be used with Elafros
+# Default GKE version to be used with Knative Serving
 readonly SERVING_GKE_VERSION=1.9.6-gke.1
 
 # Useful environment variables
@@ -95,8 +95,8 @@ function wait_until_pods_running() {
   return 1
 }
 
-# Returns the name of the Elafros pod of the given app.
-# Parameters: $1 - Elafros app name.
+# Returns the name of the Knative Serving pod of the given app.
+# Parameters: $1 - Knative Serving app name.
 function get_ela_pod() {
   kubectl get pods -n ela-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
 }
