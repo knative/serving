@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Clients holds instances of interfaces for making requests to Elafros.
+// Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
 	Kube      *kubernetes.Clientset
 	Routes    elatyped.RouteInterface
@@ -34,7 +34,7 @@ type Clients struct {
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
-// Elafros cluster specified by the combination of clusterName and configPath. Clients can
+// Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
 // make requests within namespace.
 func NewClients(configPath string, clusterName string, namespace string) (*Clients, error) {
 	clients := &Clients{}

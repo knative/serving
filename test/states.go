@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// states contains functions for asserting against the state of Elafros
+// states contains functions for asserting against the state of Knative Serving
 // crds to see if they have achieved the states specified in the spec
 // (https://github.com/knative/serving/blob/master/docs/spec/spec.md).
 

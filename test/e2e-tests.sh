@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Elafros built from source.
+# This script runs the end-to-end tests against Knative Serving built from source.
 # It is started by prow for each PR.
 # For convenience, it can also be executed manually.
 
@@ -71,7 +71,7 @@ function teardown() {
     delete_everything
   fi
 
-  # Delete Elafros images when using prow.
+  # Delete Knative Serving images when using prow.
   if (( IS_PROW )); then
     echo "Images in ${DOCKER_REPO_OVERRIDE}:"
     gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
@@ -105,7 +105,7 @@ function exit_if_failed() {
   kubectl get revisions -o yaml --all-namespaces
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
-  echo ">>> Elafros controller log:"
+  echo ">>> Knative Serving controller log:"
   kubectl logs $(get_ela_pod ela-controller) -n ela-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
@@ -220,19 +220,19 @@ if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
 fi
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
-# Build and start Elafros.
+# Build and start Knative Serving.
 
 echo "- Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "- User is ${K8S_USER_OVERRIDE}"
 echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
-header "Building and starting Elafros"
+header "Building and starting Knative Serving"
 trap teardown EXIT
 
 install_ko
 
 if (( USING_EXISTING_CLUSTER )); then
-  echo "Deleting any previous Elafros instance"
+  echo "Deleting any previous Knative Serving instance"
   delete_everything
 fi
 if (( IS_PROW )); then

@@ -23,41 +23,61 @@ import (
 )
 
 func TestNewLogger(t *testing.T) {
-	logger := NewLogger("")
+	logger := NewLogger("", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
 
-	logger = NewLogger("some invalid JSON here")
+	logger = NewLogger("some invalid JSON here", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
 
 	// No good way to test if all the config is applied,
 	// but at the minimum, we can check and see if level is getting applied.
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}")
+	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
-
 	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce != nil {
 		t.Error("not expected to get info logs from the logger configured with error as min threshold")
 	}
-
 	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
 		t.Error("expected to get error logs from the logger configured with error as min threshold")
 	}
 
-	logger = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}")
+	logger = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
-
 	if ce := logger.Desugar().Check(zap.DebugLevel, "test"); ce != nil {
 		t.Error("not expected to get debug logs from the logger configured with info as min threshold")
 	}
-
 	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
 		t.Error("expected to get info logs from the logger configured with info as min threshold")
+	}
+
+	// Test logging override
+	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
+	if logger == nil {
+		t.Error("expected a non-nil logger")
+	}
+	if ce := logger.Desugar().Check(zap.DebugLevel, "test"); ce != nil {
+		t.Error("not expected to get debug logs from the logger configured with info as min threshold")
+	}
+	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
+		t.Error("expected to get info logs from the logger configured with info as min threshold")
+	}
+
+	// Invalid logging override
+	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
+	if logger == nil {
+		t.Error("expected a non-nil logger")
+	}
+	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce != nil {
+		t.Error("not expected to get info logs from the logger configured with error as min threshold")
+	}
+	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
+		t.Error("expected to get error logs from the logger configured with error as min threshold")
 	}
 }

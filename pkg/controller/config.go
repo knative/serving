@@ -60,7 +60,7 @@ const (
 )
 
 func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
-	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(GetElaConfigMapName(), metav1.GetOptions{})
+	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(GetDomainConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +68,6 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 	hasDefault := false
 	for k, v := range m.Data {
 		// TODO(josephburnett): migrate domain configuration to k8sflag
-		if strings.HasPrefix(k, "autoscale.") {
-			continue
-		}
-		if strings.HasPrefix(k, "logging.") {
-			continue
-		}
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {

@@ -85,7 +85,7 @@ wait_until_pods_running istio-system
 
 popd
 
-header "Installing Elafros"
+header "Installing Knative Serving"
 # Install might fail before succeding, so we retry a few times.
 # For details, see https://github.com/knative/install/issues/13
 installed=0
@@ -94,11 +94,11 @@ for i in {1..10}; do
   sleep 30
 done
 if (( ! installed )); then
-  echo "ERROR: could not install Elafros"
+  echo "ERROR: could not install Knative Serving"
   exit 1
 fi
 
 wait_until_pods_running ela-system
 wait_until_pods_running build-system
 
-header "Elafros deployed successfully to ${K8S_CLUSTER_NAME}"
+header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"
