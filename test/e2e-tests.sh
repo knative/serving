@@ -131,7 +131,7 @@ function exit_if_failed() {
 function run_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v ./test/$1 -dockerrepo gcr.io/knative-e2e-tests/$3
+  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
   exit_if_failed
 }
 
