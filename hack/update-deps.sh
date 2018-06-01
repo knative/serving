@@ -25,12 +25,11 @@ trap popd EXIT
 
 # Ensure we have everything we need under vendor/
 dep ensure
-dep prune
 
 # Patch the Kubernetes client to fix panics in fake watches. This patch is from
 # https://github.com/kubernetes/kubernetes/pull/61195 and can be removed once
 # that PR makes it here.
-git apply $ELAFROS_ROOT/hack/61195.patch
+git apply --exclude='*_test.go' $ELAFROS_ROOT/hack/61195.patch
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name 'BUILD')

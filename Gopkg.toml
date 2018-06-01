@@ -74,3 +74,13 @@ required = [
 [[constraint]]
   name = "k8s.io/client-go"
   version = "kubernetes-1.10.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true
+  non-go = true
+
+[[prune.project]]
+  name = "k8s.io/code-generator"
+  unused-packages = false
+  non-go = false
