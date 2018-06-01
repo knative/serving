@@ -169,8 +169,8 @@ func scaleSerializer() {
 }
 
 func scaleTo(podCount int32) {
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
 	if currentScale == podCount {
-		glog.Info("Already at scale.")
 		return
 	}
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
@@ -179,23 +179,15 @@ func scaleTo(podCount int32) {
 		glog.Error("Error getting Deployment %q: %s", elaDeployment, err)
 		return
 	}
-	glog.Infof("===SCALE=== %v %v %v %v %v",
-		time.Now().Unix(),
-		podCount,
-		deployment.Status.Replicas,
-		deployment.Status.AvailableReplicas,
-		deployment.Status.ReadyReplicas)
-	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
 	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (int64)(deployment.Status.Replicas))
 	statsReporter.Report(ela_autoscaler.ActualPodCountM, (int64)(deployment.Status.ReadyReplicas))
 
 	if *deployment.Spec.Replicas == podCount {
-		glog.Info("Already at scale.")
 		currentScale = podCount
 		return
 	}
 
-	glog.Infof("Scaling to %v", podCount)
+	glog.Infof("Scaling from %v to %v", currentScale, podCount)
 	if podCount == 0 {
 		revisionClient := elaClient.KnativeV1alpha1().Revisions(elaNamespace)
 		revision, err := revisionClient.Get(elaRevision, metav1.GetOptions{})
@@ -208,7 +200,7 @@ func scaleTo(podCount int32) {
 		if err != nil {
 			glog.Errorf("Error updating Revision %q: %s", elaRevision, err)
 		}
-		currentScale = podCount
+		currentScale = 0
 		return
 	}
 	deployment.Spec.Replicas = &podCount
@@ -216,8 +208,7 @@ func scaleTo(podCount int32) {
 	if err != nil {
 		glog.Errorf("Error updating Deployment %q: %s", elaDeployment, err)
 	}
-	glog.Info("Successfully scaled.")
-	glog.Infof("===SCALE=== %v %v 1", int32(time.Now().Unix()), podCount)
+	glog.Info("Successfully scaled")
 	currentScale = podCount
 }
 
