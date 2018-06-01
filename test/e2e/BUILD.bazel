@@ -7,9 +7,6 @@ go_test(
         "e2e_test.go",
         "helloworld_test.go",
     ],
-    data = [
-        "go_default_files",
-    ],
     deps = [
         "//pkg/apis/serving/v1alpha1:go_default_library",
         "//test:go_default_library",
@@ -17,12 +14,5 @@ go_test(
         "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/plugin/pkg/client/auth/gcp:go_default_library",
-    ],
-)
-
-filegroup(
-    name = "go_default_files",
-    srcs = [
-        "kubeconfig",
     ],
 )
