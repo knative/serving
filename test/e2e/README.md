@@ -4,13 +4,13 @@
 
 ## Adding end to end tests
 
-Elafros e2e tests [test the end to end functionality of the Elafros API](#requirements) to verify the behavior of this specific implementation.
+Knative Serving e2e tests [test the end to end functionality of the Knative Serving API](#requirements) to verify the behavior of this specific implementation.
 
 These tests use [the test library](../adding_tests.md#test-library).
 
 ### Requirements
 
-The e2e tests are used to test whether the flow of Elafros is performing as designed from start to finish.
+The e2e tests are used to test whether the flow of Knative Serving is performing as designed from start to finish.
 
 The e2e tests **MUST**: 
 

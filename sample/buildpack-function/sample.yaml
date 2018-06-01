@@ -1,4 +1,4 @@
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: buildpack-function
@@ -8,7 +8,7 @@ spec:
   - configurationName: buildpack-function
     percent: 100
 ---
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: buildpack-function

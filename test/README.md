@@ -1,6 +1,6 @@
 # Test
 
-This directory contains tests and testing docs for `Elafros`:
+This directory contains tests and testing docs for `Knative Serving`:
 
 * [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
 * [Conformance tests](#running-conformance-tests) in [`/test/conformance`](./conformance)
@@ -56,7 +56,7 @@ go test -v -count=1 ./test/conformance --resolvabledomain
 
 These tests require:
 
-1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `pizzaplanet` to exist in the cluster: `kubectl create namespace pizzaplanet`
 3. A docker repo contianing [the conformance test images](#conformance-test-images)
 
@@ -124,7 +124,7 @@ go test -v ./test/e2e --resolvabledomain
 
 These tests require:
 
-1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `noodleburg` to exist in the cluster: `kubectl create namespace noodleburg`
 3. A docker repo containing [the e2e test images](#e2e-test-images)
 

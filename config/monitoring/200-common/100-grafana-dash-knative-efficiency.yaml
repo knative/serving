@@ -33,7 +33,7 @@ data:
       "annotations": {
         "list": []
       },
-      "description": "Elafros - Control Plane Efficiency",
+      "description": "Knative Serving - Control Plane Efficiency",
       "editable": false,
       "gnetId": null,
       "graphTooltip": 0,
@@ -510,7 +510,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Elafros - Control Plane Efficiency",
+      "title": "Knative Serving - Control Plane Efficiency",
       "uid": "1oI1URnik",
       "version": 2
     }

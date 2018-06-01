@@ -26,9 +26,9 @@ else
   OBJECT_FILE_NAME=$1
 fi
 
-ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
 
-cd ${ELAFROS_ROOT}/pkg
+cd ${SERVING_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
 go test ./... -coverprofile coverage_profile.txt

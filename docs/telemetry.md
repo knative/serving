@@ -14,7 +14,7 @@ kubectl apply -R -f config/monitoring/100-common \
 bazel run config/monitoring:everything.apply
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 ```shell
 # With kubectl
 kubectl apply -R -f config/monitoring/100-common \
@@ -72,7 +72,7 @@ Run:
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Elafros:
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
 * **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
 * **Nodes:** CPU, memory, network and disk metrics at node level
 * **Pods:** CPU, memory and network metrics at pod level
@@ -95,7 +95,7 @@ To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/te
 
 ## Default metrics
 Following metrics are collected by default:
-* Elafros controller metrics
+* Knative Serving controller metrics
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
 

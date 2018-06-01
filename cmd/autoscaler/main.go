@@ -176,7 +176,7 @@ func scaleTo(podCount int32) {
 
 	logger.Infof("Scaling to %v", podCount)
 	if podCount == 0 {
-		revisionClient := elaClient.KnativeV1alpha1().Revisions(elaNamespace)
+		revisionClient := elaClient.ServingV1alpha1().Revisions(elaNamespace)
 		revision, err := revisionClient.Get(elaRevision, metav1.GetOptions{})
 
 		if err != nil {

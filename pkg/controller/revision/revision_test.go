@@ -31,6 +31,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
@@ -40,9 +43,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,8 +76,8 @@ func getTestRevision() *v1alpha1.Revision {
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"testLabel1":      "foo",
-				"testLabel2":      "bar",
+				"testLabel1":          "foo",
+				"testLabel2":          "bar",
 				serving.RouteLabelKey: "test-route",
 			},
 			Annotations: map[string]string{
@@ -298,15 +298,15 @@ func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1
 }
 
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
-	elaClient.KnativeV1alpha1().Revisions(rev.Namespace).Create(rev)
+	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 }
 
 func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
-	elaClient.KnativeV1alpha1().Revisions(rev.Namespace).Update(rev)
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
+	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 }
@@ -440,7 +440,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{
 			serving.RevisionLabelKey: rev.Name,
 			serving.RevisionUID:      string(rev.UID),
-			appLabelKey:          rev.Name,
+			appLabelKey:              rev.Name,
 		},
 	)
 	expectedAnnotations := rev.Annotations
@@ -475,7 +475,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	// The revision service should be owned by rev.
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "knative.dev/v1alpha1",
+			APIVersion: "serving.knative.dev/v1alpha1",
 			Kind:       "Revision",
 			Name:       rev.Name,
 			UID:        rev.UID,
@@ -574,7 +574,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			expectedAnnotations, annotations)
 	}
 
-	rev, err = elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			want, got)
 	}
 
-	rev, err = elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
-	rev, err := elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -768,7 +768,7 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://logging.test.com?filter=${REVISION_UID}"
 	_, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
 	createRevision(elaClient, elaInformer, controller, rev)
@@ -788,7 +788,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"
 	_, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
 	createRevision(elaClient, elaInformer, controller, rev)
@@ -812,9 +812,9 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
-	elaClient.KnativeV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 
@@ -876,7 +876,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
@@ -925,7 +925,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	kubeClient, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
@@ -956,7 +956,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 
@@ -1010,7 +1010,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	kubeClient, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	h := NewHooks()
 	// Look for the build complete event. Events are delivered asynchronously so
@@ -1049,7 +1049,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	controller.syncHandler(KeyOrDie(rev))
 
@@ -1091,7 +1091,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
@@ -1118,7 +1118,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
@@ -1164,7 +1164,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	var testProgressDeadlineSeconds int32 = 10
 
@@ -1173,7 +1173,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	revClient.Create(rev)
 
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 
 	// Look for revision's deployment.
@@ -1212,7 +1212,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	revClient := elaClient.KnativeV1alpha1().Revisions(testNamespace)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
 	h := NewHooks()
@@ -1223,7 +1223,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 	revClient.Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Knative().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.syncHandler(KeyOrDie(rev))
 
 	deployingRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
@@ -1351,7 +1351,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	controller.addEndpointsEvent(endpoints)
 
-	currentRev, _ := elaClient.KnativeV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	currentRev, _ := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 
 	want := []v1alpha1.RevisionCondition{
 		{

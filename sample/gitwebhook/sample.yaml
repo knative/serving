@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: git-webhook
@@ -22,7 +22,7 @@ spec:
   - configurationName: git-webhook
     percent: 100
 ---
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: git-webhook
