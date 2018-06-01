@@ -16,12 +16,21 @@ limitations under the License.
 package autoscaler
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/golang/glog"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/knative/serving/pkg/logging"
+)
+
+var (
+	testLogger = zap.NewNop().Sugar()
+	testCtx    = logging.WithLogger(context.TODO(), testLogger)
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
@@ -297,14 +306,14 @@ func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time
 				PodName:                   fmt.Sprintf("pod-%v", j),
 				AverageConcurrentRequests: float64(point),
 			}
-			a.Record(stat)
+			a.Record(testCtx, stat)
 		}
 	}
 	return now
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {
-	scale, ok := a.Scale(now)
+	scale, ok := a.Scale(testCtx, now)
 	if ok != expectOk {
 		t.Errorf("Unexpected autoscale decison. Expected %v. Got %v.", expectOk, ok)
 	}
