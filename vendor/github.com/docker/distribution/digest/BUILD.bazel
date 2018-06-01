@@ -9,7 +9,7 @@ go_library(
         "set.go",
         "verifiers.go",
     ],
-    importmap = "elafros/vendor/github.com/docker/distribution/digest",
+    importmap = "knative/vendor/github.com/docker/distribution/digest",
     importpath = "github.com/docker/distribution/digest",
     visibility = ["//visibility:public"],
 )

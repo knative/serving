@@ -58,7 +58,7 @@ case $pr in
   *) folder="pulls/$pr";;
 esac
 
-gcs_pr_dir="gs://gke-prow/pr-logs/coverage/elafros-elafros/${folder}/"
+gcs_pr_dir="gs://gke-prow/pr-logs/coverage/knative-serving/${folder}/"
 gcs_profile_dir=${gcs_pr_dir}profiles/
 gcs_profile_path=${gcs_profile_dir}${object_file_name}
 

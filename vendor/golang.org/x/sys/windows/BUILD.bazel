@@ -32,7 +32,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/golang.org/x/sys/windows",
+    importmap = "knative/vendor/golang.org/x/sys/windows",
     importpath = "golang.org/x/sys/windows",
     visibility = ["//visibility:public"],
 )

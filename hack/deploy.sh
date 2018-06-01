@@ -18,14 +18,14 @@ set -o errexit
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
-: ${PROJECT_ID:="elafros-environments"}
+: ${PROJECT_ID:="knative-environments"}
 readonly PROJECT_ID
 readonly K8S_CLUSTER_NAME=${1:?"First argument must be the kubernetes cluster name."}
 readonly K8S_CLUSTER_ZONE=us-central1-a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
 readonly ISTIO_VERSION=0.6.0
-readonly ELAFROS_RELEASE=https://storage.googleapis.com/elafros-releases/latest/release.yaml
+readonly ELAFROS_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
 export ISTIO_VERSION
 readonly PROJECT_USER=$(gcloud config get-value core/account)
 readonly CURRENT_PROJECT=$(gcloud config get-value project)
@@ -87,7 +87,7 @@ popd
 
 header "Installing Elafros"
 # Install might fail before succeding, so we retry a few times.
-# For details, see https://github.com/elafros/install/issues/13
+# For details, see https://github.com/knative/install/issues/13
 installed=0
 for i in {1..10}; do
   kubectl apply -f ${ELAFROS_RELEASE} && installed=1 && break

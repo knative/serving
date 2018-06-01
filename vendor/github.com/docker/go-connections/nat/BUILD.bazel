@@ -7,7 +7,7 @@ go_library(
         "parse.go",
         "sort.go",
     ],
-    importmap = "elafros/vendor/github.com/docker/go-connections/nat",
+    importmap = "knative/vendor/github.com/docker/go-connections/nat",
     importpath = "github.com/docker/go-connections/nat",
     visibility = ["//visibility:public"],
 )

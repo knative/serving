@@ -28,7 +28,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/logging"
 )
 
 const (

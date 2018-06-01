@@ -20,7 +20,7 @@ go_library(
         "time.go",
         "writer.go",
     ],
-    importmap = "elafros/vendor/go.uber.org/zap",
+    importmap = "knative/vendor/go.uber.org/zap",
     importpath = "go.uber.org/zap",
     visibility = ["//visibility:public"],
     deps = [

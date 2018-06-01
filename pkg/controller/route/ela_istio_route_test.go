@@ -17,9 +17,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	istiov1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	"github.com/knative/serving/pkg/controller"
 	"github.com/google/go-cmp/cmp"
 )
 

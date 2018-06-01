@@ -8,7 +8,7 @@ go_library(
         "networking_client.go",
         "networkpolicy.go",
     ],
-    importmap = "elafros/vendor/k8s.io/client-go/kubernetes/typed/networking/v1",
+    importmap = "knative/vendor/k8s.io/client-go/kubernetes/typed/networking/v1",
     importpath = "k8s.io/client-go/kubernetes/typed/networking/v1",
     visibility = ["//visibility:public"],
     deps = [

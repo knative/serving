@@ -28,7 +28,7 @@ go_library(
         "azure_wrap.go",
         "azure_zones.go",
     ],
-    importmap = "elafros/vendor/k8s.io/kubernetes/pkg/cloudprovider/providers/azure",
+    importmap = "knative/vendor/k8s.io/kubernetes/pkg/cloudprovider/providers/azure",
     importpath = "k8s.io/kubernetes/pkg/cloudprovider/providers/azure",
     visibility = ["//visibility:public"],
     deps = [

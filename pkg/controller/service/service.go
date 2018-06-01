@@ -31,12 +31,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 )
@@ -85,7 +85,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
-	informer := elaInformerFactory.Elafros().V1alpha1().Services()
+	informer := elaInformerFactory.Knative().V1alpha1().Services()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
@@ -184,7 +184,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	serviceClient := c.ElaClientSet.ElafrosV1alpha1().Services(service.Namespace)
+	serviceClient := c.ElaClientSet.KnativeV1alpha1().Services(service.Namespace)
 	existing, err := serviceClient.Get(service.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) error {
-	configClient := c.ElaClientSet.ElafrosV1alpha1().Configurations(config.Namespace)
+	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(config.Namespace)
 
 	existing, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -217,7 +217,7 @@ func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) erro
 }
 
 func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
-	routeClient := c.ElaClientSet.ElafrosV1alpha1().Routes(route.Namespace)
+	routeClient := c.ElaClientSet.KnativeV1alpha1().Routes(route.Namespace)
 
 	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {

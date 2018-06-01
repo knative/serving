@@ -1,6 +1,6 @@
 # Adding tests
 
-If you are [developing elafros](/DEVELOPMENT.md) you may need to add or change:
+If you are [developing knative](/DEVELOPMENT.md) you may need to add or change:
 
 * [e2e tests](./e2e)
 * [Conformance tests](./conformance)
@@ -28,7 +28,7 @@ You can:
 * [Use common test flags](#use-common-test-flags)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
-* [Poll Elafros resources](#poll-elafros-resources)
+* [Poll Elafros resources](#poll-knative-resources)
 * [Verify resource state transitions](#verify-resource-state-transitions)
 * [Generate boilerplate CRDs](#generate-boilerplate-crds)
 * [Ensure test cleanup](#ensure-test-cleanup)
@@ -38,7 +38,7 @@ You can:
 These flags are useful for running against an existing cluster, making use of your existing
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
-By importing `github.com/elafros/elafros/test` you get access to a global variable called
+By importing `github.com/knative/serving/test` you get access to a global variable called
 `test.Flags` which holds the values of [the command line flags](/test/README.md#flags).
 
 ```go
@@ -139,7 +139,7 @@ _See [crd_polling.go](./crd_polling.go)._
 
 ### Verify resource state transitions
 
-To use the [polling functions](#poll-elafros-resources) you must provide a function to check the
+To use the [polling functions](#poll-knative-resources) you must provide a function to check the
 state. Some of the expected transition states (as defined in [the Elafros spec](/docs/spec/spec.md))
 are expressed in functions in [states.go](./states.go).
 

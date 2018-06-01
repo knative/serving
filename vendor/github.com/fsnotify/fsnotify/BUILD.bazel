@@ -49,7 +49,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/github.com/fsnotify/fsnotify",
+    importmap = "knative/vendor/github.com/fsnotify/fsnotify",
     importpath = "github.com/fsnotify/fsnotify",
     visibility = ["//visibility:public"],
     deps = select({

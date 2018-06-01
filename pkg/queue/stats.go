@@ -18,7 +18,7 @@ package queue
 import (
 	"time"
 
-	"github.com/elafros/elafros/pkg/autoscaler"
+	"github.com/knative/serving/pkg/autoscaler"
 )
 
 // Poke is a token to push onto Stats Channels for recording requests stats.

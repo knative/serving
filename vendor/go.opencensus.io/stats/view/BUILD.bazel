@@ -12,7 +12,7 @@ go_library(
         "worker.go",
         "worker_commands.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/stats/view",
+    importmap = "knative/vendor/go.opencensus.io/stats/view",
     importpath = "go.opencensus.io/stats/view",
     visibility = ["//visibility:public"],
     deps = [

@@ -6,7 +6,7 @@ go_library(
         "flatten.go",
         "parser.go",
     ],
-    importmap = "elafros/vendor/github.com/hashicorp/hcl/json/parser",
+    importmap = "knative/vendor/github.com/hashicorp/hcl/json/parser",
     importpath = "github.com/hashicorp/hcl/json/parser",
     visibility = ["//visibility:public"],
     deps = [

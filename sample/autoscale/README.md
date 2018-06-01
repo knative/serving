@@ -4,7 +4,7 @@ A demonstration of the autoscaling capabilities of an Elafros Revision.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -22,7 +22,7 @@ docker build \
 docker push "${REPO}/sample/autoscale"
 
 # Replace the image reference with our published image.
-perl -pi -e "s@github.com/elafros/elafros/sample/autoscale@${REPO}/sample/autoscale@g" sample/autoscale/sample.yaml
+perl -pi -e "s@github.com/knative/serving/sample/autoscale@${REPO}/sample/autoscale@g" sample/autoscale/sample.yaml
 
 # Deploy the Elafros sample
 kubectl apply -f sample/autoscale/sample.yaml

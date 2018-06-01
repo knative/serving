@@ -5,7 +5,7 @@ functionality.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+[Install Elafros](https://github.com/knative/install/blob/master/README.md)
 
 ## Samples
 

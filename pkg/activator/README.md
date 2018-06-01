@@ -40,6 +40,6 @@ traffic, the Revision b gets assigned portion of traffic directly.
 
 When there are two or more revisions are in Reserve state, the Activator service gets traffic for all
 Reserve revisions. Among Reserve revisions, Activator activates the revision with the largest traffic
-weight, and forwards traffic to it. There is room for improvement for this behavior ([#882](https://github.com/elafros/elafros/issues/882)).
+weight, and forwards traffic to it. There is room for improvement for this behavior ([#882](https://github.com/knative/serving/issues/882)).
 After the revision is activated and ready to serve traffic, activator gets the portion of traffic
 for all the rest Reserve revisions.

@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["interface.go"],
-    importpath = "github.com/elafros/elafros/pkg/client/informers/externalversions/istio",
+    importpath = "github.com/knative/serving/pkg/client/informers/externalversions/istio",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/client/informers/externalversions/internalinterfaces:go_default_library",

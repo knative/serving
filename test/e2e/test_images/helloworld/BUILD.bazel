@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["helloworld.go"],
-    importpath = "github.com/elafros/elafros/test/e2e/test_images/helloworld",
+    importpath = "github.com/knative/serving/test/e2e/test_images/helloworld",
     visibility = ["//visibility:private"],
 )
 

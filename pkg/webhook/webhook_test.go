@@ -25,8 +25,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/logging"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -42,7 +42,7 @@ func newDefaultOptions() ControllerOptions {
 		ServiceNamespace: "ela-system",
 		Port:             443,
 		SecretName:       "ela-webhook-certs",
-		WebhookName:      "webhook.elafros.dev",
+		WebhookName:      "webhook.knative.dev",
 	}
 }
 

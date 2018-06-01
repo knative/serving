@@ -6,7 +6,7 @@ go_library(
         "doc.go",
         "protobuf.go",
     ],
-    importmap = "elafros/vendor/k8s.io/apimachinery/pkg/runtime/serializer/protobuf",
+    importmap = "knative/vendor/k8s.io/apimachinery/pkg/runtime/serializer/protobuf",
     importpath = "k8s.io/apimachinery/pkg/runtime/serializer/protobuf",
     visibility = ["//visibility:public"],
     deps = [

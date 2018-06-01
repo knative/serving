@@ -17,7 +17,7 @@ go_library(
         "server.go",
         "util.go",
     ],
-    importmap = "elafros/vendor/github.com/gorilla/websocket",
+    importmap = "knative/vendor/github.com/gorilla/websocket",
     importpath = "github.com/gorilla/websocket",
     visibility = ["//visibility:public"],
 )

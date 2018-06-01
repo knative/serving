@@ -32,4 +32,4 @@ cd ${ELAFROS_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
 go test ./... -coverprofile coverage_profile.txt
-gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/profiles/$OBJECT_FILE_NAME
+gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/knative-coverage/profiles/$OBJECT_FILE_NAME

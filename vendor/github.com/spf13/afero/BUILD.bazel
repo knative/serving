@@ -54,7 +54,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/github.com/spf13/afero",
+    importmap = "knative/vendor/github.com/spf13/afero",
     importpath = "github.com/spf13/afero",
     visibility = ["//visibility:public"],
     deps = [

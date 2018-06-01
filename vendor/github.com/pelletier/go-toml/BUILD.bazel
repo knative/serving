@@ -14,7 +14,7 @@ go_library(
         "tomltree_create.go",
         "tomltree_write.go",
     ],
-    importmap = "elafros/vendor/github.com/pelletier/go-toml",
+    importmap = "knative/vendor/github.com/pelletier/go-toml",
     importpath = "github.com/pelletier/go-toml",
     visibility = ["//visibility:public"],
 )

@@ -10,7 +10,7 @@ go_library(
         "sort_go18.go",
         "struct_filter.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-cmp/cmp/cmpopts",
+    importmap = "knative/vendor/github.com/google/go-cmp/cmp/cmpopts",
     importpath = "github.com/google/go-cmp/cmp/cmpopts",
     visibility = ["//visibility:public"],
     deps = [

@@ -7,7 +7,7 @@ go_library(
         "sanitize.go",
         "traceinternals.go",
     ],
-    importmap = "elafros/vendor/go.opencensus.io/internal",
+    importmap = "knative/vendor/go.opencensus.io/internal",
     importpath = "go.opencensus.io/internal",
     visibility = ["//visibility:public"],
 )

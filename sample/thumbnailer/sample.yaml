@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Route
 metadata:
   name: thumb
@@ -22,7 +22,7 @@ spec:
   - configurationName: thumbtemplate
     percent: 100
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: thumbtemplate
@@ -41,7 +41,7 @@ spec:
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: app
+        knative.dev/type: app
     spec:
       container:
         image: *image

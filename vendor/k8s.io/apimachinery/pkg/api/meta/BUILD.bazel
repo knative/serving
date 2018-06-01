@@ -15,7 +15,7 @@ go_library(
         "restmapper.go",
         "unstructured.go",
     ],
-    importmap = "elafros/vendor/k8s.io/apimachinery/pkg/api/meta",
+    importmap = "knative/vendor/k8s.io/apimachinery/pkg/api/meta",
     importpath = "k8s.io/apimachinery/pkg/api/meta",
     visibility = ["//visibility:public"],
     deps = [

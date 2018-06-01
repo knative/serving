@@ -20,5 +20,5 @@ that provide a richer experience than updating yaml files with
 `kubectl`.
 
 The Elafros APIs consist of Compute API (these documents),
-[Build API](https://github.com/elafros/build) and
-[Eventing API](https://github.com/elafros/eventing).
+[Build API](https://github.com/knative/build) and
+[Eventing API](https://github.com/knative/eventing).

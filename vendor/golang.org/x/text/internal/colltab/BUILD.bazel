@@ -12,7 +12,7 @@ go_library(
         "trie.go",
         "weighter.go",
     ],
-    importmap = "elafros/vendor/golang.org/x/text/internal/colltab",
+    importmap = "knative/vendor/golang.org/x/text/internal/colltab",
     importpath = "golang.org/x/text/internal/colltab",
     visibility = ["//vendor/golang.org/x/text:__subpackages__"],
     deps = [

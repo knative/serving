@@ -9,7 +9,7 @@ Elafros depends on two other projects in order to function: [Istio][istio] and t
 You can find out more about both from their respective websites.
 
 [istio]: https://istio.io/
-[build-crd]: https://github.com/elafros/build
+[build-crd]: https://github.com/knative/build
 
 ## Components
 
@@ -43,7 +43,7 @@ third_party/istio-0.6.0/install/kubernetes/...
 
 ### Custom Resource Definitions
 
-To view all of the custom resource definitions created, run `kubectl get customresourcedefinitions`. These resources are named according to their group, i.e. custom resources required by Elafros end with `elafros.dev`.
+To view all of the custom resource definitions created, run `kubectl get customresourcedefinitions`. These resources are named according to their group, i.e. custom resources required by Elafros end with `knative.dev`.
 
 ### Deployments
 
