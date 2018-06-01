@@ -73,10 +73,10 @@ The client PATCHes the service's configuration with new container image,
 inheriting previous environment values from the configuration spec:
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/services/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -93,10 +93,10 @@ This causes the controller to PATCH the configuration's template revision
 with the new container image:
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service  # Named the same as the Service
@@ -111,10 +111,10 @@ The update to the Configuration triggers a new Revision being created, and
 the Configuration and Service are updated to reflect the new Revision:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service
@@ -130,10 +130,10 @@ status:
 ```
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/service/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/service/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -154,10 +154,10 @@ new generation of the configuration (1235), indicating the provenance
 of the revision:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/def
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/def
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
 metadata:
   name: def
@@ -192,10 +192,10 @@ traffic to it. During reconciliation, traffic may be routed to both
 existing revision `abc` and new revision `def`:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -224,10 +224,10 @@ status:
 And once reconciled, revision def serves 100% of the traffic :
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -309,10 +309,10 @@ revision.
 The client creates the service in `runLatest` mode:
 
 ```http
-POST /apis/knative.dev/v1alpha1/namespaces/default/services
+POST /apis/serving.knative.dev/v1alpha1/namespaces/default/services
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -336,10 +336,10 @@ This causes the service controller to create route and configuration
 objects with the same name as the Service:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -351,10 +351,10 @@ spec:
 ```
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/configurations
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service  # By convention (not req'd), same name as the service.
@@ -379,10 +379,10 @@ will create a new Revision, generating its name, and applying the spec
 and metadata from the configuration, as well as new metadata labels:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
 metadata:
   name: abc  # generated name
@@ -406,10 +406,10 @@ resources have been fully materialized, the configuration is updated
 with latestCreatedRevisionName:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service
@@ -427,10 +427,10 @@ The configuration watches the revision, and when the revision is
 updated as Ready (to serve), the latestReadyRevisionName is updated:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service
@@ -452,10 +452,10 @@ new revision `abc`, addressable as
 `my-service.default.mydomain.com`. Once reconciled:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -484,10 +484,10 @@ status:
 The Service also watches the Configuration (and Route) and mirrors their status for convenience:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/services/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -568,10 +568,10 @@ of manual rollouts).
 The client updates the service to pin the current revision:
 
 ```http
-PUT /apis/knative.dev/v1alpha1/namespaces/default/services/my-service
+PUT /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -590,10 +590,10 @@ revision (note that the Configuration between the two is equivalent,
 and therefore unchanged).
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -613,10 +613,10 @@ service controller to update the Configuration, in this case updating
 the environment but keeping the same container image:
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/services/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -635,10 +635,10 @@ As in the previous example, the configuration is updated to trigger
 the creation of a new revision:
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/configurations/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service
@@ -655,10 +655,10 @@ A new revision `ghi` is created that has the same code as the previous
 revision `def`, but different config:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/ghi
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/ghi
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
 metadata:
   name: ghi
@@ -687,10 +687,10 @@ receive any traffic by default, but can be accessed for testing,
 verification, etc.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -722,10 +722,10 @@ After testing the new revision at
 updating the service to pin `ghi` as the new revision.
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/services/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service
@@ -737,10 +737,10 @@ spec:
 This causes the service to update the route to assign 
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: route
 metadata:
   name: my-service
@@ -761,10 +761,10 @@ point to the same revision. Both names are left in place so that
 `next.my-service.default.mydomain.com` is always addressable.
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -845,17 +845,17 @@ spec for an git based source build, and referencing a nodejs build
 template:
 
 ```http
-PATCH /apis/knative.dev/v1alpha1/namespaces/default/service
+PATCH /apis/serving.knative.dev/v1alpha1/namespaces/default/service
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-service 
 spec:
   runLatest:
     configuration:
-      build:  # knative.dev/v1alpha1.BuildTemplateSpec
+      build:  # build.knative.dev/v1alpha1.BuildTemplateSpec
         source:
           # oneof git|gcs|custom:
           git:
@@ -902,10 +902,10 @@ the high-level state of the build is mirrored into conditions in the
 Revision’s status for convenience:
 
 ```http
-GET /apis/knative.dev/v1alpha1/namespaces/default/revisions/abc
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/revisions/abc
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
 metadata:
   name: abc
@@ -915,7 +915,7 @@ metadata:
     knative.dev/configurationGeneration: 1234
   ...
 spec:
-  # name of the knative.dev/v1alpha1.Build, if built from source.
+  # name of the build.knative.dev/v1alpha1.Build, if built from source.
   # Set by Configuration.
   buildName: ...
 
@@ -1005,17 +1005,17 @@ not a core function of the compute API.
 Creating the service with build and function metadata:
 
 ```http
-POST /apis/knative.dev/v1alpha1/namespaces/default/services
+POST /apis/serving.knative.dev/v1alpha1/namespaces/default/services
 ```
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: my-function 
 spec:
   runLatest:
     configuration:
-      build:  # knative.dev/v1alpha1.BuildTemplateSpec
+      build:  # build.knative.dev/v1alpha1.BuildTemplateSpec
         source:
           # oneof git|gcs|custom
           git:

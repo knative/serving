@@ -60,7 +60,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// Get the current revision serving state
-	revisionClient := r.elaClient.KnativeV1alpha1().Revisions(rev.namespace)
+	revisionClient := r.elaClient.ServingV1alpha1().Revisions(rev.namespace)
 	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get revision %s/%s: %v", rev.namespace, rev.name, err)
@@ -84,7 +84,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Wait for the revision to be ready
 	if !revision.Status.IsReady() {
-		wi, err := r.elaClient.KnativeV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
+		wi, err := r.elaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {

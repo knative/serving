@@ -36,7 +36,7 @@ const (
 
 func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 	k8s, ela := fakeClients()
-	ela.KnativeV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
+	ela.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
 	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
 	a := NewRevisionActivator(k8s, ela)
 
@@ -56,7 +56,7 @@ func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 
 func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 	k8s, ela := fakeClients()
-	ela.KnativeV1alpha1().Revisions(testNamespace).Create(
+	ela.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			build())
@@ -76,7 +76,7 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 		t.Errorf("Unexpected error. Want nil. Got %v.", err)
 	}
 
-	rev, _ := ela.KnativeV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev, _ := ela.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
 		t.Errorf("Unexpected serving state. Want Active. Got %v.", rev.Spec.ServingState)
 	}
@@ -84,7 +84,7 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 
 func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 	k8s, ela := fakeClients()
-	ela.KnativeV1alpha1().Revisions(testNamespace).Create(
+	ela.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateRetired).
 			build())
@@ -104,7 +104,7 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 		t.Errorf("Expected error. Want error. Got nil.")
 	}
 
-	rev, _ := ela.KnativeV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev, _ := ela.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateRetired {
 		t.Errorf("Unexpected serving state. Want Retired. Got %v.", rev.Spec.ServingState)
 	}
@@ -112,7 +112,7 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	k8s, ela := fakeClients()
-	ela.KnativeV1alpha1().Revisions(testNamespace).Create(
+	ela.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			withReady(false).
@@ -133,12 +133,12 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	default:
 	}
 
-	rev, _ := ela.KnativeV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev, _ := ela.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	rev.Status.SetCondition(&v1alpha1.RevisionCondition{
 		Type:   v1alpha1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 	})
-	ela.KnativeV1alpha1().Revisions(testNamespace).Update(rev)
+	ela.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
 	time.Sleep(100 * time.Millisecond)
 	select {
@@ -160,7 +160,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 
 func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	k8s, ela := fakeClients()
-	ela.KnativeV1alpha1().Revisions(testNamespace).Create(
+	ela.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			withReady(false).

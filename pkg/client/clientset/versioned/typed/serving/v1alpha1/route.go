@@ -51,7 +51,7 @@ type routes struct {
 }
 
 // newRoutes returns a Routes
-func newRoutes(c *KnativeV1alpha1Client, namespace string) *routes {
+func newRoutes(c *ServingV1alpha1Client, namespace string) *routes {
 	return &routes{
 		client: c.RESTClient(),
 		ns:     namespace,
