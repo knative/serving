@@ -82,8 +82,8 @@ efficient contributor workflow.
 
 Knative is a diverse, open, and inclusive community. To get involved, see
 [CONTRIBUTING.md](./CONTRIBUTING.md) and [DEVELOPMENT.md](./DEVELOPMENT.md) and
-join the [#community](https://knative.slack.com/messages/C92U2C59P/) channel at
-knative.slack.com.
+join the [#community](https://knative.slack.com/messages/C92U2C59P/) Slack
+channel.
 
 Your own path to becoming a Knative contributor can begin anywhere. Bug reports
 and friction logs from new developers are especially welcome.
