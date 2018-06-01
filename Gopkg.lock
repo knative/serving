@@ -345,6 +345,12 @@
   revision = "bfc0222e894da677b45fd63828a89676aa706589"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/kubernetes/autoscaler"
+  packages = ["vertical-pod-autoscaler/pkg/client/clientset/versioned"]
+  revision = "e2e2fcf6a58e719f5dba70bbbbee66428a7c0c7e"
+
+[[projects]]
   name = "github.com/magiconair/properties"
   packages = ["."]
   revision = "c2353362d570a7bfa228149c62842019201cfb71"
@@ -730,6 +736,16 @@
   version = "kubernetes-1.10.0-beta.1"
 
 [[projects]]
+  branch = "cluster-autoscaler-release-1.2"
+  name = "k8s.io/autoscaler"
+  packages = [
+    "vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/scheme",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1"
+  ]
+  revision = "a909d0cc3695148f097b56e62f052063d354ee99"
+
+[[projects]]
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -952,6 +968,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e0cca64b11ad0438011753c10c7b31158051dfbef454f31c5d00c3c5ee1d70d2"
+  inputs-digest = "ed5e1d2232e4aca3847d0ef95baee096ede7720beab902ceca7ac56abebb8a3b"
   solver-name = "gps-cdcl"
   solver-version = 1

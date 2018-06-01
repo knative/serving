@@ -64,6 +64,9 @@ data:
   # Scale to zero feature flag
   autoscale.enable-scale-to-zero: "false"
 
+  # Vertically scale the revision pods
+  autoscale.enable-vertical-pod-autoscaling: "true"
+  
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the time a revision must be idle before

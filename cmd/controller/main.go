@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -41,6 +41,7 @@ import (
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
+	vpa "github.com/kubernetes/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 )
@@ -57,9 +58,10 @@ var (
 	queueSidecarImage string
 	autoscalerImage   string
 
-	autoscaleConcurrencyQuantumOfTime = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
-	autoscaleEnableScaleToZero        = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
-	autoscaleEnableSingleConcurrency  = k8sflag.Bool("autoscale.enable-single-concurrency", false)
+	autoscaleConcurrencyQuantumOfTime     = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
+	autoscaleEnableScaleToZero            = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
+	autoscaleEnableSingleConcurrency      = k8sflag.Bool("autoscale.enable-single-concurrency", false)
+	autoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("autoscale.enable-vertical-pod-autoscaling", false)
 
 	loggingEnableVarLogCollection    = k8sflag.Bool("logging.enable-var-log-collection", false)
 	loggingFluentSidecarImage        = k8sflag.String("logging.fluentd-sidecar-image", "")
@@ -119,6 +121,10 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error building build clientset: %v", err)
 	}
+	vpaClient, err := vpa.NewForConfig(cfg)
+	if err != nil {
+		logger.Fatalf("Error building VPA clientset: %v", err)
+	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
@@ -130,10 +136,11 @@ func main() {
 	}
 
 	revControllerConfig := revision.ControllerConfig{
-		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
-		AutoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
-		AutoscalerImage:                   autoscalerImage,
-		QueueSidecarImage:                 queueSidecarImage,
+		AutoscaleConcurrencyQuantumOfTime:     autoscaleConcurrencyQuantumOfTime,
+		AutoscaleEnableSingleConcurrency:      autoscaleEnableSingleConcurrency,
+		AutoscaleEnableVerticalPodAutoscaling: autoscaleEnableVerticalPodAutoscaling,
+		AutoscalerImage:                       autoscalerImage,
+		QueueSidecarImage:                     queueSidecarImage,
 
 		EnableVarLogCollection:     loggingEnableVarLogCollection.Get(),
 		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
@@ -145,7 +152,7 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
+		revision.NewController(kubeClient, elaClient, vpaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
 		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
 	}

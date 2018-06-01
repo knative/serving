@@ -24,13 +24,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	vpa "github.com/kubernetes/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -89,6 +90,9 @@ type resolver interface {
 type Controller struct {
 	*controller.Base
 
+	// VpaClientSet allows us to configure VPA objects
+	VpaClientSet vpa.Interface
+
 	// lister indexes properties about Revision
 	lister listers.RevisionLister
 	synced cache.InformerSynced
@@ -113,8 +117,9 @@ type ControllerConfig struct {
 	// Autoscale part
 
 	// see (elaconfig.yaml)
-	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
-	AutoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
+	AutoscaleConcurrencyQuantumOfTime     *k8sflag.DurationFlag
+	AutoscaleEnableSingleConcurrency      *k8sflag.BoolFlag
+	AutoscaleEnableVerticalPodAutoscaling *k8sflag.BoolFlag
 
 	// AutoscalerImage is the name of the image used for the autoscaler pod.
 	AutoscalerImage string
@@ -151,6 +156,7 @@ type ControllerConfig struct {
 func NewController(
 	kubeClientSet kubernetes.Interface,
 	elaClientSet clientset.Interface,
+	vpaClientSet vpa.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	buildInformerFactory buildinformers.SharedInformerFactory,
@@ -166,6 +172,7 @@ func NewController(
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
+		VpaClientSet:     vpaClientSet,
 		lister:           informer.Lister(),
 		synced:           informer.Informer().HasSynced,
 		endpointsSynced:  endpointsInformer.Informer().HasSynced,
@@ -624,6 +631,13 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 	logger.Info("Deleted autoscaler Service")
 
+	if c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+		if err := c.deleteVpa(ctx, rev); err != nil {
+			logger.Error("Failed to delete VPA", zap.Error(err))
+		}
+	}
+	logger.Info("Deleted VPA")
+
 	err = c.deleteService(ctx, rev, ns)
 	if err != nil {
 		logger.Error("Failed to delete k8s service", zap.Error(err))
@@ -664,6 +678,13 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	if c.controllerConfig.EnableVarLogCollection {
 		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
 			logger.Error("Failed to create fluent config map", zap.Error(err))
+		}
+	}
+
+	// Vertically autoscale the revision pods
+	if c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+		if err := c.reconcileVpa(ctx, rev); err != nil {
+			logger.Error("Failed to create the vertical pod autoscaler for Deployment", zap.Error(err))
 		}
 	}
 
@@ -982,6 +1003,50 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	logger.Infof("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)
+	return err
+}
+
+func (c *Controller) deleteVpa(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	vpaName := controller.GetRevisionVpaName(rev)
+	vs := c.VpaClientSet.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace)
+	_, err := vs.Get(vpaName, metav1.GetOptions{})
+	if err != nil && apierrs.IsNotFound(err) {
+		return nil
+	}
+	logger.Infof("Deleting VPA %q", vpaName)
+	tmp := metav1.DeletePropagationForeground
+	err = vs.Delete(vpaName, &metav1.DeleteOptions{
+		PropagationPolicy: &tmp,
+	})
+	if err != nil && !apierrs.IsNotFound(err) {
+		logger.Errorf("VPA delete for %q failed: %v", vpaName, err)
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) reconcileVpa(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	vpaName := controller.GetRevisionVpaName(rev)
+	vs := c.VpaClientSet.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace)
+	_, err := vs.Get(vpaName, metav1.GetOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			logger.Errorf("VPA get for %q failed: %v", vpaName, err)
+			return err
+		}
+		logger.Infof("VPA %q doesn't exist, creating", vpaName)
+	} else {
+		logger.Info("Found exising VPA %q", vpaName)
+		return nil
+	}
+
+	controllerRef := controller.NewRevisionControllerRef(rev)
+	vpaObj := MakeVpa(rev)
+	vpaObj.OwnerReferences = append(vpaObj.OwnerReferences, *controllerRef)
+	logger.Infof("Creating VPA: %q", vpaObj.Name)
+	_, err = vs.Create(vpaObj)
 	return err
 }
 
