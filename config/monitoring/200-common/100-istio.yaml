@@ -48,8 +48,8 @@ spec:
     sourceNamespace: source.namespace | ""
     destinationService: destination.service | ""
     destinationNamespace: destination.namespace | ""
-    destinationRevision: destination.labels["knative.dev/revision"] | "unknown"
-    destinationConfiguration: destination.labels["knative.dev/configuration"] | "unknown"
+    destinationRevision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destinationConfiguration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     requestOperation: api.operation | ""
     protocol: request.scheme | "http"
     method: request.method | ""
@@ -79,8 +79,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -95,8 +95,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -111,8 +111,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -127,8 +127,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---

@@ -58,13 +58,13 @@ func NewFilteredConfigurationInformer(client versioned.Interface, namespace stri
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KnativeV1alpha1().Configurations(namespace).List(options)
+				return client.ServingV1alpha1().Configurations(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KnativeV1alpha1().Configurations(namespace).Watch(options)
+				return client.ServingV1alpha1().Configurations(namespace).Watch(options)
 			},
 		},
 		&serving_v1alpha1.Configuration{},

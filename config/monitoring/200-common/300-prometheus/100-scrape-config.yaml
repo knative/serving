@@ -56,7 +56,7 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Elafros controller    
+    # Knative Serving controller    
     - job_name: ela-controller
       kubernetes_sd_configs:
       - role: endpoints

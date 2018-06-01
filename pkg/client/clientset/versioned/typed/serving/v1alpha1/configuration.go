@@ -51,7 +51,7 @@ type configurations struct {
 }
 
 // newConfigurations returns a Configurations
-func newConfigurations(c *KnativeV1alpha1Client, namespace string) *configurations {
+func newConfigurations(c *ServingV1alpha1Client, namespace string) *configurations {
 	return &configurations{
 		client: c.RESTClient(),
 		ns:     namespace,

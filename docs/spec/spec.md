@@ -1,11 +1,11 @@
-# Elafros API spec
+# Knative Serving API spec
 
 This file contains the [resource paths](#resource-paths) and [yaml
-schemas](#resource-yaml-definitions) that make up the Elafros API.
+schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 ## Resource Paths
 
-Resource paths in the Elafros API have the following standard k8s form:
+Resource paths in the Knative Serving API have the following standard k8s form:
 
 ```
 /apis/{apiGroup}/{apiVersion}/namespaces/{metadata.namespace}/{kind}/{metadata.name}
@@ -14,7 +14,7 @@ Resource paths in the Elafros API have the following standard k8s form:
 For example:
 
 ```
-/apis/knative.dev/v1alpha1/namespaces/default/routes/my-service
+/apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
 It is expected that each Route will provide a name within a
@@ -36,7 +36,7 @@ prod.my-service.default.mydomain.com
 
 ## Resource YAML Definitions
 
-YAMLs for the Elafros API resources are described below, describing the
+YAMLs for the Knative Serving API resources are described below, describing the
 basic k8s structure: metadata, spec and status, along with comments on
 specific fields.
 
@@ -46,7 +46,7 @@ For a high-level description of Routes,
 [see the overview](overview.md#route).
 
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: my-service
@@ -104,7 +104,7 @@ For a high-level description of Configurations,
 
 
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: my-service
@@ -119,7 +119,7 @@ metadata:
   ...
 spec:
   # +optional. composable Build spec, if omitted provide image directly
-  build:  # This is a knative.dev/v1alpha1.BuildTemplateSpec
+  build:  # This is a build.knative.dev/v1alpha1.BuildTemplateSpec
     source:
       # oneof git|gcs|custom: 
       
@@ -163,7 +163,7 @@ spec:
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container:
-        # image either provided as pre-built container, or built by Elafros from
+        # image either provided as pre-built container, or built by Knative Serving from
         # source. When built by knative, set to the same as build template, e.g. 
         # build.template.arguments[_IMAGE], as the "promise" of a future build.
         # If buildName is provided, it is expected that this image will be
@@ -207,7 +207,7 @@ For a high-level description of Revisions,
 [see the overview](overview.md#revision).
 
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Revision
 metadata:
   name: myservice-a1e34  # system generated
@@ -229,7 +229,7 @@ metadata:
 
 # spec populated by Configuration
 spec:
-  # +optional. name of the knative.dev/v1alpha1.Build if built from source
+  # +optional. name of the build.knative.dev/v1alpha1.Build if built from source
   buildName: ...
 
   container:  # corev1.Container
@@ -296,7 +296,7 @@ For a high-level description of Services,
 
 
 ```yaml
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: :
 metadata:
   name: myservice
@@ -315,8 +315,8 @@ metadata:
 spec:  # One of "runLatest" or "pinned"
   # Example, only one of runLatest or pinned can be set in practice.
   runLatest:
-    configuration:  # knative.dev/v1alpha1.Configuration
-      # +optional. name of the knative.dev/v1alpha1.Build if built from source
+    configuration:  # serving.knative.dev/v1alpha1.Configuration
+      # +optional. name of the build.knative.dev/v1alpha1.Build if built from source
       buildName: ...
 
       container:  # core.v1.Container
@@ -337,8 +337,8 @@ spec:  # One of "runLatest" or "pinned"
   # Example, only one of runLatest or pinned can be set in practice.
   pinned:
     revisionName: myservice-00013  # Auto-generated revision name
-    configuration:  # knative.dev/v1alpha1.Configuration
-      # +optional. name of the knative.dev/v1alpha1.Build if built from source
+    configuration:  # serving.knative.dev/v1alpha1.Configuration
+      # +optional. name of the build.knative.dev/v1alpha1.Build if built from source
       buildName: ...
 
       container:  # core.v1.Container

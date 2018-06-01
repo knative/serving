@@ -1,6 +1,6 @@
-# Elafros API v1alpha1
+# Knative Serving API v1alpha1
 
-This is the implementation of the Elafros API, which is specified in
+This is the implementation of the Knative Serving API, which is specified in
 [`docs/spec/spec.md`](/docs/spec/spec.md) and verified via [the
 conformance tests](/test/conformance).
 

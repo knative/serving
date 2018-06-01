@@ -17,7 +17,7 @@ limitations under the License.
 package serving
 
 const (
-	GroupName = "knative.dev"
+	GroupName = "serving.knative.dev"
 
 	// ConfigurationLabelKey is the label key attached to a Revision indicating by
 	// which Configuration it is created.

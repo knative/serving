@@ -20,10 +20,10 @@ set -o pipefail
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
 # Set default GCS/GCR
-: ${ELAFROS_RELEASE_GCS:="knative-releases"}
-: ${ELAFROS_RELEASE_GCR:="gcr.io/knative-releases"}
-readonly ELAFROS_RELEASE_GCS
-readonly ELAFROS_RELEASE_GCR
+: ${SERVING_RELEASE_GCS:="knative-releases"}
+: ${SERVING_RELEASE_GCR:="gcr.io/knative-releases"}
+readonly SERVING_RELEASE_GCS
+readonly SERVING_RELEASE_GCR
 
 # Local generated yaml file.
 readonly OUTPUT_YAML=release.yaml
@@ -50,7 +50,7 @@ function tag_knative_images() {
   done
 }
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 trap cleanup EXIT
 
 if [[ "$1" != "--skip-tests" ]]; then
@@ -62,7 +62,7 @@ fi
 banner "    BUILDING THE RELEASE   "
 
 # Set the repository
-export DOCKER_REPO_OVERRIDE=${ELAFROS_RELEASE_GCR}
+export DOCKER_REPO_OVERRIDE=${SERVING_RELEASE_GCR}
 # Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
@@ -78,13 +78,13 @@ if (( IS_PROW )); then
 fi
 readonly TAG
 
-echo "- Destination GCR: ${ELAFROS_RELEASE_GCR}"
-echo "- Destination GCS: ${ELAFROS_RELEASE_GCS}"
+echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
+echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
 
 echo "Cleaning up"
 bazel clean --expunge
 echo "Copying Build release"
-cp ${ELAFROS_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
+cp ${SERVING_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 echo "Building Elafros"
 bazel run config:everything >> ${OUTPUT_YAML}
@@ -94,9 +94,9 @@ bazel run config/monitoring:everything >> ${OUTPUT_YAML}
 tag_knative_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
-gsutil cp ${OUTPUT_YAML} gs://${ELAFROS_RELEASE_GCS}/latest/release.yaml
+gsutil cp ${OUTPUT_YAML} gs://${SERVING_RELEASE_GCS}/latest/release.yaml
 if [[ -n ${TAG} ]]; then
-  gsutil cp ${OUTPUT_YAML} gs://${ELAFROS_RELEASE_GCS}/previous/${TAG}/
+  gsutil cp ${OUTPUT_YAML} gs://${SERVING_RELEASE_GCS}/previous/${TAG}/
 fi
 
 echo "New release published successfully"
