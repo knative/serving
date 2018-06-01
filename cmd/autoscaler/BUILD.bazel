@@ -21,7 +21,7 @@ go_library(
 )
 
 go_binary(
-    name = "ela-autoscaler",
+    name = "autoscaler",
     embed = [":go_default_library"],
     pure = "on",
     visibility = ["//visibility:public"],
@@ -31,6 +31,6 @@ load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
     name = "image",
-    binary = ":ela-autoscaler",
+    binary = ":autoscaler",
     visibility = ["//visibility:public"],
 )

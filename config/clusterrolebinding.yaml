@@ -24,29 +24,3 @@ roleRef:
   kind: ClusterRole
   name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: ela-autoscaler-write
-subjects:
-  - kind: ServiceAccount
-    name: ela-autoscaler
-    namespace: ela-system
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: ela-revision-read
-subjects:
-  - kind: ServiceAccount
-    name: ela-revision
-    namespace: default
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin  # TODO(josephburnett): reduce this role to read-only
-  apiGroup: rbac.authorization.k8s.io

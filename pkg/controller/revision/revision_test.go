@@ -24,12 +24,14 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
@@ -39,9 +41,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/queue"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +57,6 @@ import (
 	. "github.com/knative/serving/pkg/controller/testing"
 )
 
-const testAutoscalerImage string = "autoscalerImage"
 const testFluentdImage string = "fluentdImage"
 const testFluentdSidecarOutputConfig string = `
 <match **>
@@ -75,8 +73,8 @@ func getTestRevision() *v1alpha1.Revision {
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"testLabel1":      "foo",
-				"testLabel2":      "bar",
+				"testLabel1":          "foo",
+				"testLabel2":          "bar",
 				serving.RouteLabelKey: "test-route",
 			},
 			Annotations: map[string]string{
@@ -199,7 +197,6 @@ func getTestControllerConfig() ControllerConfig {
 	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
 	return ControllerConfig{
 		QueueSidecarImage:                 testQueueImage,
-		AutoscalerImage:                   testAutoscalerImage,
 		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("autoscale.concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
 
 		EnableVarLogCollection:     true,
@@ -390,7 +387,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		if container.Name == "queue-proxy" {
 			foundQueueProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
-			checkEnv(container.Env, "ELA_REVISION", "test-rev", "")
+			checkEnv(container.Env, "ELA_REVISION", "test/test-rev", "")
 			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
@@ -430,7 +427,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{
 			serving.RevisionLabelKey: rev.Name,
 			serving.RevisionUID:      string(rev.UID),
-			appLabelKey:          rev.Name,
+			appLabelKey:              rev.Name,
 		},
 	)
 	expectedAnnotations := rev.Annotations
@@ -481,64 +478,6 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 	if annotations := service.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAnnotations) {
 		t.Errorf("Annotations not set correctly for revision service: expected %v got %v.",
-			expectedAnnotations, annotations)
-	}
-
-	// Look for the autoscaler deployment.
-	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-	expectedAutoscalerLabels := sumMaps(
-		expectedLabels,
-		map[string]string{serving.AutoscalerLabelKey: expectedAutoscalerName},
-	)
-	expectedAutoscalerPodSpecAnnotations := sumMaps(
-		rev.Annotations,
-		map[string]string{"sidecar.istio.io/inject": "false"},
-	)
-
-	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
-	}
-	if labels := asDeployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
-		t.Errorf("Label not set correctly in autoscaler pod template: expected %v got %v.",
-			expectedAutoscalerLabels, labels)
-	}
-	if annotations := asDeployment.Spec.Template.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAutoscalerPodSpecAnnotations) {
-		t.Errorf("Annotations not set correctly in autoscaler pod template: expected %v got %v.",
-			expectedAutoscalerPodSpecAnnotations, annotations)
-	}
-	// Check the autoscaler deployment environment variables
-	foundAutoscaler := false
-	for _, container := range asDeployment.Spec.Template.Spec.Containers {
-		if container.Name == "autoscaler" {
-			foundAutoscaler = true
-			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
-			checkEnv(container.Env, "ELA_DEPLOYMENT", expectedDeploymentName, "")
-			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
-			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
-			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
-			break
-		}
-	}
-	if !foundAutoscaler {
-		t.Error("Missing autoscaler")
-	}
-
-	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get autoscaler service: %v", err)
-	}
-	// The autoscaler service should also be owned by rev.
-	if diff := cmp.Diff(expectedRefs, asService.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
-		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
-	}
-	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
-		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
-			expectedLabels, labels)
-	}
-	if annotations := asService.ObjectMeta.Annotations; !reflect.DeepEqual(annotations, expectedAnnotations) {
-		t.Errorf("Annotations not set correctly autoscaler service: expected %v got %v.",
 			expectedAnnotations, annotations)
 	}
 
@@ -815,29 +754,6 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	}
 	if labels := service.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedLabels) {
 		t.Errorf("Label not set correctly for revision service: expected %v got %v.",
-			expectedLabels, labels)
-	}
-	// Look for the autoscaler deployment.
-	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
-	expectedAutoscalerLabels := sumMaps(
-		expectedLabels,
-		map[string]string{serving.AutoscalerLabelKey: expectedAutoscalerName},
-	)
-	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
-	}
-	if labels := asDeployment.Spec.Template.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
-		t.Errorf("Label not set correctly in autoscaler pod template: expected %v got %v.",
-			expectedAutoscalerLabels, labels)
-	}
-	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get autoscaler service: %v", err)
-	}
-	if labels := asService.ObjectMeta.Labels; !reflect.DeepEqual(labels, expectedAutoscalerLabels) {
-		t.Errorf("Label not set correctly autoscaler service: expected %v got %v.",
 			expectedLabels, labels)
 	}
 }

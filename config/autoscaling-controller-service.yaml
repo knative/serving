@@ -13,7 +13,22 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: ServiceAccount
+kind: Service
 metadata:
-  name: ela-controller
+  labels:
+    app: autoscaler
+    prometheus: autoscaler
+  name: autoscaler
   namespace: ela-system
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  - name: websocket
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: autoscaler

@@ -612,18 +612,6 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 	logger.Info("Deleted deployment")
 
-	err = c.deleteAutoscalerDeployment(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Deployment")
-
-	err = c.deleteAutoscalerService(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Service")
-
 	err = c.deleteService(ctx, rev, ns)
 	if err != nil {
 		logger.Error("Failed to delete k8s service", zap.Error(err))
@@ -654,13 +642,6 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		return err
 	}
 
-	// Autoscale the service
-	if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
-		logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
-	}
-	if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
-		logger.Error("Failed to create autoscaler Service", zap.Error(err))
-	}
 	if c.controllerConfig.EnableVarLogCollection {
 		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
 			logger.Error("Failed to create fluent config map", zap.Error(err))
@@ -756,7 +737,10 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
+	podSpec, err := MakeElaPodSpec(rev, c.controllerConfig)
+	if err != nil {
+		return err
+	}
 	deployment := MakeElaDeployment(rev, ns)
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 
@@ -896,93 +880,6 @@ func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.Owner
 	if !isOwner {
 		configMap.OwnerReferences = append(configMap.OwnerReferences, *ownerReference)
 	}
-}
-
-func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.Core().Services(AutoscalerNamespace)
-	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
-		return nil
-	}
-	logger.Infof("Deleting autoscaler Service %q", autoscalerName)
-	tmp := metav1.DeletePropagationForeground
-	err := sc.Delete(autoscalerName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
-		logger.Errorf("Autoscaler Service delete for %q failed: %s", autoscalerName, err)
-		return err
-	}
-	return nil
-}
-
-func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.Core().Services(AutoscalerNamespace)
-	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("Autoscaler Service get for %q failed: %s", autoscalerName, err)
-			return err
-		}
-		logger.Infof("Autoscaler Service %q doesn't exist, creating", autoscalerName)
-	} else {
-		logger.Infof("Found existing autoscaler Service %q", autoscalerName)
-		return nil
-	}
-
-	controllerRef := controller.NewRevisionControllerRef(rev)
-	service := MakeElaAutoscalerService(rev)
-	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
-	logger.Infof("Creating autoscaler Service: %q", service.Name)
-	_, err = sc.Create(service)
-	return err
-}
-
-func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
-	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
-		return nil
-	}
-	logger.Infof("Deleting autoscaler Deployment %q", autoscalerName)
-	tmp := metav1.DeletePropagationForeground
-	err = dc.Delete(autoscalerName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
-		logger.Errorf("Autoscaler Deployment delete for %q failed: %s", autoscalerName, err)
-		return err
-	}
-	return nil
-}
-
-func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
-	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("Autoscaler Deployment get for %q failed: %s", autoscalerName, err)
-			return err
-		}
-		logger.Infof("Autoscaler Deployment %q doesn't exist, creating", autoscalerName)
-	} else {
-		logger.Infof("Found existing autoscaler Deployment %q", autoscalerName)
-		return nil
-	}
-
-	controllerRef := controller.NewRevisionControllerRef(rev)
-	deployment := MakeElaAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
-	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
-	logger.Infof("Creating autoscaler Deployment: %q", deployment.Name)
-	_, err = dc.Create(deployment)
-	return err
 }
 
 func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revision, ns string) error {

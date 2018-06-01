@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -54,7 +55,7 @@ func hasHTTPPath(p *corev1.Probe) bool {
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(
 	rev *v1alpha1.Revision,
-	controllerConfig *ControllerConfig) *corev1.PodSpec {
+	controllerConfig *ControllerConfig) (*corev1.PodSpec, error) {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -107,6 +108,11 @@ func MakeElaPodSpec(
 	// own port in readiness checks.
 	if hasHTTPPath(elaContainer.ReadinessProbe) {
 		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
+	}
+
+	revisionKey, err := cache.MetaNamespaceKeyFunc(rev)
+	if err != nil {
+		return nil, err
 	}
 
 	queueContainer := corev1.Container{
@@ -163,11 +169,13 @@ func MakeElaPodSpec(
 			},
 			{
 				Name:  "ELA_REVISION",
-				Value: rev.Name,
+				Value: revisionKey,
 			},
 			{
-				Name:  "ELA_AUTOSCALER",
-				Value: controller.GetRevisionAutoscalerName(rev),
+				Name: "ELA_AUTOSCALER",
+				// This is hardcoded to the autoscaler service name. It shouldn't
+				// include the namespace because queue-proxy adds that.
+				Value: "autoscaler",
 			},
 			{
 				Name:  "ELA_AUTOSCALER_PORT",
@@ -184,7 +192,7 @@ func MakeElaPodSpec(
 		},
 	}
 
-	podSpe := &corev1.PodSpec{
+	podSpec := &corev1.PodSpec{
 		Containers:         []corev1.Container{*elaContainer, queueContainer},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -253,11 +261,11 @@ func MakeElaPodSpec(
 			},
 		}
 
-		podSpe.Containers = append(podSpe.Containers, fluentdContainer)
-		podSpe.Volumes = append(podSpe.Volumes, fluentdConfigMapVolume)
+		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
+		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
 	}
 
-	return podSpe
+	return podSpec, nil
 }
 
 // MakeElaDeployment creates a deployment.
