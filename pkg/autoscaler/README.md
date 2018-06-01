@@ -78,8 +78,8 @@ This is subject to change as the Elafros implementation changes.
 ### Code
 
 * [Autoscaler Library](autoscaler.go)
-* [Autoscaler Binary](../../cmd/ela-autoscaler/main.go)
-* [Queue Proxy Binary](../../cmd/ela-queue/main.go)
+* [Autoscaler Binary](../../cmd/autoscaler/main.go)
+* [Queue Proxy Binary](../../cmd/queue/main.go)
 
 ### Autoscaler
 
