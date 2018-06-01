@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/knative/serving/cmd/ela-controller",
+    importpath = "github.com/knative/serving/cmd/controller",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/client/clientset/versioned:go_default_library",

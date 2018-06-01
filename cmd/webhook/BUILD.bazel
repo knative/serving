@@ -3,21 +3,21 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "github.com/knative/serving/cmd/ela-queue",
+    importpath = "github.com/knative/serving/cmd/webhook",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/apis/serving/v1alpha1:go_default_library",
-        "//pkg/autoscaler:go_default_library",
-        "//pkg/queue:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
-        "//vendor/github.com/gorilla/websocket:go_default_library",
+        "//pkg/logging:go_default_library",
+        "//pkg/signals:go_default_library",
+        "//pkg/webhook:go_default_library",
+        "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
     ],
 )
 
 go_binary(
-    name = "ela-queue",
+    name = "ela-webhook",
     embed = [":go_default_library"],
     pure = "on",
     visibility = ["//visibility:public"],
@@ -27,6 +27,6 @@ load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 
 go_image(
     name = "image",
-    binary = ":ela-queue",
+    binary = ":ela-webhook",
     visibility = ["//visibility:public"],
 )

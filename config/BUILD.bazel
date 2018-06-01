@@ -15,9 +15,9 @@ k8s_object(
 k8s_object(
     name = "controller",
     images = {
-        "github.com/knative/serving/cmd/ela-controller": "//cmd/ela-controller:image",
-        "github.com/knative/serving/cmd/ela-queue": "//cmd/ela-queue:image",
-        "github.com/knative/serving/cmd/ela-autoscaler": "//cmd/ela-autoscaler:image",
+        "github.com/knative/serving/cmd/controller": "//cmd/controller:image",
+        "github.com/knative/serving/cmd/queue": "//cmd/queue:image",
+        "github.com/knative/serving/cmd/autoscaler": "//cmd/autoscaler:image",
     },
     template = "controller.yaml",
 )
@@ -25,7 +25,7 @@ k8s_object(
 k8s_object(
     name = "webhook",
     images = {
-        "github.com/knative/serving/cmd/ela-webhook": "//cmd/ela-webhook:image",
+        "github.com/knative/serving/cmd/webhook": "//cmd/webhook:image",
     },
     template = "webhook.yaml",
 )
@@ -33,7 +33,7 @@ k8s_object(
 k8s_object(
     name = "activator",
     images = {
-        "github.com/knative/serving/cmd/ela-activator": "//cmd/ela-activator:image",
+        "github.com/knative/serving/cmd/activator": "//cmd/activator:image",
     },
     template = "activator.yaml",
 )
