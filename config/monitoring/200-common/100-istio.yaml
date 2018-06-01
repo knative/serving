@@ -12,51 +12,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We will override the default stdio handler and accesslogs of istio
+# with our own customizations. Fluentd is then configured to collect
+# these logs from the mixer container.
 apiVersion: "config.istio.io/v1alpha2"
-kind: fluentd
+kind: stdio
 metadata:
   name: handler
   namespace: istio-system
 spec:
-  address: "fluentd-es.monitoring:24224"
+  outputAsJson: true
 ---
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: requestlogstofluentd
-  namespace: istio-system
-spec:
-  match: "true" # match for all requests -- to filter out istio-ingress destination (as all requests hit that once), use: destination.service != "istio-ingress.istio-system.svc.cluster.local"
-  actions:
-   - handler: handler.fluentd
-     instances:
-     - requestlog.logentry
+  apiVersion: "config.istio.io/v1alpha2"
+  kind: rule
+  metadata:
+    name: stdio
+    namespace: istio-system
+  spec:
+    match: "true" # If omitted match is true.
+    actions:
+    - handler: handler.stdio
+      instances:
+      - accesslog.logentry
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
-  name: requestlog
+  name: accesslog
   namespace: istio-system
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
-    method: request.method | ""
-    url: request.path | ""
-    protocol: request.scheme | "http"
-    requestSize: request.size | 0
-    requestHost: request.host | ""
-    responseCode: response.code | 0
-    responseSize: response.size | 0
-    latency: response.duration | "0ms"
-    sourceService: source.service | "unknown"
+    sourceService: source.service | ""
+    sourceNamespace: source.namespace | ""
     destinationService: destination.service | ""
     destinationNamespace: destination.namespace | ""
     destinationRevision: destination.labels["serving.knative.dev/revision"] | "unknown"
     destinationConfiguration: destination.labels["serving.knative.dev/configuration"] | "unknown"
+    requestOperation: api.operation | ""
+    protocol: request.scheme | "http"
+    method: request.method | ""
+    url: request.path | ""
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestHost: request.host | ""
+    requestSize: request.size | 0
+    latency: response.duration | "0ms"
+    connectionMtls: connection.mtls | false
+    userAgent: request.useragent | ""
+    responseTimestamp: response.time
+    receivedBytes: request.total_size | connection.received.bytes | 0
+    sentBytes: response.total_size | connection.sent.bytes | 0
+    referer: request.referer | ""
     traceId: request.headers["x-b3-traceid"] | "unknown"
-    userAgent: request.useragent | "unknown"
-    referer: request.referer | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
