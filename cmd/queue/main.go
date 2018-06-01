@@ -32,11 +32,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
+	"go.uber.org/zap"
 
-	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -64,6 +67,8 @@ const (
 
 var (
 	podName                  string
+	elaNamespace             string
+	elaConfiguration         string
 	elaRevision              string
 	elaAutoscaler            string
 	elaAutoscalerPort        string
@@ -73,47 +78,25 @@ var (
 	kubeClient               *kubernetes.Clientset
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
+	logger                   *zap.SugaredLogger
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
 )
 
-func init() {
-	podName = os.Getenv("ELA_POD")
-	if podName == "" {
-		glog.Fatal("No ELA_POD provided.")
-	}
-	glog.Infof("ELA_POD=%v", podName)
-
-	elaRevision = os.Getenv("ELA_REVISION")
-	if elaRevision == "" {
-		glog.Fatal("No ELA_REVISION provided.")
-	}
-	glog.Infof("ELA_REVISION=%v", elaRevision)
-
-	elaAutoscaler = os.Getenv("ELA_AUTOSCALER")
-	if elaAutoscaler == "" {
-		glog.Fatal("No ELA_AUTOSCALER provided.")
-	}
-	glog.Infof("ELA_AUTOSCALER=%v", elaRevision)
-
-	elaAutoscalerPort = os.Getenv("ELA_AUTOSCALER_PORT")
-	if elaAutoscalerPort == "" {
-		glog.Fatal("No ELA_AUTOSCALER_PORT provided.")
-	}
-	glog.Infof("ELA_AUTOSCALER_PORT=%v", elaAutoscalerPort)
-
-	target, err := url.Parse("http://localhost:8080")
-	if err != nil {
-		glog.Fatal(err)
-	}
-	proxy = httputil.NewSingleHostReverseProxy(target)
+func initEnv() {
+	podName = util.GetRequiredEnvOrFatal("ELA_POD", logger)
+	elaNamespace = util.GetRequiredEnvOrFatal("ELA_NAMESPACE", logger)
+	elaConfiguration = util.GetRequiredEnvOrFatal("ELA_CONFIGURATION", logger)
+	elaRevision = util.GetRequiredEnvOrFatal("ELA_REVISION", logger)
+	elaAutoscaler = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER", logger)
+	elaAutoscalerPort = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER_PORT", logger)
 }
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
 		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
-	glog.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
+	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
 		// second first to let the autoscaler start serving.  And
@@ -126,13 +109,12 @@ func connectStatSink() {
 		}
 		conn, _, err := dialer.Dial(autoscalerEndpoint, nil)
 		if err != nil {
-			glog.Error(err)
+			logger.Error("Retrying connection to autoscaler.", zap.Error(err))
 		} else {
-			glog.Info("Connected to stat sink.")
+			logger.Info("Connected to stat sink.")
 			statSink = conn
 			return
 		}
-		glog.Error("Retrying connection to autoscaler.")
 	}
 }
 
@@ -140,21 +122,20 @@ func statReporter() {
 	for {
 		s := <-statChan
 		if statSink == nil {
-			glog.Error("Stat sink not connected.")
+			logger.Error("Stat sink not connected.")
 			continue
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
 		err := enc.Encode(s)
 		if err != nil {
-			glog.Error(err)
+			logger.Error("Failed to encode data from stats channel", zap.Error(err))
 			continue
 		}
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
-			glog.Error(err)
+			logger.Error("Failed to write to stat sink. Attempting to reconnect to stat sink.", zap.Error(err))
 			statSink = nil
-			glog.Error("Attempting reconnection to stat sink.")
 			go connectStatSink()
 			continue
 		}
@@ -258,17 +239,30 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
-	// Even though we have no flags, glog has some hence requiring
-	// flag.Parse().
-	flag.Parse()
-	glog.Info("Queue container is running")
+	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("ela-queueproxy")
+	defer logger.Sync()
+
+	initEnv()
+	logger = logger.With(
+		zap.String(logkey.Namespace, elaNamespace),
+		zap.String(logkey.Configuration, elaConfiguration),
+		zap.String(logkey.Revision, elaRevision),
+		zap.String(logkey.Pod, podName))
+
+	target, err := url.Parse("http://localhost:8080")
+	if err != nil {
+		logger.Fatal("Failed to parse localhost url", zap.Error(err))
+	}
+	proxy = httputil.NewSingleHostReverseProxy(target)
+
+	logger.Info("Queue container is starting")
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatalf("Error getting in cluster config: %v", err)
+		logger.Fatal("Error getting in cluster config", zap.Error(err))
 	}
 	kc, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Fatalf("Error creating new config: %v", err)
+		logger.Fatal("Error creating new config", zap.Error(err))
 	}
 	kubeClient = kc
 	go connectStatSink()

@@ -16,11 +16,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"context"
 	"math"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/knative/serving/pkg/logging"
 )
 
 // Stat defines a single measurement at a point in time
@@ -77,9 +78,10 @@ func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
 }
 
 // Record a data point. No safe for concurrent access or concurrent access with Scale.
-func (a *Autoscaler) Record(stat Stat) {
+func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	if stat.Time == nil {
-		glog.Errorf("Missing time from stat: %+v", stat)
+		logger := logging.FromContext(ctx)
+		logger.Errorf("Missing time from stat: %+v", stat)
 		return
 	}
 	key := statKey{
@@ -91,8 +93,8 @@ func (a *Autoscaler) Record(stat Stat) {
 
 // Scale calculates the desired scale based on current statistics given the current time.
 // Not safe for concurrent access or concurrent access with Record.
-func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
-
+func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
+	logger := logging.FromContext(ctx)
 	// 60 second window
 	stableTotal := float64(0)
 	stableCount := float64(0)
@@ -134,7 +136,6 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	}
 
 	if lastRequestTime.Add(*a.ScaleToZeroThreshold.Get()).Before(now) {
-		glog.Info("Threshold passed with no new requests. Scaling to 0.")
 		return 0, true
 	}
 
@@ -145,11 +146,11 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 		totalCurrentQPS = totalCurrentQPS + stat.RequestCount
 		totalCurrentConcurrency = totalCurrentConcurrency + stat.AverageConcurrentRequests
 	}
-	glog.Infof("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
+	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
-		glog.Info("Un-panicking.")
+		logger.Info("Un-panicking.")
 		a.reporter.Report(PanicM, 0)
 		a.panicking = false
 		a.panicTime = nil
@@ -158,7 +159,7 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 
 	// Do nothing when we have no data.
 	if len(stablePods) == 0 {
-		glog.Info("No data to scale on.")
+		logger.Debug("No data to scale on.")
 		return 0, false
 	}
 
@@ -174,29 +175,29 @@ func (a *Autoscaler) Scale(now time.Time) (int32, bool) {
 	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
-	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+	logger.Debugf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedStableConcurrency, a.StableWindow.Get(), stableCount, len(stablePods))
-	glog.Infof("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+	logger.Debugf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
 		observedPanicConcurrency, a.PanicWindow.Get(), panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
-		glog.Info("PANICKING")
+		logger.Info("PANICKING")
 		a.reporter.Report(PanicM, 1)
 		a.panicking = true
 		a.panicTime = &now
 	}
 
 	if a.panicking {
-		glog.Info("Operating in panic mode.")
+		logger.Debug("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
-			glog.Infof("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
+			logger.Infof("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
 		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
 	}
-	glog.Info("Operating in stable mode.")
+	logger.Debug("Operating in stable mode.")
 	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
 }
 

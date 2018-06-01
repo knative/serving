@@ -1,6 +1,6 @@
 # Resource Types
 
-The primary resources in the Elafros API are Routes, Revisions,
+The primary resources in the Knative Serving API are Routes, Revisions,
 Configurations, and Services:
 
 * A **Route** provides a named endpoint and a mechanism for routing traffic to

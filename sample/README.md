@@ -1,11 +1,11 @@
 # Samples
 
-This directory contains sample services which demonstrate `Elafros`
+This directory contains sample services which demonstrate `Knative Serving`
 functionality.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/knative/install/blob/master/README.md)
+[Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 
 ## Samples
 

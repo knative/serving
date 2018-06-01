@@ -1,4 +1,4 @@
-# Creating a Kubernetes Cluster for Elafros
+# Creating a Kubernetes Cluster for Knative Serving
 
 Two options:
 
@@ -41,7 +41,7 @@ To use a k8s cluster running in GKE:
     *   Version 1.9+ is required
     *   Change this to whichever zone you choose
     *   cloud-platform scope is required to access GCB
-    *   Elafros currently requires 4-cpu nodes to run conformance tests.
+    *   Knative Serving currently requires 4-cpu nodes to run conformance tests.
         Changing the machine type from the default may cause failures.
     *   Autoscale from 1 to 3 nodes. Adjust this for your use case
     *   Change this to your preferred cluster name
@@ -163,9 +163,9 @@ Now you can use the `minikube-gcr-key.json` file to create image pull secrets
 and link them to Kubernetes service accounts. _A secret must be created and
 linked to a service account in each namespace that will pull images from GCR._
 
-For example, use these steps to allow Minikube to pull Elafros and Build images
+For example, use these steps to allow Minikube to pull Knative Serving and Build images
 from GCR as published in our development flow (`ko apply -f config/`).
-_This is only necessary if you are not using public Elafros and Build images._
+_This is only necessary if you are not using public Knative Serving and Build images._
 
 1.  Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
 

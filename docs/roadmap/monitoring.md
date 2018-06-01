@@ -1,6 +1,6 @@
 # 2018 Roadmap for Monitoring and Logging
 
-This document captures what we hope to accomplish in 2018 in Monitoring and Logging areas for Elafros. 
+This document captures what we hope to accomplish in 2018 in Monitoring and Logging areas for Knative Serving. 
 
 ## Overview
 We will provide distinct experiences for [operator personas](../product/personas.md#operator-personas), 
@@ -51,7 +51,7 @@ Logs from the following locations will be collected:
 Following metrics will be collected:
 * Envoy, Istio Mixer (per request metrics), Istio Pilot
 * Node and pod level metrics (CPU, memory, disk and network)
-* Elafros controller metrics
+* Knative Serving controller metrics
 
 Request logs from Istio proxy, user applications and user functions will be collected by Zipkin.
 

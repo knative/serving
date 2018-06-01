@@ -98,7 +98,7 @@ func main() {
 	// Tracing setup
 	//
 
-	// If your service only calls other Elafros revisions, then Zipkin setup below
+	// If your service only calls other Knative Serving revisions, then Zipkin setup below
 	// is not needed. All that you need is to extract the following headers from incoming
 	// requests and copy them to your outgoing requests.
 	// x-request-id, x-b3-traceid, x-b3-spanid, x-b3-parentspanid, x-b3-sampled, x-b3-flags, x-ot-span-context

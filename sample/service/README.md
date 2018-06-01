@@ -6,7 +6,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -26,7 +26,7 @@ docker push "${REPO}/sample/service"
 # Replace the image reference with our published image.
 perl -pi -e "s@github.com/knative/serving/sample/service@${REPO}/sample/service@g" sample/service/*.yaml
 
-# Deploy the Elafros sample
+# Deploy the Knative Serving sample
 kubectl apply -f sample/service/sample.yaml
 ```
 

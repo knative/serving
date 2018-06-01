@@ -1,9 +1,9 @@
-# Configuring Elafros
+# Configuring Knative Serving
 
 ## Serving multiple domains:
 
 Different domain suffixes can be configured based on the route labels.  In order
-to do this, update the config map named `ela-config` in the namespace
+to do this, update the config map named `config-domain` in the namespace
 `ela-system`.
 
 In that config map, each entry maps a domain name to an equality-based label
@@ -17,7 +17,7 @@ For example, if your config map looks like
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ela-config
+  name: config-domain
   namespace: ela-system
 data:
   prod.domain.com: |
