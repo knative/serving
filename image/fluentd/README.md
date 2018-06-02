@@ -1,12 +1,12 @@
-# Fluentd Docker Image in Elafro
+# Fluentd Docker Image in Knative
 
-Elafros uses a [Fluentd](https://www.fluentd.org/) docker image to collect
+Knative uses a [Fluentd](https://www.fluentd.org/) docker image to collect
 logs. Operators can customize their own docker image and configuration to
 define logging output.
 
 ## Requirements
 
-Elafros requires the following Fluentd plugins to process log records:
+Knative requires the following Fluentd plugins to process log records:
 
 * [fluentd](https://github.com/fluent/fluentd) >= v0.14.0
 * [fluent-plugin-kubernetes_metadata_filter](https://github.com/fabric8io/fluent-plugin-kubernetes_metadata_filter) >= 1.0.0
