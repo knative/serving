@@ -30,7 +30,6 @@ import (
 
 const (
 	containerMissing = "ContainerMissing"
-
 )
 
 //This test is to validate error condition defined at
@@ -41,9 +40,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	defer TearDown(clients)
 	test.CleanupOnInterrupt(func() { TearDown(clients) })
 
-	var imagePath string
 	//specify an invalid image path
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
+	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
 	log.Printf("Creating a new Route and Configuration %s", imagePath)
 	err := CreateRouteAndConfig(clients, imagePath)
@@ -105,6 +103,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	*/
 }
 
+//get revision name from configuration
 func GetRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
 	config, err := clients.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
@@ -118,6 +117,7 @@ func GetRevisionFromConfiguration(clients *test.Clients, configName string) (str
 	}
 }
 
+//get LogURL from revision
 func GetLogUrlFromRevision(clients *test.Clients, revisionName string) (string, error) {
 	revision, err := clients.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
