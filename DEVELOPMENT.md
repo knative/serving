@@ -33,8 +33,6 @@ You must install these tools:
    dependencies.
 1. [`ko`](https://github.com/google/go-containerregistry/tree/master/cmd/ko): For
 development.
-1. or [`bazel`](https://docs.bazel.build/versions/master/getting-started.html): For
-   development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
 
@@ -74,9 +72,6 @@ For `K8S_CLUSTER_OVERRIDE`, we expect that this name matches a cluster with auth
 with `kubectl`.  You can list the clusters you currently have configured via:
 `kubectl config get-contexts`.  For the cluster you want to target, the value in the CLUSTER column
 should be put in this variable.
-
-_It is notable that if you change the `*_OVERRIDE` variables, you may need to
-`bazel clean` in order to properly pick up the change (if using bazel)._
 
 ### Checkout your fork
 
@@ -131,11 +126,7 @@ kubectl apply -f ./third_party/config/build/release.yaml
 ### Deploy Knative Serving
 
 ```shell
-# With ko
 ko apply -f config/
-
-# With bazel
-bazel run //config:everything.apply
 ```
 
 You can see things running with:
@@ -161,29 +152,22 @@ You can use two different setups for collecting logs and metrics:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
 
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-prod \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything.apply
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-dev \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 
-# With bazel
-bazel run config/monitoring:everything-dev.apply
 ```
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
@@ -199,11 +183,7 @@ These are both idempotent, and we expect that running these at `HEAD` to have no
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
 ```shell
-# With ko
 ko apply -f config/controller.yaml
-
-# With bazel
-bazel run //config:controller.apply
 ```
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
@@ -213,14 +193,10 @@ redeploy `Knative Serving`](./README.md#start-knative).
 
 You can delete all of the service components with:
 ```shell
-# With ko
 ko delete --ignore-not-found=true \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-0.8.0/istio.yaml
-
-# With bazel
-bazel run //config:everything.delete
 ```
 
 ## Telemetry

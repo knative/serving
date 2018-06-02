@@ -32,9 +32,4 @@ dep ensure
 git apply --exclude='*_test.go' $SERVING_ROOT/hack/61195.patch
 
 rm -rf $(find vendor/ -name 'OWNERS')
-rm -rf $(find vendor/ -name 'BUILD')
-rm -rf $(find vendor/ -name 'BUILD.bazel')
 rm -rf $(find vendor/ -name '*_test.go')
-
-# Make sure that BUILD files are up to date (the above removes them).
-bazel run //:gazelle -- -proto=disable

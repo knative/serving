@@ -10,17 +10,10 @@ If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
 ## Running unit tests
 
-Use bazel:
-
-```shell
-bazel test //pkg/... --test_output=errors
-```
-
-Or `go test`:
-
 ```shell
 go test -v ./pkg/...
 ```
+
 ## Running conformance tests
 
 To run [the conformance tests](./conformance), you need to have a running environment that meets
