@@ -66,27 +66,6 @@ The configuration for the images used for the existing conformance tests lives i
 [`test_images`](./conformance/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
 
-### Running conformance tests with Bazel
-
-To run the conformance tests with `bazel` you must:
-
-* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
-  [`BUILD.bazel`](./conformance/BUILD.bazel). By default [`BUILD.bazel`](./conformance/BUILD.bazel)
-  is configured to use [`test/conformance/kubeconfig`](/test/conformance/kubeconfig).
-* Provide a docker repo from which the built images will be pulled. This is done
-  via the `--dockerrepo` argument.
-
-_The `bazel` execution environment will not contain your environment variables, so you must
-explicitly specify them with [command line args](#flags)._
-
-To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./conformance/kubeconfig)
-and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
-to the location where [you have pushed the conformance test images](#conformance-test-images)):
-
-```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
-```
-
 ## Running end-to-end tests
 
 The e2e tests have almost the exact same requirements and specs as the conformance tests, but they will be enumerated for clarity.
@@ -133,27 +112,6 @@ These tests require:
 The configuration for the images used for the existing e2e tests lives in
 [`test_images`](./e2e/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
-
-### Running e2e tests with Bazel
-
-To run the e2e tests with `bazel` you must:
-
-* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
-  [`BUILD.bazel`](./e2e/BUILD.bazel). By default [`BUILD.bazel`](./e2e/BUILD.bazel)
-  is configured to use [`test/e2e/kubeconfig`](/test/e2e/kubeconfig).
-* Provide a docker repo from which the built images will be pulled. This is done
-  via the `--dockerrepo` argument.
-
-_The `bazel` execution environment will not contain your environment variables, so you must
-explicitly specify them with [command line args](#flags)._
-
-To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./e2e/kubeconfig)
-and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
-to the location where [you have pushed the e2e test images](#e2e-test-images)):
-
-```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
-```
 
 ## Test images
 
