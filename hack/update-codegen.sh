@@ -18,17 +18,17 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${ELAFROS_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SERVING_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  github.com/elafros/elafros/pkg/client github.com/elafros/elafros/pkg/apis \
-  "ela:v1alpha1 istio:v1alpha2" \
-  --go-header-file ${ELAFROS_ROOT}/hack/boilerplate/boilerplate.go.txt
+  github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
+  "serving:v1alpha1 istio:v1alpha2" \
+  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Make sure our dependencies are up-to-date
-${ELAFROS_ROOT}/hack/update-deps.sh
+${SERVING_ROOT}/hack/update-deps.sh

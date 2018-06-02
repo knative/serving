@@ -30,7 +30,11 @@ spec:
       - name: ela-webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/elafros/elafros/cmd/ela-webhook
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
+        image: github.com/knative/serving/cmd/webhook
+        volumeMounts:
+        - name: config-logging
+          mountPath: /etc/config-logging
+      volumes:
+        - name: config-logging
+          configMap:
+            name: config-logging

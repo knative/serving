@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,13 +29,13 @@ import (
 func TestValidConfigurationAllowed(t *testing.T) {
 	configuration := createConfiguration(testGeneration, testConfigurationName)
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != nil {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err != nil {
 		t.Fatalf("Expected allowed. Failed with %s", err)
 	}
 }
 
 func TestEmptyConfigurationNotAllowed(t *testing.T) {
-	if err := ValidateConfiguration(nil, nil, nil); err != errInvalidConfigurationInput {
+	if err := ValidateConfiguration(testCtx)(nil, nil, nil); err != errInvalidConfigurationInput {
 		t.Fatalf("Expected: %s. Failed with %s", errInvalidConfigurationInput, err)
 	}
 }
@@ -49,7 +49,7 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 		Spec: v1alpha1.ConfigurationSpec{},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptySpecInConfiguration {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err != errEmptySpecInConfiguration {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptySpecInConfiguration, err)
 	}
 }
@@ -66,7 +66,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyRevisionTemplateInSpec {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err != errEmptyRevisionTemplateInSpec {
 		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
 	}
 }
@@ -87,7 +87,7 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err != errEmptyContainerInRevisionTemplate {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err != errEmptyContainerInRevisionTemplate {
 		t.Fatalf("Expected: %v. Failed with %v", errEmptyRevisionTemplateInSpec, err)
 	}
 }
@@ -112,7 +112,7 @@ func TestServingStateNotAllowed(t *testing.T) {
 		},
 	}
 	expected := fmt.Sprintf("The configuration spec must not set the field(s): revisionTemplate.spec.servingState")
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Result of ValidateConfiguration function: %s. Expected: %s.", err, expected)
 	}
 }
@@ -155,17 +155,17 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 		"revisionTemplate.spec.container.volumeMounts",
 	}
 	expected := fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted, ", "))
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	configuration.Spec.RevisionTemplate.Spec.Container.Name = ""
 	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[1:], ", "))
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	configuration.Spec.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{}
 	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[2:], ", "))
-	if err := ValidateConfiguration(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 }

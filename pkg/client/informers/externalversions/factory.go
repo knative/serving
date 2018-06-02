@@ -20,10 +20,10 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/elafros/elafros/pkg/client/clientset/versioned"
-	ela "github.com/elafros/elafros/pkg/client/informers/externalversions/ela"
-	internalinterfaces "github.com/elafros/elafros/pkg/client/informers/externalversions/internalinterfaces"
-	istio "github.com/elafros/elafros/pkg/client/informers/externalversions/istio"
+	versioned "github.com/knative/serving/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
+	istio "github.com/knative/serving/pkg/client/informers/externalversions/istio"
+	serving "github.com/knative/serving/pkg/client/informers/externalversions/serving"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -121,14 +121,14 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Elafros() ela.Interface
 	Config() istio.Interface
-}
-
-func (f *sharedInformerFactory) Elafros() ela.Interface {
-	return ela.New(f, f.namespace, f.tweakListOptions)
+	Serving() serving.Interface
 }
 
 func (f *sharedInformerFactory) Config() istio.Interface {
 	return istio.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Serving() serving.Interface {
+	return serving.New(f, f.namespace, f.tweakListOptions)
 }

@@ -1,12 +1,12 @@
 # Thumbnailer Demo
 
-Thumbnailer demo is a walk-through example on how to deploy a 'dockerized' application to the Elafros service. In this demo we will use a sample `golang` application that takes video URL as an input and generates its thumbnail image.
+Thumbnailer demo is a walk-through example on how to deploy a 'dockerized' application to the Knative Serving service. In this demo we will use a sample `golang` application that takes video URL as an input and generates its thumbnail image.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Knative Serving service. If not, consult [README.md](https://github.com/knative/serving/blob/master/README.md) on how to deploy one.
 
 ## Sample Code
 
-In this demo we are going to use a simple `golang` REST app called [rester-tester](https://github.com/mchmarny/rester-tester). It's important to point out that this application doesn't use any 'special' Elafros components nor does it have any Elafros SDK dependencies.
+In this demo we are going to use a simple `golang` REST app called [rester-tester](https://github.com/mchmarny/rester-tester). It's important to point out that this application doesn't use any 'special' Knative Serving components nor does it have any Knative Serving SDK dependencies.
 
 ### App code
 
@@ -65,7 +65,7 @@ curl -X POST -H "Content-Type: application/json" http://localhost:8080/image \
 
 ## Deploy (Prebuilt)
 
-You can now deploy the `rester-tester` app to the Elafros service using `kubectl` using the included `sample-prebuilt.yaml`.
+You can now deploy the `rester-tester` app to the Knative Serving service using `kubectl` using the included `sample-prebuilt.yaml`.
 
 ```
 # From inside this directory
@@ -77,15 +77,19 @@ If you would like to publish your own copy of the container image, you can updat
 
 ## Deploy (with Build)
 
-You can also build the image as part of deployment:
+You can also build the image as part of deployment. This sample uses the
+[Kaniko build
+template](https://github.com/knative/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
 perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample.yaml
 
-# Create the Kubernetes resources from this directory
-kubectl apply -f ../templates/docker-build-helper.yaml -f sample.yaml
+# Install the Kaniko build template used to build this sample (in the
+# build-templates repo).
+kubectl apply -f kaniko.yaml
 ```
 
 Now, if you look at the `status` of the revision, you will see that a build is in progress:
@@ -94,7 +98,7 @@ Now, if you look at the `status` of the revision, you will see that a build is i
 $ kubectl get revisions -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:
@@ -110,7 +114,7 @@ Once `BuildComplete` has a `status: "True"`, the revision will get deployed as i
 
 ## Demo
 
-To confirm that the app deployed, you can check for the Elafros service using `kubectl`. First, is there an ingress service:
+To confirm that the app deployed, you can check for the Knative Serving service using `kubectl`. First, is there an ingress service:
 
 ```
 kubectl get ing
@@ -122,7 +126,7 @@ Sometimes the newly deployed app may take few seconds to initialize. You can che
 kubectl -n default get pods
 ```
 
-The Elafros ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
+The Knative Serving ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
 
 ```
 # Put the Ingress Host name into an environment variable.
@@ -168,4 +172,4 @@ curl -H "Host: $SERVICE_HOST" \
 
 ## Final Thoughts
 
-While we used in this demo an external application, the Elafros deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables.
+While we used in this demo an external application, the Knative Serving deployment steps would be similar for any 'dockerized' app you may already have... just copy the `thumbnailer.yaml` and change a few variables.

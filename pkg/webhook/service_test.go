@@ -18,7 +18,7 @@ package webhook
 import (
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -26,7 +26,7 @@ func TestEmptySpec(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{},
 	}
-	err := ValidateService(nil, &s, &s)
+	err := ValidateService(testCtx)(nil, &s, &s)
 	if err == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -43,7 +43,7 @@ func TestRunLatest(t *testing.T) {
 			},
 		},
 	}
-	if err := ValidateService(nil, &s, &s); err != nil {
+	if err := ValidateService(testCtx)(nil, &s, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 }
@@ -54,7 +54,7 @@ func TestRunLatestWithMissingConfiguration(t *testing.T) {
 			RunLatest: &v1alpha1.RunLatestType{},
 		},
 	}
-	err := ValidateService(nil, &s, &s)
+	err := ValidateService(testCtx)(nil, &s, &s)
 	if err == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -74,7 +74,7 @@ func TestPinned(t *testing.T) {
 		},
 	}
 
-	if err := ValidateService(nil, &s, &s); err != nil {
+	if err := ValidateService(testCtx)(nil, &s, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 }
@@ -87,7 +87,7 @@ func TestPinnedFailsWithNoRevisionName(t *testing.T) {
 			},
 		},
 	}
-	err := ValidateService(nil, &s, &s)
+	err := ValidateService(testCtx)(nil, &s, &s)
 	if err == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -104,7 +104,7 @@ func TestPinnedFailsWithNoConfiguration(t *testing.T) {
 			},
 		},
 	}
-	err := ValidateService(nil, &s, &s)
+	err := ValidateService(testCtx)(nil, &s, &s)
 	if err == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -126,7 +126,7 @@ func TestPinnedSetsDefaults(t *testing.T) {
 	s.Spec.Pinned.Configuration.RevisionTemplate.Spec.ConcurrencyModel = ""
 
 	var patches []jsonpatch.JsonPatchOperation
-	if err := SetServiceDefaults(&patches, &s); err != nil {
+	if err := SetServiceDefaults(testCtx)(&patches, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 
@@ -156,7 +156,7 @@ func TestLatestSetsDefaults(t *testing.T) {
 	s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.ConcurrencyModel = ""
 
 	var patches []jsonpatch.JsonPatchOperation
-	if err := SetServiceDefaults(&patches, &s); err != nil {
+	if err := SetServiceDefaults(testCtx)(&patches, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 

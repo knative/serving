@@ -42,7 +42,7 @@ go_library(
         "feature_stream_string.go",
         "jsoniter.go",
     ],
-    importmap = "elafros/vendor/github.com/json-iterator/go",
+    importmap = "knative/vendor/github.com/json-iterator/go",
     importpath = "github.com/json-iterator/go",
     visibility = ["//visibility:public"],
 )

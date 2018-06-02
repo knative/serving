@@ -34,7 +34,7 @@ data:
       - role: endpoints
       relabel_configs:
       # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_service_label_elafros_dev_autoscaler]
+      - source_labels: [__meta_kubernetes_service_label_knative_dev_autoscaler]
         action: keep
         regex: .+
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_endpoint_port_name]
@@ -56,7 +56,7 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Elafros controller
+    # Knative Serving controller
     - job_name: ela-controller
       kubernetes_sd_configs:
       - role: endpoints
@@ -106,8 +106,8 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Istio mixer - mesh metrics
-    - job_name: istio-mixer-mesh
+    # Istio mesh
+    - job_name: istio-mesh
       scrape_interval: 5s
       kubernetes_sd_configs:
       - role: endpoints
@@ -115,7 +115,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-mixer;prometheus
+        regex: istio-system;istio-telemetry;prometheus
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -132,8 +132,35 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Istio mixer - envoy metrics
-    - job_name: istio-mixer-envoy
+    # Istio Envoy
+    # These are very noisy and not enabled by default.
+    # - job_name: istio-envoy
+    #   scrape_interval: 5s
+    #   kubernetes_sd_configs:
+    #   - role: endpoints
+    #   relabel_configs:
+    #   # Scrape only the the targets matching the following metadata
+    #   - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+    #     action: keep
+    #     regex: istio-system;istio-statsd-prom-bridge;statsd-prom
+    #   # Rename metadata labels to be reader friendly
+    #   - source_labels: [__meta_kubernetes_namespace]
+    #     action: replace
+    #     regex: (.*)
+    #     target_label: namespace
+    #     replacement: $1
+    #   - source_labels: [__meta_kubernetes_pod_name]
+    #     action: replace
+    #     regex: (.*)
+    #     target_label: pod
+    #     replacement: $1
+    #   - source_labels: [__meta_kubernetes_service_name]
+    #     action: replace
+    #     regex: (.*)
+    #     target_label: service
+    #     replacement: $1
+    # Istio policy
+    - job_name: istio-policy
       scrape_interval: 5s
       kubernetes_sd_configs:
       - role: endpoints
@@ -141,7 +168,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-mixer;statsd-prom
+        regex: istio-system;istio-policy;http-monitoring
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -158,8 +185,8 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Istio mixer - mixer metrics
-    - job_name: istio-mixer-mixer
+    # Istio telemetry
+    - job_name: istio-telemetry
       scrape_interval: 5s
       kubernetes_sd_configs:
       - role: endpoints
@@ -167,7 +194,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: istio-system;istio-mixer;http-monitoring
+        regex: istio-system;istio-telemetry;http-monitoring
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace
@@ -350,61 +377,55 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Kubelet on http-metrics port
-    - job_name: kubelet-http-metrics
+    # Kubelet - nodes
+    # Rather than connecting directly to the node, the scrape is proxied though the
+    # Kubernetes apiserver.  This means it will work if Prometheus is running out of
+    # cluster, or can't connect to nodes for some other reason (e.g. because of
+    # firewalling).
+    - job_name: kubernetes-nodes
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       kubernetes_sd_configs:
-      - role: endpoints
+      - role: node
       relabel_configs:
-      # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_k8s_app, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: kube-system;kubelet;http-metrics
-      # Rename metadata labels to be reader friendly
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
-        target_label: namespace
-        replacement: $1
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
-        target_label: pod
-        replacement: $1
-      - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
-        target_label: service
-        replacement: $1
-    # Kubelet on http-metrics port (cadvisor metrics)
-    - job_name: kubelet/1
-      honor_labels: true
-      metrics_path: /metrics/cadvisor
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+    # Kubelet - cAdvisor
+    #
+    # This is required for Kubernetes 1.7.3 and later, where cAdvisor metrics
+    # (those whose names begin with 'container_') have been removed from the
+    # Kubelet metrics endpoint.  This job scrapes the cAdvisor endpoint to
+    # retrieve those metrics.
+    #
+    # In Kubernetes 1.7.0-1.7.2, these metrics are only exposed on the cAdvisor
+    # HTTP endpoint; use "replacement: /api/v1/nodes/${1}:4194/proxy/metrics"
+    # in that case (and ensure cAdvisor's HTTP server hasn't been disabled with
+    # the --cadvisor-port=0 Kubelet flag).
+    - job_name: kubernetes-cadvisor
+      scrape_interval: 15s
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       kubernetes_sd_configs:
-      - role: endpoints
+      - role: node
       relabel_configs:
-      # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_k8s_app, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: kube-system;kubelet;http-metrics
-      # Rename metadata labels to be reader friendly
-      - source_labels: [__meta_kubernetes_namespace]
-        separator: ;
-        regex: (.*)
-        target_label: namespace
-        replacement: $1
-        action: replace
-      - source_labels: [__meta_kubernetes_pod_name]
-        separator: ;
-        regex: (.*)
-        target_label: pod
-        replacement: $1
-        action: replace
-      - source_labels: [__meta_kubernetes_service_name]
-        separator: ;
-        regex: (.*)
-        target_label: service
-        replacement: $1
-        action: replace
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
     # Node exporter
     - job_name: node-exporter
       scheme: https

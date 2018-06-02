@@ -6,7 +6,7 @@ go_library(
         "error.go",
         "parser.go",
     ],
-    importmap = "elafros/vendor/github.com/hashicorp/hcl/hcl/parser",
+    importmap = "knative/vendor/github.com/hashicorp/hcl/hcl/parser",
     importpath = "github.com/hashicorp/hcl/hcl/parser",
     visibility = ["//visibility:public"],
     deps = [

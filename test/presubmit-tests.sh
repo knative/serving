@@ -34,7 +34,7 @@ source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 function cleanup() {
   echo "Cleaning up for teardown"
   restore_override_vars
-  # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
+  # --expunge is a workaround for https://github.com/knative/serving/issues/366
   bazel clean --expunge || true
 }
 
@@ -56,7 +56,7 @@ function unit_tests() {
   header "Running unit tests"
   set_environment
   bazel test //cmd/... //pkg/...
-  # Run go tests as well to workaround https://github.com/elafros/elafros/issues/525
+  # Run go tests as well to workaround https://github.com/knative/serving/issues/525
   go test ./cmd/... ./pkg/...
 }
 
@@ -89,7 +89,7 @@ if ! (( RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
   exit 1
 fi
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
 # Skip presubmit tests if only markdown files were changed.
 if [[ -n "${PULL_PULL_SHA}" ]]; then
@@ -109,7 +109,7 @@ fi
 if (( ! IS_PROW )); then
   trap cleanup EXIT
   echo "Cleaning up for setup"
-  # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
+  # --expunge is a workaround for https://github.com/knative/serving/issues/366
   bazel clean --expunge
 fi
 

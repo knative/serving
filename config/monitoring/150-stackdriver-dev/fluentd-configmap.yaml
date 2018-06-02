@@ -28,8 +28,8 @@ data:
     <source>
       @id fluentd-containers.log
       @type tail
-      path /var/log/containers/*.log
-      exclude_path ["/var/log/containers/istio-*.log", "/var/log/containers/kube-*.log", "/var/log/containers/kibana-*.log", "/var/log/containers/prometheus-*.log"]
+      # path is different from prod configuration
+      path /var/log/containers/*ela-container-*.log,/var/log/containers/*build-step-*.log,/var/log/containers/istio-telemetry*mixer-*.log,/var/log/containers/*ela-controller-*.log,/var/log/containers/*ela-webhook-*.log,/var/log/containers/*autoscaler-*.log,/var/log/containers/*queue-proxy-*.log,/var/log/containers/*ela-activator-*.log
       pos_file /var/log/es-containers.log.pos
       time_format %Y-%m-%dT%H:%M:%S.%NZ
       tag raw.kubernetes.*

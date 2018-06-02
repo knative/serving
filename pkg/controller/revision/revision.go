@@ -20,21 +20,22 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/logging"
-	"github.com/elafros/elafros/pkg/logging/logkey"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 
-	clientset "github.com/elafros/elafros/pkg/client/clientset/versioned"
+	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -45,11 +46,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/elafros/build/pkg/client/informers/externalversions"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	listers "github.com/elafros/elafros/pkg/client/listers/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 )
 
 const (
@@ -111,7 +112,7 @@ type Controller struct {
 type ControllerConfig struct {
 	// Autoscale part
 
-	// see (elaconfig.yaml)
+	// see (config-autoscaler.yaml)
 	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
 	AutoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
 
@@ -140,6 +141,12 @@ type ControllerConfig struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
+
+	// QueueProxyLoggingConfig is a string containing the logger configuration for queue proxy.
+	QueueProxyLoggingConfig string
+
+	// QueueProxyLoggingLevel is a string containing the logger level for queue proxy.
+	QueueProxyLoggingLevel string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -158,7 +165,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
-	informer := elaInformerFactory.Elafros().V1alpha1().Revisions()
+	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
@@ -841,25 +848,60 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := rev.Namespace
+
+	// One ConfigMap for Fluentd sidecar per namespace. It has multiple owner
+	// references. Can not set blockOwnerDeletion and Controller to true.
+	revRef := newRevisionNonControllerRef(rev)
+
 	cmc := c.KubeClientSet.Core().ConfigMaps(ns)
-	_, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
+	configMap, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
 			return err
 		}
-		logger.Infof("ConfigMap %q doesn't exist, creating", fluentdConfigMapName)
-	} else {
-		logger.Infof("Found existing ConfigMap %q", fluentdConfigMapName)
-		return nil
+		// ConfigMap doesn't exist, going to create it
+		configMap = MakeFluentdConfigMap(ns, c.controllerConfig.FluentdSidecarOutputConfig)
+		configMap.OwnerReferences = append(configMap.OwnerReferences, *revRef)
+		logger.Infof("Creating configmap: %q", configMap.Name)
+		_, err = cmc.Create(configMap)
+		return err
 	}
 
-	controllerRef := controller.NewRevisionControllerRef(rev)
-	configMap := MakeFluentdConfigMap(rev, ns, c.controllerConfig.FluentdSidecarOutputConfig)
-	configMap.OwnerReferences = append(configMap.OwnerReferences, *controllerRef)
-	logger.Infof("Creating configmap: %q", configMap.Name)
-	_, err = cmc.Create(configMap)
-	return err
+	// ConfigMap exists, going to update it
+	desiredConfigMap := configMap.DeepCopy()
+	desiredConfigMap.Data = map[string]string{
+		"varlog.conf": makeFullFluentdConfig(c.controllerConfig.FluentdSidecarOutputConfig),
+	}
+	addOwnerReference(desiredConfigMap, revRef)
+	if !reflect.DeepEqual(desiredConfigMap, configMap) {
+		logger.Infof("Updating configmap: %q", desiredConfigMap.Name)
+		_, err = cmc.Update(desiredConfigMap)
+		return err
+	}
+	return nil
+}
+
+func newRevisionNonControllerRef(rev *v1alpha1.Revision) *metav1.OwnerReference {
+	blockOwnerDeletion := false
+	isController := false
+	revRef := controller.NewRevisionControllerRef(rev)
+	revRef.BlockOwnerDeletion = &blockOwnerDeletion
+	revRef.Controller = &isController
+	return revRef
+}
+
+func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.OwnerReference) {
+	isOwner := false
+	for _, existingOwner := range configMap.OwnerReferences {
+		if ownerReference.Name == existingOwner.Name {
+			isOwner = true
+			break
+		}
+	}
+	if !isOwner {
+		configMap.OwnerReferences = append(configMap.OwnerReferences, *ownerReference)
+	}
 }
 
 func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -963,7 +1005,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 		}
 	}
 	accessor.SetFinalizers(finalizers)
-	prClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	prClient.Update(rev)
 	logger.Infof("The finalizer 'controller' is removed.")
 
@@ -971,7 +1013,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ElaClientSet.ElafrosV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -989,7 +1031,7 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 // https://github.com/kubernetes/sample-controller/blob/master/controller.go#L373-L384
 func lookupServiceOwner(endpoint *corev1.Endpoints) string {
 	// see if there's a label on this object marking it as ours.
-	if revisionName, ok := endpoint.Labels[ela.RevisionLabelKey]; ok {
+	if revisionName, ok := endpoint.Labels[serving.RevisionLabelKey]; ok {
 		return revisionName
 	}
 	return ""

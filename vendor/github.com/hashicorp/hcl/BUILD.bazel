@@ -8,7 +8,7 @@ go_library(
         "lex.go",
         "parse.go",
     ],
-    importmap = "elafros/vendor/github.com/hashicorp/hcl",
+    importmap = "knative/vendor/github.com/hashicorp/hcl",
     importpath = "github.com/hashicorp/hcl",
     visibility = ["//visibility:public"],
     deps = [

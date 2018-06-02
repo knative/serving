@@ -18,8 +18,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	v1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
+	v1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -54,15 +54,15 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1alpha2.SchemeGroupVersion.WithResource("routerules"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Config().V1alpha2().RouteRules().Informer()}, nil
 
-		// Group=elafros.dev, Version=v1alpha1
+		// Group=serving.knative.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("configurations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Configurations().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Configurations().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("revisions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Revisions().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Revisions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("routes"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Routes().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Routes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("services"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Services().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Services().Informer()}, nil
 
 	}
 

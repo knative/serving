@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: thumb
@@ -22,7 +22,7 @@ spec:
   - configurationName: thumbtemplate
     percent: 100
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: thumbtemplate
@@ -34,14 +34,14 @@ spec:
         url: https://github.com/mchmarny/rester-tester
         branch: master
     template:
-      name: docker-build-push-helper
+      name: kaniko
       arguments:
       - name: IMAGE
         value: &image DOCKER_REPO_OVERRIDE/rester-tester
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: app
+        knative.dev/type: app
     spec:
       container:
         image: *image

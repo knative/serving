@@ -18,14 +18,14 @@ limitations under the License.
 package test
 
 import (
-	"github.com/elafros/elafros/pkg/client/clientset/versioned"
-	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/knative/serving/pkg/client/clientset/versioned"
+	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Clients holds instances of interfaces for making requests to Elafros.
+// Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
 	Kube      *kubernetes.Clientset
 	Routes    elatyped.RouteInterface
@@ -34,7 +34,7 @@ type Clients struct {
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
-// Elafros cluster specified by the combination of clusterName and configPath. Clients can
+// Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
 // make requests within namespace.
 func NewClients(configPath string, clusterName string, namespace string) (*Clients, error) {
 	clients := &Clients{}
@@ -52,9 +52,9 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
-	clients.Routes = cs.ElafrosV1alpha1().Routes(namespace)
-	clients.Configs = cs.ElafrosV1alpha1().Configurations(namespace)
-	clients.Revisions = cs.ElafrosV1alpha1().Revisions(namespace)
+	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
+	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
+	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
 
 	return clients, nil
 }

@@ -15,8 +15,8 @@
 FROM golang AS builder
 ARG SAMPLE
 
-WORKDIR /go/src/github.com/elafros/elafros
-ADD . /go/src/github.com/elafros/elafros
+WORKDIR /go/src/github.com/knative/serving
+ADD . /go/src/github.com/knative/serving
 
 RUN CGO_ENABLED=0 go build ./sample/${SAMPLE}
 
@@ -24,6 +24,6 @@ RUN CGO_ENABLED=0 go build ./sample/${SAMPLE}
 FROM gcr.io/distroless/base
 ARG SAMPLE
 
-COPY --from=builder /go/src/github.com/elafros/elafros/${SAMPLE} /sample
+COPY --from=builder /go/src/github.com/knative/serving/${SAMPLE} /sample
 
 ENTRYPOINT ["/sample"]

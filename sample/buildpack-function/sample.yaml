@@ -1,4 +1,4 @@
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: buildpack-function
@@ -8,7 +8,7 @@ spec:
   - configurationName: buildpack-function
     percent: 100
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: buildpack-function
@@ -38,7 +38,7 @@ spec:
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: function
+        knative.dev/type: function
     spec:
       container:
         image: *image

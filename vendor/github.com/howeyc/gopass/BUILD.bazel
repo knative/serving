@@ -40,7 +40,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/github.com/howeyc/gopass",
+    importmap = "knative/vendor/github.com/howeyc/gopass",
     importpath = "github.com/howeyc/gopass",
     visibility = ["//visibility:public"],
     deps = select({

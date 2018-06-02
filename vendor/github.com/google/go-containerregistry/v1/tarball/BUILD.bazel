@@ -8,7 +8,7 @@ go_library(
         "layer.go",
         "write.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-containerregistry/v1/tarball",
+    importmap = "knative/vendor/github.com/google/go-containerregistry/v1/tarball",
     importpath = "github.com/google/go-containerregistry/v1/tarball",
     visibility = ["//visibility:public"],
     deps = [

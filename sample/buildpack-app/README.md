@@ -1,6 +1,6 @@
 # Buildpack Sample App
 
-A sample app that demonstrates usage of Cloud Foundry buildpacks on Elafros,
+A sample app that demonstrates usage of Cloud Foundry buildpacks on Knative Serving,
 using the [packs Docker images](https://github.com/sclevine/packs).
 
 This deploys the [.NET Core Hello World](https://github.com/cloudfoundry-samples/dotnet-core-hello-world)
@@ -8,18 +8,29 @@ sample app for Cloud Foundry.
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+[Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+This sample uses the [Buildpack build
+template](https://github.com/knative/build-templates/blob/master/buildpack/buildpack.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
+
+First, install the Buildpack build template from that repo:
+
+```shell
+kubectl apply -f buildpack.yaml
+```
+
+Then you can deploy this to Knative Serving from the root directory via:
+
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
 perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/buildpack-app/sample.yaml
 
 # Create the Kubernetes resources
-kubectl apply -f sample/templates/buildpack.yaml -f sample/buildpack-app/sample.yaml
+kubectl apply -f sample/buildpack-app/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:
@@ -28,7 +39,7 @@ Once deployed, you will see that it first builds:
 $ kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:

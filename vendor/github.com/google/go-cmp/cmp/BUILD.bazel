@@ -9,7 +9,7 @@ go_library(
         "reporter.go",
         "unsafe_reflect.go",
     ],
-    importmap = "elafros/vendor/github.com/google/go-cmp/cmp",
+    importmap = "knative/vendor/github.com/google/go-cmp/cmp",
     importpath = "github.com/google/go-cmp/cmp",
     visibility = ["//visibility:public"],
     deps = [

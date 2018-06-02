@@ -3,16 +3,31 @@ package(default_visibility = ["//visibility:public"])
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
-    name = "elaconfig",
-    template = "elaconfig.yaml",
+    name = "config-domain",
+    template = "config-domain.yaml",
+)
+
+k8s_object(
+    name = "config-autoscaler",
+    template = "config-autoscaler.yaml",
+)
+
+k8s_object(
+    name = "config-logging",
+    template = "config-logging.yaml",
+)
+
+k8s_object(
+    name = "config-observability",
+    template = "config-observability.yaml",
 )
 
 k8s_object(
     name = "controller",
     images = {
-        "github.com/elafros/elafros/cmd/ela-controller": "//cmd/ela-controller:image",
-        "github.com/elafros/elafros/cmd/ela-queue": "//cmd/ela-queue:image",
-        "github.com/elafros/elafros/cmd/ela-autoscaler": "//cmd/ela-autoscaler:image",
+        "github.com/knative/serving/cmd/controller": "//cmd/controller:image",
+        "github.com/knative/serving/cmd/queue": "//cmd/queue:image",
+        "github.com/knative/serving/cmd/autoscaler": "//cmd/autoscaler:image",
     },
     template = "controller.yaml",
 )
@@ -20,7 +35,7 @@ k8s_object(
 k8s_object(
     name = "webhook",
     images = {
-        "github.com/elafros/elafros/cmd/ela-webhook": "//cmd/ela-webhook:image",
+        "github.com/knative/serving/cmd/webhook": "//cmd/webhook:image",
     },
     template = "webhook.yaml",
 )
@@ -28,7 +43,7 @@ k8s_object(
 k8s_object(
     name = "activator",
     images = {
-        "github.com/elafros/elafros/cmd/ela-activator": "//cmd/ela-activator:image",
+        "github.com/knative/serving/cmd/activator": "//cmd/activator:image",
     },
     template = "activator.yaml",
 )
@@ -109,7 +124,10 @@ k8s_objects(
         ":namespace",
         ":authz",
         ":crds",
-        ":elaconfig",
+        ":config-domain",
+        ":config-autoscaler",
+        ":config-logging",
+        ":config-observability",
         ":controller",
         ":controllerservice",
         ":webhook",

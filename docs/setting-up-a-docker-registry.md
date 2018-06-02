@@ -1,6 +1,6 @@
 # Setting Up A Docker Registry
 
-This document explains how to use different Docker registries with Elafros. It
+This document explains how to use different Docker registries with Knative Serving. It
 assumes you have gone through the steps listed in
 [DEVELOPMENT.md](/DEVELOPMENT.md) to set up your development environment (or
 that you at least have installed `go`, set `GOPATH`, and put `$GOPATH/bin` on
@@ -83,4 +83,4 @@ That's it, you're done!
 ## Local registry
 
 This section has yet to be written. If you'd like to write it, see issue
-[#23](https://github.com/elafros/elafros/issues/23).
+[#23](https://github.com/knative/serving/issues/23).

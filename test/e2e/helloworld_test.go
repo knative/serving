@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/test"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,7 +41,7 @@ func TestHelloWorld(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients) })
 
 	var imagePath string
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, NamespaceName + "-helloworld"}, "/")
+	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
 	log.Println("Creating a new Route and Configuration")
 	err := CreateRouteAndConfig(clients, imagePath)

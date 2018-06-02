@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// crdpolling contains functions which poll Elafros CRDs until they
+// crdpolling contains functions which poll Knative Serving CRDs until they
 // get into the state desired by the caller or time out.
 
 package test
@@ -21,8 +21,8 @@ package test
 import (
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	elatyped "github.com/elafros/elafros/pkg/client/clientset/versioned/typed/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"

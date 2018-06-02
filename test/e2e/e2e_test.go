@@ -3,7 +3,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/elafros/elafros/test"
+	"github.com/knative/serving/test"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242

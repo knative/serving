@@ -1,4 +1,4 @@
-# Elafros Components
+# Knative Serving Components
 
 * Controller
   * Watches for changes to resources and reconciles
@@ -6,6 +6,6 @@
   * Gets called before resources are put into k8s etcd storage
   * Validates + mutates
 * Resource Definitions
-  * elafros
+  * knative
   * build + istio
 

@@ -16,14 +16,15 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path"
 	"reflect"
 	"strings"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -40,19 +41,21 @@ var (
 	errEmptySpecInConfiguration         = errMissingField("spec")
 	errEmptyRevisionTemplateInSpec      = errMissingField("spec.revisionTemplate")
 	errEmptyContainerInRevisionTemplate = errMissingField("spec.revisionTemplate.spec.container")
-	errInvalidConfigurationInput        = errors.New("Failed to convert input into Configuration.")
+	errInvalidConfigurationInput        = errors.New("failed to convert input into Configuration")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
-func ValidateConfiguration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	_, newConfiguration, err := unmarshalConfigurations(old, new, "ValidateConfiguration")
-	if err != nil {
-		return err
+func ValidateConfiguration(ctx context.Context) ResourceCallback {
+	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+		_, newConfiguration, err := unmarshalConfigurations(ctx, old, new, "ValidateConfiguration")
+		if err != nil {
+			return err
+		}
+		if err := validateConfiguration(newConfiguration); err != nil {
+			return err
+		}
+		return nil
 	}
-	if err := validateConfiguration(newConfiguration); err != nil {
-		return err
-	}
-	return nil
 }
 
 func validateConfiguration(configuration *v1alpha1.Configuration) error {
@@ -98,7 +101,7 @@ func validateContainer(container corev1.Container) error {
 	if reflect.DeepEqual(container, corev1.Container{}) {
 		return errEmptyContainerInRevisionTemplate
 	}
-	// Some corev1.Container fields are set by Elafros controller.  We disallow them
+	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
 	// the users.  See pkg/controller/revision.MakeElaPodSpec for the list of fields
 	// overridden.
@@ -122,16 +125,19 @@ func validateContainer(container corev1.Container) error {
 	return nil
 }
 
-func SetConfigurationDefaults(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-	_, config, err := unmarshalConfigurations(nil, crd, "SetConfigurationDefaults")
-	if err != nil {
-		return err
-	}
+// SetConfigurationDefaults set defaults on an configurations.
+func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
+	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+		_, config, err := unmarshalConfigurations(ctx, nil, crd, "SetConfigurationDefaults")
+		if err != nil {
+			return err
+		}
 
-	return SetConfigurationSpecDefaults(patches, "/spec", config.Spec)
+		return setConfigurationSpecDefaults(patches, "/spec", config.Spec)
+	}
 }
 
-func SetConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
+func setConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
 	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
@@ -142,7 +148,9 @@ func SetConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patch
 	return nil
 }
 
-func unmarshalConfigurations(old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Configuration, *v1alpha1.Configuration, error) {
+func unmarshalConfigurations(
+	ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Configuration, *v1alpha1.Configuration, error) {
+	logger := logging.FromContext(ctx)
 	var oldConfiguration *v1alpha1.Configuration
 	if old != nil {
 		var ok bool
@@ -151,13 +159,13 @@ func unmarshalConfigurations(old GenericCRD, new GenericCRD, fnName string) (*v1
 			return nil, nil, errInvalidConfigurationInput
 		}
 	}
-	glog.Infof("%s: OLD Configuration is\n%+v", fnName, oldConfiguration)
+	logger.Infof("%s: OLD Configuration is\n%+v", fnName, oldConfiguration)
 
 	newConfiguration, ok := new.(*v1alpha1.Configuration)
 	if !ok {
 		return nil, nil, errInvalidConfigurationInput
 	}
-	glog.Infof("%s: NEW Configuration is\n%+v", fnName, newConfiguration)
+	logger.Infof("%s: NEW Configuration is\n%+v", fnName, newConfiguration)
 
 	return oldConfiguration, newConfiguration, nil
 }

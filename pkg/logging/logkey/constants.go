@@ -18,26 +18,47 @@ package logkey
 
 const (
 	// ControllerType is the key used for controller type in structured logs
-	ControllerType = "elafros.dev/controller"
+	ControllerType = "knative.dev/controller"
 
 	// Namespace is the key used for namespace in structured logs
-	Namespace = "elafros.dev/namespace"
+	Namespace = "knative.dev/namespace"
 
 	// Service is the key used for service name in structured logs
-	Service = "elafros.dev/service"
+	Service = "knative.dev/service"
 
 	// Configuration is the key used for configuration name in structured logs
-	Configuration = "elafros.dev/configuration"
+	Configuration = "knative.dev/configuration"
 
 	// Revision is the key used for revision name in structured logs
-	Revision = "elafros.dev/revision"
+	Revision = "knative.dev/revision"
 
 	// Route is the key used for route name in structured logs
-	Route = "elafros.dev/route"
+	Route = "knative.dev/route"
 
 	// Build is the key used for build name in structured logs
-	Build = "elafros.dev/build"
+	Build = "knative.dev/build"
 
 	// JSONConfig is the key used for JSON configurations (not to be confused by the Configuration object)
-	JSONConfig = "elafros.dev/jsonconfig"
+	JSONConfig = "knative.dev/jsonconfig"
+
+	// Kind is the key used to represent kind of an object in logs
+	Kind = "knative.dev/kind"
+
+	// Name is the key used to represent name of an object in logs
+	Name = "knative.dev/name"
+
+	// Operation is the key used to represent an operation in logs
+	Operation = "knative.dev/operation"
+
+	// Resource is the key used to represent a resource in logs
+	Resource = "knative.dev/resource"
+
+	// SubResource is a generic key used to represent a sub-resource in logs
+	SubResource = "knative.dev/subresource"
+
+	// UserInfo is the key used to represent a user information in logs
+	UserInfo = "knative.dev/userinfo"
+
+	// Pod is the key used to represent a pod's name in logs
+	Pod = "knative.dev/pod"
 )

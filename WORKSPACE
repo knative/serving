@@ -1,4 +1,4 @@
-workspace(name = "elafros")
+workspace(name = "knative")
 
 http_archive(
     name = "io_kubernetes_build",
@@ -66,7 +66,3 @@ k8s_defaults(
     cluster = _CLUSTER,
     image_chroot = _REPOSITORY,
 )
-
-load(":ca_bundle.bzl", "cluster_ca_bundle")
-
-cluster_ca_bundle(name = "cluster_ca_bundle")

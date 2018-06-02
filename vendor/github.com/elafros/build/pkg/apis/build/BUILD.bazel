@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["register.go"],
-    importmap = "elafros/vendor/github.com/elafros/build/pkg/apis/build",
-    importpath = "github.com/elafros/build/pkg/apis/build",
-    visibility = ["//visibility:public"],
-)

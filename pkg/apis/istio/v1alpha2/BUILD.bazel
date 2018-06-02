@@ -8,7 +8,7 @@ go_library(
         "routerule_types.go",
         "zz_generated.deepcopy.go",
     ],
-    importpath = "github.com/elafros/elafros/pkg/apis/istio/v1alpha2",
+    importpath = "github.com/knative/serving/pkg/apis/istio/v1alpha2",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apis/istio:go_default_library",

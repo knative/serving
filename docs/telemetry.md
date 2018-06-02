@@ -23,7 +23,7 @@ kubectl apply -R -f config/monitoring/100-common \
 bazel run config/monitoring:everything-es.apply
 ```
 
-2. **everything-es-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+2. **everything-es-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
 # With kubectl
@@ -40,11 +40,11 @@ bazel run config/monitoring:everything-es-dev.apply
 
 ### Stackdriver (logs), Prometheus & Grafana Setup
 
-If your Elafros is not built on a GCP based cluster or you want to send logs to
+If your Knative Serving is not built on a GCP based cluster or you want to send logs to
 another GCP project, you need to build your own Fluentd image and modify the
 configuration first. See
 
-1. [Fluentd image on Elafros](/image/fluentd/README.md)
+1. [Fluentd image on Knative Serving](/image/fluentd/README.md)
 2. [Setting up a logging plugin](setting-up-a-logging-plugin.md)
 
 Then you can use two different setups:
@@ -63,7 +63,7 @@ kubectl apply -R -f config/monitoring/100-common \
 bazel run config/monitoring:everything-sd.apply
 ```
 
-2. **everything-sd-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+2. **everything-sd-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
 # With kubectl
@@ -89,13 +89,48 @@ kubectl proxy
 
 Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 (*it might take a couple of minutes for the proxy to work*).
-When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As more logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+#### Accessing configuration and revision logs
+
+To access to logs for a configuration, use the following search term in Kibana UI:
+```
+kubernetes.labels.knative_dev\/configuration: "configuration-example"
+```
+
+Replace `configuration-example` with your configuration's name.
+
+To access logs for a revision, use the following search term in Kibana UI:
+
+```
+kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
+```
+
+Replace `configuration-example-00001` with your revision's name.
+
+#### Accessing build logs
+
+To access to logs for a build, use the following search term in Kibana UI:
+
+```
+kubernetes.labels.build\-name: "test-build"
+```
+
+Replace `test-build` with your build's name. A build's name is specified in its YAML file as follows:
+
+```yaml
+apiVersion: build.dev/v1alpha1
+kind: Build
+metadata:
+  name: test-build
+```
 
 ### Stackdriver
 
 Go to [Pantheon logging page](https://console.cloud.google.com/logs/viewer) for
 your GCP project which stores your logs via Stackdriver.
+
 
 ## Accessing metrics
 
@@ -105,7 +140,7 @@ Run:
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Elafros:
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
 
 * **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
 * **Nodes:** CPU, memory, network and disk metrics at node level
@@ -131,7 +166,7 @@ To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/te
 ## Default metrics
 
 Following metrics are collected by default:
-* Elafros controller metrics
+* Knative Serving controller metrics
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
 

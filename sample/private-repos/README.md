@@ -3,15 +3,15 @@
 This demo is a walk-through example that:
 * Pulls from a private Github repository using a deploy-key
 * Pushes to a private DockerHub repository using a username / password
-* Deploys to Elafros using image pull secrets.
+* Deploys to Knative Serving using image pull secrets.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/elafros/elafros/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Knative Serving service. If not, consult [README.md](https://github.com/knative/serving/blob/master/README.md) on how to deploy one.
 
 ## The resources involved.
 
 ### Setting up the default service account (one-time)
 
-Elafros will run pods as the "default" service account in whichever namespace
+Knative Serving will run pods as the "default" service account in whichever namespace
 you create resources.  You can see it's body via:
 
 ```shell
@@ -132,11 +132,12 @@ data:
 
 ### Installing Build Templates (one-time)
 
-This sample uses the `docker-build.yaml` build template.  Make sure that this
-exists on your cluster via:
+This sample uses the [Kaniko build
+template](https://github.com/knative/build-templates/blob/master/kaniko/kaniko.yaml)
+in the [build-templates](https://github.com/knative/build-templates/) repo.
 
 ```shell
-kubectl create -f ../templates/docker-build.yaml
+kubectl apply -f kaniko.yaml
 ```
 
 ### Using this in Configuration.
@@ -188,11 +189,11 @@ FROM golang
 
 ENV GOPATH /go
 
-ADD . /go/src/github.com/dewitt/elafros-build
+ADD . /go/src/github.com/dewitt/knative-build
 
-RUN CGO_ENABLED=0 go build github.com/dewitt/elafros-build
+RUN CGO_ENABLED=0 go build github.com/dewitt/knative-build
 
-ENTRYPOINT ["elafros-build"]
+ENTRYPOINT ["knative-build"]
 ```
 
 1. `main.go`

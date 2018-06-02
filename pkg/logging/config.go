@@ -20,18 +20,19 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/elafros/elafros/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // NewLogger creates a logger with the supplied configuration.
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
-func NewLogger(configJSON string) *zap.SugaredLogger {
-	logger, err := newLoggerFromConfig(configJSON)
+func NewLogger(configJSON string, levelOverride string) *zap.SugaredLogger {
+	logger, err := newLoggerFromConfig(configJSON, levelOverride)
 	if err == nil {
-		logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
 		return logger.Sugar()
 	}
 
@@ -44,7 +45,15 @@ func NewLogger(configJSON string) *zap.SugaredLogger {
 	return logger.Sugar()
 }
 
-func newLoggerFromConfig(configJSON string) (*zap.Logger, error) {
+// NewLoggerFromDefaultConfigMap creates a logger using the configuration within /etc/config-logging file.
+func NewLoggerFromDefaultConfigMap(logLevelKey string) *zap.SugaredLogger {
+	loggingFlagSet := k8sflag.NewFlagSet("/etc/config-logging")
+	zapCfg := loggingFlagSet.String("zap-logger-config", "")
+	zapLevelOverride := loggingFlagSet.String(logLevelKey, "")
+	return NewLogger(zapCfg.Get(), zapLevelOverride.Get())
+}
+
+func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, error) {
 	if len(configJSON) == 0 {
 		return nil, errors.New("empty logging configuration")
 	}
@@ -54,5 +63,19 @@ func newLoggerFromConfig(configJSON string) (*zap.Logger, error) {
 		return nil, err
 	}
 
-	return loggingCfg.Build()
+	if len(levelOverride) > 0 {
+		var level zapcore.Level
+		if err := level.Set(levelOverride); err == nil {
+			loggingCfg.Level = zap.NewAtomicLevelAt(level)
+		}
+	}
+
+	logger, err := loggingCfg.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
+	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
+	return logger, nil
 }

@@ -44,7 +44,8 @@ const (
 
 type Options struct {
 	// TODO(mattmoor): Architectures?
-	GetBase func(string) (v1.Image, error)
+	GetBase         func(string) (v1.Image, error)
+	GetCreationTime func() (*v1.Time, error)
 }
 
 type gobuild struct {
@@ -147,6 +148,12 @@ func tarBinary(binary string) ([]byte, error) {
 
 // Build implements build.Interface
 func (gb *gobuild) Build(s string) (v1.Image, error) {
+	// Get the CreationTime
+	creationTime, err := gb.opt.GetCreationTime()
+	if err != nil {
+		return nil, err
+	}
+
 	// Do the build into a temporary file.
 	file, err := gb.build(s)
 	if err != nil {
@@ -188,5 +195,14 @@ func (gb *gobuild) Build(s string) (v1.Image, error) {
 	}
 	cfg = cfg.DeepCopy()
 	cfg.Config.Entrypoint = []string{appPath}
-	return mutate.Config(withApp, cfg.Config)
+	image, err := mutate.Config(withApp, cfg.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	if creationTime != nil {
+		return mutate.CreatedAt(image, *creationTime)
+	}
+
+	return image, nil
 }

@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["gitwebhook.go"],
-    importpath = "github.com/elafros/elafros/sample/gitwebhook",
+    importpath = "github.com/knative/serving/sample/gitwebhook",
     visibility = ["//visibility:private"],
     deps = [
         "//vendor/github.com/google/go-github/github:go_default_library",
@@ -32,7 +32,7 @@ load("@k8s_object//:defaults.bzl", "k8s_object")
 k8s_object(
     name = "everything",
     images = {
-        "github.com/elafros/elafros/sample/gitwebhook": ":image",
+        "github.com/knative/serving/sample/gitwebhook": ":image",
     },
     template = ":sample.yaml",
 )

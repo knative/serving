@@ -29,25 +29,33 @@ spec:
       - name: ela-controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: github.com/elafros/elafros/cmd/ela-controller
+        image: github.com/knative/serving/cmd/controller
         args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
         - "-queueSidecarImage"
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        - github.com/elafros/elafros/cmd/ela-queue
+        - github.com/knative/serving/cmd/queue
         - "-autoscalerImage"
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        - github.com/elafros/elafros/cmd/ela-autoscaler
+        - github.com/knative/serving/cmd/autoscaler
         ports:
         - name: metrics
           containerPort: 9090
         volumeMounts:
-        - name: ela-config
-          mountPath: /etc/config
+        - name: config-autoscaler
+          mountPath: /etc/config-autoscaler
+        - name: config-logging
+          mountPath: /etc/config-logging
+        - name: config-observability
+          mountPath: /etc/config-observability
       volumes:
-        - name: ela-config
+        - name: config-autoscaler
           configMap:
-            name: ela-config
+            name: config-autoscaler
+        - name: config-logging
+          configMap:
+            name: config-logging
+        - name: config-observability
+          configMap:
+            name: config-observability

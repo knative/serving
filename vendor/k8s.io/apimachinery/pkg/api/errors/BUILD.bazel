@@ -6,7 +6,7 @@ go_library(
         "doc.go",
         "errors.go",
     ],
-    importmap = "elafros/vendor/k8s.io/apimachinery/pkg/api/errors",
+    importmap = "knative/vendor/k8s.io/apimachinery/pkg/api/errors",
     importpath = "k8s.io/apimachinery/pkg/api/errors",
     visibility = ["//visibility:public"],
     deps = [

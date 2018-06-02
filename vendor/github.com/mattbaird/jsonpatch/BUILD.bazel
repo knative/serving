@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["jsonpatch.go"],
-    importmap = "elafros/vendor/github.com/mattbaird/jsonpatch",
+    importmap = "knative/vendor/github.com/mattbaird/jsonpatch",
     importpath = "github.com/mattbaird/jsonpatch",
     visibility = ["//visibility:public"],
 )

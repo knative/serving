@@ -18,13 +18,13 @@ package test
 import (
 	"fmt"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// states contains functions for asserting against the state of Elafros
+// states contains functions for asserting against the state of Knative Serving
 // crds to see if they have achieved the states specified in the spec
-// (https://github.com/elafros/elafros/blob/master/docs/spec/spec.md).
+// (https://github.com/knative/serving/blob/master/docs/spec/spec.md).
 
 // AllRouteTrafficeAtRevision will check the revision that routeName is routing
 // traffic to and return true if 100% of the traffic is routing to revisionName.
@@ -53,18 +53,10 @@ func IsRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 			if r.Status.Conditions[0].Type != v1alpha1.RevisionConditionType("Ready") {
 				return true, fmt.Errorf("Expected Revision to have a \"Ready\" status but only had %s", r.Status.Conditions[0].Type)
 			}
-			if r.Status.Conditions[0].Status == corev1.ConditionStatus("Unknown") {
-				if r.Status.Conditions[0].Reason != "Deploying" {
-					return true, fmt.Errorf("If the Revision isn't ready the reason should be to be \"Deploying\" but was %s", r.Status.Conditions[0].Reason)
-				}
-			} else {
-				if r.Status.Conditions[0].Status != corev1.ConditionStatus("True") {
-					return true, fmt.Errorf("Expected Revision Status Condition Status to be True or Unknown but was %s", r.Status.Conditions[0].Status)
-				}
-				if r.Status.Conditions[0].Reason != "ServiceReady" {
-					return true, fmt.Errorf("If the Revision is ready the Reason should be \"ServiceReady\" but was %s", r.Status.Conditions[0].Status)
-				}
+			if r.Status.Conditions[0].Status == corev1.ConditionTrue {
 				return true, nil
+			} else if r.Status.Conditions[0].Status != corev1.ConditionUnknown {
+				return true, fmt.Errorf("Expected Revision Status Condition Status to be True or Unknown but was %s", r.Status.Conditions[0].Status)
 			}
 		}
 		return false, nil

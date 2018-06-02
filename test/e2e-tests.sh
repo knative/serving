@@ -14,16 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Elafros built from source.
+# This script runs the end-to-end tests against Knative Serving built from source.
 # It is started by prow for each PR.
 # For convenience, it can also be executed manually.
 
 # If you already have the *_OVERRIDE environment variables set, call
-# this script with the --run-tests arguments and it will start elafros in
+# this script with the --run-tests arguments and it will start knative in
 # the cluster and run the tests.
 
 # Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start elafros in it, run the tests and delete the
+# project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
@@ -35,8 +35,8 @@ readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
-readonly ISTIO_VERSION=0.6.0
-readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/install/kubernetes
+readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
@@ -45,17 +45,6 @@ readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
 function create_istio() {
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
-
-  ${ISTIO_DIR}/webhook-create-signed-cert.sh \
-    --service istio-sidecar-injector \
-    --namespace istio-system \
-    --secret sidecar-injector-certs
-
-  kubectl apply -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml
-
-  cat ${ISTIO_DIR}/istio-sidecar-injector.yaml | \
-    ${ISTIO_DIR}/webhook-patch-ca-bundle.sh | \
-    kubectl apply -f -
 }
 
 function create_everything() {
@@ -65,10 +54,7 @@ function create_everything() {
 }
 
 function delete_istio() {
-  kubectl delete --ignore-not-found=true \
-    -f ${ISTIO_DIR}/istio-sidecar-injector.yaml \
-    -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml \
-    -f ${ISTIO_DIR}/istio.yaml
+  kubectl delete -f ${ISTIO_DIR}/istio.yaml
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
@@ -85,7 +71,7 @@ function teardown() {
     delete_everything
   fi
 
-  # Delete Elafros images when using prow.
+  # Delete Knative Serving images when using prow.
   if (( IS_PROW )); then
     echo "Images in ${DOCKER_REPO_OVERRIDE}:"
     gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
@@ -119,7 +105,7 @@ function exit_if_failed() {
   kubectl get revisions -o yaml --all-namespaces
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
-  echo ">>> Elafros controller log:"
+  echo ">>> Knative Serving controller log:"
   kubectl logs $(get_ela_pod ela-controller) -n ela-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
@@ -137,7 +123,7 @@ function run_tests() {
 
 # Script entry point.
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
 # Show help if bad arguments are passed.
 if [[ -n $1 && $1 != "--run-tests" ]]; then
@@ -178,9 +164,29 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "v${ELAFROS_GKE_VERSION}" \
+    --extract "v${SERVING_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
+  # Delete target pools and health checks that might have leaked.
+  # See https://github.com/knative/serving/issues/959 for details.
+  # TODO(adrcunha): Remove once the leak issue is resolved.
+  gcp_project=${PROJECT_ID}
+  [[ -z ${gcp_project} ]] && gcp_project=$(gcloud config get-value project)
+  http_health_checks="$(gcloud compute target-pools list \
+    --project=${gcp_project} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    grep httpHealthChecks | tr '\n' ' ')"
+  target_pools="$(gcloud compute target-pools list \
+    --project=${gcp_project} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    tr '\n' ' ')"
+  region="$(gcloud compute zones list --filter=name=${E2E_CLUSTER_ZONE} --format='value(region)')"
+  if [[ -n "${target_pools}" ]]; then
+    echo "Found leaked target pools, deleting"
+    gcloud compute target-pools delete -q --project=${gcp_project} --region=${region} ${target_pools}
+  fi
+  if [[ -n "${http_health_checks}" ]]; then
+    echo "Found leaked health checks, deleting"
+    gcloud compute http-health-checks delete -q --project=${gcp_project} ${http_health_checks}
+  fi
   result="$(cat ${TEST_RESULT_FILE})"
   echo "Test result code is $result"
   exit $result
@@ -214,19 +220,19 @@ if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
 fi
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
-# Build and start Elafros.
+# Build and start Knative Serving.
 
 echo "- Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "- User is ${K8S_USER_OVERRIDE}"
 echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
-header "Building and starting Elafros"
+header "Building and starting Knative Serving"
 trap teardown EXIT
 
 install_ko
 
 if (( USING_EXISTING_CLUSTER )); then
-  echo "Deleting any previous Elafros instance"
+  echo "Deleting any previous Knative Serving instance"
   delete_everything
 fi
 if (( IS_PROW )); then

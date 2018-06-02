@@ -1,6 +1,6 @@
 # Test
 
-This directory contains tests and testing docs for `Elafros`:
+This directory contains tests and testing docs for `Knative Serving`:
 
 * [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
 * [Conformance tests](#running-conformance-tests) in [`/test/conformance`](./conformance)
@@ -46,7 +46,7 @@ go test -v -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --clust
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
 your only option is to use a domain which will resolve to the IP of the running node (see 
-[#609](https://github.com/elafros/elafros/issues/609)):
+[#609](https://github.com/knative/serving/issues/609)):
 
 ```bash
 go test -v -count=1 ./test/conformance --resolvabledomain
@@ -56,14 +56,14 @@ go test -v -count=1 ./test/conformance --resolvabledomain
 
 These tests require:
 
-1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `pizzaplanet` to exist in the cluster: `kubectl create namespace pizzaplanet`
 3. A docker repo contianing [the conformance test images](#conformance-test-images)
 
 ### Conformance test images
 
 The configuration for the images used for the existing conformance tests lives in
-[`test_images_go`](./conformance/test_images_go). See the [section about test
+[`test_images`](./conformance/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
 
 ### Running conformance tests with Bazel
@@ -114,7 +114,7 @@ go test -v ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialclust
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
 your only option is to use a domain which will resolve to the IP of the running node (see 
-[#609](https://github.com/elafros/elafros/issues/609)):
+[#609](https://github.com/knative/serving/issues/609)):
 
 ```bash
 go test -v ./test/e2e --resolvabledomain
@@ -124,14 +124,14 @@ go test -v ./test/e2e --resolvabledomain
 
 These tests require:
 
-1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `noodleburg` to exist in the cluster: `kubectl create namespace noodleburg`
 3. A docker repo containing [the e2e test images](#e2e-test-images)
 
 ### End-to-end test images
 
 The configuration for the images used for the existing e2e tests lives in
-[`test_images_node`](./e2e/test_images_node). See the [section about test
+[`test_images`](./e2e/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
 
 ### Running e2e tests with Bazel
@@ -174,7 +174,7 @@ To run the script:
 ```
 
 The path containing test images is any directory whose subdirectories contain the `Dockerfile`
-and any required files to build Docker images (e.g., `./test/e2e/test_images_node`).
+and any required files to build Docker images (e.g., `./test/e2e/test_images`).
 
 ### Adding new test images
 
@@ -189,7 +189,7 @@ of the owners found in [`/test/OWNERS`](OWNERS) to do this.
 These flags are useful for running against an existing cluster, making use of your existing
 [environment setup](/DEVELOPMENT.md#environment-setup).
 
-Tests importing [`github.com/elafros/elafros/test`](adding_tests.md#test-library) recognize these flags:
+Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library) recognize these flags:
 
 * [`--kubeconfig`](#specifying-kubeconfig)
 * [`--cluster`](#specifying-cluster)

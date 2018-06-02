@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/test"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/test"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,7 +78,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	imagePath := strings.Join(
 		[]string{
 			test.Flags.DockerRepo,
-			NamespaceName + "-autoscale"},
+			"autoscale"},
 		"/")
 
 	log.Println("Creating a new Route and Configuration")
