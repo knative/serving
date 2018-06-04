@@ -76,12 +76,9 @@ helm template --namespace=istio-system \
 
 kubectl create namespace istio-system
 kubectl apply -f istio.yaml
-
 wait_until_pods_running istio-system
 
-header "Enabling automatic sidecar injection in Istio"
 kubectl label namespace default istio-injection=enabled
-wait_until_pods_running istio-system
 
 popd
 
