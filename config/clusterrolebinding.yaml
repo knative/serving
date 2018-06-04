@@ -19,7 +19,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: ela-controller
-    namespace: ela-system
+    namespace: knative-serving-system
 roleRef:
   kind: ClusterRole
   name: cluster-admin
@@ -32,7 +32,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: ela-autoscaler
-    namespace: ela-system
+    namespace: knative-serving-system
 roleRef:
   kind: ClusterRole
   name: cluster-admin

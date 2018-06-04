@@ -19,7 +19,7 @@ const (
 	// AutoscalerNamespace needs to match the service account, which needs to
 	// be a single, known namespace. This ensures that projects created in
 	// non-default namespaces continue to work with autoscaling.
-	AutoscalerNamespace = "ela-system"
+	AutoscalerNamespace = "knative-serving-system"
 
 	// RequestQueuePortName specifies the port name to use for http requests
 	// in queue-proxy container.

@@ -99,7 +99,7 @@ if (( ! installed )); then
   exit 1
 fi
 
-wait_until_pods_running ela-system
+wait_until_pods_running knative-serving-system
 wait_until_pods_running build-system
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"
