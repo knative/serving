@@ -59,14 +59,14 @@ func TestContainerErrorMsg(t *testing.T) {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
 				return true, nil
 			}
-			s := fmt.Sprintf("The configuration %s was not marked with expected error condition with Reason to be \"%s\", Message to be \"%s\", and Status to be \"%s\"", ConfigName, cond.Reason, cond.Message, cond.Status)
+			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", ConfigName, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 			return true, errors.New(s)
 		}
 		return false, nil
 	})
 
 	if err != nil {
-		t.Fatalf("Failed to get configuration state from configuration %s: %v", ConfigName, err)
+		t.Fatalf("Failed to validate configuration state: %s", err)
 	}
 
 	revisionName, err := getRevisionFromConfiguration(clients, ConfigName)
@@ -78,13 +78,17 @@ func TestContainerErrorMsg(t *testing.T) {
 	err = test.WaitForRevisionState(clients.Revisions, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
-			return cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown), nil
+			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) {
+				return true, nil
+			}
+			s := fmt.Sprintf("The revision %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\"), but with (Reason=\"%s\", Message=\"%s\")", revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
+			return true, errors.New(s)
 		}
 		return false, nil
 	})
 
 	if err != nil {
-		t.Fatalf("The revision %s was not marked with expected error condition with Reason to be \"%s\" and Message to be \"%s\"", revisionName, containerMissing, manifestUnknown)
+		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
 	log.Println("When the revision has error condition, logUrl should be populated.")
@@ -93,10 +97,10 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
-	// TODO(jessiezcc@): actually validate the logURL, but requires kibana setup
+	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
 	log.Printf("LogURL: %s", logURL)
 
-	// TODO(jessiezcc@): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
+	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }
 
 // Get revision name from configuration.
