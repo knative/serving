@@ -59,10 +59,6 @@ gcloud --project=${PROJECT_ID} container clusters create \
   --enable-autoscaling --min-nodes=1 --max-nodes=${K8S_CLUSTER_NODES} \
   ${K8S_CLUSTER_NAME}
 
-header "Fetching istio ${ISTIO_VERSION}"
-rm -fr istio-${ISTIO_VERSION}
-curl -L https://git.io/getLatestIstio | sh -
-
 header "Setting cluster admin"
 acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
 

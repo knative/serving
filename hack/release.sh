@@ -113,6 +113,9 @@ fi
 
 echo "Publishing our istio.yaml, so users don't need to use helm."
 gsutil cp ${ISTIO_DIR}/istio.yaml gs://${SERVING_RELEASE_GCS}/latest/istio.yaml
+if [[ -n ${TAG} ]]; then
+  gsutil cp ${ISTIO_DIR}/istio.yaml gs://${SERVING_RELEASE_GCS}/previous/${TAG}/
+fi
 
 echo "New release published successfully"
 
