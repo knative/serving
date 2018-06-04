@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -99,8 +99,7 @@ func main() {
 
 	if len(autoscalerImage) != 0 {
 		logger.Infof("Using autoscaler image: %s", autoscalerImage)
-	} else {
-		logger.Fatal("missing required flag: -autoscalerImage")
+		logger.Info("Single-tenant autoscaler deployments enabled.")
 	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()

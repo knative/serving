@@ -18,9 +18,9 @@ package autoscaler
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/logging"
 )
 
@@ -40,6 +40,13 @@ type Stat struct {
 	RequestCount int32
 }
 
+// StatMessage wraps a Stat with identifying information so it can be routed
+// to the correct receiver.
+type StatMessage struct {
+	RevisionKey string
+	Stat        Stat
+}
+
 type statKey struct {
 	podName string
 	time    time.Time
@@ -51,17 +58,18 @@ var (
 
 // Config defines the tunable autoscaler parameters
 type Config struct {
-	TargetConcurrency    *k8sflag.Float64Flag
-	MaxScaleUpRate       *k8sflag.Float64Flag
-	StableWindow         *k8sflag.DurationFlag
-	PanicWindow          *k8sflag.DurationFlag
-	ScaleToZeroThreshold *k8sflag.DurationFlag
+	TargetConcurrency    float64
+	MaxScaleUpRate       float64
+	StableWindow         time.Duration
+	PanicWindow          time.Duration
+	ScaleToZeroThreshold time.Duration
 }
 
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	Config
 	stats        map[statKey]Stat
+	statsMutex   sync.Mutex
 	panicking    bool
 	panicTime    *time.Time
 	maxPanicPods float64
@@ -77,13 +85,16 @@ func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
 	}
 }
 
-// Record a data point. No safe for concurrent access or concurrent access with Scale.
+// Record a data point.
 func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 	if stat.Time == nil {
 		logger := logging.FromContext(ctx)
 		logger.Errorf("Missing time from stat: %+v", stat)
 		return
 	}
+	a.statsMutex.Lock()
+	defer a.statsMutex.Unlock()
+
 	key := statKey{
 		podName: stat.PodName,
 		time:    *stat.Time,
@@ -92,9 +103,11 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
-// Not safe for concurrent access or concurrent access with Record.
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
+	a.statsMutex.Lock()
+	defer a.statsMutex.Unlock()
+
 	// 60 second window
 	stableTotal := float64(0)
 	stableCount := float64(0)
@@ -110,12 +123,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	for key, stat := range a.stats {
 		instant := key.time
-		if instant.Add(*a.PanicWindow.Get()).After(now) {
+		if instant.Add(a.PanicWindow).After(now) {
 			panicTotal = panicTotal + stat.AverageConcurrentRequests
 			panicCount = panicCount + 1
 			panicPods[stat.PodName] = true
 		}
-		if instant.Add(*a.StableWindow.Get()).After(now) {
+		if instant.Add(a.StableWindow).After(now) {
 			stableTotal = stableTotal + stat.AverageConcurrentRequests
 			stableCount = stableCount + 1
 			stablePods[stat.PodName] = true
@@ -135,7 +148,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
-	if lastRequestTime.Add(*a.ScaleToZeroThreshold.Get()).Before(now) {
+	if lastRequestTime.Add(a.ScaleToZeroThreshold).Before(now) {
 		return 0, true
 	}
 
@@ -149,7 +162,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
 	// Stop panicking after the surge has made its way into the stable metric.
-	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
+	if a.panicking && a.panicTime.Add(a.StableWindow).Before(now) {
 		logger.Info("Un-panicking.")
 		a.reporter.Report(PanicM, 0)
 		a.panicking = false
@@ -169,19 +182,19 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 
 	// Desired scaling ratio is observed concurrency over desired
 	// (stable) concurrency. Rate limited to within MaxScaleUpRate.
-	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())
-	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency.Get())
+	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency)
+	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency)
 
 	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
 
 	logger.Debugf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, a.StableWindow.Get(), stableCount, len(stablePods))
+		observedStableConcurrency, a.StableWindow, stableCount, len(stablePods))
 	logger.Debugf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, a.PanicWindow.Get(), panicCount, len(panicPods))
+		observedPanicConcurrency, a.PanicWindow, panicCount, len(panicPods))
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
+	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency*2) {
 		logger.Info("PANICKING")
 		a.reporter.Report(PanicM, 1)
 		a.panicking = true
@@ -202,8 +215,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 }
 
 func (a *Autoscaler) rateLimited(desiredRate float64) float64 {
-	if desiredRate > a.MaxScaleUpRate.Get() {
-		return a.MaxScaleUpRate.Get()
+	if desiredRate > a.MaxScaleUpRate {
+		return a.MaxScaleUpRate
 	}
 	return desiredRate
 }

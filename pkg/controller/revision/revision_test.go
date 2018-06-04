@@ -396,7 +396,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			foundQueueProxy = true
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
-			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
+			checkEnv(container.Env, "ELA_REVISION", fmt.Sprintf("%s/%s", testNamespace, rev.Name), "")
 			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
 			checkEnv(container.Env, "ELA_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
 			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
@@ -1496,5 +1496,34 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 	_, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+}
+
+func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.AutoscalerImage = ""
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestControllerWithConfig(t, &controllerConfig)
+
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
+
+	// Look for the autoscaler deployment.
+	_, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Errorf("Expected autoscaler deployment %s to not exist.", expectedAutoscalerName)
+	}
+
+	// Look for the autoscaler service.
+	_, err = kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Errorf("Expected autoscaler service %s to not exist.", expectedAutoscalerName)
 	}
 }

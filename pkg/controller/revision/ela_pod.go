@@ -51,7 +51,7 @@ func hasHTTPPath(p *corev1.Probe) bool {
 // MakeElaPodSpec creates a pod spec.
 func MakeElaPodSpec(
 	rev *v1alpha1.Revision,
-	controllerConfig *ControllerConfig) *corev1.PodSpec {
+	controllerConfig *ControllerConfig) (*corev1.PodSpec, error) {
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -106,8 +106,13 @@ func MakeElaPodSpec(
 		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
-	podSpe := &corev1.PodSpec{
-		Containers:         []corev1.Container{*elaContainer, *MakeElaQueueContainer(rev, controllerConfig)},
+	queueContainer, err := MakeElaQueueContainer(rev, controllerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	podSpec := &corev1.PodSpec{
+		Containers:         []corev1.Container{*elaContainer, *queueContainer},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
@@ -175,11 +180,11 @@ func MakeElaPodSpec(
 			},
 		}
 
-		podSpe.Containers = append(podSpe.Containers, fluentdContainer)
-		podSpe.Volumes = append(podSpe.Volumes, fluentdConfigMapVolume)
+		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
+		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
 	}
 
-	return podSpe
+	return podSpec, nil
 }
 
 // MakeElaDeployment creates a deployment.

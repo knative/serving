@@ -26,12 +26,28 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/cache"
 )
 
 // MakeElaQueueContainer creates the container spec for queue sidecar.
-func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
+func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) (*corev1.Container, error) {
 	const elaQueueConfigVolumeName = "ela-queue-config"
-	return &corev1.Container{
+
+	revisionKey, err := cache.MetaNamespaceKeyFunc(rev)
+	if err != nil {
+		return nil, err
+	}
+
+	// If AutoscalerImage is empty, connect to the multitenant autoscaler.
+	// Otherwise connect to the single-tenant autoscaler.
+	var autoscalerAddress string
+	if controllerConfig.AutoscalerImage == "" {
+		autoscalerAddress = "autoscaler"
+	} else {
+		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
+	}
+
+	c := &corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,
 		Resources: corev1.ResourceRequirements{
@@ -87,11 +103,11 @@ func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerC
 			},
 			{
 				Name:  "ELA_REVISION",
-				Value: rev.Name,
+				Value: revisionKey,
 			},
 			{
 				Name:  "ELA_AUTOSCALER",
-				Value: controller.GetRevisionAutoscalerName(rev),
+				Value: autoscalerAddress,
 			},
 			{
 				Name:  "ELA_AUTOSCALER_PORT",
@@ -115,4 +131,5 @@ func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerC
 			},
 		},
 	}
+	return c, nil
 }

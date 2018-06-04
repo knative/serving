@@ -27,13 +27,13 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	ela_autoscaler "github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/gorilla/websocket"
 
@@ -98,11 +98,11 @@ func autoscaler() {
 		logger.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    targetConcurrency,
-		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required),
-		StableWindow:         autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required),
-		PanicWindow:          autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required),
-		ScaleToZeroThreshold: autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic),
+		TargetConcurrency:    targetConcurrency.Get(),
+		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required).Get(),
+		StableWindow:         *autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required).Get(),
+		PanicWindow:          *autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required).Get(),
+		ScaleToZeroThreshold: *autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required).Get(),
 	}
 	a := ela_autoscaler.NewAutoscaler(config, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
@@ -210,13 +210,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var stat ela_autoscaler.Stat
-		err = dec.Decode(&stat)
+		var sm ela_autoscaler.StatMessage
+		err = dec.Decode(&sm)
 		if err != nil {
 			logger.Error("Failed to decode stats", zap.Error(err))
 			continue
 		}
-		statChan <- stat
+		statChan <- sm.Stat
 	}
 }
 
