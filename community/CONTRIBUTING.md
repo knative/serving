@@ -1,8 +1,8 @@
-# Contributing to Elafros
+# Contributing to Knative
 
-So, you want to hack on Elafros? Yay!
+So, you want to hack on Knative? Yay!
 
-The following sections outline the process all changes to the Elafros
+The following sections outline the process all changes to the Knative
 repositories go through. All changes, regardless of whether they are from
 newcomers to the community or from the core team follow the same process and
 are given the same level of review.
@@ -13,19 +13,19 @@ are given the same level of review.
 *   [Contributor license agreements](#contributor-license-agreements)
 *   [Design documents](#design-documents)
 *   [Contributing a feature](#contributing-a-feature)
-*   [Setting up to contribute to Elafros](#setting-up-to-contribute-to-knative)
+*   [Setting up to contribute to Knative](#setting-up-to-contribute-to-knative)
 *   [Pull requests](#pull-requests)
 *   [Issues](#issues)
 
 ## Working groups
 
-The Elafros community is organized into a set of [working
-groups](WORKING-GROUPS.md). Any contribution to Elafros should be started by
+The Knative community is organized into a set of [working
+groups](WORKING-GROUPS.md). Any contribution to Knative should be started by
 first engaging with the appropriate working group.
 
 ## Code of conduct
 
-All members of the Elafros community must abide by the [Code of
+All members of the Knative community must abide by the [Code of
 Conduct](CODE-OF-CONDUCT.md). Only by respecting each other can we develop a
 productive, collaborative community.
 
@@ -52,7 +52,7 @@ the doc to our
 [Team Drive](https://drive.google.com/corp/drive/folders/0APnJ_hRs30R2Uk9PVA)
 and sending an email to the appropriate working group's mailing list to let
 people know the doc is there. To get write access to the drive, you'll need
-to be a [member](ROLES.md#member) of the Elafros organization.
+to be a [member](ROLES.md#member) of the Knative organization.
 
 We do not yet have a common design document template(TODO).
 
@@ -66,7 +66,7 @@ there, so please forgive any delays.
 
 ## Contributing a feature
 
-In order to contribute a feature to Elafros you'll need to go through the
+In order to contribute a feature to Knative you'll need to go through the
 following steps:
 
 *   Discuss your idea with the appropriate [working groups](WORKING-GROUPS.md)
@@ -110,11 +110,11 @@ is usually best to get agreement on the idea/design before time is spent coding
 it. However, sometimes seeing the exact code change can help focus discussions,
 so the choice is up to you.
 
-## Setting up to contribute to Elafros
+## Setting up to contribute to Knative
 
 Check out this
 [README](https://github.com/knative/serving/blob/master/README.md) to learn
-about the Elafros source base and setting up your [development
+about the Knative source base and setting up your [development
 environment](https://github.com/knative/serving/blob/master/DEVELOPMENT.md).
 
 ## Pull requests
@@ -144,7 +144,7 @@ When ready, if you have not already done so, sign a [contributor license
 agreement](#contributor-license-agreements) and submit the PR.
 
 See [Reviewing and Merging Pull Requests](REVIEWING.md) for the PR review and
-merge process used for Elafros.
+merge process used for knative.
 
 ## Issues
 

@@ -1,4 +1,4 @@
-# Reviewing and Merging Pull Requests for Elafros
+# Reviewing and Merging Pull Requests for Knative
 
 As a community we believe in the value of code reviews for all contributions.
 Code reviews increase both the quality and readability of our code base, which
@@ -25,7 +25,7 @@ Please do not ever hesitate to ask a question or send a PR.
 
 Because reviewers are often the first points of contact between new members of
 the community and can therefore significantly impact the first impression of the
-Elafros community, reviewers are especially important in shaping the community.
+Knative community, reviewers are especially important in shaping the community.
 Reviewers are highly encouraged to review the [code of
 conduct](CODE-OF-CONDUCT.md) and are strongly encouraged to go above and beyond
 the code of conduct to promote a collaborative and respectful community.
@@ -110,13 +110,13 @@ Currently the Prow instance is internal to Google, which means that only Google
 employees are able to access the "Details" link of the test job (provided by
 Prow in the PR thread).
 
-However, if you're an Elafros team member outside Google, and provided that you
+However, if you're an Knative team member outside Google, and provided that you
 are a member of the [knative-dev@](https://groups.google.com/forum/#!forum/knative-dev)
 Google group, you can see the test logs by following these instructions:
 
 1. Wait for prow to finish the test execution. Note down the PR number.
 
-2. Open the URL http://gcsweb.k8s.io/gcs/ela-prow/pr-logs/pull/knative_knative/###/pull-knative-knative-@@@-tests/
+2. Open the URL http://gcsweb.k8s.io/gcs/ela-prow/pr-logs/pull/elafros_elafros/###/pull-elafros-elafros-@@@-tests/
 where ### is the PR number and @@@ the test type (_build_, _unit_ or _integration_).
 
 3. You'll see one or more numbered directories, the highest number is the latest

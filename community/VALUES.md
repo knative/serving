@@ -1,4 +1,4 @@
-# Elafros Team Values
+# Knative Team Values
 
 We want to make sure every member has a shared understanding of the goals and
 values we hold as a team:
@@ -21,7 +21,7 @@ values we hold as a team:
     *   Disagreements are welcome and encouraged, but don't use broad
         generalizations, exaggerations, or judgement words that can be taken
         personally. Consider other people’s perspective (including the wide
-        range of applicability of Elafros). Empathize with our users. Focus on
+        range of applicability of Knative). Empathize with our users. Focus on
         the specific issue at hand, and remember that we all care about the
         project, first and foremost.
     *   Emails to the [mailing lists](CONTRIBUTING.md#contributing-a-feature),
