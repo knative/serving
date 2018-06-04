@@ -1,6 +1,6 @@
-# Fluentd Docker Image in Knative
+# Fluentd Docker Image on Knative Serving
 
-Knative uses a [Fluentd](https://www.fluentd.org/) docker image to collect
+Knative Serving uses a [Fluentd](https://www.fluentd.org/) docker image to collect
 logs. Operators can customize their own docker image and configuration to
 define logging output.
 
@@ -36,5 +36,5 @@ which allows sending logs to Stackdriver.
 Operators can build this image and push it to a container registry which
 their Kubernetes cluster has access to. **NOTE**: Operators need to add
 credentials file the stackdriver agent needs to the docker image if their
-Elafros is not built on a GCP based cluster or they want to send logs to
+Knative Serving is not built on a GCP based cluster or they want to send logs to
 another GCP project. See [here](https://cloud.google.com/logging/docs/agent/authorization) for more information.

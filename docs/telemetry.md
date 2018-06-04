@@ -44,7 +44,7 @@ If your Knative Serving is not built on a GCP based cluster or you want to send 
 another GCP project, you need to build your own Fluentd image and modify the
 configuration first. See
 
-1. [Fluentd image on Knative](/image/fluentd/README.md)
+1. [Fluentd image on Knative Serving](/image/fluentd/README.md)
 2. [Setting up a logging plugin](setting-up-a-logging-plugin.md)
 
 Then you can use two different setups:
