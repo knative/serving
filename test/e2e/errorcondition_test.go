@@ -41,6 +41,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients) })
 
 	// Specify an invalid image path
+	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
 	log.Printf("Creating a new Route and Configuration %s", imagePath)
@@ -68,7 +69,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get configuration state from configuration %s: %v", ConfigName, err)
 	}
 
-	revisionName, err := GetRevisionFromConfiguration(clients, ConfigName)
+	revisionName, err := getRevisionFromConfiguration(clients, ConfigName)
 	if err != nil {
 		t.Fatalf("Failed to get revision from configuration %s: %v", ConfigName, err)
 	}
@@ -87,19 +88,19 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	log.Println("When the revision has error condition, logUrl should be populated.")
-	logURL, err := GetLogURLFromRevision(clients, revisionName)
+	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
-	// TODD(jessiezhu@): actually validate the logURL, but requires kibana setup
+	// TODO(jessiezcc@): actually validate the logURL, but requires kibana setup
 	log.Printf("LogURL: %s", logURL)
 
-	// TODD(jessiezhu@): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
+	// TODO(jessiezcc@): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }
 
 // Get revision name from configuration.
-func GetRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
+func getRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
 	config, err := clients.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -112,7 +113,7 @@ func GetRevisionFromConfiguration(clients *test.Clients, configName string) (str
 }
 
 // Get LogURL from revision.
-func GetLogURLFromRevision(clients *test.Clients, revisionName string) (string, error) {
+func getLogURLFromRevision(clients *test.Clients, revisionName string) (string, error) {
 	revision, err := clients.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
