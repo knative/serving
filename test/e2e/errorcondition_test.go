@@ -47,7 +47,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	manifestUnknown := string(remote.ManifestUnknownErrorCode) // "MANIFEST_UNKNOWN"
+	manifestUnknown := string(remote.ManifestUnknownErrorCode)
 	log.Println("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
