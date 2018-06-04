@@ -20,7 +20,6 @@ import (
 	"log"
 	"strings"
 	"testing"
-	//"time"
 	"fmt"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -32,15 +31,15 @@ const (
 	containerMissing = "ContainerMissing"
 )
 
-//This test is to validate error condition defined at
-//https://github.com/knative/serving/blob/master/docs/spec/errors.md
-// for container image missing scenario
+// This test is to validate the error condition defined at
+// https://github.com/knative/serving/blob/master/docs/spec/errors.md
+// for the container image missing scenario
 func TestContainerErrorMsg(t *testing.T) {
 	clients := Setup(t)
 	defer TearDown(clients)
 	test.CleanupOnInterrupt(func() { TearDown(clients) })
 
-	//specify an invalid image path
+	// Specify an invalid image path
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
 	log.Printf("Creating a new Route and Configuration %s", imagePath)
@@ -48,17 +47,17 @@ func TestContainerErrorMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	manifestUnknown := string(remote.ManifestUnknownErrorCode) //"MANIFEST_UNKNOWN"
+	manifestUnknown := string(remote.ManifestUnknownErrorCode) // "MANIFEST_UNKNOWN"
 	log.Println("When the imagepath is invalid, the Configuration should have error status.")
 
-	//checking for "Container image not present in repository" scenario defined in error condition spec
+	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.Configs, ConfigName, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
 				return true, nil
 			} else {
-				s := fmt.Sprintf("The configuration %s was not marked with expected error condition, Reason: %s Message: %s Status: %s", ConfigName, containerMissing, manifestUnknown, "False")
+				s := fmt.Sprintf("The configuration %s was not marked with expected error condition with Reason to be \"%s\", Message to be \"%s\", and Status to be \"%s\"", ConfigName, containerMissing, manifestUnknown, "False")
 				return true, errors.New(s)
 			}
 		} else {
@@ -72,7 +71,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	revisionName, err := GetRevisionFromConfiguration(clients, ConfigName)
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatalf("Failed to get revision from configuration %s: %v", ConfigName, err)
 	}
 
 	log.Println("When the imagepath is invalid, the revision should have error status.")
@@ -86,24 +85,23 @@ func TestContainerErrorMsg(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("The revision %s was not marked with expected error condition Reason: %s Message: %s", revisionName, containerMissing, manifestUnknown)
+		t.Fatalf("The revision %s was not marked with expected error condition with Reason to be \"%s\" and Message to be \"%s\"", revisionName, containerMissing, manifestUnknown)
 	}
 
-	log.Println("when the revision has error condition, logUrl should be populated.")
+	log.Println("When the revision has error condition, logUrl should be populated.")
 	logURL, err := GetLogUrlFromRevision(clients, revisionName)
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
-	//ToDo: actually validate the logURL, but requires kibana setup
+	// ToDo: actually validate the logURL, but requires kibana setup
 	log.Printf("LogURL: %s", logURL)
 
-	/*  ToDo:
-	Add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
-	*/
+	// ToDo: add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
+
 }
 
-//get revision name from configuration
+// Get revision name from configuration
 func GetRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
 	config, err := clients.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
@@ -117,7 +115,7 @@ func GetRevisionFromConfiguration(clients *test.Clients, configName string) (str
 	}
 }
 
-//get LogURL from revision
+// Get LogURL from revision
 func GetLogUrlFromRevision(clients *test.Clients, revisionName string) (string, error) {
 	revision, err := clients.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
