@@ -56,18 +56,18 @@ if [[ "$1" != "--skip-tests" ]]; then
   banner "RUNNING RELEASE VALIDATION TESTS"
   # Run tests.
   ./test/presubmit-tests.sh
-else
-  install_ko
 fi
+
+install_ko
 
 banner "    BUILDING THE RELEASE   "
 
 # Set the repository
 export KO_DOCKER_REPO=${SERVING_RELEASE_GCR}
-export DOCKER_REPO_OVERRIDE=${SERVING_RELEASE_GCR}
 # Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
+export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
 
 # If this is a prow job,
 TAG=""
