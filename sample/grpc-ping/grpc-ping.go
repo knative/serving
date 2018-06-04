@@ -17,7 +17,6 @@ var port = 8080
 type pingServer struct {
 }
 
-// GetFeature returns the feature at the given point.
 func (p *pingServer) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	return &ping.Response{Msg: fmt.Sprintf("%s - pong", req.Msg)}, nil
 }
