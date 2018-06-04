@@ -54,9 +54,9 @@ import (
 )
 
 const (
-	elaContainerName string = "ela-container"
-	elaPortName      string = "ela-port"
-	elaPort                 = 8080
+	userContainerName string = "user-container"
+	userPortName      string = "user-port"
+	userPort                 = 8080
 
 	fluentdContainerName string = "fluentd-proxy"
 	queueContainerName   string = "queue-proxy"

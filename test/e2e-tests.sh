@@ -29,12 +29,12 @@
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_NAME=ela-e2e-cluster${BUILD_NUMBER}
-readonly E2E_NETWORK_NAME=ela-e2e-net${BUILD_NUMBER}
+readonly E2E_CLUSTER_NAME=e2e-cluster${BUILD_NUMBER}
+readonly E2E_NETWORK_NAME=e2e-net${BUILD_NUMBER}
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
+readonly TEST_RESULT_FILE=/tmp/e2e-result
 readonly ISTIO_VERSION=0.8.0
 readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
@@ -106,7 +106,7 @@ function exit_if_failed() {
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_ela_pod ela-controller) -n knative-serving-system
+  kubectl logs $(get_ela_pod controller) -n knative-serving-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
@@ -216,7 +216,7 @@ fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/ela-e2e-img
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/e2e-img
 fi
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
@@ -250,8 +250,8 @@ exit_if_failed
 
 # Run the tests
 
-run_tests conformance pizzaplanet ela-conformance-test
-run_tests e2e noodleburg ela-e2e-test
+run_tests conformance pizzaplanet conformance-test
+run_tests e2e noodleburg e2e-test
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

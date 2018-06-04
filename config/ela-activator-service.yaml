@@ -18,10 +18,10 @@ metadata:
   name: activator-service
   namespace: knative-serving-system
   labels:
-    app: ela-activator
+    app: activator
 spec:
   selector:
-    app: ela-activator
+    app: activator
   ports:
   - name: http
     protocol: TCP

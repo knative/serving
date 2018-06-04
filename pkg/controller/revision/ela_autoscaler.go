@@ -143,7 +143,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 							},
 						},
 					},
-					ServiceAccountName: "ela-autoscaler",
+					ServiceAccountName: "autoscaler",
 					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
 				},
 			},

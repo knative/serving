@@ -15,10 +15,10 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: ela-controller-admin
+  name: controller-admin
 subjects:
   - kind: ServiceAccount
-    name: ela-controller
+    name: controller
     namespace: knative-serving-system
 roleRef:
   kind: ClusterRole
@@ -28,10 +28,10 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: ela-autoscaler-write
+  name: autoscaler-write
 subjects:
   - kind: ServiceAccount
-    name: ela-autoscaler
+    name: autoscaler
     namespace: knative-serving-system
 roleRef:
   kind: ClusterRole
@@ -41,10 +41,10 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: ela-revision-read
+  name: revision-read
 subjects:
   - kind: ServiceAccount
-    name: ela-revision
+    name: revision
     namespace: default
 roleRef:
   kind: ClusterRole

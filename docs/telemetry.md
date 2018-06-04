@@ -95,7 +95,7 @@ There are several other collectors that are pre-configured but not enabled. To s
 
 ## Default logs
 Deployment above enables collection of the following logs:
-* stdout & stderr from all ela-container
+* stdout & stderr from all user-container
 * stdout & stderr from build-controller
 
 To enable log collection from other containers and destinations, edit fluentd-es-configmap.yaml (search for "fluentd-containers.log" for the starting point). Then run the following:
@@ -121,7 +121,7 @@ Then browse to http://localhost:9090 to access the UI:
 ## Generating metrics
 
 If you want to send metrics from your controller, follow the steps below. 
-These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
+These steps are already applied to autoscaler and controller. For those controllers,
 simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
 instrument your code as described in step 3.
 
@@ -145,7 +145,7 @@ var (
 )
 
 func main() {
-	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: ela-autoscaler)}"})
+	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: autoscaler)}"})
 	if err != nil {
 		glog.Fatal(err)
 	}

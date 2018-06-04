@@ -132,7 +132,7 @@ The Knative Serving ingress service will automatically be assigned an IP so let'
 # Put the Ingress Host name into an environment variable.
 export SERVICE_HOST=`kubectl get route thumb -o jsonpath="{.status.domain}"`
 
-export SERVICE_IP=`kubectl get ing thumb-ela-ingress \
+export SERVICE_IP=`kubectl get ing thumb-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
