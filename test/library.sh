@@ -137,6 +137,11 @@ function ko() {
   if [[ -e "${OUTPUT_GOBIN}/ko" ]]; then
     "${OUTPUT_GOBIN}/ko" $@
   else
-    ko $@
+    local local_ko="$(which ko)"
+    if [[ -z "${local_ko}" ]]; then
+      echo "error: ko not installed, either in the system or explicitly"
+      return 1
+    fi
+    $local_ko $@
   fi
 }
