@@ -95,7 +95,7 @@ For Linux use:
 
 ```shell
 minikube start \
-  --kubernetes-version=v1.10.2 \
+  --kubernetes-version=v1.10.0 \
   --vm-driver=kvm2 \
   --bootstrapper=localkube \
   --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
@@ -106,7 +106,7 @@ For macOS use:
 
 ```shell
 minikube start \
-  --kubernetes-version=v1.10.2 \
+  --kubernetes-version=v1.10.0 \
   --vm-driver=hyperkit \
   --bootstrapper=localkube \
   --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
