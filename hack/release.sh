@@ -25,6 +25,10 @@ source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
 
+# Istio.yaml file to upload
+readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
+
 # Local generated yaml file.
 readonly OUTPUT_YAML=release.yaml
 
@@ -106,6 +110,9 @@ gsutil cp ${OUTPUT_YAML} gs://${SERVING_RELEASE_GCS}/latest/release.yaml
 if [[ -n ${TAG} ]]; then
   gsutil cp ${OUTPUT_YAML} gs://${SERVING_RELEASE_GCS}/previous/${TAG}/
 fi
+
+echo "Publishing our istio.yaml, so users don't need to use helm."
+gsutil cp ${ISTIO_DIR}/istio.yaml gs://${SERVING_RELEASE_GCS}/latest/istio.yaml
 
 echo "New release published successfully"
 

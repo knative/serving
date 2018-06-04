@@ -26,6 +26,7 @@ readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
 readonly ISTIO_VERSION=0.8.0
 readonly SERVING_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
+readonly ISTIO_YAML=https://storage.googleapis.com/knative-releases/latest/istio.yaml
 export ISTIO_VERSION
 readonly PROJECT_USER=$(gcloud config get-value core/account)
 readonly CURRENT_PROJECT=$(gcloud config get-value project)
@@ -65,22 +66,11 @@ curl -L https://git.io/getLatestIstio | sh -
 header "Setting cluster admin"
 acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
 
-pushd istio-${ISTIO_VERSION}/
-
 header "Installing istio"
-
-helm template --namespace=istio-system \
-    --set sidecarInjectorWebhook.enabled=true \
-    --set global.proxy.image=proxyv2 \
-    install/kubernetes/helm/istio > istio.yaml
-
-kubectl create namespace istio-system
-kubectl apply -f istio.yaml
+kubectl apply -f ${ISTIO_YAML}
 wait_until_pods_running istio-system
 
 kubectl label namespace default istio-injection=enabled
-
-popd
 
 header "Installing Knative Serving"
 # Install might fail before succeding, so we retry a few times.
