@@ -112,7 +112,7 @@ You should get the same results as you directly access these services.
 
 ## How It Works
 This is the traffic flow of this sample:
-![Object model](images/knative-sample-flow.png)
+![Object model](images/knative-routing-sample-flow.png)
 
 4 components are defined in order to implement the routing.
 1. Ingress "entry-ingress": a new Ingress entry for routing traffic.
