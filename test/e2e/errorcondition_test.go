@@ -33,7 +33,7 @@ const (
 
 // This test is to validate the error condition defined at
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
-// for the container image missing scenario
+// for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
 	clients := Setup(t)
 	defer TearDown(clients)
@@ -57,7 +57,7 @@ func TestContainerErrorMsg(t *testing.T) {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
 				return true, nil
 			} else {
-				s := fmt.Sprintf("The configuration %s was not marked with expected error condition with Reason to be \"%s\", Message to be \"%s\", and Status to be \"%s\"", ConfigName, containerMissing, manifestUnknown, "False")
+				s := fmt.Sprintf("The configuration %s was not marked with expected error condition with Reason to be \"%s\", Message to be \"%s\", and Status to be \"%s\"", ConfigName, cond.Reason, cond.Message, cond.Status)
 				return true, errors.New(s)
 			}
 		} else {
@@ -66,7 +66,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("%v", err)
+		t.Fatalf("Failed to get configuration state from configuration %s: %v", ConfigName, err)
 	}
 
 	revisionName, err := GetRevisionFromConfiguration(clients, ConfigName)
@@ -94,14 +94,13 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
-	// ToDo: actually validate the logURL, but requires kibana setup
+	// TODD(jessiezhu@): actually validate the logURL, but requires kibana setup
 	log.Printf("LogURL: %s", logURL)
 
-	// ToDo: add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
-
+	// TODD(jessiezhu@): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }
 
-// Get revision name from configuration
+// Get revision name from configuration.
 func GetRevisionFromConfiguration(clients *test.Clients, configName string) (string, error) {
 	config, err := clients.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
@@ -115,7 +114,7 @@ func GetRevisionFromConfiguration(clients *test.Clients, configName string) (str
 	}
 }
 
-// Get LogURL from revision
+// Get LogURL from revision.
 func GetLogUrlFromRevision(clients *test.Clients, revisionName string) (string, error) {
 	revision, err := clients.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
