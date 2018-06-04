@@ -112,8 +112,8 @@ func NewController(
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
-	informer := elaInformerFactory.Knative().V1alpha1().Routes()
-	configInformer := elaInformerFactory.Knative().V1alpha1().Configurations()
+	informer := elaInformerFactory.Serving().V1alpha1().Routes()
+	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 
 	controller := &Controller{
@@ -330,8 +330,8 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(ns)
-	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(ns)
+	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(ns)
+	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
 	configMap := map[string]*v1alpha1.Configuration{}
 	revMap := map[string]*v1alpha1.Revision{}
 
@@ -363,7 +363,7 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 	revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(ns)
+	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(ns)
 
 	// Get indirect configurations.
 	for _, rev := range revMap {
@@ -390,7 +390,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 	revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	revisionClient := c.ElaClientSet.KnativeV1alpha1().Revisions(ns)
+	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
 
 	for _, tt := range route.Spec.Traffic {
 		if tt.ConfigurationName != "" {
@@ -422,7 +422,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 func (c *Controller) setLabelForGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(route.Namespace)
+	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(route.Namespace)
 
 	// Validate
 	for _, config := range configMap {
@@ -458,7 +458,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 func (c *Controller) setLabelForGivenRevisions(
 	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	revisionClient := c.ElaClientSet.KnativeV1alpha1().Revisions(route.Namespace)
+	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(route.Namespace)
 
 	// Validate revision if it already has a route label
 	for _, rev := range revMap {
@@ -492,7 +492,7 @@ func (c *Controller) setLabelForGivenRevisions(
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(route.Namespace)
+	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(route.Namespace)
 	// Get Configurations set as traffic target before this sync.
 	oldConfigsList, err := configClient.List(
 		metav1.ListOptions{
@@ -522,7 +522,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(route.Namespace)
+	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(route.Namespace)
 
 	oldRevList, err := revClient.List(
 		metav1.ListOptions{
@@ -653,7 +653,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
-	revClient := c.ElaClientSet.KnativeV1alpha1().Revisions(ns)
+	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {
 		configName := tt.ConfigurationName
@@ -767,7 +767,7 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 }
 
 func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
-	routeClient := c.ElaClientSet.KnativeV1alpha1().Routes(route.Namespace)
+	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(route.Namespace)
 	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -900,7 +900,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	// Don't modify the informers copy
 	route = route.DeepCopy()
 	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
-		logger.Errorf("Error updating route upon configuration becoming ready", zap.Error(err))
+		logger.Error("Error updating route upon configuration becoming ready", zap.Error(err))
 	}
 }
 
@@ -926,7 +926,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 		}
 	}
 	ns := ingress.Namespace
-	routeClient := c.ElaClientSet.KnativeV1alpha1().Routes(ns)
+	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(ns)
 	route, err := routeClient.Get(routeName, metav1.GetOptions{})
 	if err != nil {
 		c.Logger.Error(

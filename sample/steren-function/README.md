@@ -7,11 +7,11 @@ This is based on the source code available from: github.com/steren/sample-functi
 
 ## Prerequisites
 
-[Install Elafros](https://github.com/knative/install/blob/master/README.md)
+[Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+You can deploy this to Knative Serving from the root directory via:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
@@ -27,7 +27,7 @@ Once deployed, you will see that it first builds:
 $ kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: knative.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:

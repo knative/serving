@@ -122,13 +122,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Config() istio.Interface
-	Knative() serving.Interface
+	Serving() serving.Interface
 }
 
 func (f *sharedInformerFactory) Config() istio.Interface {
 	return istio.New(f, f.namespace, f.tweakListOptions)
 }
 
-func (f *sharedInformerFactory) Knative() serving.Interface {
+func (f *sharedInformerFactory) Serving() serving.Interface {
 	return serving.New(f, f.namespace, f.tweakListOptions)
 }

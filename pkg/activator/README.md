@@ -13,7 +13,7 @@ The picture below shows traffic configuration for a route "abc-route".
 
 ## Istio Route Rules Configurations
 
-Elafros Route objects control traffic split via Istio route rules. When a revision is in Reserve state
+Knative Serving Route objects control traffic split via Istio route rules. When a revision is in Reserve state
 due to inactivity, instead of letting the revision get traffic assignment directly, Route defines route
 rules such that the activator gets the portion of traffic for the revision. Below are detailed description
 for three cases.

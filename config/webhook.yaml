@@ -32,9 +32,9 @@ spec:
         # and substituted here.
         image: github.com/knative/serving/cmd/webhook
         volumeMounts:
-        - name: ela-webhook-config
-          mountPath: /etc/config
+        - name: config-logging
+          mountPath: /etc/config-logging
       volumes:
-        - name: ela-webhook-config
+        - name: config-logging
           configMap:
-            name: ela-webhook-config
+            name: config-logging

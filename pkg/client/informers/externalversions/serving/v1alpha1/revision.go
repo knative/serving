@@ -58,13 +58,13 @@ func NewFilteredRevisionInformer(client versioned.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KnativeV1alpha1().Revisions(namespace).List(options)
+				return client.ServingV1alpha1().Revisions(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KnativeV1alpha1().Revisions(namespace).Watch(options)
+				return client.ServingV1alpha1().Revisions(namespace).Watch(options)
 			},
 		},
 		&serving_v1alpha1.Revision{},

@@ -89,7 +89,7 @@ if ! (( RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
   exit 1
 fi
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
 # Skip presubmit tests if only markdown files were changed.
 if [[ -n "${PULL_PULL_SHA}" ]]; then

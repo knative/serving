@@ -7,6 +7,7 @@ go_library(
         "ela_autoscaler.go",
         "ela_fluentd.go",
         "ela_pod.go",
+        "ela_queue.go",
         "ela_resolve.go",
         "ela_resource.go",
         "ela_service.go",

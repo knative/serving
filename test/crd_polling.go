@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// crdpolling contains functions which poll Elafros CRDs until they
+// crdpolling contains functions which poll Knative Serving CRDs until they
 // get into the state desired by the caller or time out.
 
 package test

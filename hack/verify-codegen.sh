@@ -18,11 +18,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ELAFROS_ROOT=$(dirname "${BASH_SOURCE}")/..
+SERVING_ROOT=$(dirname "${BASH_SOURCE}")/..
 
-DIFFROOT="${ELAFROS_ROOT}/pkg"
-TMP_DIFFROOT="${ELAFROS_ROOT}/_tmp/pkg"
-_tmp="${ELAFROS_ROOT}/_tmp"
+DIFFROOT="${SERVING_ROOT}/pkg"
+TMP_DIFFROOT="${SERVING_ROOT}/_tmp/pkg"
+_tmp="${SERVING_ROOT}/_tmp"
 
 cleanup() {
   rm -rf "${_tmp}"
@@ -34,7 +34,7 @@ cleanup
 mkdir -p "${TMP_DIFFROOT}"
 cp -a "${DIFFROOT}"/* "${TMP_DIFFROOT}"
 
-"${ELAFROS_ROOT}/hack/update-codegen.sh"
+"${SERVING_ROOT}/hack/update-codegen.sh"
 echo "diffing ${DIFFROOT} against freshly generated codegen"
 ret=0
 diff -Naupr "${DIFFROOT}" "${TMP_DIFFROOT}" || ret=$?

@@ -1,6 +1,6 @@
 # Test
 
-This directory contains tests and testing docs for `Elafros`:
+This directory contains tests and testing docs for `Knative Serving`:
 
 * [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
 * [Conformance tests](#running-conformance-tests) in [`/test/conformance`](./conformance)
@@ -56,7 +56,7 @@ go test -v -count=1 ./test/conformance --resolvabledomain
 
 These tests require:
 
-1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `pizzaplanet` to exist in the cluster: `kubectl create namespace pizzaplanet`
 3. A docker repo contianing [the conformance test images](#conformance-test-images)
 
@@ -65,27 +65,6 @@ These tests require:
 The configuration for the images used for the existing conformance tests lives in
 [`test_images`](./conformance/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
-
-### Running conformance tests with Bazel
-
-To run the conformance tests with `bazel` you must:
-
-* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
-  [`BUILD.bazel`](./conformance/BUILD.bazel). By default [`BUILD.bazel`](./conformance/BUILD.bazel)
-  is configured to use [`test/conformance/kubeconfig`](/test/conformance/kubeconfig).
-* Provide a docker repo from which the built images will be pulled. This is done
-  via the `--dockerrepo` argument.
-
-_The `bazel` execution environment will not contain your environment variables, so you must
-explicitly specify them with [command line args](#flags)._
-
-To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./conformance/kubeconfig)
-and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
-to the location where [you have pushed the conformance test images](#conformance-test-images)):
-
-```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
-```
 
 ## Running end-to-end tests
 
@@ -124,7 +103,7 @@ go test -v ./test/e2e --resolvabledomain
 
 These tests require:
 
-1. [A running `Elafros` cluster.](/DEVELOPMENT.md#getting-started)
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `noodleburg` to exist in the cluster: `kubectl create namespace noodleburg`
 3. A docker repo containing [the e2e test images](#e2e-test-images)
 
@@ -133,27 +112,6 @@ These tests require:
 The configuration for the images used for the existing e2e tests lives in
 [`test_images`](./e2e/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
-
-### Running e2e tests with Bazel
-
-To run the e2e tests with `bazel` you must:
-
-* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
-  [`BUILD.bazel`](./e2e/BUILD.bazel). By default [`BUILD.bazel`](./e2e/BUILD.bazel)
-  is configured to use [`test/e2e/kubeconfig`](/test/e2e/kubeconfig).
-* Provide a docker repo from which the built images will be pulled. This is done
-  via the `--dockerrepo` argument.
-
-_The `bazel` execution environment will not contain your environment variables, so you must
-explicitly specify them with [command line args](#flags)._
-
-To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./e2e/kubeconfig)
-and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
-to the location where [you have pushed the e2e test images](#e2e-test-images)):
-
-```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
-```
 
 ## Test images
 

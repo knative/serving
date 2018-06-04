@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -112,7 +112,7 @@ type Controller struct {
 type ControllerConfig struct {
 	// Autoscale part
 
-	// see (elaconfig.yaml)
+	// see (config-autoscaler.yaml)
 	AutoscaleConcurrencyQuantumOfTime *k8sflag.DurationFlag
 	AutoscaleEnableSingleConcurrency  *k8sflag.BoolFlag
 
@@ -141,6 +141,12 @@ type ControllerConfig struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
+
+	// QueueProxyLoggingConfig is a string containing the logger configuration for queue proxy.
+	QueueProxyLoggingConfig string
+
+	// QueueProxyLoggingLevel is a string containing the logger level for queue proxy.
+	QueueProxyLoggingLevel string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -159,7 +165,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
-	informer := elaInformerFactory.Knative().V1alpha1().Revisions()
+	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
@@ -999,7 +1005,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 		}
 	}
 	accessor.SetFinalizers(finalizers)
-	prClient := c.ElaClientSet.KnativeV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	prClient.Update(rev)
 	logger.Infof("The finalizer 'controller' is removed.")
 
@@ -1007,7 +1013,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ElaClientSet.KnativeV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

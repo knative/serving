@@ -10,7 +10,7 @@ go_library(
     importpath = "github.com/knative/serving/pkg/autoscaler",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/golang/glog:go_default_library",
+        "//pkg/logging:go_default_library",
         "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.opencensus.io/stats:go_default_library",
         "//vendor/go.opencensus.io/stats/view:go_default_library",
@@ -26,8 +26,10 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/logging:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/josephburnett/k8sflag/pkg/k8sflag:go_default_library",
         "//vendor/go.opencensus.io/stats/view:go_default_library",
+        "//vendor/go.uber.org/zap:go_default_library",
     ],
 )
