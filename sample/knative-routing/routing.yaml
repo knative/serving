@@ -8,7 +8,7 @@ metadata:
   namespace: default
 spec:
   rules:
-  # User can define any needed host here.
+  # Set host to the domain name that you own.
   - host: example.com
     http:
       paths:

@@ -1,22 +1,24 @@
 # Routing across Knative Services
 
-An example that shows how to use Istio concepts Ingress and RouteRule to 
-direct traffic based on URI. Note that Ingress and RouteRule are NOT concepts 
-built by Knative.
-You can set up other routing rules (e.g. routing based on header, etc.) based 
-on this example.
+This example shows how to map multiple Knative services to different paths 
+under a single domain name using the Istio Ingress and RouteRule concepts. 
+Since Istio is a general-purpose reverse proxy, these directions can also be 
+used to configure routing based on other request data such as headers, or even 
+to map Knative and external resources under the same domain name.
 
 In this sample, we set up two web services: "Search" service and "Login" 
 service, which simply read in an env variable 'SERVICE_NAME' and prints 
-"${SERVICE_NAME} is called".
-
-Then we set up an Ingress with placeholder service and a RouteRule which 
-direct traffic to these two services based on URI.
+"${SERVICE_NAME} is called". We'll then create an Ingress with host 
+"example.com", and routing rules so that example.com/search maps to the Search 
+service, and example.com/login maps to the Login service.
 
 ## Prerequisites
 
 1. [Install Knative](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
+1. Acquire a domain name. In this example, we use example.com. If you don't 
+have a domain name, you can modify your hosts file (on Mac or Linux) to map 
+example.com to your cluster's ingress IP.
 
 ## Setup
 
@@ -74,36 +76,18 @@ You can apply the custom routing rule defined in "routing.yaml" file with
 ```shell
 kubectl apply -f sample/knative-routing/routing.yaml
 ```
-
-## Exploring Custom Routing Rule
-After applying custom routing rule defined in "routing.yaml" file, 4 objects will be created:
-"entry-ingress" Ingress, "entry-service" Service, "entry-route-search" RouteRule and "entry-route-login" RouteRule.
-You can inspect the Ingress with:
+The routing.yaml file will generate a new Ingress "entry-ingress" for domain 
+"example.com". You can see it by running
 ```shell
-kubectl get Ingress entry-ingress
+kubectl get Ingress
 ```
-You should see "entry-ingress" is added into the result:
+And you should see "entry-ingress" is added into the Ingress results:
 ```
 NAME            HOSTS         ADDRESS         PORTS     AGE
 entry-ingress   example.com   35.237.65.249   80        4h
 ```
-
-And you can the details of each objects by running:
-```shell
-# Check details of entry-ingress Ingress:
-kubectl get Ingress entry-ingress -o yaml
-
-# Check details of entry-service Service:
-kubectl get Service entry-service -o yaml
-
-# Check details of entry-route-search RouteRule
-kubectl get RouteRule entry-route-search -o yaml
-
-# Check details of entry-route-login RouteRule
-kubectl get RouteRule entry-route-login -o yaml
-```
-
-Now you can send request to "Search" service and "Login" service by using different URI.
+Now you can send request to "Search" service and "Login" service by using 
+different URI.
 
 ```shell
 # send request to Search service
@@ -114,6 +98,23 @@ curl http://35.237.65.249/login --header "Host:example.com"
 ```
 You should get the same results as you directly access these services.
 
+## Exploring Custom Routing Rule
+Besides "entry-ingress" Ingress, there are another 3 objects that are 
+generated: 
+"entry-service" Service, "entry-route-search" RouteRule and 
+"entry-route-login" RouteRule.
+
+You can inspect the details of each objects by running:
+```shell
+# Check details of entry-service Service:
+kubectl get Service entry-service -o yaml
+
+# Check details of entry-route-search RouteRule
+kubectl get RouteRule entry-route-search -o yaml
+
+# Check details of entry-route-login RouteRule
+kubectl get RouteRule entry-route-login -o yaml
+```
 
 ## How It Works
 This is the traffic flow of this sample:
