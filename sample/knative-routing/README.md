@@ -1,12 +1,17 @@
 # Routing across Knative Services
 
-An example that shows how to use Istio concepts Ingress and RouteRule to direct traffic based on URI. Note that Ingress and RouteRule are NOT concepts built by Knative.
-You can set up other routing rules (e.g. routing based on header, etc.) based on this example.
+An example that shows how to use Istio concepts Ingress and RouteRule to 
+direct traffic based on URI. Note that Ingress and RouteRule are NOT concepts 
+built by Knative.
+You can set up other routing rules (e.g. routing based on header, etc.) based 
+on this example.
 
-In this sample, we set up two web services: "Search" service and "Login" service, which simply read
-in an env variable 'SERVICE_NAME' and prints "${SERVICE_NAME} is called".
+In this sample, we set up two web services: "Search" service and "Login" 
+service, which simply read in an env variable 'SERVICE_NAME' and prints 
+"${SERVICE_NAME} is called".
 
-Then we set up an Ingress with placeholder service and a RouteRule which direct traffic to these two services based on URI.
+Then we set up an Ingress with placeholder service and a RouteRule which 
+direct traffic to these two services based on URI.
 
 ## Prerequisites
 
@@ -117,11 +122,19 @@ This is the traffic flow of this sample:
 4 components are defined in order to implement the routing.
 1. Ingress "entry-ingress": a new Ingress entry for routing traffic.
 2. Service "entry-service": a placeholder service needed for setting up Ingress and RouteRule
-3. RouteRule "entry-route-search": a RouteRule that checks if request has URI "/search", and forwards the request to "Search" service.
-4. RouteRule "entry-route-login": a RouteRule that checks if request has URI "/login", and forwards the request to "Login" service.
+3. RouteRule "entry-route-search": a RouteRule that checks if request has URI "
+/search", and forwards the request to "Search" service.
+4. RouteRule "entry-route-login": a RouteRule that checks if request has URI "
+/login", and forwards the request to "Login" service.
 
-When an external request reaches "entry-ingress" Ingress, the Ingress proxy will check if it has "/search" or "/login" URI. If it has, then the host of request will be rewritten into the host of "Search" service or "Login" service correspondingly, which actually resets the final destination of the request. The host rewriting is defined in RouteRule ""entry-route-search" and "entry-route-login".
-The request with updated host will be forwarded to Ingress proxy again. The Ingress proxy checks the updated host, and forwards it to "Search" or "Login" service according to its host setting.
+When an external request reaches "entry-ingress" Ingress, the Ingress proxy 
+will check if it has "/search" or "/login" URI. If it has, then the host of 
+request will be rewritten into the host of "Search" service or "Login" service 
+correspondingly, which actually resets the final destination of the request. 
+The host rewriting is defined in RouteRule ""entry-route-search" and "entry-route-login".
+The request with updated host will be forwarded to Ingress proxy again. The 
+Ingress proxy checks the updated host, and forwards it to "Search" or "Login" 
+service according to its host setting.
 
 ## Cleaning up
 
