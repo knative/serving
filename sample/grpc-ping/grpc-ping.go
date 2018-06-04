@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	ping "github.com/elafros/elafros/sample/grpc-ping/proto"
+	ping "github.com/knative/serving/sample/grpc-ping/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

@@ -57,7 +57,7 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specifed by imagePath.
-func Configuration(namespace string, names ResourceNames, imagePath string) *v1alpha1.Configuration {
+func Configuration(namespace string, names ResourceNames, imagePath string, protocol v1alpha1.RevisionProtocolType) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -66,6 +66,7 @@ func Configuration(namespace string, names ResourceNames, imagePath string) *v1a
 		Spec: v1alpha1.ConfigurationSpec{
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
+					Protocol: protocol,
 					Container: corev1.Container{
 						Image: imagePath,
 					},

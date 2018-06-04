@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/elafros/elafros/sample/grpc-ping/proto"
+	pb "github.com/knative/serving/sample/grpc-ping/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

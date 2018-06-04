@@ -18,9 +18,10 @@ limitations under the License.
 package e2e
 
 import (
-	"github.com/golang/glog"
 	"strings"
 	"testing"
+
+	"github.com/golang/glog"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -119,7 +120,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		"/")
 
 	glog.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, imagePath)
+	names, err := CreateRouteAndConfig(clients, imagePath, v1alpha1.RevisionProtocolHTTP)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
