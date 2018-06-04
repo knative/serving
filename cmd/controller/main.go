@@ -99,8 +99,7 @@ func main() {
 
 	if len(autoscalerImage) != 0 {
 		logger.Infof("Using autoscaler image: %s", autoscalerImage)
-	} else {
-		logger.Fatal("missing required flag: -autoscalerImage")
+		logger.Info("Single-tenant autoscaler deployments enabled.")
 	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()

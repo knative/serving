@@ -106,11 +106,11 @@ func autoscaler() {
 		logger.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    targetConcurrency,
-		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required),
-		StableWindow:         autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required),
-		PanicWindow:          autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required),
-		ScaleToZeroThreshold: autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic),
+		TargetConcurrency:    targetConcurrency.Get(),
+		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required).Get(),
+		StableWindow:         *autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required).Get(),
+		PanicWindow:          *autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required).Get(),
+		ScaleToZeroThreshold: *autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required).Get(),
 	}
 	a := ela_autoscaler.NewAutoscaler(config, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
@@ -218,13 +218,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var stat ela_autoscaler.Stat
-		err = dec.Decode(&stat)
+		var sm ela_autoscaler.StatMessage
+		err = dec.Decode(&sm)
 		if err != nil {
 			logger.Error("Failed to decode stats", zap.Error(err))
 			continue
 		}
-		statChan <- stat
+		statChan <- sm.Stat
 	}
 }
 
