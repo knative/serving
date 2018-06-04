@@ -18,7 +18,7 @@ metadata:
   labels:
     app: ela-controller
   name: ela-controller
-  namespace: ela-system
+  namespace: knative-serving-system
 spec:
   ports:
   - name: metrics

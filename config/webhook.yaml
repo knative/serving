@@ -16,7 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: ela-webhook
-  namespace: ela-system
+  namespace: knative-serving-system
 spec:
   replicas: 1
   template:

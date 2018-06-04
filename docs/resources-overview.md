@@ -17,9 +17,9 @@ There are two primary components to the Knative Serving system. The first is a c
 
 The controller processes a series of state changes in order to move the system from its current, actual state to the state desired by the user.
 
-All of the Knative Serving components are deployed into the `ela-system` namespace. You can see the various objects in this namespace by running `kubectl -n ela-system get all` ([minus some admin-level resources like service accounts](https://github.com/kubernetes/kubectl/issues/151)). To see only objects of a specific type, for example to see the webhook and controller deployments inside Knative Serving, you can run `kubectl -n ela-system get deployments`.
+All of the Knative Serving components are deployed into the `knative-serving-system` namespace. You can see the various objects in this namespace by running `kubectl -n knative-serving-system get all` ([minus some admin-level resources like service accounts](https://github.com/kubernetes/kubectl/issues/151)). To see only objects of a specific type, for example to see the webhook and controller deployments inside Knative Serving, you can run `kubectl -n knative-serving-system get deployments`.
 
-The Knative Serving controller creates Kubernetes, Istio, and Build CRD resources when Knative Serving resources are created and updated. These sub-resources will be created in the same namespace as their parent Knative Serving resource, _not_ the `ela-system` namespace.
+The Knative Serving controller creates Kubernetes, Istio, and Build CRD resources when Knative Serving resources are created and updated. These sub-resources will be created in the same namespace as their parent Knative Serving resource, _not_ the `knative-serving-system` namespace.
 
 ## Kubernetes Resource Configs
 
@@ -47,12 +47,12 @@ To view all of the custom resource definitions created, run `kubectl get customr
 
 ### Deployments
 
-View the Knative Serving specific deployments by running `kubectl -n ela-system get deployments`. These deployments will ensure that the correct number of pods are running for that specific deployment.
+View the Knative Serving specific deployments by running `kubectl -n knative-serving-system get deployments`. These deployments will ensure that the correct number of pods are running for that specific deployment.
 
 For example, given:
 
 ```
-$ kubectl -n ela-system get deployments
+$ kubectl -n knative-serving-system get deployments
 NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 ela-controller   1         1         1            1           6m
 ela-webhook      1         1         1            1           6m
@@ -61,7 +61,7 @@ ela-webhook      1         1         1            1           6m
 Based on the desired state shown above, we expect there to be a single pod running for each of the deployments shown above. We can verify this by running and seeing similar output as shown below:
 
 ```
-$ kubectl -n ela-system get pods
+$ kubectl -n knative-serving-system get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 ela-controller-5bfb798f96-2zjnf   1/1       Running   0          9m
 ela-webhook-64c459569b-v5npx      1/1       Running   0          8m
@@ -71,6 +71,6 @@ Similarly, you can run the same commands in the build-crd (`build-system`) and i
 
 ### Service Accounts and RBAC policies
 
-To view the service accounts configured for Knative Serving, run `kubectl -n ela-system get serviceaccounts`.
+To view the service accounts configured for Knative Serving, run `kubectl -n knative-serving-system get serviceaccounts`.
 
 To view all cluster role bindings, run `kubectl get clusterrolebindings`. Unfortunately there is currently no mechanism to fetch the cluster role bindings that are tied to a service account.

@@ -16,7 +16,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: activator-service
-  namespace: ela-system
+  namespace: knative-serving-system
   labels:
     app: ela-activator
 spec:

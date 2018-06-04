@@ -54,7 +54,7 @@ const (
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
 	// TODO: Could these come from somewhere else.
-	elaSystemNamespace   = "ela-system"
+	elaSystemNamespace   = "knative-serving-system"
 	elaWebhookDeployment = "ela-webhook"
 )
 

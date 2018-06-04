@@ -73,7 +73,7 @@ func GetElaK8SActivatorServiceName() string {
 }
 
 func GetElaK8SActivatorNamespace() string {
-	return "ela-system"
+	return "knative-serving-system"
 }
 
 func GetRevisionHeaderName() string {

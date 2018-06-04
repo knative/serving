@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-observability
-  namespace: ela-system
+  namespace: knative-serving-system
 data:
   # LOGGING CONFIGURATION
 

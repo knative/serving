@@ -39,7 +39,7 @@ import (
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
 		ServiceName:      "ela-webhook",
-		ServiceNamespace: "ela-system",
+		ServiceNamespace: "knative-serving-system",
 		Port:             443,
 		SecretName:       "ela-webhook-certs",
 		WebhookName:      "webhook.knative.dev",
