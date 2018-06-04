@@ -16,7 +16,7 @@
 
 set -e
 
-CLUSTER_VERSION=1.9
+CLUSTER_VERSION=1.10
 
 tests=(
   cluster_version
@@ -48,7 +48,7 @@ run_test() {
       test_command "$test_cmd" "$expected_result"
       ;;
     webhook_running)
-      printf "Elafros webhook is installed"
+      printf "Knative Serving webhook is installed"
       test_cmd="kubectl get pods -n ela-system -l app=ela-webhook -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"
@@ -58,23 +58,23 @@ run_test() {
       object=(configuration routes revisions)
       for obj in ${object[*]}; do
         printf "* configured with $obj resource"
-        test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].rules[].resources} | grep $obj >/dev/null && echo $?"
+        test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].rules[].resources} | grep $obj >/dev/null && echo $?"
         expected_result=0
         test_command "$test_cmd" "$expected_result"
       done
 
       printf "* configured with correct service"
-      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
       expected_result="ela-webhook"
       test_command "$test_cmd" "$expected_result"
 
       printf "* configured with correct namespace"
-      test_cmd="kubectl get mutatingwebhookconfiguration webhook.elafros.dev -o jsonpath={.webhooks[].clientConfig.service.namespace}"
+      test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.namespace}"
       expected_result="ela-system"
       test_command "$test_cmd" "$expected_result"
       ;;
     controllers_running)
-      printf "Elafros controllers are running"
+      printf "Knative Serving controllers are running"
       test_cmd="kubectl get pods -n ela-system -l app=ela-controller -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"

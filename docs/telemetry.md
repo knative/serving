@@ -3,11 +3,27 @@
 First, deploy monitoring components. You can use two different setups:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
 ```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-prod \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
 bazel run config/monitoring:everything.apply
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 ```shell
+# With kubectl
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-dev \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+
+# With bazel
 bazel run config/monitoring:everything-dev.apply
 ```
 
@@ -19,8 +35,34 @@ kubectl proxy
 ```
 Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 (*it might take a couple of minutes for the proxy to work*).
-When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As logs get ingested,
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As more logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+### Accessing configuration and revision logs
+To access to logs for a configuration, use the following search term in Kibana UI:
+```
+kubernetes.labels.knative_dev\/configuration: "configuration-example"
+```
+Replace `configuration-example` with your configuration's name.
+
+To access logs for a revision, use the following search term in Kibana UI:
+```
+kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
+```
+Replace `configuration-example-00001` with your revision's name.
+
+### Accessing build logs
+To access to logs for a build, use the following search term in Kibana UI:
+```
+kubernetes.labels.build\-name: "test-build"
+```
+Replace `test-build` with your build's name. A build's name is specified in its YAML file as follows:
+```yaml
+apiVersion: build.dev/v1alpha1
+kind: Build
+metadata:
+  name: test-build
+```
 
 ## Accessing metrics
 
@@ -30,7 +72,13 @@ Run:
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open Grafana UI at [http://localhost:3000](http://localhost:3000)
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
+* **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
+* **Nodes:** CPU, memory, network and disk metrics at node level
+* **Pods:** CPU, memory and network metrics at pod level
+* **Deployment:** CPU, memory and network metrics aggregated at deployment level 
+* **Istio, Mixer and Pilot:** Detailed Istio mesh, Mixer and Pilot metrics
+* **Kubernetes:** Dashboards giving insights into cluster health, deployments and capacity usage
 
 ## Accessing per request traces
 First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.
@@ -47,7 +95,7 @@ To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/te
 
 ## Default metrics
 Following metrics are collected by default:
-* Elafros controller metrics
+* Knative Serving controller metrics
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
 
@@ -80,121 +128,126 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-See [Telemetry Sample](../sample/telemetrysample/README.md) for deploying a dedicated instance of Prometheus
-and emitting metrics to it.
+If you want to send metrics from your controller, follow the steps below. 
+These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
+simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
+instrument your code as described in step 3.
 
-If you want to generate metrics within Elafros services and send them to shared instance of Prometheus,
-follow the steps below. We will create a counter metric below:
-1. Go through [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
-and read [Data model](https://prometheus.io/docs/concepts/data_model/) and
-[Metric types](https://prometheus.io/docs/concepts/metric_types/) sections.
-2. Create a top level variable in your go file and initialize it in init() - example:
-
-```go
-    import "github.com/prometheus/client_golang/prometheus"
-
-    var myCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-        Namespace: "elafros",
-        Name:      "mycomponent_something_count",
-        Help:      "Counter to keep track of something in my component",
-    }, []string{"status"})
-
-    func init() {
-        prometheus.MustRegister(myCounter)
-    }
-```
-3. In your code where you want to instrument, increment the counter with the appropriate label values - example:
+In the example below, we will setup the service to host the metrics and instrument a sample
+'Gauge' type metric using the setup.
+1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
+2. Add the following to your application startup:
 
 ```go
-    err := doSomething()
-    if err == nil {
-        myCounter.With(prometheus.Labels{"status": "success"}).Inc()
-    } else {
-        myCounter.With(prometheus.Labels{"status": "failure"}).Inc()
-    }
+import (
+	"context"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+)
+
+var (
+    desiredPodCountM *stats.Int64Measure
+    namespaceTagKey tag.Key
+    revisionTagKey tag.Key
+)
+
+func main() {
+	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: ela-autoscaler)}"})
+	if err != nil {
+		glog.Fatal(err)
+	}
+	view.RegisterExporter(exporter)
+	view.SetReportingPeriod(10 * time.Second)
+
+    // Create a sample gauge
+	var r = &Reporter{}
+	desiredPodCountM = stats.Int64(
+		"desired_pod_count",
+		"Number of pods autoscaler wants to allocate",
+		stats.UnitNone)
+
+    // Tag the statistics with namespace and revision labels
+    var err error
+	namespaceTagKey, err = tag.NewKey("namespace")
+	if err != nil {
+		// Error handling
+	}
+	revisionTagKey, err = tag.NewKey("revision")
+	if err != nil {
+		// Error handling
+	}
+
+	// Create view to see our measurement.
+	err = view.Register(
+		&view.View{
+			Description: "Number of pods autoscaler wants to allocate",
+			Measure:     r.measurements[DesiredPodCountM],
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, configTagKey, revisionTagKey},
+		},
+	)
+	if err != nil {
+		// Error handling
+	}
+
+	// Start the endpoint for Prometheus scraping
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", exporter)
+	http.ListenAndServe(":8080", mux)
+}
 ```
-4. Start an http listener to serve as the metrics endpoint for Prometheus scraping (_this step and onwards are needed
-only once in a service. ela-controller is already setup for metrics scraping and you can skip rest of these steps
-if you are targeting ela-controller_):
+3. In your code where you want to instrument, set the counter with the appropriate label values - example:
 
 ```go
-    import "github.com/prometheus/client_golang/prometheus/promhttp"
-
-    // In your main() func
-    srv := &http.Server{Addr: ":9090"}
-    http.Handle("/metrics", promhttp.Handler())
-    go func() {
-        if err := srv.ListenAndServe(); err != nil {
-            glog.Infof("Httpserver: ListenAndServe() finished with error: %s", err)
-        }
-    }()
-
-    // Wait for the service to shutdown
-    <-stopCh
-
-    // Close the http server gracefully
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    srv.Shutdown(ctx)
-
+ctx := context.TODO()
+tag.New(
+    ctx,
+    tag.Insert(namespaceTagKey, namespace),
+    tag.Insert(revisionTagKey, revision))
+stats.Record(ctx, desiredPodCountM.M({Measurement Value}))
 ```
 
-5. Add a Service for the metrics http endpoint:
+4. Add the following to scape config file located at config/monitoring/200-common/300-prometheus/100-scrape-config.yaml:
 
 ```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: myappname
-    prometheus: myappname
-  name: myappname
-  namespace: mynamespace
-spec:
-  ports:
-  - name: metrics
-    port: 9090
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    app: myappname # put the appropriate value here to select your application
+- job_name: <YOUR SERVICE NAME>
+    kubernetes_sd_configs:
+    - role: endpoints
+    relabel_configs:
+    # Scrape only the the targets matching the following metadata
+    - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
+    action: keep
+    regex: {SERVICE NAMESPACE};{APP LABEL};{PORT NAME}
+    # Rename metadata labels to be reader friendly
+    - source_labels: [__meta_kubernetes_namespace]
+    action: replace
+    regex: (.*)
+    target_label: namespace
+    replacement: $1
+    - source_labels: [__meta_kubernetes_pod_name]
+    action: replace
+    regex: (.*)
+    target_label: pod
+    replacement: $1
+    - source_labels: [__meta_kubernetes_service_name]
+    action: replace
+    regex: (.*)
+    target_label: service
+    replacement: $1
 ```
 
-6. Add a ServiceMonitor to tell Prometheus to discover pods and scrape the service defined above:
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: myappname
-  namespace: monitoring
-  labels:
-    monitor-category: ela-system # Shared Prometheus instance only targets 'k8s', 'istio', 'node',
-                                 # 'prometheus' or 'ela-system' - if you pick something else,
-                                 # you need to deploy your own Prometheus instance or edit shared
-                                 # instance to target the new category
-spec:
-  selector:
-    matchLabels:
-      app: myappname
-      prometheus: myappname
-  namespaceSelector:
-    matchNames:
-    - mynamespace
-  endpoints:
-  - port: metrics
-    interval: 30s
+5. Redeploy prometheus and its configuration:
+```sh
+kubectl delete -f config/monitoring/200-common/300-prometheus
+kubectl apply -f config/monitoring/200-common/300-prometheus
 ```
 
-7. Add a dashboard for your metrics - you can see examples of it under
+6. Add a dashboard for your metrics - you can see examples of it under
 config/grafana/dashboard-definition folder. An easy way to generate JSON
 definitions is to use Grafana UI (make sure to login with as admin user) and [export JSON](http://docs.grafana.org/reference/export_import) from it.
 
-8. Add the YAML files to BUILD files.
-
-9. Deploy changes with bazel.
-
-10. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
+7. Validate the metrics flow either by Grafana UI or Prometheus UI (see Troubleshooting section
 above to enable Prometheus UI)
 
 ## Generating logs

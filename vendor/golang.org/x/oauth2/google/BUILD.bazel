@@ -9,7 +9,7 @@ go_library(
         "jwt.go",
         "sdk.go",
     ],
-    importmap = "elafros/vendor/golang.org/x/oauth2/google",
+    importmap = "knative/vendor/golang.org/x/oauth2/google",
     importpath = "golang.org/x/oauth2/google",
     visibility = ["//visibility:public"],
     deps = [

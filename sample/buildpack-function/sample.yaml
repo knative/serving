@@ -1,0 +1,44 @@
+apiVersion: serving.knative.dev/v1alpha1
+kind: Route
+metadata:
+  name: buildpack-function
+  namespace: default
+spec:
+  traffic:
+  - configurationName: buildpack-function
+    percent: 100
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: buildpack-function
+  namespace: default
+spec:
+  build:
+    source:
+      git:
+        url: https://github.com/projectriff-samples/node-square
+        branch: master
+    template:
+      name: buildpack
+      arguments:
+      - name: IMAGE
+        value: &image DOCKER_REPO_OVERRIDE/buildpack-function
+      - name: BUILDPACK_ORDER
+        value: https://github.com/projectriff/node-function-invoker.git#buildpack
+      - name: SKIP_DETECT
+        value: "true"
+    # - name: CACHE
+    #   value: buildpack-function-cache
+    # volumes:
+    # - name: buildpack-function-cache
+    #   persistentVolumeClaim:
+    #     claimName: buildpack-function-cache
+
+  revisionTemplate:
+    metadata:
+      labels:
+        knative.dev/type: function
+    spec:
+      container:
+        image: *image

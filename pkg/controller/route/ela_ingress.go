@@ -19,8 +19,8 @@ package route
 import (
 	"fmt"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,14 +40,9 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 		fmt.Sprintf("*.%s", route.Status.Domain),
 	}
 
-	// By default we map to the placeholder service directly.
-	// This would point to 'router' component if we wanted to use
-	// this method for 0->1 case.
-	serviceName := controller.GetElaK8SServiceName(route)
-
 	path := v1beta1.HTTPIngressPath{
 		Backend: v1beta1.IngressBackend{
-			ServiceName: serviceName,
+			ServiceName: controller.GetElaK8SServiceName(route),
 			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 		},
 	}
@@ -73,7 +68,7 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 				"kubernetes.io/ingress.class": "istio",
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(route, controllerKind),
+				*controller.NewRouteControllerRef(route),
 			},
 		},
 		Spec: v1beta1.IngressSpec{

@@ -11,7 +11,7 @@ go_library(
         "span_id.go",
         "traceid.go",
     ],
-    importmap = "elafros/vendor/github.com/openzipkin/zipkin-go/model",
+    importmap = "knative/vendor/github.com/openzipkin/zipkin-go/model",
     importpath = "github.com/openzipkin/zipkin-go/model",
     visibility = ["//visibility:public"],
 )

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: private-repos
@@ -20,7 +20,7 @@ spec:
   - configurationName: private-repos
     percent: 100
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: private-repos
@@ -30,17 +30,17 @@ spec:
     serviceAccountName: build-bot
     source:
       git:
-        url: git@github.com:dewitt/elafros-build.git
+        url: git@github.com:dewitt/knative-build.git
         branch: master
     template:
-      name: docker-build-push
+      name: kaniko
       arguments:
       - name: IMAGE
         value: &image REPLACE_ME
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: app
+        knative.dev/type: app
     spec:
       container:
         image: *image

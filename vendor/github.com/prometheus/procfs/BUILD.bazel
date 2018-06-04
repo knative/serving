@@ -18,7 +18,7 @@ go_library(
         "stat.go",
         "xfrm.go",
     ],
-    importmap = "elafros/vendor/github.com/prometheus/procfs",
+    importmap = "knative/vendor/github.com/prometheus/procfs",
     importpath = "github.com/prometheus/procfs",
     visibility = ["//visibility:public"],
     deps = [

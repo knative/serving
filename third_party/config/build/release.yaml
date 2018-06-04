@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Namespace
+metadata: {name: build-system}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: build-controller, namespace: build-system}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata: {name: build-controller-admin}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cluster-admin}
+subjects:
+- {kind: ServiceAccount, name: build-controller, namespace: build-system}
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata: {name: builds.build.dev}
+spec:
+  group: build.dev
+  names: {kind: Build, plural: builds}
+  scope: Namespaced
+  version: v1alpha1
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata: {name: buildtemplates.build.dev}
+spec:
+  group: build.dev
+  names: {kind: BuildTemplate, plural: buildtemplates}
+  scope: Namespaced
+  version: v1alpha1
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata: {name: build-controller, namespace: build-system}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels: {app: build-controller}
+    spec:
+      containers:
+      - args: [-builder, cluster, -logtostderr, -stderrthreshold, INFO, -creds-image,
+          'gcr.io/build-crd/github.com/elafros/build/cmd/creds-init@sha256:a7281d37ea08587680eda1cca0b5f48e16ed59e77de43c6b3239c7ff0806a97c',
+          -git-image, 'gcr.io/build-crd/github.com/elafros/build/cmd/git-init@sha256:735823a7f88556f33530ca56326cb0828aae0ce98ccb113750655afaaed4c241']
+        image: gcr.io/build-crd/github.com/elafros/build/cmd/controller@sha256:0af871213dee2df6afd2ace310acaa9c1ceacb192a2e6cf64eaff37f01b327cd
+        name: build-controller
+      serviceAccountName: build-controller
+

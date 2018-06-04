@@ -6,7 +6,7 @@ go_library(
         "cronjob.go",
         "interface.go",
     ],
-    importmap = "elafros/vendor/k8s.io/client-go/informers/batch/v2alpha1",
+    importmap = "knative/vendor/k8s.io/client-go/informers/batch/v2alpha1",
     importpath = "k8s.io/client-go/informers/batch/v2alpha1",
     visibility = ["//visibility:public"],
     deps = [

@@ -18,20 +18,20 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
 
-pushd ${ELAFROS_ROOT}
+pushd ${SERVING_ROOT}
 trap popd EXIT
 
 # Ensure we have everything we need under vendor/
 dep ensure
-dep prune
 
 # Patch the Kubernetes client to fix panics in fake watches. This patch is from
 # https://github.com/kubernetes/kubernetes/pull/61195 and can be removed once
 # that PR makes it here.
-git apply $ELAFROS_ROOT/hack/61195.patch
+git apply --exclude='*_test.go' $SERVING_ROOT/hack/61195.patch
 
+rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name 'BUILD')
 rm -rf $(find vendor/ -name 'BUILD.bazel')
 rm -rf $(find vendor/ -name '*_test.go')

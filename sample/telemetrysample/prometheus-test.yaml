@@ -49,39 +49,74 @@ subjects:
   name: prometheus-test
   namespace: default
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: Prometheus
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: test
+  name: prometheus-test-scrape-config
   labels:
-    prometheus: test
+    name: prometheus-test-scrape-config
+  namespace: default
+data:
+  prometheus.yml: |-
+    scrape_configs:
+    - job_name: telemetrysample-test
+      scrape_interval: 3s
+      scrape_timeout: 3s
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # Scrape only the the targets matching the following metadata
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_knative_dev_configuration, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;telemetrysample-configuration;http
+      # Rename metadata labels to be reader friendly
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        regex: (.*)
+        target_label: namespace
+        replacement: $1
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        regex: (.*)
+        target_label: pod
+        replacement: $1
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        regex: (.*)
+        target_label: service
+        replacement: $1
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: prometheus-test-deployment
+  namespace: default
 spec:
   replicas: 1
-  version: v2.1.0
-  serviceAccountName: prometheus-test
-  serviceMonitorSelector:
-    matchExpressions:
-    - {key: app, operator: In, values: [telemetrysample]}
-  ruleSelector:
-    matchLabels:
-      role: prometheus-test-rulefiles
-      prometheus: test
-  resources:
-    requests:
-      memory: 400Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus-test-web
-  namespace: default
-  labels:
-    prometheus: test
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 30800
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    prometheus: test
+  template:
+    metadata:
+      labels:
+        app: prometheus-test
+    spec:
+      serviceAccountName: prometheus-test
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.2.1
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus/"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config-volume
+              mountPath: /etc/prometheus/
+            - name: prometheus-storage-volume
+              mountPath: /prometheus/
+      volumes:
+        - name: prometheus-config-volume
+          configMap:
+            defaultMode: 420
+            name: prometheus-test-scrape-config
+  
+        - name: prometheus-storage-volume
+          emptyDir: {}

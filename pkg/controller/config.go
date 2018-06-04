@@ -60,13 +60,14 @@ const (
 )
 
 func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
-	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(GetElaConfigMapName(), metav1.GetOptions{})
+	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(GetDomainConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	c := Config{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range m.Data {
+		// TODO(josephburnett): migrate domain configuration to k8sflag
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {

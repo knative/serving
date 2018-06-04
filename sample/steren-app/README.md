@@ -7,35 +7,28 @@ This is based on the source code available from: github.com/steren/sample-app
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
-3. Enable the Google Cloud Datastore API.
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
+1. Enable the Google Cloud Datastore API.
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+You can deploy this to Knative Serving from the root directory via:
 ```shell
-$ bazel run sample/steren-app:everything.create
-INFO: Analysed target //sample/steren-app:everything.create (1 packages loaded).
-INFO: Found 1 target...
-Target //sample/steren-app:everything.create up-to-date:
-  bazel-bin/sample/steren-app/everything.create
-INFO: Elapsed time: 0.634s, Critical Path: 0.07s
-INFO: Build completed successfully, 4 total actions
+# Replace the token string with a suitable registry
+REPO="gcr.io/<your-project-here>"
+perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-app/sample.yaml
 
-INFO: Running command line: bazel-bin/sample/steren-app/everything.create
-buildtemplate "node-app" created
-route "steren-sample-app" created
-configuration "steren-sample-app" created
+# Create the Kubernetes resources
+kubectl apply -f sample/templates/node-app.yaml -f sample/steren-app/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:
 
 ```shell
-$ kubectl get revision -o yaml
+kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:
@@ -63,7 +56,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route steren-sample-app -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
@@ -85,5 +78,5 @@ $ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/
 To clean up the sample service:
 
 ```shell
-bazel run sample/steren-app:everything.delete
+kubectl delete -f sample/templates/node-app.yaml -f sample/steren-app/sample.yaml
 ```

@@ -21,7 +21,7 @@ go_library(
         "value.go",
         "vec.go",
     ],
-    importmap = "elafros/vendor/github.com/prometheus/client_golang/prometheus",
+    importmap = "knative/vendor/github.com/prometheus/client_golang/prometheus",
     importpath = "github.com/prometheus/client_golang/prometheus",
     visibility = ["//visibility:public"],
     deps = [

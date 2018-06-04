@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: stock-configuration-example
@@ -21,13 +21,12 @@ spec:
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: container
+        knative.dev/type: container
     spec:
       container:
-        image: stock:latest
-        args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/knative/serving/sample/stock-rest-app
         env:
           - name: RESOURCE
             value: share

@@ -6,7 +6,7 @@ go_library(
         "convert.go",
         "doc.go",
     ],
-    importmap = "elafros/vendor/k8s.io/apimachinery/pkg/conversion/queryparams",
+    importmap = "knative/vendor/k8s.io/apimachinery/pkg/conversion/queryparams",
     importpath = "k8s.io/apimachinery/pkg/conversion/queryparams",
     visibility = ["//visibility:public"],
 )

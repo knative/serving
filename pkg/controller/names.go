@@ -17,9 +17,12 @@ limitations under the License.
 package controller
 
 import (
-	"log"
+	"context"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"go.uber.org/zap"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -27,13 +30,13 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 )
 
-func GetElaConfigMapName() string {
-	return "ela-config"
+func GetDomainConfigMapName() string {
+	return "config-domain"
 }
 
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
-	// We create resources in the same namespace as the Elafros resources by default.
+	// We create resources in the same namespace as the Knative Serving resources by default.
 	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
 	return ns
 }
@@ -65,22 +68,35 @@ func GetElaK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SRouterServiceName(u *v1alpha1.Route) string {
-	return "router-service"
+func GetElaK8SActivatorServiceName() string {
+	return "activator-service"
 }
 
-func GetOrCreateRevisionNamespace(ns string, c clientset.Interface) (string, error) {
-	return GetOrCreateNamespace(GetElaNamespaceName(ns), c)
+func GetElaK8SActivatorNamespace() string {
+	return "ela-system"
 }
 
-func GetOrCreateNamespace(namespace string, c clientset.Interface) (string, error) {
+func GetRevisionHeaderName() string {
+	return "Knative-Serving-Revision"
+}
+
+func GetRevisionHeaderNamespace() string {
+	return "Knative-Serving-Namespace"
+}
+
+func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.Interface) (string, error) {
+	return GetOrCreateNamespace(ctx, GetElaNamespaceName(ns), c)
+}
+
+func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Interface) (string, error) {
 	_, err := c.Core().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
+		logger := logging.FromContext(ctx)
 		if !apierrs.IsNotFound(err) {
-			log.Printf("namespace: %v, unable to get namespace due to error: %v", namespace, err)
+			logger.Errorf("namespace: %v, unable to get namespace due to error: %v", namespace, err)
 			return "", err
 		}
-		log.Printf("namespace: %v, not found. Creating...", namespace)
+		logger.Infof("namespace: %v, not found. Creating...", namespace)
 		nsObj := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespace,
@@ -89,7 +105,7 @@ func GetOrCreateNamespace(namespace string, c clientset.Interface) (string, erro
 		}
 		_, err := c.Core().Namespaces().Create(nsObj)
 		if err != nil {
-			log.Printf("Unexpected error while creating namespace: %v", err)
+			logger.Error("Unexpected error while creating namespace", zap.Error(err))
 			return "", err
 		}
 	}

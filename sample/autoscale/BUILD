@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["autoscale.go"],
-    importpath = "github.com/elafros/elafros/sample/autoscale",
+    importpath = "github.com/knative/serving/sample/autoscale",
     visibility = ["//visibility:private"],
 )
 
@@ -24,24 +24,9 @@ go_image(
 load("@k8s_object//:defaults.bzl", "k8s_object")
 
 k8s_object(
-    name = "configuration",
-    images = {
-        "autoscale-sample:latest": ":image",
-    },
-    template = ":configuration.yaml",
-)
-
-k8s_object(
-    name = "route",
-    template = ":route.yaml",
-)
-
-load("@io_bazel_rules_k8s//k8s:objects.bzl", "k8s_objects")
-
-k8s_objects(
     name = "everything",
-    objects = [
-        ":route",
-        ":configuration",
-    ],
+    images = {
+        "github.com/knative/serving/sample/autoscale": ":image",
+    },
+    template = ":sample.yaml",
 )

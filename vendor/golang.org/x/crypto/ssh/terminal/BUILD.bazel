@@ -40,7 +40,7 @@ go_library(
         ],
         "//conditions:default": [],
     }),
-    importmap = "elafros/vendor/golang.org/x/crypto/ssh/terminal",
+    importmap = "knative/vendor/golang.org/x/crypto/ssh/terminal",
     importpath = "golang.org/x/crypto/ssh/terminal",
     visibility = ["//visibility:public"],
     deps = select({

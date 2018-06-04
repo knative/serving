@@ -27,29 +27,31 @@ package configuration
 	Congfiguration.
 */
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	buildv1alpha1 "github.com/elafros/elafros/pkg/apis/build/v1alpha1"
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	fakeclientset "github.com/elafros/elafros/pkg/client/clientset/versioned/fake"
-	informers "github.com/elafros/elafros/pkg/client/informers/externalversions"
-	ctrl "github.com/elafros/elafros/pkg/controller"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/serving/pkg/controller"
 
 	"k8s.io/client-go/rest"
-	kubetesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/elafros/elafros/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 const (
@@ -60,7 +62,7 @@ const (
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/configurations/test-config",
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
 			Name:      "test-config",
 			Namespace: testNamespace,
 		},
@@ -73,12 +75,17 @@ func getTestConfiguration() *v1alpha1.Configuration {
 						"test-label":                   "test",
 						"example.com/namespaced-label": "test",
 					},
+					Annotations: map[string]string{
+						"test-annotation-1": "foo",
+						"test-annotation-2": "bar",
+					},
 				},
 				Spec: v1alpha1.RevisionSpec{
+					ServiceAccountName: "test-account",
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
 					// the derived Revisions.
-					Container: &corev1.Container{
+					Container: corev1.Container{
 						Image:      "gcr.io/repo/image",
 						Command:    []string{"echo"},
 						Args:       []string{"hello", "world"},
@@ -104,12 +111,12 @@ func getTestConfiguration() *v1alpha1.Configuration {
 func getTestRevision() *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/ela/v1alpha1/namespaces/test/revisions/test-rev",
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
 			Name:      revName,
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			Container: &corev1.Container{
+			Container: corev1.Container{
 				Image: "test-image",
 			},
 		},
@@ -118,6 +125,7 @@ func getTestRevision() *v1alpha1.Revision {
 
 func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
+	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -125,6 +133,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
+	buildClient = fakebuildclientset.NewSimpleClientset()
 	// The ability to insert objects here is intended to work around the problem
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
@@ -138,10 +147,12 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	controller = NewController(
 		kubeClient,
 		elaClient,
+		buildClient,
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
 		ctrl.Config{},
+		zap.NewNop().Sugar(),
 	).(*Controller)
 
 	return
@@ -155,7 +166,7 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	elaInformer informers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+	kubeClient, _, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
@@ -182,7 +193,7 @@ func keyOrDie(obj interface{}) string {
 }
 
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	h := NewHooks()
 
@@ -190,12 +201,12 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	// hooks here.
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Created Revision .+"))
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.syncHandler(keyOrDie(config))
 
-	list, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
+	list, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
 
 	if err != nil {
 		t.Fatalf("error listing revisions: %v", err)
@@ -210,13 +221,23 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 		t.Errorf("rev spec != config RevisionTemplate spec (-want +got): %v", diff)
 	}
 
-	if rev.Labels[ela.ConfigurationLabelKey] != config.Name {
-		t.Errorf("rev does not have label <%s:%s>", ela.ConfigurationLabelKey, config.Name)
+	if rev.Labels[serving.ConfigurationLabelKey] != config.Name {
+		t.Errorf("rev does not have configuration label <%s:%s>", serving.ConfigurationLabelKey, config.Name)
+	}
+
+	if rev.Annotations[serving.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Spec.Generation) {
+		t.Errorf("rev does not have generation annotation <%s:%s>", serving.ConfigurationGenerationAnnotationKey, config.Name)
 	}
 
 	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Labels {
 		if rev.Labels[k] != v {
 			t.Errorf("revisionTemplate label %s=%s not passed to revision", k, v)
+		}
+	}
+
+	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Annotations {
+		if rev.Annotations[k] != v {
+			t.Errorf("revisionTemplate annotation %s=%s not passed to revision", k, v)
 		}
 	}
 
@@ -230,7 +251,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 }
 
 func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
 	config.Spec.Build = &buildv1alpha1.BuildSpec{
 		Steps: []corev1.Container{{
@@ -241,20 +262,23 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 		}},
 	}
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.syncHandler(keyOrDie(config))
 
-	revList, err := elaClient.ElafrosV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
+	revList, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("error listing revisions: %v", err)
 	}
 	if got, want := len(revList.Items), 1; got != want {
 		t.Fatalf("expected %v revisions, got %v", want, got)
 	}
+	if got, want := revList.Items[0].Spec.ServiceAccountName, "test-account"; got != want {
+		t.Fatalf("expected service account name %v, got %v", want, got)
+	}
 
-	buildList, err := elaClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
+	buildList, err := buildClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("error listing builds: %v", err)
 	}
@@ -269,8 +293,8 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 }
 
 func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
@@ -283,7 +307,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.syncHandler(keyOrDie(config))
 
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -301,7 +325,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	}
 
 	// Get the revision created
-	revList, err := elaClient.ElafrosV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
+	revList, err := elaClient.ServingV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("error listing revisions: %v", err)
 	}
@@ -318,7 +342,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 		}},
 	}
 	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
 	controller.addRevisionEvent(&revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -347,15 +371,15 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 }
 
 func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
 
 	configClient.Create(config)
 	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -365,7 +389,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 
 	// Create a revision owned by this Configuration. Calling IsReady() on this
 	// revision will return false.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	controller.addRevisionEvent(revision)
@@ -382,15 +406,15 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 }
 
 func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	// Don't set LatestCreatedRevisionName.
 
 	configClient.Create(config)
 	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -400,7 +424,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 
 	// Create a revision owned by this Configuration. This revision is Ready, but
 	// doesn't match the LatestCreatedRevisionName.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	revision.Status = v1alpha1.RevisionStatus{
@@ -424,8 +448,8 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 }
 
 func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+	_, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	config.Status = v1alpha1.ConfigurationStatus{
@@ -441,11 +465,11 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 	}
 	configClient.Create(config)
 	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Create a revision owned by this Configuration. This revision is Ready and
 	// matches the Configuration's LatestReadyRevisionName.
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	revision.Status = v1alpha1.RevisionStatus{
@@ -455,20 +479,12 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		}},
 	}
 
-	// In this case, we can't tell if addRevisionEvent has updated the
-	// Configuration, because it's already in the expected state. Use a reactor
-	// instead to test whether Update() is called.
-	elaClient.Fake.PrependReactor("update", "configurations", func(a kubetesting.Action) (bool, runtime.Object, error) {
-		t.Error("Configuration was updated unexpectedly")
-		return true, nil, nil
-	})
-
 	controller.addRevisionEvent(revision)
 }
 
 func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
@@ -480,7 +496,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.syncHandler(keyOrDie(config))
 
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -489,7 +505,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	}
 
 	// Get the revision created
-	revList, err := elaClient.ElafrosV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
+	revList, err := elaClient.ServingV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("error listing revisions: %v", err)
 	}
@@ -506,7 +522,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 		}},
 	}
 	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
 	controller.addRevisionEvent(&revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -541,8 +557,8 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 }
 
 func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ElafrosV1alpha1().Configurations(testNamespace)
+	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
@@ -563,7 +579,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 
 	configClient.Create(config)
 
-	controllerRef := metav1.NewControllerRef(config, controllerKind)
+	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
 	// mark the revision as Ready
@@ -574,7 +590,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 		}},
 	}
 	// Since addRevisionEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.addRevisionEvent(revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})

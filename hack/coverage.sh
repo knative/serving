@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#TODO delete this file after all prow jobs points to project-coverage.sh
+
 set -o errexit
 
 if [[ $# -eq 0 ]] ; then
@@ -24,10 +26,10 @@ else
   OBJECT_FILE_NAME=$1
 fi
 
-ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
 
-cd ${ELAFROS_ROOT}/pkg
+cd ${SERVING_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
 go test ./... -coverprofile coverage_profile.txt
-gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/profiles/$OBJECT_FILE_NAME
+gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/knative-coverage/profiles/$OBJECT_FILE_NAME

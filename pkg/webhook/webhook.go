@@ -17,6 +17,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -27,10 +28,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	"github.com/knative/serving/pkg/logging/logkey"
 
-	"github.com/golang/glog"
+	"go.uber.org/zap"
+
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
+
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -44,7 +49,7 @@ import (
 )
 
 const (
-	elafrosAPIVersion = "v1alpha1"
+	knativeAPIVersion = "v1alpha1"
 	secretServerKey   = "server-key.pem"
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
@@ -86,15 +91,20 @@ type ControllerOptions struct {
 	RegistrationDelay time.Duration
 }
 
-// ResourceCallback defines the signature that resource specific (Route, Configuration, etc.)
+// ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
 // handlers that can validate and mutate an object. If non-nil error is returned, object creation
-// is denied. Any mutations are to be appended to the patches operations.
+// is denied. Mutations should be appended to the patches operations.
 type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
+
+// ResourceDefaulter defines a signature for resource specific (Route, Configuration, etc.)
+// handlers that can set defaults on an object. If non-nil error is returned, object creation
+// is denied. Mutations should be appended to the patches operations.
+type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
 
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
 	Factory   runtime.Object
-	Defaulter ResourceCallback
+	Defaulter ResourceDefaulter
 	Validator ResourceCallback
 }
 
@@ -104,6 +114,7 @@ type AdmissionController struct {
 	client   kubernetes.Interface
 	options  ControllerOptions
 	handlers map[string]GenericCRDHandler
+	logger   *zap.SugaredLogger
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -156,14 +167,16 @@ func makeTLSConfig(serverCert, serverKey, caCert []byte) (*tls.Config, error) {
 	}, nil
 }
 
-func getOrGenerateKeyCertsFromSecret(client kubernetes.Interface, name, namespace string) (serverKey, serverCert, caCert []byte, err error) {
+func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Interface, name,
+	namespace string) (serverKey, serverCert, caCert []byte, err error) {
+	logger := logging.FromContext(ctx)
 	secret, err := client.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, nil, nil, err
 		}
-		glog.Infof("Did not find existing secret, creating one")
-		newSecret, err := generateSecret(name, namespace)
+		logger.Info("Did not find existing secret, creating one")
+		newSecret, err := generateSecret(ctx, name, namespace)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -192,35 +205,43 @@ func getOrGenerateKeyCertsFromSecret(client kubernetes.Interface, name, namespac
 }
 
 // NewAdmissionController creates a new instance of the admission webhook controller.
-func NewAdmissionController(client kubernetes.Interface, options ControllerOptions) (*AdmissionController, error) {
+func NewAdmissionController(client kubernetes.Interface, options ControllerOptions, logger *zap.SugaredLogger) (*AdmissionController, error) {
+	ctx := logging.WithLogger(context.TODO(), logger)
 	return &AdmissionController{
 		client:  client,
 		options: options,
 		handlers: map[string]GenericCRDHandler{
 			"Revision": GenericCRDHandler{
 				Factory:   &v1alpha1.Revision{},
-				Defaulter: SetRevisionDefaults,
-				Validator: ValidateRevision,
+				Defaulter: SetRevisionDefaults(ctx),
+				Validator: ValidateRevision(ctx),
 			},
 			"Configuration": GenericCRDHandler{
 				Factory:   &v1alpha1.Configuration{},
-				Validator: ValidateConfiguration,
+				Defaulter: SetConfigurationDefaults(ctx),
+				Validator: ValidateConfiguration(ctx),
 			},
 			"Route": GenericCRDHandler{
 				Factory:   &v1alpha1.Route{},
-				Validator: ValidateRoute,
+				Validator: ValidateRoute(ctx),
+			},
+			"Service": GenericCRDHandler{
+				Factory:   &v1alpha1.Service{},
+				Defaulter: SetServiceDefaults(ctx),
+				Validator: ValidateService(ctx),
 			},
 		},
+		logger: logger,
 	}, nil
 }
 
-func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
+func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
 	apiServerCACert, err := getAPIServerExtensionCACert(client)
 	if err != nil {
 		return nil, nil, err
 	}
 	serverKey, serverCert, caCert, err := getOrGenerateKeyCertsFromSecret(
-		client, options.SecretName, options.ServiceNamespace)
+		ctx, client, options.SecretName, options.ServiceNamespace)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -233,9 +254,11 @@ func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*t
 
 // Run implements the admission controller run loop.
 func (ac *AdmissionController) Run(stop <-chan struct{}) error {
-	tlsConfig, caCert, err := configureCerts(ac.client, &ac.options)
+	logger := ac.logger
+	ctx := logging.WithLogger(context.TODO(), logger)
+	tlsConfig, caCert, err := configureCerts(ctx, ac.client, &ac.options)
 	if err != nil {
-		glog.Infof("Could not configure admission webhook certs: %v", err)
+		logger.Error("Could not configure admission webhook certs", zap.Error(err))
 		return err
 	}
 
@@ -245,31 +268,31 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 		TLSConfig: tlsConfig,
 	}
 
-	glog.Info("Found certificates for webhook...")
+	logger.Info("Found certificates for webhook...")
 	if ac.options.RegistrationDelay != 0 {
-		glog.Infof("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
+		logger.Infof("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
 	}
 
 	select {
 	case <-time.After(ac.options.RegistrationDelay):
 		cl := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-		if err := ac.register(cl, caCert); err != nil {
-			glog.Infof("Failed to register webhook: %v", err)
+		if err := ac.register(ctx, cl, caCert); err != nil {
+			logger.Error("Failed to register webhook", zap.Error(err))
 			return err
 		}
 		defer func() {
-			if err := ac.unregister(cl); err != nil {
-				glog.Infof("Failed to unregister webhook: %v", err)
+			if err := ac.unregister(ctx, cl); err != nil {
+				logger.Error("Failed to unregister webhook", zap.Error(err))
 			}
 		}()
-		glog.Info("Successfully registered webhook")
+		logger.Info("Successfully registered webhook")
 	case <-stop:
 		return nil
 	}
 
 	go func() {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
-			glog.Infof("ListenAndServeTLS for admission webhook returned error: %v", err)
+			logger.Error("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
 		}
 	}()
 	<-stop
@@ -278,16 +301,20 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 }
 
 // Unregister unregisters the external admission webhook
-func (ac *AdmissionController) unregister(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface) error {
-	glog.Info("Exiting..")
+func (ac *AdmissionController) unregister(
+	ctx context.Context, client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface) error {
+	logger := logging.FromContext(ctx)
+	logger.Info("Exiting..")
 	return nil
 }
 
 // Register registers the external admission webhook for pilot
 // configuration types.
 
-func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	resources := []string{"configurations", "routes", "revisions"}
+func (ac *AdmissionController) register(
+	ctx context.Context, client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
+	logger := logging.FromContext(ctx)
+	resources := []string{"configurations", "routes", "revisions", "services"}
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -302,8 +329,8 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 						admissionregistrationv1beta1.Update,
 					},
 					Rule: admissionregistrationv1beta1.Rule{
-						APIGroups:   []string{ela.GroupName},
-						APIVersions: []string{elafrosAPIVersion},
+						APIGroups:   []string{serving.GroupName},
+						APIVersions: []string{knativeAPIVersion},
 						Resources:   resources,
 					},
 				}},
@@ -332,23 +359,23 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 		if !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failed to create a webhook: %s", err)
 		}
-		glog.Infof("Webhook already exists")
+		logger.Info("Webhook already exists")
 		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("Error retrieving webhook: %s", err)
 		}
 		if !reflect.DeepEqual(configuredWebhook.Webhooks, webhook.Webhooks) {
-			glog.Infof("Updating webhook")
+			logger.Info("Updating webhook")
 			// Set the ResourceVersion as required by update.
 			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
 			if _, err := client.Update(webhook); err != nil {
 				return fmt.Errorf("Failed to update webhook: %s", err)
 			}
 		} else {
-			glog.Infof("Webhook is already valid")
+			logger.Info("Webhook is already valid")
 		}
 	} else {
-		glog.Infof("Created a webhook")
+		logger.Info("Created a webhook")
 	}
 	return nil
 }
@@ -356,7 +383,8 @@ func (ac *AdmissionController) register(client clientadmissionregistrationv1beta
 // ServeHTTP implements the external admission webhook for mutating
 // ela resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.Infof("Webhook ServeHTTP request=%#v", r)
+	logger := ac.logger
+	logger.Infof("Webhook ServeHTTP request=%#v", r)
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
@@ -372,14 +400,22 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	reviewResponse := ac.admit(review.Request)
+	logger = logger.With(
+		zap.String(logkey.Kind, fmt.Sprint(review.Request.Kind)),
+		zap.String(logkey.Namespace, review.Request.Namespace),
+		zap.String(logkey.Name, review.Request.Name),
+		zap.String(logkey.Operation, fmt.Sprint(review.Request.Operation)),
+		zap.String(logkey.Resource, fmt.Sprint(review.Request.Resource)),
+		zap.String(logkey.SubResource, fmt.Sprint(review.Request.SubResource)),
+		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
+	reviewResponse := ac.admit(logging.WithLogger(r.Context(), logger), review.Request)
 	var response admissionv1beta1.AdmissionReview
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID
 	}
 
-	glog.Infof("AdmissionReview for %s: %v/%v response=%v",
+	logger.Infof("AdmissionReview for %s: %v/%v response=%v",
 		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -396,19 +432,20 @@ func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.Admis
 	}
 }
 
-func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+	logger := logging.FromContext(ctx)
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
-		glog.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
+		logger.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	patchBytes, err := ac.mutate(request.Kind.Kind, request.OldObject.Raw, request.Object.Raw)
+	patchBytes, err := ac.mutate(ctx, request.Kind.Kind, request.OldObject.Raw, request.Object.Raw)
 	if err != nil {
 		return makeErrorStatus("mutation failed: %v", err)
 	}
-	glog.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
+	logger.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
 	return &admissionv1beta1.AdmissionResponse{
 		Patch:   patchBytes,
@@ -420,10 +457,11 @@ func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest)
 	}
 }
 
-func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
+func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
+	logger := logging.FromContext(ctx)
 	handler, ok := ac.handlers[kind]
 	if !ok {
-		glog.Warningf("Unhandled kind %q", kind)
+		logger.Errorf("Unhandled kind %q", kind)
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
 
@@ -436,6 +474,9 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		if err := newDecoder.Decode(&newObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
+	} else {
+		// Use nil to denote the absence of a new object (delete)
+		newObj = nil
 	}
 
 	if len(oldBytes) != 0 {
@@ -444,19 +485,22 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 		if err := oldDecoder.Decode(&oldObj); err != nil {
 			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
+	} else {
+		// Use nil to denote the absence of an old object (create)
+		oldObj = nil
 	}
 
 	var patches []jsonpatch.JsonPatchOperation
 
-	err := updateGeneration(&patches, oldObj, newObj)
+	err := updateGeneration(ctx, &patches, oldObj, newObj)
 	if err != nil {
-		glog.Warningf("Failed to update generation : %s", err)
+		logger.Error("Failed to update generation", zap.Error(err))
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
 	if defaulter := handler.Defaulter; defaulter != nil {
-		if err := defaulter(&patches, oldObj, newObj); err != nil {
-			glog.Warningf("Failed the resource specific defaulter: %s", err)
+		if err := defaulter(&patches, newObj); err != nil {
+			logger.Error("Failed the resource specific defaulter", zap.Error(err))
 			// Return the error message as-is to give the defaulter callback
 			// discretion over (our portion of) the message that the user sees.
 			return nil, err
@@ -464,14 +508,14 @@ func (ac *AdmissionController) mutate(kind string, oldBytes []byte, newBytes []b
 	}
 
 	if err := handler.Validator(&patches, oldObj, newObj); err != nil {
-		glog.Warningf("Failed the resource specific validation: %s", err)
+		logger.Error("Failed the resource specific validation", zap.Error(err))
 		// Return the error message as-is to give the validation callback
 		// discretion over (our portion of) the message that the user sees.
 		return nil, err
 	}
 
 	if err := validateMetadata(newObj); err != nil {
-		glog.Warningf("Failed to validate : %s", err)
+		logger.Error("Failed to validate", zap.Error(err))
 		return nil, fmt.Errorf("Failed to validate: %s", err)
 	}
 	return json.Marshal(patches)
@@ -498,15 +542,16 @@ func validateMetadata(new GenericCRD) error {
 // by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 // So, we add Generation here. Once that gets fixed, remove this and use
 // ObjectMeta.Generation instead.
-func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+	logger := logging.FromContext(ctx)
 	var oldGeneration int64
 	if old == nil {
-		glog.Infof("Old is nil")
+		logger.Info("Old is nil")
 	} else {
 		oldGeneration = old.GetGeneration()
 	}
 	if oldGeneration == 0 {
-		glog.Infof("Creating an object, setting generation to 1")
+		logger.Info("Creating an object, setting generation to 1")
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
 			Operation: "add",
 			Path:      "/spec/generation",
@@ -517,11 +562,11 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 
 	oldSpecJSON, err := old.GetSpecJSON()
 	if err != nil {
-		glog.Warningf("Failed to get Spec JSON for old: %s", err)
+		logger.Error("Failed to get Spec JSON for old", zap.Error(err))
 	}
 	newSpecJSON, err := new.GetSpecJSON()
 	if err != nil {
-		glog.Warningf("Failed to get Spec JSON for new: %s", err)
+		logger.Error("Failed to get Spec JSON for new", zap.Error(err))
 	}
 
 	specPatches, err := jsonpatch.CreatePatch(oldSpecJSON, newSpecJSON)
@@ -532,23 +577,33 @@ func updateGeneration(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, n
 	if len(specPatches) > 0 {
 		specPatchesJSON, err := json.Marshal(specPatches)
 		if err != nil {
-			glog.Infof("Failed to marshal spec patches: %s", err)
+			logger.Error("Failed to marshal spec patches", zap.Error(err))
 			return err
 		}
-		glog.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+		logger.Infof("Specs differ:\n%+v\n", string(specPatchesJSON))
+
+		operation := "replace"
+		if newGeneration := new.GetGeneration(); newGeneration == 0 {
+			// If new is missing Generation, we need to "add" instead of "replace".
+			// We see this for Service resources because the initial generation is
+			// added to the managed Configuration and Route, but not the Service
+			// that manages them.
+			// TODO(#642): Remove this.
+			operation = "add"
+		}
 		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "replace",
+			Operation: operation,
 			Path:      "/spec/generation",
 			Value:     oldGeneration + 1,
 		})
 		return nil
 	}
-	glog.Infof("No changes in the spec, not bumping generation...")
+	logger.Info("No changes in the spec, not bumping generation")
 	return nil
 }
 
-func generateSecret(name, namespace string) (*corev1.Secret, error) {
-	serverKey, serverCert, caCert, err := CreateCerts()
+func generateSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {
+	serverKey, serverCert, caCert, err := CreateCerts(ctx)
 	if err != nil {
 		return nil, err
 	}

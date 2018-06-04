@@ -16,46 +16,38 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"errors"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/golang/glog"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )
 
 var (
-	errInvalidRevisions        = errors.New("The route must have exactly one of revisionName or configurationName in traffic field.")
-	errInvalidRouteInput       = errors.New("Failed to convert input into Route.")
-	errInvalidTargetPercentSum = errors.New("The route must have traffic percent sum equal to 100.")
-	errNegativeTargetPercent   = errors.New("The route cannot have a negative traffic percent.")
-	errTrafficTargetsNotUnique = errors.New("The traffic targets must be unique.")
+	errInvalidRevisions        = errors.New("the route must have exactly one of revisionName or configurationName in traffic field")
+	errInvalidRouteInput       = errors.New("failed to convert input into Route")
+	errInvalidTargetPercentSum = errors.New("the route must have traffic percent sum equal to 100")
+	errNegativeTargetPercent   = errors.New("the route cannot have a negative traffic percent")
+	errTrafficTargetsNotUnique = errors.New("the traffic targets must be unique")
 )
 
 // ValidateRoute is Route resource specific validation and mutation handler
-func ValidateRoute(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-	var oldRoute *v1alpha1.Route
-	if old != nil {
-		var ok bool
-		oldRoute, ok = old.(*v1alpha1.Route)
-		if !ok {
-			return errInvalidRouteInput
+func ValidateRoute(ctx context.Context) ResourceCallback {
+	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+		_, newRoute, err := unmarshalRoutes(ctx, old, new, "ValidateRoute")
+		if err != nil {
+			return err
 		}
-	}
-	glog.Infof("ValidateRoute: OLD Route is\n%+v", oldRoute)
-	newRoute, ok := new.(*v1alpha1.Route)
-	if !ok {
-		return errInvalidRouteInput
-	}
-	glog.Infof("ValidateRoute: NEW Route is\n%+v", newRoute)
+		if err := validateTrafficTarget(newRoute); err != nil {
+			return err
+		}
+		if err := validateUniqueTrafficTarget(newRoute); err != nil {
+			return err
+		}
 
-	if err := validateTrafficTarget(newRoute); err != nil {
-		return err
+		return nil
 	}
-	if err := validateUniqueTrafficTarget(newRoute); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func validateTrafficTarget(route *v1alpha1.Route) error {
@@ -112,4 +104,26 @@ func validateUniqueTrafficTarget(route *v1alpha1.Route) error {
 		}
 	}
 	return nil
+}
+
+func unmarshalRoutes(
+	ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Route, *v1alpha1.Route, error) {
+	logger := logging.FromContext(ctx)
+	var oldRoute *v1alpha1.Route
+	if old != nil {
+		var ok bool
+		oldRoute, ok = old.(*v1alpha1.Route)
+		if !ok {
+			return nil, nil, errInvalidRouteInput
+		}
+	}
+	logger.Infof("%s: OLD Route is\n%+v", fnName, oldRoute)
+
+	newRoute, ok := new.(*v1alpha1.Route)
+	if !ok {
+		return nil, nil, errInvalidRouteInput
+	}
+	logger.Infof("%s: NEW Route is\n%+v", fnName, newRoute)
+
+	return oldRoute, newRoute, nil
 }

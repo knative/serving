@@ -67,7 +67,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: elaNamespace,
-			Name:      GetElaConfigMapName(),
+			Name:      GetDomainConfigMapName(),
 		},
 	})
 	_, err := NewConfig(kubeClient)
@@ -97,7 +97,7 @@ func TestNewConfig(t *testing.T) {
 	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: elaNamespace,
-			Name:      GetElaConfigMapName(),
+			Name:      GetDomainConfigMapName(),
 		},
 		Data: map[string]string{
 			"test-domain.foo.com": "selector:\n  app: foo",

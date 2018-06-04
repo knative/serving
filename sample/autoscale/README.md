@@ -1,18 +1,32 @@
 # Autoscale Sample
 
-A demonstration of the autoscaling capabilities of an Elafros Revision.
+A demonstration of the autoscaling capabilities of an Knative Serving Revision.
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
 ## Setup
 
-Deploy the autoscale app to Elafros from the root directory.
+Build the autoscale app container and publish it to your registry of choice:
 
 ```shell
-bazel run sample/autoscale:everything.create
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build \
+  --build-arg SAMPLE=autoscale \
+  --tag "${REPO}/sample/autoscale" \
+  --file=sample/Dockerfile.golang .
+docker push "${REPO}/sample/autoscale"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/knative/serving/sample/autoscale@${REPO}/sample/autoscale@g" sample/autoscale/sample.yaml
+
+# Deploy the Knative Serving sample
+kubectl apply -f sample/autoscale/sample.yaml
+
 ```
 
 Export your Ingress IP as SERVICE_IP.
@@ -46,7 +60,7 @@ done
 watch kubectl get pods -n hey --show-all
 ```
 
-Watch the Elafros deployment pod count increase.
+Watch the Knative Serving deployment pod count increase.
 
 ```shell
 watch kubectl get deploy
@@ -62,5 +76,5 @@ for i in `seq 4 4 120`; do kubectl -n hey logs hey-$i ; done | less
 
 ```shell
 kubectl delete namespace hey
-bazel run sample/autoscale:everything.delete
+kubectl delete -f sample/autoscale/sample.yaml
 ```

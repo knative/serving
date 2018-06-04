@@ -15,7 +15,7 @@ go_library(
         "time.go",
         "value.go",
     ],
-    importmap = "elafros/vendor/github.com/prometheus/common/model",
+    importmap = "knative/vendor/github.com/prometheus/common/model",
     importpath = "github.com/prometheus/common/model",
     visibility = ["//visibility:public"],
 )

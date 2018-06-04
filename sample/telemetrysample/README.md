@@ -9,15 +9,32 @@ that is installed by default as a showcase of installing dedicated Prometheus in
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
+1. Install [docker](https://www.docker.com/)
 
-## Running
 
-Deploy the sample via:
+## Setup
+
+Build the app container and publish it to your registry of choice:
+
 ```shell
-bazel run sample/telemetrysample:everything.apply
+REPO="gcr.io/<your-project-here>"
+
+# Build and publish the container, run from the root directory.
+docker build \
+  --build-arg SAMPLE=telemetrysample \
+  --tag "${REPO}/sample/telemetrysample" \
+  --file=sample/Dockerfile.golang .
+docker push "${REPO}/sample/telemetrysample"
+
+# Replace the image reference with our published image.
+perl -pi -e "s@github.com/knative/serving/sample/telemetrysample@${REPO}/sample/telemetrysample@g" sample/telemetrysample/*.yaml
+
+# Deploy the Knative Serving sample
+kubectl apply -f sample/telemetrysample/
 ```
+
+## Exploring
 
 Once deployed, you can inspect the created resources with `kubectl` commands:
 
@@ -53,28 +70,32 @@ curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Hello World!
 ```
 
+Generate some logs to STDOUT and files under `/var/log` in `Json` or plain text formats.
+
+```shell
+curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}/log
+Sending logs done.
+```
+
 ## Accessing logs
 You can access to the logs from Kibana UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
 
 ## Accessing per request traces
 You can access to per request traces from Zipkin UI - see [Logs and Metrics](../../docs/telemetry.md) for more information.
 
-## Accessing metrics on the dedicated Prometheus instance
-First, get the service IP that Prometheus UI is exposed on:
+## Accessing custom metrics
+You can see published metrics using Prometheus UI. To access to the UI, forward the Prometheus server to your machine:
 
-```shell
-# Put the Ingress IP into an environment variable.
-kubectl get service prometheus-test-web -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"
-
-104.154.90.16
+```bash
+kubectl port-forward $(kubectl get pods --selector=app=prometheus,prometheus=test --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
-Copy the IP address and browse to <IP_ADDRESS>:30800.
+Then browse to http://localhost:9090.
 
 ## Cleaning up
 
 To clean up the sample service:
 
 ```shell
-bazel run sample/telemetrysample:everything.delete
+kubectl delete -f sample/telemetrysample/
 ```

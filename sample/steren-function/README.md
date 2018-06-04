@@ -7,25 +7,18 @@ This is based on the source code available from: github.com/steren/sample-functi
 
 ## Prerequisites
 
-1. [Setup your development environment](../../DEVELOPMENT.md#getting-started)
-2. [Start Elafros](../../README.md#start-elafros)
+[Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+You can deploy this to Knative Serving from the root directory via:
 ```shell
-$ bazel run sample/steren-function:everything.create
-INFO: Analysed target //sample/steren-function:everything.create (1 packages loaded).
-INFO: Found 1 target...
-Target //sample/steren-function:everything.create up-to-date:
-  bazel-bin/sample/steren-function/everything.create
-INFO: Elapsed time: 0.634s, Critical Path: 0.07s
-INFO: Build completed successfully, 4 total actions
+# Replace the token string with a suitable registry
+REPO="gcr.io/<your-project-here>"
+perl -pi -e "s@DOCKER_REPO_OVERRIDE@$REPO@g" sample/steren-function/sample.yaml
 
-INFO: Running command line: bazel-bin/sample/steren-function/everything.create
-buildtemplate "node-fn" created
-route "steren-sample-fn" created
-configuration "steren-sample-function" created
+# Create the Kubernetes resources
+kubectl apply -f sample/templates/node-fn.yaml -f sample/steren-function/sample.yaml
 ```
 
 Once deployed, you will see that it first builds:
@@ -34,7 +27,7 @@ Once deployed, you will see that it first builds:
 $ kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: elafros.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:
@@ -62,7 +55,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route steren-sample-fn -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress steren-sample-fn-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress steren-sample-fn-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
@@ -84,5 +77,5 @@ Hello mattmoor
 To clean up the sample service:
 
 ```shell
-bazel run sample/steren-function:everything.delete
+kubectl delete -f sample/templates/node-fn.yaml -f sample/steren-function/sample.yaml
 ```

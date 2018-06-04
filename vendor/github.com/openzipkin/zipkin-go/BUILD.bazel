@@ -15,7 +15,7 @@ go_library(
         "tracer.go",
         "tracer_options.go",
     ],
-    importmap = "elafros/vendor/github.com/openzipkin/zipkin-go",
+    importmap = "knative/vendor/github.com/openzipkin/zipkin-go",
     importpath = "github.com/openzipkin/zipkin-go",
     visibility = ["//visibility:public"],
     deps = [

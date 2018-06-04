@@ -17,15 +17,15 @@ limitations under the License.
 package revision
 
 import (
-	"flag"
+	"fmt"
 	"strconv"
 
-	"github.com/elafros/elafros/pkg/apis/ela"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -36,40 +36,61 @@ import (
 // non-default namespaces continue to work with autoscaling.
 const AutoscalerNamespace = "ela-system"
 
-var autoscalerImage string
-
-func init() {
-	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
-}
-
-func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
-	rollingUpdateConfig := v1beta1.RollingUpdateDeployment{
+// MakeElaAutoscalerDeployment creates the deployment of the
+// autoscaler for a particular revision.
+func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *appsv1.Deployment {
+	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
 
-	labels := MakeElaResourceLabels(u)
-	labels[ela.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(u)
+	annotations := MakeElaResourceAnnotations(rev)
+	annotations[sidecarIstioInjectAnnotation] = "false"
 
 	replicas := int32(1)
-	return &v1beta1.Deployment{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: AutoscalerNamespace,
-			Labels:    MakeElaResourceLabels(u),
+
+	const autoscalerConfigName = "config-autoscaler"
+	autoscalerConfigVolume := corev1.Volume{
+		Name: autoscalerConfigName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: autoscalerConfigName,
+				},
+			},
 		},
-		Spec: v1beta1.DeploymentSpec{
+	}
+
+	const loggingConfigName = "config-logging"
+	loggingConfigVolume := corev1.Volume{
+		Name: loggingConfigName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: loggingConfigName,
+				},
+			},
+		},
+	}
+
+	return &appsv1.Deployment{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:        controller.GetRevisionAutoscalerName(rev),
+			Namespace:   AutoscalerNamespace,
+			Labels:      MakeElaResourceLabels(rev),
+			Annotations: MakeElaResourceAnnotations(rev),
+		},
+		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
-			Strategy: v1beta1.DeploymentStrategy{
+			Selector: MakeElaResourceSelector(rev),
+			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: meta_v1.ObjectMeta{
-					Labels: labels,
-					Annotations: map[string]string{
-						"sidecar.istio.io/inject": "false",
-					},
+					Labels:      makeElaAutoScalerLabels(rev),
+					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -88,11 +109,19 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  "ELA_NAMESPACE",
-									Value: u.Namespace,
+									Value: rev.Namespace,
 								},
 								{
 									Name:  "ELA_DEPLOYMENT",
-									Value: controller.GetRevisionDeploymentName(u),
+									Value: controller.GetRevisionDeploymentName(rev),
+								},
+								{
+									Name:  "ELA_CONFIGURATION",
+									Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+								},
+								{
+									Name:  "ELA_REVISION",
+									Value: rev.Name,
 								},
 								{
 									Name:  "ELA_AUTOSCALER_PORT",
@@ -100,24 +129,37 @@ func MakeElaAutoscalerDeployment(u *v1alpha1.Revision) *v1beta1.Deployment {
 								},
 							},
 							Args: []string{
-								"-logtostderr=true",
-								"-stderrthreshold=INFO",
+								fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								corev1.VolumeMount{
+									Name:      autoscalerConfigName,
+									MountPath: "/etc/config-autoscaler",
+								},
+								corev1.VolumeMount{
+									Name:      loggingConfigName,
+									MountPath: "/etc/config-logging",
+								},
 							},
 						},
 					},
 					ServiceAccountName: "ela-autoscaler",
+					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
 				},
 			},
 		},
 	}
 }
 
-func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
+// MakeElaAutoscalerService returns a service for the autoscaler of
+// the given revision.
+func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      controller.GetRevisionAutoscalerName(u),
-			Namespace: AutoscalerNamespace,
-			Labels:    MakeElaResourceLabels(u),
+			Name:        controller.GetRevisionAutoscalerName(rev),
+			Namespace:   AutoscalerNamespace,
+			Labels:      makeElaAutoScalerLabels(rev),
+			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -129,8 +171,16 @@ func MakeElaAutoscalerService(u *v1alpha1.Revision) *corev1.Service {
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				"autoscaler": controller.GetRevisionAutoscalerName(u),
+				serving.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
 			},
 		},
 	}
+}
+
+// makeElaAutoScalerLabels constructs the labels we will apply to
+// service and deployment specs for autoscaler.
+func makeElaAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
+	labels := MakeElaResourceLabels(rev)
+	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
+	return labels
 }

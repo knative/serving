@@ -17,8 +17,8 @@ limitations under the License.
 package route
 
 import (
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
 			Name:      controller.GetElaK8SServiceName(route),
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(route, controllerKind),
+				*controller.NewRouteControllerRef(route),
 			},
 		},
 		Spec: corev1.ServiceSpec{

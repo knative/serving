@@ -1,15 +1,16 @@
-# Elafros API/Code Overview
+# Knative Serving API/Code Overview
 
 ## What's covered
 
-* [Design goals](./elafros-design-goals.md)
-* [API objects](./elafros-api-objects.md)
-  * [Configuration](./elafros-api-configuration.md)
-  * [Revision](./elafros-api-revision.md)
-  * [Route](./elafros-api-route.md)
-* [Components](./elafros-components.md)
+* [Design goals](./knative-design-goals.md)
+* [API objects](./knative-api-objects.md)
+  * [Configuration](./knative-api-configuration.md)
+  * [Revision](./knative-api-revision.md)
+  * [Route](./knative-api-route.md)
+  * [Service](./knative-api-service.md)
+* [Components](./knative-components.md)
 * Code layout
-  * [Resources](./elafros-code-layout-resources.md)
-  * [Controller](./elafros-code-layout-controller.md)
-  * [Webhook](./elafros-code-layout-webhook.md)
-  * [Other files](./elafros-code-layout-other.md)
+  * [Resources](./knative-code-layout-resources.md)
+  * [Controller](./knative-code-layout-controller.md)
+  * [Webhook](./knative-code-layout-webhook.md)
+  * [Other files](./knative-code-layout-other.md)

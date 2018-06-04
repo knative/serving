@@ -17,61 +17,95 @@
 set -o errexit
 set -o pipefail
 
-readonly ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
-readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
+source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
 
-function header() {
-  echo "*************************************************"
-  echo "** $1"
-  echo "*************************************************"
-}
+# Set default GCS/GCR
+: ${SERVING_RELEASE_GCS:="knative-releases"}
+: ${SERVING_RELEASE_GCR:="gcr.io/knative-releases"}
+readonly SERVING_RELEASE_GCS
+readonly SERVING_RELEASE_GCR
+
+# Local generated yaml file.
+readonly OUTPUT_YAML=release.yaml
 
 function cleanup() {
-  export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
-  bazel clean --expunge || true
+  restore_override_vars
 }
 
-cd ${ELAFROS_ROOT}
+function banner() {
+  echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+  echo "@@@@ $1 @@@@"
+  echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+}
+
+# Tag Knative Serving images in the yaml file with a tag.
+# Parameters: $1 - yaml file to parse for images.
+#             $2 - tag to apply.
+function tag_knative_images() {
+  [[ -z $2 ]] && return 0
+  echo "Tagging images with $2"
+  for image in $(grep -o "${DOCKER_REPO_OVERRIDE}/[a-z\./-]\+@sha256:[0-9a-f]\+" $1); do
+    gcloud -q container images add-tag ${image} ${image%%@*}:$2
+  done
+}
+
+cd ${SERVING_ROOT_DIR}
 trap cleanup EXIT
 
-header "TEST PHASE"
+if [[ "$1" != "--skip-tests" ]]; then
+  banner "RUNNING RELEASE VALIDATION TESTS"
+  # Run tests.
+  ./test/presubmit-tests.sh
+fi
 
-# Run tests.
-./test/presubmit-tests.sh
+install_ko
 
-header "BUILD PHASE"
+banner "    BUILDING THE RELEASE   "
 
-# Set the repository to the official one:
-export DOCKER_REPO_OVERRIDE=gcr.io/elafros-releases
+# Set the repository
+export KO_DOCKER_REPO=${SERVING_RELEASE_GCR}
 # Build should not try to deploy anything, use a bogus value for cluster.
 export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
 export K8S_USER_OVERRIDE=USER_NOT_SET
+export DOCKER_REPO_OVERRIDE=DOCKER_NOT_SET
 
-# If this is a prow job, authenticate against GCR.
-if [[ $USER == "prow" ]]; then
-  echo "Authenticating to GCR"
-  # kubekins-e2e images lack docker-credential-gcr, install it manually.
-  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
-  gcloud components install docker-credential-gcr
-  docker-credential-gcr configure-docker
-  echo "Successfully authenticated"
+# If this is a prow job,
+TAG=""
+if (( IS_PROW )); then
+  # Authenticate against GCR.
+  gcr_auth
+  commit=$(git describe --tags --always --dirty)
+  # Like kubernetes, image tag is vYYYYMMDD-commit
+  TAG="v$(date +%Y%m%d)-${commit}"
 fi
+readonly TAG
 
-echo "Cleaning up"
-bazel clean --expunge
-# TODO(mattmoor): Remove this once we depend on Build CRD releases
-echo "Building build-crd"
-bazel run @buildcrd//:everything > release.yaml
-echo "---" >> release.yaml
-echo "Building Elafros"
-bazel run :elafros >> release.yaml
+echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
+echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
+
+echo "Copying Build release"
+cp ${SERVING_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
+echo "---" >> ${OUTPUT_YAML}
+
+echo "Building Knative Serving"
+ko resolve -f config/ >> ${OUTPUT_YAML}
+echo "---" >> ${OUTPUT_YAML}
+
+echo "Building Monitoring & Logging"
+# Use ko to concatenate them all together.
+ko resolve -R -f config/monitoring/100-common \
+    -f config/monitoring/150-prod \
+    -f third_party/config/monitoring \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
+
+tag_knative_images ${OUTPUT_YAML} ${TAG}
 
 echo "Publishing release.yaml"
-gsutil cp release.yaml gs://elafros-releases/latest/release.yaml
+gsutil cp ${OUTPUT_YAML} gs://${SERVING_RELEASE_GCS}/latest/release.yaml
+if [[ -n ${TAG} ]]; then
+  gsutil cp ${OUTPUT_YAML} gs://${SERVING_RELEASE_GCS}/previous/${TAG}/
+fi
 
 echo "New release published successfully"
 

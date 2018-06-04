@@ -27,7 +27,7 @@ spec:
   - name: node-ftl
     image: gcr.io/gcp-runtimes/ftl_node_8_5_0_ubuntu_16_0_4_build:f1607c1721353971301dae01ac911ddcd3d39388
     args:
-    - "--base=gcr.io/gae-runtimes/nodejs8_fn:nodejs8_20180126_RC01"
+    - "--base=gcr.io/gae-runtimes/nodejs8_fn:8_10_0_nightly_20180322_RC00"
     - "--directory=${DIRECTORY}"
     - "--destination=/srv"
     - "--cache-repository=${IMAGE}"

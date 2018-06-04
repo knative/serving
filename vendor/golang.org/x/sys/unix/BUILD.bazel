@@ -397,7 +397,7 @@ go_library(
         "//conditions:default": [],
     }),
     cgo = True,
-    importmap = "elafros/vendor/golang.org/x/sys/unix",
+    importmap = "knative/vendor/golang.org/x/sys/unix",
     importpath = "golang.org/x/sys/unix",
     visibility = ["//visibility:public"],
 )

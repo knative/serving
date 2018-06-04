@@ -1,17 +1,18 @@
-# Elafros Personas
+# Knative Serving Personas
 
 When discussing user actions, it is often helpful to [define specific
 user roles](https://en.wikipedia.org/wiki/Persona_(user_experience)) who
 might want to do the action.
 
 
-## Elafros Compute
+## Knative Serving Compute
 
 ### Developer Personas
 
 The developer personas are software engineers looking to build and run
 a stateless application without concern about the underlying
-infrastructure.
+infrastructure. Developers expect to have tools which integrate with
+their native language tooling or business processes.
 
 * Hobbyist
 * Backend SWE
@@ -27,58 +28,26 @@ User stories:
 
 ### Operator Personas
 
+The operator personas are focused on deploying and managing both
+Knative Serving and the underlying Kubernetes cluster, as well as applying
+organization policy and security patches.
+
 * Hobbyist / Contributor
 * Cluster administrator
 * Security Engineer / Auditor
 * Capacity Planner
 
 User stories:
-* Create an Elafros cluster
+* Create an Knative Serving cluster
 * Apply policy / RBAC
 * Control or charge back for resource usage
 * Choose logging or monitoring plugins
-
-
-## Elafros Build
-
-We expect the build components of Elafros to be useful on their own,
-as well as in conjunction with the compute components. 
-
-### Developer
-
-User stories:
-* Start a build
-* Read build logs
-
-### Language operator / contributor
-
-User stories:
-* Create a build image / build pack
-
-
-## Elafros Events
-
-Event generation and consumption is a core part of the serverless
-(particularly function as a service) computing model. Event generation
-and dispatch enables decoupling of event producers from consumers.
-
-## Event consumer (developer)
-
-User stories:
-* Determine what event sources are available
-* Trigger my service when certain events happen (event binding)
-* Filter events from a provider
-
-## Event producer
-
-User stories:
-* Publish events
-* Control who can bind events
+* Audit or patch running Revisions
 
 
 ## Contributors
 
-Contributors are an important part of the Elafros project. As such, we
+Contributors are an important part of the Knative Serving project. As such, we
 will also consider how various infrastructure encourages and enables
 contributors to the project, as well as the impact on end-users.
 

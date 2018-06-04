@@ -6,7 +6,7 @@ go_library(
         "logger.go",
         "webhooks.go",
     ],
-    importmap = "elafros/vendor/gopkg.in/go-playground/webhooks.v3",
+    importmap = "knative/vendor/gopkg.in/go-playground/webhooks.v3",
     importpath = "gopkg.in/go-playground/webhooks.v3",
     visibility = ["//visibility:public"],
 )
