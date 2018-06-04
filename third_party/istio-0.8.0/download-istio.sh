@@ -7,6 +7,7 @@ cd istio-0.8.0
 helm template --namespace=istio-system \
     --set sidecarInjectorWebhook.enabled=true \
     --set global.proxy.image=proxyv2 \
+    --set prometheus.enabled=false \
     install/kubernetes/helm/istio > ../istio.yaml
 
 # Clean up.
