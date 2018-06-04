@@ -17,14 +17,15 @@ package e2e
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"testing"
-	"fmt"
+
+	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/google/go-containerregistry/v1/remote"
 )
 
 const (
@@ -56,13 +57,11 @@ func TestContainerErrorMsg(t *testing.T) {
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
 				return true, nil
-			} else {
-				s := fmt.Sprintf("The configuration %s was not marked with expected error condition with Reason to be \"%s\", Message to be \"%s\", and Status to be \"%s\"", ConfigName, cond.Reason, cond.Message, cond.Status)
-				return true, errors.New(s)
 			}
-		} else {
-			return false, nil
+			s := fmt.Sprintf("The configuration %s was not marked with expected error condition with Reason to be \"%s\", Message to be \"%s\", and Status to be \"%s\"", ConfigName, cond.Reason, cond.Message, cond.Status)
+			return true, errors.New(s)
 		}
+		return false, nil
 	})
 
 	if err != nil {
@@ -79,9 +78,8 @@ func TestContainerErrorMsg(t *testing.T) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
 			return cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown), nil
-		} else {
-			return false, nil
 		}
+		return false, nil
 	})
 
 	if err != nil {
@@ -89,7 +87,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	log.Println("When the revision has error condition, logUrl should be populated.")
-	logURL, err := GetLogUrlFromRevision(clients, revisionName)
+	logURL, err := GetLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
@@ -108,22 +106,20 @@ func GetRevisionFromConfiguration(clients *test.Clients, configName string) (str
 	}
 	if config.Status.LatestCreatedRevisionName != "" {
 		return config.Status.LatestCreatedRevisionName, nil
-	} else {
-		s := fmt.Sprintf("No valid revision name found in configuration %s", configName)
-		return "", errors.New(s)
 	}
+	s := fmt.Sprintf("No valid revision name found in configuration %s", configName)
+	return "", errors.New(s)
 }
 
 // Get LogURL from revision.
-func GetLogUrlFromRevision(clients *test.Clients, revisionName string) (string, error) {
+func GetLogURLFromRevision(clients *test.Clients, revisionName string) (string, error) {
 	revision, err := clients.Revisions.Get(revisionName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
 	if revision.Status.LogURL != "" && strings.Contains(revision.Status.LogURL, string(revision.GetUID())) {
 		return revision.Status.LogURL, nil
-	} else {
-		s := fmt.Sprintf("The revision %s does't have valid logUrl: %s", revisionName, revision.Status.LogURL)
-		return "", errors.New(s)
 	}
+	s := fmt.Sprintf("The revision %s does't have valid logUrl: %s", revisionName, revision.Status.LogURL)
+	return "", errors.New(s)
 }
