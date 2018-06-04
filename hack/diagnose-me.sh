@@ -16,7 +16,7 @@
 
 set -e
 
-CLUSTER_VERSION=1.9
+CLUSTER_VERSION=1.10
 
 tests=(
   cluster_version

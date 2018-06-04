@@ -26,11 +26,12 @@ To use a k8s cluster running in GKE:
     gcloud --project=$PROJECT_ID services enable container.googleapis.com
     ```
 
-1.  Create a k8s cluster (version 1.9 or greater):
+1.  Create a k8s cluster (version 1.10 or greater):
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
-      --cluster-version=1.9.6-gke.1 \
+      --cluster-version=1.10.2-gke.3 \
+      --image-type "UBUNTU" \
       --zone=us-east1-d \
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
@@ -38,7 +39,7 @@ To use a k8s cluster running in GKE:
       knative-demo
     ```
 
-    *   Version 1.9+ is required
+    *   Version 1.10+ is required
     *   Change this to whichever zone you choose
     *   cloud-platform scope is required to access GCB
     *   Knative Serving currently requires 4-cpu nodes to run conformance tests.
@@ -75,7 +76,7 @@ To use a k8s cluster running in GKE:
     Linux or `hyperkit` on macOS.
 
 1.  [Create a cluster](https://github.com/kubernetes/minikube#quickstart) with
-    version 1.9 or greater and your chosen VM driver:
+    version 1.10 or greater and your chosen VM driver:
 
     _Until minikube [enables it by
     default](https://github.com/kubernetes/minikube/pull/2547),the
@@ -94,7 +95,7 @@ For Linux use:
 
 ```shell
 minikube start \
-  --kubernetes-version=v1.9.4 \
+  --kubernetes-version=v1.10.0 \
   --vm-driver=kvm2 \
   --bootstrapper=localkube \
   --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
@@ -105,7 +106,7 @@ For macOS use:
 
 ```shell
 minikube start \
-  --kubernetes-version=v1.9.4 \
+  --kubernetes-version=v1.10.0 \
   --vm-driver=hyperkit \
   --bootstrapper=localkube \
   --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
