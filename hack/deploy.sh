@@ -24,7 +24,7 @@ readonly K8S_CLUSTER_NAME=${1:?"First argument must be the kubernetes cluster na
 readonly K8S_CLUSTER_ZONE=us-central1-a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
-readonly ISTIO_VERSION=0.6.0
+readonly ISTIO_VERSION=0.8.0
 readonly SERVING_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
 export ISTIO_VERSION
 readonly PROJECT_USER=$(gcloud config get-value core/account)
@@ -65,22 +65,21 @@ curl -L https://git.io/getLatestIstio | sh -
 header "Setting cluster admin"
 acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
 
-pushd istio-${ISTIO_VERSION}/install/kubernetes
+pushd istio-${ISTIO_VERSION}/
 
 header "Installing istio"
+
+helm template --namespace=istio-system \
+    --set sidecarInjectorWebhook.enabled=true \
+    --set global.proxy.image=proxyv2 \
+    install/kubernetes/helm/istio > istio.yaml
+
+kubectl create namespace istio-system
 kubectl apply -f istio.yaml
+
 wait_until_pods_running istio-system
 
 header "Enabling automatic sidecar injection in Istio"
-./webhook-create-signed-cert.sh \
-  --service istio-sidecar-injector \
-  --namespace istio-system \
-  --secret sidecar-injector-certs
-kubectl apply -f istio-sidecar-injector-configmap-release.yaml
-cat ./istio-sidecar-injector.yaml | \
-  ./webhook-patch-ca-bundle.sh > istio-sidecar-injector-with-ca-bundle.yaml
-kubectl apply -f istio-sidecar-injector-with-ca-bundle.yaml
-rm ./istio-sidecar-injector-with-ca-bundle.yaml
 kubectl label namespace default istio-injection=enabled
 wait_until_pods_running istio-system
 
