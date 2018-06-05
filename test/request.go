@@ -32,7 +32,7 @@ import (
 
 const (
 	RequestInterval = 1 * time.Second
-	RequestTimeout  = 1 * time.Minute
+	RequestTimeout  = 90 * time.Second
 )
 
 func waitForRequestToDomainState(address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) error {
