@@ -87,6 +87,10 @@ func TestContainerErrorMsg(t *testing.T) {
 		return false, nil
 	})
 
+	if err != nil {
+		t.Fatalf("Failed to validate revision state: %s", err)
+	}
+
 	log.Println("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
