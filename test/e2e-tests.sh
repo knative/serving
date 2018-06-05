@@ -117,7 +117,15 @@ function exit_if_failed() {
 function run_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
+  local started=$(date +%s)
   go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  local result=$?
+  local ended=$(date +%s)
+  local elapsed=$(( ended - started ))
+  local status
+  [[ $result -eq 0 ]] && status="PASSED" || status="FAILED"
+  echo "//test/$1:all                    ${status} in ${elapsed}s"
+  [[ $result -eq 0 ]]
   exit_if_failed
 }
 
