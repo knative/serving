@@ -10,17 +10,10 @@ If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
 ## Running unit tests
 
-Use bazel:
-
-```shell
-bazel test //pkg/... --test_output=errors
-```
-
-Or `go test`:
-
 ```shell
 go test -v ./pkg/...
 ```
+
 ## Running conformance tests
 
 To run [the conformance tests](./conformance), you need to have a running environment that meets
@@ -65,27 +58,6 @@ These tests require:
 The configuration for the images used for the existing conformance tests lives in
 [`test_images`](./conformance/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
-
-### Running conformance tests with Bazel
-
-To run the conformance tests with `bazel` you must:
-
-* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
-  [`BUILD.bazel`](./conformance/BUILD.bazel). By default [`BUILD.bazel`](./conformance/BUILD.bazel)
-  is configured to use [`test/conformance/kubeconfig`](/test/conformance/kubeconfig).
-* Provide a docker repo from which the built images will be pulled. This is done
-  via the `--dockerrepo` argument.
-
-_The `bazel` execution environment will not contain your environment variables, so you must
-explicitly specify them with [command line args](#flags)._
-
-To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./conformance/kubeconfig)
-and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
-to the location where [you have pushed the conformance test images](#conformance-test-images)):
-
-```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
-```
 
 ## Running end-to-end tests
 
@@ -133,27 +105,6 @@ These tests require:
 The configuration for the images used for the existing e2e tests lives in
 [`test_images`](./e2e/test_images). See the [section about test
 images](#test-images) for details about building and adding new ones.
-
-### Running e2e tests with Bazel
-
-To run the e2e tests with `bazel` you must:
-
-* Provide a `kubeconfig` file. This file must be a `data` dependency of the test in
-  [`BUILD.bazel`](./e2e/BUILD.bazel). By default [`BUILD.bazel`](./e2e/BUILD.bazel)
-  is configured to use [`test/e2e/kubeconfig`](/test/e2e/kubeconfig).
-* Provide a docker repo from which the built images will be pulled. This is done
-  via the `--dockerrepo` argument.
-
-_The `bazel` execution environment will not contain your environment variables, so you must
-explicitly specify them with [command line args](#flags)._
-
-To run the tests with `bazel` (assuming you have populated [`./kubeconfig`](./e2e/kubeconfig)
-and your [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) is configured
-to the location where [you have pushed the e2e test images](#e2e-test-images)):
-
-```bash
-bazel test //test/... --test_arg=--dockerrepo=$DOCKER_REPO_OVERRIDE --test_arg=--kubeconfig=./kubeconfig
-```
 
 ## Test images
 
@@ -255,7 +206,7 @@ docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `demo-domain.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
-against the endpoint, the test use the IP assigned to the istio `*-ela-ingress`
+against the endpoint, the test use the IP assigned to the istio `*-ingress`
 and spoof the `Host` in the header.
 
 If you have configured your cluster to use a resolvable domain, you can use the

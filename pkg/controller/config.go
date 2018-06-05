@@ -56,7 +56,7 @@ type Config struct {
 }
 
 const (
-	elaNamespace = "ela-system"
+	elaNamespace = "knative-serving-system"
 )
 
 func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {

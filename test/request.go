@@ -79,7 +79,7 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, resolvableDomain 
 	// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
 	// spoof the Host in our requests.
 	if !resolvableDomain {
-		ingressName := routeName + "-ela-ingress"
+		ingressName := routeName + "-ingress"
 		ingress, err := kubeClientset.ExtensionsV1beta1().Ingresses(namespaceName).Get(ingressName, metav1.GetOptions{})
 		if err != nil {
 			return err

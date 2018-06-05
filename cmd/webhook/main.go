@@ -30,7 +30,7 @@ import (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("ela-webhook")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")
@@ -49,10 +49,10 @@ func main() {
 	}
 
 	options := webhook.ControllerOptions{
-		ServiceName:      "ela-webhook",
-		ServiceNamespace: "ela-system",
+		ServiceName:      "webhook",
+		ServiceNamespace: "knative-serving-system",
 		Port:             443,
-		SecretName:       "ela-webhook-certs",
+		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
 	}
 	controller, err := webhook.NewAdmissionController(clientset, options, logger)

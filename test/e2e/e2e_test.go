@@ -14,7 +14,7 @@ const (
 	NamespaceName = "noodleburg"
 	ConfigName    = "prod"
 	RouteName     = "noodleburg"
-	IngressName   = RouteName + "-ela-ingress"
+	IngressName   = RouteName + "-ingress"
 )
 
 func Setup(t *testing.T) *test.Clients {

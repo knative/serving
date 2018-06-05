@@ -89,7 +89,7 @@ The Autoscaler is also given the identity of the Revision through environment va
 
 #### Stable Mode
 
-In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod (currently [hardcoded](https://github.com/knative/serving/blob/c4a543ecce61f5cac96b0e334e57db305ff4bcb3/cmd/ela-autoscaler/main.go#L36), later provided by the Slow Brain).  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
+In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod (currently [hardcoded](https://github.com/knative/serving/blob/c4a543ecce61f5cac96b0e334e57db305ff4bcb3/cmd/autoscaler/main.go#L36), later provided by the Slow Brain).  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
 
 #### Panic Mode
 
@@ -105,5 +105,5 @@ The Activator is a single multi-tenant component that catches traffic for all Re
 
 ## Slow Brain Implementation
 
-*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/knative/serving/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
+*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/knative/serving/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/autoscaler/main.go#L36)).*
 

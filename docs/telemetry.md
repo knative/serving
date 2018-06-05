@@ -8,7 +8,7 @@ First, deploy monitoring components.
 
 You can use two different setups:
 
-1. **everything-es**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 
 ```shell
 # With kubectl
@@ -23,7 +23,7 @@ kubectl apply -R -f config/monitoring/100-common \
 bazel run config/monitoring:everything-es.apply
 ```
 
-2. **everything-es-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
 # With kubectl
@@ -49,32 +49,24 @@ configuration first. See
 
 Then you can use two different setups:
 
-1. **everything-sd**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+1. **150-stackdriver-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-stackdriver-prod \
     -f third_party/config/monitoring/common \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything-sd.apply
 ```
 
-2. **everything-sd-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+2. **150-stackdriver-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-stackdriver-dev \
     -f third_party/config/monitoring/common \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything-sd-dev.apply
 ```
 
 ## Accessing logs
@@ -175,8 +167,12 @@ There are several other collectors that are pre-configured but not enabled. To s
 ## Default logs
 
 Deployment above enables collection of the following logs:
+<<<<<<< HEAD
 
 * stdout & stderr from all ela-container
+=======
+* stdout & stderr from all user-container
+>>>>>>> master
 * stdout & stderr from build-controller
 
 To enable log collection from other containers and destinations, see
@@ -196,8 +192,13 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
+<<<<<<< HEAD
 If you want to send metrics from your controller, follow the steps below.
 These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
+=======
+If you want to send metrics from your controller, follow the steps below.
+These steps are already applied to autoscaler and controller. For those controllers,
+>>>>>>> master
 simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
 instrument your code as described in step 3.
 
@@ -221,7 +222,7 @@ var (
 )
 
 func main() {
-	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: ela-autoscaler)}"})
+	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: autoscaler)}"})
 	if err != nil {
 		glog.Fatal(err)
 	}
