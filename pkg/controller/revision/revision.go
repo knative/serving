@@ -381,15 +381,15 @@ func (c *Controller) markRevisionBuilding(ctx context.Context, rev *v1alpha1.Rev
 }
 
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
-	switch bc.Type {
-	case buildv1alpha1.BuildComplete:
+	if bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionTrue {
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
 				Type:   v1alpha1.RevisionConditionBuildSucceeded,
-				Status: corev1.ConditionTrue,
+				Status: bc.Status,
 			})
 		c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
-	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
+	} else if (bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionFalse) ||
+		(bc.Type == buildv1alpha1.BuildInvalid && bc.Status == corev1.ConditionTrue) {
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
 				Type:    v1alpha1.RevisionConditionBuildSucceeded,
@@ -413,13 +413,10 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 
 func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
 	for _, cond := range build.Status.Conditions {
-		if cond.Status != corev1.ConditionTrue {
+		if cond.Status == corev1.ConditionUnknown {
 			continue
 		}
-		switch cond.Type {
-		case buildv1alpha1.BuildComplete, buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
-			return &cond
-		}
+		return &cond
 	}
 	return nil
 }
