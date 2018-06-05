@@ -97,10 +97,10 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
-	// TODO(jessiezcc@): actually validate the logURL, but requires kibana setup
+	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
 	VerboseGLog(fmt.Sprintf("LogURL: %s", logURL))
 
-	// TODO(jessiezcc@): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
+	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }
 
 // Get revision name from configuration.
