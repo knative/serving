@@ -139,18 +139,22 @@ func waitForHelloWorldGRPCEndpoint(address string, spoofDomain string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
 
-		resp, err := client.Hello(ctx, &hello.Request{Msg: "world"})
+		req := &hello.Request{Msg: "world"}
+		resp, err := client.Hello(ctx, req)
 		if err != nil {
-			return true, err
+			log.Printf("Retrying gRPC request: %+v, got err: %s", req, err)
+			// Continue to poll since the Ingress may take a while to start serving requests
+			return false, nil
 		}
 
 		expectedResponse := "Hello world"
 		receivedResponse := resp.GetMsg()
 
+		log.Printf("Received response: %s", receivedResponse)
 		if receivedResponse == expectedResponse {
 			return true, nil
 		}
-		return false, fmt.Errorf("Did not get expected response message %s, got %s", expectedResponse, receivedResponse)
+		return true, fmt.Errorf("Did not get expected response message %s, got %s", expectedResponse, receivedResponse)
 	})
 	return err
 }

@@ -14,7 +14,7 @@ import (
 
 var (
 	serverAddr         = flag.String("server_addr", "127.0.0.1:8080", "The server address in the format of host:port")
-	serverHostOverride = flag.String("server_host_override", "grpc.elafros.dev", "")
+	serverHostOverride = flag.String("server_host_override", "grpc.knative.dev", "")
 )
 
 func main() {

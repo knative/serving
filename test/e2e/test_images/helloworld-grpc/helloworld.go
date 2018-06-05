@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	hello "github.com/elafros/elafros/test/e2e/test_images/helloworld-grpc/proto"
+	hello "github.com/knative/serving/test/e2e/test_images/helloworld-grpc/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

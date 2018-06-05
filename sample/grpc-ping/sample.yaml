@@ -1,5 +1,5 @@
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Route
 metadata:
   name: grpc-ping
@@ -9,7 +9,7 @@ spec:
   - configurationName: grpc-ping
     percent: 100
 ---
-apiVersion: elafros.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
   name: grpc-ping
@@ -22,4 +22,4 @@ spec:
     spec:
       protocol: grpc
       container:
-        image: github.com/elafros/elafros/sample/grpc-ping
+        image: github.com/knative/serving/sample/grpc-ping

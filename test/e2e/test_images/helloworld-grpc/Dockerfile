@@ -1,6 +1,6 @@
 FROM golang:latest
 
-ENV APP ${GOPATH}/src/github.com/elafros/elafros/test/e2e/test_images/helloworld-grpc
+ENV APP ${GOPATH}/src/github.com/knative/serving/test/e2e/test_images/helloworld-grpc
 
 RUN mkdir -p "$APP"
 ADD . "$APP"

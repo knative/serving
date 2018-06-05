@@ -4,7 +4,7 @@ A simple gRPC server written in Go that you can use for testing.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/elafros/install/blob/master/README.md)
+1. [Install Knative](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Build and run the gRPC server
@@ -22,9 +22,9 @@ docker build \
 docker push "${REPO}/sample/grpc-ping"
 
 # Replace the image reference with our published image.
-perl -pi -e "s@github.com/elafros/elafros/sample/grpc-ping@${REPO}/sample/grpc-ping@g" sample/grpc-ping/*.yaml
+perl -pi -e "s@github.com/knative/serving/sample/grpc-ping@${REPO}/sample/grpc-ping@g" sample/grpc-ping/*.yaml
 
-# Deploy the Elafros sample
+# Deploy the Knative sample
 kubectl apply -f sample/grpc-ping/sample.yaml
 
 ```

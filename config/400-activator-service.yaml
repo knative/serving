@@ -15,7 +15,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: activator-service
+  name: activator-http-service
   namespace: knative-serving-system
   labels:
     app: activator
@@ -33,7 +33,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: activator-grpc-service
-  namespace: ela-system
+  namespace: knative-serving-system
   labels:
     app: ela-activator
 spec:

@@ -43,7 +43,7 @@ const (
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePaths[0]))
+	_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePaths[0], v1alpha1.RevisionProtocolHTTP))
 	if err != nil {
 		return err
 	}
