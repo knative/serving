@@ -35,6 +35,7 @@ You must install these tools:
 development.
 1. [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/): For
    managing development environments.
+1. [`helm`](https://helm.sh/): For installing Istio
 
 ### Environment setup
 
@@ -102,18 +103,24 @@ Once you reach this point you are ready to do a full build and deploy as describ
 Once you've [setup your development environment](#getting-started), stand up `Knative Serving` with:
 
 ### Deploy Istio
+In order to bypass Istio for all calls going outside the cluster, obtain your cluster's IP range.
+See [Istio documentation](https://istio.io/docs/tasks/traffic-management/egress/#calling-external-services-directly) for details. Once you have the IP ranges for your cluster, run the following:
 
 ```shell
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
   --user="${K8S_USER_OVERRIDE}"
 
-kubectl apply -f ./third_party/istio-0.8.0/istio.yaml
-```
+kubectl create namespace istio-system
 
-Then label namespaces with `istio-injection=enabled`:
+# Replace 10.56.0.0/14\,10.59.240.0/20 below with the IP addresses for your cluster
+helm template --namespace=istio-system \
+  --set sidecarInjectorWebhook.enabled=true \
+  --set prometheus.enabled=false \
+  --set global.proxy.image=proxyv2 \
+  --set global.proxy.includeIPRanges="10.56.0.0/14\,10.59.240.0/20" \
+  ./third_party/istio-0.8.0/install/kubernetes/helm/istio | kubectl apply -f -
 
-```shell
 kubectl label namespace default istio-injection=enabled
 ```
 
@@ -169,7 +176,6 @@ kubectl apply -R -f config/monitoring/100-common \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
 ```
 
 Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
