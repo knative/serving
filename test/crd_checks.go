@@ -139,6 +139,24 @@ func CheckRevisionState(client servingtyped.RevisionInterface, name string, inSt
 	return nil
 }
 
+// WaitForServiceState polls the status of the Service called name
+// from client every interval until inState returns `true` indicating it
+// is done, returns an error or timeout. desc will be used to name the metric
+// that is emitted to track how long it took for name to get into the state checked by inState.
+func WaitForServiceState(client servingtyped.ServiceInterface, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
+	metricName := fmt.Sprintf("WaitForServiceState/%s/%s", name, desc)
+	_, span := trace.StartSpan(context.Background(), metricName)
+	defer span.End()
+
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+		s, err := client.Get(name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return inState(s)
+	})
+}
+
 // WaitForIngressState polls the status of the Ingress called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
