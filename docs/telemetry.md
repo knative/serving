@@ -3,28 +3,20 @@
 First, deploy monitoring components. You can use two different setups:
 1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-prod \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything.apply
 ```
 
 2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-dev \
     -f third_party/config/monitoring \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything-dev.apply
 ```
 
 ## Accessing logs
