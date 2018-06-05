@@ -15,7 +15,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: controller-admin
+  name: knative-serving-controller-admin
 subjects:
   - kind: ServiceAccount
     name: controller
@@ -28,7 +28,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: autoscaler-write
+  name: knative-serving-autoscaler-write
 subjects:
   - kind: ServiceAccount
     name: autoscaler
@@ -41,10 +41,10 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: revision-read
+  name: knative-serving-revision-read
 subjects:
   - kind: ServiceAccount
-    name: revision
+    name: knative-serving-revision
     namespace: default
 roleRef:
   kind: ClusterRole
