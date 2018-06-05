@@ -196,6 +196,7 @@ redeploy `Knative Serving`](./README.md#start-knative).
 You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
+  -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-0.8.0/istio.yaml
