@@ -95,8 +95,6 @@ To check out this repository:
 _Adding the `upstream` remote sets you up nicely for regularly [syncing your
 fork](https://help.github.com/articles/syncing-a-fork/)._
 
-Once you reach this point you are ready to do a full build and deploy as described [here](./README.md#start-knative).
-
 ## Starting Knative Serving
 
 Once you've [setup your development environment](#getting-started), stand up `Knative Serving` with:
