@@ -18,14 +18,14 @@ package e2e
 import (
 	"errors"
 	"fmt"
-	"log"
-	"strings"
-	"testing"
-
+	"github.com/golang/glog"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
+	"strings"
+	"testing"
 )
 
 const (
@@ -91,14 +91,14 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	log.Println("When the revision has error condition, logUrl should be populated.")
+	glog.Info("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
 	// TODO(jessiezcc@): actually validate the logURL, but requires kibana setup
-	log.Printf("LogURL: %s", logURL)
+	VerboseGLog(fmt.Sprintf("LogURL: %s", logURL))
 
 	// TODO(jessiezcc@): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }

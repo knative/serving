@@ -1,9 +1,11 @@
 package e2e
 
 import (
-	"testing"
-
+	"flag"
+	"fmt"
+	"github.com/golang/glog"
 	"github.com/knative/serving/test"
+	"testing"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
@@ -17,6 +19,23 @@ const (
 	IngressName   = RouteName + "-ela-ingress"
 )
 
+func init() {
+	boolPtr := flag.Bool("logVerbose", false, "a bool")
+	flag.Parse()
+
+	if *boolPtr {
+		flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
+		var logLevel string
+		flag.StringVar(&logLevel, "logLevel", "10", "verbose log level")
+		flag.Lookup("v").Value.Set(logLevel)
+		glog.Info("logVerbose %v", boolPtr)
+	}
+}
+
+func VerboseGLog(s string) {
+	glog.V(10).Infof(s)
+}
+
 func Setup(t *testing.T) *test.Clients {
 	clients, err := test.NewClients(
 		test.Flags.Kubeconfig,
@@ -29,6 +48,7 @@ func Setup(t *testing.T) *test.Clients {
 }
 
 func TearDown(clients *test.Clients) {
+	glog.Flush()
 	if clients != nil {
 		clients.Delete([]string{RouteName}, []string{ConfigName})
 	}
