@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: search-service
@@ -36,7 +36,7 @@ spec:
               initialDelaySeconds: 3
               periodSeconds: 3
 ---
-apiVersion: knative.dev/v1alpha1
+apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
   name: login-service
