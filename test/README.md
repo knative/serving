@@ -206,7 +206,7 @@ docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `demo-domain.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
-against the endpoint, the test use the IP assigned to the istio `*-ela-ingress`
+against the endpoint, the test use the IP assigned to the istio `*-ingress`
 and spoof the `Host` in the header.
 
 If you have configured your cluster to use a resolvable domain, you can use the

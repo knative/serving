@@ -27,7 +27,7 @@ data:
       evaluation_interval: 30s
     scrape_configs:
     # Autoscaler endpoint
-    - job_name: ela-autoscaler
+    - job_name: autoscaler
       scrape_interval: 3s
       scrape_timeout: 3s
       kubernetes_sd_configs:
@@ -57,14 +57,14 @@ data:
         target_label: service
         replacement: $1
     # Knative Serving controller    
-    - job_name: ela-controller
+    - job_name: controller
       kubernetes_sd_configs:
       - role: endpoints
       relabel_configs:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: knative-serving-system;ela-controller;metrics
+        regex: knative-serving-system;controller;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace

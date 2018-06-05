@@ -13,14 +13,18 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: ServiceAccount
+kind: Service
 metadata:
-  name: ela-controller
+  name: activator-service
   namespace: knative-serving-system
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ela-autoscaler
-  namespace: knative-serving-system
-
+  labels:
+    app: activator
+spec:
+  selector:
+    app: activator
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: NodePort

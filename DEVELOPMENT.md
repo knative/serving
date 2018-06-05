@@ -135,14 +135,14 @@ You can see things running with:
 ```shell
 kubectl -n knative-serving-system get pods
 NAME                                READY     STATUS    RESTARTS   AGE
-ela-controller-77897cc687-vp27q   1/1       Running   0          16s
-ela-webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
+controller-77897cc687-vp27q   1/1       Running   0          16s
+webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
 ```
 
 You can access the Knative Serving Controller's logs with:
 
 ```shell
-kubectl -n knative-serving-system logs $(kubectl -n knative-serving-system get pods -l app=ela-controller -o name)
+kubectl -n knative-serving-system logs $(kubectl -n knative-serving-system get pods -l app=controller -o name)
 ```
 
 If you're using a GCP project to host your Kubernetes cluster, it's good to check the
