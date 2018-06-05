@@ -35,9 +35,11 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         - github.com/knative/serving/cmd/queue
-        # Comment the following lines to disable the single-tenant autoscaler.
-        - "-autoscalerImage"
-        - github.com/knative/serving/cmd/autoscaler
+        # Uncomment the following lines to disable the multi-tenant autoscaler
+        # and enable the single-tenant autoscaler. You must also delete the
+        # knative-serving-system/autoscaling-controller deployment if if exists.
+        #- "-autoscalerImage"
+        #- github.com/knative/serving/cmd/autoscaler
         ports:
         - name: metrics
           containerPort: 9090
