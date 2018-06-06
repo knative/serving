@@ -36,34 +36,34 @@ func isHelloWorldExpectedOutput() func(body string) (bool, error) {
 }
 
 func TestHelloWorld(t *testing.T) {
-	clients := Setup(t)
-	defer TearDown(clients)
-	test.CleanupOnInterrupt(func() { TearDown(clients) })
+	h := Setup(t)
+	defer h.TearDown()
+	test.CleanupOnInterrupt(func() { h.TearDown() })
 
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
 	log.Println("Creating a new Route and Configuration")
-	err := CreateRouteAndConfig(clients, imagePath)
+	err := h.CreateRouteAndConfig(imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
 
 	log.Println("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	err = test.WaitForRouteState(clients.Routes, RouteName, func(r *v1alpha1.Route) (bool, error) {
+	err = test.WaitForRouteState(h.Clients.Routes, h.RouteName, func(r *v1alpha1.Route) (bool, error) {
 		return r.Status.IsReady(), nil
 	})
 	if err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", RouteName, err)
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", h.RouteName, err)
 	}
 
-	route, err := clients.Routes.Get(RouteName, metav1.GetOptions{})
+	route, err := h.Clients.Routes.Get(h.RouteName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", RouteName, err)
+		t.Fatalf("Error fetching Route %s: %v", h.RouteName, err)
 	}
 	domain := route.Status.Domain
-	err = test.WaitForEndpointState(clients.Kube, test.Flags.ResolvableDomain, domain, NamespaceName, RouteName, isHelloWorldExpectedOutput())
+	err = test.WaitForEndpointState(h.Clients.Kube, test.Flags.ResolvableDomain, domain, h.NamespaceName, h.RouteName, isHelloWorldExpectedOutput())
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", RouteName, domain, helloWorldExpectedOutput, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", h.RouteName, domain, helloWorldExpectedOutput, err)
 	}
 }

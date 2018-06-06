@@ -31,6 +31,7 @@ type Clients struct {
 	Routes    elatyped.RouteInterface
 	Configs   elatyped.ConfigurationInterface
 	Revisions elatyped.RevisionInterface
+	Services  elatyped.ServiceInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
@@ -55,6 +56,7 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
 	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
 	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
+	clients.Services = cs.ServingV1alpha1().Services(namespace)
 
 	return clients, nil
 }

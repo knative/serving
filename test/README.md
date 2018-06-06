@@ -97,7 +97,7 @@ go test -v ./test/e2e --resolvabledomain
 These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespace `noodleburg` to exist in the cluster: `kubectl create namespace noodleburg`
+2. The namespace in which you will run tests should exist in the cluster: `kubectl create namespace noodleburg`
 3. A docker repo containing [the e2e test images](#e2e-test-images)
 
 ### End-to-end test images
@@ -198,6 +198,7 @@ go test ./test/conformance --dockerrepo gcr.myhappyproject
 ```bash
 go test ./test/e2e --dockerrepo gcr.myhappyproject
 ```
+
 
 #### Using a resolvable domain
 

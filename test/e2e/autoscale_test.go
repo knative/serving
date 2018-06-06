@@ -49,17 +49,17 @@ func isDeploymentScaledDown() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, num int, domain string) {
+func (h *Helper) generateTrafficBurst(num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
 	log.Printf("Performing %d concurrent requests.", num)
 	for i := 0; i < num; i++ {
 		go func() {
-			test.WaitForEndpointState(clients.Kube,
+			test.WaitForEndpointState(h.Clients.Kube,
 				test.Flags.ResolvableDomain,
 				domain,
-				NamespaceName,
-				RouteName,
+				h.NamespaceName,
+				h.RouteName,
 				isExpectedOutput())
 			concurrentRequests <- true
 		}()
@@ -72,8 +72,8 @@ func generateTrafficBurst(clients *test.Clients, num int, domain string) {
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	clients := Setup(t)
-	defer TearDown(clients)
+	h := Setup(t)
+	defer h.TearDown()
 
 	imagePath := strings.Join(
 		[]string{
@@ -82,7 +82,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		"/")
 
 	log.Println("Creating a new Route and Configuration")
-	err := CreateRouteAndConfig(clients, imagePath)
+	err := h.CreateRouteAndConfig(imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
@@ -90,48 +90,48 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	log.Println(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
 	err = test.WaitForRouteState(
-		clients.Routes,
-		RouteName,
+		h.Clients.Routes,
+		h.RouteName,
 		func(r *v1alpha1.Route) (bool, error) {
 			return r.Status.IsReady(), nil
 		})
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
-			 %v`, RouteName, err)
+			 %v`, h.RouteName, err)
 	}
 
 	log.Println("Serves the expected data at the endpoint")
-	config, err := clients.Configs.Get(ConfigName, metav1.GetOptions{})
+	config, err := h.Clients.Configs.Get(h.ConfigName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(`Configuration %s was not updated with the new
-		         revision: %v`, ConfigName, err)
+		         revision: %v`, h.ConfigName, err)
 	}
 	deploymentName :=
 		config.Status.LatestCreatedRevisionName + "-deployment"
-	route, err := clients.Routes.Get(RouteName, metav1.GetOptions{})
+	route, err := h.Clients.Routes.Get(h.RouteName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", RouteName, err)
+		t.Fatalf("Error fetching Route %s: %v", h.RouteName, err)
 	}
 	domain := route.Status.Domain
 
 	err = test.WaitForEndpointState(
-		clients.Kube,
+		h.Clients.Kube,
 		test.Flags.ResolvableDomain,
 		domain,
-		NamespaceName,
-		RouteName,
+		h.NamespaceName,
+		h.RouteName,
 		isExpectedOutput())
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
-			RouteName, domain, autoscaleExpectedOutput, err)
+			h.RouteName, domain, autoscaleExpectedOutput, err)
 	}
 
 	log.Println(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	generateTrafficBurst(clients, 5, domain)
+	h.generateTrafficBurst(5, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		h.Clients.Kube.ExtensionsV1beta1().Deployments(h.NamespaceName),
 		deploymentName,
 		isDeploymentScaledUp())
 	if err != nil {
@@ -142,7 +142,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	log.Println(`The autoscaler successfully scales down when devoid of
 		    traffic.`)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		h.Clients.Kube.ExtensionsV1beta1().Deployments(h.NamespaceName),
 		deploymentName,
 		isDeploymentScaledDown())
 	if err != nil {
@@ -152,7 +152,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	// Account for the case where scaling up uses all available pods.
 	log.Println("Wait until there are pods available to scale into.")
-	pc := clients.Kube.CoreV1().Pods(NamespaceName)
+	pc := h.Clients.Kube.CoreV1().Pods(h.NamespaceName)
 	pods, err := pc.List(metav1.ListOptions{})
 	podCount := 0
 	if err != nil {
@@ -169,9 +169,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	log.Println(`The autoscaler spins up additional replicas once again when
 	            traffic increases.`)
-	generateTrafficBurst(clients, 8, domain)
+	h.generateTrafficBurst(8, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		h.Clients.Kube.ExtensionsV1beta1().Deployments(h.NamespaceName),
 		deploymentName,
 		isDeploymentScaledUp())
 	if err != nil {
