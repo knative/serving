@@ -30,7 +30,7 @@ kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
-### Stackdriver (logs), Prometheus & Grafana Setup
+### Stackdriver(logs), Prometheus & Grafana Setup
 
 If your Knative Serving is not built on a GCP based cluster or you want to send logs to
 another GCP project, you need to build your own Fluentd image and modify the
