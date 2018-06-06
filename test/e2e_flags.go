@@ -65,7 +65,7 @@ func initializeFlags() *EnvironmentFlags {
 	flag.Parse()
 
 	if *boolPtr {
-		flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
+		flag.Set("alsologtostderr", "true")
 		var logLevel string
 		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
 		flag.Lookup("v").Value.Set(logLevel)

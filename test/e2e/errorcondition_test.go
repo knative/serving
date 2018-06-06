@@ -61,7 +61,7 @@ func TestContainerErrorMsg(t *testing.T) {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
 				return true, nil
 			}
-			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", ConfigName, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
+			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 			return true, errors.New(s)
 		}
 		return false, nil
