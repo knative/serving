@@ -106,7 +106,7 @@ function exit_if_failed() {
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_ela_pod ela-controller) -n knative-serving-system
+  kubectl logs $(get_ela_pod controller) -n knative-serving-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
@@ -114,10 +114,10 @@ function exit_if_failed() {
   exit 1
 }
 
-function run_tests() {
+function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  go test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
   exit_if_failed
 }
 
@@ -250,8 +250,16 @@ exit_if_failed
 
 # Run the tests
 
-run_tests conformance pizzaplanet ela-conformance-test
-run_tests e2e noodleburg ela-e2e-test
+echo "Waiting 2 minutes before starting the tests"
+echo "See https://github.com/knative/serving/issues/1070 for details"
+sleep 120
+header "Running 'hello world' test"
+kubectl create namespace noodleburg
+go test -v ./test/e2e -run HelloWorld -dockerrepo gcr.io/elafros-e2e-tests/ela-e2e-test
+exit_if_failed
+
+# run_e2e_tests conformance pizzaplanet ela-conformance-test
+# run_e2e_tests e2e noodleburg ela-e2e-test
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

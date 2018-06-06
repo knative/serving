@@ -208,11 +208,11 @@ status:
   - type: Ready
     status: False
     reason: NoDeployment
-    message: "The controller could not create a deployment named ela-abc-e13ac."
+    message: "The controller could not create a deployment named abc-e13ac."
   - type: ResourcesProvisioned
     status: False
     reason: NoDeployment
-    message: "The controller could not create a deployment named ela-abc-e13ac."
+    message: "The controller could not create a deployment named abc-e13ac."
 ```
 
 ### Container image not present in repository

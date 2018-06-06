@@ -27,13 +27,13 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	ela_autoscaler "github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/gorilla/websocket"
 
@@ -222,7 +222,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLoggerFromDefaultConfigMap("loglevel.autoscaler").Named("ela-autoscaler")
+	logger = logging.NewLoggerFromDefaultConfigMap("loglevel.autoscaler").Named("autoscaler")
 	defer logger.Sync()
 
 	initEnv()

@@ -30,7 +30,7 @@ import (
 
 // MakeElaQueueContainer creates the container spec for queue sidecar.
 func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
-	const elaQueueConfigVolumeName = "ela-queue-config"
+	const elaQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,

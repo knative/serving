@@ -122,6 +122,7 @@ func NewBase(
 		UpdateFunc: func(old, new interface{}) {
 			base.enqueueWork(new)
 		},
+		DeleteFunc: base.enqueueWork,
 	})
 
 	return base
@@ -132,7 +133,7 @@ func NewBase(
 func (c *Base) enqueueWork(obj interface{}) {
 	var key string
 	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
+	if key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
 		runtime.HandleError(err)
 		return
 	}
@@ -214,7 +215,7 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Configuration resource to be synced.
+		// resource to be synced.
 		if err := syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err)
 		}

@@ -15,7 +15,7 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: ela-activator
+  name: activator
   namespace: knative-serving-system
 spec:
   # TODO: Increase the replicas
@@ -24,12 +24,12 @@ spec:
   template:
     metadata:
       labels:
-        app: ela-activator
-        role: ela-activator
+        app: activator
+        role: activator
     spec:
-      serviceAccountName: ela-controller
+      serviceAccountName: controller
       containers:
-      - name: ela-activator
+      - name: activator
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/activator

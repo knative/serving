@@ -30,7 +30,7 @@ import (
 
 const (
 	// Each Knative Serving pod gets 1 cpu.
-	elaContainerCPU     = "400m"
+	userContainerCPU    = "400m"
 	queueContainerCPU   = "25m"
 	fluentdContainerCPU = "75m"
 
@@ -59,21 +59,21 @@ func MakeElaPodSpec(
 		},
 	}
 
-	elaContainer := rev.Spec.Container.DeepCopy()
+	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
-	elaContainer.Name = elaContainerName
-	elaContainer.Resources = corev1.ResourceRequirements{
+	userContainer.Name = userContainerName
+	userContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse(elaContainerCPU),
+			corev1.ResourceName("cpu"): resource.MustParse(userContainerCPU),
 		},
 	}
-	elaContainer.Ports = []corev1.ContainerPort{{
-		Name:          elaPortName,
-		ContainerPort: int32(elaPort),
+	userContainer.Ports = []corev1.ContainerPort{{
+		Name:          userPortName,
+		ContainerPort: int32(userPort),
 	}}
-	elaContainer.VolumeMounts = append(
-		elaContainer.VolumeMounts,
+	userContainer.VolumeMounts = append(
+		userContainer.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      varLogVolumeName,
 			MountPath: "/var/log",
@@ -88,7 +88,7 @@ func MakeElaPodSpec(
 	//
 	// TODO(tcnghia): Fail validation webhook when users specify their
 	// own lifecycle hook.
-	elaContainer.Lifecycle = &corev1.Lifecycle{
+	userContainer.Lifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(queue.RequestQueueAdminPort),
@@ -102,12 +102,12 @@ func MakeElaPodSpec(
 	//
 	// TODO(tcnghia): Fail validation webhook when users specify their
 	// own port in readiness checks.
-	if hasHTTPPath(elaContainer.ReadinessProbe) {
-		elaContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
+	if hasHTTPPath(userContainer.ReadinessProbe) {
+		userContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
 	podSpe := &corev1.PodSpec{
-		Containers:         []corev1.Container{*elaContainer, *MakeElaQueueContainer(rev, controllerConfig)},
+		Containers:         []corev1.Container{*userContainer, *MakeElaQueueContainer(rev, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
@@ -140,7 +140,7 @@ func MakeElaPodSpec(
 				},
 				{
 					Name:  "ELA_CONTAINER_NAME",
-					Value: elaContainerName,
+					Value: userContainerName,
 				},
 				{
 					Name:  "ELA_CONFIGURATION",

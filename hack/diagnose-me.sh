@@ -49,7 +49,7 @@ run_test() {
       ;;
     webhook_running)
       printf "Knative Serving webhook is installed"
-      test_cmd="kubectl get pods -n knative-serving-system -l app=ela-webhook -o jsonpath={.items[].status.phase}"
+      test_cmd="kubectl get pods -n knative-serving-system -l app=webhook -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"
       ;;
@@ -65,7 +65,7 @@ run_test() {
 
       printf "* configured with correct service"
       test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
-      expected_result="ela-webhook"
+      expected_result="webhook"
       test_command "$test_cmd" "$expected_result"
 
       printf "* configured with correct namespace"
@@ -75,7 +75,7 @@ run_test() {
       ;;
     controllers_running)
       printf "Knative Serving controllers are running"
-      test_cmd="kubectl get pods -n knative-serving-system -l app=ela-controller -o jsonpath={.items[].status.phase}"
+      test_cmd="kubectl get pods -n knative-serving-system -l app=controller -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"
       ;;

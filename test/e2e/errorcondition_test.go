@@ -1,3 +1,5 @@
+// +build e2e
+
 /*
 Copyright 2018 Google Inc. All Rights Reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,23 +38,24 @@ const (
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
 	clients := Setup(t)
-	defer TearDown(clients)
-	test.CleanupOnInterrupt(func() { TearDown(clients) })
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
 	log.Printf("Creating a new Route and Configuration %s", imagePath)
-	err := CreateRouteAndConfig(clients, imagePath)
+	names, err := CreateRouteAndConfig(clients, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
+	defer TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
+
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
 	log.Println("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err = test.WaitForConfigurationState(clients.Configs, ConfigName, func(r *v1alpha1.Configuration) (bool, error) {
+	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
 		if cond != nil {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
@@ -68,9 +71,9 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate configuration state: %s", err)
 	}
 
-	revisionName, err := getRevisionFromConfiguration(clients, ConfigName)
+	revisionName, err := getRevisionFromConfiguration(clients, names.Config)
 	if err != nil {
-		t.Fatalf("Failed to get revision from configuration %s: %v", ConfigName, err)
+		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
 	log.Println("When the imagepath is invalid, the revision should have error status.")
