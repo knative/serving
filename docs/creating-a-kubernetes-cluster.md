@@ -36,6 +36,7 @@ To use a k8s cluster running in GKE:
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
+      --enable-kubernetes-alpha \
       knative-demo
     ```
 
@@ -45,6 +46,7 @@ To use a k8s cluster running in GKE:
     *   Knative Serving currently requires 4-cpu nodes to run conformance tests.
         Changing the machine type from the default may cause failures.
     *   Autoscale from 1 to 3 nodes. Adjust this for your use case
+    *   Kubernetes alpha features are required to enable the `CustomResourceSubresources` feature.
     *   Change this to your preferred cluster name
 
     You can see the list of supported cluster versions in a particular zone by
