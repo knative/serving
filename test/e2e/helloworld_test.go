@@ -51,6 +51,17 @@ func TestHelloWorld(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
 	defer TearDown(clients, names)
 
+	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+		return c.Status.LatestReadyRevisionName == names.Revision, nil
+	})
+	if err != nil {
+		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
+	}
+	err = test.WaitForRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
+	if err != nil {
+		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
+	}
+
 	log.Println("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {
 		return r.Status.IsReady(), nil
