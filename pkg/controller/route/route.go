@@ -337,7 +337,6 @@ func markConfigurationMissingCondition(route *v1alpha1.Route, configName string)
 		Reason:  "ConfigurationMissing",
 		Message: msg,
 	})
-	// TODO: Previous SetCondition call should automagically update Ready.
 	route.Status.SetCondition(&v1alpha1.RouteCondition{
 		Type:    v1alpha1.RouteConditionReady,
 		Status:  corev1.ConditionFalse,
@@ -346,6 +345,7 @@ func markConfigurationMissingCondition(route *v1alpha1.Route, configName string)
 	})
 }
 
+// TODO: Remove missing Revision from traffic in status?
 func markRevisionMissingCondition(route *v1alpha1.Route, revName string) {
 	msg := fmt.Sprintf("Revision '%s' referenced in traffic not found", revName)
 	route.Status.SetCondition(&v1alpha1.RouteCondition{
@@ -354,7 +354,6 @@ func markRevisionMissingCondition(route *v1alpha1.Route, revName string) {
 		Reason:  "RevisionMissing",
 		Message: msg,
 	})
-	// TODO: Previous SetCondition call should automagically update Ready.
 	route.Status.SetCondition(&v1alpha1.RouteCondition{
 		Type:    v1alpha1.RouteConditionReady,
 		Status:  corev1.ConditionFalse,
@@ -381,6 +380,7 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 				if apierrs.IsNotFound(err) {
 					markConfigurationMissingCondition(route, configName)
 					if _, err := c.updateStatus(ctx, route); err != nil {
+						// If we failed to update the status, return that error instead of the "config not found" error.
 						return nil, nil, err
 					}
 				}
@@ -395,6 +395,7 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 				if apierrs.IsNotFound(err) {
 					markRevisionMissingCondition(route, revName)
 					if _, err := c.updateStatus(ctx, route); err != nil {
+						// If we failed to update the status, return that error instead of the "revision not found" error.
 						return nil, nil, err
 					}
 				}

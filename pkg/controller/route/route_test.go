@@ -1222,7 +1222,9 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				RevisionName: "does-not-exist", // NB: Triggers the condition
+				// Note that since no Revision with this name exists,
+				// this will trigger the RevisionMissing condition.
+				RevisionName: "does-not-exist",
 				Percent:      100,
 			},
 		},
@@ -1266,7 +1268,9 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			v1alpha1.TrafficTarget{
-				ConfigurationName: "does-not-exist", // NB: Triggers the condition
+				// Note that since no Configuration with this name exists,
+				// this will trigger the ConfigurationMissing condition.
+				ConfigurationName: "does-not-exist",
 				Percent:           100,
 			},
 		},
