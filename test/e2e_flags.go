@@ -37,6 +37,7 @@ type EnvironmentFlags struct {
 	DockerRepo       string
 	Kubeconfig       string
 	ResolvableDomain bool
+	LogVerbose       bool
 }
 
 // VerboseLogLevel defines verbose log level as 10
@@ -61,10 +62,11 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
-	boolPtr := flag.Bool("logVerbose", false, "a bool")
-	flag.Parse()
+	flag.BoolVar(&f.LogVerbose, "logverbose", false,
+		"Set this flag to true if you woule like see verbose logging.")
 
-	if *boolPtr {
+	flag.Parse()
+	if f.LogVerbose {
 		flag.Set("alsologtostderr", "true")
 		var logLevel string
 		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
