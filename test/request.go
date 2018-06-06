@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	RequestInterval = 1 * time.Second
-	RequestTimeout  = 2 * time.Minute
+	requestInterval = 1 * time.Second
+	requestTimeout  = 1 * time.Minute
 )
 
 func waitForRequestToDomainState(address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) error {
@@ -47,7 +47,7 @@ func waitForRequestToDomainState(address string, spoofDomain string, retryableCo
 	}
 
 	var body []byte
-	err = wait.PollImmediate(RequestInterval, RequestTimeout, func() (bool, error) {
+	err = wait.PollImmediate(requestInterval, requestTimeout, func() (bool, error) {
 		resp, err := h.Do(req)
 		if err != nil {
 			return true, err
@@ -106,7 +106,7 @@ func FetchEndpointDomain(kubeClientset *kubernetes.Clientset, resolvableDomain b
 	// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
 	// spoof the Host in our requests.
 	if !resolvableDomain {
-		ingressName := routeName + "-ela-ingress"
+		ingressName := routeName + "-ingress"
 		ingress, err := kubeClientset.ExtensionsV1beta1().Ingresses(namespaceName).Get(ingressName, metav1.GetOptions{})
 		if err != nil {
 			return "", "", err
