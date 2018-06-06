@@ -121,6 +121,46 @@ function run_tests() {
   exit_if_failed
 }
 
+# Smoke test: deploy the "hello world" app from source using command line.
+function run_smoke_test() {
+  header "Running smoke test (hello world)"
+  local IMAGE="${KO_DOCKER_REPO}/smoke/helloworld"
+  local YAML="$(mktemp helloworld.yaml.XXXXXXXXXX)"
+  docker build \
+    --build-arg SAMPLE=helloworld \
+    --tag ${IMAGE} \
+    --file=sample/Dockerfile.golang .
+  docker push "${IMAGE}"
+  sed "s@github.com/knative/serving/sample/helloworld@${IMAGE}@g" \
+    sample/helloworld/sample.yaml > ${YAML}
+  kubectl apply -f ${YAML}
+  local service_host=""
+  local service_ip=""
+  for i in {1..150}; do  # timeout after 5 minutes
+    echo "Waiting for Ingress to come up"
+    if [[ $(kubectl get ingress | grep route-example | wc -w) == 5 ]]; then
+      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
+      service_ip=$(kubectl get ingress route-example-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+      echo -e -n "Ingress is at $service_ip / $service_host\n"
+      break
+    fi
+    sleep 2
+  done
+  if [[ -z ${service_host} ]]; then
+    echo "ERROR: No ingress found."
+    kubectl delete -f ${YAML}
+    return 1
+  fi
+  local output="$(curl --header "Host:$service_host" http://${service_ip})"
+  local result=0
+  if [[ "${output}" != "Hello World: shiniestnewestversion!" ]]; then
+    echo "ERROR: unexpected output [${output}]"
+    result=1
+  fi
+  kubectl delete -f ${YAML}
+  return $result
+}
+
 # Script entry point.
 
 cd ${SERVING_ROOT_DIR}
@@ -248,11 +288,12 @@ set +o pipefail
 wait_until_pods_running knative-serving-system
 exit_if_failed
 
+# Ensure we have a minimum working cluster.
+run_smoke_test
+exit_if_failed
+
 # Run the tests
 
-echo "Waiting 2 minutes before starting the tests"
-echo "See https://github.com/knative/serving/issues/1070 for details"
-sleep 120
 header "Running 'hello world' test"
 kubectl create namespace noodleburg
 go test -v ./test/e2e -run HelloWorld -dockerrepo gcr.io/elafros-e2e-tests/ela-e2e-test
