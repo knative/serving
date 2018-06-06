@@ -131,7 +131,7 @@ func waitForHelloWorldGRPCEndpoint(address string, spoofDomain string) error {
 		opts = append(opts, grpc.WithAuthority(spoofDomain))
 	}
 
-	err := wait.PollImmediate(1*time.Second, 4*time.Minute, func() (bool, error) {
+	err := wait.PollImmediate(test.RequestInterval, test.RequestTimeout, func() (bool, error) {
 		conn, _ := grpc.Dial(address, opts...)
 		defer conn.Close()
 
