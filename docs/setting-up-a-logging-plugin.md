@@ -1,11 +1,11 @@
 # Setting Up A Logging Plugin
 
-Elafros allows cluster operators to use different backends for their logging
-needs. This document describes how to change these settings. Elafros currently
+Knative allows cluster operators to use different backends for their logging
+needs. This document describes how to change these settings. Knative currently
 requires changes in Fluentd configuration files, however we plan on abstracting
 logging configuration in the future
-([#906](https://github.com/elafros/elafros/issues/906)). Once
-[#906](https://github.com/elafros/elafros/issues/906) is complete, the
+([#906](https://github.com/knative/serving/issues/906)). Once
+[#906](https://github.com/knative/serving/issues/906) is complete, the
 methodology described in this document will no longer be valid and migration to
 a new process will be required. In order to minimize the effort for a future
 migration, we recommend only changing the output configuration of Fluentd and
@@ -20,7 +20,7 @@ collecting `stdout/stderr` logs from the containers:
 
 1. Replace `900.output.conf` part in
    [fluentd-configmap.yaml](/config/monitoring/fluentd-configmap.yaml) with the
-   desired output configuration. Elafros provides samples for sending logs to
+   desired output configuration. Knative provides samples for sending logs to
    Elasticsearch or Stackdriver. Developers can simply choose one of `150-*`
    from [/config/monitoring](/config/monitoring) or override any with other
    configuration.
@@ -28,13 +28,13 @@ collecting `stdout/stderr` logs from the containers:
    in [fluentd-ds.yaml](/third_party/config/monitoring/common/fluentd/fluentd-ds.yaml)
    with the Fluentd image including the desired Fluentd output plugin.
    See [here](/image/fluentd/README.md) for the requirements of Flunetd image
-   on Elafros.
+   on Knative.
 
 ### Configure the Sidecar for log files under /var/log
 
 Currently operators have to configure the Fluentd Sidecar separately for
 collecting log files under `/var/log`. An
-[effort](https://github.com/elafros/elafros/issues/818)
+[effort](https://github.com/knative/serving/issues/818)
 is in process to get rid of the sidecar. The steps to configure are:
 
 1. Replace `logging.fluentd-sidecar-output-config` flag in
@@ -50,7 +50,7 @@ is in process to get rid of the sidecar. The steps to configure are:
 
 ## Deploying
 
-Operators need to deploy Elafros components after the configuring:
+Operators need to deploy Knative components after the configuring:
 
 ```shell
 # In case there is no change with the controller code
@@ -72,11 +72,11 @@ Fluentd DaemonSet configuration file, e.g. `config/monitoring/150-stackdriver-pr
 
 **NOTE**: Operators sometimes need to deploy extra services as the logging
 backends. For example, if they desire Elasticsearch&Kibana, they have to deploy
-the Elasticsearch and Kibana services. Elafros provides this sample:
+the Elasticsearch and Kibana services. Knative provides this sample:
 
 ```shell
 kubectl apply -R -f third_party/config/monitoring/elasticsearch
 ```
 
-See [here](/config/monitoring/README.md) for deploying the whole Elafros
+See [here](/config/monitoring/README.md) for deploying the whole Knative
 monitoring components.
