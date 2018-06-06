@@ -39,6 +39,9 @@ type EnvironmentFlags struct {
 	ResolvableDomain bool
 }
 
+// VerboseLogLevel defines verbose log level as 10
+const VerboseLogLevel glog.Level = 10
+
 func initializeFlags() *EnvironmentFlags {
 	var f EnvironmentFlags
 	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
@@ -58,23 +61,20 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
-	return &f
-}
-
-func init() {
 	boolPtr := flag.Bool("logVerbose", false, "a bool")
 	flag.Parse()
 
 	if *boolPtr {
 		flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
 		var logLevel string
-		flag.StringVar(&logLevel, "logLevel", "10", "verbose log level")
+		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
 		flag.Lookup("v").Value.Set(logLevel)
-		glog.Info("logVerbose %v", boolPtr)
+		glog.Infof("Logging set to verbose mode with logleve %d", VerboseLogLevel)
 	}
+	return &f
 }
 
-// VerboseGLog outputs verbose logging with defined logleve 10.
-func VerboseGLog(s string) {
-	glog.V(10).Infof(s)
+// Verbose outputs verbose logging with defined logleve 10.
+func Verbose(format string, args ...interface{}) {
+	glog.V(VerboseLogLevel).Infof(format, args)
 }

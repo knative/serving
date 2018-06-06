@@ -97,7 +97,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	}
 
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	test.VerboseGLog(fmt.Sprintf("LogURL: %s", logURL))
+	test.Verbose("LogURL: %s", logURL)
 
 	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }
