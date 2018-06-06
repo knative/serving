@@ -11,31 +11,23 @@ You can use two different setups:
 1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything-es.apply
 ```
 
 1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-dev \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything-es-dev.apply
 ```
 
 ### Stackdriver (logs), Prometheus & Grafana Setup

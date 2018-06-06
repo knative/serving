@@ -13,6 +13,9 @@ kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
+See [Logs and metrics](doc/telemetry.md) for setting up other logging and
+monitoring backends.
+
 `kubectl -R -f` installs the files within a folder in alphabetical order.
 In order to install the files with correct ordering within a folder,
 a three digit prefix is added.
