@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"flag"
-	"fmt"
 	"github.com/golang/glog"
 	"github.com/knative/serving/test"
 	"testing"
@@ -18,23 +16,6 @@ const (
 	RouteName     = "noodleburg"
 	IngressName   = RouteName + "-ela-ingress"
 )
-
-func init() {
-	boolPtr := flag.Bool("logVerbose", false, "a bool")
-	flag.Parse()
-
-	if *boolPtr {
-		flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
-		var logLevel string
-		flag.StringVar(&logLevel, "logLevel", "10", "verbose log level")
-		flag.Lookup("v").Value.Set(logLevel)
-		glog.Info("logVerbose %v", boolPtr)
-	}
-}
-
-func VerboseGLog(s string) {
-	glog.V(10).Infof(s)
-}
 
 func Setup(t *testing.T) *test.Clients {
 	clients, err := test.NewClients(

@@ -18,7 +18,6 @@ package e2e
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -32,7 +31,7 @@ const (
 	containerMissing = "ContainerMissing"
 )
 
-// This test is to validate the error condition defined at
+// TestContainerErrorMsg is to validate the error condition defined at
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
@@ -91,14 +90,14 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	glog.Info("When the revision has error condition, logUrl should be populated.")
+	log.Println("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	VerboseGLog(fmt.Sprintf("LogURL: %s", logURL))
+	test.VerboseGLog(fmt.Sprintf("LogURL: %s", logURL))
 
 	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }

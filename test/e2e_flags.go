@@ -20,6 +20,8 @@ package test
 
 import (
 	"flag"
+	"fmt"
+	"github.com/golang/glog"
 	"os"
 	"os/user"
 	"path"
@@ -57,4 +59,22 @@ func initializeFlags() *EnvironmentFlags {
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
 	return &f
+}
+
+func init() {
+	boolPtr := flag.Bool("logVerbose", false, "a bool")
+	flag.Parse()
+
+	if *boolPtr {
+		flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
+		var logLevel string
+		flag.StringVar(&logLevel, "logLevel", "10", "verbose log level")
+		flag.Lookup("v").Value.Set(logLevel)
+		glog.Info("logVerbose %v", boolPtr)
+	}
+}
+
+// VerboseGLog outputs verbose logging with defined logleve 10.
+func VerboseGLog(s string) {
+	glog.V(10).Infof(s)
 }
