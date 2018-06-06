@@ -43,7 +43,7 @@ function build_tests() {
 
 function unit_tests() {
   header "Running unit tests"
-  go test ./cmd/... ./pkg/...
+  go test ./...
 }
 
 function integration_tests() {

@@ -1,3 +1,5 @@
+// +build e2e
+
 /*
 Copyright 2018 Google Inc. All Rights Reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +51,7 @@ func isDeploymentScaledDown() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, num int, domain string) {
+func generateTrafficBurst(clients *test.Clients, names test.ResourceNames, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
 	log.Printf("Performing %d concurrent requests.", num)
@@ -59,7 +61,7 @@ func generateTrafficBurst(clients *test.Clients, num int, domain string) {
 				test.Flags.ResolvableDomain,
 				domain,
 				NamespaceName,
-				RouteName,
+				names.Route,
 				isExpectedOutput())
 			concurrentRequests <- true
 		}()
@@ -73,7 +75,6 @@ func generateTrafficBurst(clients *test.Clients, num int, domain string) {
 
 func TestAutoscaleUpDownUp(t *testing.T) {
 	clients := Setup(t)
-	defer TearDown(clients)
 
 	imagePath := strings.Join(
 		[]string{
@@ -82,35 +83,37 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		"/")
 
 	log.Println("Creating a new Route and Configuration")
-	err := CreateRouteAndConfig(clients, imagePath)
+	names, err := CreateRouteAndConfig(clients, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
+	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
+	defer TearDown(clients, names)
 
 	log.Println(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
 	err = test.WaitForRouteState(
 		clients.Routes,
-		RouteName,
+		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
 			return r.Status.IsReady(), nil
 		})
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
-			 %v`, RouteName, err)
+			 %v`, names.Route, err)
 	}
 
 	log.Println("Serves the expected data at the endpoint")
-	config, err := clients.Configs.Get(ConfigName, metav1.GetOptions{})
+	config, err := clients.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(`Configuration %s was not updated with the new
-		         revision: %v`, ConfigName, err)
+		         revision: %v`, names.Config, err)
 	}
 	deploymentName :=
 		config.Status.LatestCreatedRevisionName + "-deployment"
-	route, err := clients.Routes.Get(RouteName, metav1.GetOptions{})
+	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", RouteName, err)
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
 
@@ -119,17 +122,17 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		test.Flags.ResolvableDomain,
 		domain,
 		NamespaceName,
-		RouteName,
+		names.Route,
 		isExpectedOutput())
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
-			RouteName, domain, autoscaleExpectedOutput, err)
+			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
 	log.Println(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	generateTrafficBurst(clients, 5, domain)
+	generateTrafficBurst(clients, names, 5, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
@@ -169,7 +172,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	log.Println(`The autoscaler spins up additional replicas once again when
 	            traffic increases.`)
-	generateTrafficBurst(clients, 8, domain)
+	generateTrafficBurst(clients, names, 8, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
