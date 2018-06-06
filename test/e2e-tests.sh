@@ -277,6 +277,7 @@ if (( USING_EXISTING_CLUSTER )); then
 fi
 if (( IS_PROW )); then
   gcr_auth
+  dockerd &
 fi
 
 create_everything
