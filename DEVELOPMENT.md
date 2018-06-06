@@ -150,33 +150,38 @@ If you're using a GCP project to host your Kubernetes cluster, it's good to chec
 page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
 ### Enable log and metric collection
-You can use two different setups for collecting logs and metrics:
-1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+
+You can use two different setups for collecting logs(to Elasticsearch&Kibana) and metrics
+(See [Logs and Metrics](./docs/telemetry.md) for setting up other logging backend):
+
+1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-prod \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-dev \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-dev \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
 ```
 
-Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
+Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md).
 
 ## Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
+
 * **If you change a type definition ([pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.)),** then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh).
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
