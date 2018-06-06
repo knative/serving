@@ -1,4 +1,0 @@
-build --workspace_status_command=./hack/print-workspace-status.sh
-test --test_output=errors
-run --workspace_status_command=./hack/print-workspace-status.sh
-run --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64

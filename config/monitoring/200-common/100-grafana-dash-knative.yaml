@@ -1632,7 +1632,7 @@ data:
             "multi": false,
             "name": "namespace",
             "options": [],
-            "query": "label_values(container_memory_usage_bytes{container_name=\"ela-container\"}, namespace)",
+            "query": "label_values(container_memory_usage_bytes{container_name=\"user-container\"}, namespace)",
             "refresh": 1,
             "regex": "",
             "sort": 1,

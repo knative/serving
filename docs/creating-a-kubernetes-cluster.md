@@ -184,7 +184,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
     _The secret must be created in the same namespace as the pod or service
     account._
 
-1.  Add the secret as an imagePullSecret to the `ela-controller` and
+1.  Add the secret as an imagePullSecret to the `controller` and
     `build-controller` service accounts:
 
     ```shell

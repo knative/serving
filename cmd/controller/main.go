@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -75,7 +75,7 @@ var (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("ela-controller")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("controller")
 	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {
