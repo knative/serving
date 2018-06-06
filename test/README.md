@@ -51,7 +51,7 @@ These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
 2. The namespace `pizzaplanet` to exist in the cluster: `kubectl create namespace pizzaplanet`
-3. A docker repo contianing [the conformance test images](#conformance-test-images)
+3. A docker repo containing [the conformance test images](#conformance-test-images)
 
 ### Conformance test images
 
