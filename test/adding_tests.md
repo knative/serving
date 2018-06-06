@@ -25,6 +25,7 @@ In the [`test`](/test/) dir you will find several libraries in the `test` packag
 you can use in your tests.
 
 You can:
+
 * [Use common test flags](#use-common-test-flags)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
@@ -54,11 +55,11 @@ that describe the environment:
 
 ```go
 func setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
-	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
-	}
-	return clients
+    clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
+    if err != nil {
+        t.Fatalf("Couldn't initialize clients: %v", err)
+    }
+    return clients
 }
 ```
 
@@ -80,9 +81,9 @@ by your test:
 
 ```go
 func tearDown(clients *test.Clients) {
-	if clients != nil {
-		clients.Delete([]string{routeName}, []string{configName})
-	}
+    if clients != nil {
+        clients.Delete([]string{routeName}, []string{configName})
+    }
 }
 ```
 
@@ -171,10 +172,16 @@ _See [states.go](./states.go)._
 Your tests will probably need to create `Route` and `Configuration` objects. You can use the
 existing boilerplate to describe them.
 
-For example to create a `Configuration` object that uses a certain docker image:
+You can also use the function `RandomizedName` to create a random name for your `crd` so that
+your tests can use unique names each time they run.
+
+For example to create a `Configuration` object that uses a certain docker image with a
+randomized name:
 
 ```go
-_, err := clients.Configs.Create(test.Configuration(namespaceName, configName, imagePath))
+var names test.ResourceNames
+names.Config := test.RandomizedName('hotdog')
+_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePath))
 if err != nil {
     return err
 }
