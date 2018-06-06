@@ -106,7 +106,7 @@ function exit_if_failed() {
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_ela_pod ela-controller) -n knative-serving-system
+  kubectl logs $(get_ela_pod controller) -n knative-serving-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"

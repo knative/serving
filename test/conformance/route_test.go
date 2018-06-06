@@ -39,7 +39,7 @@ const (
 	image2        = "pizzaplanetv2"
 	configName    = "prod"
 	routeName     = "pizzaplanet"
-	ingressName   = routeName + "-ela-ingress"
+	ingressName   = routeName + "-ingress"
 )
 
 func createRouteAndConfig(clients *test.Clients, imagePaths []string) error {

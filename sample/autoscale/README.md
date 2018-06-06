@@ -36,7 +36,7 @@ Export your Ingress IP as SERVICE_IP.
 export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress autoscale-route-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 Request the largest prime less than 40,000,000 from the autoscale app.  Note that it consumes about 1 cpu/sec.

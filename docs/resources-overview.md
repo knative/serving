@@ -54,8 +54,8 @@ For example, given:
 ```
 $ kubectl -n knative-serving-system get deployments
 NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-ela-controller   1         1         1            1           6m
-ela-webhook      1         1         1            1           6m
+controller   1         1         1            1           6m
+webhook      1         1         1            1           6m
 ```
 
 Based on the desired state shown above, we expect there to be a single pod running for each of the deployments shown above. We can verify this by running and seeing similar output as shown below:
@@ -63,8 +63,8 @@ Based on the desired state shown above, we expect there to be a single pod runni
 ```
 $ kubectl -n knative-serving-system get pods
 NAME                              READY     STATUS    RESTARTS   AGE
-ela-controller-5bfb798f96-2zjnf   1/1       Running   0          9m
-ela-webhook-64c459569b-v5npx      1/1       Running   0          8m
+controller-5bfb798f96-2zjnf   1/1       Running   0          9m
+webhook-64c459569b-v5npx      1/1       Running   0          8m
 ```
 
 Similarly, you can run the same commands in the build-crd (`build-system`) and istio (`istio-system`) namespaces to view the running deployments. To view all namespaces, run `kubectl get namespaces`.

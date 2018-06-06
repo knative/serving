@@ -10,17 +10,10 @@ If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
 ## Running unit tests
 
-Use bazel:
-
-```shell
-bazel test //pkg/... --test_output=errors
-```
-
-Or `go test`:
-
 ```shell
 go test -v ./pkg/...
 ```
+
 ## Running conformance tests
 
 To run [the conformance tests](./conformance), you need to have a running environment that meets
@@ -213,7 +206,7 @@ docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `demo-domain.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
-against the endpoint, the test use the IP assigned to the istio `*-ela-ingress`
+against the endpoint, the test use the IP assigned to the istio `*-ingress`
 and spoof the `Host` in the header.
 
 If you have configured your cluster to use a resolvable domain, you can use the
