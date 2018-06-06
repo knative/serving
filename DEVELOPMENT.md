@@ -151,7 +151,32 @@ page to ensure that all services are up and running (and not blocked by a quota 
 
 ### Enable log and metric collection
 
-Follow the instructions at [Logs and Metrics](./docs/telemetry.md)
+You can use two different setups for collecting logs(to Elasticsearch&Kibana) and metrics
+(See [Logs and Metrics](./docs/telemetry.md) for setting up other logging backend):
+
+1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+```
+
+1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-dev \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+```
+
+Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md).
 
 ## Iterating
 

@@ -1,6 +1,6 @@
 # Logs and metrics
 
-## Monitoring components Setuo
+## Monitoring components Setup
 
 First, deploy monitoring components.
 
@@ -115,7 +115,6 @@ metadata:
 Go to [Pantheon logging page](https://console.cloud.google.com/logs/viewer) for
 your GCP project which stores your logs via Stackdriver.
 
-
 ## Accessing metrics
 
 Run:
@@ -159,12 +158,8 @@ There are several other collectors that are pre-configured but not enabled. To s
 ## Default logs
 
 Deployment above enables collection of the following logs:
-<<<<<<< HEAD
 
-* stdout & stderr from all ela-container
-=======
 * stdout & stderr from all user-container
->>>>>>> master
 * stdout & stderr from build-controller
 
 To enable log collection from other containers and destinations, see
@@ -184,18 +179,14 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-<<<<<<< HEAD
-If you want to send metrics from your controller, follow the steps below.
-These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
-=======
 If you want to send metrics from your controller, follow the steps below.
 These steps are already applied to autoscaler and controller. For those controllers,
->>>>>>> master
 simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
 instrument your code as described in step 3.
 
 In the example below, we will setup the service to host the metrics and instrument a sample
 'Gauge' type metric using the setup.
+
 1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
 2. Add the following to your application startup:
 
