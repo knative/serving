@@ -18,8 +18,10 @@ package autoscaling
 
 import (
 	"testing"
+	"time"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"go.uber.org/zap"
@@ -51,11 +53,28 @@ func getTestRevision() *v1alpha1.Revision {
 				Args:       []string{"hello", "world"},
 				WorkingDir: "/tmp",
 			},
+			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
 		},
 	}
 }
 
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+func getTestControllerConfig() ControllerConfig {
+	return ControllerConfig{
+		EnableScaleToZero:       true,
+		MultiConcurrencyTarget:  10,
+		SingleConcurrencyTarget: 1,
+		AutoscalerTickInterval:  time.Second * 2,
+		AutoscalerConfig: autoscaler.Config{
+			TargetConcurrency:    1.0,
+			MaxScaleUpRate:       10,
+			StableWindow:         time.Second * 60,
+			PanicWindow:          time.Second * 6,
+			ScaleToZeroThreshold: time.Minute * 5,
+		},
+	}
+}
+
+func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -80,10 +99,21 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
+		controllerConfig,
 		zap.NewNop().Sugar(),
 	)
 
 	return
+}
+
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory) {
+	testControllerConfig := getTestControllerConfig()
+	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
 }
 
 func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (

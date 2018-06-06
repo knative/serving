@@ -72,6 +72,18 @@ type Controller struct {
 	scalers       map[string]*scalerRunner
 	scalersMutex  sync.RWMutex
 	scalersStopCh chan struct{}
+
+	//controllerConfig includes the configurations for the controller.
+	controllerConfig *ControllerConfig
+}
+
+// ControllerConfig includes the configurations for the controller.
+type ControllerConfig struct {
+	EnableScaleToZero       bool
+	MultiConcurrencyTarget  float64
+	SingleConcurrencyTarget float64
+	AutoscalerTickInterval  time.Duration
+	AutoscalerConfig        autoscaler.Config
 }
 
 // NewController initializes the controller. This returns *Controller instead of
@@ -83,6 +95,7 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	servingInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
+	controllerConfig *ControllerConfig,
 	logger *zap.SugaredLogger) *Controller {
 
 	// obtain references to a shared index informer for the Revision.
@@ -99,10 +112,11 @@ func NewController(
 			"Autoscaling",
 			logger,
 		),
-		lister:        informer.Lister(),
-		synced:        informer.Informer().HasSynced,
-		scalers:       make(map[string]*scalerRunner),
-		scalersStopCh: make(chan struct{}),
+		lister:           informer.Lister(),
+		synced:           informer.Informer().HasSynced,
+		scalers:          make(map[string]*scalerRunner),
+		scalersStopCh:    make(chan struct{}),
+		controllerConfig: controllerConfig,
 	}
 
 	return controller
@@ -175,15 +189,6 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 func (c *Controller) createScaler(ctx context.Context, rev *v1alpha1.Revision) (*scalerRunner, error) {
-	//TODO CRD for these things
-	config := autoscaler.Config{
-		TargetConcurrency:    1.0,
-		MaxScaleUpRate:       10,
-		StableWindow:         time.Second * 60,
-		PanicWindow:          time.Second * 6,
-		ScaleToZeroThreshold: time.Minute * 5,
-	}
-
 	// If the revision has no controller, use the empty string as the controller
 	// name.
 	var controllerName string
@@ -196,12 +201,29 @@ func (c *Controller) createScaler(ctx context.Context, rev *v1alpha1.Revision) (
 		return nil, err
 	}
 
+	//TODO take concurrency target from Rev.Spec.concurrencyModel
+	var targetConcurrency float64
+	switch rev.Spec.ConcurrencyModel {
+	case v1alpha1.RevisionRequestConcurrencyModelSingle:
+		targetConcurrency = c.controllerConfig.SingleConcurrencyTarget
+	case v1alpha1.RevisionRequestConcurrencyModelMulti:
+		targetConcurrency = c.controllerConfig.MultiConcurrencyTarget
+	default:
+		return nil, fmt.Errorf("unknown ConcurrencyModel %q", rev.Spec.ConcurrencyModel)
+	}
+
+	config := autoscaler.Config{
+		TargetConcurrency:    targetConcurrency,
+		MaxScaleUpRate:       c.controllerConfig.AutoscalerConfig.MaxScaleUpRate,
+		StableWindow:         c.controllerConfig.AutoscalerConfig.StableWindow,
+		PanicWindow:          c.controllerConfig.AutoscalerConfig.PanicWindow,
+		ScaleToZeroThreshold: c.controllerConfig.AutoscalerConfig.ScaleToZeroThreshold,
+	}
 	scaler := autoscaler.NewAutoscaler(config, reporter)
 	stopCh := make(chan struct{})
 	runner := &scalerRunner{scaler: scaler, stopCh: stopCh}
 
-	//TODO configurable tick
-	ticker := time.NewTicker(time.Second * 2)
+	ticker := time.NewTicker(c.controllerConfig.AutoscalerTickInterval)
 
 	go func() {
 		for {
@@ -226,11 +248,19 @@ func (c *Controller) tickScaler(ctx context.Context, rev *v1alpha1.Revision, sca
 	desiredScale, scaled := scaler.Scale(ctx, time.Now())
 
 	if scaled {
+		// Cannot scale negative.
 		if desiredScale < 0 {
 			logger.Errorf("Cannot scale: desiredScale %d < 0.", desiredScale)
 			return
 		}
 
+		// Don't scale to zero if scale to zero is disabled.
+		if desiredScale == 0 && !c.controllerConfig.EnableScaleToZero {
+			logger.Error("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
+			return
+		}
+
+		// Get the revision's deployment.
 		//TODO scale the revision's scaleTargetRef
 		deploymentName := controller.GetRevisionDeploymentName(rev)
 		deployment, err := c.KubeClientSet.AppsV1().Deployments(rev.Namespace).Get(deploymentName, metav1.GetOptions{})
@@ -238,13 +268,14 @@ func (c *Controller) tickScaler(ctx context.Context, rev *v1alpha1.Revision, sca
 			logger.Error("Error getting deployment.", zap.String("deployment", deploymentName), zap.Error(err))
 			return
 		}
-		// Don't scale at all if scale target is scaled to zero. Rely on the activator
-		// to scale from zero.
+		// Don't scale if current scale is zero. Rely on the activator to scale
+		// from zero.
 		if *deployment.Spec.Replicas == 0 {
 			logger.Info("Cannot scale: Current scale is 0; activator must scale from 0.")
 			return
 		}
 
+		// Scale the deployment.
 		deployment.Spec.Replicas = &desiredScale
 		_, err = c.KubeClientSet.AppsV1().Deployments(rev.Namespace).Update(deployment)
 		if err != nil {
@@ -252,7 +283,7 @@ func (c *Controller) tickScaler(ctx context.Context, rev *v1alpha1.Revision, sca
 			return
 		}
 
-		// When scaling to zero, also flip the revision's ServingState to Reserve
+		// When scaling to zero, also flip the revision's ServingState to Reserve.
 		if desiredScale == 0 {
 			if _, err := c.updateRevServingState(ctx, rev, v1alpha1.RevisionServingStateReserve); err != nil {
 				logger.Error("Error updating revision serving state.", zap.Error(err))

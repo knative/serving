@@ -32,6 +32,8 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller/autoscaling"
@@ -52,6 +54,9 @@ var (
 	masterURL  string
 	kubeconfig string
 	eg         errgroup.Group
+
+	// Cluster-level autoscaler config
+	autoscaleFlagSet = k8sflag.NewFlagSet("/etc/config-autoscaler")
 )
 
 func main() {
@@ -80,7 +85,20 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 
-	controller := autoscaling.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, logger)
+	controllerConfig := autoscaling.ControllerConfig{
+		EnableScaleToZero:       autoscaleFlagSet.Bool("enable-scale-to-zero", false).Get(),
+		MultiConcurrencyTarget:  autoscaleFlagSet.Float64("multi-concurrency-target", 0.0, k8sflag.Required).Get(),
+		SingleConcurrencyTarget: autoscaleFlagSet.Float64("single-concurrency-target", 0.0, k8sflag.Required).Get(),
+		AutoscalerTickInterval:  autoscaleFlagSet.Duration("autoscaler-tick-interval", time.Second*2).Get(),
+		AutoscalerConfig: autoscaler.Config{
+			MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required).Get(),
+			StableWindow:         *autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required).Get(),
+			PanicWindow:          *autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required).Get(),
+			ScaleToZeroThreshold: *autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required).Get(),
+		},
+	}
+
+	controller := autoscaling.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, &controllerConfig, logger)
 
 	go kubeInformerFactory.Start(stopCh)
 	go elaInformerFactory.Start(stopCh)
