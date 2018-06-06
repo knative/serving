@@ -32,6 +32,7 @@ func CleanupOnInterrupt(cleanup func()) {
 		for _ = range c {
 			log.Println("Test interrupted, cleaning up.")
 			cleanup()
+			os.Exit(1)
 		}
 	}()
 }
