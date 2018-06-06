@@ -69,12 +69,12 @@ func initializeFlags() *EnvironmentFlags {
 		var logLevel string
 		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
 		flag.Lookup("v").Value.Set(logLevel)
-		glog.Infof("Logging set to verbose mode with logleve %d", VerboseLogLevel)
+		glog.Infof("Logging set to verbose mode with logLevel %d", VerboseLogLevel)
 	}
 	return &f
 }
 
-// Verbose outputs verbose logging with defined logleve 10.
+// Verbose outputs verbose logging with defined logleve VerboseLogLevel.
 func Verbose(format string, args ...interface{}) {
 	glog.V(VerboseLogLevel).Infof(format, args)
 }
