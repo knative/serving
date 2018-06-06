@@ -1230,13 +1230,13 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 		},
 	)
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	expectedErrMsg := `revisions.elafros.dev "does-not-exist" not found`
+	expectedErrMsg := `revisions.serving.knative.dev "does-not-exist" not found`
 	// Should return error.
 	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
@@ -1255,7 +1255,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 		Reason:  "RevisionMissing",
 		Message: "Revision 'does-not-exist' referenced in traffic not found",
 	}}
-	newRoute, _ := elaClient.ElafrosV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
@@ -1276,13 +1276,13 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 		},
 	)
 
-	elaClient.ElafrosV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ElafrosV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ElafrosV1alpha1().Routes(testNamespace).Create(route)
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Elafros().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	expectedErrMsg := `configurations.elafros.dev "does-not-exist" not found`
+	expectedErrMsg := `configurations.serving.knative.dev "does-not-exist" not found`
 	// Should return error.
 	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
@@ -1301,7 +1301,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 		Reason:  "ConfigurationMissing",
 		Message: "Configuration 'does-not-exist' referenced in traffic not found",
 	}}
-	newRoute, _ := elaClient.ElafrosV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
