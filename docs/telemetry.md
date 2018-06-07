@@ -314,3 +314,12 @@ See [helloworld](../sample/helloworld/README.md) sample's configuration file as 
 
 ## Distributed tracing with Zipkin
 Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
+
+## Delete monitoring components
+
+```shell
+ko delete --ignore-not-found=true \
+  -f config/monitoring/200-common/100-istio.yaml \
+  -f config/monitoring/200-common/100-zipkin.yaml \
+  -f config/monitoring/100-common
+```
