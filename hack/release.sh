@@ -136,8 +136,9 @@ echo "Building Monitoring & Logging"
 cp ${OUTPUT_YAML} ${LITE_YAML}
 # Use ko to concatenate them all together.
 ko resolve -R -f config/monitoring/100-common \
-    -f config/monitoring/150-prod \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
 # Use ko to do the same for the lite version.

@@ -502,7 +502,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	)
 	expectedAutoscalerPodSpecAnnotations := sumMaps(
 		rev.Annotations,
-		map[string]string{"sidecar.istio.io/inject": "false"},
+		map[string]string{"sidecar.istio.io/inject": "true"},
 	)
 
 	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
