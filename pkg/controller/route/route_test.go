@@ -1250,6 +1250,9 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 		Reason:  "RevisionMissing",
 		Message: "Revision 'does-not-exist' referenced in traffic not found",
 	}, {
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionUnknown,
+	}, {
 		Type:    v1alpha1.RouteConditionReady,
 		Status:  corev1.ConditionFalse,
 		Reason:  "RevisionMissing",
@@ -1295,6 +1298,9 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 		Status:  corev1.ConditionFalse,
 		Reason:  "ConfigurationMissing",
 		Message: "Configuration 'does-not-exist' referenced in traffic not found",
+	}, {
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionUnknown,
 	}, {
 		Type:    v1alpha1.RouteConditionReady,
 		Status:  corev1.ConditionFalse,
@@ -1563,12 +1569,16 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 
 // Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
-	kubeClient, elaClient, controller, _, _ := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			{
-				RevisionName: "test-rev",
+				RevisionName: rev.Name,
 				Percent:      100,
 			},
 		},
@@ -1576,15 +1586,28 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Create a route.
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
-	// Create an ingress owned by this route.
-	controller.reconcileIngress(testCtx, route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
 	controller.updateIngressEvent(nil, ingress)
-	route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-	if nil != route.Status.Conditions {
-		t.Errorf("Route Status.Conditions should be nil, saw %v", route.Status.Conditions)
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:   v1alpha1.RouteConditionReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	}}
+	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
 	// Update the Ingress IP.
 	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
@@ -1592,11 +1615,17 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	}}
 	controller.updateIngressEvent(nil, ingress)
 	// Verify now that Route.Status.Conditions is set correctly.
-	expectedConditions := []v1alpha1.RouteCondition{{
+	expectedConditions = []v1alpha1.RouteCondition{{
+		Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	}, {
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	}, {
 		Type:   v1alpha1.RouteConditionReady,
 		Status: corev1.ConditionTrue,
 	}}
-	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
+	newRoute, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}

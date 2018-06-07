@@ -167,10 +167,6 @@ func (c *Controller) updateRouteEvent(key string) error {
 
 	// Get the Route resource with this namespace/name
 	route, err := c.lister.Routes(namespace).Get(name)
-
-	// Don't modify the informers copy
-	route = route.DeepCopy()
-
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -178,9 +174,11 @@ func (c *Controller) updateRouteEvent(key string) error {
 			runtime.HandleError(fmt.Errorf("route %q in work queue no longer exists", key))
 			return nil
 		}
-
 		return err
 	}
+	// Don't modify the informers copy
+	route = route.DeepCopy()
+	addMissingConditions(route)
 
 	logger.Infof("Reconciling route :%v", route)
 
@@ -191,26 +189,27 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// that selects nothing.
 	logger.Info("Creating/Updating placeholder k8s services")
 
-	if err = c.reconcilePlaceholderService(ctx, route); err != nil {
+	if err := c.reconcilePlaceholderService(ctx, route); err != nil {
 		return err
 	}
 
 	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
 
-	if _, err = c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
+	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
 		return err
 	}
 
 	// Then create or update the Ingress rule for this service
 	logger.Info("Creating or updating ingress rule")
-	if err = c.reconcileIngress(ctx, route); err != nil {
+	if err := c.reconcileIngress(ctx, route); err != nil {
 		logger.Error("Failed to create or update ingress rule", zap.Error(err))
 		return err
 	}
 
 	logger.Info("Route successfully synced")
-	return nil
+	_, err = c.updateStatus(ctx, route)
+	return err
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
@@ -319,10 +318,56 @@ func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route
 	return nil
 }
 
-func markRouteReady(route *v1alpha1.Route) {
-	// Clear this if it was previously set.
-	route.Status.RemoveCondition(v1alpha1.RouteConditionAllTrafficAssigned)
+func addMissingConditions(route *v1alpha1.Route) {
+	if rc := route.Status.GetCondition(v1alpha1.RouteConditionAllTrafficAssigned); rc == nil {
+		route.Status.SetCondition(&v1alpha1.RouteCondition{
+			Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+	if rc := route.Status.GetCondition(v1alpha1.RouteConditionIngressReady); rc == nil {
+		route.Status.SetCondition(&v1alpha1.RouteCondition{
+			Type:   v1alpha1.RouteConditionIngressReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+	if rc := route.Status.GetCondition(v1alpha1.RouteConditionReady); rc == nil {
+		route.Status.SetCondition(&v1alpha1.RouteCondition{
+			Type:   v1alpha1.RouteConditionReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
 
+func markRouteTrafficAssigned(route *v1alpha1.Route) {
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	})
+	checkAndMarkReady(route)
+}
+
+func markRouteIngressReady(route *v1alpha1.Route) {
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	checkAndMarkReady(route)
+}
+
+func checkAndMarkReady(route *v1alpha1.Route) {
+	ata := route.Status.GetCondition(v1alpha1.RouteConditionAllTrafficAssigned)
+	if ata == nil || ata.Status != corev1.ConditionTrue {
+		return
+	}
+	ir := route.Status.GetCondition(v1alpha1.RouteConditionIngressReady)
+	if ir == nil || ir.Status != corev1.ConditionTrue {
+		return
+	}
+	markRouteReady(route)
+}
+
+func markRouteReady(route *v1alpha1.Route) {
 	route.Status.SetCondition(&v1alpha1.RouteCondition{
 		Type:   v1alpha1.RouteConditionReady,
 		Status: corev1.ConditionTrue,
@@ -404,6 +449,7 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			revMap[revName] = rev
 		}
 	}
+	markRouteTrafficAssigned(route)
 
 	return configMap, revMap, nil
 }
@@ -449,8 +495,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 
 				revName := config.Status.LatestReadyRevisionName
 				if revName == "" {
-					logger.Infof("Configuration %s is not ready. Skipping Configuration %q during route reconcile",
-						tt.ConfigurationName)
+					logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
 					continue
 				}
 				// Check if it is a duplicated revision
@@ -531,13 +576,24 @@ func (c *Controller) setLabelForGivenRevisions(
 	}
 
 	for _, rev := range revMap {
-		if rev.Labels == nil {
-			rev.Labels = make(map[string]string)
-		} else if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
+		if rev.Labels != nil {
+			if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
+				continue
+			}
+		}
+		// Fetch the latest version of the revision to label, to narrow the window for
+		// optimistic concurrency failures.
+		latestRev, err := revisionClient.Get(rev.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if latestRev.Labels == nil {
+			latestRev.Labels = make(map[string]string)
+		} else if _, ok := latestRev.Labels[serving.RouteLabelKey]; ok {
 			continue
 		}
-		rev.Labels[serving.RouteLabelKey] = route.Name
-		if _, err := revisionClient.Update(rev); err != nil {
+		latestRev.Labels[serving.RouteLabelKey] = route.Name
+		if _, err := revisionClient.Update(latestRev); err != nil {
 			logger.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
 			return err
 		}
@@ -1010,9 +1066,11 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	if route.Status.IsReady() {
 		return
 	}
-	markRouteReady(route)
+	markRouteIngressReady(route)
 
-	if _, err = routeClient.Update(route); err != nil {
+	logger := loggerWithRouteInfo(c.Logger, ns, routeName)
+	ctx := logging.WithLogger(context.TODO(), logger)
+	if _, err = c.updateStatus(ctx, route); err != nil {
 		c.Logger.Error(
 			"Error updating readiness of route upon ingress becoming",
 			zap.Error(err),
