@@ -158,22 +158,26 @@ function run_smoke_test() {
   done
   echo
   if [[ -z ${service_host} ]]; then
-    echo "ERROR: No ingress found."
+    echo "FAILED -- No ingress found"
     kubectl delete -f ${YAML}
     return 1
   fi
-  # Retry on 40X and 50X, up to 2 minutes.
-  local output="$(curl --header "Host:${service_host}" \
-    --retry-delay 5 \
-    --retry 24 \
-    http://${service_ip})"
-  local result=0
-  if [[ "${output}" != "Hello World: shiniestnewestversion!" ]]; then
-    echo "ERROR: unexpected output [${output}]"
-    result=1
-  fi
+  local failed=1
+  for i in {1..60}; do  # timeout after 2 minutes
+    local output="$(curl --header "Host:${service_host}" http://${service_ip})"
+    if [[ "${output}" == "Hello World: shiniestnewestversion!" ]]; then
+      failed=0
+      break
+    fi
+    echo "Got unexpected output '${output}' from app, retrying"
+    sleep 2
+  done
   kubectl delete -f ${YAML}
-  return $result
+  if (( failed )); then
+    echo "FAILED -- Timeout waiting for app to be serving"
+    return 1
+  fi
+  return 0
 }
 
 # Script entry point.
