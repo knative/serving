@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package route
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -56,7 +57,7 @@ func TestSelectorMatches(t *testing.T) {
 }
 
 func TestNewConfigMissingConfigMap(t *testing.T) {
-	_, err := NewConfig(fakekubeclientset.NewSimpleClientset())
+	_, err := NewDomainConfig(fakekubeclientset.NewSimpleClientset())
 	if err == nil {
 		t.Error("Expect an error when ConfigMap not exists")
 	}
@@ -67,17 +68,17 @@ func TestNewConfigNoEntry(t *testing.T) {
 	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: elaNamespace,
-			Name:      GetDomainConfigMapName(),
+			Name:      controller.GetDomainConfigMapName(),
 		},
 	})
-	_, err := NewConfig(kubeClient)
+	_, err := NewDomainConfig(kubeClient)
 	if err == nil {
 		t.Error("Expect an error when config file has no entry")
 	}
 }
 
 func TestNewConfig(t *testing.T) {
-	expectedConfig := Config{
+	expectedConfig := DomainConfig{
 		Domains: map[string]*LabelSelector{
 			"test-domain.foo.com": &LabelSelector{
 				Selector: map[string]string{
@@ -97,7 +98,7 @@ func TestNewConfig(t *testing.T) {
 	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: elaNamespace,
-			Name:      GetDomainConfigMapName(),
+			Name:      controller.GetDomainConfigMapName(),
 		},
 		Data: map[string]string{
 			"test-domain.foo.com": "selector:\n  app: foo",
@@ -105,7 +106,7 @@ func TestNewConfig(t *testing.T) {
 			"default.com":         "",
 		},
 	})
-	c, err := NewConfig(kubeClient)
+	c, err := NewDomainConfig(kubeClient)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -115,7 +116,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestLookupDomainForLabels(t *testing.T) {
-	config := Config{
+	config := DomainConfig{
 		Domains: map[string]*LabelSelector{
 			"test-domain.foo.com": &LabelSelector{
 				Selector: map[string]string{

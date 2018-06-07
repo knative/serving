@@ -14,13 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package route
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/knative/serving/pkg/controller"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -35,7 +37,7 @@ func (s *LabelSelector) specificity() int {
 	return len(s.Selector)
 }
 
-// Matches() returns whether the given labels meet the requirement of the selector.
+// Matches returns whether the given labels meet the requirement of the selector.
 func (s *LabelSelector) Matches(labels map[string]string) bool {
 	for label, expectedValue := range s.Selector {
 		value, ok := labels[label]
@@ -46,8 +48,8 @@ func (s *LabelSelector) Matches(labels map[string]string) bool {
 	return true
 }
 
-// Config contains controller configurations.
-type Config struct {
+// DomainConfig contains controller configurations.
+type DomainConfig struct {
 	// Domains map from domain to label selector.  If a route has
 	// labels matching a particular selector, it will use the
 	// corresponding domain.  If multiple selectors match, we choose
@@ -59,14 +61,21 @@ const (
 	elaNamespace = "knative-serving-system"
 )
 
-func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
-	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(GetDomainConfigMapName(), metav1.GetOptions{})
+// NewDomainConfig creates a DomainConfig by reading the domain configmap from
+// the supplies client.
+func NewDomainConfig(kubeClient kubernetes.Interface) (*DomainConfig, error) {
+	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(controller.GetDomainConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	c := Config{Domains: map[string]*LabelSelector{}}
+	return NewDomainConfigFromConfigMap(m)
+}
+
+// NewDomainConfigFromConfigMap creates a DomainConfig from the supplies ConfigMap
+func NewDomainConfigFromConfigMap(configMap *corev1.ConfigMap) (*DomainConfig, error) {
+	c := DomainConfig{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
-	for k, v := range m.Data {
+	for k, v := range configMap.Data {
 		// TODO(josephburnett): migrate domain configuration to k8sflag
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
@@ -79,15 +88,15 @@ func NewConfig(kubeClient kubernetes.Interface) (*Config, error) {
 		}
 	}
 	if !hasDefault {
-		return nil, fmt.Errorf("Config %#v must have a default domain", m.Data)
+		return nil, fmt.Errorf("Config %#v must have a default domain", configMap.Data)
 	}
 	return &c, nil
 }
 
-// LookupDomainForLabels() returns a domain given a set of labels.
+// LookupDomainForLabels returns a domain given a set of labels.
 // Since we reject configuration without a default domain, this should
 // always return a value.
-func (c *Config) LookupDomainForLabels(labels map[string]string) string {
+func (c *DomainConfig) LookupDomainForLabels(labels map[string]string) string {
 	domain := ""
 	specificity := -1
 
