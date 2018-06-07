@@ -458,6 +458,13 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
 					if err != nil {
 						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
+						if apierrs.IsNotFound(err) {
+							markRevisionMissingCondition(route, revName)
+							if _, err := c.updateStatus(ctx, route); err != nil {
+								// If we failed to update the status, return that error instead of the "revision not found" error.
+								return err
+							}
+						}
 						return err
 					}
 					revMap[revName] = rev
