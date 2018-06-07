@@ -3,115 +3,75 @@
 This directory contains tests and testing docs for `Knative Serving`:
 
 * [Unit tests](#running-unit-tests) currently reside in the codebase alongside the code they test
-* [Conformance tests](#running-conformance-tests) in [`/test/conformance`](./conformance)
-* [End-to-end tests](#running-end-to-end-tests) in [`/test/e2e`](./e2e)
+* [End-to-end tests](#running-end-to-end-tests), of which there are two types:
+  * Conformance tests in [`/test/conformance`](./conformance)
+  * Other end-to-end tests in [`/test/e2e`](./e2e)
+
+The conformance tests are a subset of the end to end test with [more strict requirements](./conformance/README.md#requirements) around what can be tested.
 
 If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
 ## Running unit tests
 
-Use bazel:
-
-```shell
-bazel test //pkg/... --test_output=errors
-```
-
-Or `go test`:
-
-```shell
-go test -v ./pkg/...
-```
-## Running conformance tests
-
-To run [the conformance tests](./conformance), you need to have a running environment that meets
-[the conformance test environment requirements](#conformance-test-environment-requirements).
-
-Since these tests are fairly slow (~1 minute), running them with logging
-enabled is recommended.
-
-To run the conformance tests against the current cluster in `~/.kube/config`
-use `go test` with test caching disabled and the environment specified in [your environment
-variables](/DEVELOPMENT.md#environment-setup):
+To run all unit tests:
 
 ```bash
-go test -v -count=1 ./test/conformance
+go test ./...
 ```
+
+_By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need
+[`-tags=e2e`](#running-end-to-end-tests) to be enabled._
+
+## Running end to end tests
+
+To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you need to have a running environment that meets
+[the e2e test environment requirements](#environment-requirements), and you need to specify the build tag `e2e`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/conformance
+go test -v -tags=e2e -count=1 ./test/e2e
+```
+
+To run one e2e test case, e.g. TestAutoscaleUpDownUp, use [the `-run` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags):
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
+```
+
+* By default the e2e tests against the current cluster in `~/.kube/config`
+  using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
+* Since these tests are fairly slow, running them with logging
+  enabled is recommended (`-v`).
+* Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
 
 You can [use test flags](#flags) to control the environment
 your tests run against, i.e. override [your environment variables](/DEVELOPMENT.md#environment-setup):
 
 ```bash
-go test -v -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
+go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
+go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
 ```
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
-your only option is to use a domain which will resolve to the IP of the running node (see 
+your only option is to use a domain which will resolve to the IP of the running node (see
 [#609](https://github.com/knative/serving/issues/609)):
 
 ```bash
-go test -v -count=1 ./test/conformance --resolvabledomain
+go test -v -tags=e2e -count=1 ./test/conformance --resolvabledomain
+go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
 ```
 
-## Conformance test environment requirements
+### Environment requirements
 
 These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespace `pizzaplanet` to exist in the cluster: `kubectl create namespace pizzaplanet`
-3. A docker repo contianing [the conformance test images](#conformance-test-images)
-
-### Conformance test images
-
-The configuration for the images used for the existing conformance tests lives in
-[`test_images`](./conformance/test_images). See the [section about test
-images](#test-images) for details about building and adding new ones.
-
-## Running end-to-end tests
-
-The e2e tests have almost the exact same requirements and specs as the conformance tests, but they will be enumerated for clarity.
-
-To run [the e2e tests](./e2e), you need to have a running environment that meets
-[the e2e test environment requirements](#e2e-test-environment-requirements).
-
-To run the e2e tests against the current cluster in `~/.kube/config`
-using `go test` using the environment specified in [your environment
-variables](/DEVELOPMENT.md#environment-setup):
-
-Since these tests are fairly slow,  running them with logging
-enabled is recommended. Do so by passing the `-v` flag to go test like so: 
-
-```bash
-go test -v ./test/e2e
-```
-
-You can [use test flags](#flags) to control the environment
-your tests run against, i.e. override [your environment variables](/DEVELOPMENT.md#environment-setup):
-
-```bash
-go test -v ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
-```
-
-If you are running against an environment with no loadbalancer for the ingress, at the moment
-your only option is to use a domain which will resolve to the IP of the running node (see 
-[#609](https://github.com/knative/serving/issues/609)):
-
-```bash
-go test -v ./test/e2e --resolvabledomain
-```
-
-## End-to-end test environment requirements
-
-These tests require:
-
-1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespace `noodleburg` to exist in the cluster: `kubectl create namespace noodleburg`
-3. A docker repo containing [the e2e test images](#e2e-test-images)
-
-### End-to-end test images
-
-The configuration for the images used for the existing e2e tests lives in
-[`test_images`](./e2e/test_images). See the [section about test
-images](#test-images) for details about building and adding new ones.
+2. The namespaces `pizzaplanet` and `noodleburg`:
+    ```bash
+    kubectl create namespace pizzaplanet
+    kubectl create namespace noodleburg
+    ```
+3. A docker repo containing [the test images](#test-images)
 
 ## Test images
 
@@ -125,14 +85,12 @@ test images used by the conformance and e2e tests. It requires:
   `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
 * [`docker`](https://docs.docker.com/install/) to be installed
 
-To run the script:
+To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh /path/containing/test/images
+./test/upload-test-images.sh ./test/e2e/test_images
+./test/upload-test-images.sh ./test/conformance/test_images
 ```
-
-The path containing test images is any directory whose subdirectories contain the `Dockerfile`
-and any required files to build Docker images (e.g., `./test/e2e/test_images`).
 
 ### Adding new test images
 
@@ -154,7 +112,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
 
-#### Specifying kubeconfig
+### Specifying kubeconfig
 
 By default the tests will use the [kubeconfig
 file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
@@ -164,13 +122,11 @@ You can specify a different config file with the argument `--kubeconfig`.
 To run the tests with a non-default kubeconfig file:
 
 ```bash
-go test ./test/conformance --kubeconfig /my/path/kubeconfig
+go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig /my/path/kubeconfig
+go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig /my/path/kubeconfig
 ```
 
-```bash
-go test ./test/e2e --kubeconfig /my/path/kubeconfig
-```
-#### Specifying cluster
+### Specifying cluster
 
 The `--cluster` argument lets you use a different cluster than [your specified
 kubeconfig's](#specifying-kubeconfig) active context. This will default to the value
@@ -178,11 +134,8 @@ of your [`K8S_CLUSTER_OVERRIDE` environment variable](/DEVELOPMENT.md#environmen
 if not specified.
 
 ```bash
-go test ./test/conformance --cluster your-cluster-name
-```
-
-```bash
-go test ./test/e2e --cluster your-cluster-name
+go test -v -tags=e2e -count=1 ./test/conformance --cluster your-cluster-name
+go test -v -tags=e2e -count=1 ./test/e2e --cluster your-cluster-name
 ```
 
 The current cluster names can be obtained by running:
@@ -199,11 +152,8 @@ of your [`DOCKER_REPO_OVERRIDE` environment variable](/DEVELOPMENT.md#environmen
 if not specified.
 
 ```bash
-go test ./test/conformance --dockerrepo gcr.myhappyproject
-```
-
-```bash
-go test ./test/e2e --dockerrepo gcr.myhappyproject
+go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
+go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
 #### Using a resolvable domain
@@ -213,7 +163,7 @@ docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
 use the domain `demo-domain.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
-against the endpoint, the test use the IP assigned to the istio `*-ela-ingress`
+against the endpoint, the test use the IP assigned to the istio `*-ingress`
 and spoof the `Host` in the header.
 
 If you have configured your cluster to use a resolvable domain, you can use the

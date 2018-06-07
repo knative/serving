@@ -57,7 +57,7 @@ func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
 }
 
 func GetElaK8SIngressName(u *v1alpha1.Route) string {
-	return u.Name + "-ela-ingress"
+	return u.Name + "-ingress"
 }
 
 func GetElaK8SServiceNameForRevision(u *v1alpha1.Revision) string {
@@ -73,7 +73,7 @@ func GetElaK8SActivatorServiceName() string {
 }
 
 func GetElaK8SActivatorNamespace() string {
-	return "ela-system"
+	return "knative-serving-system"
 }
 
 func GetRevisionHeaderName() string {

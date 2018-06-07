@@ -35,13 +35,16 @@ import (
 // "latest ready" revision's name.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#configuration
 type Configuration struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Configuration (from the client).
+	// +optional
 	Spec ConfigurationSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Configuration (from the controller).
+	// +optional
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
@@ -51,16 +54,19 @@ type ConfigurationSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
+	// +optional
 	Build *build.BuildSpec `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to
 	// be stamped out. If a Build specification is provided, then the
 	// RevisionTemplate's BuildName field will be populated with the name of
 	// the Build object created to produce the container for the Revision.
+	// +optional
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
@@ -96,19 +102,23 @@ type ConfigurationStatus struct {
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
+	// +optional
 	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
 
 	// LatestCreatedRevisionName is the last revision that was created from this
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
