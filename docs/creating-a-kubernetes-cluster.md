@@ -95,31 +95,27 @@ To use a k8s cluster running in GKE:
     certificate controller must be told where to find the cluster CA certs on
     the VM._
 
-    _Starting with v0.26.0 minikube defaults to the `kubeadm` bootstrapper, so 
-      we need to explicitly set the bootstrapper to be `localkube` for our extra-config
-      settings to work._
-
 For Linux use:
 
 ```shell
-minikube start \
-  --kubernetes-version=v1.10.0 \
+minikube start --memory=8192 --cpus=4 \
+  --kubernetes-version=v1.10.4 \
   --vm-driver=kvm2 \
-  --bootstrapper=localkube \
-  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
-  --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
-  --extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key"
+  --bootstrapper=kubeadm \
+  --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
+  --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
+  --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
 ```
 For macOS use:
 
 ```shell
-minikube start \
-  --kubernetes-version=v1.10.0 \
+minikube start --memory=8192 --cpus=4 \
+  --kubernetes-version=v1.10.4 \
   --vm-driver=hyperkit \
-  --bootstrapper=localkube \
-  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
-  --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
-  --extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key"
+  --bootstrapper=kubeadm \
+  --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
+  --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
+  --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
 ```
 
 ### Minikube with GCR
