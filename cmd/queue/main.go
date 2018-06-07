@@ -52,10 +52,6 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength = 10
-	// Add enough buffer to keep track of as many requests as can
-	// be handled in a quantum of time. Because the request out
-	// channel isn't drained until the end of a quantum of time.
-	requestCountingQueueLength = 100
 	// Number of seconds the /quitquitquit handler should wait before
 	// returning.  The purpose is to kill the container alive a little
 	// bit longer, that it doesn't go away until the pod is truly
@@ -75,8 +71,8 @@ var (
 	elaAutoscaler            string
 	elaAutoscalerPort        string
 	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan                = make(chan queue.Poke, requestCountingQueueLength)
-	reqOutChan               = make(chan queue.Poke, requestCountingQueueLength)
+	reqInChan                = make(chan queue.Poke)
+	reqOutChan               = make(chan queue.Poke)
 	kubeClient               *kubernetes.Clientset
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy

@@ -16,9 +16,8 @@ limitations under the License.
 package queue
 
 import (
-	"time"
-
 	"github.com/knative/serving/pkg/autoscaler"
+	"time"
 )
 
 // Poke is a token to push onto Stats Channels for recording requests stats.
@@ -54,36 +53,35 @@ func NewStats(podName string, channels Channels) *Stats {
 
 	go func() {
 		var requestCount int32
-		var concurrentCount int32
 		var bucketedRequestCount int32
+
+		var concurrency int32
+		var maximumConcurrency int32
 		buckets := make([]int32, 0)
 		for {
 			select {
 			case <-s.ch.ReqInChan:
 				requestCount = requestCount + 1
-				concurrentCount = concurrentCount + 1
+				concurrency = concurrency + 1
+				if concurrency > maximumConcurrency {
+					maximumConcurrency = concurrency
+				}
+			case <-s.ch.ReqOutChan:
+				concurrency = concurrency - 1
 			case <-s.ch.QuantizationChan:
 				// Calculate average concurrency for the current
 				// quantum of time (bucket).
-				buckets = append(buckets, concurrentCount)
+
+				// Check this in case no new request arrived in the bucket
+				if concurrency > maximumConcurrency {
+					maximumConcurrency = concurrency
+				}
+				buckets = append(buckets, maximumConcurrency)
 				// Count the number of requests during bucketed
 				// period
 				bucketedRequestCount = bucketedRequestCount + requestCount
 				requestCount = 0
-				// Drain the request out channel only after the
-				// bucket statistic has been recorded.  This
-				// ensures that very fast requests are not missed
-				// by making the smallest granularity of
-				// concurrency one quantum of time.
-			DrainReqOutChan:
-				for {
-					select {
-					case <-s.ch.ReqOutChan:
-						concurrentCount = concurrentCount - 1
-					default:
-						break DrainReqOutChan
-					}
-				}
+				maximumConcurrency = 0
 			case now := <-s.ch.ReportChan:
 				// Report the average bucket level. Does not
 				// include the current bucket.
