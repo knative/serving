@@ -143,10 +143,9 @@ ko resolve -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
 # Use ko to do the same for the lite version.
 ko resolve -R -f config/monitoring/100-common \
-    -f config/monitoring/150-prod \
-    -f third_party/config/monitoring/istio \
-    -f third_party/config/monitoring/kubernetes/kube-state-metrics \
-    -f third_party/config/monitoring/prometheus-operator \
+    -f third_party/config/monitoring/common/istio \
+    -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
+    -f third_party/config/monitoring/common/prometheus-operator \
     -f config/monitoring/200-common/100-fluentd.yaml \
     -f config/monitoring/200-common/100-grafana-dash-knative-efficiency.yaml \
     -f config/monitoring/200-common/100-grafana-dash-knative.yaml \
