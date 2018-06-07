@@ -255,7 +255,7 @@ echo "See https://github.com/knative/serving/issues/1070 for details"
 sleep 120
 header "Running 'hello world' test"
 kubectl create namespace noodleburg
-go test -v ./test/e2e -run HelloWorld -dockerrepo gcr.io/elafros-e2e-tests/ela-e2e-test
+go test -v -tags=e2e ./test/e2e -run HelloWorld -dockerrepo gcr.io/elafros-e2e-tests/ela-e2e-test
 exit_if_failed
 
 # run_e2e_tests conformance pizzaplanet ela-conformance-test
