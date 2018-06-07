@@ -804,7 +804,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
 	logger := logging.FromContext(ctx)
-	sc := c.KubeClientSet.Core().Services(ns)
+	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
 	logger.Infof("Deleting service %q", serviceName)
@@ -821,7 +821,7 @@ func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, 
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision, ns string) (string, error) {
 	logger := logging.FromContext(ctx)
-	sc := c.KubeClientSet.Core().Services(ns)
+	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
 	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
@@ -853,7 +853,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	// references. Can not set blockOwnerDeletion and Controller to true.
 	revRef := newRevisionNonControllerRef(rev)
 
-	cmc := c.KubeClientSet.Core().ConfigMaps(ns)
+	cmc := c.KubeClientSet.CoreV1().ConfigMaps(ns)
 	configMap, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -907,7 +907,7 @@ func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.Owner
 func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.Core().Services(AutoscalerNamespace)
+	sc := c.KubeClientSet.CoreV1().Services(AutoscalerNamespace)
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -926,7 +926,7 @@ func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.Core().Services(AutoscalerNamespace)
+	sc := c.KubeClientSet.CoreV1().Services(AutoscalerNamespace)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
