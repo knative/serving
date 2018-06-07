@@ -32,6 +32,12 @@ go test -v -tags=e2e -count=1 ./test/conformance
 go test -v -tags=e2e -count=1 ./test/e2e
 ```
 
+To run one e2e test case, e.g. TestAutoscaleUpDownUp, use this:
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
+```
+
 * By default the e2e tests against the current cluster in `~/.kube/config`
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
 * Since these tests are fairly slow, running them with logging
