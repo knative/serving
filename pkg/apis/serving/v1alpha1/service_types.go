@@ -28,10 +28,12 @@ import (
 
 // Service
 type Service struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   ServiceSpec   `json:"spec,omitempty"`
+	// +optional
+	Spec ServiceSpec `json:"spec,omitempty"`
+	// +optional
 	Status ServiceStatus `json:"status,omitempty"`
 }
 
@@ -42,6 +44,7 @@ type ServiceSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// RunLatest defines a simple Service. It will automatically
@@ -58,15 +61,18 @@ type ServiceSpec struct {
 
 type RunLatestType struct {
 	// The configuration for this service.
+	// +optional
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
 type PinnedType struct {
 	// The revision name to pin this service to until changed
 	// to a different service type.
+	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
 	// The configuration for this service.
+	// +optional
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
@@ -91,10 +97,12 @@ const (
 )
 
 type ServiceStatus struct {
+	// +optional
 	Conditions []ServiceCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Service that
 	// was last processed by the controller.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
