@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# test change
+
 set -o errexit
 
 : ${1:?"Pass the directory with the test images as argument"}
