@@ -121,37 +121,52 @@ function run_tests() {
   exit_if_failed
 }
 
-# Smoke test: deploy the "hello world" app from source using command line.
+# Smoke test: deploy the "hello world" app using command line.
 function run_smoke_test() {
   header "Running smoke test (hello world)"
-  local IMAGE="${KO_DOCKER_REPO}/smoke/helloworld"
   local YAML="$(mktemp helloworld.yaml.XXXXXXXXXX)"
-  docker build \
-    --build-arg SAMPLE=helloworld \
-    --tag ${IMAGE} \
-    --file=sample/Dockerfile.golang .
-  docker push "${IMAGE}"
+  # Building the sample image using docker takes about 20 minutes (June 2018)
+  # when running the tests on prow, compared to 1 minute on a workstation.
+  # Thus we use a prebuilt image stored in GCR when running on Prow.
+  # TODO(adrcunha): Use a single approach here.
+  if (( IS_PROW )); then
+    local IMAGE="gcr.io/elafros-e2e-tests/ela-e2e-test/sample/helloworld"
+  else
+    local IMAGE="${KO_DOCKER_REPO}/smoke/helloworld"
+    docker build \
+      --build-arg SAMPLE=helloworld \
+      --tag ${IMAGE} \
+      --file=sample/Dockerfile.golang .
+    docker push "${IMAGE}"
+  fi
   sed "s@github.com/knative/serving/sample/helloworld@${IMAGE}@g" \
     sample/helloworld/sample.yaml > ${YAML}
   kubectl apply -f ${YAML}
   local service_host=""
   local service_ip=""
+  echo -n "Waiting for Ingress to come up"
   for i in {1..150}; do  # timeout after 5 minutes
-    echo "Waiting for Ingress to come up"
-    if [[ $(kubectl get ingress | grep route-example | wc -w) == 5 ]]; then
+    local ingress=($(kubectl get ingress 2> /dev/null | grep route-example))
+    if [[ ${#ingress[@]} == 5 ]]; then  # output contains 5 columns
       service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
       service_ip=$(kubectl get ingress route-example-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
-      echo -e -n "Ingress is at $service_ip / $service_host\n"
+      echo -e -n "\nIngress is at $service_ip / $service_host"
       break
     fi
+    echo -n "."
     sleep 2
   done
+  echo
   if [[ -z ${service_host} ]]; then
     echo "ERROR: No ingress found."
     kubectl delete -f ${YAML}
     return 1
   fi
-  local output="$(curl --header "Host:$service_host" http://${service_ip})"
+  # Retry on 40X and 50X, up to 2 minutes.
+  local output="$(curl --header "Host:${service_host}" \
+    --retry-delay 5 \
+    --retry 24 \
+    http://${service_ip})"
   local result=0
   if [[ "${output}" != "Hello World: shiniestnewestversion!" ]]; then
     echo "ERROR: unexpected output [${output}]"
@@ -277,7 +292,6 @@ if (( USING_EXISTING_CLUSTER )); then
 fi
 if (( IS_PROW )); then
   gcr_auth
-  dockerd &
 fi
 
 create_everything
