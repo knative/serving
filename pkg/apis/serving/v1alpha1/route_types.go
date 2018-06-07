@@ -33,13 +33,16 @@ import (
 // "latest ready" revision changes, and smoothly rolling out latest revisions.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
 type Route struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Route (from the client).
+	// +optional
 	Spec RouteSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Route (from the controller).
+	// +optional
 	Status RouteStatus `json:"status,omitempty"`
 }
 
@@ -75,9 +78,11 @@ type RouteSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
+	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
@@ -112,22 +117,26 @@ const (
 type RouteStatus struct {
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
 	Domain string `json:"domain,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
 	// LatestReadyRevisionName that we last observed.
+	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 

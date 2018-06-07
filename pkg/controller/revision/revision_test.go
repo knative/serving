@@ -406,7 +406,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}
 		}
-		if container.Name == elaContainerName {
+		if container.Name == userContainerName {
 			foundElaContainer = true
 			// verify that the ReadinessProbe has our port.
 			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(queue.RequestQueuePort) {
@@ -422,7 +422,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
 			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
 			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
-			checkEnv(container.Env, "ELA_CONTAINER_NAME", "ela-container", "")
+			checkEnv(container.Env, "ELA_CONTAINER_NAME", "user-container", "")
 			checkEnv(container.Env, "ELA_POD_NAME", "", "metadata.name")
 		}
 	}
@@ -433,7 +433,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Error("Missing fluentd-proxy container")
 	}
 	if !foundElaContainer {
-		t.Errorf("Missing %q container", elaContainerName)
+		t.Errorf("Missing %q container", userContainerName)
 	}
 	expectedLabels := sumMaps(
 		rev.Labels,
@@ -502,7 +502,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	)
 	expectedAutoscalerPodSpecAnnotations := sumMaps(
 		rev.Annotations,
-		map[string]string{"sidecar.istio.io/inject": "false"},
+		map[string]string{"sidecar.istio.io/inject": "true"},
 	)
 
 	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})

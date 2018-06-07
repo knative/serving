@@ -54,8 +54,8 @@ const (
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
 	// TODO: Could these come from somewhere else.
-	elaSystemNamespace   = "ela-system"
-	elaWebhookDeployment = "ela-webhook"
+	elaSystemNamespace   = "knative-serving-system"
+	elaWebhookDeployment = "webhook"
 )
 
 var deploymentKind = v1beta1.SchemeGroupVersion.WithKind("Deployment")

@@ -34,7 +34,7 @@ import (
 // AutoscalerNamespace needs to match the service account, which needs to
 // be a single, known namespace. This ensures that projects created in
 // non-default namespaces continue to work with autoscaling.
-const AutoscalerNamespace = "ela-system"
+const AutoscalerNamespace = "knative-serving-system"
 
 // MakeElaAutoscalerDeployment creates the deployment of the
 // autoscaler for a particular revision.
@@ -45,7 +45,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 	}
 
 	annotations := MakeElaResourceAnnotations(rev)
-	annotations[sidecarIstioInjectAnnotation] = "false"
+	annotations[sidecarIstioInjectAnnotation] = "true"
 
 	replicas := int32(1)
 
@@ -143,7 +143,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 							},
 						},
 					},
-					ServiceAccountName: "ela-autoscaler",
+					ServiceAccountName: "autoscaler",
 					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
 				},
 			},

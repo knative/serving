@@ -4,7 +4,7 @@
 
 Different domain suffixes can be configured based on the route labels.  In order
 to do this, update the config map named `config-domain` in the namespace
-`ela-system`.
+`knative-serving-system`.
 
 In that config map, each entry maps a domain name to an equality-based label
 selector.  If your route has labels that meet all requirement of the selector it
@@ -18,7 +18,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-domain
-  namespace: ela-system
+  namespace: knative-serving-system
 data:
   prod.domain.com: |
     selector:

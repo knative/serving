@@ -168,7 +168,7 @@ For example, use these steps to allow Minikube to pull Knative Serving and Build
 from GCR as published in our development flow (`ko apply -f config/`).
 _This is only necessary if you are not using public Knative Serving and Build images._
 
-1.  Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
+1.  Create a Kubernetes secret in the `knative-serving-system` and `build-system` namespace:
 
     ```shell
     for prefix in ela build; do
@@ -184,7 +184,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
     _The secret must be created in the same namespace as the pod or service
     account._
 
-1.  Add the secret as an imagePullSecret to the `ela-controller` and
+1.  Add the secret as an imagePullSecret to the `controller` and
     `build-controller` service accounts:
 
     ```shell

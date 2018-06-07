@@ -46,7 +46,7 @@ To access this service via `curl`, we first need to determine its ingress addres
 ```shell
 $ watch kubectl get ing
 NAME                             HOSTS                                        ADDRESS    PORTS     AGE
-steren-sample-app-ela-ingress    steren-sample-app.default.demo-domain.net               80        3m
+steren-sample-app-ingress    steren-sample-app.default.demo-domain.net               80        3m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
@@ -56,7 +56,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route steren-sample-app -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress steren-sample-app-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),

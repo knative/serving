@@ -83,7 +83,7 @@ view that looks like below:
 The first chart shows rate of the CPU usage across all pods serving the revision.
 The second chart shows total memory consumed across all pods serving the revision.
 Both of these metrics are further divided into per container usage.
-* ela-container: This container runs the user code (application, function or container).
+* user-container: This container runs the user code (application, function or container).
 * [istio-proxy](https://github.com/istio/proxy): Sidecar container to form an 
 [Istio](https://istio.io/docs/concepts/what-is-istio/overview.html) mesh.
 * queue-proxy: Knative Serving owned sidecar container to enforce request concurrency limits.

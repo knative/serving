@@ -31,21 +31,25 @@ import (
 // Revision is an immutable snapshot of code and configuration.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Revision (from the client).
+	// +optional
 	Spec RevisionSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Revision (from the controller).
+	// +optional
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
 type RevisionTemplateSpec struct {
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
+	// +optional
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
@@ -89,17 +93,20 @@ type RevisionSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// ServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
 	// Users must not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
+	// +optional
 	ServingState RevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
 	// (SingleConcurrency or MultiConcurrency) for the
 	// Revision. Defaults to MultiConcurrency.
+	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
@@ -109,10 +116,12 @@ type RevisionSpec struct {
 	// This may be used to provide access to private container images by
 	// following: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
 	// TODO(ZhiminXiang): verify the corresponding service account exists.
+	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// BuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
+	// +optional
 	BuildName string `json:"buildName,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
@@ -120,6 +129,7 @@ type RevisionSpec struct {
 	// this Container, including: name, resources, ports, and volumeMounts.
 	// TODO(mattmoor): Link to the runtime contract tracked by:
 	// https://github.com/knative/serving/issues/627
+	// +optional
 	Container corev1.Container `json:"container,omitempty"`
 }
 
@@ -164,20 +174,24 @@ type RevisionStatus struct {
 	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
 	// targeting the revision.
+	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []RevisionCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// LogURL specifies the generated logging url for this particular revision
 	// based on the revision url template specified in the controller's config.
+	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 }
 

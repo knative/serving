@@ -20,6 +20,7 @@
 
 # Default GKE version to be used with Knative Serving
 readonly SERVING_GKE_VERSION=1.10.2-gke.3
+readonly SERVING_GKE_IMAGE=ubuntu
 
 # Useful environment variables
 [[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0
@@ -98,7 +99,7 @@ function wait_until_pods_running() {
 # Returns the name of the Knative Serving pod of the given app.
 # Parameters: $1 - Knative Serving app name.
 function get_ela_pod() {
-  kubectl get pods -n ela-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
+  kubectl get pods -n knative-serving-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
 }
 
 # Sets the given user as cluster admin.

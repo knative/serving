@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-autoscaler
-  namespace: ela-system
+  namespace: knative-serving-system
 data:
   # Static parameters:
 
