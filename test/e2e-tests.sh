@@ -124,7 +124,7 @@ function run_tests() {
 # Smoke test: deploy the "hello world" app using command line.
 function run_smoke_test() {
   header "Running smoke test (hello world)"
-  local YAML="$(mktemp helloworld.yaml.XXXXXXXXXX)"
+  local YAML="$(mktemp -t helloworld.yaml.XXXXXXXXXX)"
   # Building the sample image using docker takes about 20 minutes (June 2018)
   # when running the tests on prow, compared to 1 minute on a workstation.
   # Thus we use a prebuilt image stored in GCR when running on Prow.
@@ -146,10 +146,11 @@ function run_smoke_test() {
   local service_ip=""
   echo -n "Waiting for Ingress to come up"
   for i in {1..150}; do  # timeout after 5 minutes
-    local ingress=($(kubectl get ingress 2> /dev/null | grep route-example))
-    if [[ ${#ingress[@]} == 5 ]]; then  # output contains 5 columns
-      service_host=$(kubectl get route route-example -o jsonpath="{.status.domain}")
-      service_ip=$(kubectl get ingress route-example-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}")
+    service_host=$(kubectl get route route-example \
+      -o jsonpath="{.status.domain}" 2>/dev/null)
+    service_ip=$(kubectl get ingress route-example-ingress \
+      -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}" 2>/dev/null)
+    if [[ -n "${service_host}" && -n "${service_ip}" ]]; then
       echo -e -n "\nIngress is at $service_ip / $service_host"
       break
     fi
