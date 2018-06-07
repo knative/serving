@@ -270,14 +270,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 		route.Status.Traffic = traffic
 	}
 	route.Status.Domain = c.routeDomain(route)
-	updated, err := c.updateStatus(route)
-	if err != nil {
-		logger.Warn("Failed to update service status", zap.Error(err))
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
-		return nil, err
-	}
-	c.Recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
-	return updated, nil
+	return c.updateStatus(ctx, route)
 }
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
@@ -326,6 +319,49 @@ func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route
 	return nil
 }
 
+func markRouteReady(route *v1alpha1.Route) {
+	// Clear this if it was previously set.
+	route.Status.RemoveCondition(v1alpha1.RouteConditionAllTrafficAssigned)
+
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:   v1alpha1.RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
+}
+
+func markConfigurationMissingCondition(route *v1alpha1.Route, configName string) {
+	msg := fmt.Sprintf("Configuration '%s' referenced in traffic not found", configName)
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ConfigurationMissing",
+		Message: msg,
+	})
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:    v1alpha1.RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ConfigurationMissing",
+		Message: msg,
+	})
+}
+
+// TODO: Remove missing Revision from traffic in status?
+func markRevisionMissingCondition(route *v1alpha1.Route, revName string) {
+	msg := fmt.Sprintf("Revision '%s' referenced in traffic not found", revName)
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionMissing",
+		Message: msg,
+	})
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:    v1alpha1.RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionMissing",
+		Message: msg,
+	})
+}
+
 func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha1.Route) (
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
@@ -341,6 +377,13 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			config, err := configClient.Get(configName, metav1.GetOptions{})
 			if err != nil {
 				logger.Infof("Failed to fetch Configuration %q: %v", configName, err)
+				if apierrs.IsNotFound(err) {
+					markConfigurationMissingCondition(route, configName)
+					if _, err := c.updateStatus(ctx, route); err != nil {
+						// If we failed to update the status, return that error instead of the "config not found" error.
+						return nil, nil, err
+					}
+				}
 				return nil, nil, err
 			}
 			configMap[configName] = config
@@ -349,6 +392,13 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			rev, err := revClient.Get(revName, metav1.GetOptions{})
 			if err != nil {
 				logger.Infof("Failed to fetch Revision %q: %v", revName, err)
+				if apierrs.IsNotFound(err) {
+					markRevisionMissingCondition(route, revName)
+					if _, err := c.updateStatus(ctx, route); err != nil {
+						// If we failed to update the status, return that error instead of the "revision not found" error.
+						return nil, nil, err
+					}
+				}
 				return nil, nil, err
 			}
 			revMap[revName] = rev
@@ -408,6 +458,13 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
 					if err != nil {
 						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
+						if apierrs.IsNotFound(err) {
+							markRevisionMissingCondition(route, revName)
+							if _, err := c.updateStatus(ctx, route); err != nil {
+								// If we failed to update the status, return that error instead of the "revision not found" error.
+								return err
+							}
+						}
 						return err
 					}
 					revMap[revName] = rev
@@ -766,19 +823,33 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 	return revisionRoutes, nil
 }
 
-func (c *Controller) updateStatus(route *v1alpha1.Route) (*v1alpha1.Route, error) {
+func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+	logger := logging.FromContext(ctx)
+
 	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(route.Namespace)
 	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
+		logger.Warn("Failed to update route status", zap.Error(err))
+		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to get current status for route %q: %v", route.Name, err)
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(existing.Status, route.Status) {
-		existing.Status = route.Status
-		// TODO: for CRD there's no updatestatus, so use normal update.
-		return routeClient.Update(existing)
+
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(existing.Status, route.Status) {
+		return existing, nil
 	}
-	return existing, nil
+
+	existing.Status = route.Status
+	// TODO: for CRD there's no updatestatus, so use normal update.
+	updated, err := routeClient.Update(existing)
+	if err != nil {
+		logger.Warn("Failed to update route status", zap.Error(err))
+		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
+		return nil, err
+	}
+
+	c.Recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated status for route %q", route.Name)
+	return updated, nil
 }
 
 // consolidateTrafficTargets will consolidate all duplicate revisions
@@ -939,11 +1010,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	if route.Status.IsReady() {
 		return
 	}
-	// Mark route as ready.
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:   v1alpha1.RouteConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	markRouteReady(route)
 
 	if _, err = routeClient.Update(route); err != nil {
 		c.Logger.Error(

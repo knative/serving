@@ -1210,6 +1210,103 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	}
 }
 
+// Helper to compare RouteConditions
+func sortConditions(a, b v1alpha1.RouteCondition) bool {
+	return a.Type < b.Type
+}
+
+func TestCreateRouteRevisionMissingCondition(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				// Note that since no Revision with this name exists,
+				// this will trigger the RevisionMissing condition.
+				RevisionName: "does-not-exist",
+				Percent:      100,
+			},
+		},
+	)
+
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := `revisions.serving.knative.dev "does-not-exist" not found`
+	// Should return error.
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+
+	// Verify that Route.Status.Conditions were correctly set.
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionMissing",
+		Message: "Revision 'does-not-exist' referenced in traffic not found",
+	}, {
+		Type:    v1alpha1.RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionMissing",
+		Message: "Revision 'does-not-exist' referenced in traffic not found",
+	}}
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
+}
+
+func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				// Note that since no Configuration with this name exists,
+				// this will trigger the ConfigurationMissing condition.
+				ConfigurationName: "does-not-exist",
+				Percent:           100,
+			},
+		},
+	)
+
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := `configurations.serving.knative.dev "does-not-exist" not found`
+	// Should return error.
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+
+	// Verify that Route.Status.Conditions were correctly set.
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ConfigurationMissing",
+		Message: "Configuration 'does-not-exist' referenced in traffic not found",
+	}, {
+		Type:    v1alpha1.RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ConfigurationMissing",
+		Message: "Configuration 'does-not-exist' referenced in traffic not found",
+	}}
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
+}
+
 func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
