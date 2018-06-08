@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
+
+	"github.com/knative/serving/pkg"
 
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
@@ -120,8 +123,20 @@ func NewController(
 	informer := elaInformerFactory.Serving().V1alpha1().Routes()
 	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
-	configMapInformer := coreinformers.NewFilteredConfigMapInformer(
-		kubeClientSet, elaNamespace, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
+
+	// An alternate to below is to create a shared informer factory
+	// using NewFilteredSharedInformerFactory and use it to create
+	// shared informers using it and share the informer across multiple calles,
+	// but this case is quite specific and isn't too common to be shared.
+	// If it turns our that more than once caller needs it, we should bump this up
+	// to cmd/main.go and create a shared informer factory.
+	// The resync period is set to 15 minutes, because we don't really need to
+	// keep reading domain configuration map every 30 seconds like we do with our other
+	// informers. If we somehow miss to update the config map when the update happened
+	// 15 minute seems like a reasonable time to reconcile it back as domain configuration
+	// should only change very few times if ever throughout the lifetime of a cluster.
+	configMapInformer := coreinformers.NewFilteredConfigMapInformer(kubeClientSet, pkg.GetServingSystemNamespace(),
+		time.Minute*15, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
 
 	domainConfig, err := NewDomainConfig(kubeClientSet)
 	if err != nil {
@@ -161,17 +176,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	configMapInformerStopCh := make(chan struct{})
-	go func() {
-		c.Logger.Info(("Starting the config map informer"))
-		c.configMapInformer.Run(configMapInformerStopCh)
-	}()
-
-	defer func() {
-		c.Logger.Info("Stopping the config map informer")
-		configMapInformerStopCh <- struct{}{}
-	}()
-
+	go c.configMapInformer.Run(stopCh)
 	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced, c.configMapInformer.HasSynced},
 		c.updateRouteEvent, "Route")
 }
@@ -674,7 +679,7 @@ func (c *Controller) computeRevisionRoutes(
 			Name:         controller.GetElaK8SActivatorServiceName(),
 			RevisionName: inactiveRev,
 			Service:      controller.GetElaK8SActivatorServiceName(),
-			Namespace:    controller.GetElaK8SActivatorNamespace(),
+			Namespace:    pkg.GetServingSystemNamespace(),
 			Weight:       totalInactivePercent,
 		}
 		ret = append(ret, activatorRoute)
@@ -999,11 +1004,12 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 
 func (c *Controller) addConfigMapEvent(obj interface{}) {
 	configMap := obj.(*corev1.ConfigMap)
-	if configMap.Namespace != elaNamespace || configMap.Name != controller.GetDomainConfigMapName() {
+	c.Logger.Infof("Domain config map is added or updated: %v", configMap)
+	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetDomainConfigMapName() {
 		return
 	}
 
-	c.Logger.Infof("Domain config map is added or updated: %v", configMap)
+	//c.Logger.Infof("Domain config map is added or updated: %v", configMap)
 	newDomainConfig, err := NewDomainConfigFromConfigMap(configMap)
 	if err != nil {
 		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.", zap.Error(err))

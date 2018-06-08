@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,9 +66,9 @@ func TestNewConfigMissingConfigMap(t *testing.T) {
 
 func TestNewConfigNoEntry(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
+	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: elaNamespace,
+			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetDomainConfigMapName(),
 		},
 	})
@@ -95,9 +96,9 @@ func TestNewConfig(t *testing.T) {
 		},
 	}
 	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeClient.CoreV1().ConfigMaps(elaNamespace).Create(&corev1.ConfigMap{
+	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: elaNamespace,
+			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetDomainConfigMapName(),
 		},
 		Data: map[string]string{

@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -39,7 +41,7 @@ import (
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: "knative-serving-system",
+		ServiceNamespace: pkg.GetServingSystemNamespace(),
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
@@ -564,10 +566,10 @@ func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      elaWebhookDeployment,
-			Namespace: elaSystemNamespace,
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 	}
-	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+	ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Create(deployment)
 }
 
 func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {

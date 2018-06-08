@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,7 +157,7 @@ func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
 	return v1alpha2.DestinationWeight{
 		Destination: v1alpha2.IstioService{
 			Name:      ctrl.GetElaK8SActivatorServiceName(),
-			Namespace: ctrl.GetElaK8SActivatorNamespace(),
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Weight: w,
 	}
@@ -173,14 +175,14 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	domainConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctrl.GetDomainConfigMapName(),
-			Namespace: elaNamespace,
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
 	}
-	kubeClient.Core().ConfigMaps(elaNamespace).Create(&domainConfig)
+	kubeClient.Core().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&domainConfig)
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
@@ -1534,7 +1536,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				domainConfig := corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      ctrl.GetDomainConfigMapName(),
-						Namespace: elaNamespace,
+						Namespace: pkg.GetServingSystemNamespace(),
 					},
 					Data: map[string]string{
 						defaultDomainSuffix: "",
@@ -1550,7 +1552,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				domainConfig := corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      ctrl.GetDomainConfigMapName(),
-						Namespace: elaNamespace,
+						Namespace: pkg.GetServingSystemNamespace(),
 					},
 					Data: map[string]string{
 						"newdefault.net":   "",
@@ -1568,7 +1570,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				domainConfig := corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "SomethingDifferent",
-						Namespace: elaNamespace,
+						Namespace: pkg.GetServingSystemNamespace(),
 					},
 					Data: map[string]string{
 						defaultDomainSuffix: "",
@@ -1585,7 +1587,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				domainConfig := corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      ctrl.GetDomainConfigMapName(),
-						Namespace: elaNamespace,
+						Namespace: pkg.GetServingSystemNamespace(),
 					},
 					Data: map[string]string{
 						"mytestdomain.com": "selector:\n  app: prod",

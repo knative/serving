@@ -72,10 +72,6 @@ func GetElaK8SActivatorServiceName() string {
 	return "activator-service"
 }
 
-func GetElaK8SActivatorNamespace() string {
-	return "knative-serving-system"
-}
-
 func GetRevisionHeaderName() string {
 	return "Knative-Serving-Revision"
 }

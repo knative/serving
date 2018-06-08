@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +50,8 @@ func (s *LabelSelector) Matches(labels map[string]string) bool {
 	return true
 }
 
-// DomainConfig contains controller configurations.
+// DomainConfig maps domains to routes by matching the domain's
+// label selectors to the route's labels.
 type DomainConfig struct {
 	// Domains map from domain to label selector.  If a route has
 	// labels matching a particular selector, it will use the
@@ -57,21 +60,17 @@ type DomainConfig struct {
 	Domains map[string]*LabelSelector
 }
 
-const (
-	elaNamespace = "knative-serving-system"
-)
-
 // NewDomainConfig creates a DomainConfig by reading the domain configmap from
-// the supplies client.
+// the supplied client.
 func NewDomainConfig(kubeClient kubernetes.Interface) (*DomainConfig, error) {
-	m, err := kubeClient.CoreV1().ConfigMaps(elaNamespace).Get(controller.GetDomainConfigMapName(), metav1.GetOptions{})
+	m, err := kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Get(controller.GetDomainConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	return NewDomainConfigFromConfigMap(m)
 }
 
-// NewDomainConfigFromConfigMap creates a DomainConfig from the supplies ConfigMap
+// NewDomainConfigFromConfigMap creates a DomainConfig from the supplied ConfigMap
 func NewDomainConfigFromConfigMap(configMap *corev1.ConfigMap) (*DomainConfig, error) {
 	c := DomainConfig{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
