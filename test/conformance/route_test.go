@@ -19,7 +19,7 @@ package conformance
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"strings"
 	"testing"
 
@@ -82,13 +82,13 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 }
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) {
-	log.Println("The Revision will be marked as Ready when it can serve traffic")
+	glog.Infof("The Revision will be marked as Ready when it can serve traffic")
 	err := test.WaitForRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady(names.Revision))
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 
-	log.Println("Updates the Configuration that the Revision is ready")
+	glog.Infof("Updates the Configuration that the Revision is ready")
 	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
@@ -96,13 +96,13 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 
-	log.Println("Updates the Route to route traffic to the Revision")
+	glog.Infof("Updates the Route to route traffic to the Revision")
 	err = test.WaitForRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
 
-	log.Println("When the Revision can have traffic routed to it, the Route is marked as Ready")
+	glog.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready")
 	err = test.WaitForRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {
 		return r.Status.IsReady(), nil
 	})
@@ -110,7 +110,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
-	log.Println("Serves the expected data at the endpoint")
+	glog.Infof("Serves the expected data at the endpoint")
 	updatedRoute, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
@@ -163,13 +163,13 @@ func TestRouteCreation(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) })
 	defer tearDown(clients, names)
 
-	log.Println("Creating a new Route and Configuration")
+	glog.Infof("Creating a new Route and Configuration")
 	err := createRouteAndConfig(clients, names, imagePaths)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
 
-	log.Println("The Configuration will be updated with the name of the Revision once it is created")
+	glog.Infof("The Configuration will be updated with the name of the Revision once it is created")
 	revisionName, err := getFirstRevisionName(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -178,13 +178,13 @@ func TestRouteCreation(t *testing.T) {
 
 	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, "What a spaceport!")
 
-	log.Println("Updating the Configuration to use a different image")
+	glog.Infof("Updating the Configuration to use a different image")
 	err = updateConfigWithImage(clients, names, imagePaths)
 	if err != nil {
 		t.Fatalf("Patch update for Configuration %s with new image %s failed: %v", names.Config, imagePaths[1], err)
 	}
 
-	log.Println("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
+	glog.Infof("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
 	revisionName, err = getNextRevisionName(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, image2, err)

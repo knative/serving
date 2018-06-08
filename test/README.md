@@ -42,6 +42,7 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
 * Since these tests are fairly slow, running them with logging
   enabled is recommended (`-v`).
+* Using `--logverbose` to see the verbose log output from test as well as from k8s libraries.
 * Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
 
 You can [use test flags](#flags) to control the environment
@@ -111,6 +112,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 * [`--cluster`](#specifying-cluster)
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
+* [`--logverbose`](#output-verbose-log)
 
 ### Specifying kubeconfig
 
@@ -169,3 +171,11 @@ and spoof the `Host` in the header.
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests directly against
 `Route.Status.Domain` and does not need to spoof the `Host`.
+
+#### Output verbose log
+
+The `--logverbose` argument lets you see verbose log.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e --logverbose
+```
