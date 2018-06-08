@@ -178,7 +178,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	}
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	addMissingConditions(route)
+	route.Status.InitializeConditions()
 
 	logger.Infof("Reconciling route :%v", route)
 
@@ -318,95 +318,6 @@ func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route
 	return nil
 }
 
-func addMissingConditions(route *v1alpha1.Route) {
-	if rc := route.Status.GetCondition(v1alpha1.RouteConditionAllTrafficAssigned); rc == nil {
-		route.Status.SetCondition(&v1alpha1.RouteCondition{
-			Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-			Status: corev1.ConditionUnknown,
-		})
-	}
-	if rc := route.Status.GetCondition(v1alpha1.RouteConditionIngressReady); rc == nil {
-		route.Status.SetCondition(&v1alpha1.RouteCondition{
-			Type:   v1alpha1.RouteConditionIngressReady,
-			Status: corev1.ConditionUnknown,
-		})
-	}
-	if rc := route.Status.GetCondition(v1alpha1.RouteConditionReady); rc == nil {
-		route.Status.SetCondition(&v1alpha1.RouteCondition{
-			Type:   v1alpha1.RouteConditionReady,
-			Status: corev1.ConditionUnknown,
-		})
-	}
-}
-
-func markRouteTrafficAssigned(route *v1alpha1.Route) {
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:   v1alpha1.RouteConditionAllTrafficAssigned,
-		Status: corev1.ConditionTrue,
-	})
-	checkAndMarkReady(route)
-}
-
-func markRouteIngressReady(route *v1alpha1.Route) {
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:   v1alpha1.RouteConditionIngressReady,
-		Status: corev1.ConditionTrue,
-	})
-	checkAndMarkReady(route)
-}
-
-func checkAndMarkReady(route *v1alpha1.Route) {
-	ata := route.Status.GetCondition(v1alpha1.RouteConditionAllTrafficAssigned)
-	if ata == nil || ata.Status != corev1.ConditionTrue {
-		return
-	}
-	ir := route.Status.GetCondition(v1alpha1.RouteConditionIngressReady)
-	if ir == nil || ir.Status != corev1.ConditionTrue {
-		return
-	}
-	markRouteReady(route)
-}
-
-func markRouteReady(route *v1alpha1.Route) {
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:   v1alpha1.RouteConditionReady,
-		Status: corev1.ConditionTrue,
-	})
-}
-
-func markConfigurationMissingCondition(route *v1alpha1.Route, configName string) {
-	msg := fmt.Sprintf("Configuration '%s' referenced in traffic not found", configName)
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-		Status:  corev1.ConditionFalse,
-		Reason:  "ConfigurationMissing",
-		Message: msg,
-	})
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:    v1alpha1.RouteConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "ConfigurationMissing",
-		Message: msg,
-	})
-}
-
-// TODO: Remove missing Revision from traffic in status?
-func markRevisionMissingCondition(route *v1alpha1.Route, revName string) {
-	msg := fmt.Sprintf("Revision '%s' referenced in traffic not found", revName)
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionMissing",
-		Message: msg,
-	})
-	route.Status.SetCondition(&v1alpha1.RouteCondition{
-		Type:    v1alpha1.RouteConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionMissing",
-		Message: msg,
-	})
-}
-
 func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha1.Route) (
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
@@ -423,7 +334,7 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			if err != nil {
 				logger.Infof("Failed to fetch Configuration %q: %v", configName, err)
 				if apierrs.IsNotFound(err) {
-					markConfigurationMissingCondition(route, configName)
+					route.Status.MarkTrafficNotAssigned("Configuration", configName)
 					if _, err := c.updateStatus(ctx, route); err != nil {
 						// If we failed to update the status, return that error instead of the "config not found" error.
 						return nil, nil, err
@@ -438,7 +349,7 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			if err != nil {
 				logger.Infof("Failed to fetch Revision %q: %v", revName, err)
 				if apierrs.IsNotFound(err) {
-					markRevisionMissingCondition(route, revName)
+					route.Status.MarkTrafficNotAssigned("Revision", revName)
 					if _, err := c.updateStatus(ctx, route); err != nil {
 						// If we failed to update the status, return that error instead of the "revision not found" error.
 						return nil, nil, err
@@ -449,7 +360,7 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			revMap[revName] = rev
 		}
 	}
-	markRouteTrafficAssigned(route)
+	route.Status.MarkTrafficAssigned()
 
 	return configMap, revMap, nil
 }
@@ -504,7 +415,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 					if err != nil {
 						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
 						if apierrs.IsNotFound(err) {
-							markRevisionMissingCondition(route, revName)
+							route.Status.MarkTrafficNotAssigned("Revision", revName)
 							if _, err := c.updateStatus(ctx, route); err != nil {
 								// If we failed to update the status, return that error instead of the "revision not found" error.
 								return err
@@ -1066,7 +977,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	if route.Status.IsReady() {
 		return
 	}
-	markRouteIngressReady(route)
+	route.Status.MarkIngressReady()
 
 	logger := loggerWithRouteInfo(c.Logger, ns, routeName)
 	ctx := logging.WithLogger(context.TODO(), logger)

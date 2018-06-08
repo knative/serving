@@ -1248,7 +1248,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 		Status:  corev1.ConditionFalse,
 		Reason:  "RevisionMissing",
-		Message: "Revision 'does-not-exist' referenced in traffic not found",
+		Message: `Referenced Revision "does-not-exist" not found`,
 	}, {
 		Type:   v1alpha1.RouteConditionIngressReady,
 		Status: corev1.ConditionUnknown,
@@ -1256,7 +1256,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 		Type:    v1alpha1.RouteConditionReady,
 		Status:  corev1.ConditionFalse,
 		Reason:  "RevisionMissing",
-		Message: "Revision 'does-not-exist' referenced in traffic not found",
+		Message: `Referenced Revision "does-not-exist" not found`,
 	}}
 	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
@@ -1297,7 +1297,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 		Status:  corev1.ConditionFalse,
 		Reason:  "ConfigurationMissing",
-		Message: "Configuration 'does-not-exist' referenced in traffic not found",
+		Message: `Referenced Configuration "does-not-exist" not found`,
 	}, {
 		Type:   v1alpha1.RouteConditionIngressReady,
 		Status: corev1.ConditionUnknown,
@@ -1305,7 +1305,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 		Type:    v1alpha1.RouteConditionReady,
 		Status:  corev1.ConditionFalse,
 		Reason:  "ConfigurationMissing",
-		Message: "Configuration 'does-not-exist' referenced in traffic not found",
+		Message: `Referenced Configuration "does-not-exist" not found`,
 	}}
 	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
