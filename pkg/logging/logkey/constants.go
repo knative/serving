@@ -20,6 +20,9 @@ const (
 	// ControllerType is the key used for controller type in structured logs
 	ControllerType = "knative.dev/controller"
 
+	// ControllerType is the key used for controller type in structured logs
+	ReceiverType = "knative.dev/receiver"
+
 	// Namespace is the key used for namespace in structured logs
 	Namespace = "knative.dev/namespace"
 

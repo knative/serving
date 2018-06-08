@@ -22,10 +22,49 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 
+	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+// SyncIngress implements ingress.Receiver
+func (c *Receiver) SyncIngress(ingress *v1beta1.Ingress) error {
+	// If ingress isn't owned by a route, no route update is required.
+	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
+	if routeName == "" {
+		return nil
+	}
+	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
+		// Route isn't ready if having no load-balancer ingress.
+		return nil
+	}
+	for _, i := range ingress.Status.LoadBalancer.Ingress {
+		if i.IP == "" {
+			// Route isn't ready if some load balancer ingress doesn't have an IP.
+			return nil
+		}
+	}
+	ns := ingress.Namespace
+	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(ns)
+	route, err := routeClient.Get(routeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if route.Status.IsReady() {
+		return nil
+	}
+	// Mark route as ready.
+	route.Status.SetCondition(&v1alpha1.RouteCondition{
+		Type:   v1alpha1.RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
+
+	if _, err := routeClient.Update(route); err != nil {
+		return err
+	}
+	return nil
+}
 
 // MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
 // targets Istio by using the simple placeholder service name. All the routing actually happens in

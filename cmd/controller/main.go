@@ -36,10 +36,18 @@ import (
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/controller/build"
 	"github.com/knative/serving/pkg/controller/configuration"
+	"github.com/knative/serving/pkg/controller/deployment"
+	"github.com/knative/serving/pkg/controller/endpoint"
+	"github.com/knative/serving/pkg/controller/ingress"
 	"github.com/knative/serving/pkg/controller/revision"
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
+	cfgrcv "github.com/knative/serving/pkg/receiver/configuration"
+	revrcv "github.com/knative/serving/pkg/receiver/revision"
+	rtrcv "github.com/knative/serving/pkg/receiver/route"
+	svcrcv "github.com/knative/serving/pkg/receiver/service"
 	"github.com/knative/serving/pkg/signals"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
@@ -134,7 +142,7 @@ func main() {
 		logger.Fatalf("Error loading controller config: %v", err)
 	}
 
-	revControllerConfig := revision.ControllerConfig{
+	revControllerConfig := revrcv.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
 		AutoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
 		AutoscalerImage:                   autoscalerImage,
@@ -149,14 +157,50 @@ func main() {
 		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
-	// Build all of our controllers, with the clients constructed above.
-	// Add new controllers to this array.
-	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
-		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+	// The receivers are what implement our core logic.  Each of these subscribe to some subset of the resources for which we
+	// have controllers below.
+	receivers := []interface{}{
+		revrcv.New(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, &revControllerConfig, logger),
+		rtrcv.New(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
+		cfgrcv.New(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+		svcrcv.New(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
 	}
+
+	// Construct a collection of thin workqueue controllers.  Each of these looks for entries in "receivers" that implements foo.Receiver,
+	// and on reconciliation events forwards the work to those receivers.
+	rtc, err := route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Route controller: %v", err)
+	}
+	svc, err := service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Service controller: %v", err)
+	}
+	config, err := configuration.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Configuration controller: %v", err)
+	}
+	rc, err := revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Revision controller: %v", err)
+	}
+	dc, err := deployment.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Deployment controller: %v", err)
+	}
+	ec, err := endpoint.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Endpoints controller: %v", err)
+	}
+	bc, err := build.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Build controller: %v", err)
+	}
+	ic, err := ingress.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger, receivers...)
+	if err != nil {
+		logger.Fatalf("Error creating Ingress controller: %v", err)
+	}
+	controllers := []controller.Interface{rtc, svc, config, rc, dc, ec, bc, ic}
 
 	go kubeInformerFactory.Start(stopCh)
 	go elaInformerFactory.Start(stopCh)

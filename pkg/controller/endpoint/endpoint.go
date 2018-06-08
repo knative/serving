@@ -14,45 +14,45 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package endpoint
 
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
-const controllerAgentName = "revision-controller"
+const controllerAgentName = "endpoint-controller"
 
 // Receiver defines the interface that a receiver must implement to receive events
 // from this Controller.
 type Receiver interface {
-	SyncRevision(*v1alpha1.Revision) error
+	SyncEndpoint(*corev1.Endpoints) error
 }
 
-// Controller implements the controller for Revision resources
+// Controller implements the controller for Endpoint resources
 type Controller struct {
 	*controller.Base
 
-	// lister indexes properties about Revision
-	lister listers.RevisionLister
+	// lister indexes properties about Endpoint
+	lister listers.EndpointsLister
 	synced cache.InformerSynced
 
 	receivers []Receiver
 }
 
-// NewController creates a new Revision controller
+// NewController creates a new Endpoint controller
 func NewController(
 	kubeClientSet kubernetes.Interface,
 	elaClientSet clientset.Interface,
@@ -63,12 +63,12 @@ func NewController(
 	logger *zap.SugaredLogger,
 	receivers ...interface{}) (controller.Interface, error) {
 
-	// obtain references to a shared index informer for the Revision type.
-	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	// obtain references to a shared index informer for the Endpoint type.
+	informer := kubeInformerFactory.Core().V1().Endpoints()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Endpoints", logger),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,
 	}
@@ -79,8 +79,8 @@ func NewController(
 		}
 	}
 	if len(controller.receivers) == 0 {
-		return nil, fmt.Errorf("None of the provided receivers implement revision.Receiver. " +
-			"If the Revision controller is no longer needed it should be removed.")
+		return nil, fmt.Errorf("None of the provided receivers implement endpoint.Receiver. " +
+			"If the Endpoint controller is no longer needed it should be removed.")
 	}
 	return controller, nil
 }
@@ -91,11 +91,11 @@ func NewController(
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh,
-		[]cache.InformerSynced{c.synced}, c.syncHandler, "Revision")
+		[]cache.InformerSynced{c.synced}, c.syncHandler, "Endpoint")
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Revision
+// converge the two. It then updates the Status block of the Endpoint
 // resource with the current status of the resource.
 func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
@@ -105,13 +105,13 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the Revision resource with this namespace/name
-	original, err := c.lister.Revisions(namespace).Get(name)
+	// Get the Endpoint resource with this namespace/name
+	original, err := c.lister.Endpoints(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("endpoint %q in work queue no longer exists", key))
 			return nil
 		}
 
@@ -121,7 +121,7 @@ func (c *Controller) syncHandler(key string) error {
 	for _, dr := range c.receivers {
 		// Don't modify the informer's copy, and give each receiver a fresh copy.
 		cp := original.DeepCopy()
-		if err := dr.SyncRevision(cp); err != nil {
+		if err := dr.SyncEndpoint(cp); err != nil {
 			return err
 		}
 	}

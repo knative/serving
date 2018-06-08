@@ -14,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package build
 
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	listers "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,42 +34,43 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const controllerAgentName = "revision-controller"
+const controllerAgentName = "build-controller"
 
 // Receiver defines the interface that a receiver must implement to receive events
 // from this Controller.
 type Receiver interface {
-	SyncRevision(*v1alpha1.Revision) error
+	SyncBuild(*buildv1alpha1.Build) error
 }
 
-// Controller implements the controller for Revision resources
+// Controller implements the controller for Build resources
 type Controller struct {
 	*controller.Base
 
-	// lister indexes properties about Revision
-	lister listers.RevisionLister
+	// lister indexes properties about Build
+	lister listers.BuildLister
 	synced cache.InformerSynced
 
 	receivers []Receiver
 }
 
-// NewController creates a new Revision controller
+// NewController creates a new Build controller
 func NewController(
 	kubeClientSet kubernetes.Interface,
 	elaClientSet clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
+	buildInformerFactory buildinformers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig controller.Config,
 	logger *zap.SugaredLogger,
 	receivers ...interface{}) (controller.Interface, error) {
 
-	// obtain references to a shared index informer for the Revision type.
-	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	// obtain references to a shared index informer for the Build type.
+	informer := buildInformerFactory.Build().V1alpha1().Builds()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Builds", logger),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,
 	}
@@ -79,8 +81,8 @@ func NewController(
 		}
 	}
 	if len(controller.receivers) == 0 {
-		return nil, fmt.Errorf("None of the provided receivers implement revision.Receiver. " +
-			"If the Revision controller is no longer needed it should be removed.")
+		return nil, fmt.Errorf("None of the provided receivers implement build.Receiver. " +
+			"If the Build controller is no longer needed it should be removed.")
 	}
 	return controller, nil
 }
@@ -91,11 +93,11 @@ func NewController(
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh,
-		[]cache.InformerSynced{c.synced}, c.syncHandler, "Revision")
+		[]cache.InformerSynced{c.synced}, c.syncHandler, "Build")
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Revision
+// converge the two. It then updates the Status block of the Build
 // resource with the current status of the resource.
 func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
@@ -105,13 +107,13 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the Revision resource with this namespace/name
-	original, err := c.lister.Revisions(namespace).Get(name)
+	// Get the Build resource with this namespace/name
+	original, err := c.lister.Builds(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("build %q in work queue no longer exists", key))
 			return nil
 		}
 
@@ -121,7 +123,7 @@ func (c *Controller) syncHandler(key string) error {
 	for _, dr := range c.receivers {
 		// Don't modify the informer's copy, and give each receiver a fresh copy.
 		cp := original.DeepCopy()
-		if err := dr.SyncRevision(cp); err != nil {
+		if err := dr.SyncBuild(cp); err != nil {
 			return err
 		}
 	}

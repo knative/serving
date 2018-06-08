@@ -23,17 +23,14 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/receiver"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -51,23 +48,7 @@ func init() {
 // Base implements most of the boilerplate and common code
 // we have in our controllers.
 type Base struct {
-	// KubeClientSet allows us to talk to the k8s for core APIs
-	KubeClientSet kubernetes.Interface
-
-	// ElaClientSet allows us to configure Ela objects
-	ElaClientSet clientset.Interface
-
-	// KubeInformerFactory provides shared informers for resources
-	// in all known API group versions
-	KubeInformerFactory kubeinformers.SharedInformerFactory
-
-	// ElaInformerFactory provides shared informers for resources
-	// in all known API group versions
-	ElaInformerFactory informers.SharedInformerFactory
-
-	// Recorder is an event recorder for recording Event resources to the
-	// Kubernetes API.
-	Recorder record.EventRecorder
+	*receiver.Base
 
 	// WorkQueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -75,13 +56,6 @@ type Base struct {
 	// time, and makes it easy to ensure we are never processing the same item
 	// simultaneously in two different workers.
 	WorkQueue workqueue.RateLimitingInterface
-
-	// Sugared logger is easier to use but is not as performant as the
-	// raw logger. In performance critical paths, call logger.Desugar()
-	// and use the returned raw logger instead. In addition to the
-	// performance benefits, raw logger also preserves type-safety at
-	// the expense of slightly greater verbosity.
-	Logger *zap.SugaredLogger
 }
 
 // NewBase instantiates a new instance of Base implementing
@@ -95,25 +69,10 @@ func NewBase(
 	controllerAgentName string,
 	workQueueName string,
 	logger *zap.SugaredLogger) *Base {
-
-	// Enrich the logs with controller name
-	logger = logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
-
-	// Create event broadcaster
-	logger.Debug("Creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
-
 	base := &Base{
-		KubeClientSet:       kubeClientSet,
-		ElaClientSet:        elaClientSet,
-		KubeInformerFactory: kubeInformerFactory,
-		ElaInformerFactory:  elaInformerFactory,
-		Recorder:            recorder,
-		WorkQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		Logger:              logger,
+		Base: receiver.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory, elaInformerFactory,
+			informer, controllerAgentName, logger),
+		WorkQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 	}
 
 	// Set up an event handler for when the resource types of interest change
