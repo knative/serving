@@ -1400,7 +1400,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
-	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 
 	// Create a route.
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
@@ -1579,7 +1579,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Create an ingress owned by this route.
 	controller.reconcileIngress(testCtx, route)
 	// Before ingress has an IP address, route isn't marked as Ready.
-	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
 	controller.updateIngressEvent(nil, ingress)
 	route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
