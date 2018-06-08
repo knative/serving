@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
 	"strings"
@@ -245,6 +246,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
+	rev.Status.InitializeConditions()
 
 	if err := c.updateRevisionLoggingURL(rev); err != nil {
 		logger.Error("Error updating the revisions logging url", zap.Error(err))
@@ -252,10 +254,14 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	if rev.Spec.BuildName != "" {
+		rev.Status.InitializeBuildCondition()
 		if done, failed := isBuildDone(rev); !done {
 			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				if err := c.markRevisionBuilding(ctx, rev); err != nil {
-					logger.Error("Error recording the BuildSucceeded=Unknown condition", zap.Error(err))
+				rev.Status.MarkBuilding()
+				// Let this trigger a reconciliation loop.
+				if _, err := c.updateStatus(rev); err != nil {
+					logger.Error("Error recording the BuildSucceeded=Unknown condition",
+						zap.Error(err))
 					return err
 				}
 			}
@@ -305,114 +311,26 @@ func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
 }
 
 // Checks whether the Revision knows whether the build is done.
-// TODO(mattmoor): Use a method on the Build type.
 func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 	if rev.Spec.BuildName == "" {
 		return true, false
 	}
-	for _, cond := range rev.Status.Conditions {
-		if cond.Type != v1alpha1.RevisionConditionBuildSucceeded {
-			continue
-		}
-		switch cond.Status {
-		case corev1.ConditionTrue:
-			return true, false
-		case corev1.ConditionFalse:
-			return true, true
-		case corev1.ConditionUnknown:
-			return false, false
-		}
+	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+	if cond == nil {
+		return false, false
+	}
+	switch cond.Status {
+	case corev1.ConditionTrue:
+		return true, false
+	case corev1.ConditionFalse:
+		return true, true
+	case corev1.ConditionUnknown:
+		return false, false
 	}
 	return false, false
 }
 
-func (c *Controller) markRevisionReady(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	logger.Info("Marking Revision ready")
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
-			Reason: "ServiceReady",
-		})
-	_, err := c.updateStatus(rev)
-	return err
-}
-
-func (c *Controller) markRevisionFailed(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	logger.Info("Marking Revision failed")
-	reason, message := "ServiceTimeout", "Timed out waiting for a service endpoint to become ready"
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionResourcesAvailable,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		})
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionReady,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: message,
-		})
-	_, err := c.updateStatus(rev)
-	return err
-}
-
-func (c *Controller) markRevisionBuilding(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	reason := "Building"
-	logger.Infof("Marking Revision %s", reason)
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionBuildSucceeded,
-			Status: corev1.ConditionUnknown,
-			Reason: reason,
-		})
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionUnknown,
-			Reason: reason,
-		})
-	// Let this trigger a reconciliation loop.
-	_, err := c.updateStatus(rev)
-	return err
-}
-
-func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
-	if bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionTrue {
-		rev.Status.SetCondition(
-			&v1alpha1.RevisionCondition{
-				Type:   v1alpha1.RevisionConditionBuildSucceeded,
-				Status: bc.Status,
-			})
-		c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
-	} else if (bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionFalse) ||
-		(bc.Type == buildv1alpha1.BuildInvalid && bc.Status == corev1.ConditionTrue) {
-		rev.Status.SetCondition(
-			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionBuildSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  bc.Reason,
-				Message: bc.Message,
-			})
-		rev.Status.SetCondition(
-			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  bc.Reason,
-				Message: bc.Message,
-			})
-		c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
-	}
-	// This will trigger a reconciliation that will cause us to stop tracking the build.
-	_, err := c.updateStatus(rev)
-	return err
-}
-
+// TODO(mattmoor): This should be a helper on Build (upstream)
 func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
 	for _, cond := range build.Status.Conditions {
 		if cond.Status == corev1.ConditionUnknown {
@@ -460,8 +378,8 @@ func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.Deplo
 func (c *Controller) addBuildEvent(obj interface{}) {
 	build := obj.(*buildv1alpha1.Build)
 
-	cond := getBuildDoneCondition(build)
-	if cond == nil {
+	bc := getBuildDoneCondition(build)
+	if bc == nil {
 		// The build isn't done, so ignore this event.
 		return
 	}
@@ -475,7 +393,18 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 			c.Logger.Error("Error fetching revision upon build completion",
 				zap.String(logkey.Namespace, namespace), zap.String(logkey.Revision, name), zap.Error(err))
 		}
-		if err := c.markBuildComplete(rev, cond); err != nil {
+		if bc.Status == corev1.ConditionUnknown {
+			// Should never happen
+			continue
+		}
+		if bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionTrue {
+			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", bc.Message)
+			rev.Status.MarkBuildSucceeded()
+		} else {
+			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
+			rev.Status.MarkBuildFailed(bc)
+		}
+		if _, err := c.updateStatus(rev); err != nil {
 			c.Logger.Error("Error marking build completion",
 				zap.String(logkey.Namespace, namespace), zap.String(logkey.Revision, name), zap.Error(err))
 		}
@@ -491,7 +420,6 @@ func (c *Controller) updateBuildEvent(old, new interface{}) {
 func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 	deployment := obj.(*appsv1.Deployment)
 	cond := getDeploymentProgressCondition(deployment)
-
 	if cond == nil {
 		return
 	}
@@ -507,13 +435,8 @@ func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 		return
 	}
 	//Set the revision condition reason to ProgressDeadlineExceeded
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:    v1alpha1.RevisionConditionReady,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ProgressDeadlineExceeded",
-			Message: fmt.Sprintf("Unable to create pods for more than %d seconds.", progressDeadlineSeconds),
-		})
+	rev.Status.MarkProgressDeadlineExceeded(
+		fmt.Sprintf("Unable to create pods for more than %d seconds.", progressDeadlineSeconds))
 
 	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
@@ -539,7 +462,6 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 	logger := loggerWithRevisionInfo(c.Logger, namespace, revName)
-	ctx := logging.WithLogger(context.TODO(), logger)
 
 	rev, err := c.lister.Revisions(namespace).Get(revName)
 	if err != nil {
@@ -563,7 +485,10 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 
 	if getIsServiceReady(endpoint) {
 		logger.Infof("Endpoint %q is ready", eName)
-		if err := c.markRevisionReady(ctx, rev); err != nil {
+		rev.Status.MarkResourcesAvailable()
+		rev.Status.MarkContainerHealthy()
+		log.Printf("UPDATING STATUS TO: %v", rev.Status.Conditions)
+		if _, err := c.updateStatus(rev); err != nil {
 			logger.Error("Error marking revision ready", zap.Error(err))
 			return
 		}
@@ -576,7 +501,8 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 		return
 	}
 
-	if err := c.markRevisionFailed(ctx, rev); err != nil {
+	rev.Status.MarkServiceTimeout()
+	if _, err := c.updateStatus(rev); err != nil {
 		logger.Error("Error marking revision failed", zap.Error(err))
 		return
 	}
@@ -636,12 +562,7 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	logger.Info("Deleted service")
 
 	// And the deployment is no longer ready, so update that
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
-		})
+	rev.Status.MarkInactive()
 	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
 		logger.Error("Error recording inactivation of revision", zap.Error(err))
@@ -688,27 +609,31 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		return nil
 	}
 
+	// Before toggling the status to Deploying, fetch the latest state of the revision.
+	latestRev, err := c.lister.Revisions(rev.Namespace).Get(rev.Name)
+	if err != nil {
+		logger.Error("Error refetching revision", zap.Error(err))
+		return err
+	}
+	if latestRev.Status.IsReady() {
+		return nil
+	}
+
 	// Checking existing revision condition to see if it is the initial deployment or
 	// during the reactivating process. If a revision is in condition "Inactive" or "Activating",
 	// we need to route traffic to the activator; if a revision is in condition "Deploying",
 	// we need to route traffic to the revision directly.
 	reason := "Deploying"
-	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
-	if cond != nil {
+	if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil {
 		if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
 			(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
 			reason = "Activating"
 		}
 	}
+	rev.Status.MarkDeploying(reason)
 
 	// By updating our deployment status we will trigger a Reconcile()
 	// that will watch for service to become ready for serving traffic.
-	rev.Status.SetCondition(
-		&v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionUnknown,
-			Reason: reason,
-		})
 	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
 	if _, err := c.updateStatus(rev); err != nil {
 		logger.Error("Error recording build completion", zap.Error(err))
@@ -770,20 +695,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
-		rev.Status.SetCondition(
-			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionContainerHealthy,
-				Status:  corev1.ConditionFalse,
-				Reason:  "ContainerMissing",
-				Message: err.Error(),
-			})
-		rev.Status.SetCondition(
-			&v1alpha1.RevisionCondition{
-				Type:    v1alpha1.RevisionConditionReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  "ContainerMissing",
-				Message: err.Error(),
-			})
+		rev.Status.MarkContainerMissing(err.Error())
 		if _, err := c.updateStatus(rev); err != nil {
 			logger.Error("Error recording resolution problem", zap.Error(err))
 			return err
