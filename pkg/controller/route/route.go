@@ -126,14 +126,14 @@ func NewController(
 
 	// An alternate to below is to create a shared informer factory
 	// using NewFilteredSharedInformerFactory and use it to create
-	// shared informers using it and share the informer across multiple calles,
+	// shared informers using it and share the informer across multiple callers,
 	// but this case is quite specific and isn't too common to be shared.
 	// If it turns our that more than once caller needs it, we should bump this up
 	// to cmd/main.go and create a shared informer factory.
 	// The resync period is set to 15 minutes, because we don't really need to
-	// keep reading domain configuration map every 30 seconds like we do with our other
-	// informers. If we somehow miss to update the config map when the update happened
-	// 15 minute seems like a reasonable time to reconcile it back as domain configuration
+	// keep reading domain config map every 30 seconds like we do with our other
+	// informers. If we somehow miss to update the config map, 15 minute seems
+	// like a reasonable delay to reconcile it back as domain configuration
 	// should only change very few times if ever throughout the lifetime of a cluster.
 	configMapInformer := coreinformers.NewFilteredConfigMapInformer(kubeClientSet, pkg.GetServingSystemNamespace(),
 		time.Minute*15, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
