@@ -47,10 +47,21 @@ function create_istio() {
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
 }
 
+
+function create_monitoring() {
+  kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+}
+
 function create_everything() {
   create_istio
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
+  create_monitoring
 }
 
 function delete_istio() {
@@ -58,7 +69,16 @@ function delete_istio() {
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
+function delete_monitoring() {
+  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common
+}
+
 function delete_everything() {
+  delete_monitoring
   ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
   delete_istio
