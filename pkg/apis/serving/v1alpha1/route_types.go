@@ -107,6 +107,9 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady RouteConditionType = "Ready"
+	// RouteConditionIngressReady is set when the route's underlying ingress
+	// resource has been set up.
+	RouteConditionIngressReady RouteConditionType = "IngressReady"
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.

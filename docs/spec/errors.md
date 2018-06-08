@@ -420,6 +420,31 @@ status:
     message: "Configuration 'abc' referenced in traffic not found"
 ```
 
+### Unable to create Ingress
+
+If the Route is unable to create an Ingress resource to route its
+traffic to Revisions, the `IngressReady` condition will be marked
+as `False` with a reason of `NoIngress`.
+
+```http
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
+```
+
+```yaml
+...
+status:
+  traffic: []
+  conditions:
+  - type: Ready
+    status: False
+    reason: NoIngress
+    message: "Unable to create Ingress 'my-service-ingress'"
+  - type: IngressReady
+    status: False
+    reason: NoIngress
+    message: "Unable to create Ingress 'my-service-ingress'"
+```
+
 ### Latest Revision of a Configuration deleted
 
 If the most recent Revision is deleted, the Configuration will set
