@@ -44,6 +44,11 @@ func isDeploymentScaledTo1() func(d *v1beta1.Deployment) (bool, error) {
 func TestScaleBetween0And1(t *testing.T) {
 	clients := Setup(t)
 
+	configMap, err := clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Get("config-autoscaler", metav1.GetOptions{})
+	configMap.Data["enable-scale-to-zero"] = "true"
+	configMap.Data["scale-to-zero-threshold"] = "1m"
+	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Update(configMap)
+
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
@@ -52,7 +57,11 @@ func TestScaleBetween0And1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
+
+	test.CleanupOnInterrupt(func() {
+		TearDown(clients, names)
+	})
+
 	defer TearDown(clients, names)
 
 	log.Printf("Waiting for Route %s is marked as Ready... ", names.Route)
