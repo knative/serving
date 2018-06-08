@@ -211,7 +211,7 @@ func (c *Controller) syncHandler(key string) error {
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", rev.Name)
 		logger.Infof("Created Revision:\n%+v", created)
 	} else {
-		logger.Infof("Revision already created %s: %s", created.ObjectMeta.Name, err)
+		logger.Infof("Revision already created %s: %v", created.ObjectMeta.Name, err)
 	}
 	// Update the Status of the configuration with the latest generation that
 	// we just reconciled against so we don't keep generating revisions.

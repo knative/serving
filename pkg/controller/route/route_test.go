@@ -1213,6 +1213,109 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	}
 }
 
+// Helper to compare RouteConditions
+func sortConditions(a, b v1alpha1.RouteCondition) bool {
+	return a.Type < b.Type
+}
+
+func TestCreateRouteRevisionMissingCondition(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				// Note that since no Revision with this name exists,
+				// this will trigger the RevisionMissing condition.
+				RevisionName: "does-not-exist",
+				Percent:      100,
+			},
+		},
+	)
+
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := `revisions.serving.knative.dev "does-not-exist" not found`
+	// Should return error.
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+
+	// Verify that Route.Status.Conditions were correctly set.
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionMissing",
+		Message: `Referenced Revision "does-not-exist" not found`,
+	}, {
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:    v1alpha1.RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionMissing",
+		Message: `Referenced Revision "does-not-exist" not found`,
+	}}
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
+}
+
+func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
+	_, elaClient, controller, _, elaInformer := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				// Note that since no Configuration with this name exists,
+				// this will trigger the ConfigurationMissing condition.
+				ConfigurationName: "does-not-exist",
+				Percent:           100,
+			},
+		},
+	)
+
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := `configurations.serving.knative.dev "does-not-exist" not found`
+	// Should return error.
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+
+	// Verify that Route.Status.Conditions were correctly set.
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ConfigurationMissing",
+		Message: `Referenced Configuration "does-not-exist" not found`,
+	}, {
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:    v1alpha1.RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ConfigurationMissing",
+		Message: `Referenced Configuration "does-not-exist" not found`,
+	}}
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions, cmpopts.SortSlices(sortConditions)); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
+}
+
 func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
 	_, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
@@ -1306,7 +1409,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
-	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 
 	// Create a route.
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
@@ -1469,12 +1572,16 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 
 // Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
-	kubeClient, elaClient, controller, _, _ := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{
 			{
-				RevisionName: "test-rev",
+				RevisionName: rev.Name,
 				Percent:      100,
 			},
 		},
@@ -1482,15 +1589,28 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Create a route.
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
-	// Create an ingress owned by this route.
-	controller.reconcileIngress(testCtx, route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
 	// Before ingress has an IP address, route isn't marked as Ready.
-	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
 	controller.updateIngressEvent(nil, ingress)
-	route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-	if nil != route.Status.Conditions {
-		t.Errorf("Route Status.Conditions should be nil, saw %v", route.Status.Conditions)
+	expectedConditions := []v1alpha1.RouteCondition{{
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:   v1alpha1.RouteConditionReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	}}
+	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
+	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
+		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}
 	// Update the Ingress IP.
 	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
@@ -1498,11 +1618,17 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	}}
 	controller.updateIngressEvent(nil, ingress)
 	// Verify now that Route.Status.Conditions is set correctly.
-	expectedConditions := []v1alpha1.RouteCondition{{
+	expectedConditions = []v1alpha1.RouteCondition{{
+		Type:   v1alpha1.RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	}, {
+		Type:   v1alpha1.RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	}, {
 		Type:   v1alpha1.RouteConditionReady,
 		Status: corev1.ConditionTrue,
 	}}
-	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
+	newRoute, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 	}

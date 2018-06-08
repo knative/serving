@@ -41,7 +41,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 	}
 
 	annotations := MakeElaResourceAnnotations(rev)
-	annotations[sidecarIstioInjectAnnotation] = "false"
+	annotations[sidecarIstioInjectAnnotation] = "true"
 
 	replicas := int32(1)
 

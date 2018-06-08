@@ -504,7 +504,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	)
 	expectedAutoscalerPodSpecAnnotations := sumMaps(
 		rev.Annotations,
-		map[string]string{"sidecar.istio.io/inject": "false"},
+		map[string]string{"sidecar.istio.io/inject": "true"},
 	)
 
 	asDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
@@ -582,7 +582,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the config map.
-	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config map: %v", err)
 	}
@@ -697,7 +697,7 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 	}
 
 	// Look for the config map.
-	_, err = kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	_, err = kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Fatalf("The ConfigMap %s shouldn't exist: %v", fluentdConfigMapName, err)
 	}
@@ -717,12 +717,12 @@ func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
 			"varlog.conf": "test-config",
 		},
 	}
-	kubeClient.Core().ConfigMaps(testNamespace).Create(existingConfigMap)
+	kubeClient.CoreV1().ConfigMaps(testNamespace).Create(existingConfigMap)
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	// Look for the config map.
-	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config map: %v", err)
 	}
@@ -751,12 +751,12 @@ func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
 			"varlog.conf": fluentdConfigSource,
 		},
 	}
-	kubeClient.Core().ConfigMaps(testNamespace).Create(existingConfigMap)
+	kubeClient.CoreV1().ConfigMaps(testNamespace).Create(existingConfigMap)
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	// Look for the config map.
-	configMap, err := kubeClient.Core().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
+	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config map: %v", err)
 	}
@@ -966,14 +966,12 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	// watching for this build to complete, so make it complete, but
 	// with a failure.
 	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{
-			{
-				Type:    buildv1alpha1.BuildFailed,
-				Status:  corev1.ConditionTrue,
-				Reason:  reason,
-				Message: errMessage,
-			},
-		},
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: errMessage,
+		}},
 	}
 
 	controller.addBuildEvent(bld)
@@ -1056,15 +1054,14 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	controller.syncHandler(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
-	// watching for this build to complete, so make it complete.
+	// watching for this build to complete, so make it complete
+	// successfully.
 	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{
-			{
-				Type:    buildv1alpha1.BuildComplete,
-				Status:  corev1.ConditionTrue,
-				Message: completeMessage,
-			},
-		},
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionTrue,
+			Message: completeMessage,
+		}},
 	}
 
 	controller.addBuildEvent(bld)

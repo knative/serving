@@ -455,8 +455,8 @@ func TestValidServiceEnvChanges(t *testing.T) {
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
-	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
-	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	_, err := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create webhook: %s", err)
 	}
@@ -479,8 +479,8 @@ func TestUpdatingWebhook(t *testing.T) {
 
 	createDeployment(ac)
 	createWebhook(ac, webhook)
-	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
-	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	currentWebhook, _ := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
 		t.Fatalf("Expected webhook to be updated")
 	}
@@ -616,7 +616,7 @@ func createValidCreateServiceRunLatest() *admissionv1beta1.AdmissionRequest {
 }
 
 func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
-	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
+	client := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	_, err := client.Create(webhook)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test webhook: %s", err))

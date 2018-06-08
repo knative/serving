@@ -46,7 +46,6 @@ import (
 	ctrl "github.com/knative/serving/pkg/controller"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -183,14 +182,6 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return
 }
 
-func keyOrDie(obj interface{}) string {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	config := getTestConfiguration()
@@ -203,7 +194,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.syncHandler(keyOrDie(config))
+	controller.syncHandler(KeyOrDie(config))
 
 	list, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
 
@@ -264,7 +255,7 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.syncHandler(keyOrDie(config))
+	controller.syncHandler(KeyOrDie(config))
 
 	revList, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
 	if err != nil {
@@ -307,7 +298,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.syncHandler(keyOrDie(config))
+	controller.syncHandler(KeyOrDie(config))
 
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -496,7 +487,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.syncHandler(keyOrDie(config))
+	controller.syncHandler(KeyOrDie(config))
 
 	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {

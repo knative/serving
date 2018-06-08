@@ -147,11 +147,16 @@ type GoogleSpec struct {
 type BuildConditionType string
 
 const (
-	// BuildComplete specifies that the build has completed successfully.
-	BuildComplete BuildConditionType = "Complete"
-	// BuildFailed specifies that the build has failed.
-	BuildFailed BuildConditionType = "Failed"
+	// BuildSucceeded is set when the build is running, and becomes True
+	// when the build finishes successfully.
+	//
+	// If the build is ongoing, its status will be Unknown. If it fails,
+	// its status will be False.
+	BuildSucceeded BuildConditionType = "Succeeded"
+
 	// BuildInvalid specifies that the given build specification is invalid.
+	//
+	// TODO(jasonhall): Remove when webhook validation rejects invalid builds.
 	BuildInvalid BuildConditionType = "Invalid"
 )
 
