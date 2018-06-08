@@ -174,7 +174,7 @@ If you have configured your cluster to use a resolvable domain, you can use the
 
 #### Output verbose log
 
-The `--logverbose` argument lets you see verbose log.
+The `--logverbose` argument lets you see verbose test logs and k8s logs.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/e2e --logverbose
