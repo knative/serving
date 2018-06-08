@@ -1,68 +1,119 @@
 # Logs and metrics
 
-First, deploy monitoring components. You can use two different setups:
-1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+## Monitoring components Setup
+
+First, deploy monitoring components.
+
+### Elasticsearch, Kibana, Prometheus & Grafana Setup
+
+You can use two different setups:
+
+1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-prod \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
-# With bazel
-bazel run config/monitoring:everything.apply
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Elafros controller logs.
+1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+
 ```shell
-# With kubectl
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-dev \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-dev \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
+```
 
-# With bazel
-bazel run config/monitoring:everything-dev.apply
+### Stackdriver(logs), Prometheus & Grafana Setup
+
+If your Knative Serving is not built on a GCP based cluster or you want to send logs to
+another GCP project, you need to build your own Fluentd image and modify the
+configuration first. See
+
+1. [Fluentd image on Knative Serving](/image/fluentd/README.md)
+2. [Setting up a logging plugin](setting-up-a-logging-plugin.md)
+
+Then you can use two different setups:
+
+1. **150-stackdriver-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-stackdriver-prod \
+    -f third_party/config/monitoring/common \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+```
+
+2. **150-stackdriver-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+
+```shell
+kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-stackdriver-dev \
+    -f third_party/config/monitoring/common \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
 ```
 
 ## Accessing logs
+
+### Elasticsearch & Kibana
+
 Run,
 
 ```shell
 kubectl proxy
 ```
+
 Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 (*it might take a couple of minutes for the proxy to work*).
 When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As more logs get ingested,
 new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
 
-### Accessing configuration and revision logs
+#### Accessing configuration and revision logs
+
 To access to logs for a configuration, use the following search term in Kibana UI:
 ```
 kubernetes.labels.knative_dev\/configuration: "configuration-example"
 ```
+
 Replace `configuration-example` with your configuration's name.
 
 To access logs for a revision, use the following search term in Kibana UI:
+
 ```
 kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
 ```
+
 Replace `configuration-example-00001` with your revision's name.
 
-### Accessing build logs
+#### Accessing build logs
+
 To access to logs for a build, use the following search term in Kibana UI:
+
 ```
 kubernetes.labels.build\-name: "test-build"
 ```
+
 Replace `test-build` with your build's name. A build's name is specified in its YAML file as follows:
+
 ```yaml
 apiVersion: build.dev/v1alpha1
 kind: Build
 metadata:
   name: test-build
 ```
+
+### Stackdriver
+
+Go to [Pantheon logging page](https://console.cloud.google.com/logs/viewer) for
+your GCP project which stores your logs via Stackdriver.
 
 ## Accessing metrics
 
@@ -72,15 +123,17 @@ Run:
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Elafros:
+Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
+
 * **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
 * **Nodes:** CPU, memory, network and disk metrics at node level
 * **Pods:** CPU, memory and network metrics at pod level
-* **Deployment:** CPU, memory and network metrics aggregated at deployment level 
+* **Deployment:** CPU, memory and network metrics aggregated at deployment level
 * **Istio, Mixer and Pilot:** Detailed Istio mesh, Mixer and Pilot metrics
 * **Kubernetes:** Dashboards giving insights into cluster health, deployments and capacity usage
 
-## Accessing per request traces
+### Accessing per request traces
+
 First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.
 
 Next, start the proxy if it is not already running:
@@ -94,25 +147,23 @@ Then open Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio
 To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it and explore the traces it generates from Zipkin UI.
 
 ## Default metrics
+
 Following metrics are collected by default:
-* Elafros controller metrics
+* Knative Serving controller metrics
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
 
 There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy them using kubectl apply -f.
 
 ## Default logs
+
 Deployment above enables collection of the following logs:
-* stdout & stderr from all ela-container
+
+* stdout & stderr from all user-container
 * stdout & stderr from build-controller
 
-To enable log collection from other containers and destinations, edit fluentd-es-configmap.yaml (search for "fluentd-containers.log" for the starting point). Then run the following:
-```shell
-kubectl replace -f config/monitoring/fluentd/fluentd-es-configmap.yaml
-kubectl replace -f config/monitoring/fluentd/fluentd-es-ds.yaml
-```
-
-Note: We will enable a plugin mechanism to define other logs to collect and this step is a workaround until then.
+To enable log collection from other containers and destinations, see
+[setting up a logging plugin](setting-up-a-logging-plugin.md).
 
 ## Metrics troubleshooting
 You can use Prometheus web UI to troubleshoot publishing and service discovery issues for metrics.
@@ -128,13 +179,14 @@ Then browse to http://localhost:9090 to access the UI:
 
 ## Generating metrics
 
-If you want to send metrics from your controller, follow the steps below. 
-These steps are already applied to ela-autoscaler and ela-controller. For those controllers,
+If you want to send metrics from your controller, follow the steps below.
+These steps are already applied to autoscaler and controller. For those controllers,
 simply add your new metric definitions to the `view`, create new `tag.Key`s if necessary and
 instrument your code as described in step 3.
 
 In the example below, we will setup the service to host the metrics and instrument a sample
 'Gauge' type metric using the setup.
+
 1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
 2. Add the following to your application startup:
 
@@ -153,7 +205,7 @@ var (
 )
 
 func main() {
-	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: ela-autoscaler)}"})
+	exporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "{your metrics namespace (eg: autoscaler)}"})
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -262,3 +314,12 @@ See [helloworld](../sample/helloworld/README.md) sample's configuration file as 
 
 ## Distributed tracing with Zipkin
 Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
+
+## Delete monitoring components
+
+```shell
+ko delete --ignore-not-found=true \
+  -f config/monitoring/200-common/100-istio.yaml \
+  -f config/monitoring/200-common/100-zipkin.yaml \
+  -f config/monitoring/100-common
+```

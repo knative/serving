@@ -81,11 +81,10 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
-	informer := elaInformerFactory.Knative().V1alpha1().Services()
+	informer := elaInformerFactory.Serving().V1alpha1().Services()
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
@@ -184,7 +183,7 @@ func (c *Controller) updateServiceEvent(key string) error {
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	serviceClient := c.ElaClientSet.KnativeV1alpha1().Services(service.Namespace)
+	serviceClient := c.ElaClientSet.ServingV1alpha1().Services(service.Namespace)
 	existing, err := serviceClient.Get(service.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -199,7 +198,7 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) error {
-	configClient := c.ElaClientSet.KnativeV1alpha1().Configurations(config.Namespace)
+	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(config.Namespace)
 
 	existing, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -217,7 +216,7 @@ func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) erro
 }
 
 func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
-	routeClient := c.ElaClientSet.KnativeV1alpha1().Routes(route.Namespace)
+	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(route.Namespace)
 
 	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {

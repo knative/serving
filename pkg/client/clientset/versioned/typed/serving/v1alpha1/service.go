@@ -51,7 +51,7 @@ type services struct {
 }
 
 // newServices returns a Services
-func newServices(c *KnativeV1alpha1Client, namespace string) *services {
+func newServices(c *ServingV1alpha1Client, namespace string) *services {
 	return &services{
 		client: c.RESTClient(),
 		ns:     namespace,

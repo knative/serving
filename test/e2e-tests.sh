@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Elafros built from source.
+# This script runs the end-to-end tests against Knative Serving built from source.
 # It is started by prow for each PR.
 # For convenience, it can also be executed manually.
 
@@ -35,8 +35,8 @@ readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
 readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
-readonly ISTIO_VERSION=0.6.0
-readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/install/kubernetes
+readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
@@ -45,34 +45,40 @@ readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
 function create_istio() {
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
+}
 
-  ${ISTIO_DIR}/webhook-create-signed-cert.sh \
-    --service istio-sidecar-injector \
-    --namespace istio-system \
-    --secret sidecar-injector-certs
 
-  kubectl apply -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml
-
-  cat ${ISTIO_DIR}/istio-sidecar-injector.yaml | \
-    ${ISTIO_DIR}/webhook-patch-ca-bundle.sh | \
-    kubectl apply -f -
+function create_monitoring() {
+  kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
 }
 
 function create_everything() {
   create_istio
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
+  create_monitoring
 }
 
 function delete_istio() {
-  kubectl delete --ignore-not-found=true \
-    -f ${ISTIO_DIR}/istio-sidecar-injector.yaml \
-    -f ${ISTIO_DIR}/istio-sidecar-injector-configmap-release.yaml \
-    -f ${ISTIO_DIR}/istio.yaml
+  kubectl delete -f ${ISTIO_DIR}/istio.yaml
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
+function delete_monitoring() {
+  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common
+}
+
 function delete_everything() {
+  delete_monitoring
   ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
   delete_istio
@@ -85,7 +91,7 @@ function teardown() {
     delete_everything
   fi
 
-  # Delete Elafros images when using prow.
+  # Delete Knative Serving images when using prow.
   if (( IS_PROW )); then
     echo "Images in ${DOCKER_REPO_OVERRIDE}:"
     gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
@@ -119,8 +125,8 @@ function exit_if_failed() {
   kubectl get revisions -o yaml --all-namespaces
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
-  echo ">>> Elafros controller log:"
-  kubectl logs $(get_ela_pod ela-controller) -n ela-system
+  echo ">>> Knative Serving controller log:"
+  kubectl logs $(get_ela_pod controller) -n knative-serving-system
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
@@ -128,16 +134,76 @@ function exit_if_failed() {
   exit 1
 }
 
-function run_tests() {
+function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  go test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
   exit_if_failed
+}
+
+# Smoke test: deploy the "hello world" app using command line.
+function run_smoke_test() {
+  header "Running smoke test (hello world)"
+  local YAML="$(mktemp -t helloworld.yaml.XXXXXXXXXX)"
+  # Building the sample image using docker takes about 20 minutes (June 2018)
+  # when running the tests on prow, compared to 1 minute on a workstation.
+  # Thus we use a prebuilt image stored in GCR when running on Prow.
+  # TODO(adrcunha): Use a single approach here.
+  if (( IS_PROW )); then
+    local IMAGE="gcr.io/elafros-e2e-tests/ela-e2e-test/sample/helloworld"
+  else
+    local IMAGE="${KO_DOCKER_REPO}/smoke/helloworld"
+    docker build \
+      --build-arg SAMPLE=helloworld \
+      --tag ${IMAGE} \
+      --file=sample/Dockerfile.golang .
+    docker push "${IMAGE}"
+  fi
+  sed "s@github.com/knative/serving/sample/helloworld@${IMAGE}@g" \
+    sample/helloworld/sample.yaml > ${YAML}
+  kubectl apply -f ${YAML}
+  local service_host=""
+  local service_ip=""
+  echo -n "Waiting for Ingress to come up"
+  for i in {1..150}; do  # timeout after 5 minutes
+    service_host=$(kubectl get route route-example \
+      -o jsonpath="{.status.domain}" 2>/dev/null)
+    service_ip=$(kubectl get ingress route-example-ingress \
+      -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}" 2>/dev/null)
+    if [[ -n "${service_host}" && -n "${service_ip}" ]]; then
+      echo -e -n "\nIngress is at $service_ip / $service_host"
+      break
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo
+  if [[ -z ${service_host} ]]; then
+    echo "FAILED -- No ingress found"
+    kubectl delete -f ${YAML}
+    return 1
+  fi
+  local failed=1
+  for i in {1..60}; do  # timeout after 2 minutes
+    local output="$(curl --header "Host:${service_host}" http://${service_ip})"
+    if [[ "${output}" == "Hello World: shiniestnewestversion!" ]]; then
+      failed=0
+      break
+    fi
+    echo "Got unexpected output '${output}' from app, retrying"
+    sleep 2
+  done
+  kubectl delete -f ${YAML}
+  if (( failed )); then
+    echo "FAILED -- Timeout waiting for app to be serving"
+    return 1
+  fi
+  return 0
 }
 
 # Script entry point.
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
 # Show help if bad arguments are passed.
 if [[ -n $1 && $1 != "--run-tests" ]]; then
@@ -155,7 +221,7 @@ if [[ -z $1 ]]; then
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
-    --gcp-node-image=cos
+    --gcp-node-image="${SERVING_GKE_IMAGE,,}"
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
     --gcp-network="${E2E_NETWORK_NAME}"
@@ -178,7 +244,7 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "v${ELAFROS_GKE_VERSION}" \
+    --extract "v${SERVING_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.
@@ -234,19 +300,19 @@ if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
 fi
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
-# Build and start Elafros.
+# Build and start Knative Serving.
 
 echo "- Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "- User is ${K8S_USER_OVERRIDE}"
 echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
-header "Building and starting Elafros"
+header "Building and starting Knative Serving"
 trap teardown EXIT
 
 install_ko
 
 if (( USING_EXISTING_CLUSTER )); then
-  echo "Deleting any previous Elafros instance"
+  echo "Deleting any previous Knative Serving instance"
   delete_everything
 fi
 if (( IS_PROW )); then
@@ -259,13 +325,22 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running ela-system
+wait_until_pods_running knative-serving-system
+exit_if_failed
+
+# Ensure we have a minimum working cluster.
+run_smoke_test
 exit_if_failed
 
 # Run the tests
 
-run_tests conformance pizzaplanet ela-conformance-test
-run_tests e2e noodleburg ela-e2e-test
+header "Running 'hello world' test"
+kubectl create namespace noodleburg
+go test -v -tags=e2e ./test/e2e -run HelloWorld -dockerrepo gcr.io/elafros-e2e-tests/ela-e2e-test
+exit_if_failed
+
+# run_e2e_tests conformance pizzaplanet ela-conformance-test
+# run_e2e_tests e2e noodleburg ela-e2e-test
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

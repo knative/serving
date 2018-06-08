@@ -19,8 +19,8 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	configv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2"
 	fakeconfigv1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2/fake"
-	knativev1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	fakeknativev1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
+	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	fakeservingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -79,12 +79,12 @@ func (c *Clientset) Config() configv1alpha2.ConfigV1alpha2Interface {
 	return &fakeconfigv1alpha2.FakeConfigV1alpha2{Fake: &c.Fake}
 }
 
-// KnativeV1alpha1 retrieves the KnativeV1alpha1Client
-func (c *Clientset) KnativeV1alpha1() knativev1alpha1.KnativeV1alpha1Interface {
-	return &fakeknativev1alpha1.FakeKnativeV1alpha1{Fake: &c.Fake}
+// ServingV1alpha1 retrieves the ServingV1alpha1Client
+func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {
+	return &fakeservingv1alpha1.FakeServingV1alpha1{Fake: &c.Fake}
 }
 
-// Knative retrieves the KnativeV1alpha1Client
-func (c *Clientset) Knative() knativev1alpha1.KnativeV1alpha1Interface {
-	return &fakeknativev1alpha1.FakeKnativeV1alpha1{Fake: &c.Fake}
+// Serving retrieves the ServingV1alpha1Client
+func (c *Clientset) Serving() servingv1alpha1.ServingV1alpha1Interface {
+	return &fakeservingv1alpha1.FakeServingV1alpha1{Fake: &c.Fake}
 }

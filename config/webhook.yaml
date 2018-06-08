@@ -15,26 +15,26 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: ela-webhook
-  namespace: ela-system
+  name: webhook
+  namespace: knative-serving-system
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: ela-webhook
-        role: ela-webhook
+        app: webhook
+        role: webhook
     spec:
-      serviceAccountName: ela-controller
+      serviceAccountName: controller
       containers:
-      - name: ela-webhook
+      - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/webhook
         volumeMounts:
-        - name: ela-webhook-config
-          mountPath: /etc/config
+        - name: config-logging
+          mountPath: /etc/config-logging
       volumes:
-        - name: ela-webhook-config
+        - name: config-logging
           configMap:
-            name: ela-webhook-config
+            name: config-logging

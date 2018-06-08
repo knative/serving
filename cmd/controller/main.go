@@ -58,21 +58,26 @@ var (
 	queueSidecarImage string
 	autoscalerImage   string
 
-	autoscaleConcurrencyQuantumOfTime     = k8sflag.Duration("autoscale.concurrency-quantum-of-time", nil, k8sflag.Required)
-	autoscaleEnableScaleToZero            = k8sflag.Bool("autoscale.enable-scale-to-zero", false)
-	autoscaleEnableSingleConcurrency      = k8sflag.Bool("autoscale.enable-single-concurrency", false)
-	autoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("autoscale.enable-vertical-pod-autoscaling", false)
+	autoscaleFlagSet                      = k8sflag.NewFlagSet("/etc/config-autoscaler")
+	autoscaleConcurrencyQuantumOfTime     = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
+	autoscaleEnableScaleToZero            = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
+	autoscaleEnableSingleConcurrency      = autoscaleFlagSet.Bool("enable-single-concurrency", false)
+	autoscaleEnableVerticalPodAutoscaling = autoscaleFlagSet.Bool("autoscale.enable-vertical-pod-autoscaling", false)
 
-	loggingEnableVarLogCollection    = k8sflag.Bool("logging.enable-var-log-collection", false)
-	loggingFluentSidecarImage        = k8sflag.String("logging.fluentd-sidecar-image", "")
-	loggingFluentSidecarOutputConfig = k8sflag.String("logging.fluentd-sidecar-output-config", "")
-	loggingURLTemplate               = k8sflag.String("logging.revision-url-template", "")
-	loggingZapCfg                    = k8sflag.String("logging.ela-controller.zap-config", "")
+	observabilityFlagSet             = k8sflag.NewFlagSet("/etc/config-observability")
+	loggingEnableVarLogCollection    = observabilityFlagSet.Bool("logging.enable-var-log-collection", false)
+	loggingFluentSidecarImage        = observabilityFlagSet.String("logging.fluentd-sidecar-image", "")
+	loggingFluentSidecarOutputConfig = observabilityFlagSet.String("logging.fluentd-sidecar-output-config", "")
+	loggingURLTemplate               = observabilityFlagSet.String("logging.revision-url-template", "")
+
+	loggingFlagSet         = k8sflag.NewFlagSet("/etc/config-logging")
+	zapConfig              = loggingFlagSet.String("zap-logger-config", "")
+	queueProxyLoggingLevel = loggingFlagSet.String("loglevel.queueproxy", "")
 )
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLogger(loggingZapCfg.Get()).Named("ela-controller")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("controller")
 	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {
@@ -130,11 +135,6 @@ func main() {
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 
-	controllerConfig, err := controller.NewConfig(kubeClient)
-	if err != nil {
-		logger.Fatalf("Error loading controller config: %v", err)
-	}
-
 	revControllerConfig := revision.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime:     autoscaleConcurrencyQuantumOfTime,
 		AutoscaleEnableSingleConcurrency:      autoscaleEnableSingleConcurrency,
@@ -146,15 +146,18 @@ func main() {
 		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
 		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
 		LoggingURLTemplate:         loggingURLTemplate.Get(),
+
+		QueueProxyLoggingConfig: zapConfig.Get(),
+		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
 		revision.NewController(kubeClient, elaClient, vpaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
-		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, autoscaleEnableScaleToZero, logger),
+		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
 	}
 
 	go kubeInformerFactory.Start(stopCh)

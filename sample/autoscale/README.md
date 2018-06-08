@@ -1,10 +1,10 @@
 # Autoscale Sample
 
-A demonstration of the autoscaling capabilities of an Elafros Revision.
+A demonstration of the autoscaling capabilities of an Knative Serving Revision.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -24,7 +24,7 @@ docker push "${REPO}/sample/autoscale"
 # Replace the image reference with our published image.
 perl -pi -e "s@github.com/knative/serving/sample/autoscale@${REPO}/sample/autoscale@g" sample/autoscale/sample.yaml
 
-# Deploy the Elafros sample
+# Deploy the Knative Serving sample
 kubectl apply -f sample/autoscale/sample.yaml
 
 ```
@@ -36,7 +36,7 @@ Export your Ingress IP as SERVICE_IP.
 export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress autoscale-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress autoscale-route-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 Request the largest prime less than 40,000,000 from the autoscale app.  Note that it consumes about 1 cpu/sec.
@@ -60,7 +60,7 @@ done
 watch kubectl get pods -n hey --show-all
 ```
 
-Watch the Elafros deployment pod count increase.
+Watch the Knative Serving deployment pod count increase.
 
 ```shell
 watch kubectl get deploy

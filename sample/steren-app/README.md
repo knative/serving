@@ -7,12 +7,12 @@ This is based on the source code available from: github.com/steren/sample-app
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Enable the Google Cloud Datastore API.
 
 ## Running
 
-You can deploy this to Elafros from the root directory via:
+You can deploy this to Knative Serving from the root directory via:
 ```shell
 # Replace the token string with a suitable registry
 REPO="gcr.io/<your-project-here>"
@@ -28,7 +28,7 @@ Once deployed, you will see that it first builds:
 kubectl get revision -o yaml
 apiVersion: v1
 items:
-- apiVersion: knative.dev/v1alpha1
+- apiVersion: serving.knative.dev/v1alpha1
   kind: Revision
   ...
   status:
@@ -46,7 +46,7 @@ To access this service via `curl`, we first need to determine its ingress addres
 ```shell
 $ watch kubectl get ing
 NAME                             HOSTS                                        ADDRESS    PORTS     AGE
-steren-sample-app-ela-ingress    steren-sample-app.default.demo-domain.net               80        3m
+steren-sample-app-ingress    steren-sample-app.default.demo-domain.net               80        3m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
@@ -56,7 +56,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route steren-sample-app -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress steren-sample-app-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress steren-sample-app-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),

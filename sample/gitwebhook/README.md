@@ -6,7 +6,7 @@ github.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -26,7 +26,7 @@ docker push "${REPO}/sample/gitwebhook"
 # Replace the image reference with our published image.
 perl -pi -e "s@github.com/knative/serving/sample/gitwebhook@${REPO}/sample/gitwebhook@g" sample/gitwebhook/*.yaml
 
-# Deploy the Elafros sample
+# Deploy the Knative Serving sample
 kubectl apply -f sample/gitwebhook/sample.yaml
 ```
 
@@ -51,7 +51,7 @@ To make this service accessible to github, we first need to determine its ingres
 ```shell
 $ watch kubectl get ingress
 NAME                                 HOSTS                     ADDRESS        PORTS     AGE
-git-webhook-ela-ingress              demostuff.aikas.org       35.202.30.59   80        14s
+git-webhook-ingress              demostuff.aikas.org       35.202.30.59   80        14s
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you need to assign a DNS name for that IP address.

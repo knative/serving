@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/logging"
@@ -55,9 +57,9 @@ import (
 )
 
 const (
-	elaContainerName string = "ela-container"
-	elaPortName      string = "ela-port"
-	elaPort                 = 8080
+	userContainerName string = "user-container"
+	userPortName      string = "user-port"
+	userPort                 = 8080
 
 	fluentdContainerName string = "fluentd-proxy"
 	queueContainerName   string = "queue-proxy"
@@ -116,7 +118,7 @@ type Controller struct {
 type ControllerConfig struct {
 	// Autoscale part
 
-	// see (elaconfig.yaml)
+	// see (config-autoscaler.yaml)
 	AutoscaleConcurrencyQuantumOfTime     *k8sflag.DurationFlag
 	AutoscaleEnableSingleConcurrency      *k8sflag.BoolFlag
 	AutoscaleEnableVerticalPodAutoscaling *k8sflag.BoolFlag
@@ -146,6 +148,12 @@ type ControllerConfig struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
+
+	// QueueProxyLoggingConfig is a string containing the logger configuration for queue proxy.
+	QueueProxyLoggingConfig string
+
+	// QueueProxyLoggingLevel is a string containing the logger level for queue proxy.
+	QueueProxyLoggingLevel string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -165,7 +173,7 @@ func NewController(
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
-	informer := elaInformerFactory.Knative().V1alpha1().Revisions()
+	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 
@@ -382,15 +390,15 @@ func (c *Controller) markRevisionBuilding(ctx context.Context, rev *v1alpha1.Rev
 }
 
 func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1.BuildCondition) error {
-	switch bc.Type {
-	case buildv1alpha1.BuildComplete:
+	if bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionTrue {
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
 				Type:   v1alpha1.RevisionConditionBuildSucceeded,
-				Status: corev1.ConditionTrue,
+				Status: bc.Status,
 			})
 		c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildComplete", bc.Message)
-	case buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
+	} else if (bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionFalse) ||
+		(bc.Type == buildv1alpha1.BuildInvalid && bc.Status == corev1.ConditionTrue) {
 		rev.Status.SetCondition(
 			&v1alpha1.RevisionCondition{
 				Type:    v1alpha1.RevisionConditionBuildSucceeded,
@@ -414,13 +422,10 @@ func (c *Controller) markBuildComplete(rev *v1alpha1.Revision, bc *buildv1alpha1
 
 func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
 	for _, cond := range build.Status.Conditions {
-		if cond.Status != corev1.ConditionTrue {
+		if cond.Status == corev1.ConditionUnknown {
 			continue
 		}
-		switch cond.Type {
-		case buildv1alpha1.BuildComplete, buildv1alpha1.BuildFailed, buildv1alpha1.BuildInvalid:
-			return &cond
-		}
+		return &cond
 	}
 	return nil
 }
@@ -819,7 +824,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
 	logger := logging.FromContext(ctx)
-	sc := c.KubeClientSet.Core().Services(ns)
+	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
 	logger.Infof("Deleting service %q", serviceName)
@@ -836,7 +841,7 @@ func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, 
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision, ns string) (string, error) {
 	logger := logging.FromContext(ctx)
-	sc := c.KubeClientSet.Core().Services(ns)
+	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
 	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
@@ -868,7 +873,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	// references. Can not set blockOwnerDeletion and Controller to true.
 	revRef := newRevisionNonControllerRef(rev)
 
-	cmc := c.KubeClientSet.Core().ConfigMaps(ns)
+	cmc := c.KubeClientSet.CoreV1().ConfigMaps(ns)
 	configMap, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -922,7 +927,7 @@ func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.Owner
 func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.Core().Services(AutoscalerNamespace)
+	sc := c.KubeClientSet.CoreV1().Services(pkg.GetServingSystemNamespace())
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -941,7 +946,7 @@ func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.Core().Services(AutoscalerNamespace)
+	sc := c.KubeClientSet.CoreV1().Services(pkg.GetServingSystemNamespace())
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -965,7 +970,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
+	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -985,7 +990,7 @@ func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alph
 func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
+	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -1064,7 +1069,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 		}
 	}
 	accessor.SetFinalizers(finalizers)
-	prClient := c.ElaClientSet.KnativeV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	prClient.Update(rev)
 	logger.Infof("The finalizer 'controller' is removed.")
 
@@ -1072,7 +1077,7 @@ func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ElaClientSet.KnativeV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

@@ -9,6 +9,13 @@ Both tests can use our [test library](#test-library).
 
 Reviewers of conformance and e2e tests (i.e. [OWNERS](/test/OWNERS)) are responsible for the style and quality of the resulting tests. In order to not discourage contributions, when style change are required, the reviewers can make the changes themselves.
 
+All e2e and conformance tests _must_ be marked with the `e2e` [build constraint](https://golang.org/pkg/go/build/)
+so that `go test ./...` can be used to run only [the unit tests](README.md#running-unit-tests), i.e.:
+
+```go
+// +build e2e
+```
+
 ## Presubmit tests
 
 [`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
@@ -25,10 +32,11 @@ In the [`test`](/test/) dir you will find several libraries in the `test` packag
 you can use in your tests.
 
 You can:
+
 * [Use common test flags](#use-common-test-flags)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
-* [Poll Elafros resources](#poll-knative-resources)
+* [Poll Knative Serving resources](#poll-knative-serving-resources)
 * [Verify resource state transitions](#verify-resource-state-transitions)
 * [Generate boilerplate CRDs](#generate-boilerplate-crds)
 * [Ensure test cleanup](#ensure-test-cleanup)
@@ -54,11 +62,11 @@ that describe the environment:
 
 ```go
 func setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
-	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
-	}
-	return clients
+    clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
+    if err != nil {
+        t.Fatalf("Couldn't initialize clients: %v", err)
+    }
+    return clients
 }
 ```
 
@@ -80,9 +88,9 @@ by your test:
 
 ```go
 func tearDown(clients *test.Clients) {
-	if clients != nil {
-		clients.Delete([]string{routeName}, []string{configName})
-	}
+    if clients != nil {
+        clients.Delete([]string{routeName}, []string{configName})
+    }
 }
 ```
 
@@ -108,10 +116,10 @@ should be used or the domain should be used directly.
 
 _See [request.go](./request.go)._
 
-### Poll Elafros resources
+### Poll Knative Serving resources
 
-After creating Elafros resources or making changes to them, you will need to wait for the system
-to realize those chnages. You can use the Elafros CRD polling methods to poll the resources until
+After creating Knative Serving resources or making changes to them, you will need to wait for the system
+to realize those chnages. You can use the Knative Serving CRD polling methods to poll the resources until
 they get into the desired state or time out.
 
 These functions use the kubernetes [`wait` package](https://godoc.org/k8s.io/apimachinery/pkg/util/wait).
@@ -139,8 +147,8 @@ _See [crd_polling.go](./crd_polling.go)._
 
 ### Verify resource state transitions
 
-To use the [polling functions](#poll-knative-resources) you must provide a function to check the
-state. Some of the expected transition states (as defined in [the Elafros spec](/docs/spec/spec.md))
+To use the [polling functions](#poll-knative-serving-resources) you must provide a function to check the
+state. Some of the expected transition states (as defined in [the Knative Serving spec](/docs/spec/spec.md))
 are expressed in functions in [states.go](./states.go).
 
 For example when a `Revision` has been created, the system will start the resources required to
@@ -171,10 +179,16 @@ _See [states.go](./states.go)._
 Your tests will probably need to create `Route` and `Configuration` objects. You can use the
 existing boilerplate to describe them.
 
-For example to create a `Configuration` object that uses a certain docker image:
+You can also use the function `RandomizedName` to create a random name for your `crd` so that
+your tests can use unique names each time they run.
+
+For example to create a `Configuration` object that uses a certain docker image with a
+randomized name:
 
 ```go
-_, err := clients.Configs.Create(test.Configuration(namespaceName, configName, imagePath))
+var names test.ResourceNames
+names.Config := test.RandomizedName('hotdog')
+_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePath))
 if err != nil {
     return err
 }

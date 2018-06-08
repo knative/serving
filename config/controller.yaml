@@ -15,18 +15,18 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: ela-controller
-  namespace: ela-system
+  name: controller
+  namespace: knative-serving-system
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: ela-controller
+        app: controller
     spec:
-      serviceAccountName: ela-controller
+      serviceAccountName: controller
       containers:
-      - name: ela-controller
+      - name: controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/controller
@@ -43,9 +43,19 @@ spec:
         - name: metrics
           containerPort: 9090
         volumeMounts:
-        - name: ela-config
-          mountPath: /etc/config
+        - name: config-autoscaler
+          mountPath: /etc/config-autoscaler
+        - name: config-logging
+          mountPath: /etc/config-logging
+        - name: config-observability
+          mountPath: /etc/config-observability
       volumes:
-        - name: ela-config
+        - name: config-autoscaler
           configMap:
-            name: ela-config
+            name: config-autoscaler
+        - name: config-logging
+          configMap:
+            name: config-logging
+        - name: config-observability
+          configMap:
+            name: config-observability

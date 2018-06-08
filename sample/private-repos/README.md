@@ -3,15 +3,15 @@
 This demo is a walk-through example that:
 * Pulls from a private Github repository using a deploy-key
 * Pushes to a private DockerHub repository using a username / password
-* Deploys to Elafros using image pull secrets.
+* Deploys to Knative Serving using image pull secrets.
 
-> In this demo we will assume access to existing Elafros service. If not, consult [README.md](https://github.com/knative/serving/blob/master/README.md) on how to deploy one.
+> In this demo we will assume access to existing Knative Serving service. If not, consult [README.md](https://github.com/knative/serving/blob/master/README.md) on how to deploy one.
 
 ## The resources involved.
 
 ### Setting up the default service account (one-time)
 
-Elafros will run pods as the "default" service account in whichever namespace
+Knative Serving will run pods as the "default" service account in whichever namespace
 you create resources.  You can see it's body via:
 
 ```shell
@@ -161,7 +161,7 @@ of the ingress endpoint:
 export SERVICE_HOST=`kubectl get route private-repos \
   -o jsonpath="{.status.domain}"`
 
-export SERVICE_IP=`kubectl get ing private-repos-ela-ingress \
+export SERVICE_IP=`kubectl get ing private-repos-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 

@@ -22,11 +22,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// states contains functions for asserting against the state of Elafros
+// states contains functions for asserting against the state of Knative Serving
 // crds to see if they have achieved the states specified in the spec
 // (https://github.com/knative/serving/blob/master/docs/spec/spec.md).
 
-// AllRouteTrafficeAtRevision will check the revision that routeName is routing
+// AllRouteTrafficAtRevision will check the revision that routeName is routing
 // traffic to and return true if 100% of the traffic is routing to revisionName.
 func AllRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
 	return func(r *v1alpha1.Route) (bool, error) {

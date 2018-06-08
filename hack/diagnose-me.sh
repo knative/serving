@@ -16,7 +16,7 @@
 
 set -e
 
-CLUSTER_VERSION=1.9
+CLUSTER_VERSION=1.10
 
 tests=(
   cluster_version
@@ -48,8 +48,8 @@ run_test() {
       test_command "$test_cmd" "$expected_result"
       ;;
     webhook_running)
-      printf "Elafros webhook is installed"
-      test_cmd="kubectl get pods -n ela-system -l app=ela-webhook -o jsonpath={.items[].status.phase}"
+      printf "Knative Serving webhook is installed"
+      test_cmd="kubectl get pods -n knative-serving-system -l app=webhook -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"
       ;;
@@ -65,17 +65,17 @@ run_test() {
 
       printf "* configured with correct service"
       test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.name}"
-      expected_result="ela-webhook"
+      expected_result="webhook"
       test_command "$test_cmd" "$expected_result"
 
       printf "* configured with correct namespace"
       test_cmd="kubectl get mutatingwebhookconfiguration webhook.knative.dev -o jsonpath={.webhooks[].clientConfig.service.namespace}"
-      expected_result="ela-system"
+      expected_result="knative-serving-system"
       test_command "$test_cmd" "$expected_result"
       ;;
     controllers_running)
-      printf "Elafros controllers are running"
-      test_cmd="kubectl get pods -n ela-system -l app=ela-controller -o jsonpath={.items[].status.phase}"
+      printf "Knative Serving controllers are running"
+      test_cmd="kubectl get pods -n knative-serving-system -l app=controller -o jsonpath={.items[].status.phase}"
       expected_result="Running"
       test_command "$test_cmd" "$expected_result"
       ;;

@@ -13,32 +13,12 @@
 # limitations under the License.
 
 apiVersion: "config.istio.io/v1alpha2"
-kind: fluentd
-metadata:
-  name: handler
-  namespace: istio-system
-spec:
-  address: "fluentd-es.monitoring:24224"
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: requestlogstofluentd
-  namespace: istio-system
-spec:
-  match: "true" # match for all requests -- to filter out istio-ingress destination (as all requests hit that once), use: destination.service != "istio-ingress.istio-system.svc.cluster.local"
-  actions:
-   - handler: handler.fluentd
-     instances:
-     - requestlog.logentry
----
-apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: requestlog
   namespace: istio-system
 spec:
-  severity: '"Default"'
+  severity: '"Info"'
   timestamp: request.time
   variables:
     method: request.method | ""
@@ -50,13 +30,35 @@ spec:
     responseSize: response.size | 0
     latency: response.duration | "0ms"
     sourceService: source.service | "unknown"
+    sourceNamespace: source.namespace | "unknown"
     destinationService: destination.service | ""
     destinationNamespace: destination.namespace | ""
-    destinationRevision: destination.labels["knative.dev/revision"] | "unknown"
-    destinationConfiguration: destination.labels["knative.dev/configuration"] | "unknown"
+    destinationRevision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destinationConfiguration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     traceId: request.headers["x-b3-traceid"] | "unknown"
     userAgent: request.useragent | "unknown"
     referer: request.referer | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: fluentd
+metadata:
+  name: requestloghandler
+  namespace: istio-system
+spec:
+  address: "fluentd-es.monitoring:24224"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: requestlogtofluentd
+  namespace: istio-system
+spec:
+  match: "true"
+  actions:
+   - handler: requestloghandler.fluentd
+     instances:
+     - requestlog.logentry
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -69,8 +71,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -85,8 +87,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -101,8 +103,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -117,8 +119,8 @@ spec:
     source_service: source.service | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_service: destination.service | "unknown"
-    destination_revision: destination.labels["knative.dev/revision"] | "unknown"
-    destination_configuration: destination.labels["knative.dev/configuration"] | "unknown"
+    destination_revision: destination.labels["serving.knative.dev/revision"] | "unknown"
+    destination_configuration: destination.labels["serving.knative.dev/configuration"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---

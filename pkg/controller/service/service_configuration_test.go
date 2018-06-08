@@ -16,10 +16,10 @@ package service
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -139,7 +139,7 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 
 	expectedRefs := []metav1.OwnerReference{
 		metav1.OwnerReference{
-			APIVersion: "knative.dev/v1alpha1",
+			APIVersion: "serving.knative.dev/v1alpha1",
 			Kind:       "Service",
 			Name:       testServiceName,
 		},

@@ -6,7 +6,7 @@ TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -26,7 +26,7 @@ docker push "${REPO}/sample/helloworld"
 # Replace the image reference with our published image.
 perl -pi -e "s@github.com/knative/serving/sample/helloworld@${REPO}/sample/helloworld@g" sample/helloworld/*.yaml
 
-# Deploy the Elafros sample
+# Deploy the Knative Serving sample
 kubectl apply -f sample/helloworld/sample.yaml
 ```
 
@@ -59,7 +59,7 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 
 ```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-route-example-ela-ingress   demo.myhost.net             80        14s
+route-example-ingress   demo.myhost.net             80        14s
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
@@ -69,7 +69,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route route-example -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress route-example-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),

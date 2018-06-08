@@ -34,30 +34,16 @@ source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 function cleanup() {
   echo "Cleaning up for teardown"
   restore_override_vars
-  # --expunge is a workaround for https://github.com/knative/serving/issues/366
-  bazel clean --expunge || true
-}
-
-# Set the required env vars to dummy values to satisfy bazel.
-function set_environment() {
-  export DOCKER_REPO_OVERRIDE=REPO_NOT_SET
-  export K8S_CLUSTER_OVERRIDE=CLUSTER_NOT_SET
-  export K8S_USER_OVERRIDE=USER_NOT_SET
 }
 
 function build_tests() {
   header "Running build tests"
-  set_environment
-  bazel build //cmd/... //config/... //sample/... //pkg/... //test/...
-  bazel build :everything
+  go build ./cmd/... ./sample/... ./pkg/...
 }
 
 function unit_tests() {
   header "Running unit tests"
-  set_environment
-  bazel test //cmd/... //pkg/...
-  # Run go tests as well to workaround https://github.com/knative/serving/issues/525
-  go test ./cmd/... ./pkg/...
+  go test ./...
 }
 
 function integration_tests() {
@@ -89,7 +75,7 @@ if ! (( RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
   exit 1
 fi
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
 # Skip presubmit tests if only markdown files were changed.
 if [[ -n "${PULL_PULL_SHA}" ]]; then
@@ -109,8 +95,6 @@ fi
 if (( ! IS_PROW )); then
   trap cleanup EXIT
   echo "Cleaning up for setup"
-  # --expunge is a workaround for https://github.com/knative/serving/issues/366
-  bazel clean --expunge
 fi
 
 # Tests to be performed, in the right order if --all-tests is passed.

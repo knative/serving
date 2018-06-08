@@ -1,14 +1,14 @@
 # Autoscaling
 
-Elafros Revisions are automatically scaled up and down according incoming traffic.
+Knative Serving Revisions are automatically scaled up and down according incoming traffic.
 
 ## Definitions
 
-* Elafros **Revision** -- a custom resource which is a running snapshot of the user's code (in a Container) and configuration.
-* Elafros **Route** -- a custom resource which exposes Revisions to clients via an Istio ingress rule.
+* Knative Serving **Revision** -- a custom resource which is a running snapshot of the user's code (in a Container) and configuration.
+* Knative Serving **Route** -- a custom resource which exposes Revisions to clients via an Istio ingress rule.
 * Kubernetes **Deployment** -- a k8s resource which manages the lifecycle of individual Pods running Containers.  One of these is running user code in each Revision.
-* Elafros **Autoscaler** -- another k8s Deployment (one per Revision) running a single Pod which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
-* Elafros **Activator** -- a k8s Deployment running a single, multi-tenant Pod (one per Cluster for all Revisions) which catches requests for Revisions with no Pods.  It brings up Pods running user code (via the Revision controller) and forwards caught requests.
+* Knative Serving **Autoscaler** -- another k8s Deployment (one per Revision) running a single Pod which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
+* Knative Serving **Activator** -- a k8s Deployment running a single, multi-tenant Pod (one per Cluster for all Revisions) which catches requests for Revisions with no Pods.  It brings up Pods running user code (via the Revision controller) and forwards caught requests.
 * **Concurrency** -- the number of requests currently being served at a given moment.  More QPS or higher latency means more concurrent requests.
 
 ## Behavior
@@ -67,13 +67,13 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 
 ### Slow Brain / Fast Brain
 
-The Elafros Autoscaler is split into two parts:
+The Knative Serving Autoscaler is split into two parts:
 1. **Fast Brain** that maintains the desired level of concurrent requests per Pod (satisfying [Design Goal #1](#design-goals)), and the
 2. **Slow Brain** that comes up with the desired level based on CPU, memory and latency statistics (satisfying [Design Goal #2](#design-goals)).
 
 ## Fast Brain Implementation
 
-This is subject to change as the Elafros implementation changes.
+This is subject to change as the Knative Serving implementation changes.
 
 ### Code
 
@@ -83,13 +83,13 @@ This is subject to change as the Elafros implementation changes.
 
 ### Autoscaler
 
-There is a proxy in the Elafros Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use [Envoy](https://www.envoyproxy.io/docs/envoy/latest/), that would be great (see [Design Goal #3](#design-goals)).  The Elafros controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
+There is a proxy in the Knative Serving Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use [Envoy](https://www.envoyproxy.io/docs/envoy/latest/), that would be great (see [Design Goal #3](#design-goals)).  The Knative Serving controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
 
 The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.  The Autoscaler has two modes of operation, Panic Mode and Stable Mode.
 
 #### Stable Mode
 
-In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod (currently [hardcoded](https://github.com/knative/serving/blob/c4a543ecce61f5cac96b0e334e57db305ff4bcb3/cmd/ela-autoscaler/main.go#L36), later provided by the Slow Brain).  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
+In Stable Mode the Autoscaler adjusts the size of the Deployment to achieve the desired average concurrency per Pod (currently [hardcoded](https://github.com/knative/serving/blob/c4a543ecce61f5cac96b0e334e57db305ff4bcb3/cmd/autoscaler/main.go#L36), later provided by the Slow Brain).  It calculates the observed concurrency per pod by averaging all data points over the 60 second window.  When it adjusts the size of the Deployment it bases the desired Pod count on the number of observed Pods in the metrics stream, not the number of Pods in the Deployment spec.  This is important to keep the Autoscaler from running away (there is delay between when the Pod count is increased and when new Pods come online to serve requests and provide a metrics stream).
 
 #### Panic Mode
 
@@ -101,9 +101,9 @@ When the Autoscaler has observed an average concurrency per pod of 0.0 for some 
 
 ### Activator
 
-The Activator is a single multi-tenant component that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see [Design Goal #3](#design-goals)).  When the Activator gets a request for a Reserve Revision, it calls the Elafros control plane to transistion the Revision to an Active state.  It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the Activator in the meantime.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  Concurrently, the Elafros control plane will update the Istio route rules to take the Activator back out of the serving path.
+The Activator is a single multi-tenant component that catches traffic for all Reserve Revisions.  It is responsible for activating the Revisions and then proxying the caught requests to the appropriate Pods.  It woud be preferable to have a hook in Istio to do this so we can get rid of the Activator (see [Design Goal #3](#design-goals)).  When the Activator gets a request for a Reserve Revision, it calls the Knative Serving control plane to transistion the Revision to an Active state.  It will take a few seconds for all the resources to be provisioned, so more requests might arrive at the Activator in the meantime.  The Activator establishes a watch for Pods belonging to the target Revision.  Once the first Pod comes up, all enqueued requests are proxied to that Pod.  Concurrently, the Knative Serving control plane will update the Istio route rules to take the Activator back out of the serving path.
 
 ## Slow Brain Implementation
 
-*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/knative/serving/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/ela-autoscaler/main.go#L36)).*
+*Currently the Slow Brain is not implemented and the desired concurrency level is hardcoded at 1.0 ([code](https://github.com/knative/serving/blob/7f1385cb88ca660378f8afcc78ad4bfcddd83c47/cmd/autoscaler/main.go#L36)).*
 

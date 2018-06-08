@@ -27,13 +27,13 @@ import (
 
 // FakeServices implements ServiceInterface
 type FakeServices struct {
-	Fake *FakeKnativeV1alpha1
+	Fake *FakeServingV1alpha1
 	ns   string
 }
 
-var servicesResource = schema.GroupVersionResource{Group: "knative.dev", Version: "v1alpha1", Resource: "services"}
+var servicesResource = schema.GroupVersionResource{Group: "serving.knative.dev", Version: "v1alpha1", Resource: "services"}
 
-var servicesKind = schema.GroupVersionKind{Group: "knative.dev", Version: "v1alpha1", Kind: "Service"}
+var servicesKind = schema.GroupVersionKind{Group: "serving.knative.dev", Version: "v1alpha1", Kind: "Service"}
 
 // Get takes name of the service, and returns the corresponding service object, and an error if there is any.
 func (c *FakeServices) Get(name string, options v1.GetOptions) (result *v1alpha1.Service, err error) {

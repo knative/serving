@@ -30,13 +30,13 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 )
 
-func GetElaConfigMapName() string {
-	return "ela-config"
+func GetDomainConfigMapName() string {
+	return "config-domain"
 }
 
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
-	// We create resources in the same namespace as the Elafros resources by default.
+	// We create resources in the same namespace as the Knative Serving resources by default.
 	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
 	return ns
 }
@@ -61,7 +61,7 @@ func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
 }
 
 func GetElaK8SIngressName(u *v1alpha1.Route) string {
-	return u.Name + "-ela-ingress"
+	return u.Name + "-ingress"
 }
 
 func GetElaK8SServiceNameForRevision(u *v1alpha1.Revision) string {
@@ -76,16 +76,12 @@ func GetElaK8SActivatorServiceName() string {
 	return "activator-service"
 }
 
-func GetElaK8SActivatorNamespace() string {
-	return "ela-system"
-}
-
 func GetRevisionHeaderName() string {
-	return "Elafros-Revision"
+	return "Knative-Serving-Revision"
 }
 
 func GetRevisionHeaderNamespace() string {
-	return "Elafros-Namespace"
+	return "Knative-Serving-Namespace"
 }
 
 func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.Interface) (string, error) {
@@ -93,7 +89,7 @@ func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.In
 }
 
 func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Interface) (string, error) {
-	_, err := c.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+	_, err := c.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		logger := logging.FromContext(ctx)
 		if !apierrs.IsNotFound(err) {
@@ -107,7 +103,7 @@ func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Int
 				Namespace: "",
 			},
 		}
-		_, err := c.Core().Namespaces().Create(nsObj)
+		_, err := c.CoreV1().Namespaces().Create(nsObj)
 		if err != nil {
 			logger.Error("Unexpected error while creating namespace", zap.Error(err))
 			return "", err

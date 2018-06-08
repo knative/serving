@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,13 +34,16 @@ import (
 // "latest ready" revision changes, and smoothly rolling out latest revisions.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
 type Route struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Route (from the client).
+	// +optional
 	Spec RouteSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Route (from the controller).
+	// +optional
 	Status RouteStatus `json:"status,omitempty"`
 }
 
@@ -75,9 +79,11 @@ type RouteSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
-	// Traffic specifies how to distribute traffic over a collection of Elafros Revisions and Configurations.
+	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
+	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
@@ -102,6 +108,9 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady RouteConditionType = "Ready"
+	// RouteConditionIngressReady is set when the route's underlying ingress
+	// resource has been set up.
+	RouteConditionIngressReady RouteConditionType = "IngressReady"
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
@@ -112,22 +121,26 @@ const (
 type RouteStatus struct {
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
 	Domain string `json:"domain,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
 	// LatestReadyRevisionName that we last observed.
+	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
@@ -193,4 +206,77 @@ func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 		}
 	}
 	rs.Conditions = conditions
+}
+
+func (rs *RouteStatus) InitializeConditions() {
+	if rc := rs.GetCondition(RouteConditionAllTrafficAssigned); rc == nil {
+		rs.SetCondition(&RouteCondition{
+			Type:   RouteConditionAllTrafficAssigned,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+	if rc := rs.GetCondition(RouteConditionIngressReady); rc == nil {
+		rs.SetCondition(&RouteCondition{
+			Type:   RouteConditionIngressReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+	if rc := rs.GetCondition(RouteConditionReady); rc == nil {
+		rs.SetCondition(&RouteCondition{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
+
+func (rs *RouteStatus) MarkTrafficAssigned() {
+	rs.SetCondition(&RouteCondition{
+		Type:   RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
+	reason := kind + "Missing"
+	msg := fmt.Sprintf("Referenced %s %q not found", kind, name)
+	rs.SetCondition(&RouteCondition{
+		Type:    RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  reason,
+		Message: msg,
+	})
+	rs.SetCondition(&RouteCondition{
+		Type:    RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  reason,
+		Message: msg,
+	})
+}
+
+func (rs *RouteStatus) MarkIngressReady() {
+	rs.SetCondition(&RouteCondition{
+		Type:   RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) checkAndMarkReady() {
+	ata := rs.GetCondition(RouteConditionAllTrafficAssigned)
+	if ata == nil || ata.Status != corev1.ConditionTrue {
+		return
+	}
+	ir := rs.GetCondition(RouteConditionIngressReady)
+	if ir == nil || ir.Status != corev1.ConditionTrue {
+		return
+	}
+	rs.markReady()
+}
+
+func (rs *RouteStatus) markReady() {
+	rs.SetCondition(&RouteCondition{
+		Type:   RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

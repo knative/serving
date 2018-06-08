@@ -8,11 +8,11 @@ handlers:
   1. Another refers an undefined variable and sends multi-line exception stack
      trace logs to STDERR and file under /var/log.
 
-The server is made into a docker container and provided to Elafros.
+The server is made into a docker container and provided to Knative Serving.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Running
@@ -24,7 +24,7 @@ docker push "${DOCKER_REPO_OVERRIDE}/python-simple:latest"
 ```
 
 Then replace `REPLACE_ME` with the value of your `DOCKER_REPO_OVERRIDE` in
-[manifest.yaml](./manifest.yaml#L36) and deploy this to Elafros from the root directory via:
+[manifest.yaml](./manifest.yaml#L36) and deploy this to Knative Serving from the root directory via:
 ```shell
 kubectl apply -f sample/pythonsimple/manifest.yaml
 ```
@@ -56,7 +56,7 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 
 ```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-route-python-example-ela-ingress   demo.myhost.net             80        14s
+route-python-example-ingress   demo.myhost.net             80        14s
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
@@ -66,7 +66,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route route-python-example -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress route-python-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress route-python-example-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),

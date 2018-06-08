@@ -6,7 +6,7 @@ name from environment defined in configuration.
 
 ## Prerequisites
 
-1. [Install Elafros](https://github.com/knative/install/blob/master/README.md)
+1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
 1. Install [docker](https://www.docker.com/)
 
 ## Setup
@@ -26,7 +26,7 @@ docker push "${REPO}/sample/stock-rest-app"
 # Replace the image reference with our published image.
 perl -pi -e "s@github.com/knative/serving/sample/stock-rest-app@${REPO}/sample/stock-rest-app@g" sample/stock-rest-app/*.yaml
 
-# Deploy the Elafros sample
+# Deploy the Knative Serving sample
 kubectl apply -f sample/stock-rest-app/sample.yaml
 ```
 
@@ -59,7 +59,7 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 
 ```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-stock-route-example-ela-ingress   stock-route-example.default.demo-domain.com   35.185.44.102   80        1m
+stock-route-example-ingress   stock-route-example.default.demo-domain.com   35.185.44.102   80        1m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
@@ -69,7 +69,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route stock-route-example -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress stock-route-example-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress stock-route-example-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
