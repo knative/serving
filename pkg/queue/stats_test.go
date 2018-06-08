@@ -162,6 +162,29 @@ func TestManyRequestsOneBucketInterleaved(t *testing.T) {
 	}
 }
 
+func TestOneRequestTwoBuckets(t *testing.T) {
+	s := newTestStats()
+	now := time.Now()
+
+	s.requestStart()
+	s.quantize(now)
+
+	now = now.Add(100 * time.Millisecond)
+	s.requestEnd()
+	s.quantize(now)
+	got := s.report(now)
+
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              1,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
 // Test type to hold the bi-directional time channels
 type testStats struct {
 	Stats

@@ -71,17 +71,11 @@ func NewStats(podName string, channels Channels) *Stats {
 			case <-s.ch.QuantizationChan:
 				// Calculate average concurrency for the current
 				// quantum of time (bucket).
-
-				// Check this in case no new request arrived in the bucket
-				if concurrency > maximumConcurrency {
-					maximumConcurrency = concurrency
-				}
 				buckets = append(buckets, maximumConcurrency)
-				// Count the number of requests during bucketed
-				// period
+				// Count the number of requests during bucketed period
 				bucketedRequestCount = bucketedRequestCount + requestCount
 				requestCount = 0
-				maximumConcurrency = 0
+				maximumConcurrency = concurrency
 			case now := <-s.ch.ReportChan:
 				// Report the average bucket level. Does not
 				// include the current bucket.
