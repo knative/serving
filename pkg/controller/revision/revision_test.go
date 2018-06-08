@@ -964,14 +964,12 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	// watching for this build to complete, so make it complete, but
 	// with a failure.
 	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{
-			{
-				Type:    buildv1alpha1.BuildFailed,
-				Status:  corev1.ConditionTrue,
-				Reason:  reason,
-				Message: errMessage,
-			},
-		},
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: errMessage,
+		}},
 	}
 
 	controller.addBuildEvent(bld)
@@ -1054,15 +1052,14 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	controller.syncHandler(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
-	// watching for this build to complete, so make it complete.
+	// watching for this build to complete, so make it complete
+	// successfully.
 	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{
-			{
-				Type:    buildv1alpha1.BuildComplete,
-				Status:  corev1.ConditionTrue,
-				Message: completeMessage,
-			},
-		},
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionTrue,
+			Message: completeMessage,
+		}},
 	}
 
 	controller.addBuildEvent(bld)
