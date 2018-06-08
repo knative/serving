@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -205,4 +206,77 @@ func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 		}
 	}
 	rs.Conditions = conditions
+}
+
+func (rs *RouteStatus) InitializeConditions() {
+	if rc := rs.GetCondition(RouteConditionAllTrafficAssigned); rc == nil {
+		rs.SetCondition(&RouteCondition{
+			Type:   RouteConditionAllTrafficAssigned,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+	if rc := rs.GetCondition(RouteConditionIngressReady); rc == nil {
+		rs.SetCondition(&RouteCondition{
+			Type:   RouteConditionIngressReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+	if rc := rs.GetCondition(RouteConditionReady); rc == nil {
+		rs.SetCondition(&RouteCondition{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
+
+func (rs *RouteStatus) MarkTrafficAssigned() {
+	rs.SetCondition(&RouteCondition{
+		Type:   RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
+	reason := kind + "Missing"
+	msg := fmt.Sprintf("Referenced %s %q not found", kind, name)
+	rs.SetCondition(&RouteCondition{
+		Type:    RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionFalse,
+		Reason:  reason,
+		Message: msg,
+	})
+	rs.SetCondition(&RouteCondition{
+		Type:    RouteConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  reason,
+		Message: msg,
+	})
+}
+
+func (rs *RouteStatus) MarkIngressReady() {
+	rs.SetCondition(&RouteCondition{
+		Type:   RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) checkAndMarkReady() {
+	ata := rs.GetCondition(RouteConditionAllTrafficAssigned)
+	if ata == nil || ata.Status != corev1.ConditionTrue {
+		return
+	}
+	ir := rs.GetCondition(RouteConditionIngressReady)
+	if ir == nil || ir.Status != corev1.ConditionTrue {
+		return
+	}
+	rs.markReady()
+}
+
+func (rs *RouteStatus) markReady() {
+	rs.SetCondition(&RouteCondition{
+		Type:   RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }
