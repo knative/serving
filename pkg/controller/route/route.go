@@ -91,8 +91,8 @@ type Controller struct {
 	// suffix used to construct Route domain.
 	controllerConfig controller.Config
 
-	// Autoscale enable scale to zero experiment flag.
-	enableScaleToZero *k8sflag.BoolFlag
+	// Autoscale scale to zero experiment flag.
+	scaleToZeroThreshold *k8sflag.DurationFlag
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -107,7 +107,7 @@ func NewController(
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig controller.Config,
-	enableScaleToZero *k8sflag.BoolFlag,
+	scaleToZeroThreshold *k8sflag.DurationFlag,
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Routes and
@@ -119,11 +119,11 @@ func NewController(
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes", logger),
-		lister:            informer.Lister(),
-		synced:            informer.Informer().HasSynced,
-		configSynced:      configInformer.Informer().HasSynced,
-		controllerConfig:  controllerConfig,
-		enableScaleToZero: enableScaleToZero,
+		lister:               informer.Lister(),
+		synced:               informer.Informer().HasSynced,
+		configSynced:         configInformer.Informer().HasSynced,
+		controllerConfig:     controllerConfig,
+		scaleToZeroThreshold: scaleToZeroThreshold,
 	}
 
 	controller.Logger.Info("Setting up event handlers")
@@ -582,7 +582,7 @@ func (c *Controller) computeRevisionRoutes(
 
 	logger := logging.FromContext(ctx)
 	logger.Debug("Figuring out routes")
-	enableScaleToZero := c.enableScaleToZero.Get()
+	scaleToZeroThreshold := c.scaleToZeroThreshold.Get()
 	// The inactive revision name which has the largest traffic weight.
 	inactiveRev := ""
 	// The max percent in all inactive revisions.
@@ -622,7 +622,7 @@ func (c *Controller) computeRevisionRoutes(
 
 		hasRouteRule := true
 		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
-		if enableScaleToZero && cond != nil {
+		if *scaleToZeroThreshold > 0 && cond != nil {
 			// A revision is considered inactive (yet) if it's in
 			// "Inactive" condition or "Activating" condition.
 			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||

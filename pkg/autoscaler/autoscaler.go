@@ -135,7 +135,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
-	if lastRequestTime.Add(*a.ScaleToZeroThreshold.Get()).Before(now) {
+	threshold := *a.ScaleToZeroThreshold.Get()
+	if threshold > 0 && lastRequestTime.Add(threshold).Before(now) {
 		return 0, true
 	}
 

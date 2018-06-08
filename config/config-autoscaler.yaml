@@ -49,11 +49,9 @@ data:
   # which case the request duration is rounded up.
   concurrency-quantum-of-time: "100ms"
 
-  # Scale to zero feature flag
-  enable-scale-to-zero: "false"
-
   # Dynamic parameters (take effect when config map is updated):
 
-  # Scale to zero threshold is the time a revision must be idle before
-  # it is scaled to zero.
-  scale-to-zero-threshold: "5m"
+  # Scale to zero threshold is the Duration a revision must be idle 
+  # before it is scaled to zero. A positive Duration turns on scale
+  # to zero.
+  scale-to-zero-threshold: "-1s"

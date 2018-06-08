@@ -74,7 +74,6 @@ var (
 
 	// Cluster-level configuration
 	autoscaleFlagSet        = k8sflag.NewFlagSet("/etc/config-autoscaler")
-	enableScaleToZero       = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
 	multiConcurrencyTarget  = autoscaleFlagSet.Float64("multi-concurrency-target", 0.0, k8sflag.Required)
 	singleConcurrencyTarget = autoscaleFlagSet.Float64("single-concurrency-target", 0.0, k8sflag.Required)
 )
@@ -114,7 +113,7 @@ func autoscaler() {
 			scale, ok := a.Scale(ctx, time.Now())
 			if ok {
 				// Flag guard scale to zero.
-				if !enableScaleToZero.Get() && scale == 0 {
+				if *a.Config.ScaleToZeroThreshold.Get() <= 0 && scale == 0 {
 					continue
 				}
 
@@ -157,7 +156,7 @@ func scaleTo(podCount int32) {
 	dc := kubeClient.ExtensionsV1beta1().Deployments(elaNamespace)
 	deployment, err := dc.Get(elaDeployment, metav1.GetOptions{})
 	if err != nil {
-		logger.Error("Error getting Deployment %q: %s", elaDeployment, zap.Error(err))
+		logger.Errorf("Error getting Deployment %q: %v", elaDeployment, zap.Error(err))
 		return
 	}
 	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (float64)(podCount))
@@ -175,12 +174,12 @@ func scaleTo(podCount int32) {
 		revision, err := revisionClient.Get(elaRevision, metav1.GetOptions{})
 
 		if err != nil {
-			logger.Errorf("Error getting Revision %q: %s", elaRevision, zap.Error(err))
+			logger.Errorf("Error getting Revision %q: %v", elaRevision, zap.Error(err))
 		}
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		revision, err = revisionClient.Update(revision)
 		if err != nil {
-			logger.Errorf("Error updating Revision %q: %s", elaRevision, zap.Error(err))
+			logger.Errorf("Error updating Revision %q: %v", elaRevision, zap.Error(err))
 		}
 		currentScale = 0
 		return
@@ -188,7 +187,7 @@ func scaleTo(podCount int32) {
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
-		logger.Errorf("Error updating Deployment %q: %s", elaDeployment, err)
+		logger.Errorf("Error updating Deployment %q: %v", elaDeployment, err)
 	}
 	logger.Info("Successfully scaled.")
 	currentScale = podCount

@@ -59,7 +59,7 @@ var (
 
 	autoscaleFlagSet                  = k8sflag.NewFlagSet("/etc/config-autoscaler")
 	autoscaleConcurrencyQuantumOfTime = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
-	autoscaleEnableScaleToZero        = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
+	autoscaleScaleToZeroThreshold     = autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic)
 	autoscaleEnableSingleConcurrency  = autoscaleFlagSet.Bool("enable-single-concurrency", false)
 
 	observabilityFlagSet             = k8sflag.NewFlagSet("/etc/config-observability")
@@ -154,7 +154,7 @@ func main() {
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
 		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleScaleToZeroThreshold, logger),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
 	}
 
