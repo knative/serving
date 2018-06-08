@@ -18,10 +18,9 @@ package route
 
 import (
 	"fmt"
-	"regexp"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -36,15 +35,6 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		Destination: istiov1alpha2.IstioService{
 			Name:      controller.GetElaK8SServiceName(u),
 			Namespace: ns,
-		},
-		Match: istiov1alpha2.Match{
-			Request: istiov1alpha2.MatchRequest{
-				Headers: istiov1alpha2.Headers{
-					Authority: istiov1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(domain),
-					},
-				},
-			},
 		},
 		Route: destinationWeights,
 	}

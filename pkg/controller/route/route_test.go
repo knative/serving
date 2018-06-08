@@ -26,7 +26,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -320,17 +319,6 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 			Name:      "test-route-service",
 			Namespace: testNamespace,
 		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
-						),
-					},
-				},
-			},
-		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
@@ -421,17 +409,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Name:      "test-route-service",
 			Namespace: testNamespace,
 		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
-						),
-					},
-				},
-			},
-		},
 		Route: []v1alpha2.DestinationWeight{
 			getActivatorDestinationWeight(100),
 		},
@@ -500,17 +477,6 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 			Name:      fmt.Sprintf("%s-service", route.Name),
 			Namespace: testNamespace,
 		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
-						),
-					},
-				},
-			},
-		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
@@ -578,17 +544,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		Destination: v1alpha2.IstioService{
 			Name:      fmt.Sprintf("%s-service", route.Name),
 			Namespace: testNamespace,
-		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
-						),
-					},
-				},
-			},
 		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
@@ -669,17 +624,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		Destination: v1alpha2.IstioService{
 			Name:      fmt.Sprintf("%s-service", route.Name),
 			Namespace: testNamespace,
-		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
-						),
-					},
-				},
-			},
 		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
@@ -769,17 +713,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Name:      "test-route-service",
 			Namespace: testNamespace,
 		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, "."),
-						),
-					},
-				},
-			},
-		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
@@ -856,8 +789,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, defaultDomainSuffix)
-
 	expectRouteSpec := func(t *testing.T, name string, expectedSpec v1alpha2.RouteRuleSpec) {
 		routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -873,15 +804,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Destination: v1alpha2.IstioService{
 			Name:      "test-route-service",
 			Namespace: testNamespace,
-		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(domain),
-					},
-				},
-			},
 		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
@@ -909,17 +831,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Name:      "test-route-service",
 			Namespace: testNamespace,
 		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{"foo", domain}, "."),
-						),
-					},
-				},
-			},
-		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
 				Destination: v1alpha2.IstioService{
@@ -938,17 +849,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Destination: v1alpha2.IstioService{
 			Name:      "test-route-service",
 			Namespace: testNamespace,
-		},
-		Match: v1alpha2.Match{
-			Request: v1alpha2.MatchRequest{
-				Headers: v1alpha2.Headers{
-					Authority: v1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(
-							strings.Join([]string{"bar", domain}, "."),
-						),
-					},
-				},
-			},
 		},
 		Route: []v1alpha2.DestinationWeight{
 			v1alpha2.DestinationWeight{
