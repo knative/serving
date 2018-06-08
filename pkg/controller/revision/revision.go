@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/logging"
@@ -904,7 +906,7 @@ func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.Owner
 func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.CoreV1().Services(AutoscalerNamespace)
+	sc := c.KubeClientSet.CoreV1().Services(pkg.GetServingSystemNamespace())
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -923,7 +925,7 @@ func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.CoreV1().Services(AutoscalerNamespace)
+	sc := c.KubeClientSet.CoreV1().Services(pkg.GetServingSystemNamespace())
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -947,7 +949,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
+	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -967,7 +969,7 @@ func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alph
 func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(AutoscalerNamespace)
+	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {

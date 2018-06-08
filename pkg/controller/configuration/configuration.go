@@ -65,7 +65,6 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration

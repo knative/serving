@@ -150,7 +150,6 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{},
 		zap.NewNop().Sugar(),
 	).(*Controller)
 

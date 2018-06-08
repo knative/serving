@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,7 +157,7 @@ func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
 	return v1alpha2.DestinationWeight{
 		Destination: v1alpha2.IstioService{
 			Name:      ctrl.GetElaK8SActivatorServiceName(),
-			Namespace: ctrl.GetElaK8SActivatorNamespace(),
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Weight: w,
 	}
@@ -170,6 +172,17 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
+	domainConfig := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ctrl.GetDomainConfigMapName(),
+			Namespace: pkg.GetServingSystemNamespace(),
+		},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			prodDomainSuffix:    "selector:\n  app: prod",
+		},
+	}
+	kubeClient.Core().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&domainConfig)
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
@@ -183,16 +196,6 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		kubeInformer,
 		elaInformer,
 		&rest.Config{},
-		ctrl.Config{
-			Domains: map[string]*ctrl.LabelSelector{
-				defaultDomainSuffix: &ctrl.LabelSelector{},
-				prodDomainSuffix: &ctrl.LabelSelector{
-					Selector: map[string]string{
-						"app": "prod",
-					},
-				},
-			},
-		},
 		k8sflag.Bool("enable-scale-to-zero", false),
 		testLogger,
 	).(*Controller)
@@ -1628,5 +1631,117 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	newRoute, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
 		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	}
+}
+
+func TestUpdateDomainConfigMap(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
+	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+
+	// Create a route.
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	routeClient.Create(route)
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
+
+	// Test changes in domain config map. Routes should get updated appropriately.
+	expectations := []struct {
+		apply                func()
+		expectedDomainSuffix string
+	}{
+		{
+			expectedDomainSuffix: prodDomainSuffix,
+			apply:                func() {},
+		},
+		{
+			expectedDomainSuffix: "mytestdomain.com",
+			apply: func() {
+				domainConfig := corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      ctrl.GetDomainConfigMapName(),
+						Namespace: pkg.GetServingSystemNamespace(),
+					},
+					Data: map[string]string{
+						defaultDomainSuffix: "",
+						"mytestdomain.com":  "selector:\n  app: prod",
+					},
+				}
+				controller.updateConfigMapEvent(nil, &domainConfig)
+			},
+		},
+		{
+			expectedDomainSuffix: "newdefault.net",
+			apply: func() {
+				domainConfig := corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      ctrl.GetDomainConfigMapName(),
+						Namespace: pkg.GetServingSystemNamespace(),
+					},
+					Data: map[string]string{
+						"newdefault.net":   "",
+						"mytestdomain.com": "selector:\n  app: prod",
+					},
+				}
+				controller.updateConfigMapEvent(nil, &domainConfig)
+				route.Labels = make(map[string]string)
+			},
+		},
+		// An unrelated config map
+		{
+			expectedDomainSuffix: "newdefault.net",
+			apply: func() {
+				domainConfig := corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "SomethingDifferent",
+						Namespace: pkg.GetServingSystemNamespace(),
+					},
+					Data: map[string]string{
+						defaultDomainSuffix: "",
+					},
+				}
+				controller.updateConfigMapEvent(nil, &domainConfig)
+				route.Labels = make(map[string]string)
+			},
+		},
+		// An invalid config map
+		{
+			expectedDomainSuffix: "newdefault.net",
+			apply: func() {
+				domainConfig := corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      ctrl.GetDomainConfigMapName(),
+						Namespace: pkg.GetServingSystemNamespace(),
+					},
+					Data: map[string]string{
+						"mytestdomain.com": "selector:\n  app: prod",
+					},
+				}
+				controller.updateConfigMapEvent(nil, &domainConfig)
+				route.Labels = make(map[string]string)
+			},
+		}}
+	for _, expectation := range expectations {
+		expectation.apply()
+		elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+		routeClient.Update(route)
+		controller.updateRouteEvent(KeyOrDie(route))
+
+		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+		if route.Status.Domain != expectedDomain {
+			t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+		}
+		ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
+		expectedHost := route.Status.Domain
+		expectedWildcardHost := fmt.Sprintf("*.%s", route.Status.Domain)
+		if ingress.Spec.Rules[0].Host != expectedHost {
+			t.Errorf("Expected ingress host %q but saw %q", expectedHost, ingress.Spec.Rules[0].Host)
+		}
+		if ingress.Spec.Rules[1].Host != expectedWildcardHost {
+			t.Errorf("Expected ingress host %q but saw %q", expectedWildcardHost, ingress.Spec.Rules[1].Host)
+		}
 	}
 }

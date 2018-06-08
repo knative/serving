@@ -129,11 +129,6 @@ func main() {
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 
-	controllerConfig, err := controller.NewConfig(kubeClient)
-	if err != nil {
-		logger.Fatalf("Error loading controller config: %v", err)
-	}
-
 	revControllerConfig := revision.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
 		AutoscaleEnableSingleConcurrency:  autoscaleEnableSingleConcurrency,
@@ -152,10 +147,10 @@ func main() {
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
 		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
-		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, autoscaleEnableScaleToZero, logger),
+		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
 	}
 
 	go kubeInformerFactory.Start(stopCh)

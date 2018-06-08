@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	"github.com/google/go-cmp/cmp"
@@ -505,7 +507,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{"sidecar.istio.io/inject": "true"},
 	)
 
-	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
@@ -557,7 +559,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
@@ -855,7 +857,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 		expectedLabels,
 		map[string]string{serving.AutoscalerLabelKey: expectedAutoscalerName},
 	)
-	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
@@ -864,7 +866,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 			expectedAutoscalerLabels, labels)
 	}
 	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}

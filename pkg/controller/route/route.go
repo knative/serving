@@ -21,6 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
+	"time"
+
+	"github.com/knative/serving/pkg"
 
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -88,8 +93,12 @@ type Controller struct {
 	// don't start the workers until configuration cache have been synced
 	configSynced cache.InformerSynced
 
-	// suffix used to construct Route domain.
-	controllerConfig controller.Config
+	configMapInformer cache.SharedIndexInformer
+
+	// Domain configuration could change over time and access to domainConfig
+	// must go through domainConfigMutex
+	domainConfig      *DomainConfig
+	domainConfigMutex sync.Mutex
 
 	// Autoscale enable scale to zero experiment flag.
 	enableScaleToZero *k8sflag.BoolFlag
@@ -106,7 +115,6 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
 	enableScaleToZero *k8sflag.BoolFlag,
 	logger *zap.SugaredLogger) controller.Interface {
 
@@ -116,13 +124,35 @@ func NewController(
 	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 
+	// An alternate to below is to create a shared informer factory
+	// using NewFilteredSharedInformerFactory and use it to create
+	// shared informers using it and share the informer across multiple callers,
+	// but this case is quite specific and isn't too common to be shared.
+	// If it turns our that more than once caller needs it, we should bump this up
+	// to cmd/main.go and create a shared informer factory.
+	// The resync period is set to 15 minutes, because we don't really need to
+	// keep reading domain config map every 30 seconds like we do with our other
+	// informers. If we somehow miss to update the config map, 15 minute seems
+	// like a reasonable delay to reconcile it back as domain configuration
+	// should only change very few times if ever throughout the lifetime of a cluster.
+	configMapInformer := coreinformers.NewFilteredConfigMapInformer(kubeClientSet, pkg.GetServingSystemNamespace(),
+		time.Minute*15, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
+
+	domainConfig, err := NewDomainConfig(kubeClientSet)
+	if err != nil {
+		logger.Fatalf("Error loading controller config: %v", err)
+	}
+
+	// No need to lock domainConfigMutex yet since the informers that can modify
+	// domainConfig haven't started yet.
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
 			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes", logger),
 		lister:            informer.Lister(),
 		synced:            informer.Informer().HasSynced,
 		configSynced:      configInformer.Informer().HasSynced,
-		controllerConfig:  controllerConfig,
+		configMapInformer: configMapInformer,
+		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
 
@@ -134,6 +164,10 @@ func NewController(
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: controller.updateIngressEvent,
 	})
+	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addConfigMapEvent,
+		UpdateFunc: controller.updateConfigMapEvent,
+	})
 	return controller
 }
 
@@ -142,7 +176,8 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced},
+	go c.configMapInformer.Run(stopCh)
+	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced, c.configMapInformer.HasSynced},
 		c.updateRouteEvent, "Route")
 }
 
@@ -212,8 +247,20 @@ func (c *Controller) updateRouteEvent(key string) error {
 	return err
 }
 
+func (c *Controller) getDomainConfig() *DomainConfig {
+	c.domainConfigMutex.Lock()
+	defer c.domainConfigMutex.Unlock()
+	return c.domainConfig
+}
+
+func (c *Controller) setDomainConfig(cfg *DomainConfig) {
+	c.domainConfigMutex.Lock()
+	defer c.domainConfigMutex.Unlock()
+	c.domainConfig = cfg
+}
+
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
-	domain := c.controllerConfig.LookupDomainForLabels(route.ObjectMeta.Labels)
+	domain := c.getDomainConfig().LookupDomainForLabels(route.ObjectMeta.Labels)
 	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
 }
 
@@ -656,7 +703,7 @@ func (c *Controller) computeRevisionRoutes(
 			Name:         controller.GetElaK8SActivatorServiceName(),
 			RevisionName: inactiveRev,
 			Service:      controller.GetElaK8SActivatorServiceName(),
-			Namespace:    controller.GetElaK8SActivatorNamespace(),
+			Namespace:    pkg.GetServingSystemNamespace(),
 			Weight:       totalInactivePercent,
 		}
 		ret = append(ret, activatorRoute)
@@ -989,4 +1036,23 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 			zap.String(logkey.Route, routeName))
 		return
 	}
+}
+
+func (c *Controller) addConfigMapEvent(obj interface{}) {
+	configMap := obj.(*corev1.ConfigMap)
+	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetDomainConfigMapName() {
+		return
+	}
+
+	c.Logger.Infof("Domain config map is added or updated: %v", configMap)
+	newDomainConfig, err := NewDomainConfigFromConfigMap(configMap)
+	if err != nil {
+		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.", zap.Error(err))
+		return
+	}
+	c.setDomainConfig(newDomainConfig)
+}
+
+func (c *Controller) updateConfigMapEvent(old, new interface{}) {
+	c.addConfigMapEvent(new)
 }
