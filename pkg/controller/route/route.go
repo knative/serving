@@ -294,7 +294,7 @@ func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route
 	ingressNamespace := route.Namespace
 	ingressName := controller.GetElaK8SIngressName(route)
 	ingress := MakeRouteIngress(route)
-	ingressClient := c.KubeClientSet.Extensions().Ingresses(ingressNamespace)
+	ingressClient := c.KubeClientSet.ExtensionsV1beta1().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(ingressName, metav1.GetOptions{})
 
 	if err != nil {
