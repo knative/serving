@@ -42,7 +42,7 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
 * Since these tests are fairly slow, running them with logging
   enabled is recommended (`-v`).
-* Using `--logverbose` to see the verbose log output from test as well as from k8s libraries.
+* Using [`--logverbose`](#output-verbose-log) to see the verbose log output from test as well as from k8s libraries.
 * Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
 
 You can [use test flags](#flags) to control the environment

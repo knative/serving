@@ -34,7 +34,7 @@ you can use in your tests.
 You can:
 
 * [Use common test flags](#use-common-test-flags)
-* [Output verbose log](#output-verbose-log)
+* [Output log](#output-log)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
 * [Poll Knative Serving resources](#poll-knative-serving-resources)
@@ -56,11 +56,12 @@ imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 
 _See [e2e_flags.go](./e2e_flags.go)._
 
-### Output verbose log
+### Output log
 
 Log output should be provided exclusively using [the glog library](https://godoc.org/github.com/golang/glog).
 Package "github.com/knative/serving/test" contains a `Verbose` function to be used for all verbose logging.
 Internally, it defines `glog.Level` 10 as log level. _See [e2e_flags.go](./e2e_flags.go)._
+Also _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `test.Verbose()` call.
 
 ### Get access to client objects
 
