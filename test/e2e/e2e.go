@@ -1,12 +1,14 @@
 package e2e
 
 import (
+	"log"
 	"testing"
 
 	"github.com/knative/serving/test"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
@@ -17,6 +19,19 @@ const (
 	configName = "prod"
 	routeName  = "noodleburg"
 )
+
+func resetScaleToZeroSettings(clients *test.Clients) {
+	configMap, err := clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Get("config-autoscaler", metav1.GetOptions{})
+	if err != nil {
+		log.Fatalf("Couldn't initialize clients: %v", err)
+	}
+	configMap.Data["enable-scale-to-zero"] = "false"
+	configMap.Data["scale-to-zero-threshold"] = "5m"
+	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Update(configMap)
+	if err != nil {
+		log.Printf("Could not reset autoscaler scale to zero settings: %v", err)
+	}
+}
 
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
@@ -33,6 +48,7 @@ func Setup(t *testing.T) *test.Clients {
 // TearDown will delete created names using clients.
 func TearDown(clients *test.Clients, names test.ResourceNames) {
 	if clients != nil {
+		resetScaleToZeroSettings(clients)
 		clients.Delete([]string{names.Route}, []string{names.Config})
 	}
 }
