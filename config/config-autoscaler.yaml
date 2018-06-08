@@ -50,7 +50,7 @@ data:
   concurrency-quantum-of-time: "100ms"
 
   # Scale to zero feature flag
-  enable-scale-to-zero: "false"
+  enable-scale-to-zero: "true"
 
   # Dynamic parameters (take effect when config map is updated):
 
