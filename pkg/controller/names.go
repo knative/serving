@@ -34,6 +34,10 @@ func GetDomainConfigMapName() string {
 	return "config-domain"
 }
 
+func GetNetworkConfigMapName() string {
+	return "config-network"
+}
+
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
 	// We create resources in the same namespace as the Knative Serving resources by default.

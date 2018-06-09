@@ -73,8 +73,8 @@ func NewController(
 	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Configurations", logger),
+		Base: controller.NewBase(kubeClientSet, elaClientSet,
+			informer.Informer(), controllerAgentName, "Configurations", logger),
 		buildClientSet:  buildClientSet,
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,

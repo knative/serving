@@ -22,13 +22,11 @@ import (
 
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -57,14 +55,6 @@ type Base struct {
 	// ElaClientSet allows us to configure Ela objects
 	ElaClientSet clientset.Interface
 
-	// KubeInformerFactory provides shared informers for resources
-	// in all known API group versions
-	KubeInformerFactory kubeinformers.SharedInformerFactory
-
-	// ElaInformerFactory provides shared informers for resources
-	// in all known API group versions
-	ElaInformerFactory informers.SharedInformerFactory
-
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
@@ -89,8 +79,6 @@ type Base struct {
 func NewBase(
 	kubeClientSet kubernetes.Interface,
 	elaClientSet clientset.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
 	informer cache.SharedIndexInformer,
 	controllerAgentName string,
 	workQueueName string,
@@ -107,13 +95,11 @@ func NewBase(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	base := &Base{
-		KubeClientSet:       kubeClientSet,
-		ElaClientSet:        elaClientSet,
-		KubeInformerFactory: kubeInformerFactory,
-		ElaInformerFactory:  elaInformerFactory,
-		Recorder:            recorder,
-		WorkQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		Logger:              logger,
+		KubeClientSet: kubeClientSet,
+		ElaClientSet:  elaClientSet,
+		Recorder:      recorder,
+		WorkQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		Logger:        logger,
 	}
 
 	// Set up an event handler for when the resource types of interest change
