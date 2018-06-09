@@ -53,6 +53,7 @@ data:
   enable-scale-to-zero: "false"
 
   # Experimental: enable vertical pod autoscaling.
+  # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
   enable-vertical-pod-autoscaling: "false"
   
   # Dynamic parameters (take effect when config map is updated):
