@@ -41,12 +41,12 @@ type NetworkConfig struct {
 
 // NewNetworkConfig creates a DomainConfig by reading the domain configmap from
 // the supplied client.
-func NewNetworkConfig(kubeClient kubernetes.Interface) *NetworkConfig {
+func NewNetworkConfig(kubeClient kubernetes.Interface) (*NetworkConfig, error) {
 	m, err := kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Get(controller.GetNetworkConfigMapName(), metav1.GetOptions{})
 	if err != nil {
-		return &NetworkConfig{}
+		return nil, err
 	}
-	return NewNetworkConfigFromConfigMap(m)
+	return NewNetworkConfigFromConfigMap(m), nil
 }
 
 // NewNetworkConfigFromConfigMap creates a NewNetworkConfig from the supplied ConfigMap

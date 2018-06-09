@@ -180,6 +180,11 @@ func NewController(
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
 
+	networkConfig, err := NewNetworkConfig(kubeClientSet)
+	if err != nil {
+		logger.Fatalf("Error loading network config: %v", err)
+	}
+
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet,
 			informer.Informer(), controllerAgentName, "Revisions", logger),
@@ -190,7 +195,7 @@ func NewController(
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: kubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
-		networkConfig:    NewNetworkConfig(kubeClientSet),
+		networkConfig:    networkConfig,
 	}
 
 	controller.Logger.Info("Setting up event handlers")
@@ -214,7 +219,6 @@ func NewController(
 	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addConfigMapEvent,
 		UpdateFunc: controller.updateConfigMapEvent,
-		DeleteFunc: controller.deleteConfigMapEvent,
 	})
 
 	return controller
@@ -225,7 +229,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced},
+	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced, c.configMapSynced},
 		c.syncHandler, "Revision")
 }
 
@@ -1067,14 +1071,6 @@ func (c *Controller) addConfigMapEvent(obj interface{}) {
 
 func (c *Controller) updateConfigMapEvent(old, new interface{}) {
 	c.addConfigMapEvent(new)
-}
-
-func (c *Controller) deleteConfigMapEvent(obj interface{}) {
-	configMap := obj.(*corev1.ConfigMap)
-	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetNetworkConfigMapName() {
-		return
-	}
-	c.setNetworkConfig(&NetworkConfig{})
 }
 
 func (c *Controller) getNetworkConfig() *NetworkConfig {

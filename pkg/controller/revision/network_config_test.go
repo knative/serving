@@ -27,9 +27,9 @@ import (
 )
 
 func TestNewConfigMissingConfigMap(t *testing.T) {
-	c := NewNetworkConfig(fakekubeclientset.NewSimpleClientset())
-	if len(c.IstioOutboundIPRanges) > 0 {
-		t.Error("Expected an empty value when config map doesn't exist.")
+	_, err := NewNetworkConfig(fakekubeclientset.NewSimpleClientset())
+	if err == nil {
+		t.Error("Expected an error value when config map doesn't exist.")
 	}
 }
 
@@ -41,8 +41,10 @@ func TestNewConfigNoEntry(t *testing.T) {
 			Name:      controller.GetNetworkConfigMapName(),
 		},
 	})
-	c := NewNetworkConfig(fakekubeclientset.NewSimpleClientset())
-	if len(c.IstioOutboundIPRanges) > 0 {
+	c, err := NewNetworkConfig(kubeClient)
+	if err != nil {
+		t.Errorf("Didn't expect an error but got %v", err)
+	} else if len(c.IstioOutboundIPRanges) > 0 {
 		t.Error("Expected an empty value when config map doesn't have the entry.")
 	}
 }
@@ -60,7 +62,10 @@ func TestNewConfig(t *testing.T) {
 			"bar.com":                "selector:\n  app: bar\n  version: beta",
 		},
 	})
-	c := NewNetworkConfig(kubeClient)
+	c, err := NewNetworkConfig(kubeClient)
+	if err != nil {
+		t.Errorf("Didn't expect an error but got %v", err)
+	}
 	if c.IstioOutboundIPRanges != want {
 		t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
 	}

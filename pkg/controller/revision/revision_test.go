@@ -234,6 +234,13 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	buildClient = fakebuildclientset.NewSimpleClientset()
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
+	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetNetworkConfigMapName(),
+		},
+	})
+
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
@@ -1513,7 +1520,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 		"*",
 	}
 	for _, want := range validList {
-		annotations = getPodAnnotationsForConfig(t, want, "", false, false)
+		annotations = getPodAnnotationsForConfig(t, want, "", false)
 		if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
 			t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
 		}
@@ -1531,7 +1538,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 		"*,*",
 	}
 	for _, invalid := range invalidList {
-		annotations = getPodAnnotationsForConfig(t, invalid, "", false, false)
+		annotations = getPodAnnotationsForConfig(t, invalid, "", false)
 		if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
 			t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, invalid, got)
 		}
@@ -1539,52 +1546,41 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 	// Configuration has an annotation override - its value must be preserved
 	want := "10.240.10.0/14"
-	annotations = getPodAnnotationsForConfig(t, "", want, false, false)
+	annotations = getPodAnnotationsForConfig(t, "", want, false)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
 	}
-	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want, false, false)
+	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want, false)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
-	}
-
-	// Delete the config map
-	want = "10.240.10.0/14"
-	annotations = getPodAnnotationsForConfig(t, "", want, true, false)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
-	}
-	annotations = getPodAnnotationsForConfig(t, "", "", true, false)
-	if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
-		t.Fatalf("Expected to have no %v annotation. But found value %v", istioOutboundIPRangeAnnotation, got)
 	}
 
 	// Update a random config map in serving namespace
 	want = "10.240.10.0/14"
-	annotations = getPodAnnotationsForConfig(t, "", want, false, true)
+	annotations = getPodAnnotationsForConfig(t, "", want, true)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
 	}
-	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want, false, true)
+	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want, true)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
 	}
 	want = "10.10.10.0/24"
-	annotations = getPodAnnotationsForConfig(t, want, "", false, true)
+	annotations = getPodAnnotationsForConfig(t, want, "", true)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
 	}
 }
 
-func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string, deleteConfigMap bool, updateRandomConfigMap bool) map[string]string {
+func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string, updateRandomConfigMap bool) map[string]string {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, _, elaClient, controller, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
 	controller.resolver = &fixedResolver{digest}
-	if deleteConfigMap {
-		controller.deleteConfigMapEvent(&corev1.ConfigMap{
+	controller.updateConfigMapEvent(nil,
+		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      ctrl.GetNetworkConfigMapName(),
 				Namespace: pkg.GetServingSystemNamespace(),
@@ -1592,17 +1588,6 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: configMapValue,
 			}})
-	} else {
-		controller.updateConfigMapEvent(nil,
-			&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ctrl.GetNetworkConfigMapName(),
-					Namespace: pkg.GetServingSystemNamespace(),
-				},
-				Data: map[string]string{
-					IstioOutboundIPRangesKey: configMapValue,
-				}})
-	}
 
 	if updateRandomConfigMap {
 		controller.updateConfigMapEvent(nil,
@@ -1614,15 +1599,6 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 				Data: map[string]string{
 					IstioOutboundIPRangesKey: "11.11.11.11/24",
 				}})
-		controller.deleteConfigMapEvent(&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "Someotherfile2",
-				Namespace: pkg.GetServingSystemNamespace(),
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey: "11.11.11.11/24",
-			}})
-
 	}
 
 	rev := getTestRevision()

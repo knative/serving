@@ -125,7 +125,7 @@ func NewController(
 
 	domainConfig, err := NewDomainConfig(kubeClientSet)
 	if err != nil {
-		logger.Fatalf("Error loading controller config: %v", err)
+		logger.Fatalf("Error loading domain config: %v", err)
 	}
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
