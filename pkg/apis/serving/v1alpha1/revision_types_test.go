@@ -154,7 +154,7 @@ func TestGetSetCondition(t *testing.T) {
 		Status: corev1.ConditionTrue,
 	}
 	// Set Condition and make sure it's the only thing returned
-	rs.SetCondition(rc)
+	rs.setCondition(rc)
 	if e, a := rc, rs.GetCondition(RevisionConditionBuildSucceeded); !reflect.DeepEqual(e, a) {
 		t.Errorf("GetCondition expected %v got: %v", e, a)
 	}
@@ -180,7 +180,7 @@ func TestRevisionConditions(t *testing.T) {
 	}
 
 	// Add a new condition.
-	rev.Status.SetCondition(foo)
+	rev.Status.setCondition(foo)
 
 	if got, want := len(rev.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -194,7 +194,7 @@ func TestRevisionConditions(t *testing.T) {
 	}
 
 	// Add a second condition.
-	rev.Status.SetCondition(bar)
+	rev.Status.setCondition(bar)
 
 	if got, want := len(rev.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -208,7 +208,7 @@ func TestRevisionConditions(t *testing.T) {
 	}
 
 	// Add nil condition.
-	rev.Status.SetCondition(nil)
+	rev.Status.setCondition(nil)
 
 	if got, want := len(rev.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
