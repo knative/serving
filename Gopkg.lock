@@ -345,12 +345,6 @@
   revision = "8624fda54557ac4461d35921765b7bf48e5aba6d"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/kubernetes/autoscaler"
-  packages = ["vertical-pod-autoscaler/pkg/client/clientset/versioned"]
-  revision = "e2e2fcf6a58e719f5dba70bbbbee66428a7c0c7e"
-
-[[projects]]
   name = "github.com/magiconair/properties"
   packages = ["."]
   revision = "c2353362d570a7bfa228149c62842019201cfb71"
@@ -969,6 +963,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d87460da9fa25b07a3f9eea418c7f48b43ff6fa19ea755ea1bb825ad76384354"
+  inputs-digest = "97471646bc80eff6f9543f8784127bca04230e3c5a155f7eede0ec5ee101da6f"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -41,9 +41,9 @@ import (
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
-	vpa "github.com/kubernetes/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
+	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 )
 
 const (

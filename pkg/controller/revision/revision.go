@@ -640,8 +640,8 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		if err := c.deleteVpa(ctx, rev); err != nil {
 			logger.Error("Failed to delete VPA", zap.Error(err))
 		}
+		logger.Info("Deleted VPA")
 	}
-	logger.Info("Deleted VPA")
 
 	err = c.deleteService(ctx, rev, ns)
 	if err != nil {
