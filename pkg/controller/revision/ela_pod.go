@@ -29,10 +29,20 @@ import (
 )
 
 const (
-	// Each Knative Serving pod gets 1 cpu.
+	// Each Knative Serving pod gets 500m cpu initially.
 	userContainerCPU    = "400m"
 	queueContainerCPU   = "25m"
 	fluentdContainerCPU = "75m"
+
+	// Limit CPU to 7500m (most of an 8-core node)
+	userContainerMaxCPU    = "6000m"
+	queueContainerMaxCPU   = "500m"
+	fluentdContainerMaxCPU = "1000m"
+
+	// Limit memory to 20Gi
+	userContainerMaxMemory    = "17Gi"
+	queueContainerMaxMemory   = "1Gi"
+	fluentdContainerMaxMemory = "2Gi"
 
 	fluentdConfigMapVolumeName = "configmap"
 	varLogVolumeName           = "varlog"
