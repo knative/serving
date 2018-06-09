@@ -62,7 +62,7 @@ var (
 	autoscaleConcurrencyQuantumOfTime     = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
 	autoscaleEnableScaleToZero            = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
 	autoscaleEnableSingleConcurrency      = autoscaleFlagSet.Bool("enable-single-concurrency", false)
-	autoscaleEnableVerticalPodAutoscaling = autoscaleFlagSet.Bool("autoscale.enable-vertical-pod-autoscaling", false)
+	autoscaleEnableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
 
 	observabilityFlagSet             = k8sflag.NewFlagSet("/etc/config-observability")
 	loggingEnableVarLogCollection    = observabilityFlagSet.Bool("logging.enable-var-log-collection", false)
