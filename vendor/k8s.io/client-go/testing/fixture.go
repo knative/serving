@@ -29,6 +29,11 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
+// FakeWatchBufferSize is the max num of watch event can be buffered in the
+// watch channel. Note that when watch event overflows or exceed this buffer
+// size, manipulations via fake client may be blocked.
+const FakeWatchBufferSize = 128
+
 // ObjectTracker keeps track of objects. It is intended to be used to
 // fake calls to a server by returning objects based on their kind,
 // namespace and name.
@@ -137,11 +142,12 @@ type tracker struct {
 	lock    sync.RWMutex
 	objects map[schema.GroupVersionResource][]runtime.Object
 	// The value type of watchers is a map of which the key is either a namespace or
-	// all/non namespace aka "" and its value is list of fake watchers.
-	// Manipulations on resources will broadcast the notification events into the
-	// watchers' channel. Note that too many unhandled events (currently 100,
-	// see apimachinery/pkg/watch.DefaultChanSize) will cause a panic.
-	watchers map[schema.GroupVersionResource]map[string][]*watch.RaceFreeFakeWatcher
+	// all/non namespace aka "" and its value is list of fake watchers. Each of
+	// fake watcher holds a buffered channel of size "FakeWatchBufferSize" which
+	// is default to 128. Manipulations on resources will broadcast the notification
+	// events into the watchers' channel and note that too many unhandled event may
+	// potentially block the tracker.
+	watchers map[schema.GroupVersionResource]map[string][]*watch.FakeWatcher
 }
 
 var _ ObjectTracker = &tracker{}
@@ -153,7 +159,7 @@ func NewObjectTracker(scheme ObjectScheme, decoder runtime.Decoder) ObjectTracke
 		scheme:   scheme,
 		decoder:  decoder,
 		objects:  make(map[schema.GroupVersionResource][]runtime.Object),
-		watchers: make(map[schema.GroupVersionResource]map[string][]*watch.RaceFreeFakeWatcher),
+		watchers: make(map[schema.GroupVersionResource]map[string][]*watch.FakeWatcher),
 	}
 }
 
@@ -200,10 +206,10 @@ func (t *tracker) Watch(gvr schema.GroupVersionResource, ns string) (watch.Inter
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	fakewatcher := watch.NewRaceFreeFake()
+	fakewatcher := watch.NewFakeWithChanSize(FakeWatchBufferSize, true)
 
 	if _, exists := t.watchers[gvr]; !exists {
-		t.watchers[gvr] = make(map[string][]*watch.RaceFreeFakeWatcher)
+		t.watchers[gvr] = make(map[string][]*watch.FakeWatcher)
 	}
 	t.watchers[gvr][ns] = append(t.watchers[gvr][ns], fakewatcher)
 	return fakewatcher, nil
@@ -287,8 +293,8 @@ func (t *tracker) Update(gvr schema.GroupVersionResource, obj runtime.Object, ns
 	return t.add(gvr, obj, ns, true)
 }
 
-func (t *tracker) getWatches(gvr schema.GroupVersionResource, ns string) []*watch.RaceFreeFakeWatcher {
-	watches := []*watch.RaceFreeFakeWatcher{}
+func (t *tracker) getWatches(gvr schema.GroupVersionResource, ns string) []*watch.FakeWatcher {
+	watches := []*watch.FakeWatcher{}
 	if t.watchers[gvr] != nil {
 		if w := t.watchers[gvr][ns]; w != nil {
 			watches = append(watches, w...)

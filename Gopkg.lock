@@ -740,6 +740,7 @@
   name = "k8s.io/autoscaler"
   packages = [
     "vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned",
     "vertical-pod-autoscaler/pkg/client/clientset/versioned/scheme",
     "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1"
   ]
@@ -968,6 +969,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ed5e1d2232e4aca3847d0ef95baee096ede7720beab902ceca7ac56abebb8a3b"
+  inputs-digest = "d87460da9fa25b07a3f9eea418c7f48b43ff6fa19ea755ea1bb825ad76384354"
   solver-name = "gps-cdcl"
   solver-version = 1

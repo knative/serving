@@ -33,9 +33,9 @@ import (
 	"go.uber.org/zap"
 
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	vpa "github.com/kubernetes/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	kubeinformers "k8s.io/client-go/informers"
 
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
