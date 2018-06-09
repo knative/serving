@@ -200,12 +200,13 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
-	// We will inject this value only if all of the following is true:
+	// We will inject this value only if all of the following are true:
 	// - the config map contains a non-empty value
-	// - the user doesn't specify this annotation in their configuration
+	// - the user doesn't specify this annotation in configuration's pod template
 	// - configured values are valid CIDR notation IP addresses
 	// If these conditions are not met, this value will be left untouched.
 	// * is a special value that is accepted as a valid.
+	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
 	if _, ok := podTemplateAnnotations[istioOutboundIPRangeAnnotation]; !ok {
 		if len(networkConfig.IstioOutboundIPRanges) > 0 {
 			if err := validateOutboundIPRanges(networkConfig.IstioOutboundIPRanges); err != nil {

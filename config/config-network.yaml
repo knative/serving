@@ -19,7 +19,7 @@ metadata:
   namespace: knative-serving-system
 data:
   # Specifies the IP ranges that Istio sidecar will intercept.
-  # Replace this with the IP ranges of your cluster.
+  # Replace this with the IP ranges of your cluster (see below for some examples).
   # Separate multiple entries with a comma.
   # Example: "10.4.0.0/14,10.7.240.0/20"
   # 
