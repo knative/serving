@@ -53,7 +53,7 @@ data:
   enable-scale-to-zero: "false"
 
   # Experimental: enable vertical pod autoscaling.
-  enable-vertical-pod-autoscaling: "true"
+  enable-vertical-pod-autoscaling: "false"
   
   # Dynamic parameters (take effect when config map is updated):
 
