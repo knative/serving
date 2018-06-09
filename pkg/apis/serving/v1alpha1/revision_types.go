@@ -309,12 +309,16 @@ func (rs *RevisionStatus) MarkBuilding() {
 }
 
 func (rs *RevisionStatus) MarkBuildSucceeded() {
-	for _, cond := range []RevisionConditionType{RevisionConditionBuildSucceeded, RevisionConditionReady} {
-		rs.setCondition(&RevisionCondition{
-			Type:   cond,
-			Status: corev1.ConditionTrue,
-		})
-	}
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionBuildSucceeded,
+		Status: corev1.ConditionTrue,
+	})
+	// Clear "Reason: Building".  There is a risk this could reset a "Ready: False" state,
+	// but not as things exist today.
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionUnknown,
+	})
 }
 
 func (rs *RevisionStatus) MarkBuildFailed(bc *buildv1alpha1.BuildCondition) {

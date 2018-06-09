@@ -17,6 +17,8 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
 
 func TestGeneration(t *testing.T) {
@@ -186,6 +188,13 @@ func TestRevisionConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
+	// Add nothing
+	rev.Status.setCondition(nil)
+
+	if got, want := len(rev.Status.Conditions), 1; got != want {
+		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
+	}
+
 	// Remove a non-existent condition.
 	rev.Status.RemoveCondition(bar.Type)
 
@@ -213,4 +222,246 @@ func TestRevisionConditions(t *testing.T) {
 	if got, want := len(rev.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
+}
+
+func TestTypicalFlowWithBuild(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	r.Status.InitializeBuildCondition()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	r.Status.MarkBuilding()
+	want := "Building"
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil || got.Reason != want {
+		t.Errorf("MarkBuilding = %v, wanted %v", got, want)
+	}
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkBuilding = %v, wanted %v", got, want)
+	}
+
+	r.Status.MarkBuildSucceeded()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	want = "" // Should be cleared.
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkBuildSucceeded = %v, wanted %v", got, want)
+	}
+
+	// All of these conditions should get this status.
+	want = "TheReason"
+	r.Status.MarkDeploying(want)
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
+		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	}
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != want {
+		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	}
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	}
+
+	r.Status.MarkContainerHealthy()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	if r.Status.IsReady() {
+		t.Error("IsReady() = true, want false")
+	}
+
+	r.Status.MarkResourcesAvailable()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+
+	if !r.Status.IsReady() {
+		t.Error("IsReady() = false, want true")
+	}
+
+	// Verify that this doesn't reset our conditions.
+	r.Status.InitializeConditions()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+
+	// Or this.
+	r.Status.InitializeBuildCondition()
+	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+}
+
+func TestTypicalFlowWithBuildFailure(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	r.Status.InitializeBuildCondition()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	r.Status.MarkBuilding()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	wantReason, wantMessage := "this is the reason", "and this the message"
+	r.Status.MarkBuildFailed(&buildv1alpha1.BuildCondition{
+		Type:    buildv1alpha1.BuildSucceeded,
+		Status:  corev1.ConditionFalse,
+		Reason:  wantReason,
+		Message: wantMessage,
+	})
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil {
+		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
+	} else if got.Reason != wantReason {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
+	} else if got.Message != wantMessage {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
+	}
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil {
+		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
+	} else if got.Reason != wantReason {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
+	} else if got.Message != wantMessage {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
+	}
+}
+
+func TestTypicalFlowWithServiceTimeout(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	r.Status.MarkServiceTimeout()
+	checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionFailedRevision(r.Status, RevisionConditionReady, t)
+}
+
+func TestTypicalFlowWithProgressDeadlineExceeded(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	want := "the error message"
+	r.Status.MarkProgressDeadlineExceeded(want)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Message != want {
+		t.Errorf("MarkProgressDeadlineExceeded = %v, want %v", got, want)
+	}
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Message != want {
+		t.Errorf("MarkProgressDeadlineExceeded = %v, want %v", got, want)
+	}
+}
+
+func TestTypicalFlowWithContainerMissing(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	want := "something about the container being not found"
+	r.Status.MarkContainerMissing(want)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Message != want {
+		t.Errorf("MarkContainerMissing = %v, want %v", got, want)
+	} else if got.Reason != "ContainerMissing" {
+		t.Errorf("MarkContainerMissing = %v, want %v", got, "ContainerMissing")
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Message != want {
+		t.Errorf("MarkContainerMissing = %v, want %v", got, want)
+	} else if got.Reason != "ContainerMissing" {
+		t.Errorf("MarkContainerMissing = %v, want %v", got, "ContainerMissing")
+	}
+}
+
+func TestTypicalFlowWithSuspendResume(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	// Enter a Ready state.
+	r.Status.MarkContainerHealthy()
+	r.Status.MarkResourcesAvailable()
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+
+	// From a Ready state, make the revision inactive to simulate scale to zero.
+	r.Status.MarkInactive()
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Inactive" {
+		t.Errorf("MarkInactive = %v, want Inactive", got)
+	}
+
+	// From an Inactive state, start to activate the revision.
+	want := "Activating"
+	r.Status.MarkDeploying(want)
+	r.Status.MarkDeploying(want)
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
+		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	}
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != want {
+		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	}
+	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
+	}
+
+	// From the activating state, simulate the transition back to readiness.
+	r.Status.MarkContainerHealthy()
+	r.Status.MarkResourcesAvailable()
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+}
+
+func checkConditionSucceededRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+	t.Helper()
+	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
+}
+
+func checkConditionFailedRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+	t.Helper()
+	return checkConditionRevision(rs, rct, corev1.ConditionFalse, t)
+}
+
+func checkConditionOngoingRevision(rs RevisionStatus, rct RevisionConditionType, t *testing.T) *RevisionCondition {
+	t.Helper()
+	return checkConditionRevision(rs, rct, corev1.ConditionUnknown, t)
+}
+
+func checkConditionRevision(rs RevisionStatus, rct RevisionConditionType, cs corev1.ConditionStatus, t *testing.T) *RevisionCondition {
+	t.Helper()
+	r := rs.GetCondition(rct)
+	if r == nil {
+		t.Fatalf("Get(%v) = nil, wanted %v=%v", rct, rct, cs)
+	}
+	if r.Status != cs {
+		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
+	}
+	return r
 }
