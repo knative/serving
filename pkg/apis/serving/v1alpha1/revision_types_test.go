@@ -34,6 +34,136 @@ func TestGeneration(t *testing.T) {
 
 }
 
+func TestIsInactive(t *testing.T) {
+	cases := []struct {
+		name       string
+		status     RevisionStatus
+		isInactive bool
+	}{{
+		name:       "empty status should not be inactive",
+		status:     RevisionStatus{},
+		isInactive: false,
+	}, {
+		name: "Ready status should not be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isInactive: false,
+	}, {
+		name: "Inactive status should be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Inactive",
+			}},
+		},
+		isInactive: true,
+	}, {
+		name: "Activating status should be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+				Reason: "Activating",
+			}},
+		},
+		isInactive: true,
+	}, {
+		name: "NotReady status without reason should not be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isInactive: false,
+	}, {
+		name: "Ready/Unknown status without reason should not be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isInactive: false,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.isInactive, tc.status.IsInactive(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}
+
+func TestIsRoutable(t *testing.T) {
+	cases := []struct {
+		name       string
+		status     RevisionStatus
+		isRoutable bool
+	}{{
+		name:       "empty status should not be routable",
+		status:     RevisionStatus{},
+		isRoutable: false,
+	}, {
+		name: "Ready status should be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isRoutable: true,
+	}, {
+		name: "Inactive status should be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Inactive",
+			}},
+		},
+		isRoutable: true,
+	}, {
+		name: "Activating status should be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+				Reason: "Activating",
+			}},
+		},
+		isRoutable: true,
+	}, {
+		name: "NotReady status without reason should not be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isRoutable: false,
+	}, {
+		name: "Ready/Unknown status without reason should not be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isRoutable: false,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.isRoutable, tc.status.IsRoutable(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}
+
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string

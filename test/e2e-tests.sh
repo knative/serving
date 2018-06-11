@@ -126,8 +126,6 @@ function dump_stack_info() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-  echo ">>> Ingress:"
-  kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
   kubectl logs $(get_knative_pod controller) -n knative-serving
   echo "***************************************"
@@ -139,9 +137,11 @@ function dump_stack_info() {
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
+  kubectl label namespace $2 istio-injection=enabled --overwrite
   local options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
   report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3 ${options}
+
   local result=$?
   [[ ${result} -ne 0 ]] && dump_stack_info
   return ${result}
@@ -291,6 +291,7 @@ set +o errexit
 set +o pipefail
 
 wait_until_pods_running knative-serving
+wait_until_pods_running istio-system
 abort_if_failed
 
 # Run the tests

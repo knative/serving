@@ -17,9 +17,14 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
+func GetServiceFullname(name string, namespace string) string {
+	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
+}
 func GetDomainConfigMapName() string {
 	return "config-domain"
 }
@@ -38,7 +43,6 @@ func GetServingNamespaceName(ns string) string {
 	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
 	return ns
 }
-
 func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
 	return u.Name + "-deployment"
 }
@@ -51,23 +55,28 @@ func GetRevisionVPAName(u *v1alpha1.Revision) string {
 	return u.Name + "-vpa"
 }
 
-func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
-	if tt != nil {
-		return u.Name + "-" + tt.Name + "-istio"
-	}
-	return u.Name + "-istio"
-}
-
-func GetServingK8SIngressName(u *v1alpha1.Route) string {
-	return u.Name + "-ingress"
-}
-
 func GetServingK8SServiceNameForRevision(u *v1alpha1.Revision) string {
 	return u.Name + "-service"
 }
 
 func GetServingK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
+}
+
+func GetVirtualServiceName(u *v1alpha1.Route) string {
+	return u.Name + "-istio"
+}
+
+func GetServingK8SGatewayFullname() string {
+	return GetServiceFullname("knative-shared-gateway", "knative-serving")
+}
+
+func GetServingK8SServiceNameForObj(name string) string {
+	return name + "-service"
+}
+
+func GetServingK8SServiceFullname(u *v1alpha1.Route) string {
+	return GetServiceFullname(GetServingK8SServiceName(u), u.Namespace)
 }
 
 func GetServiceConfigurationName(u *v1alpha1.Service) string {

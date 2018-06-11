@@ -25,15 +25,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/knative/serving/test"
 )
 
 const (
-	appYaml = "test_images/helloworld/helloworld.yaml"
+	appYaml              = "test_images/helloworld/helloworld.yaml"
 	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
-	ingressTimeout = 5 * time.Minute
-	servingTimeout = 2 * time.Minute
-	checkInterval = 2 * time.Second
+	ingressTimeout       = 5 * time.Minute
+	servingTimeout       = 2 * time.Minute
+	checkInterval        = 2 * time.Second
 )
 
 func noStderrShell(name string, arg ...string) string {
@@ -47,6 +48,13 @@ func noStderrShell(name string, arg ...string) string {
 func cleanup(yamlFilename string) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
+	// There seems to be an Istio bug where if we delete / create
+	// VirtualServices too quickly we will hit pro-longed "No health
+	// upstream" causing timeouts.  Adding this small sleep to
+	// sidestep the issue.
+	//
+	// TODO(#1376):  Fix this when upstream fix is released.
+	time.Sleep(20 * time.Second)
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
@@ -64,7 +72,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	}
 	newYamlFilename := newYaml.Name()
 	defer cleanup(newYamlFilename)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) },logger)
+	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) }, logger)
 
 	// Populate manifets file with the real path to the container
 	content, err := ioutil.ReadFile(appYaml)
@@ -95,11 +103,12 @@ func TestHelloWorldFromShell(t *testing.T) {
 	timeout := ingressTimeout
 	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
 		serviceHost = noStderrShell("kubectl", "get", "route", "route-example", "-o", "jsonpath={.status.domain}")
-		serviceIP = noStderrShell("kubectl", "get", "ingress", "route-example-ingress", "-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
+		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
+			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
 		time.Sleep(checkInterval)
 		timeout = timeout - checkInterval
 	}
-	if (serviceIP == "" || serviceHost == "") {
+	if serviceIP == "" || serviceHost == "" {
 		// serviceHost or serviceIP might contain a useful error, dump them.
 		t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
 	}
@@ -109,8 +118,8 @@ func TestHelloWorldFromShell(t *testing.T) {
 
 	outputString := ""
 	timeout = servingTimeout
-	for (outputString != helloWorldExpectedOutput && timeout >= 0) {
-		output, err := exec.Command("curl", "--header", "Host:" + serviceHost, "http://" + serviceIP).Output()
+	for outputString != helloWorldExpectedOutput && timeout >= 0 {
+		output, err := exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP).Output()
 		errorString := "none"
 		time.Sleep(checkInterval)
 		timeout = timeout - checkInterval
