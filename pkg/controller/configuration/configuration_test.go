@@ -343,9 +343,9 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
 		got := readyConfig.Status.GetCondition(ct)
 		want := &v1alpha1.ConfigurationCondition{
-			Type:   ct,
-			Status: corev1.ConditionTrue,
-			// TODO(mattmoor): LastTransitionTime: got.LastTransitionTime,
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
@@ -522,11 +522,11 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	for _, ct := range []v1alpha1.ConfigurationConditionType{"LatestRevisionReady"} {
 		got := readyConfig.Status.GetCondition(ct)
 		want := &v1alpha1.ConfigurationCondition{
-			Type:    ct,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionFailed",
-			Message: `revision "test-config-00001" failed with message: Build step failed with error`,
-			// TODO(mattmoor): LastTransitionTime: got.LastTransitionTime,
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionFailed",
+			Message:            `revision "test-config-00001" failed with message: Build step failed with error`,
+			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
@@ -590,9 +590,9 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
 		got := readyConfig.Status.GetCondition(ct)
 		want := &v1alpha1.ConfigurationCondition{
-			Type:   ct,
-			Status: corev1.ConditionTrue,
-			// TODO(mattmoor): LastTransitionTime: got.LastTransitionTime,
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
