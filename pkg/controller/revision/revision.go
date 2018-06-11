@@ -313,21 +313,23 @@ func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
 // Checks whether the Revision knows whether the build is done.
 func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
 	if rev.Spec.BuildName == "" {
-		return true, false
+		done, failed = true, false
+		return
 	}
 	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
 	if cond == nil {
-		return false, false
+		done, failed = false, false
+		return
 	}
 	switch cond.Status {
 	case corev1.ConditionTrue:
-		return true, false
+		done, failed = true, false
 	case corev1.ConditionFalse:
-		return true, true
+		done, failed = true, true
 	case corev1.ConditionUnknown:
-		return false, false
+		done, failed = false, false
 	}
-	return false, false
+	return
 }
 
 // TODO(mattmoor): This should be a helper on Build (upstream)
