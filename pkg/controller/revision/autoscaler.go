@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -30,11 +31,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-// AutoscalerNamespace needs to match the service account, which needs to
-// be a single, known namespace. This ensures that projects created in
-// non-default namespaces continue to work with autoscaling.
-const AutoscalerNamespace = "knative-serving-system"
 
 // MakeElaAutoscalerDeployment creates the deployment of the
 // autoscaler for a particular revision.
@@ -76,7 +72,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 	return &appsv1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
-			Namespace:   AutoscalerNamespace,
+			Namespace:   pkg.GetServingSystemNamespace(),
 			Labels:      MakeElaResourceLabels(rev),
 			Annotations: MakeElaResourceAnnotations(rev),
 		},
@@ -157,7 +153,7 @@ func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
-			Namespace:   AutoscalerNamespace,
+			Namespace:   pkg.GetServingSystemNamespace(),
 			Labels:      makeElaAutoScalerLabels(rev),
 			Annotations: MakeElaResourceAnnotations(rev),
 		},

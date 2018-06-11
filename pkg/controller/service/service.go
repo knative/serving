@@ -81,7 +81,6 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
@@ -136,9 +135,9 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 		return err
 	}
-
 	// Don't modify the informers copy
 	service = service.DeepCopy()
+	service.Status.InitializeConditions()
 
 	// We added the Generation to avoid fighting the Configuration controller,
 	// which adds a Generation to avoid fighting the Revision controller. We

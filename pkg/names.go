@@ -13,25 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package activator
 
-// Status is an HTTP status code.
-type Status int
+package pkg
 
-// Activator provides an active endpoint for a revision or an error and
-// status code indicating why it could not.
-type Activator interface {
-	ActiveEndpoint(namespace, name string) (Endpoint, Status, error)
-	Shutdown()
-}
-
-type revisionID struct {
-	namespace string
-	name      string
-}
-
-// Endpoint is a fully-qualified domain name / port pair for an active revision.
-type Endpoint struct {
-	FQDN string
-	Port int32
+// GetServingSystemNamespace returns the namespace where
+// serving controllers are deployed to.
+func GetServingSystemNamespace() string {
+	return "knative-serving-system"
 }

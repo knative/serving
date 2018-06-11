@@ -18,7 +18,7 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	"log"
+	"github.com/golang/glog"
 	"math/rand"
 	"sync"
 	"time"
@@ -89,7 +89,7 @@ var once sync.Once
 
 func initSeed() {
 	seed := time.Now().UTC().UnixNano()
-	log.Printf("Seeding rand.Rand with %v\n", seed)
+	glog.Infof("Seeding rand.Rand with %v\n", seed)
 	r = rand.New(rand.NewSource(seed))
 }
 

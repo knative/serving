@@ -59,11 +59,9 @@ Type names should be chosen such that these interpretations are clear:
 * `BuildSucceeded` works because `True` = success and `False` = failure.
 * `BuildCompleted` does not, because `False` could mean "in-progress".
 
-Conditions may also be omitted entirely if reconciliation has been
-skipped. When all conditions have succeeded, the "happy state"
-should clear other conditions for output legibility. Until the
-"happy state" is set, conditions should be persisted for the
-benefit of UI tools representing progress on the outcome.
+Conditions may also be omitted entirely if it doesn't pertain to the
+resource at hand.  e.g. Revisions that take pre-build containers may
+elide Build-related conditions.
 
 Conditions with a status of `False` will also supply additional details
 about the failure in [the "Reason" and "Message" sections](#condition-reason-and-message).
@@ -418,6 +416,31 @@ status:
     status: False
     reason: ConfigurationMissing
     message: "Configuration 'abc' referenced in traffic not found"
+```
+
+### Unable to create Ingress
+
+If the Route is unable to create an Ingress resource to route its
+traffic to Revisions, the `IngressReady` condition will be marked
+as `False` with a reason of `NoIngress`.
+
+```http
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
+```
+
+```yaml
+...
+status:
+  traffic: []
+  conditions:
+  - type: Ready
+    status: False
+    reason: NoIngress
+    message: "Unable to create Ingress 'my-service-ingress'"
+  - type: IngressReady
+    status: False
+    reason: NoIngress
+    message: "Unable to create Ingress 'my-service-ingress'"
 ```
 
 ### Latest Revision of a Configuration deleted

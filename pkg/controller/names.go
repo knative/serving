@@ -72,10 +72,6 @@ func GetElaK8SActivatorServiceName() string {
 	return "activator-service"
 }
 
-func GetElaK8SActivatorNamespace() string {
-	return "knative-serving-system"
-}
-
 func GetRevisionHeaderName() string {
 	return "Knative-Serving-Revision"
 }
@@ -89,7 +85,7 @@ func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.In
 }
 
 func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Interface) (string, error) {
-	_, err := c.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+	_, err := c.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		logger := logging.FromContext(ctx)
 		if !apierrs.IsNotFound(err) {
@@ -103,7 +99,7 @@ func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Int
 				Namespace: "",
 			},
 		}
-		_, err := c.Core().Namespaces().Create(nsObj)
+		_, err := c.CoreV1().Namespaces().Create(nsObj)
 		if err != nil {
 			logger.Error("Unexpected error while creating namespace", zap.Error(err))
 			return "", err

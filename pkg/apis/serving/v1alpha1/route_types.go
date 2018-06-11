@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,6 +96,9 @@ type RouteCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+
+	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
 	// +optional
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
@@ -107,6 +112,9 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady RouteConditionType = "Ready"
+	// RouteConditionIngressReady is set when the route's underlying ingress
+	// resource has been set up.
+	RouteConditionIngressReady RouteConditionType = "IngressReady"
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
@@ -178,7 +186,7 @@ func (rs *RouteStatus) GetCondition(t RouteConditionType) *RouteCondition {
 	return nil
 }
 
-func (rs *RouteStatus) SetCondition(new *RouteCondition) {
+func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	if new == nil {
 		return
 	}
@@ -190,6 +198,7 @@ func (rs *RouteStatus) SetCondition(new *RouteCondition) {
 			conditions = append(conditions, cond)
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
@@ -202,4 +211,61 @@ func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 		}
 	}
 	rs.Conditions = conditions
+}
+
+func (rs *RouteStatus) InitializeConditions() {
+	rct := []RouteConditionType{RouteConditionAllTrafficAssigned,
+		RouteConditionIngressReady, RouteConditionReady}
+	for _, cond := range rct {
+		if rc := rs.GetCondition(cond); rc == nil {
+			rs.setCondition(&RouteCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (rs *RouteStatus) MarkTrafficAssigned() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
+	for _, cond := range []RouteConditionType{RouteConditionAllTrafficAssigned, RouteConditionReady} {
+		rs.setCondition(&RouteCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  kind + "Missing",
+			Message: fmt.Sprintf("Referenced %s %q not found", kind, name),
+		})
+	}
+}
+
+func (rs *RouteStatus) MarkIngressReady() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) checkAndMarkReady() {
+	for _, cond := range []RouteConditionType{RouteConditionAllTrafficAssigned, RouteConditionIngressReady} {
+		ata := rs.GetCondition(cond)
+		if ata == nil || ata.Status != corev1.ConditionTrue {
+			return
+		}
+	}
+	rs.markReady()
+}
+
+func (rs *RouteStatus) markReady() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }
