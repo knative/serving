@@ -407,7 +407,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			revMap[revName] = rev
 		}
 	}
-	route.Status.MarkTrafficAssigned()
 
 	return configMap, revMap, nil
 }
@@ -446,34 +445,43 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 	ns := route.Namespace
 	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
 
+	allTrafficAssigned := true
 	for _, tt := range route.Spec.Traffic {
-		if tt.ConfigurationName != "" {
-			configName := tt.ConfigurationName
-			if config, ok := configMap[configName]; ok {
-
-				revName := config.Status.LatestReadyRevisionName
-				if revName == "" {
-					logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
-					continue
-				}
-				// Check if it is a duplicated revision
-				if _, ok := revMap[revName]; !ok {
-					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
-					if err != nil {
-						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
-						if apierrs.IsNotFound(err) {
-							route.Status.MarkTrafficNotAssigned("Revision", revName)
-							if _, err := c.updateStatus(ctx, route); err != nil {
-								// If we failed to update the status, return that error instead of the "revision not found" error.
-								return err
-							}
-						}
-						return err
-					}
-					revMap[revName] = rev
+		configName := tt.ConfigurationName
+		if tt.ConfigurationName == "" {
+			continue
+		}
+		config, ok := configMap[configName]
+		if !ok {
+			continue
+		}
+		revName := config.Status.LatestReadyRevisionName
+		if revName == "" {
+			logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
+			allTrafficAssigned = false
+			continue
+		}
+		if _, ok := revMap[revName]; ok {
+			// Skip duplicated revisions
+			continue
+		}
+		rev, err := revisionClient.Get(revName, metav1.GetOptions{})
+		if err != nil {
+			logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
+			if apierrs.IsNotFound(err) {
+				route.Status.MarkTrafficNotAssigned("Revision", revName)
+				if _, err := c.updateStatus(ctx, route); err != nil {
+					// If we failed to update the status, return that error instead of the "revision not found" error.
+					return err
 				}
 			}
+			return err
 		}
+		revMap[revName] = rev
+	}
+
+	if allTrafficAssigned {
+		route.Status.MarkTrafficAssigned()
 	}
 
 	return nil

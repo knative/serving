@@ -136,10 +136,8 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	}
 
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
-	rev.Status.SetCondition(&v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	rev.Status.MarkContainerHealthy()
+	rev.Status.MarkResourcesAvailable()
 	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
 	time.Sleep(3 * time.Second)
@@ -250,17 +248,12 @@ func (b *revisionBuilder) withServingState(servingState v1alpha1.RevisionServing
 }
 
 func (b *revisionBuilder) withReady(ready bool) *revisionBuilder {
-	var status corev1.ConditionStatus
 	if ready {
-		status = corev1.ConditionTrue
+		b.revision.Status.MarkContainerHealthy()
+		b.revision.Status.MarkResourcesAvailable()
 	} else {
-		status = corev1.ConditionFalse
+		b.revision.Status.MarkContainerMissing("reasonz")
 	}
-	new := &v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: status,
-	}
-	b.revision.Status.SetCondition(new)
 	return b
 }
 
