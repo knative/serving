@@ -17,7 +17,6 @@ limitations under the License.
 package configuration
 
 import (
-	"context"
 	"fmt"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -28,7 +27,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -130,6 +128,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
+	config.Status.InitializeConditions()
 
 	// Configuration business logic
 	if config.GetGeneration() == config.Status.ObservedGeneration {
@@ -217,7 +216,7 @@ func (c *Controller) syncHandler(key string) error {
 	// we just reconciled against so we don't keep generating revisions.
 	// Also update the LatestCreatedRevisionName so that we'll know revision to check
 	// for ready state so that when ready, we can make it Latest.
-	config.Status.LatestCreatedRevisionName = created.ObjectMeta.Name
+	config.Status.SetLatestCreatedRevisionName(created.ObjectMeta.Name)
 	config.Status.ObservedGeneration = config.Spec.Generation
 
 	logger.Infof("Updating the configuration status:\n%+v", config)
@@ -264,7 +263,6 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	}
 
 	logger := loggerWithConfigInfo(c.Logger, namespace, configName).With(zap.String(logkey.Revision, revisionName))
-	ctx := logging.WithLogger(context.TODO(), logger)
 
 	config, err := c.lister.Configurations(namespace).Get(configName)
 	if err != nil {
@@ -281,89 +279,39 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
 
-	if !revision.Status.IsReady() {
+	// Track whether the configuration was already ready in order to
+	// present an initial readiness event.
+	alreadyReady := config.Status.IsReady()
+
+	rc := revision.Status.GetCondition(v1alpha1.RevisionConditionReady)
+	if rc == nil || rc.Status == corev1.ConditionUnknown {
 		logger.Infof("Revision %q of configuration %q is not ready", revisionName, config.Name)
-
-		//add LatestRevision condition to be false with the status from the revision
-		c.markConfigurationLatestRevisionStatus(ctx, config, revision)
-
-		if _, err := c.updateStatus(config); err != nil {
-			logger.Error("Error updating configuration", zap.Error(err))
-		}
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestRevisionUpdate",
 			"Latest revision of configuration is not ready")
-
-	} else {
-		logger.Info("Revision is ready")
-
-		alreadyReady := config.Status.IsReady()
-		if !alreadyReady {
-			c.markConfigurationReady(ctx, config, revision)
-		}
-		logger.Infof("Setting LatestReadyRevisionName of Configuration %q to revision %q",
-			config.Name, revision.Name)
-		config.Status.LatestReadyRevisionName = revision.Name
-
+	} else if rc.Status == corev1.ConditionTrue {
+		logger.Infof("Revision %q of configuration %q is ready", revisionName, config.Name)
+		config.Status.SetLatestReadyRevisionName(revision.Name)
 		if _, err := c.updateStatus(config); err != nil {
 			logger.Error("Error updating configuration", zap.Error(err))
 		}
+
 		if !alreadyReady {
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
 			"LatestReadyRevisionName updated to %q", revision.Name)
-
+	} else {
+		logger.Infof("Revision %q of configuration %q has failed", revisionName, config.Name)
+		config.Status.MarkLatestCreatedFailed(revision.Name, rc.Message)
+		if _, err := c.updateStatus(config); err != nil {
+			logger.Error("Error updating configuration", zap.Error(err))
+		}
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
+			"Latest created revision %q has failed", revision.Name)
 	}
-	return
 }
 
 func (c *Controller) updateRevisionEvent(old, new interface{}) {
 	c.addRevisionEvent(new)
-}
-
-func getLatestRevisionStatusCondition(revision *v1alpha1.Revision) *v1alpha1.RevisionCondition {
-	for _, cond := range revision.Status.Conditions {
-		if !(cond.Type == v1alpha1.RevisionConditionReady && cond.Status == corev1.ConditionTrue) {
-			return &cond
-		}
-	}
-	return nil
-}
-
-// Mark ConfigurationConditionReady of Configuration ready as the given latest
-// created revision is ready.
-func (c *Controller) markConfigurationReady(
-	ctx context.Context,
-	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
-	logger := logging.FromContext(ctx)
-	logger.Info("Marking Configuration ready")
-	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
-	config.Status.SetCondition(
-		&v1alpha1.ConfigurationCondition{
-			Type:   v1alpha1.ConfigurationConditionReady,
-			Status: corev1.ConditionTrue,
-			Reason: "LatestRevisionReady",
-		})
-}
-
-// Mark ConfigurationConditionLatestRevisionReady of Configuration to false with the status
-// from the revision
-func (c *Controller) markConfigurationLatestRevisionStatus(
-	ctx context.Context,
-	config *v1alpha1.Configuration, revision *v1alpha1.Revision) {
-	logger := logging.FromContext(ctx)
-	config.Status.RemoveCondition(v1alpha1.ConfigurationConditionReady)
-	cond := getLatestRevisionStatusCondition(revision)
-	if cond == nil {
-		logger.Info("Revision status is not updated yet")
-		return
-	}
-	config.Status.SetCondition(
-		&v1alpha1.ConfigurationCondition{
-			Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
-			Status:  corev1.ConditionFalse,
-			Reason:  cond.Reason,
-			Message: cond.Message,
-		})
 }
