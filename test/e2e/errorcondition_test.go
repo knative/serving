@@ -20,11 +20,11 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
 	"strings"
 	"testing"
 )
@@ -43,7 +43,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
-	log.Printf("Creating a new Route and Configuration %s", imagePath)
+	glog.Infof("Creating a new Route and Configuration %s", imagePath)
 	names, err := CreateRouteAndConfig(clients, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
@@ -52,7 +52,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
 
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
-	log.Println("When the imagepath is invalid, the Configuration should have error status.")
+	glog.Infof("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
@@ -76,7 +76,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	log.Println("When the imagepath is invalid, the revision should have error status.")
+	glog.Infof("When the imagepath is invalid, the revision should have error status.")
 	err = test.WaitForRevisionState(clients.Revisions, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
@@ -93,7 +93,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	log.Println("When the revision has error condition, logUrl should be populated.")
+	glog.Infof("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
