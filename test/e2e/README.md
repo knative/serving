@@ -14,6 +14,5 @@ The e2e tests are used to test whether the flow of Knative Serving is performing
 
 The e2e tests **MUST**:
 
-1. Provide frequent output describing what actions they are undertaking, especially before performing long running operations.
-     Pls see [Log section](../adding_tests.md#output-log) for detailed instructions.
+1. Provide frequent output describing what actions they are undertaking, especially before performing long running operations. Plese see the [Log section](../adding_tests.md#output-log) for detailed instructions.
 2. Follow Golang best practices.
