@@ -144,7 +144,7 @@ func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition 
 	return nil
 }
 
-func (ss *ServiceStatus) SetCondition(new *ServiceCondition) {
+func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	if new == nil {
 		return
 	}
@@ -168,4 +168,16 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 		}
 	}
 	ss.Conditions = conditions
+}
+
+func (ss *ServiceStatus) InitializeConditions() {
+	sct := []ServiceConditionType{ServiceConditionReady}
+	for _, cond := range sct {
+		if rc := ss.GetCondition(cond); rc == nil {
+			ss.setCondition(&ServiceCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
 }
