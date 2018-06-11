@@ -50,7 +50,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		appendHeaders := make(map[string]string)
 		appendHeaders[controller.GetRevisionHeaderName()] = inactiveRev
 		appendHeaders[controller.GetRevisionHeaderNamespace()] = u.Namespace
-		spec.AppendHeaders = appendHeaders
+		spec.AppendHeaders = &appendHeaders
 	}
 	return spec
 }

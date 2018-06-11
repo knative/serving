@@ -412,7 +412,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		Route: []v1alpha2.DestinationWeight{
 			getActivatorDestinationWeight(100),
 		},
-		AppendHeaders: appendHeaders,
+		AppendHeaders: &appendHeaders,
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -635,7 +635,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			},
 			getActivatorDestinationWeight(10),
 		},
-		AppendHeaders: appendHeaders,
+		AppendHeaders: &appendHeaders,
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {

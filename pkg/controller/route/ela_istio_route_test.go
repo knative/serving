@@ -88,7 +88,7 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 				Weight: 2,
 			},
 		},
-		AppendHeaders: appendHeaders,
+		AppendHeaders: &appendHeaders,
 	}
 
 	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, testInactiveRev)

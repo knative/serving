@@ -190,7 +190,15 @@ func (in *RouteRuleList) DeepCopyObject() runtime.Object {
 func (in *RouteRuleSpec) DeepCopyInto(out *RouteRuleSpec) {
 	*out = *in
 	out.Destination = in.Destination
-	out.Match = in.Match
+	if in.Match != nil {
+		in, out := &in.Match, &out.Match
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Match)
+			**out = **in
+		}
+	}
 	if in.Route != nil {
 		in, out := &in.Route, &out.Route
 		*out = make([]DestinationWeight, len(*in))
@@ -198,9 +206,17 @@ func (in *RouteRuleSpec) DeepCopyInto(out *RouteRuleSpec) {
 	}
 	if in.AppendHeaders != nil {
 		in, out := &in.AppendHeaders, &out.AppendHeaders
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(map[string]string)
+			if **in != nil {
+				in, out := *in, *out
+				*out = make(map[string]string, len(*in))
+				for key, val := range *in {
+					(*out)[key] = val
+				}
+			}
 		}
 	}
 	return
