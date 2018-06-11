@@ -85,9 +85,9 @@ type MatchString struct {
 
 type RouteRuleSpec struct {
 	Destination   IstioService        `json:"destination"`
-	Match         Match               `json:"match,omitempty"`
+	Match         *Match              `json:"match,omitempty"`
 	Route         []DestinationWeight `json:"route"`
-	AppendHeaders map[string]string   `json:"appendHeaders"`
+	AppendHeaders *map[string]string  `json:"appendHeaders,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

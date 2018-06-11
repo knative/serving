@@ -14,13 +14,12 @@ limitations under the License.
 package route
 
 import (
-	"regexp"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
-	"github.com/knative/serving/pkg/controller"
 	"github.com/google/go-cmp/cmp"
+	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 )
 
 const (
@@ -52,15 +51,6 @@ func TestMakeIstioRouteSpecRevisionsActive(t *testing.T) {
 			Name:      "test-route-service",
 			Namespace: testNamespace,
 		},
-		Match: istiov1alpha2.Match{
-			Request: istiov1alpha2.MatchRequest{
-				Headers: istiov1alpha2.Headers{
-					Authority: istiov1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(testDomain),
-					},
-				},
-			},
-		},
 		Route: calculateDestinationWeights(route, nil, rr),
 	}
 
@@ -82,15 +72,6 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 			Name:      "test-route-service",
 			Namespace: testNamespace,
 		},
-		Match: istiov1alpha2.Match{
-			Request: istiov1alpha2.MatchRequest{
-				Headers: istiov1alpha2.Headers{
-					Authority: istiov1alpha2.MatchString{
-						Regex: regexp.QuoteMeta(testDomain),
-					},
-				},
-			},
-		},
 		Route: []istiov1alpha2.DestinationWeight{
 			istiov1alpha2.DestinationWeight{
 				Destination: istiov1alpha2.IstioService{
@@ -107,7 +88,7 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 				Weight: 2,
 			},
 		},
-		AppendHeaders: appendHeaders,
+		AppendHeaders: &appendHeaders,
 	}
 
 	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, testInactiveRev)
