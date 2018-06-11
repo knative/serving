@@ -88,7 +88,6 @@ type resolver interface {
 }
 
 // Controller implements the controller for Revision resources.
-// +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
 	*controller.Base
 
