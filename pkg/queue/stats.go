@@ -20,16 +20,15 @@ import (
 	"time"
 )
 
-// Poke is a token to push onto Stats Channels for recording requests stats.
-type Poke struct{}
+// Tokens to record ReqIn (request in) and ReqOut (request out) events respectively
+type ReqIn struct{}
+type ReqOut struct{}
 
 // Channels is a structure for holding the channels for driving Stats.
 // It's just to make the NewStats signature easier to read.
 type Channels struct {
-	// Ticks with every request arrived
-	ReqInChan chan Poke
-	// Ticks with every request completed
-	ReqOutChan chan Poke
+	// Ticks with every request arrived/completed respectively
+	ReqChan chan interface{}
 	// Ticks at every quantization interval
 	QuantizationChan <-chan time.Time
 	// Ticks with every stat report request
@@ -60,14 +59,17 @@ func NewStats(podName string, channels Channels) *Stats {
 		buckets := make([]int32, 0)
 		for {
 			select {
-			case <-s.ch.ReqInChan:
-				requestCount = requestCount + 1
-				concurrency = concurrency + 1
-				if concurrency > maximumConcurrency {
-					maximumConcurrency = concurrency
+			case event := <-s.ch.ReqChan:
+				switch event.(type) {
+				case ReqIn:
+					requestCount = requestCount + 1
+					concurrency = concurrency + 1
+					if concurrency > maximumConcurrency {
+						maximumConcurrency = concurrency
+					}
+				case ReqOut:
+					concurrency = concurrency - 1
 				}
-			case <-s.ch.ReqOutChan:
-				concurrency = concurrency - 1
 			case <-s.ch.QuantizationChan:
 				// Calculate average concurrency for the current
 				// quantum of time (bucket).

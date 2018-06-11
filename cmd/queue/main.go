@@ -52,6 +52,8 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength = 10
+	// Add enough buffer to not block request serving on stats collection
+	requestCountingQueueLength = 100
 	// Number of seconds the /quitquitquit handler should wait before
 	// returning.  The purpose is to kill the container alive a little
 	// bit longer, that it doesn't go away until the pod is truly
@@ -71,8 +73,7 @@ var (
 	elaAutoscaler            string
 	elaAutoscalerPort        string
 	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan                = make(chan queue.Poke)
-	reqOutChan               = make(chan queue.Poke)
+	reqChan                  = make(chan interface{}, requestCountingQueueLength)
 	kubeClient               *kubernetes.Clientset
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
@@ -153,9 +154,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Metrics for autoscaling
-	reqInChan <- queue.Poke{}
+	reqChan <- queue.ReqIn{}
 	defer func() {
-		reqOutChan <- queue.Poke{}
+		reqChan <- queue.ReqOut{}
 	}()
 	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
 		// Enforce single concurrency and breaking
@@ -268,8 +269,7 @@ func main() {
 	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
-		ReqInChan:        reqInChan,
-		ReqOutChan:       reqOutChan,
+		ReqChan:          reqChan,
 		QuantizationChan: bucketTicker,
 		ReportChan:       reportTicker,
 		StatChan:         statChan,
