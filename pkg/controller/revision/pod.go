@@ -17,6 +17,11 @@ limitations under the License.
 package revision
 
 import (
+	"net"
+	"strings"
+
+	"go.uber.org/zap"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/queue"
@@ -34,8 +39,9 @@ const (
 	queueContainerCPU   = "25m"
 	fluentdContainerCPU = "75m"
 
-	fluentdConfigMapVolumeName = "configmap"
-	varLogVolumeName           = "varlog"
+	fluentdConfigMapVolumeName     = "configmap"
+	varLogVolumeName               = "varlog"
+	istioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 )
 
 func hasHTTPPath(p *corev1.Probe) bool {
@@ -183,7 +189,8 @@ func MakeElaPodSpec(
 }
 
 // MakeElaDeployment creates a deployment.
-func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deployment {
+func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespace string,
+	networkConfig *NetworkConfig) *appsv1.Deployment {
 	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
@@ -191,6 +198,24 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deploymen
 
 	podTemplateAnnotations := MakeElaResourceAnnotations(u)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+
+	// Inject the IP ranges for istio sidecar configuration.
+	// We will inject this value only if all of the following are true:
+	// - the config map contains a non-empty value
+	// - the user doesn't specify this annotation in configuration's pod template
+	// - configured values are valid CIDR notation IP addresses
+	// If these conditions are not met, this value will be left untouched.
+	// * is a special value that is accepted as a valid.
+	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
+	if _, ok := podTemplateAnnotations[istioOutboundIPRangeAnnotation]; !ok {
+		if len(networkConfig.IstioOutboundIPRanges) > 0 {
+			if err := validateOutboundIPRanges(networkConfig.IstioOutboundIPRanges); err != nil {
+				logger.Errorf("Failed to parse IP ranges %v. Not setting the annotation. Error: %v", networkConfig.IstioOutboundIPRanges, err)
+			} else {
+				podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
+			}
+		}
+	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -214,4 +239,18 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deploymen
 			},
 		},
 	}
+}
+
+func validateOutboundIPRanges(s string) error {
+	// * is a valid value
+	if s == "*" {
+		return nil
+	}
+	cidrs := strings.Split(s, ",")
+	for _, cidr := range cidrs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return err
+		}
+	}
+	return nil
 }

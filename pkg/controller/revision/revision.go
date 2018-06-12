@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/knative/serving/pkg"
@@ -99,8 +100,9 @@ type Controller struct {
 
 	resolver resolver
 
-	// don't start the workers until endpoints cache have been synced
+	// don't start the workers until informers are synced
 	endpointsSynced cache.InformerSynced
+	configMapSynced cache.InformerSynced
 
 	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
 	// collect logs under /var/log/.
@@ -108,6 +110,11 @@ type Controller struct {
 
 	// controllerConfig includes the configurations for the controller
 	controllerConfig *ControllerConfig
+
+	// networkConfig could change over time and access to it
+	// must go through networkConfigMutex
+	networkConfig      *NetworkConfig
+	networkConfigMutex sync.Mutex
 }
 
 // ControllerConfig includes the configurations for the controller.
@@ -162,6 +169,7 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	buildInformerFactory buildinformers.SharedInformerFactory,
+	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
 	config *rest.Config,
 	controllerConfig *ControllerConfig,
 	logger *zap.SugaredLogger) controller.Interface {
@@ -170,16 +178,24 @@ func NewController(
 	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
+
+	networkConfig, err := NewNetworkConfig(kubeClientSet)
+	if err != nil {
+		logger.Fatalf("Error loading network config: %v", err)
+	}
 
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
+		Base: controller.NewBase(kubeClientSet, elaClientSet,
+			informer.Informer(), controllerAgentName, "Revisions", logger),
 		lister:           informer.Lister(),
 		synced:           informer.Informer().HasSynced,
 		endpointsSynced:  endpointsInformer.Informer().HasSynced,
+		configMapSynced:  configMapInformer.HasSynced,
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: kubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
+		networkConfig:    networkConfig,
 	}
 
 	controller.Logger.Info("Setting up event handlers")
@@ -212,6 +228,11 @@ func NewController(
 		},
 	})
 
+	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addConfigMapEvent,
+		UpdateFunc: controller.updateConfigMapEvent,
+	})
+
 	return controller
 }
 
@@ -220,7 +241,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced},
+	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced, c.configMapSynced},
 		c.syncHandler, "Revision")
 }
 
@@ -617,7 +638,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
-	deployment := MakeElaDeployment(rev, ns)
+	deployment := MakeElaDeployment(logger, rev, ns, c.getNetworkConfig())
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 
 	deployment.Spec.Template.Spec = *podSpec
@@ -876,4 +897,32 @@ func lookupServiceOwner(endpoint *corev1.Endpoints) string {
 		return revisionName
 	}
 	return ""
+}
+
+func (c *Controller) addConfigMapEvent(obj interface{}) {
+	configMap := obj.(*corev1.ConfigMap)
+	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetNetworkConfigMapName() {
+		return
+	}
+
+	c.Logger.Infof("Network config map is added or updated: %v", configMap)
+	newNetworkConfig := NewNetworkConfigFromConfigMap(configMap)
+	c.Logger.Infof("IstioOutboundIPRanges: %v", newNetworkConfig.IstioOutboundIPRanges)
+	c.setNetworkConfig(newNetworkConfig)
+}
+
+func (c *Controller) updateConfigMapEvent(old, new interface{}) {
+	c.addConfigMapEvent(new)
+}
+
+func (c *Controller) getNetworkConfig() *NetworkConfig {
+	c.networkConfigMutex.Lock()
+	defer c.networkConfigMutex.Unlock()
+	return c.networkConfig
+}
+
+func (c *Controller) setNetworkConfig(cfg *NetworkConfig) {
+	c.networkConfigMutex.Lock()
+	defer c.networkConfigMutex.Unlock()
+	c.networkConfig = cfg
 }

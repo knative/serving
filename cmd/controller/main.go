@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
@@ -128,6 +130,8 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
+	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
+		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
 
 	revControllerConfig := revision.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
@@ -148,14 +152,17 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, autoscaleEnableScaleToZero, logger),
+		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory,
+			buildInformerFactory, servingSystemInformerFactory, cfg, &revControllerConfig, logger),
+		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory,
+			servingSystemInformerFactory, cfg, autoscaleEnableScaleToZero, logger),
 		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
 	}
 
 	go kubeInformerFactory.Start(stopCh)
 	go elaInformerFactory.Start(stopCh)
 	go buildInformerFactory.Start(stopCh)
+	go servingSystemInformerFactory.Start(stopCh)
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {

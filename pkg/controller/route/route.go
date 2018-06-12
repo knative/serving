@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/knative/serving/pkg"
 
@@ -33,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -89,10 +87,9 @@ type Controller struct {
 	lister listers.RouteLister
 	synced cache.InformerSynced
 
-	// don't start the workers until configuration cache have been synced
-	configSynced cache.InformerSynced
-
-	configMapInformer cache.SharedIndexInformer
+	// don't start the workers until informers are synced
+	configSynced    cache.InformerSynced
+	configMapSynced cache.InformerSynced
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
@@ -113,6 +110,7 @@ func NewController(
 	elaClientSet clientset.Interface,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
+	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
 	config *rest.Config,
 	enableScaleToZero *k8sflag.BoolFlag,
 	logger *zap.SugaredLogger) controller.Interface {
@@ -122,35 +120,22 @@ func NewController(
 	informer := elaInformerFactory.Serving().V1alpha1().Routes()
 	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
-
-	// An alternate to below is to create a shared informer factory
-	// using NewFilteredSharedInformerFactory and use it to create
-	// shared informers using it and share the informer across multiple callers,
-	// but this case is quite specific and isn't too common to be shared.
-	// If it turns our that more than once caller needs it, we should bump this up
-	// to cmd/main.go and create a shared informer factory.
-	// The resync period is set to 15 minutes, because we don't really need to
-	// keep reading domain config map every 30 seconds like we do with our other
-	// informers. If we somehow miss to update the config map, 15 minute seems
-	// like a reasonable delay to reconcile it back as domain configuration
-	// should only change very few times if ever throughout the lifetime of a cluster.
-	configMapInformer := coreinformers.NewFilteredConfigMapInformer(kubeClientSet, pkg.GetServingSystemNamespace(),
-		time.Minute*15, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
 
 	domainConfig, err := NewDomainConfig(kubeClientSet)
 	if err != nil {
-		logger.Fatalf("Error loading controller config: %v", err)
+		logger.Fatalf("Error loading domain config: %v", err)
 	}
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes", logger),
+		Base: controller.NewBase(kubeClientSet, elaClientSet,
+			informer.Informer(), controllerAgentName, "Routes", logger),
 		lister:            informer.Lister(),
 		synced:            informer.Informer().HasSynced,
 		configSynced:      configInformer.Informer().HasSynced,
-		configMapInformer: configMapInformer,
+		configMapSynced:   configMapInformer.HasSynced,
 		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
@@ -189,8 +174,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	go c.configMapInformer.Run(stopCh)
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced, c.configMapInformer.HasSynced},
+	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced, c.configMapSynced},
 		c.updateRouteEvent, "Route")
 }
 
