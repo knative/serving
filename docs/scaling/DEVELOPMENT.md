@@ -77,7 +77,7 @@ This is subject to change as the Knative Serving implementation changes.
 
 ### Code
 
-* [Autoscaler Library](autoscaler.go)
+* [Autoscaler Library](../../pkg/autoscaler/autoscaler.go)
 * [Autoscaler Binary](../../cmd/autoscaler/main.go)
 * [Queue Proxy Binary](../../cmd/queue/main.go)
 
