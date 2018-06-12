@@ -29,7 +29,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -55,9 +55,12 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(
-	rev *v1alpha1.Revision,
-	controllerConfig *ControllerConfig) *corev1.PodSpec {
+func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
+	configName := ""
+	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+		configName = owner.Name
+	}
+
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -112,7 +115,7 @@ func MakeElaPodSpec(
 		userContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
-	podSpe := &corev1.PodSpec{
+	podSpec := &corev1.PodSpec{
 		Containers:         []corev1.Container{*userContainer, *MakeElaQueueContainer(rev, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -150,7 +153,7 @@ func MakeElaPodSpec(
 				},
 				{
 					Name:  "ELA_CONFIGURATION",
-					Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+					Value: configName,
 				},
 				{
 					Name:  "ELA_REVISION",
@@ -181,11 +184,11 @@ func MakeElaPodSpec(
 			},
 		}
 
-		podSpe.Containers = append(podSpe.Containers, fluentdContainer)
-		podSpe.Volumes = append(podSpe.Volumes, fluentdConfigMapVolume)
+		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
+		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
 	}
 
-	return podSpe
+	return podSpec
 }
 
 // MakeElaDeployment creates a deployment.
@@ -218,7 +221,7 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 	}
 
 	return &appsv1.Deployment{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionDeploymentName(u),
 			Namespace:   namespace,
 			Labels:      MakeElaResourceLabels(u),
@@ -232,7 +235,7 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 				RollingUpdate: &rollingUpdateConfig,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: meta_v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels:      MakeElaResourceLabels(u),
 					Annotations: podTemplateAnnotations,
 				},

@@ -994,11 +994,13 @@ func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 }
 
 func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {
-	// If ingress isn't owned by a route, no route update is required.
-	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
-	if routeName == "" {
+	or := metav1.GetControllerOf(ingress)
+	if or == nil || or.Kind != "Route" {
+		// If ingress isn't owned by a route, no route update is required.
 		return
 	}
+	routeName := or.Name
+
 	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
 		// Route isn't ready if having no load-balancer ingress.
 		return
