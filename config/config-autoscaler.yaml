@@ -24,7 +24,7 @@ data:
   # each pod. This is the primary knob for fast autoscaling which will
   # try achieve an concurrency per pod of the target
   # concurrency. Single-concurrency must target a value close to 1.0.
-  multi-concurrency-target: "1.0"
+  multi-concurrency-target: "10.0"
   single-concurrency-target: "0.9"
 
   # When operating in a stable mode, the autoscaler operates on the
