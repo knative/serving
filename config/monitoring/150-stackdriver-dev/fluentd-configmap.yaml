@@ -50,6 +50,8 @@ data:
     # Add Kubernetes metadata
     <filter kubernetes.**>
       @type kubernetes_metadata
+      merge_json_log false # Don't parse json log
+      preserve_json_log false
     </filter>
   300.forward.input.conf: |-
     # Takes the messages sent over TCP, e.g. request logs from Istio
