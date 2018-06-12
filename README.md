@@ -1,27 +1,23 @@
 # Welcome, Knative
 
-With Kubernetes rapidly becoming a universal platform for running
-cloud-native software, there is a growing need to codify best
-practices and identify common patterns that are shared across
-successful Kubernetes-based systems.
+Knative (pronounced /ˈnā-tiv/) extends Kubernetes to provide the
+missing middleware that developers need to create modern,
+source-centric, container-based, cloud-native applications.
 
-Knative (pronounced /ˈnā-tiv/) addresses that need by delivering
-opinionated middleware for building modern, source-centric,
-container-based applications that scale efficiently when faced with
-elastic demand.
-
-Knative components work on top of Kubernetes to standardize and
-simplify many of the common developer tasks, such as:
+Each of the components under the Knative project attempt to identify
+common patterns and codify the best practices shared by successful
+real-world Kubernetes-based frameworks and applications, such as:
 
 - orchestrating source-to-container workflows
 - routing and managing traffic during deployment
 - scaling and sizing resources based on demand
 - binding running services to eventing ecosystems
 
-This open source project directs many expert eyes to the
-difficult-but-non-differentiated parts of building modern cloud-native
-applications, allowing developers to focus instead on the interesting
-bits that set their teams apart.
+Knative focuses on the "boring but difficult" parts that everyone
+needs, but no one benefits from doing over again on their own. This in
+turn frees application developers to spend more time writing
+interesting code, not worrying about how they are going to build,
+deploy, monitor, and debug it.
 
 
 # What are the Knative components?
