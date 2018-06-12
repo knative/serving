@@ -80,7 +80,6 @@ type RevisionRoute struct {
 }
 
 // Controller implements the controller for Route resources.
-// +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
 	*controller.Base
 
@@ -143,15 +142,29 @@ func NewController(
 
 	controller.Logger.Info("Setting up event handlers")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigurationEvent,
-		UpdateFunc: controller.updateConfigurationEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncConfiguration(obj.(*v1alpha1.Configuration))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncConfiguration(new.(*v1alpha1.Configuration))
+		},
 	})
+	// v1beta1.Ingress
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: controller.updateIngressEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncIngress(obj.(*v1beta1.Ingress))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncIngress(new.(*v1beta1.Ingress))
+		},
 	})
 	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigMapEvent,
-		UpdateFunc: controller.updateConfigMapEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncConfigMap(obj.(*corev1.ConfigMap))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncConfigMap(new.(*corev1.ConfigMap))
+		},
 	})
 	return controller
 }
@@ -391,7 +404,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			revMap[revName] = rev
 		}
 	}
-	route.Status.MarkTrafficAssigned()
 
 	return configMap, revMap, nil
 }
@@ -430,34 +442,43 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 	ns := route.Namespace
 	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
 
+	allTrafficAssigned := true
 	for _, tt := range route.Spec.Traffic {
-		if tt.ConfigurationName != "" {
-			configName := tt.ConfigurationName
-			if config, ok := configMap[configName]; ok {
-
-				revName := config.Status.LatestReadyRevisionName
-				if revName == "" {
-					logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
-					continue
-				}
-				// Check if it is a duplicated revision
-				if _, ok := revMap[revName]; !ok {
-					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
-					if err != nil {
-						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
-						if apierrs.IsNotFound(err) {
-							route.Status.MarkTrafficNotAssigned("Revision", revName)
-							if _, err := c.updateStatus(ctx, route); err != nil {
-								// If we failed to update the status, return that error instead of the "revision not found" error.
-								return err
-							}
-						}
-						return err
-					}
-					revMap[revName] = rev
+		configName := tt.ConfigurationName
+		if tt.ConfigurationName == "" {
+			continue
+		}
+		config, ok := configMap[configName]
+		if !ok {
+			continue
+		}
+		revName := config.Status.LatestReadyRevisionName
+		if revName == "" {
+			logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
+			allTrafficAssigned = false
+			continue
+		}
+		if _, ok := revMap[revName]; ok {
+			// Skip duplicated revisions
+			continue
+		}
+		rev, err := revisionClient.Get(revName, metav1.GetOptions{})
+		if err != nil {
+			logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
+			if apierrs.IsNotFound(err) {
+				route.Status.MarkTrafficNotAssigned("Revision", revName)
+				if _, err := c.updateStatus(ctx, route); err != nil {
+					// If we failed to update the status, return that error instead of the "revision not found" error.
+					return err
 				}
 			}
+			return err
 		}
+		revMap[revName] = rev
+	}
+
+	if allTrafficAssigned {
+		route.Status.MarkTrafficAssigned()
 	}
 
 	return nil
@@ -942,8 +963,7 @@ func (c *Controller) removeOutdatedRouteRules(ctx context.Context, u *v1alpha1.R
 	return nil
 }
 
-func (c *Controller) addConfigurationEvent(obj interface{}) {
-	config := obj.(*v1alpha1.Configuration)
+func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 	configName := config.Name
 	ns := config.Namespace
 
@@ -973,12 +993,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	}
 }
 
-func (c *Controller) updateConfigurationEvent(old, new interface{}) {
-	c.addConfigurationEvent(new)
-}
-
-func (c *Controller) updateIngressEvent(old, new interface{}) {
-	ingress := new.(*v1beta1.Ingress)
+func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {
 	// If ingress isn't owned by a route, no route update is required.
 	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
 	if routeName == "" {
@@ -1022,8 +1037,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	}
 }
 
-func (c *Controller) addConfigMapEvent(obj interface{}) {
-	configMap := obj.(*corev1.ConfigMap)
+func (c *Controller) SyncConfigMap(configMap *corev1.ConfigMap) {
 	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetDomainConfigMapName() {
 		return
 	}
@@ -1035,8 +1049,4 @@ func (c *Controller) addConfigMapEvent(obj interface{}) {
 		return
 	}
 	c.setDomainConfig(newDomainConfig)
-}
-
-func (c *Controller) updateConfigMapEvent(old, new interface{}) {
-	c.addConfigMapEvent(new)
 }

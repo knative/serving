@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +83,9 @@ type ServiceCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+
+	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
 	// +optional
 	Message string `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
@@ -144,7 +148,7 @@ func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition 
 	return nil
 }
 
-func (ss *ServiceStatus) SetCondition(new *ServiceCondition) {
+func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	if new == nil {
 		return
 	}
@@ -156,6 +160,7 @@ func (ss *ServiceStatus) SetCondition(new *ServiceCondition) {
 			conditions = append(conditions, cond)
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	ss.Conditions = conditions
 }
@@ -168,4 +173,16 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 		}
 	}
 	ss.Conditions = conditions
+}
+
+func (ss *ServiceStatus) InitializeConditions() {
+	sct := []ServiceConditionType{ServiceConditionReady}
+	for _, cond := range sct {
+		if rc := ss.GetCondition(cond); rc == nil {
+			ss.setCondition(&ServiceCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
 }

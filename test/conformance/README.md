@@ -17,13 +17,9 @@ These tests use [the test library](../adding_tests.md#test-library).
 
 The conformance tests should **ONLY** cover functionality that applies to any implementation of the API.
 
-The conformance tests **MUST**: 
+The conformance tests **MUST**:
 
-1. Provide frequent output describing what actions they are undertaking, especially before performing long running operations.
-    1. Log output should be provided exclusively using [the log library](https://golang.org/pkg/log/)
-       (vs. [the testing log functions](https://golang.org/pkg/testing/#B.Log), which buffer output until the test has completed).
+1. Provide frequent output describing what actions they are undertaking, especially before performing long running operations. Please see the [Log section](../adding_tests.md#output-log) for detailed instructions.
 2. Follow Golang best practices.
-3. Not require any specific file system permissions to run or require any additional binaries to be installed in the target environment before
-   the tests run.
-4. Not depend on any k8s resources outside of those added by Knative Serving OR
-   they should provide flags that allow the test to run without access to those resources.
+3. Not require any specific file system permissions to run or require any additional binaries to be installed in the target environment before the tests run.
+4. Not depend on any k8s resources outside of those added by Knative Serving OR they should provide flags that allow the test to run without access to those resources.

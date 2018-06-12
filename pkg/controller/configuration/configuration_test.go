@@ -69,16 +69,6 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			//TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"test-label":                   "test",
-						"example.com/namespaced-label": "test",
-					},
-					Annotations: map[string]string{
-						"test-annotation-1": "foo",
-						"test-annotation-2": "bar",
-					},
-				},
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "test-account",
 					// corev1.Container has a lot of setting.  We try to pass many
@@ -184,6 +174,7 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 	config := getTestConfiguration()
 	h := NewHooks()
 
@@ -197,7 +188,6 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	controller.syncHandler(KeyOrDie(config))
 
 	list, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
-
 	if err != nil {
 		t.Fatalf("error listing revisions: %v", err)
 	}
@@ -233,6 +223,24 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 
 	if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
 		t.Errorf("expected owner references to have 1 ref with name %s", config.Name)
+	}
+
+	// Check that rerunning reconciliation does nothing.
+	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config: %v", err)
+	}
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
+	controller.syncHandler(KeyOrDie(reconciledConfig))
+
+	list, err = elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("error listing revisions: %v", err)
+	}
+	// Still have one revision.
+	if got, want := len(list.Items), 1; got != want {
+		t.Fatalf("expected %v revisions, got %v", want, got)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
@@ -305,8 +313,8 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 		t.Fatalf("Couldn't get config: %v", err)
 	}
 
-	// Config should not have any conditions after reconcile
-	if got, want := len(reconciledConfig.Status.Conditions), 0; got != want {
+	// Config should be initialized with its conditions as Unknown.
+	if got, want := len(reconciledConfig.Status.Conditions), 2; got != want {
 		t.Errorf("Conditions length diff; got %v, want %v", got, want)
 	}
 	// Config should not have a latest ready revision
@@ -331,25 +339,27 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		}},
 	}
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	controller.addRevisionEvent(&revision)
+	controller.SyncRevision(&revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config: %v", err)
 	}
 
-	expectedConfigConditions := []v1alpha1.ConfigurationCondition{
-		v1alpha1.ConfigurationCondition{
-			Type:   v1alpha1.ConfigurationConditionReady,
-			Status: corev1.ConditionTrue,
-			Reason: "LatestRevisionReady",
-		},
+	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
+		got := readyConfig.Status.GetCondition(ct)
+		want := &v1alpha1.ConfigurationCondition{
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
 	}
-	if diff := cmp.Diff(expectedConfigConditions, readyConfig.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
-	}
+
 	if got, want := readyConfig.Status.LatestReadyRevisionName, revision.Name; got != want {
 		t.Errorf("Latest in Status diff; got %v, want %v", got, want)
 	}
@@ -368,7 +378,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	config.Status.LatestCreatedRevisionName = revName
 
 	configClient.Create(config)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
@@ -382,7 +392,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 
 	// Configuration should not have changed.
 	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -403,7 +413,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 	// Don't set LatestCreatedRevisionName.
 
 	configClient.Create(config)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
@@ -424,7 +434,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 		}},
 	}
 
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 
 	// Configuration should not have changed.
 	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -443,18 +453,16 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 
 	config := getTestConfiguration()
 	config.Status = v1alpha1.ConfigurationStatus{
-		Conditions: []v1alpha1.ConfigurationCondition{
-			v1alpha1.ConfigurationCondition{
-				Type:   v1alpha1.ConfigurationConditionReady,
-				Status: corev1.ConditionTrue,
-				Reason: "LatestRevisionReady",
-			},
-		},
+		Conditions: []v1alpha1.ConfigurationCondition{{
+			Type:   v1alpha1.ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+			Reason: "LatestRevisionReady",
+		}},
 		LatestCreatedRevisionName: revName,
 		LatestReadyRevisionName:   revName,
 	}
 	configClient.Create(config)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Create a revision owned by this Configuration. This revision is Ready and
@@ -469,7 +477,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		}},
 	}
 
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 }
 
 func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
@@ -482,7 +490,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	// Events are delivered asynchronously so we need to use hooks here. Each hook
 	// tests for a specific event.
 	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Latest revision of configuration is not ready"))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectWarningEventDelivery(t, `Latest created revision "test-config-00001" has failed`))
 
 	configClient.Create(config)
 	// Since syncHandler looks in the lister, we need to add it to the informer
@@ -503,33 +511,34 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	revision := revList.Items[0]
 
 	// mark the revision not ready with the status
-	revision.Status = v1alpha1.RevisionStatus{
-		Conditions: []v1alpha1.RevisionCondition{{
-			Type:    v1alpha1.RevisionConditionReady,
-			Status:  corev1.ConditionFalse,
-			Reason:  "BuildFailed",
-			Message: "Build step failed with error",
-		}},
-	}
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	revision.Status.MarkBuildFailed(&buildv1alpha1.BuildCondition{
+		Type:    buildv1alpha1.BuildSucceeded,
+		Status:  corev1.ConditionFalse,
+		Reason:  "StepFailed",
+		Message: "Build step failed with error",
+	})
+
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	controller.addRevisionEvent(&revision)
+	controller.SyncRevision(&revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config: %v", err)
 	}
 
-	expectedConfigConditions := []v1alpha1.ConfigurationCondition{
-		v1alpha1.ConfigurationCondition{
-			Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
-			Status:  corev1.ConditionFalse,
-			Reason:  "BuildFailed",
-			Message: "Build step failed with error",
-		},
-	}
-	if diff := cmp.Diff(expectedConfigConditions, readyConfig.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.ConfigurationConditionType{"LatestRevisionReady"} {
+		got := readyConfig.Status.GetCondition(ct)
+		want := &v1alpha1.ConfigurationCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionFailed",
+			Message:            `revision "test-config-00001" failed with message: Build step failed with error`,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
 	}
 
 	if got, want := readyConfig.Status.LatestCreatedRevisionName, revision.Name; got != want {
@@ -553,14 +562,12 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
 
-	config.Status.Conditions = []v1alpha1.ConfigurationCondition{
-		v1alpha1.ConfigurationCondition{
-			Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
-			Status:  corev1.ConditionFalse,
-			Reason:  "BuildFailed",
-			Message: "Build step failed with error",
-		},
-	}
+	config.Status.Conditions = []v1alpha1.ConfigurationCondition{{
+		Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "BuildFailed",
+		Message: "Build step failed with error",
+	}}
 	// Events are delivered asynchronously so we need to use hooks here. Each hook
 	// tests for a specific event.
 	h := NewHooks()
@@ -579,25 +586,27 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		}},
 	}
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get config: %v", err)
 	}
 
-	expectedConfigConditions := []v1alpha1.ConfigurationCondition{
-		v1alpha1.ConfigurationCondition{
-			Type:   v1alpha1.ConfigurationConditionReady,
-			Status: corev1.ConditionTrue,
-			Reason: "LatestRevisionReady",
-		},
+	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
+		got := readyConfig.Status.GetCondition(ct)
+		want := &v1alpha1.ConfigurationCondition{
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
 	}
-	if diff := cmp.Diff(expectedConfigConditions, readyConfig.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
-	}
+
 	if got, want := readyConfig.Status.LatestReadyRevisionName, revision.Name; got != want {
 		t.Errorf("LatestReadyRevision do not match; got %v, want %v", got, want)
 	}
