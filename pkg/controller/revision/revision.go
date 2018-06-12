@@ -832,27 +832,6 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	return err
 }
 
-func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
-	logger := logging.FromContext(ctx)
-	logger.Infof("Removing finalizers for %q\n", rev.Name)
-	accessor, err := meta.Accessor(rev)
-	if err != nil {
-		logger.Panic("Failed to get metadata", zap.Error(err))
-	}
-	finalizers := accessor.GetFinalizers()
-	for i, v := range finalizers {
-		if v == "controller" {
-			finalizers = append(finalizers[:i], finalizers[i+1:]...)
-		}
-	}
-	accessor.SetFinalizers(finalizers)
-	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
-	prClient.Update(rev)
-	logger.Infof("The finalizer 'controller' is removed.")
-
-	return nil
-}
-
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
