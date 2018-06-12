@@ -1,17 +1,17 @@
 # Welcome, Knative
 
-With Kubernetes and Istio rapidly becoming a universal platform for
-running cloud-native software, there is a growing need to codify best
+With Kubernetes rapidly becoming a universal platform for running
+cloud-native software, there is a growing need to codify best
 practices and identify common patterns that are shared across
-successful Kubernetes- and Istio-based systems.
+successful Kubernetes-based systems.
 
 Knative (pronounced /ˈnā-tiv/) addresses that need by delivering
 opinionated middleware for building modern, source-centric,
 container-based applications that scale efficiently when faced with
 elastic demand.
 
-Knative components work on top of Kubernetes and Istio to standardize
-and simplify many of the common developer tasks, such as:
+Knative components work on top of Kubernetes to standardize and
+simplify many of the common developer tasks, such as:
 
 - orchestrating source-to-container workflows
 - routing and managing traffic during deployment
@@ -29,9 +29,12 @@ bits that set their teams apart.
 Currently, Knative consists of the following top-level repositories:
 
 - [build](https://github.com/knative/build) and
-  [build-templates](https://github.com/knative/build-templates)
-- [serving](https://github.com/knative/serving)
-- [eventing](https://github.com/knative/eventing)
+    [build-templates](https://github.com/knative/build-templates) —
+    automatic, repeatable server-side container builds
+- [serving](https://github.com/knative/serving) — scale to zero,
+  request-driven compute
+- [eventing](https://github.com/knative/eventing) — management and
+  delivery of events
 
 We expect this list to grow as more areas are identified.
 
