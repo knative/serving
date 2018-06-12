@@ -18,7 +18,7 @@ REPO="gcr.io/<your-project-here>"
 docker build \
   --build-arg SAMPLE=grpc-ping \
   --tag "${REPO}/sample/grpc-ping" \
-  --file=sample/Dockerfile.golang .
+  --file=sample/grpc-ping/Dockerfile .
 docker push "${REPO}/sample/grpc-ping"
 
 # Replace the image reference with our published image.

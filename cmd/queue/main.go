@@ -167,8 +167,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Request received")
-
 	// Metrics for autoscaling
 	reqChan <- queue.ReqIn
 	defer func() {
