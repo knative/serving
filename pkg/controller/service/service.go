@@ -54,7 +54,6 @@ const (
 )
 
 // Controller implements the controller for Service resources.
-// +controller:group=ela,version=v1alpha1,kind=Service,resource=services
 type Controller struct {
 	*controller.Base
 
@@ -81,7 +80,6 @@ func NewController(
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig controller.Config,
 	logger *zap.SugaredLogger) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
@@ -89,7 +87,7 @@ func NewController(
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Services", logger),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,
 	}
@@ -136,9 +134,9 @@ func (c *Controller) updateServiceEvent(key string) error {
 
 		return err
 	}
-
 	// Don't modify the informers copy
 	service = service.DeepCopy()
+	service.Status.InitializeConditions()
 
 	// We added the Generation to avoid fighting the Configuration controller,
 	// which adds a Generation to avoid fighting the Revision controller. We

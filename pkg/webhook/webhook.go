@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/knative/serving/pkg/logging/logkey"
 
 	"go.uber.org/zap"
@@ -54,7 +56,6 @@ const (
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
 	// TODO: Could these come from somewhere else.
-	elaSystemNamespace   = "knative-serving-system"
 	elaWebhookDeployment = "webhook"
 )
 
@@ -346,7 +347,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment
-	deployment, err := ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Get(elaWebhookDeployment, metav1.GetOptions{})
+	deployment, err := ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Get(elaWebhookDeployment, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}

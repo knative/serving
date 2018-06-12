@@ -60,7 +60,7 @@ To use a k8s cluster running in GKE:
     
     ```shell
     # Load credentials for the new cluster in us-east1-d
-    gcloud container cluster get-credentials --zone us-east1-d knative-demo
+    gcloud container clusters get-credentials --zone us-east1-d knative-demo
     ```
 
 1.  If you haven't installed `kubectl` yet, you can install it now with

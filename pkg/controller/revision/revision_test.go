@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	"github.com/google/go-cmp/cmp"
@@ -135,15 +137,11 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 				serving.RevisionLabelKey: revName,
 			},
 		},
-		Subsets: []corev1.EndpointSubset{
-			corev1.EndpointSubset{
-				Addresses: []corev1.EndpointAddress{
-					corev1.EndpointAddress{
-						IP: "123.456.78.90",
-					},
-				},
-			},
-		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: []corev1.EndpointAddress{{
+				IP: "123.456.78.90",
+			}},
+		}},
 	}
 }
 
@@ -156,15 +154,11 @@ func getTestAuxiliaryReadyEndpoints(revName string) *corev1.Endpoints {
 				serving.RevisionLabelKey: revName,
 			},
 		},
-		Subsets: []corev1.EndpointSubset{
-			corev1.EndpointSubset{
-				Addresses: []corev1.EndpointAddress{
-					corev1.EndpointAddress{
-						IP: "123.456.78.90",
-					},
-				},
-			},
-		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: []corev1.EndpointAddress{{
+				IP: "123.456.78.90",
+			}},
+		}},
 	}
 }
 
@@ -177,11 +171,9 @@ func getTestNotReadyEndpoints(revName string) *corev1.Endpoints {
 				serving.RevisionLabelKey: revName,
 			},
 		},
-		Subsets: []corev1.EndpointSubset{
-			corev1.EndpointSubset{
-				Addresses: []corev1.EndpointAddress{},
-			},
-		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: []corev1.EndpointAddress{},
+		}},
 	}
 }
 
@@ -288,13 +280,6 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	}()
 
 	return
-}
-
-func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1.RevisionCondition) string {
-	for i := range got {
-		got[i].LastTransitionTime = metav1.NewTime(time.Time{})
-	}
-	return cmp.Diff(want, got)
 }
 
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
@@ -473,14 +458,12 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Fatalf("Couldn't get revision service: %v", err)
 	}
 	// The revision service should be owned by rev.
-	expectedRefs := []metav1.OwnerReference{
-		metav1.OwnerReference{
-			APIVersion: "serving.knative.dev/v1alpha1",
-			Kind:       "Revision",
-			Name:       rev.Name,
-			UID:        rev.UID,
-		},
-	}
+	expectedRefs := []metav1.OwnerReference{{
+		APIVersion: "serving.knative.dev/v1alpha1",
+		Kind:       "Revision",
+		Name:       rev.Name,
+		UID:        rev.UID,
+	}}
 
 	if diff := cmp.Diff(expectedRefs, service.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
@@ -505,7 +488,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{"sidecar.istio.io/inject": "true"},
 	)
 
-	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
@@ -557,7 +540,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
@@ -600,15 +583,17 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	// Ensure that the Revision status is updated.
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: corev1.ConditionUnknown,
-			Reason: "Deploying",
-		},
-	}
-	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+		got := rev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionUnknown,
+			Reason:             "Deploying",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 }
 
@@ -642,19 +627,18 @@ func TestResolutionFailed(t *testing.T) {
 	}
 
 	// Ensure that the Revision status is updated.
-	want := []v1alpha1.RevisionCondition{{
-		Type:    "ContainerHealthy",
-		Status:  corev1.ConditionFalse,
-		Reason:  "ContainerMissing",
-		Message: errorMessage,
-	}, {
-		Type:    "Ready",
-		Status:  corev1.ConditionFalse,
-		Reason:  "ContainerMissing",
-		Message: errorMessage,
-	}}
-	if diff := compareRevisionConditions(want, rev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"ContainerHealthy", "Ready"} {
+		got := rev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "ContainerMissing",
+			Message:            errorMessage,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 }
 
@@ -855,7 +839,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 		expectedLabels,
 		map[string]string{serving.AutoscalerLabelKey: expectedAutoscalerName},
 	)
-	asDeployment, err := kubeClient.AppsV1().Deployments(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler deployment: %v", err)
 	}
@@ -864,7 +848,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 			expectedAutoscalerLabels, labels)
 	}
 	// Look for the autoscaler service.
-	asService, err := kubeClient.CoreV1().Services(AutoscalerNamespace).Get(expectedAutoscalerName, metav1.GetOptions{})
+	asService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get autoscaler service: %v", err)
 	}
@@ -906,20 +890,17 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 	}
 
 	// Ensure that the Revision status is updated.
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:   "BuildSucceeded",
-			Status: corev1.ConditionUnknown,
-			Reason: "Building",
-		},
-		{
-			Type:   "Ready",
-			Status: corev1.ConditionUnknown,
-			Reason: "Building",
-		},
-	}
-	if diff := compareRevisionConditions(want, waitRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"BuildSucceeded", "Ready"} {
+		got := waitRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionUnknown,
+			Reason:             "Building",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 }
 
@@ -982,22 +963,18 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 	// The next update we receive should tell us that the build failed,
 	// and surface the reason and message from that failure in our own
 	// status.
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:    "BuildSucceeded",
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: errMessage,
-		},
-		{
-			Type:    "Ready",
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: errMessage,
-		},
-	}
-	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"BuildSucceeded", "Ready"} {
+		got := failedRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             reason,
+			Message:            errMessage,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 
 	// Wait for events to be delivered.
@@ -1015,7 +992,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// we need to use hooks here.
 	h.OnCreate(&kubeClient.Fake, "events", func(obj runtime.Object) HookResult {
 		event := obj.(*corev1.Event)
-		if wanted, got := "BuildComplete", event.Reason; wanted != got {
+		if wanted, got := "BuildSucceeded", event.Reason; wanted != got {
 			t.Errorf("unexpected event reason: %q expected: %q", got, wanted)
 		}
 		if wanted, got := corev1.EventTypeNormal, event.Type; wanted != got {
@@ -1070,14 +1047,16 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	}
 
 	// The next update we receive should tell us that the build completed.
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:   "BuildSucceeded",
-			Status: corev1.ConditionTrue,
-		},
-	}
-	if diff := compareRevisionConditions(want, completedRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"BuildSucceeded"} {
+		got := completedRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 
 	// Wait for events to be delivered.
@@ -1122,14 +1101,12 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	// watching for this build to complete, so make it complete, but
 	// with a validation failure.
 	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{
-			{
-				Type:    buildv1alpha1.BuildInvalid,
-				Status:  corev1.ConditionTrue,
-				Reason:  reason,
-				Message: errMessage,
-			},
-		},
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildInvalid,
+			Status:  corev1.ConditionTrue,
+			Reason:  reason,
+			Message: errMessage,
+		}},
 	}
 
 	controller.addBuildEvent(bld)
@@ -1139,24 +1116,19 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
 
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:    "BuildSucceeded",
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: errMessage,
-		},
-		{
-			Type:    "Ready",
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: errMessage,
-		},
+	for _, ct := range []v1alpha1.RevisionConditionType{"BuildSucceeded", "Ready"} {
+		got := failedRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             reason,
+			Message:            errMessage,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
-	if diff := compareRevisionConditions(want, failedRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
-	}
-
 }
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
@@ -1190,20 +1162,21 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	controller.addDeploymentProgressEvent(deployment)
 
 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
-
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
 
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: corev1.ConditionUnknown,
-			Reason: "Deploying",
-		},
-	}
-	if diff := compareRevisionConditions(want, rev2Inspect.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+		got := rev2Inspect.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionUnknown,
+			Reason:             "Deploying",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 }
 
@@ -1229,15 +1202,17 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	}
 
 	// The revision is not marked ready until an endpoint is created.
-	deployingConditions := []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: corev1.ConditionUnknown,
-			Reason: "Deploying",
-		},
-	}
-	if diff := compareRevisionConditions(deployingConditions, deployingRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+		got := deployingRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionUnknown,
+			Reason:             "Deploying",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 
 	endpoints := getTestReadyEndpoints(rev.Name)
@@ -1249,15 +1224,16 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	}
 
 	// After reconciling the endpoint, the revision should be ready.
-	readyConditions := []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: corev1.ConditionTrue,
-			Reason: "ServiceReady",
-		},
-	}
-	if diff := compareRevisionConditions(readyConditions, readyRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+		got := readyRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 
 	// Wait for events to be delivered.
@@ -1270,13 +1246,11 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	// Mark the revision already ready.
-	rev.Status.Conditions = []v1alpha1.RevisionCondition{
-		{
-			Type:   "Ready",
-			Status: corev1.ConditionTrue,
-			Reason: "ServiceReady",
-		},
-	}
+	rev.Status.Conditions = []v1alpha1.RevisionCondition{{
+		Type:   "Ready",
+		Status: corev1.ConditionTrue,
+		Reason: "ServiceReady",
+	}}
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
@@ -1298,18 +1272,15 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 	_, _, elaClient, controller, _, elaInformer := newTestController(t)
 	rev := getTestRevision()
 	// Mark the revision already ready.
-	rev.Status.Conditions = []v1alpha1.RevisionCondition{
-		v1alpha1.RevisionCondition{
-			Type:   "ResourcesAvailable",
-			Status: corev1.ConditionFalse,
-			Reason: "ExceededReadinessChecks",
-		},
-		v1alpha1.RevisionCondition{
-			Type:   "Ready",
-			Status: corev1.ConditionFalse,
-			Reason: "ExceededReadinessChecks",
-		},
-	}
+	rev.Status.Conditions = []v1alpha1.RevisionCondition{{
+		Type:   "ResourcesAvailable",
+		Status: corev1.ConditionFalse,
+		Reason: "ExceededReadinessChecks",
+	}, {
+		Type:   "Ready",
+		Status: corev1.ConditionFalse,
+		Reason: "ExceededReadinessChecks",
+	}}
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
@@ -1333,13 +1304,11 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	creationTime := time.Now().Add(-10 * time.Minute)
 	rev.ObjectMeta.CreationTimestamp = metav1.NewTime(creationTime)
-	rev.Status.Conditions = []v1alpha1.RevisionCondition{
-		v1alpha1.RevisionCondition{
-			Type:   "Ready",
-			Status: corev1.ConditionUnknown,
-			Reason: "Deploying",
-		},
-	}
+	rev.Status.Conditions = []v1alpha1.RevisionCondition{{
+		Type:   "Ready",
+		Status: corev1.ConditionUnknown,
+		Reason: "Deploying",
+	}}
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
@@ -1350,22 +1319,19 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 
 	currentRev, _ := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 
-	want := []v1alpha1.RevisionCondition{
-		{
-			Type:    "ResourcesAvailable",
-			Status:  corev1.ConditionFalse,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
-		},
-		{
-			Type:    "Ready",
-			Status:  corev1.ConditionFalse,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
-		},
-	}
-	if diff := compareRevisionConditions(want, currentRev.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+	// t.Errorf("GOT: %v", currentRev.Status.Conditions)
+	for _, ct := range []v1alpha1.RevisionConditionType{"ResourcesAvailable", "Ready"} {
+		got := currentRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "ServiceTimeout",
+			Message:            "Timed out waiting for a service endpoint to become ready",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 }
 

@@ -66,9 +66,9 @@ func initializeFlags() *EnvironmentFlags {
 		"Set this flag to true if you would like to see verbose logging.")
 
 	flag.Parse()
+	flag.Set("alsologtostderr", "true")
 	if f.LogVerbose {
 		// Both gLog and "go test" use -v flag. The code below is a work around so that we can still set v value for gLog
-		flag.Set("alsologtostderr", "true")
 		var logLevel string
 		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
 		flag.Lookup("v").Value.Set(logLevel)
