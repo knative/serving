@@ -1159,7 +1159,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	controller.syncHandler(KeyOrDie(rev))
 
 	// Look for revision's deployment.
-	deploymentNameToLook := fmt.Sprintf("%s-deployment", rev.Name)
+	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
 
 	deployment, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
 	if err != nil {
@@ -1185,6 +1185,58 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 			Type:               ct,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
+	kubeClient, _, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
+
+	rev := getTestRevision()
+
+	revClient.Create(rev)
+
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	controller.syncHandler(KeyOrDie(rev))
+
+	// Look for revision's deployment.
+	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
+
+	deployment, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get ela deployment: %v", err)
+	}
+
+	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
+		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
+	}
+
+	// set ProgressDeadlineSeconds on Dep spec
+	deployment.Status.Conditions = []appsv1.DeploymentCondition{{
+		Type:   appsv1.DeploymentProgressing,
+		Status: corev1.ConditionFalse,
+		Reason: "ProgressDeadlineExceeded",
+	}}
+	controller.SyncDeployment(deployment)
+
+	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+		got := rev2Inspect.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "ProgressDeadlineExceeded",
+			Message:            "Unable to create pods for more than 120 seconds.",
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
