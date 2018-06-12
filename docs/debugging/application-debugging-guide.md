@@ -52,7 +52,7 @@ name in the `Route` yaml file.
 Then run
 
 ```shell
-kebuctl get revision <revision-name> -o yaml
+kubectl get revision <revision-name> -o yaml
 ```
 
 A ready `Revision` should has the following condition in `status`:
