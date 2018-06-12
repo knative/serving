@@ -164,11 +164,7 @@ func (c *Controller) syncHandler(key string) error {
 		spec.BuildName = created.Name
 	}
 
-	revName, err := generateRevisionName(config)
-	if err != nil {
-		return err
-	}
-
+	revName := generateRevisionName(config)
 	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(config.Namespace)
 	created, err := revClient.Get(revName, metav1.GetOptions{})
 	if err != nil {
@@ -229,13 +225,8 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-func generateRevisionName(u *v1alpha1.Configuration) (string, error) {
-	// TODO: consider making sure the length of the
-	// string will not cause problems down the stack
-	if u.Spec.Generation == 0 {
-		return "", fmt.Errorf("configuration generation cannot be 0")
-	}
-	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation), nil
+func generateRevisionName(u *v1alpha1.Configuration) string {
+	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation)
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {

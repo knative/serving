@@ -69,16 +69,6 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			//TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"test-label":                   "test",
-						"example.com/namespaced-label": "test",
-					},
-					Annotations: map[string]string{
-						"test-annotation-1": "foo",
-						"test-annotation-2": "bar",
-					},
-				},
 				Spec: v1alpha1.RevisionSpec{
 					ServiceAccountName: "test-account",
 					// corev1.Container has a lot of setting.  We try to pass many
@@ -184,6 +174,7 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
+	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 	config := getTestConfiguration()
 	h := NewHooks()
 
@@ -197,7 +188,6 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	controller.syncHandler(KeyOrDie(config))
 
 	list, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
-
 	if err != nil {
 		t.Fatalf("error listing revisions: %v", err)
 	}
@@ -233,6 +223,24 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 
 	if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
 		t.Errorf("expected owner references to have 1 ref with name %s", config.Name)
+	}
+
+	// Check that rerunning reconciliation does nothing.
+	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get config: %v", err)
+	}
+	// Since syncHandler looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
+	controller.syncHandler(KeyOrDie(reconciledConfig))
+
+	list, err = elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("error listing revisions: %v", err)
+	}
+	// Still have one revision.
+	if got, want := len(list.Items), 1; got != want {
+		t.Fatalf("expected %v revisions, got %v", want, got)
 	}
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
