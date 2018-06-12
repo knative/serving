@@ -96,7 +96,7 @@ func setup(t *testing.T) *test.Clients {
 
 	configMap, err := getAutoscalerConfigMap(clients)
 	if err != nil {
-		log.Printf("Unable to retrieve the autoscale configMap. Assuming a ScaleToZero value of '5m'. %v", err)
+		glog.Infof("Unable to retrieve the autoscale configMap. Assuming a ScaleToZero value of '5m'. %v", err)
 		initialScaleToZeroThreshold = "5m"
 	} else {
 		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
@@ -181,7 +181,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	glog.Infof(`The autoscaler successfully scales down when devoid of
 		    traffic.`)
 
-	log.Println(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
+	glog.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
 		    faster testing.`)
 
 	err = setScaleToZeroThreshold(clients, "1m")
