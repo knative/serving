@@ -81,8 +81,12 @@ func NewController(
 
 	controller.Logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addRevisionEvent,
-		UpdateFunc: controller.updateRevisionEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncRevision(obj.(*v1alpha1.Revision))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncRevision(new.(*v1alpha1.Revision))
+		},
 	})
 	return controller
 }
@@ -242,8 +246,7 @@ func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configur
 	//	return configClient.UpdateStatus(newu)
 }
 
-func (c *Controller) addRevisionEvent(obj interface{}) {
-	revision := obj.(*v1alpha1.Revision)
+func (c *Controller) SyncRevision(revision *v1alpha1.Revision) {
 	revisionName := revision.Name
 	namespace := revision.Namespace
 	// Lookup and see if this Revision corresponds to a Configuration that
@@ -301,8 +304,4 @@ func (c *Controller) addRevisionEvent(obj interface{}) {
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
 			"Latest created revision %q has failed", revision.Name)
 	}
-}
-
-func (c *Controller) updateRevisionEvent(old, new interface{}) {
-	c.addRevisionEvent(new)
 }

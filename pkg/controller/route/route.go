@@ -157,15 +157,29 @@ func NewController(
 
 	controller.Logger.Info("Setting up event handlers")
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigurationEvent,
-		UpdateFunc: controller.updateConfigurationEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncConfiguration(obj.(*v1alpha1.Configuration))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncConfiguration(new.(*v1alpha1.Configuration))
+		},
 	})
+	// v1beta1.Ingress
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: controller.updateIngressEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncIngress(obj.(*v1beta1.Ingress))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncIngress(new.(*v1beta1.Ingress))
+		},
 	})
 	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigMapEvent,
-		UpdateFunc: controller.updateConfigMapEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncConfigMap(obj.(*corev1.ConfigMap))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncConfigMap(new.(*corev1.ConfigMap))
+		},
 	})
 	return controller
 }
@@ -965,8 +979,7 @@ func (c *Controller) removeOutdatedRouteRules(ctx context.Context, u *v1alpha1.R
 	return nil
 }
 
-func (c *Controller) addConfigurationEvent(obj interface{}) {
-	config := obj.(*v1alpha1.Configuration)
+func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 	configName := config.Name
 	ns := config.Namespace
 
@@ -996,12 +1009,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	}
 }
 
-func (c *Controller) updateConfigurationEvent(old, new interface{}) {
-	c.addConfigurationEvent(new)
-}
-
-func (c *Controller) updateIngressEvent(old, new interface{}) {
-	ingress := new.(*v1beta1.Ingress)
+func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {
 	// If ingress isn't owned by a route, no route update is required.
 	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
 	if routeName == "" {
@@ -1045,8 +1053,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	}
 }
 
-func (c *Controller) addConfigMapEvent(obj interface{}) {
-	configMap := obj.(*corev1.ConfigMap)
+func (c *Controller) SyncConfigMap(configMap *corev1.ConfigMap) {
 	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetDomainConfigMapName() {
 		return
 	}
@@ -1058,8 +1065,4 @@ func (c *Controller) addConfigMapEvent(obj interface{}) {
 		return
 	}
 	c.setDomainConfig(newDomainConfig)
-}
-
-func (c *Controller) updateConfigMapEvent(old, new interface{}) {
-	c.addConfigMapEvent(new)
 }

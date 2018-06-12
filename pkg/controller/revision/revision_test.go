@@ -953,7 +953,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 		}},
 	}
 
-	controller.addBuildEvent(bld)
+	controller.SyncBuild(bld)
 
 	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1039,7 +1039,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		}},
 	}
 
-	controller.addBuildEvent(bld)
+	controller.SyncBuild(bld)
 
 	completedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1109,7 +1109,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 		}},
 	}
 
-	controller.addBuildEvent(bld)
+	controller.SyncBuild(bld)
 
 	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1159,7 +1159,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 
 	//set ProgressDeadlineSeconds on Dep spec
 	deployment.Spec.ProgressDeadlineSeconds = &testProgressDeadlineSeconds
-	controller.addDeploymentProgressEvent(deployment)
+	controller.SyncDeployment(deployment)
 
 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1216,7 +1216,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	}
 
 	endpoints := getTestReadyEndpoints(rev.Name)
-	controller.addEndpointsEvent(endpoints)
+	controller.SyncEndpoints(endpoints)
 
 	readyRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1265,7 +1265,7 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 		},
 	)
 
-	controller.addEndpointsEvent(endpoints)
+	controller.SyncEndpoints(endpoints)
 }
 
 func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
@@ -1295,7 +1295,7 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 		},
 	)
 
-	controller.addEndpointsEvent(endpoints)
+	controller.SyncEndpoints(endpoints)
 }
 
 func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) {
@@ -1315,7 +1315,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 	// Create endpoints owned by this Revision.
 	endpoints := getTestNotReadyEndpoints(rev.Name)
 
-	controller.addEndpointsEvent(endpoints)
+	controller.SyncEndpoints(endpoints)
 
 	currentRev, _ := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 
@@ -1352,7 +1352,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 		},
 	)
 
-	controller.addEndpointsEvent(endpoints)
+	controller.SyncEndpoints(endpoints)
 }
 
 func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
