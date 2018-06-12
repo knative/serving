@@ -249,12 +249,12 @@ func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configur
 func (c *Controller) SyncRevision(revision *v1alpha1.Revision) {
 	revisionName := revision.Name
 	namespace := revision.Namespace
-	// Lookup and see if this Revision corresponds to a Configuration that
-	// we own and hence the Configuration that created this Revision.
-	configName := controller.LookupOwningConfigurationName(revision.OwnerReferences)
-	if configName == "" {
+
+	or := metav1.GetControllerOf(revision)
+	if or == nil || or.Kind != "Configuration" {
 		return
 	}
+	configName := or.Name
 
 	logger := loggerWithConfigInfo(c.Logger, namespace, configName).With(zap.String(logkey.Revision, revisionName))
 
