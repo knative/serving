@@ -25,8 +25,9 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
-	"github.com/knative/serving/pkg/h2c"
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/signals"
+	"github.com/knative/serving/third_party/h2c"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -50,7 +51,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 
 	transport = http.DefaultTransport
 	if r.ProtoMajor == 2 {
-		transport = h2c.NewTransport()
+		transport = h2cutil.NewTransport()
 	}
 
 	resp, err := transport.RoundTrip(r)

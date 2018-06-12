@@ -36,10 +36,11 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/h2c"
+	h2 "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/third_party/h2c"
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
@@ -270,7 +271,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2c.NewTransport()
+	h2cProxy.Transport = h2.NewTransport()
 
 	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()
