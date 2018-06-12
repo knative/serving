@@ -1,0 +1,312 @@
+/*
+Copyright 2018 Google LLC.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package revision
+
+import (
+	"testing"
+	"time"
+
+	"github.com/google/go-cmp/cmp"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+func TestIsBuildDone(t *testing.T) {
+	tests := []struct {
+		description string
+		rev         *v1alpha1.Revision
+		done        bool
+		failed      bool
+	}{{
+		// If there is no build name, treat as build done.
+		description: "no build",
+		rev:         &v1alpha1.Revision{},
+		done:        true,
+	}, {
+		// A build, but not "BuildSucceeded" condition is not done.
+		description: "no build condition",
+		rev: &v1alpha1.Revision{
+			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
+		},
+		done: false,
+	}, {
+		// A revision with "BuildSucceeded: True" has a done build.
+		description: "done build",
+		rev: &v1alpha1.Revision{
+			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
+			Status: v1alpha1.RevisionStatus{
+				Conditions: []v1alpha1.RevisionCondition{{
+					Type:   v1alpha1.RevisionConditionBuildSucceeded,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		done: true,
+	}, {
+		// A revision with "BuildSucceeded: Unknown" has a running build.
+		description: "running build",
+		rev: &v1alpha1.Revision{
+			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
+			Status: v1alpha1.RevisionStatus{
+				Conditions: []v1alpha1.RevisionCondition{{
+					Type:   v1alpha1.RevisionConditionBuildSucceeded,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		done: false,
+	}, {
+		// A revision with "BuildSucceeded: False" has a failed build.
+		description: "failed build",
+		rev: &v1alpha1.Revision{
+			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
+			Status: v1alpha1.RevisionStatus{
+				Conditions: []v1alpha1.RevisionCondition{{
+					Type:   v1alpha1.RevisionConditionBuildSucceeded,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		done:   true,
+		failed: true,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			done, failed := isBuildDone(test.rev)
+			if want, got := test.done, done; got != want {
+				t.Errorf("isBuildDone(%v).done = %v, want %v", test.rev, got, want)
+			}
+			if want, got := test.failed, failed; got != want {
+				t.Errorf("isBuildDone(%v).failed = %v, want %v", test.rev, got, want)
+			}
+		})
+	}
+}
+
+func TestGetBuildDoneCondition(t *testing.T) {
+	tests := []struct {
+		description string
+		build       *buildv1alpha1.Build
+		cond        *buildv1alpha1.BuildCondition
+	}{{
+		// If there are no build conditions, we should get nil.
+		description: "no conditions",
+		build:       &buildv1alpha1.Build{},
+	}, {
+		// If the conditions indicate that things are running, we should get nil.
+		description: "build running",
+		build: &buildv1alpha1.Build{
+			Status: buildv1alpha1.BuildStatus{
+				Conditions: []buildv1alpha1.BuildCondition{{
+					Type:   buildv1alpha1.BuildSucceeded,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+	}, {
+		// If the build succeeded, return the success condition.
+		description: "build succeeded",
+		build: &buildv1alpha1.Build{
+			Status: buildv1alpha1.BuildStatus{
+				Conditions: []buildv1alpha1.BuildCondition{{
+					Type:   buildv1alpha1.BuildSucceeded,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		cond: &buildv1alpha1.BuildCondition{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionTrue,
+		},
+	}, {
+		// If the build failed, return the failure condition.
+		description: "build failed",
+		build: &buildv1alpha1.Build{
+			Status: buildv1alpha1.BuildStatus{
+				Conditions: []buildv1alpha1.BuildCondition{{
+					Type:    buildv1alpha1.BuildSucceeded,
+					Status:  corev1.ConditionTrue,
+					Reason:  "TheReason",
+					Message: "something super descriptive",
+				}},
+			},
+		},
+		cond: &buildv1alpha1.BuildCondition{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionTrue,
+			Reason:  "TheReason",
+			Message: "something super descriptive",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			cond := getBuildDoneCondition(test.build)
+			if diff := cmp.Diff(test.cond, cond); diff != "" {
+				t.Errorf("getBuildDoneCondition(%v); (-want +got) = %v", test.build, diff)
+			}
+		})
+	}
+
+}
+
+func TestGetIsServiceReady(t *testing.T) {
+	tests := []struct {
+		description string
+		endpoints   *corev1.Endpoints
+		ready       bool
+	}{{
+		description: "no subsets",
+		endpoints:   &corev1.Endpoints{},
+	}, {
+		description: "subset no address",
+		endpoints: &corev1.Endpoints{
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{},
+			}},
+		},
+	}, {
+		description: "subset with address",
+		endpoints: &corev1.Endpoints{
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{
+					IP: "127.0.0.1",
+				}},
+			}},
+		},
+		ready: true,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			ready := getIsServiceReady(test.endpoints)
+			if ready != test.ready {
+				t.Errorf("getIsServiceReady(%v) = %v, want %v", test.endpoints, ready, test.ready)
+			}
+		})
+	}
+}
+
+func TestGetRevisionLastTransitionTime(t *testing.T) {
+	expectedTime := time.Now()
+	tests := []struct {
+		description string
+		rev         *v1alpha1.Revision
+	}{{
+		description: "creation time",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				CreationTimestamp: metav1.NewTime(expectedTime),
+			},
+		},
+	}, {
+		description: "last condition time",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				CreationTimestamp: metav1.NewTime(expectedTime.Add(-20 * time.Minute)),
+			},
+			Status: v1alpha1.RevisionStatus{
+				Conditions: []v1alpha1.RevisionCondition{{
+					Type:               v1alpha1.RevisionConditionReady,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(expectedTime),
+				}},
+			},
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			ltt := getRevisionLastTransitionTime(test.rev)
+			if ltt != expectedTime {
+				t.Errorf("getRevisionLastTransitionTime(%v) = %v, want %v", test.rev, ltt, expectedTime)
+			}
+		})
+	}
+
+}
+
+func TestGetDeploymentProgressCondition(t *testing.T) {
+	tests := []struct {
+		description string
+		deploy      *appsv1.Deployment
+		cond        *appsv1.DeploymentCondition
+	}{{
+		description: "no conditions",
+		deploy:      &appsv1.Deployment{},
+	}, {
+		description: "other conditions",
+		deploy: &appsv1.Deployment{
+			Status: appsv1.DeploymentStatus{
+				Conditions: []appsv1.DeploymentCondition{{
+					Type:   appsv1.DeploymentAvailable,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+	}, {
+		description: "progressing",
+		deploy: &appsv1.Deployment{
+			Status: appsv1.DeploymentStatus{
+				Conditions: []appsv1.DeploymentCondition{{
+					Type:   appsv1.DeploymentProgressing,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+	}, {
+		description: "not progressing for other reasons",
+		deploy: &appsv1.Deployment{
+			Status: appsv1.DeploymentStatus{
+				Conditions: []appsv1.DeploymentCondition{{
+					Type:   appsv1.DeploymentProgressing,
+					Status: corev1.ConditionFalse,
+					Reason: "OnHoliday",
+				}},
+			},
+		},
+	}, {
+		description: "progress deadline exceeded",
+		deploy: &appsv1.Deployment{
+			Status: appsv1.DeploymentStatus{
+				Conditions: []appsv1.DeploymentCondition{{
+					Type:   appsv1.DeploymentProgressing,
+					Status: corev1.ConditionFalse,
+					Reason: "ProgressDeadlineExceeded",
+				}},
+			},
+		},
+		cond: &appsv1.DeploymentCondition{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionFalse,
+			Reason: "ProgressDeadlineExceeded",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			cond := getDeploymentProgressCondition(test.deploy)
+			if diff := cmp.Diff(test.cond, cond); diff != "" {
+				t.Errorf("getDeploymentProgressCondition(%v); (-want +got) = %v", test.deploy, diff)
+			}
+		})
+	}
+}
