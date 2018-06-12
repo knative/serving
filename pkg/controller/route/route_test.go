@@ -1392,12 +1392,12 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 
 	route, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1420,10 +1420,10 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	// We need to update the config in the client since getDirectTrafficTargets
 	// gets the configuration from there
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
-	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 
 	route, err = routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1482,7 +1482,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 		},
 	)
 
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 }
 
 // Test route when we do not use activator, and then use activator.
@@ -1510,7 +1510,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
-	controller.updateIngressEvent(nil, ingress)
+	controller.SyncIngress(ingress)
 
 	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
 	for _, ct := range []v1alpha1.RouteConditionType{"Ready"} {
@@ -1529,7 +1529,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
 		IP: "127.0.0.1",
 	}}
-	controller.updateIngressEvent(nil, ingress)
+	controller.SyncIngress(ingress)
 
 	// Verify now that Route.Status.Conditions is set correctly.
 	newRoute, _ = routeClient.Get(route.Name, metav1.GetOptions{})
@@ -1579,7 +1579,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com":  "selector:\n  app: prod",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
@@ -1594,7 +1594,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -1610,7 +1610,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					defaultDomainSuffix: "",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -1626,7 +1626,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}}

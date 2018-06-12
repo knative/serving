@@ -187,18 +187,30 @@ func NewController(
 	// Obtain a reference to a shared index informer for the Build type.
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addBuildEvent,
-		UpdateFunc: controller.updateBuildEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncBuild(obj.(*buildv1alpha1.Build))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncBuild(new.(*buildv1alpha1.Build))
+		},
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addEndpointsEvent,
-		UpdateFunc: controller.updateEndpointsEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncEndpoints(obj.(*corev1.Endpoints))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncEndpoints(new.(*corev1.Endpoints))
+		},
 	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addDeploymentProgressEvent,
-		UpdateFunc: controller.updateDeploymentProgressEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncDeployment(obj.(*appsv1.Deployment))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncDeployment(new.(*appsv1.Deployment))
+		},
 	})
 
 	return controller
@@ -377,9 +389,7 @@ func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.Deplo
 	return nil
 }
 
-func (c *Controller) addBuildEvent(obj interface{}) {
-	build := obj.(*buildv1alpha1.Build)
-
+func (c *Controller) SyncBuild(build *buildv1alpha1.Build) {
 	bc := getBuildDoneCondition(build)
 	if bc == nil {
 		// The build isn't done, so ignore this event.
@@ -415,12 +425,7 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 	return
 }
 
-func (c *Controller) updateBuildEvent(old, new interface{}) {
-	c.addBuildEvent(new)
-}
-
-func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
-	deployment := obj.(*appsv1.Deployment)
+func (c *Controller) SyncDeployment(deployment *appsv1.Deployment) {
 	cond := getDeploymentProgressCondition(deployment)
 	if cond == nil {
 		return
@@ -449,12 +454,7 @@ func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 	return
 }
 
-func (c *Controller) updateDeploymentProgressEvent(old, new interface{}) {
-	c.addDeploymentProgressEvent(new)
-}
-
-func (c *Controller) addEndpointsEvent(obj interface{}) {
-	endpoint := obj.(*corev1.Endpoints)
+func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	eName := endpoint.Name
 	namespace := endpoint.Namespace
 	// Lookup and see if this endpoints corresponds to a service that
@@ -510,10 +510,6 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	}
 	c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
-}
-
-func (c *Controller) updateEndpointsEvent(old, new interface{}) {
-	c.addEndpointsEvent(new)
 }
 
 // reconcileOnceBuilt handles enqueued messages that have an image.

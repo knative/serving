@@ -331,9 +331,9 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		}},
 	}
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	controller.addRevisionEvent(&revision)
+	controller.SyncRevision(&revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -370,7 +370,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	config.Status.LatestCreatedRevisionName = revName
 
 	configClient.Create(config)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
@@ -384,7 +384,7 @@ func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
 	controllerRef := ctrl.NewConfigurationControllerRef(config)
 	revision := getTestRevision()
 	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 
 	// Configuration should not have changed.
 	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -405,7 +405,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 	// Don't set LatestCreatedRevisionName.
 
 	configClient.Create(config)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Get the configuration after reconciling
@@ -426,7 +426,7 @@ func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.
 		}},
 	}
 
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 
 	// Configuration should not have changed.
 	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
@@ -454,7 +454,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		LatestReadyRevisionName:   revName,
 	}
 	configClient.Create(config)
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 
 	// Create a revision owned by this Configuration. This revision is Ready and
@@ -469,7 +469,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		}},
 	}
 
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 }
 
 func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
@@ -510,9 +510,9 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 		Message: "Build step failed with error",
 	})
 
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	controller.addRevisionEvent(&revision)
+	controller.SyncRevision(&revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
@@ -578,9 +578,9 @@ func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		}},
 	}
-	// Since addRevisionEvent looks in the lister, we need to add it to the informer
+	// Since SyncRevision looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.addRevisionEvent(revision)
+	controller.SyncRevision(revision)
 
 	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
