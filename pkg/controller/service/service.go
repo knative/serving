@@ -54,7 +54,6 @@ const (
 )
 
 // Controller implements the controller for Service resources.
-// +controller:group=ela,version=v1alpha1,kind=Service,resource=services
 type Controller struct {
 	*controller.Base
 

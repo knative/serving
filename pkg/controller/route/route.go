@@ -82,7 +82,6 @@ type RevisionRoute struct {
 }
 
 // Controller implements the controller for Route resources.
-// +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
 	*controller.Base
 
