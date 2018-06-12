@@ -88,7 +88,7 @@ func NewController(
 
 	controller := &Controller{
 		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
+			elaInformerFactory, informer.Informer(), controllerAgentName, "Services", logger),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,
 	}
