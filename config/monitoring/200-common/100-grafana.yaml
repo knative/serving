@@ -119,6 +119,12 @@ data:
       type: file
       options:
         folder: /grafana-dashboard-definition/kubernetes-statefulset
+    - name: 'knative-serving-scaling'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        folder: /grafana-dashboard-definition/scaling
 ---
 apiVersion: v1
 kind: Service
@@ -189,6 +195,8 @@ spec:
           mountPath: /grafana-dashboard-definition/kubernetes-pods
         - name: grafana-dashboard-definition-kubernetes-statefulset
           mountPath: /grafana-dashboard-definition/kubernetes-statefulset
+        - name: scaling-config
+          mountPath: /grafana-dashboard-definition/scaling  
         ports:
         - name: web
           containerPort: 3000
@@ -250,4 +258,7 @@ spec:
       - name: grafana-dashboard-definition-kubernetes-statefulset
         configMap:
           name: grafana-dashboard-definition-kubernetes-statefulset
+      - name: scaling-config
+        configMap:
+          name: scaling-config
 ---

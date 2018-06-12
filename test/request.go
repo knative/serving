@@ -20,8 +20,8 @@ package test
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
@@ -56,7 +56,7 @@ func waitForRequestToDomainState(address string, spoofDomain string, retryableCo
 		if resp.StatusCode != 200 {
 			for _, code := range retryableCodes {
 				if resp.StatusCode == code {
-					log.Printf("Retrying for code %v\n", resp.StatusCode)
+					glog.Infof("Retrying for code %v\n", resp.StatusCode)
 					return false, nil
 				}
 			}
@@ -94,7 +94,7 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, resolvableDomain 
 		endpoint = domain
 	}
 
-	log.Println("Wait for the endpoint to be up and handling requests")
+	glog.Infof("Wait for the endpoint to be up and handling requests")
 	// TODO(#348): The ingress endpoint tends to return 503's and 404's
 	return waitForRequestToDomainState(endpoint, spoofDomain, []int{503, 404}, inState)
 }

@@ -91,10 +91,10 @@ func (bt *buildTracker) Untrack(u *v1alpha1.Revision) {
 	bk := getKey(u.Namespace, u.Spec.BuildName)
 	entry, ok := bt.builds[bk]
 	if ok {
+		entry.remove(getKey(u.Namespace, u.Name))
 		if len(entry) == 0 {
 			delete(bt.builds, bk)
 		} else {
-			entry.remove(getKey(u.Namespace, u.Name))
 			bt.builds[bk] = entry
 		}
 	}

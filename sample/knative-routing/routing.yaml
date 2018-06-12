@@ -1,0 +1,93 @@
+# This is the Ingress exposed as the entry of service mesh defined by user with custom routing rules.
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: entry-ingress
+  namespace: default
+spec:
+  rules:
+  # Set host to the domain name that you own.
+  - host: example.com
+    http:
+      paths:
+      - backend:
+          serviceName: entry-service
+          servicePort: http
+---
+# This is the placeholder service that backs up the entry Ingress.
+# User does not need to change this component.
+apiVersion: v1
+kind: Service
+metadata:
+  name: entry-service
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  sessionAffinity: None
+  type: ClusterIP
+---
+# This is an example of routing rule that redirects requests with URI "/search" prefix
+# to Knative Search service.
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: entry-route-search
+  namespace: default
+spec:
+  destination:
+    name: entry-service
+    namespace: default
+  # Define the rule matching request header with "/search" prefix.
+  match:
+    request:
+      headers:
+        uri:
+          prefix: "/search"
+  rewrite:
+    # Rewrite the original host header to the host header of Search service
+    # in order to redirect requests to Search service.
+    authority: search-service.default.demo-domain.com
+  route:
+  - destination:
+      # istio-ingress is the k8s service created by Istio as the actual entry of all traffic incoming to the cluster.
+      # Basically here we redirect the request to the cluster entry again with updated header
+      # "search-service.default.demo-domain.com" so the request will eventually be directed to Search service.
+      name: istio-ingress
+      namespace: istio-system
+    weight: 100
+---
+# This is an example of routing rule that redirects requests with URI "/login" prefix
+# to Knative Login service.
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: entry-route-login
+  namespace: default
+spec:
+  destination:
+    name: entry-service
+    namespace: default
+  # Define the rule matching request header with "/login" prefix.
+  match:
+    request:
+      headers:
+        uri:
+          prefix: "/login"
+  rewrite:
+    # Rewrite the original host header to the host header of Login service
+    # in order to redirect requests to Login service.
+    authority: login-service.default.demo-domain.com
+  route:
+    # istio-ingress is the k8s service created by Istio as the actual entry of all traffic incoming to the cluster.
+    # Basically here we redirect the request to the cluster entry again with updated header
+    # "login-service.default.demo-domain.com" so the request will eventually be directed to Login service. 
+  - destination:
+      name: istio-ingress
+      namespace: istio-system
+    weight: 100

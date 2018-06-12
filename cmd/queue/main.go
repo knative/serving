@@ -32,6 +32,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -95,7 +97,7 @@ func initEnv() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
+		elaAutoscaler, pkg.GetServingSystemNamespace(), elaAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
