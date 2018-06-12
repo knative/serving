@@ -51,7 +51,7 @@ func IsRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, erro
 	return func(r *v1alpha1.Revision) (bool, error) {
 		if len(r.Status.Conditions) > 0 {
 			if r.Status.Conditions[0].Type != v1alpha1.RevisionConditionType("Ready") {
-				return true, fmt.Errorf("Expected Revision to have a \"Ready\" status but only had %s", r.Status.Conditions[0].Type)
+				return false, nil
 			}
 			if r.Status.Conditions[0].Status == corev1.ConditionTrue {
 				return true, nil
