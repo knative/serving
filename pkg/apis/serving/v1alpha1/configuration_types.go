@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
-	"time"
+	// TODO(#1181): "time"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
@@ -187,7 +187,7 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 			conditions = append(conditions, cond)
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	// TODO(#1181): new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	cs.Conditions = conditions
 }

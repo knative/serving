@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
-	"time"
+	// TODO(#1181): "time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -198,7 +198,7 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 			conditions = append(conditions, cond)
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	// TODO(#1181): new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
