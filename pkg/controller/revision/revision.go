@@ -384,8 +384,13 @@ func (c *Controller) SyncDeployment(deployment *appsv1.Deployment) {
 		return
 	}
 
-	//Get the handle of Revision in context
-	revName := deployment.Name
+	or := metav1.GetControllerOf(deployment)
+	if or == nil || or.Kind != "Revision" {
+		return
+	}
+
+	// Get the handle of Revision in context
+	revName := or.Name
 	namespace := deployment.Namespace
 	logger := loggerWithRevisionInfo(c.Logger, namespace, revName)
 
