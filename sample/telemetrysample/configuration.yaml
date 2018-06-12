@@ -28,4 +28,4 @@ spec:
       container:
         # This is the Go import path for the binary to containerize
         # and substitute here.
-        image: gcr.io/yanweiguo-test/sample/telemetrysample
+        image: github.com/knative/serving/sample/telemetrysample
