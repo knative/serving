@@ -22,9 +22,34 @@ for: "STDIN": Internal error occurred: admission webhook "webhook.knative.dev" d
 ERROR: Non-zero return code '1' from command: Process exited with status 1
 ```
 
+## Check application logs
+Knative Serving provides default out-of-box logs for your application. After executing
+`kubectl proxy`, you can go to the
+[Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
+to search for logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
+
+### Stdout/stderr logs
+
+You can find the logs emitted to `stdout/stderr` from your application on
+Kibana UI by following steps:
+
+1. Click `Discover` on the left side bar.
+1. Choose `logstash-*` index pattern on the left top.
+1. Input `tag: kubernetes*` in the top search bar then search.
+
+### Request logs
+
+You can find the request logs of your application on Kibana UI by following
+steps:
+
+1. Click `Discover` on the left side bar.
+1. Choose `logstash-*` index pattern on the left top.
+1. Input `tag: "requestlog.logentry.istio-system"` in the top search bar then
+   search.
+
 ## Check Route status
 
-Run the following command to get `status` of the `Route` with which you deployed
+Run the following command to get `status` of the `Route` object with which you deployed
 your application:
 
 ```shell
@@ -36,7 +61,7 @@ details, see Elafro
 [Error Conditions and Reporting](../spec/errors.md)(currently some of them
 are not implemented yet).
 
-## Check revision status
+## Check Revision status
 
 If you configure your `Route` with `Configuration`, run the following command to
 get the name of the `Revision` created for you deployment(look up the
@@ -116,31 +141,6 @@ The `conditions` in `status` provide the reason if there is any failure. To acce
 * All build logs: `_exists_:"kubernetes.labels.build-name"`
 * Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
 * Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`
-
-## Check application logs
-Knative Serving provides default out-of-box logs for your application. After executing
-`kubectl proxy`, you can go to the
-[Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
-to search for logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
-
-### Stdout/stderr logs
-
-You can find the logs emitted to `stdout/stderr` from your application on
-Kibana UI by following steps:
-
-1. Click `Discover` on the left side bar.
-1. Choose `logstash-*` index pattern on the left top.
-1. Input `tag: kubernetes*` in the top search bar then search.
-
-### Request logs
-
-You can find the request logs of your application on Kibana UI by following
-steps:
-
-1. Click `Discover` on the left side bar.
-1. Choose `logstash-*` index pattern on the left top.
-1. Input `tag: "requestlog.logentry.istio-system"` in the top search bar then
-   search.
 
 ## Check Istio routing
 
