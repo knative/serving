@@ -19,6 +19,7 @@ limitations under the License.
 package test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -47,6 +48,22 @@ func WaitForRouteState(client elatyped.RouteInterface, name string, inState func
 	})
 }
 
+// CheckRouteState verifies the status of the Route called name from client
+// is in a particular state by calling `inState` and expecting `true`.
+// This is the non-polling variety of WaitForRouteState
+func CheckRouteState(client elatyped.RouteInterface, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
+	r, err := client.Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if done, err := inState(r); err != nil {
+		return err
+	} else if !done {
+		return fmt.Errorf("route %q is not in desired state: %+v", name, r)
+	}
+	return nil
+}
+
 // WaitForConfigurationState polls the status of the Configuration called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout.
@@ -60,6 +77,22 @@ func WaitForConfigurationState(client elatyped.ConfigurationInterface, name stri
 	})
 }
 
+// CheckConfigurationState verifies the status of the Configuration called name from client
+// is in a particular state by calling `inState` and expecting `true`.
+// This is the non-polling variety of WaitForConfigurationState
+func CheckConfigurationState(client elatyped.ConfigurationInterface, name string, inState func(r *v1alpha1.Configuration) (bool, error)) error {
+	c, err := client.Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if done, err := inState(c); err != nil {
+		return err
+	} else if !done {
+		return fmt.Errorf("configuration %q is not in desired state: %+v", name, c)
+	}
+	return nil
+}
+
 // WaitForRevisionState polls the status of the Revision called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout.
@@ -71,6 +104,22 @@ func WaitForRevisionState(client elatyped.RevisionInterface, name string, inStat
 		}
 		return inState(r)
 	})
+}
+
+// CheckRevisionState verifies the status of the Revision called name from client
+// is in a particular state by calling `inState` and expecting `true`.
+// This is the non-polling variety of WaitForRevisionState
+func CheckRevisionState(client elatyped.RevisionInterface, name string, inState func(r *v1alpha1.Revision) (bool, error)) error {
+	r, err := client.Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if done, err := inState(r); err != nil {
+		return err
+	} else if !done {
+		return fmt.Errorf("revision %q is not in desired state: %+v", name, r)
+	}
+	return nil
 }
 
 // WaitForIngressState polls the status of the Ingress called name

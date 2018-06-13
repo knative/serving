@@ -51,18 +51,6 @@ func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, image
 	return err
 }
 
-func getFirstRevisionName(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var revisionName string
-	err := test.WaitForConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		if c.Status.LatestCreatedRevisionName != "" {
-			revisionName = c.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	})
-	return revisionName, err
-}
-
 func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
 	patches := []jsonpatch.JsonPatchOperation{
 		jsonpatch.JsonPatchOperation{
@@ -110,19 +98,19 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	glog.Infof("The Revision will be marked as Ready when it can serve traffic")
-	err = test.WaitForRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady(names.Revision))
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady(names.Revision))
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 	glog.Infof("Updates the Configuration that the Revision is ready")
-	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+	err = test.CheckConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
 	if err != nil {
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v\n", names.Config, names.Revision, err)
 	}
 	glog.Infof("Updates the Route to route traffic to the Revision")
-	err = test.WaitForRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
+	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -175,7 +163,7 @@ func TestRouteCreation(t *testing.T) {
 	}
 
 	glog.Infof("The Configuration will be updated with the name of the Revision once it is created")
-	revisionName, err := getFirstRevisionName(clients, names)
+	revisionName, err := getNextRevisionName(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
