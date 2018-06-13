@@ -156,6 +156,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	// Last stat per Pod
 	lastStat := make(map[string]Stat)
 
+	// accumulate stats into their respective buckets
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(*a.PanicWindow.Get()).After(now) {
@@ -203,25 +204,25 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
-	observedStableConcurrency := stableData.observedConcurrencyPerPod()
-	observedPanicConcurrency := panicData.observedConcurrencyPerPod()
+	observedStableConcurrencyPerPod := stableData.observedConcurrencyPerPod()
+	observedPanicConcurrencyPerPod := panicData.observedConcurrencyPerPod()
 	// Desired scaling ratio is observed concurrency over desired (stable) concurrency.
 	// Rate limited to within MaxScaleUpRate.
-	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())
-	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency.Get())
+	desiredStableScalingRatio := a.rateLimited(observedStableConcurrencyPerPod / a.TargetConcurrency.Get())
+	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrencyPerPod / a.TargetConcurrency.Get())
 
 	desiredStablePodCount := desiredStableScalingRatio * float64(stableData.observedPods())
 	desiredPanicPodCount := desiredPanicScalingRatio * float64(stableData.observedPods())
 
 	a.reporter.Report(ObservedPodCountM, float64(stableData.observedPods()))
-	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrency)
-	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrency)
+	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrencyPerPod)
+	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrencyPerPod)
 	a.reporter.Report(TargetConcurrencyM, a.TargetConcurrency.Get())
 
 	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, a.StableWindow.Get(), stableData.probeCount, stableData.observedPods())
+		observedStableConcurrencyPerPod, a.StableWindow.Get(), stableData.probeCount, stableData.observedPods())
 	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, a.PanicWindow.Get(), panicData.probeCount, panicData.observedPods())
+		observedPanicConcurrencyPerPod, a.PanicWindow.Get(), panicData.probeCount, panicData.observedPods())
 
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
@@ -233,7 +234,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && panicData.observedPods() > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
+	if !a.panicking && panicData.observedPods() > 0 && observedPanicConcurrencyPerPod >= (a.TargetConcurrency.Get()*2) {
 		logger.Info("PANICKING")
 		a.reporter.Report(PanicM, 1)
 		a.panicking = true
