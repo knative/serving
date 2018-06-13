@@ -11,6 +11,7 @@ It has these top-level messages:
 	Request
 	Response
 */
+
 package hello
 
 import proto "github.com/golang/protobuf/proto"
