@@ -712,6 +712,14 @@ func (c *Controller) computeRevisionRoutes(
 			Weight:       totalInactivePercent,
 		}
 		ret = append(ret, activatorRoute)
+	} else {
+		ret = append(ret, RevisionRoute{
+			Name:         controller.GetElaK8SActivatorServiceName(),
+			RevisionName: inactiveRev,
+			Service:      controller.GetElaK8SActivatorServiceName(),
+			Namespace:    pkg.GetServingSystemNamespace(),
+			Weight:       0,
+		})
 	}
 	return ret, inactiveRev, nil
 }
