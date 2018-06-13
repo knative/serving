@@ -45,6 +45,58 @@ type statKey struct {
 	time    time.Time
 }
 
+// holds an aggregation across all pods
+type totalAggregation struct {
+	perPodAggregations map[string]*perPodAggregation
+	probeCount         int32
+}
+
+// aggregates a given stat to the correct pod-aggregation
+func (agg *totalAggregation) aggregate(stat Stat) {
+	if agg.perPodAggregations == nil {
+		agg.perPodAggregations = make(map[string]*perPodAggregation)
+	}
+	current, exists := agg.perPodAggregations[stat.PodName]
+	if !exists {
+		current = &perPodAggregation{}
+		agg.perPodAggregations[stat.PodName] = current
+	}
+	current.aggregate(stat.AverageConcurrentRequests)
+	agg.probeCount += 1
+}
+
+// the number of pods that are observable via stats
+func (agg *totalAggregation) observedPods() int {
+	return len(agg.perPodAggregations)
+}
+
+// the observed concurrency per pod (sum of all average concurrencies
+// distributed over the observed pods)
+func (agg *totalAggregation) observedConcurrencyPerPod() float64 {
+	var accumulatedConcurrency float64
+	for _, perPod := range agg.perPodAggregations {
+		accumulatedConcurrency += perPod.calculateAverage()
+	}
+	return accumulatedConcurrency / float64(agg.observedPods())
+}
+
+// hols an aggregation per pod
+type perPodAggregation struct {
+	accumulatedConcurrency float64
+	probeCount             int32
+}
+
+// aggregates the given concurrency
+func (agg *perPodAggregation) aggregate(concurrency float64) {
+	agg.accumulatedConcurrency += concurrency
+	agg.probeCount += 1
+}
+
+// calculates the average concurrency over all values given
+func (agg *perPodAggregation) calculateAverage() float64 {
+	return agg.accumulatedConcurrency / float64(agg.probeCount)
+}
+
 var (
 	lastRequestTime = time.Now()
 )
@@ -96,14 +148,10 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 	// 60 second window
-	stableTotal := float64(0)
-	stableCount := float64(0)
-	stablePods := make(map[string]bool)
+	stableData := &totalAggregation{}
 
 	// 6 second window
-	panicTotal := float64(0)
-	panicCount := float64(0)
-	panicPods := make(map[string]bool)
+	panicData := &totalAggregation{}
 
 	// Last stat per Pod
 	lastStat := make(map[string]Stat)
@@ -111,14 +159,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	for key, stat := range a.stats {
 		instant := key.time
 		if instant.Add(*a.PanicWindow.Get()).After(now) {
-			panicTotal = panicTotal + stat.AverageConcurrentRequests
-			panicCount = panicCount + 1
-			panicPods[stat.PodName] = true
+			panicData.aggregate(stat)
 		}
 		if instant.Add(*a.StableWindow.Get()).After(now) {
-			stableTotal = stableTotal + stat.AverageConcurrentRequests
-			stableCount = stableCount + 1
-			stablePods[stat.PodName] = true
+			stableData.aggregate(stat)
 
 			if _, ok := lastStat[stat.PodName]; !ok {
 				lastStat[stat.PodName] = stat
@@ -158,16 +202,18 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Do nothing when we have no data.
-	if len(stablePods) == 0 {
+	if stableData.observedPods() == 0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
 	}
 
-	a.reporter.Report(ObservedPodCountM, float64(len(stablePods)))
+	a.reporter.Report(ObservedPodCountM, float64(stableData.observedPods()))
 	// Observed concurrency is the average of all data points in each window
-	observedStableConcurrency := stableTotal / stableCount
+	observedStableConcurrency := stableData.observedConcurrencyPerPod()
 	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrency)
-	observedPanicConcurrency := panicTotal / panicCount
+
+	observedPanicConcurrency := panicData.observedConcurrencyPerPod()
+
 	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrency)
 
 	a.reporter.Report(TargetConcurrencyM, a.TargetConcurrency.Get())
@@ -176,16 +222,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())
 	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency.Get())
 
-	desiredStablePodCount := desiredStableScalingRatio * float64(len(stablePods))
-	desiredPanicPodCount := desiredPanicScalingRatio * float64(len(stablePods))
+	desiredStablePodCount := desiredStableScalingRatio * float64(stableData.observedPods())
+	desiredPanicPodCount := desiredPanicScalingRatio * float64(stableData.observedPods())
 
-	logger.Debugf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, a.StableWindow.Get(), stableCount, len(stablePods))
-	logger.Debugf("Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, a.PanicWindow.Get(), panicCount, len(panicPods))
+	logger.Infof("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+		observedStableConcurrency, a.StableWindow.Get(), stableData.probeCount, stableData.observedPods())
+	logger.Infof("PANIC: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+		observedPanicConcurrency, a.PanicWindow.Get(), panicData.probeCount, panicData.observedPods())
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
-	if !a.panicking && len(panicPods) > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
+	if !a.panicking && panicData.observedPods() > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
 		logger.Info("PANICKING")
 		a.reporter.Report(PanicM, 1)
 		a.panicking = true
@@ -195,7 +241,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	if a.panicking {
 		logger.Debug("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %v to %v.", len(panicPods), int(desiredPanicPodCount))
+			logger.Infof("Increasing pods from %v to %v.", panicData.observedPods(), int(desiredPanicPodCount))
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
