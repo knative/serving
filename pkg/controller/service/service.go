@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -56,17 +54,6 @@ type Controller struct {
 
 	// lister indexes properties about Services
 	lister listers.ServiceLister
-	synced cache.InformerSynced
-
-	// workqueue is a rate limited work queue. This is used to queue work to be
-	// processed instead of performing it as soon as a change happens. This
-	// means we can ensure we only process a fixed amount of resources at a
-	// time, and makes it easy to ensure we are never processing the same item
-	// simultaneously in two different workers.
-	workqueue workqueue.RateLimitingInterface
-	// recorder is an event recorder for recording Event resources to the
-	// Kubernetes API.
-	recorder record.EventRecorder
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -79,11 +66,21 @@ func NewController(
 	// obtain references to a shared index informer for the Services.
 	informer := elaInformerFactory.Serving().V1alpha1().Services()
 
+	informers := []cache.SharedIndexInformer{informer.Informer()}
+
 	controller := &Controller{
-		Base:   controller.NewBase(opt, informer.Informer(), controllerAgentName, "Services"),
+		Base:   controller.NewBase(opt, controllerAgentName, "Services", informers),
 		lister: informer.Lister(),
-		synced: informer.Informer().HasSynced,
 	}
+
+	controller.Logger.Info("Setting up event handlers")
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.Enqueue,
+		UpdateFunc: func(old, new interface{}) {
+			controller.Enqueue(new)
+		},
+		DeleteFunc: controller.Enqueue,
+	})
 
 	return controller
 }
@@ -93,8 +90,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced},
-		c.updateServiceEvent, "Service")
+	return c.RunController(threadiness, stopCh, c.updateServiceEvent, "Service")
 }
 
 // loggerWithServiceInfo enriches the logs with service name and namespace.

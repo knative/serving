@@ -83,11 +83,6 @@ type Controller struct {
 
 	// lister indexes properties about Route
 	lister listers.RouteLister
-	synced cache.InformerSynced
-
-	// don't start the workers until informers are synced
-	configSynced    cache.InformerSynced
-	configMapSynced cache.InformerSynced
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
@@ -116,7 +111,10 @@ func NewController(
 	informer := elaInformerFactory.Serving().V1alpha1().Routes()
 	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
+
+	informers := []cache.SharedIndexInformer{informer.Informer(), configInformer.Informer(),
+		ingressInformer.Informer(), configMapInformer.Informer()}
 
 	domainConfig, err := NewDomainConfig(opt.KubeClientSet)
 	if err != nil {
@@ -126,16 +124,21 @@ func NewController(
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	controller := &Controller{
-		Base:              controller.NewBase(opt, informer.Informer(), controllerAgentName, "Routes"),
+		Base:              controller.NewBase(opt, controllerAgentName, "Routes", informers),
 		lister:            informer.Lister(),
-		synced:            informer.Informer().HasSynced,
-		configSynced:      configInformer.Informer().HasSynced,
-		configMapSynced:   configMapInformer.HasSynced,
 		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
 
 	controller.Logger.Info("Setting up event handlers")
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.Enqueue,
+		UpdateFunc: func(old, new interface{}) {
+			controller.Enqueue(new)
+		},
+		DeleteFunc: controller.Enqueue,
+	})
+
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			controller.SyncConfiguration(obj.(*v1alpha1.Configuration))
@@ -153,7 +156,7 @@ func NewController(
 			controller.SyncIngress(new.(*v1beta1.Ingress))
 		},
 	})
-	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			controller.SyncConfigMap(obj.(*corev1.ConfigMap))
 		},
@@ -169,8 +172,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced, c.configMapSynced},
-		c.updateRouteEvent, "Route")
+	return c.RunController(threadiness, stopCh, c.updateRouteEvent, "Route")
 }
 
 // loggerWithRouteInfo enriches the logs with route name and namespace.
