@@ -50,6 +50,14 @@ func MakeVpa(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 							corev1.ResourceName("memory"): resource.MustParse(fluentdContainerMaxMemory),
 						},
 					},
+					vpa.ContainerResourcePolicy{
+						Name: envoyContainerName,
+						Mode: vpa.ContainerScalingModeOn,
+						MaxAllowed: corev1.ResourceList{
+							corev1.ResourceName("cpu"):    resource.MustParse(envoyContainerMaxCPU),
+							corev1.ResourceName("memory"): resource.MustParse(envoyContainerMaxMemory),
+						},
+					},
 				},
 			},
 		},

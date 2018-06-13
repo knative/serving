@@ -63,6 +63,7 @@ const (
 
 	fluentdContainerName string = "fluentd-proxy"
 	queueContainerName   string = "queue-proxy"
+	envoyContainerName   string = "istio-proxy"
 	// queueSidecarName set by -queueSidecarName flag
 	queueHTTPPortName string = "queue-http-port"
 
