@@ -148,15 +148,21 @@ func main() {
 		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
+	opt := controller.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: elaClient,
+		Logger:           logger,
+	}
+
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory,
-			buildInformerFactory, servingSystemInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory,
-			servingSystemInformerFactory, cfg, autoscaleEnableScaleToZero, logger),
-		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, logger),
+		configuration.NewController(opt, buildClient, elaInformerFactory, cfg),
+		revision.NewController(opt, kubeInformerFactory, elaInformerFactory,
+			buildInformerFactory, servingSystemInformerFactory, cfg, &revControllerConfig),
+		route.NewController(opt, kubeInformerFactory, elaInformerFactory,
+			servingSystemInformerFactory, cfg, autoscaleEnableScaleToZero),
+		service.NewController(opt, elaInformerFactory, cfg),
 	}
 
 	go kubeInformerFactory.Start(stopCh)

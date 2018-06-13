@@ -23,7 +23,6 @@ import (
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -33,8 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -57,13 +54,10 @@ type Controller struct {
 
 // NewController creates a new Configuration controller
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
+	opt controller.Options,
 	buildClientSet buildclientset.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config,
-	logger *zap.SugaredLogger) controller.Interface {
+	config *rest.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
@@ -71,8 +65,7 @@ func NewController(
 	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet,
-			informer.Informer(), controllerAgentName, "Configurations", logger),
+		Base:            controller.NewBase(opt, informer.Informer(), controllerAgentName, "Configurations"),
 		buildClientSet:  buildClientSet,
 		lister:          informer.Lister(),
 		synced:          informer.Informer().HasSynced,
