@@ -436,7 +436,7 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 
 	// Check to see if the revision has already been marked as ready or failed
 	// and if it is, then there's no need to do anything to it.
-	if rev.Status.IsReady() || rev.Status.IsFailed() {
+	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil && c.Status != corev1.ConditionUnknown {
 		return
 	}
 
