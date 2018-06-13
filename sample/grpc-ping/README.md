@@ -17,6 +17,7 @@ REPO="gcr.io/<your-project-here>"
 # Build and publish the container, run from the root directory.
 docker build \
   --build-arg SAMPLE=grpc-ping \
+  --build-arg BUILDTAG=grpcping \
   --tag "${REPO}/sample/grpc-ping" \
   --file=sample/grpc-ping/Dockerfile .
 docker push "${REPO}/sample/grpc-ping"

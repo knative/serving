@@ -14,6 +14,7 @@
 
 FROM golang AS builder
 ARG SAMPLE
+ARG BUILDTAG
 
 # Get the dependencies from GitHub
 RUN go get google.golang.org/grpc
@@ -21,7 +22,7 @@ RUN go get google.golang.org/grpc
 WORKDIR /go/src/github.com/knative/serving
 ADD . /go/src/github.com/knative/serving
 
-RUN CGO_ENABLED=0 go build ./sample/${SAMPLE}
+RUN CGO_ENABLED=0 go build -tags=${BUILDTAG} ./sample/${SAMPLE}
 
 FROM gcr.io/distroless/base
 ARG SAMPLE

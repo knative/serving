@@ -19,9 +19,10 @@ package conformance
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"strings"
 	"testing"
+
+	"github.com/golang/glog"
 
 	"encoding/json"
 
@@ -43,7 +44,7 @@ const (
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePaths[0], v1alpha1.RevisionProtocolHTTP))
+	_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePaths[0]))
 	if err != nil {
 		return err
 	}
