@@ -73,7 +73,7 @@ var (
 	elaAutoscaler            string
 	elaAutoscalerPort        string
 	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan                  = make(chan interface{}, requestCountingQueueLength)
+	reqChan                  = make(chan queue.ReqEvent, requestCountingQueueLength)
 	kubeClient               *kubernetes.Clientset
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
@@ -154,9 +154,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Metrics for autoscaling
-	reqChan <- queue.ReqIn{}
+	reqChan <- queue.ReqIn
 	defer func() {
-		reqChan <- queue.ReqOut{}
+		reqChan <- queue.ReqOut
 	}()
 	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
 		// Enforce single concurrency and breaking

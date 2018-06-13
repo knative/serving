@@ -196,7 +196,7 @@ func newTestStats() *testStats {
 	quanitzationBiChan := make(chan time.Time)
 	reportBiChan := make(chan time.Time)
 	ch := Channels{
-		ReqChan:          make(chan interface{}),
+		ReqChan:          make(chan ReqEvent),
 		QuantizationChan: (<-chan time.Time)(quanitzationBiChan),
 		ReportChan:       (<-chan time.Time)(reportBiChan),
 		StatChan:         make(chan *autoscaler.Stat),
@@ -211,11 +211,11 @@ func newTestStats() *testStats {
 }
 
 func (s *testStats) requestStart() {
-	s.ch.ReqChan <- ReqIn{}
+	s.ch.ReqChan <- ReqIn
 }
 
 func (s *testStats) requestEnd() {
-	s.ch.ReqChan <- ReqOut{}
+	s.ch.ReqChan <- ReqOut
 }
 
 func (s *testStats) quantize(now time.Time) {

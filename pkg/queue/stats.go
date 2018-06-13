@@ -21,14 +21,18 @@ import (
 )
 
 // Tokens to record ReqIn (request in) and ReqOut (request out) events respectively
-type ReqIn struct{}
-type ReqOut struct{}
+type ReqEvent int
+
+const (
+	ReqIn ReqEvent = iota
+	ReqOut
+)
 
 // Channels is a structure for holding the channels for driving Stats.
 // It's just to make the NewStats signature easier to read.
 type Channels struct {
 	// Ticks with every request arrived/completed respectively
-	ReqChan chan interface{}
+	ReqChan chan ReqEvent
 	// Ticks at every quantization interval
 	QuantizationChan <-chan time.Time
 	// Ticks with every stat report request
@@ -60,7 +64,7 @@ func NewStats(podName string, channels Channels) *Stats {
 		for {
 			select {
 			case event := <-s.ch.ReqChan:
-				switch event.(type) {
+				switch event {
 				case ReqIn:
 					requestCount = requestCount + 1
 					concurrency = concurrency + 1
