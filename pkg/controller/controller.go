@@ -74,29 +74,33 @@ type Base struct {
 	Logger *zap.SugaredLogger
 }
 
+// Options defines the common controller options passed to NewBase.
+// We define this to reduce the boilerplate argument list when
+// creating derivative controllers.
+type Options struct {
+	KubeClientSet    kubernetes.Interface
+	ServingClientSet clientset.Interface
+	Logger           *zap.SugaredLogger
+}
+
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
-func NewBase(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
-	informer cache.SharedIndexInformer,
-	controllerAgentName string,
-	workQueueName string,
-	logger *zap.SugaredLogger) *Base {
+func NewBase(opt Options, informer cache.SharedIndexInformer, controllerAgentName string, workQueueName string) *Base {
 
 	// Enrich the logs with controller name
-	logger = logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
+	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
 	// Create event broadcaster
 	logger.Debug("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(
+		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	base := &Base{
-		KubeClientSet: kubeClientSet,
-		ElaClientSet:  elaClientSet,
+		KubeClientSet: opt.KubeClientSet,
+		ElaClientSet:  opt.ServingClientSet,
 		Recorder:      recorder,
 		WorkQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		Logger:        logger,

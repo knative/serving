@@ -32,13 +32,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -106,14 +104,12 @@ type Controller struct {
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // reconcileKey - function for mapping queue keys to resource names
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
+	opt controller.Options,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
 	config *rest.Config,
-	enableScaleToZero *k8sflag.BoolFlag,
-	logger *zap.SugaredLogger) controller.Interface {
+	enableScaleToZero *k8sflag.BoolFlag) controller.Interface {
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
@@ -122,16 +118,15 @@ func NewController(
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
 
-	domainConfig, err := NewDomainConfig(kubeClientSet)
+	domainConfig, err := NewDomainConfig(opt.KubeClientSet)
 	if err != nil {
-		logger.Fatalf("Error loading domain config: %v", err)
+		opt.Logger.Fatalf("Error loading domain config: %v", err)
 	}
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet,
-			informer.Informer(), controllerAgentName, "Routes", logger),
+		Base:              controller.NewBase(opt, informer.Informer(), controllerAgentName, "Routes"),
 		lister:            informer.Lister(),
 		synced:            informer.Informer().HasSynced,
 		configSynced:      configInformer.Informer().HasSynced,

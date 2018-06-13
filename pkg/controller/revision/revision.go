@@ -34,7 +34,6 @@ import (
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -46,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -164,15 +162,13 @@ type ControllerConfig struct {
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // queue - message queue for handling new events.  unique to this controller.
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
+	opt controller.Options,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	buildInformerFactory buildinformers.SharedInformerFactory,
 	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig *ControllerConfig,
-	logger *zap.SugaredLogger) controller.Interface {
+	controllerConfig *ControllerConfig) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
 	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
@@ -180,20 +176,19 @@ func NewController(
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
 
-	networkConfig, err := NewNetworkConfig(kubeClientSet)
+	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
 	if err != nil {
-		logger.Fatalf("Error loading network config: %v", err)
+		opt.Logger.Fatalf("Error loading network config: %v", err)
 	}
 
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet,
-			informer.Informer(), controllerAgentName, "Revisions", logger),
+		Base:             controller.NewBase(opt, informer.Informer(), controllerAgentName, "Revisions"),
 		lister:           informer.Lister(),
 		synced:           informer.Informer().HasSynced,
 		endpointsSynced:  endpointsInformer.Informer().HasSynced,
 		configMapSynced:  configMapInformer.HasSynced,
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver:         &digestResolver{client: kubeClientSet, transport: http.DefaultTransport},
+		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
 		networkConfig:    networkConfig,
 	}

@@ -24,15 +24,12 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -75,19 +72,15 @@ type Controller struct {
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
+	opt controller.Options,
 	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config,
-	logger *zap.SugaredLogger) controller.Interface {
+	config *rest.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
 	informer := elaInformerFactory.Serving().V1alpha1().Services()
 
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet,
-			informer.Informer(), controllerAgentName, "Services", logger),
+		Base:   controller.NewBase(opt, informer.Informer(), controllerAgentName, "Services"),
 		lister: informer.Lister(),
 		synced: informer.Informer().HasSynced,
 	}

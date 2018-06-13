@@ -191,14 +191,16 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
 
 	controller = NewController(
-		kubeClient,
-		elaClient,
+		ctrl.Options{
+			kubeClient,
+			elaClient,
+			testLogger,
+		},
 		kubeInformer,
 		elaInformer,
 		servingSystemInformer,
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
-		testLogger,
 	).(*Controller)
 
 	return

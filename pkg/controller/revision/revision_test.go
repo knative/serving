@@ -239,15 +239,17 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
 
 	controller = NewController(
-		kubeClient,
-		elaClient,
+		ctrl.Options{
+			kubeClient,
+			elaClient,
+			zap.NewNop().Sugar(),
+		},
 		kubeInformer,
 		elaInformer,
 		buildInformer,
 		servingSystemInformer,
 		&rest.Config{},
 		controllerConfig,
-		zap.NewNop().Sugar(),
 	).(*Controller)
 
 	controller.resolver = &nopResolver{}
