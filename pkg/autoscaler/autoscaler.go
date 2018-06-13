@@ -73,7 +73,7 @@ func (agg *totalAggregation) observedPods() int {
 // the observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
 func (agg *totalAggregation) observedConcurrencyPerPod() float64 {
-	var accumulatedConcurrency float64
+	accumulatedConcurrency := float64(0)
 	for _, perPod := range agg.perPodAggregations {
 		accumulatedConcurrency += perPod.calculateAverage()
 	}
@@ -164,12 +164,16 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		if instant.Add(*a.StableWindow.Get()).After(now) {
 			stableData.aggregate(stat)
 
+			// if there's no last stat for this pod, set it
 			if _, ok := lastStat[stat.PodName]; !ok {
 				lastStat[stat.PodName] = stat
 			}
+			// if the current last stat is older than the new one, override
 			if lastStat[stat.PodName].Time.Before(*stat.Time) {
 				lastStat[stat.PodName] = stat
 			}
+			// update lastRequestTime if the current stat is newer and
+			// actually contains requests
 			if lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
 				lastRequestTime = *stat.Time
 			}
@@ -179,8 +183,15 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		}
 	}
 
+	// Scale to zero if the last request is from too long ago
 	if lastRequestTime.Add(*a.ScaleToZeroThreshold.Get()).Before(now) {
 		return 0, true
+	}
+
+	// Do nothing when we have no data.
+	if stableData.observedPods() == 0 {
+		logger.Debug("No data to scale on.")
+		return 0, false
 	}
 
 	// Log system totals
@@ -192,6 +203,26 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 	logger.Debugf("Current QPS: %v  Current concurrent clients: %v", totalCurrentQPS, totalCurrentConcurrency)
 
+	observedStableConcurrency := stableData.observedConcurrencyPerPod()
+	observedPanicConcurrency := panicData.observedConcurrencyPerPod()
+	// Desired scaling ratio is observed concurrency over desired (stable) concurrency.
+	// Rate limited to within MaxScaleUpRate.
+	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())
+	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency.Get())
+
+	desiredStablePodCount := desiredStableScalingRatio * float64(stableData.observedPods())
+	desiredPanicPodCount := desiredPanicScalingRatio * float64(stableData.observedPods())
+
+	a.reporter.Report(ObservedPodCountM, float64(stableData.observedPods()))
+	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrency)
+	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrency)
+	a.reporter.Report(TargetConcurrencyM, a.TargetConcurrency.Get())
+
+	logger.Debugf("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+		observedStableConcurrency, a.StableWindow.Get(), stableData.probeCount, stableData.observedPods())
+	logger.Debugf("PANIC: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
+		observedPanicConcurrency, a.PanicWindow.Get(), panicData.probeCount, panicData.observedPods())
+
 	// Stop panicking after the surge has made its way into the stable metric.
 	if a.panicking && a.panicTime.Add(*a.StableWindow.Get()).Before(now) {
 		logger.Info("Un-panicking.")
@@ -200,35 +231,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.panicTime = nil
 		a.maxPanicPods = 0
 	}
-
-	// Do nothing when we have no data.
-	if stableData.observedPods() == 0 {
-		logger.Debug("No data to scale on.")
-		return 0, false
-	}
-
-	a.reporter.Report(ObservedPodCountM, float64(stableData.observedPods()))
-	// Observed concurrency is the average of all data points in each window
-	observedStableConcurrency := stableData.observedConcurrencyPerPod()
-	a.reporter.Report(ObservedStableConcurrencyM, observedStableConcurrency)
-
-	observedPanicConcurrency := panicData.observedConcurrencyPerPod()
-
-	a.reporter.Report(ObservedPanicConcurrencyM, observedPanicConcurrency)
-
-	a.reporter.Report(TargetConcurrencyM, a.TargetConcurrency.Get())
-	// Desired scaling ratio is observed concurrency over desired
-	// (stable) concurrency. Rate limited to within MaxScaleUpRate.
-	desiredStableScalingRatio := a.rateLimited(observedStableConcurrency / a.TargetConcurrency.Get())
-	desiredPanicScalingRatio := a.rateLimited(observedPanicConcurrency / a.TargetConcurrency.Get())
-
-	desiredStablePodCount := desiredStableScalingRatio * float64(stableData.observedPods())
-	desiredPanicPodCount := desiredPanicScalingRatio * float64(stableData.observedPods())
-
-	logger.Infof("STABLE: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedStableConcurrency, a.StableWindow.Get(), stableData.probeCount, stableData.observedPods())
-	logger.Infof("PANIC: Observed average %0.3f concurrency over %v seconds over %v samples over %v pods.",
-		observedPanicConcurrency, a.PanicWindow.Get(), panicData.probeCount, panicData.observedPods())
 
 	// Begin panicking when we cross the 6 second concurrency threshold.
 	if !a.panicking && panicData.observedPods() > 0 && observedPanicConcurrency >= (a.TargetConcurrency.Get()*2) {
