@@ -19,7 +19,8 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
-	// TODO(#1181): "time"
+	"reflect"
+	"time"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
@@ -185,9 +186,15 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	for _, cond := range cs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
-	// TODO(#1181): new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	cs.Conditions = conditions
 }

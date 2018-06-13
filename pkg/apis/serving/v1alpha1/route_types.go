@@ -19,7 +19,8 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
-	// TODO(#1181): "time"
+	"reflect"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -196,9 +197,15 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
-	// TODO(#1181): new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
