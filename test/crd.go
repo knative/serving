@@ -18,10 +18,11 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	"github.com/golang/glog"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +58,7 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specifed by imagePath.
-func Configuration(namespace string, names ResourceNames, imagePath string, protocol v1alpha1.RevisionProtocolType) *v1alpha1.Configuration {
+func Configuration(namespace string, names ResourceNames, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -66,7 +67,6 @@ func Configuration(namespace string, names ResourceNames, imagePath string, prot
 		Spec: v1alpha1.ConfigurationSpec{
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					Protocol: protocol,
 					Container: corev1.Container{
 						Image: imagePath,
 					},

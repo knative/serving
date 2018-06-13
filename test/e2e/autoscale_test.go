@@ -120,7 +120,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		"/")
 
 	glog.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, imagePath, v1alpha1.RevisionProtocolHTTP)
+	names, err := CreateRouteAndConfig(clients, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}

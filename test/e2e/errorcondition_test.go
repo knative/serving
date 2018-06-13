@@ -46,7 +46,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
 	glog.Infof("Creating a new Route and Configuration %s", imagePath)
-	names, err := CreateRouteAndConfig(clients, imagePath, v1alpha1.RevisionProtocolHTTP)
+	names, err := CreateRouteAndConfig(clients, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}

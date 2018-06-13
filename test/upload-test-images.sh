@@ -24,9 +24,7 @@ DOCKER_FILES="$(ls -1 $1/*/Dockerfile)"
 
 for docker_file in ${DOCKER_FILES}; do
   image_dir="$(dirname ${docker_file})"
-  image_name="$(basename ${image_dir})"
-  image_name="${image_name#_}"
-  versioned_name="${DOCKER_REPO_OVERRIDE}/${image_name}"
+  versioned_name="${DOCKER_REPO_OVERRIDE}/$(basename ${image_dir})"
   docker build "${image_dir}" -f "${docker_file}" -t "${versioned_name}"
   docker push "${versioned_name}"
 done
