@@ -37,16 +37,17 @@ We expect this list to grow as more areas are identified.
 
 # How do I use Knative?
 
-You can install and run pre-built Knative components directly into
-your project by following the instructions at
-https://github.com/knative/install.
+You can choose to install individual Knative components following the
+instructions in each repo, or install a pre-built suite of components
+by following the instructions at https://github.com/knative/install.
 
 
 # Who is Knative for?
 
-**Developers**
+Knative is being created with several
+[personas](./docs/product/personas.md) in mind.
 
- > *TODO: Insert user personas diagram here*
+**Developers**
 
 Knative components offer Kubernetes-native APIs for deploying
 functions, applications, and containers to an auto-scaling runtime.
@@ -57,10 +58,9 @@ follow the [Knative installation
 instructions](https://github.com/knative/install) to get the system up
 and running and [run some sample code](./sample/README.md).
 
-Once the Knative components are available, you can build and deploy
-your own applications. For example:
-
-> *TODO: Insert minimal hello world example here*
+The install instructions include a [sample
+application](https://github.com/knative/install#test-app) which
+demonsrates some features of Knative.
 
 To join the conversation, head over to
 https://groups.google.com/d/forum/knative-users.
@@ -73,8 +73,6 @@ enterprises can then operate.
 
 Any enterprise or cloud provider can adopt Knative components into
 their own systems and pass the benefits along to their customers.
-
-> *TODO: Add more about the operator experience here*
 
 **Contributors**
 
