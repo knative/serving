@@ -224,10 +224,12 @@ func (cs *ConfigurationStatus) InitializeConditions() {
 
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
-	cs.setCondition(&ConfigurationCondition{
-		Type:   ConfigurationConditionLatestRevisionReady,
-		Status: corev1.ConditionUnknown,
-	})
+	if cs.LatestReadyRevisionName != name {
+		cs.setCondition(&ConfigurationCondition{
+			Type:   ConfigurationConditionLatestRevisionReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
 }
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {

@@ -271,6 +271,12 @@ func TestTypicalFlow(t *testing.T) {
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
+	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
+	// e.g. on a subsequent reconciliation.
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
 	r.Status.SetLatestCreatedRevisionName("bar")
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
