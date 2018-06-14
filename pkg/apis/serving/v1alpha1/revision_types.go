@@ -106,8 +106,8 @@ type RevisionSpec struct {
 	ServingState RevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
-	// (SingleConcurrency or MultiConcurrency) for the
-	// Revision. Defaults to MultiConcurrency.
+	// (Single or Multi) for the
+	// Revision. Defaults to Multi.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 

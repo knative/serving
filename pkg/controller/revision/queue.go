@@ -81,6 +81,7 @@ func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerC
 		},
 		Args: []string{
 			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
 		Env: []corev1.EnvVar{
 			{
