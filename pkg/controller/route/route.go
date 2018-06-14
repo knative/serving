@@ -703,24 +703,18 @@ func (c *Controller) computeRevisionRoutes(
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
 	// https://github.com/knative/serving/issues/882
-	if totalInactivePercent > 0 {
-		activatorRoute := RevisionRoute{
-			Name:         controller.GetElaK8SActivatorServiceName(),
-			RevisionName: inactiveRev,
-			Service:      controller.GetElaK8SActivatorServiceName(),
-			Namespace:    pkg.GetServingSystemNamespace(),
-			Weight:       totalInactivePercent,
-		}
-		ret = append(ret, activatorRoute)
-	} else {
-		ret = append(ret, RevisionRoute{
-			Name:         controller.GetElaK8SActivatorServiceName(),
-			RevisionName: inactiveRev,
-			Service:      controller.GetElaK8SActivatorServiceName(),
-			Namespace:    pkg.GetServingSystemNamespace(),
-			Weight:       0,
-		})
+	// TODO: We are adding activator to the route whether the weight is zero or positive
+	// to workaround https://github.com/istio/istio/issues/5204
+	// Once migration to Istio Gateway completes, we should change this back so that activator
+	// is added to the list only if its weight is positive
+	activatorRoute := RevisionRoute{
+		Name:         controller.GetElaK8SActivatorServiceName(),
+		RevisionName: inactiveRev,
+		Service:      controller.GetElaK8SActivatorServiceName(),
+		Namespace:    pkg.GetServingSystemNamespace(),
+		Weight:       totalInactivePercent,
 	}
+	ret = append(ret, activatorRoute)
 	return ret, inactiveRev, nil
 }
 
