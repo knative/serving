@@ -92,15 +92,10 @@ type Controller struct {
 
 	// lister indexes properties about Revision
 	lister listers.RevisionLister
-	synced cache.InformerSynced
 
 	buildtracker *buildTracker
 
 	resolver resolver
-
-	// don't start the workers until informers are synced
-	endpointsSynced cache.InformerSynced
-	configMapSynced cache.InformerSynced
 
 	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
 	// collect logs under /var/log/.
@@ -172,9 +167,13 @@ func NewController(
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
 	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps().Informer()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+
+	informers := []cache.SharedIndexInformer{informer.Informer(), buildInformer.Informer(),
+		configMapInformer.Informer(), deploymentInformer.Informer(), endpointsInformer.Informer()}
 
 	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
 	if err != nil {
@@ -182,20 +181,24 @@ func NewController(
 	}
 
 	controller := &Controller{
-		Base:             controller.NewBase(opt, informer.Informer(), controllerAgentName, "Revisions"),
+		Base:             controller.NewBase(opt, controllerAgentName, "Revisions", informers),
 		lister:           informer.Lister(),
-		synced:           informer.Informer().HasSynced,
-		endpointsSynced:  endpointsInformer.Informer().HasSynced,
-		configMapSynced:  configMapInformer.HasSynced,
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
 		networkConfig:    networkConfig,
 	}
 
+	// Set up an event handler for when the resource types of interest change
 	controller.Logger.Info("Setting up event handlers")
-	// Obtain a reference to a shared index informer for the Build type.
-	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.Enqueue,
+		UpdateFunc: func(old, new interface{}) {
+			controller.Enqueue(new)
+		},
+		DeleteFunc: controller.Enqueue,
+	})
+
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			controller.SyncBuild(obj.(*buildv1alpha1.Build))
@@ -223,7 +226,7 @@ func NewController(
 		},
 	})
 
-	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.addConfigMapEvent,
 		UpdateFunc: controller.updateConfigMapEvent,
 	})
@@ -236,8 +239,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced, c.configMapSynced},
-		c.syncHandler, "Revision")
+	return c.RunController(threadiness, stopCh, c.syncHandler, "Revision")
 }
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.

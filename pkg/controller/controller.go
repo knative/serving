@@ -72,6 +72,9 @@ type Base struct {
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
 	Logger *zap.SugaredLogger
+
+	// don't start the workers until informers are synced
+	informersSynced []cache.InformerSynced
 }
 
 // Options defines the common controller options passed to NewBase.
@@ -85,7 +88,8 @@ type Options struct {
 
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
-func NewBase(opt Options, informer cache.SharedIndexInformer, controllerAgentName string, workQueueName string) *Base {
+func NewBase(opt Options, controllerAgentName, workQueueName string,
+	informers []cache.SharedIndexInformer) *Base {
 
 	// Enrich the logs with controller name
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
@@ -106,21 +110,16 @@ func NewBase(opt Options, informer cache.SharedIndexInformer, controllerAgentNam
 		Logger:        logger,
 	}
 
-	// Set up an event handler for when the resource types of interest change
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: base.enqueueWork,
-		UpdateFunc: func(old, new interface{}) {
-			base.enqueueWork(new)
-		},
-		DeleteFunc: base.enqueueWork,
-	})
+	for _, i := range informers {
+		base.informersSynced = append(base.informersSynced, i.HasSynced)
+	}
 
 	return base
 }
 
-// enqueueWork takes a resource and converts it into a
+// Enqueue takes a resource and converts it into a
 // namespace/name string which is then put onto the work queue.
-func (c *Base) enqueueWork(obj interface{}) {
+func (c *Base) Enqueue(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
@@ -130,6 +129,8 @@ func (c *Base) enqueueWork(obj interface{}) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
+// TODO(mattmoor): EnqueueControllerOf
+
 // RunController will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
@@ -137,7 +138,6 @@ func (c *Base) enqueueWork(obj interface{}) {
 func (c *Base) RunController(
 	threadiness int,
 	stopCh <-chan struct{},
-	informersSynced []cache.InformerSynced,
 	syncHandler func(string) error,
 	controllerName string) error {
 
@@ -149,7 +149,7 @@ func (c *Base) RunController(
 
 	// Wait for the caches to be synced before starting workers
 	logger.Info("Waiting for informer caches to sync")
-	for i, synced := range informersSynced {
+	for i, synced := range c.informersSynced {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			return fmt.Errorf("failed to wait for cache at index %v to sync", i)
 		}

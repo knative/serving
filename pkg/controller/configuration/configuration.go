@@ -46,10 +46,6 @@ type Controller struct {
 
 	// lister indexes properties about Configuration
 	lister listers.ConfigurationLister
-	synced cache.InformerSynced
-
-	// don't start the workers until revisions cache have been synced
-	revisionsSynced cache.InformerSynced
 }
 
 // NewController creates a new Configuration controller
@@ -64,15 +60,23 @@ func NewController(
 	informer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 
+	informers := []cache.SharedIndexInformer{informer.Informer(), revisionInformer.Informer()}
+
 	controller := &Controller{
-		Base:            controller.NewBase(opt, informer.Informer(), controllerAgentName, "Configurations"),
-		buildClientSet:  buildClientSet,
-		lister:          informer.Lister(),
-		synced:          informer.Informer().HasSynced,
-		revisionsSynced: revisionInformer.Informer().HasSynced,
+		Base:           controller.NewBase(opt, controllerAgentName, "Configurations", informers),
+		buildClientSet: buildClientSet,
+		lister:         informer.Lister(),
 	}
 
 	controller.Logger.Info("Setting up event handlers")
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.Enqueue,
+		UpdateFunc: func(old, new interface{}) {
+			controller.Enqueue(new)
+		},
+		DeleteFunc: controller.Enqueue,
+	})
+
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			controller.SyncRevision(obj.(*v1alpha1.Revision))
@@ -89,8 +93,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh,
-		[]cache.InformerSynced{c.synced, c.revisionsSynced}, c.syncHandler, "Configuration")
+	return c.RunController(threadiness, stopCh, c.syncHandler, "Configuration")
 }
 
 // loggerWithConfigInfo enriches the logs with configuration name and namespace.
