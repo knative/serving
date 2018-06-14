@@ -730,6 +730,24 @@
   version = "kubernetes-1.10.0-beta.1"
 
 [[projects]]
+  branch = "vpa-release-0.1"
+  name = "k8s.io/autoscaler"
+  packages = [
+    "vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/fake",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/scheme",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1/fake",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions/internalinterfaces",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/listers/poc.autoscaling.k8s.io/v1alpha1"
+  ]
+  revision = "04b95d13c846a8ede6c9af8457701ca9baf081a8"
+
+[[projects]]
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -952,6 +970,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "97471646bc80eff6f9543f8784127bca04230e3c5a155f7eede0ec5ee101da6f"
+  inputs-digest = "2d7345ea203e3e84f0a3386dd3674186112b0c5d1cb21144bdcbb34bf0777e1b"
   solver-name = "gps-cdcl"
   solver-version = 1
