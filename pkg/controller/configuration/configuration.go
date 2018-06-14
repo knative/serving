@@ -63,40 +63,28 @@ func NewController(
 
 	informers := []cache.SharedIndexInformer{informer.Informer(), revisionInformer.Informer()}
 
-	controller := &Controller{
+	c := &Controller{
 		Base:           controller.NewBase(opt, controllerAgentName, "Configurations", informers),
 		buildClientSet: buildClientSet,
 		lister:         informer.Lister(),
 		revisionLister: revisionInformer.Lister(),
 	}
 
-	controller.Logger.Info("Setting up event handlers")
+	c.Logger.Info("Setting up event handlers")
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.Enqueue,
-		UpdateFunc: func(old, new interface{}) {
-			controller.Enqueue(new)
-		},
-		DeleteFunc: controller.Enqueue,
+		AddFunc:    c.Enqueue,
+		UpdateFunc: controller.PassSecond(c.Enqueue),
+		DeleteFunc: c.Enqueue,
 	})
 
 	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			if object, ok := obj.(metav1.Object); ok {
-				owner := metav1.GetControllerOf(object)
-				return owner != nil &&
-					owner.APIVersion == v1alpha1.SchemeGroupVersion.String() &&
-					owner.Kind == "Configuration"
-			}
-			return false
-		},
+		FilterFunc: controller.Filter("Configuration"),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc: controller.EnqueueControllerOf,
-			UpdateFunc: func(old, new interface{}) {
-				controller.EnqueueControllerOf(new)
-			},
+			AddFunc:    c.EnqueueControllerOf,
+			UpdateFunc: controller.PassSecond(c.Enqueue),
 		},
 	})
-	return controller
+	return c
 }
 
 // Run will set up the event handlers for types we are interested in, as well

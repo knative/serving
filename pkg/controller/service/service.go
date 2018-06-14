@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -64,53 +63,37 @@ func NewController(
 	informers := []cache.SharedIndexInformer{informer.Informer(),
 		configurationInformer.Informer(), routeInformer.Informer()}
 
-	controller := &Controller{
+	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services", informers),
 		lister:              informer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
 
-	controller.Logger.Info("Setting up event handlers")
+	c.Logger.Info("Setting up event handlers")
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.Enqueue,
-		UpdateFunc: func(old, new interface{}) {
-			controller.Enqueue(new)
-		},
-		DeleteFunc: controller.Enqueue,
+		AddFunc:    c.Enqueue,
+		UpdateFunc: controller.PassSecond(c.Enqueue),
+		DeleteFunc: c.Enqueue,
 	})
 
 	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: isControlled,
+		FilterFunc: controller.Filter("Service"),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc: controller.EnqueueControllerOf,
-			UpdateFunc: func(old, new interface{}) {
-				controller.EnqueueControllerOf(new)
-			},
+			AddFunc:    c.EnqueueControllerOf,
+			UpdateFunc: controller.PassSecond(c.Enqueue),
 		},
 	})
 
 	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: isControlled,
+		FilterFunc: controller.Filter("Service"),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc: controller.EnqueueControllerOf,
-			UpdateFunc: func(old, new interface{}) {
-				controller.EnqueueControllerOf(new)
-			},
+			AddFunc:    c.EnqueueControllerOf,
+			UpdateFunc: controller.PassSecond(c.Enqueue),
 		},
 	})
 
-	return controller
-}
-
-func isControlled(obj interface{}) bool {
-	if object, ok := obj.(metav1.Object); ok {
-		owner := metav1.GetControllerOf(object)
-		return owner != nil &&
-			owner.APIVersion == v1alpha1.SchemeGroupVersion.String() &&
-			owner.Kind == "Service"
-	}
-	return false
+	return c
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -210,14 +193,14 @@ func (c *Controller) Reconcile(key string) error {
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	serviceClient := c.ElaClientSet.ServingV1alpha1().Services(service.Namespace)
-	existing, err := serviceClient.Get(service.Name, metav1.GetOptions{})
+	existing, err := c.lister.Services(service.Namespace).Get(service.Name)
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
 	if !reflect.DeepEqual(existing.Status, service.Status) {
 		existing.Status = service.Status
+		serviceClient := c.ElaClientSet.ServingV1alpha1().Services(service.Namespace)
 		// TODO: for CRD there's no updatestatus, so use normal update.
 		return serviceClient.Update(existing)
 	}
@@ -226,12 +209,19 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 
 func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace)
-	return configClient.Create(MakeServiceConfiguration(service))
+	cfg, err := MakeServiceConfiguration(service)
+	if err != nil {
+		return nil, err
+	}
+	return configClient.Create(cfg)
 }
 
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
-	desiredConfig := MakeServiceConfiguration(service)
+	desiredConfig, err := MakeServiceConfiguration(service)
+	if err != nil {
+		return nil, err
+	}
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation

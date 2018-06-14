@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	"github.com/knative/serving/pkg/logging/logkey"
@@ -46,6 +47,27 @@ func init() {
 	// Add ela types to the default Kubernetes Scheme so Events can be
 	// logged for ela types.
 	elascheme.AddToScheme(scheme.Scheme)
+}
+
+func PassSecond(f func(interface{})) func(interface{}, interface{}) {
+	return func(first, second interface{}) {
+		f(second)
+	}
+}
+
+// Filter makes it simple to create FilterFunc's for use with
+// cache.FilteringResourceEventHandler that filter based on the
+// kind of the controlling resources.
+func Filter(kind string) func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+		if object, ok := obj.(metav1.Object); ok {
+			owner := metav1.GetControllerOf(object)
+			return owner != nil &&
+				owner.APIVersion == v1alpha1.SchemeGroupVersion.String() &&
+				owner.Kind == kind
+		}
+		return false
+	}
 }
 
 // Base implements most of the boilerplate and common code
