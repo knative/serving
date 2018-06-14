@@ -113,7 +113,8 @@ func getTestRevision() *v1alpha1.Revision {
 				},
 				TerminationMessagePath: "/dev/null",
 			},
-			ServingState: v1alpha1.RevisionServingStateActive,
+			ServingState:     v1alpha1.RevisionServingStateActive,
+			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
 		},
 	}
 }
@@ -403,6 +404,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}
+
+			expectedArgs := []string{
+				fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+				fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
+			}
+			if diff := cmp.Diff(expectedArgs, container.Args); diff != "" {
+				t.Errorf("Unexpected args diff in container %q (-want +got): %v", container.Name, diff)
+			}
 		}
 		if container.Name == userContainerName {
 			foundElaContainer = true
@@ -513,7 +522,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Errorf("Annotations not set correctly in autoscaler pod template: expected %v got %v.",
 			expectedAutoscalerPodSpecAnnotations, annotations)
 	}
-	// Check the autoscaler deployment environment variables
+	// Check the autoscaler deployment environment variables and arguments
 	foundAutoscaler := false
 	for _, container := range asDeployment.Spec.Template.Spec.Containers {
 		if container.Name == "autoscaler" {
@@ -533,6 +542,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 					t.Errorf("Unexpected volume mount path: got: %v, want: %v", got, want)
 				}
 			}
+
+			expectedArgs := []string{
+				fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
+			}
+			if diff := cmp.Diff(expectedArgs, container.Args); diff != "" {
+				t.Errorf("Unexpected args diff in container %q (-want +got): %v", container.Name, diff)
+			}
+
 			break
 		}
 	}
