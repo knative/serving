@@ -44,7 +44,7 @@ type Controller struct {
 
 	buildClientSet buildclientset.Interface
 
-	// lister indexes properties about Configuration
+	// listers index properties about resources
 	lister         listers.ConfigurationLister
 	revisionLister listers.RevisionLister
 }

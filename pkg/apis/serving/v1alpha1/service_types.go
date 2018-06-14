@@ -99,6 +99,12 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady ServiceConditionType = "Ready"
+	// ServiceConditionRouteReady is set when the service's underlying
+	// route has reported readiness.
+	ServiceConditionRouteReady ServiceConditionType = "RouteReady"
+	// ServiceConditionConfigurationReady is set when the service's underlying
+	// configuration has reported readiness.
+	ServiceConditionConfigurationReady ServiceConditionType = "ConfigurationReady"
 )
 
 type ServiceStatus struct {
@@ -183,7 +189,8 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	sct := []ServiceConditionType{ServiceConditionReady}
+	sct := []ServiceConditionType{ServiceConditionReady,
+		ServiceConditionConfigurationReady, ServiceConditionRouteReady}
 	for _, cond := range sct {
 		if rc := ss.GetCondition(cond); rc == nil {
 			ss.setCondition(&ServiceCondition{
@@ -192,4 +199,68 @@ func (ss *ServiceStatus) InitializeConditions() {
 			})
 		}
 	}
+}
+
+func (ss *ServiceStatus) PropagateConfiguration(cs ConfigurationStatus) {
+	cc := cs.GetCondition(ConfigurationConditionReady)
+	if cc == nil {
+		return
+	}
+	sct := []ServiceConditionType{ServiceConditionConfigurationReady}
+	// If the underlying Configuration reported failure, then bubble it up.
+	if cc.Status == corev1.ConditionFalse {
+		sct = append(sct, ServiceConditionReady)
+	}
+	for _, cond := range sct {
+		ss.setCondition(&ServiceCondition{
+			Type:    cond,
+			Status:  cc.Status,
+			Reason:  cc.Reason,
+			Message: cc.Message,
+		})
+	}
+	if cc.Status == corev1.ConditionTrue {
+		ss.checkAndMarkReady()
+	}
+}
+
+func (ss *ServiceStatus) PropagateRoute(rs RouteStatus) {
+	rc := rs.GetCondition(RouteConditionReady)
+	if rc == nil {
+		return
+	}
+	sct := []ServiceConditionType{ServiceConditionRouteReady}
+	// If the underlying Route reported failure, then bubble it up.
+	if rc.Status == corev1.ConditionFalse {
+		sct = append(sct, ServiceConditionReady)
+	}
+	for _, cond := range sct {
+		ss.setCondition(&ServiceCondition{
+			Type:    cond,
+			Status:  rc.Status,
+			Reason:  rc.Reason,
+			Message: rc.Message,
+		})
+	}
+	if rc.Status == corev1.ConditionTrue {
+		ss.checkAndMarkReady()
+	}
+}
+
+func (ss *ServiceStatus) checkAndMarkReady() {
+	sct := []ServiceConditionType{ServiceConditionConfigurationReady, ServiceConditionRouteReady}
+	for _, cond := range sct {
+		c := ss.GetCondition(cond)
+		if c == nil || c.Status != corev1.ConditionTrue {
+			return
+		}
+	}
+	ss.markReady()
+}
+
+func (ss *ServiceStatus) markReady() {
+	ss.setCondition(&ServiceCondition{
+		Type:   ServiceConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

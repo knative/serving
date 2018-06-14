@@ -398,13 +398,12 @@ func (rs *RevisionStatus) MarkContainerMissing(message string) {
 }
 
 func (rs *RevisionStatus) checkAndMarkReady() {
-	ra := rs.GetCondition(RevisionConditionResourcesAvailable)
-	if ra == nil || ra.Status != corev1.ConditionTrue {
-		return
-	}
-	ch := rs.GetCondition(RevisionConditionContainerHealthy)
-	if ch == nil || ch.Status != corev1.ConditionTrue {
-		return
+	rct := []RevisionConditionType{RevisionConditionContainerHealthy, RevisionConditionResourcesAvailable}
+	for _, cond := range rct {
+		c := rs.GetCondition(cond)
+		if c == nil || c.Status != corev1.ConditionTrue {
+			return
+		}
 	}
 	rs.markReady()
 }

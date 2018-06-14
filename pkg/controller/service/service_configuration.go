@@ -27,7 +27,7 @@ import (
 func MakeServiceConfiguration(service *v1alpha1.Service) *v1alpha1.Configuration {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      service.Name,
+			Name:      controller.GetServiceConfigurationName(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
