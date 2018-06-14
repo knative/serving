@@ -730,17 +730,6 @@
   version = "kubernetes-1.10.0-beta.1"
 
 [[projects]]
-  branch = "cluster-autoscaler-release-1.2"
-  name = "k8s.io/autoscaler"
-  packages = [
-    "vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned/scheme",
-    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1"
-  ]
-  revision = "a909d0cc3695148f097b56e62f052063d354ee99"
-
-[[projects]]
   name = "k8s.io/client-go"
   packages = [
     "discovery",
