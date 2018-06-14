@@ -13,6 +13,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -153,7 +154,7 @@ func TestConfigurationConditions(t *testing.T) {
 	}
 
 	// Add a new condition.
-	config.Status.SetCondition(foo)
+	config.Status.setCondition(foo)
 
 	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -167,7 +168,7 @@ func TestConfigurationConditions(t *testing.T) {
 	}
 
 	// Add a second condition.
-	config.Status.SetCondition(bar)
+	config.Status.setCondition(bar)
 
 	if got, want := len(config.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -181,7 +182,7 @@ func TestConfigurationConditions(t *testing.T) {
 	}
 
 	// Add nil condition.
-	config.Status.SetCondition(nil)
+	config.Status.setCondition(nil)
 
 	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
@@ -254,4 +255,119 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}
+}
+
+func TestTypicalFlow(t *testing.T) {
+	r := &Configuration{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("foo")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
+	// e.g. on a subsequent reconciliation.
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("bar")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("bar")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+}
+
+func TestFailingFirstRevisionWithRecovery(t *testing.T) {
+	r := &Configuration{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	want := "the message"
+	r.Status.MarkLatestCreatedFailed("foo", want)
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t); !strings.Contains(c.Message, want) {
+		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
+	}
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
+		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
+	}
+
+	// When a new revision comes along the LatestRevisionReady condition becomes Unknown,
+	// but Ready is still false (we've never seen a Ready Revision).
+	r.Status.SetLatestCreatedRevisionName("bar")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	// When the new revision becomes ready, then Ready becomes true as well.
+	r.Status.SetLatestReadyRevisionName("bar")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+}
+
+func TestFailingSecondRevision(t *testing.T) {
+	r := &Configuration{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("foo")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("bar")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	// When the second revision fails, the Configuration remains "Ready" because there is a
+	// revision suitable for serving traffic.
+	want := "the message"
+	r.Status.MarkLatestCreatedFailed("bar", want)
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t); !strings.Contains(c.Message, want) {
+		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
+	}
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+}
+
+func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, t *testing.T) *ConfigurationCondition {
+	t.Helper()
+	return checkConditionConfiguration(rs, rct, corev1.ConditionTrue, t)
+}
+
+func checkConditionFailedConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, t *testing.T) *ConfigurationCondition {
+	t.Helper()
+	return checkConditionConfiguration(rs, rct, corev1.ConditionFalse, t)
+}
+
+func checkConditionOngoingConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, t *testing.T) *ConfigurationCondition {
+	t.Helper()
+	return checkConditionConfiguration(rs, rct, corev1.ConditionUnknown, t)
+}
+
+func checkConditionConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, cs corev1.ConditionStatus, t *testing.T) *ConfigurationCondition {
+	t.Helper()
+	r := rs.GetCondition(rct)
+	if r == nil {
+		t.Fatalf("Get(%v) = nil, wanted %v=%v", rct, rct, cs)
+	}
+	if r.Status != cs {
+		t.Fatalf("Get(%v) = %v, wanted %v", rct, r.Status, cs)
+	}
+	return r
 }

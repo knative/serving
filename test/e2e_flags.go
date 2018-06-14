@@ -20,6 +20,8 @@ package test
 
 import (
 	"flag"
+	"fmt"
+	"github.com/golang/glog"
 	"os"
 	"os/user"
 	"path"
@@ -35,7 +37,11 @@ type EnvironmentFlags struct {
 	DockerRepo       string
 	Kubeconfig       string
 	ResolvableDomain bool
+	LogVerbose       bool
 }
+
+// VerboseLogLevel defines verbose log level as 10
+const VerboseLogLevel glog.Level = 10
 
 func initializeFlags() *EnvironmentFlags {
 	var f EnvironmentFlags
@@ -56,5 +62,22 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
+	flag.BoolVar(&f.LogVerbose, "logverbose", false,
+		"Set this flag to true if you would like to see verbose logging.")
+
+	flag.Parse()
+	flag.Set("alsologtostderr", "true")
+	if f.LogVerbose {
+		// Both gLog and "go test" use -v flag. The code below is a work around so that we can still set v value for gLog
+		var logLevel string
+		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
+		flag.Lookup("v").Value.Set(logLevel)
+		glog.Infof("Logging set to verbose mode with logLevel %d", VerboseLogLevel)
+	}
 	return &f
+}
+
+// Verbose outputs verbose logging with defined logleve VerboseLogLevel.
+func Verbose(format string, args ...interface{}) {
+	glog.V(VerboseLogLevel).Infof(format, args)
 }

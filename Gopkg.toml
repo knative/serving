@@ -19,7 +19,6 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-# Required for Bazel
 required = [
   "k8s.io/apimachinery/pkg/util/sets/types",
   "k8s.io/apimachinery/pkg/apimachinery/registered",
@@ -51,8 +50,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-05-31
-  revision = "bfc0222e894da677b45fd63828a89676aa706589"
+  # HEAD as of 2018-06-05
+  revision = "8624fda54557ac4461d35921765b7bf48e5aba6d"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"

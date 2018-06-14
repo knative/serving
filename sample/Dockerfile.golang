@@ -24,6 +24,7 @@ RUN CGO_ENABLED=0 go build ./sample/${SAMPLE}
 FROM gcr.io/distroless/base
 ARG SAMPLE
 
+EXPOSE 8080
 COPY --from=builder /go/src/github.com/knative/serving/${SAMPLE} /sample
 
 ENTRYPOINT ["/sample"]

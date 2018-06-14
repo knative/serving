@@ -26,7 +26,7 @@ import (
 // crds to see if they have achieved the states specified in the spec
 // (https://github.com/knative/serving/blob/master/docs/spec/spec.md).
 
-// AllRouteTrafficeAtRevision will check the revision that routeName is routing
+// AllRouteTrafficAtRevision will check the revision that routeName is routing
 // traffic to and return true if 100% of the traffic is routing to revisionName.
 func AllRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
 	return func(r *v1alpha1.Route) (bool, error) {
@@ -49,16 +49,10 @@ func AllRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1
 // or being ready. It will also return false if the type of the condition is unexpected.
 func IsRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, error) {
 	return func(r *v1alpha1.Revision) (bool, error) {
-		if len(r.Status.Conditions) > 0 {
-			if r.Status.Conditions[0].Type != v1alpha1.RevisionConditionType("Ready") {
-				return true, fmt.Errorf("Expected Revision to have a \"Ready\" status but only had %s", r.Status.Conditions[0].Type)
-			}
-			if r.Status.Conditions[0].Status == corev1.ConditionTrue {
-				return true, nil
-			} else if r.Status.Conditions[0].Status != corev1.ConditionUnknown {
-				return true, fmt.Errorf("Expected Revision Status Condition Status to be True or Unknown but was %s", r.Status.Conditions[0].Status)
-			}
+		if cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady); cond == nil {
+			return false, nil
+		} else {
+			return cond.Status == corev1.ConditionTrue, nil
 		}
-		return false, nil
 	}
 }

@@ -161,7 +161,7 @@ of the ingress endpoint:
 export SERVICE_HOST=`kubectl get route private-repos \
   -o jsonpath="{.status.domain}"`
 
-export SERVICE_IP=`kubectl get ing private-repos-ela-ingress \
+export SERVICE_IP=`kubectl get ing private-repos-ingress \
   -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 ```
 

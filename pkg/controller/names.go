@@ -34,6 +34,10 @@ func GetDomainConfigMapName() string {
 	return "config-domain"
 }
 
+func GetNetworkConfigMapName() string {
+	return "config-network"
+}
+
 // Various functions for naming the resources for consistency
 func GetElaNamespaceName(ns string) string {
 	// We create resources in the same namespace as the Knative Serving resources by default.
@@ -57,7 +61,7 @@ func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
 }
 
 func GetElaK8SIngressName(u *v1alpha1.Route) string {
-	return u.Name + "-ela-ingress"
+	return u.Name + "-ingress"
 }
 
 func GetElaK8SServiceNameForRevision(u *v1alpha1.Revision) string {
@@ -68,12 +72,16 @@ func GetElaK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SActivatorServiceName() string {
-	return "activator-service"
+func GetServiceConfigurationName(u *v1alpha1.Service) string {
+	return u.Name
 }
 
-func GetElaK8SActivatorNamespace() string {
-	return "ela-system"
+func GetServiceRouteName(u *v1alpha1.Service) string {
+	return u.Name
+}
+
+func GetElaK8SActivatorServiceName() string {
+	return "activator-service"
 }
 
 func GetRevisionHeaderName() string {
@@ -89,7 +97,7 @@ func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.In
 }
 
 func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Interface) (string, error) {
-	_, err := c.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+	_, err := c.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		logger := logging.FromContext(ctx)
 		if !apierrs.IsNotFound(err) {
@@ -103,7 +111,7 @@ func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Int
 				Namespace: "",
 			},
 		}
-		_, err := c.Core().Namespaces().Create(nsObj)
+		_, err := c.CoreV1().Namespaces().Create(nsObj)
 		if err != nil {
 			logger.Error("Unexpected error while creating namespace", zap.Error(err))
 			return "", err

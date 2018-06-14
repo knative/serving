@@ -32,6 +32,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -50,9 +52,7 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength = 10
-	// Add enough buffer to keep track of as many requests as can
-	// be handled in a quantum of time. Because the request out
-	// channel isn't drained until the end of a quantum of time.
+	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
 	// Number of seconds the /quitquitquit handler should wait before
 	// returning.  The purpose is to kill the container alive a little
@@ -73,8 +73,7 @@ var (
 	elaAutoscaler            string
 	elaAutoscalerPort        string
 	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan                = make(chan queue.Poke, requestCountingQueueLength)
-	reqOutChan               = make(chan queue.Poke, requestCountingQueueLength)
+	reqChan                  = make(chan queue.ReqEvent, requestCountingQueueLength)
 	kubeClient               *kubernetes.Clientset
 	statSink                 *websocket.Conn
 	proxy                    *httputil.ReverseProxy
@@ -95,7 +94,7 @@ func initEnv() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
+		elaAutoscaler, pkg.GetServingSystemNamespace(), elaAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
@@ -155,9 +154,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Metrics for autoscaling
-	reqInChan <- queue.Poke{}
+	reqChan <- queue.ReqIn
 	defer func() {
-		reqOutChan <- queue.Poke{}
+		reqChan <- queue.ReqOut
 	}()
 	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
 		// Enforce single concurrency and breaking
@@ -239,7 +238,8 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
-	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("ela-queueproxy")
+	flag.Parse()
+	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("queueproxy")
 	defer logger.Sync()
 
 	initEnv()
@@ -255,7 +255,7 @@ func main() {
 	}
 	proxy = httputil.NewSingleHostReverseProxy(target)
 
-	logger.Info("Queue container is starting")
+	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		logger.Fatal("Error getting in cluster config", zap.Error(err))
@@ -270,8 +270,7 @@ func main() {
 	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
-		ReqInChan:        reqInChan,
-		ReqOutChan:       reqOutChan,
+		ReqChan:          reqChan,
 		QuantizationChan: bucketTicker,
 		ReportChan:       reportTicker,
 		StatChan:         statChan,

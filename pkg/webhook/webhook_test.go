@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -38,10 +40,10 @@ import (
 
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
-		ServiceName:      "ela-webhook",
-		ServiceNamespace: "ela-system",
+		ServiceName:      "webhook",
+		ServiceNamespace: pkg.GetServingSystemNamespace(),
 		Port:             443,
-		SecretName:       "ela-webhook-certs",
+		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
 	}
 }
@@ -453,8 +455,8 @@ func TestValidServiceEnvChanges(t *testing.T) {
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
-	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
-	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	_, err := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create webhook: %s", err)
 	}
@@ -477,8 +479,8 @@ func TestUpdatingWebhook(t *testing.T) {
 
 	createDeployment(ac)
 	createWebhook(ac, webhook)
-	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
-	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	currentWebhook, _ := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
 		t.Fatalf("Expected webhook to be updated")
 	}
@@ -564,10 +566,10 @@ func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      elaWebhookDeployment,
-			Namespace: elaSystemNamespace,
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 	}
-	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+	ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Create(deployment)
 }
 
 func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {
@@ -614,7 +616,7 @@ func createValidCreateServiceRunLatest() *admissionv1beta1.AdmissionRequest {
 }
 
 func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
-	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
+	client := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	_, err := client.Create(webhook)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test webhook: %s", err))

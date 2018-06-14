@@ -1,6 +1,6 @@
-# Elafros Steering Committee
+# Knative Steering Committee
 
-The Elafros Steering Committee (SC) defines, evolves, and defends the vision,
+The Knative Steering Committee (SC) defines, evolves, and defends the vision,
 values, mission, and scope of the project. *The Steering Committee is a
 work-in-progress.*
 
@@ -23,7 +23,7 @@ work-in-progress.*
 *   Management of project assets
 
     *   Control access to, establish processes regarding, and provide a final
-        escalation path for any Elafros repository.
+        escalation path for any Knative repository.
 
     *   Guided by the TOC for normal business.
 
@@ -31,7 +31,7 @@ work-in-progress.*
         project resources/assets not covered by the above, including web sites
         and their domains, blogs, social-media accounts, etc.
 
-    *   Manage the Elafros brand to decide which things can be called “Elafros”
+    *   Manage the Knative brand to decide which things can be called “Knative”
         and how that mark can be used in relation to other efforts or vendors.
 
 ## Committee Mechanics

@@ -22,9 +22,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -75,7 +77,7 @@ var (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("ela-controller")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("controller")
 	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {
@@ -128,11 +130,8 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
-
-	controllerConfig, err := controller.NewConfig(kubeClient)
-	if err != nil {
-		logger.Fatalf("Error loading controller config: %v", err)
-	}
+	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
+		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
 
 	revControllerConfig := revision.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime: autoscaleConcurrencyQuantumOfTime,
@@ -149,18 +148,27 @@ func main() {
 		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
+	opt := controller.Options{
+		KubeClientSet:    kubeClient,
+		ServingClientSet: elaClient,
+		Logger:           logger,
+	}
+
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(kubeClient, elaClient, buildClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
-		revision.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, buildInformerFactory, cfg, &revControllerConfig, logger),
-		route.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, autoscaleEnableScaleToZero, logger),
-		service.NewController(kubeClient, elaClient, kubeInformerFactory, elaInformerFactory, cfg, *controllerConfig, logger),
+		configuration.NewController(opt, buildClient, elaInformerFactory, cfg),
+		revision.NewController(opt, kubeInformerFactory, elaInformerFactory,
+			buildInformerFactory, servingSystemInformerFactory, cfg, &revControllerConfig),
+		route.NewController(opt, kubeInformerFactory, elaInformerFactory,
+			servingSystemInformerFactory, cfg, autoscaleEnableScaleToZero),
+		service.NewController(opt, elaInformerFactory, cfg),
 	}
 
 	go kubeInformerFactory.Start(stopCh)
 	go elaInformerFactory.Start(stopCh)
 	go buildInformerFactory.Start(stopCh)
+	go servingSystemInformerFactory.Start(stopCh)
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {

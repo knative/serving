@@ -10,7 +10,8 @@ that is installed by default as a showcase of installing dedicated Prometheus in
 ## Prerequisites
 
 1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
-1. Install [docker](https://www.docker.com/)
+2. [Install Knative monitoring component](docs/telemetry.md)
+3. Install [docker](https://www.docker.com/)
 
 
 ## Setup
@@ -53,7 +54,7 @@ To access this service via `curl`, we first need to determine its ingress addres
 ```shell
 watch kubectl get ingress
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-telemetrysample-route-ela-ingress   telemetrysample.myhost.net             80        14s
+telemetrysample-route-ingress   telemetrysample.myhost.net             80        14s
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:
@@ -63,7 +64,7 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 export SERVICE_HOST=`kubectl get route telemetrysample-route -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress telemetrysample-route-ela-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get ingress telemetrysample-route-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}

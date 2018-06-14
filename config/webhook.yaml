@@ -15,19 +15,21 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: ela-webhook
-  namespace: ela-system
+  name: webhook
+  namespace: knative-serving-system
 spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
-        app: ela-webhook
-        role: ela-webhook
+        app: webhook
+        role: webhook
     spec:
-      serviceAccountName: ela-controller
+      serviceAccountName: controller
       containers:
-      - name: ela-webhook
+      - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/webhook

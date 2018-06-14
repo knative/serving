@@ -9,6 +9,13 @@ Both tests can use our [test library](#test-library).
 
 Reviewers of conformance and e2e tests (i.e. [OWNERS](/test/OWNERS)) are responsible for the style and quality of the resulting tests. In order to not discourage contributions, when style change are required, the reviewers can make the changes themselves.
 
+All e2e and conformance tests _must_ be marked with the `e2e` [build constraint](https://golang.org/pkg/go/build/)
+so that `go test ./...` can be used to run only [the unit tests](README.md#running-unit-tests), i.e.:
+
+```go
+// +build e2e
+```
+
 ## Presubmit tests
 
 [`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
@@ -25,7 +32,9 @@ In the [`test`](/test/) dir you will find several libraries in the `test` packag
 you can use in your tests.
 
 You can:
+
 * [Use common test flags](#use-common-test-flags)
+* [Output log](#output-log)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
 * [Poll Knative Serving resources](#poll-knative-serving-resources)
@@ -47,6 +56,13 @@ imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 
 _See [e2e_flags.go](./e2e_flags.go)._
 
+### Output log
+
+Log output should be provided exclusively using [the glog library](https://godoc.org/github.com/golang/glog).
+Package "github.com/knative/serving/test" contains a `Verbose` function to be used for all verbose logging.
+Internally, it defines `glog.Level` 10 as log level. _See [e2e_flags.go](./e2e_flags.go)._
+Also _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `test.Verbose()` call.
+
 ### Get access to client objects
 
 To initialize client objects that you can use [the command line flags](#use-flags)
@@ -54,11 +70,11 @@ that describe the environment:
 
 ```go
 func setup(t *testing.T) *test.Clients {
-	clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
-	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
-	}
-	return clients
+    clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
+    if err != nil {
+        t.Fatalf("Couldn't initialize clients: %v", err)
+    }
+    return clients
 }
 ```
 
@@ -80,9 +96,9 @@ by your test:
 
 ```go
 func tearDown(clients *test.Clients) {
-	if clients != nil {
-		clients.Delete([]string{routeName}, []string{configName})
-	}
+    if clients != nil {
+        clients.Delete([]string{routeName}, []string{configName})
+    }
 }
 ```
 
@@ -171,10 +187,16 @@ _See [states.go](./states.go)._
 Your tests will probably need to create `Route` and `Configuration` objects. You can use the
 existing boilerplate to describe them.
 
-For example to create a `Configuration` object that uses a certain docker image:
+You can also use the function `RandomizedName` to create a random name for your `crd` so that
+your tests can use unique names each time they run.
+
+For example to create a `Configuration` object that uses a certain docker image with a
+randomized name:
 
 ```go
-_, err := clients.Configs.Create(test.Configuration(namespaceName, configName, imagePath))
+var names test.ResourceNames
+names.Config := test.RandomizedName('hotdog')
+_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePath))
 if err != nil {
     return err
 }
