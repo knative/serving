@@ -143,8 +143,11 @@ marked WIP.
 When ready, if you have not already done so, sign a [contributor license
 agreement](#contributor-license-agreements) and submit the PR.
 
+This project uses [Prow](https://github.com/kubernetes/test-infra/tree/master/prow)
+to assign reviewers to the PR, set labels, run tests automatically, and so forth.
+
 See [Reviewing and Merging Pull Requests](REVIEWING.md) for the PR review and
-merge process used for knative.
+merge process used for Knative and for more information about [Prow](./REVIEWING.md#prow).
 
 ## Issues
 

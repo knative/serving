@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/knative/serving/pkg"
@@ -33,7 +34,6 @@ import (
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -45,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -88,20 +87,15 @@ type resolver interface {
 }
 
 // Controller implements the controller for Revision resources.
-// +controller:group=ela,version=v1alpha1,kind=Revision,resource=revisions
 type Controller struct {
 	*controller.Base
 
 	// lister indexes properties about Revision
 	lister listers.RevisionLister
-	synced cache.InformerSynced
 
 	buildtracker *buildTracker
 
 	resolver resolver
-
-	// don't start the workers until endpoints cache have been synced
-	endpointsSynced cache.InformerSynced
 
 	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
 	// collect logs under /var/log/.
@@ -109,6 +103,11 @@ type Controller struct {
 
 	// controllerConfig includes the configurations for the controller
 	controllerConfig *ControllerConfig
+
+	// networkConfig could change over time and access to it
+	// must go through networkConfigMutex
+	networkConfig      *NetworkConfig
+	networkConfigMutex sync.Mutex
 }
 
 // ControllerConfig includes the configurations for the controller.
@@ -158,47 +157,78 @@ type ControllerConfig struct {
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // queue - message queue for handling new events.  unique to this controller.
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
+	opt controller.Options,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
 	buildInformerFactory buildinformers.SharedInformerFactory,
+	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
 	config *rest.Config,
-	controllerConfig *ControllerConfig,
-	logger *zap.SugaredLogger) controller.Interface {
+	controllerConfig *ControllerConfig) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
 	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
-	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
-		lister:           informer.Lister(),
-		synced:           informer.Informer().HasSynced,
-		endpointsSynced:  endpointsInformer.Informer().HasSynced,
-		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver:         &digestResolver{client: kubeClientSet, transport: http.DefaultTransport},
-		controllerConfig: controllerConfig,
+	informers := []cache.SharedIndexInformer{informer.Informer(), buildInformer.Informer(),
+		configMapInformer.Informer(), deploymentInformer.Informer(), endpointsInformer.Informer()}
+
+	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
+	if err != nil {
+		opt.Logger.Fatalf("Error loading network config: %v", err)
 	}
 
+	controller := &Controller{
+		Base:             controller.NewBase(opt, controllerAgentName, "Revisions", informers),
+		lister:           informer.Lister(),
+		buildtracker:     &buildTracker{builds: map[key]set{}},
+		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
+		controllerConfig: controllerConfig,
+		networkConfig:    networkConfig,
+	}
+
+	// Set up an event handler for when the resource types of interest change
 	controller.Logger.Info("Setting up event handlers")
-	// Obtain a reference to a shared index informer for the Build type.
-	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
+	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.Enqueue,
+		UpdateFunc: func(old, new interface{}) {
+			controller.Enqueue(new)
+		},
+		DeleteFunc: controller.Enqueue,
+	})
+
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addBuildEvent,
-		UpdateFunc: controller.updateBuildEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncBuild(obj.(*buildv1alpha1.Build))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncBuild(new.(*buildv1alpha1.Build))
+		},
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addEndpointsEvent,
-		UpdateFunc: controller.updateEndpointsEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncEndpoints(obj.(*corev1.Endpoints))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncEndpoints(new.(*corev1.Endpoints))
+		},
 	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addDeploymentProgressEvent,
-		UpdateFunc: controller.updateDeploymentProgressEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncDeployment(obj.(*appsv1.Deployment))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncDeployment(new.(*appsv1.Deployment))
+		},
+	})
+
+	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.addConfigMapEvent,
+		UpdateFunc: controller.updateConfigMapEvent,
 	})
 
 	return controller
@@ -209,8 +239,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.endpointsSynced},
-		c.syncHandler, "Revision")
+	return c.RunController(threadiness, stopCh, c.syncHandler, "Revision")
 }
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.
@@ -310,76 +339,7 @@ func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
 	return err
 }
 
-// Checks whether the Revision knows whether the build is done.
-func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
-	if rev.Spec.BuildName == "" {
-		done, failed = true, false
-		return
-	}
-	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if cond == nil {
-		done, failed = false, false
-		return
-	}
-	switch cond.Status {
-	case corev1.ConditionTrue:
-		done, failed = true, false
-	case corev1.ConditionFalse:
-		done, failed = true, true
-	case corev1.ConditionUnknown:
-		done, failed = false, false
-	}
-	return
-}
-
-// TODO(mattmoor): This should be a helper on Build (upstream)
-func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
-	for _, cond := range build.Status.Conditions {
-		if cond.Status == corev1.ConditionUnknown {
-			continue
-		}
-		return &cond
-	}
-	return nil
-}
-
-func getIsServiceReady(e *corev1.Endpoints) bool {
-	for _, es := range e.Subsets {
-		if len(es.Addresses) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
-	condCount := len(r.Status.Conditions)
-	if condCount == 0 {
-		return r.CreationTimestamp.Time
-	}
-	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
-}
-
-func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.DeploymentCondition {
-
-	//as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
-	for _, cond := range deployment.Status.Conditions {
-		// Look for Deployment with status False
-		if cond.Status != corev1.ConditionFalse {
-			continue
-		}
-		// with Type Progressing and Reason Timeout
-		// TODO (arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
-		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
-			return &cond
-		}
-	}
-	return nil
-}
-
-func (c *Controller) addBuildEvent(obj interface{}) {
-	build := obj.(*buildv1alpha1.Build)
-
+func (c *Controller) SyncBuild(build *buildv1alpha1.Build) {
 	bc := getBuildDoneCondition(build)
 	if bc == nil {
 		// The build isn't done, so ignore this event.
@@ -415,19 +375,19 @@ func (c *Controller) addBuildEvent(obj interface{}) {
 	return
 }
 
-func (c *Controller) updateBuildEvent(old, new interface{}) {
-	c.addBuildEvent(new)
-}
-
-func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
-	deployment := obj.(*appsv1.Deployment)
+func (c *Controller) SyncDeployment(deployment *appsv1.Deployment) {
 	cond := getDeploymentProgressCondition(deployment)
 	if cond == nil {
 		return
 	}
 
-	//Get the handle of Revision in context
-	revName := deployment.Name
+	or := metav1.GetControllerOf(deployment)
+	if or == nil || or.Kind != "Revision" {
+		return
+	}
+
+	// Get the handle of Revision in context
+	revName := or.Name
 	namespace := deployment.Namespace
 	logger := loggerWithRevisionInfo(c.Logger, namespace, revName)
 
@@ -449,12 +409,7 @@ func (c *Controller) addDeploymentProgressEvent(obj interface{}) {
 	return
 }
 
-func (c *Controller) updateDeploymentProgressEvent(old, new interface{}) {
-	c.addDeploymentProgressEvent(new)
-}
-
-func (c *Controller) addEndpointsEvent(obj interface{}) {
-	endpoint := obj.(*corev1.Endpoints)
+func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	eName := endpoint.Name
 	namespace := endpoint.Namespace
 	// Lookup and see if this endpoints corresponds to a service that
@@ -478,7 +433,7 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 
 	// Check to see if the revision has already been marked as ready or failed
 	// and if it is, then there's no need to do anything to it.
-	if rev.Status.IsReady() || rev.Status.IsFailed() {
+	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil && c.Status != corev1.ConditionUnknown {
 		return
 	}
 
@@ -510,10 +465,6 @@ func (c *Controller) addEndpointsEvent(obj interface{}) {
 	}
 	c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
-}
-
-func (c *Controller) updateEndpointsEvent(old, new interface{}) {
-	c.addEndpointsEvent(new)
 }
 
 // reconcileOnceBuilt handles enqueued messages that have an image.
@@ -689,7 +640,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
-	deployment := MakeElaDeployment(rev, ns)
+	deployment := MakeElaDeployment(logger, rev, ns, c.getNetworkConfig())
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 
 	deployment.Spec.Template.Spec = *podSpec
@@ -904,27 +855,6 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	return err
 }
 
-func (c *Controller) removeFinalizers(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
-	logger := logging.FromContext(ctx)
-	logger.Infof("Removing finalizers for %q\n", rev.Name)
-	accessor, err := meta.Accessor(rev)
-	if err != nil {
-		logger.Panic("Failed to get metadata", zap.Error(err))
-	}
-	finalizers := accessor.GetFinalizers()
-	for i, v := range finalizers {
-		if v == "controller" {
-			finalizers = append(finalizers[:i], finalizers[i+1:]...)
-		}
-	}
-	accessor.SetFinalizers(finalizers)
-	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
-	prClient.Update(rev)
-	logger.Infof("The finalizer 'controller' is removed.")
-
-	return nil
-}
-
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
 	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
@@ -948,4 +878,32 @@ func lookupServiceOwner(endpoint *corev1.Endpoints) string {
 		return revisionName
 	}
 	return ""
+}
+
+func (c *Controller) addConfigMapEvent(obj interface{}) {
+	configMap := obj.(*corev1.ConfigMap)
+	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetNetworkConfigMapName() {
+		return
+	}
+
+	c.Logger.Infof("Network config map is added or updated: %v", configMap)
+	newNetworkConfig := NewNetworkConfigFromConfigMap(configMap)
+	c.Logger.Infof("IstioOutboundIPRanges: %v", newNetworkConfig.IstioOutboundIPRanges)
+	c.setNetworkConfig(newNetworkConfig)
+}
+
+func (c *Controller) updateConfigMapEvent(old, new interface{}) {
+	c.addConfigMapEvent(new)
+}
+
+func (c *Controller) getNetworkConfig() *NetworkConfig {
+	c.networkConfigMutex.Lock()
+	defer c.networkConfigMutex.Unlock()
+	return c.networkConfig
+}
+
+func (c *Controller) setNetworkConfig(cfg *NetworkConfig) {
+	c.networkConfigMutex.Lock()
+	defer c.networkConfigMutex.Unlock()
+	c.networkConfig = cfg
 }

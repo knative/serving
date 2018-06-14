@@ -28,13 +28,18 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // MakeElaAutoscalerDeployment creates the deployment of the
 // autoscaler for a particular revision.
 func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *appsv1.Deployment {
+	configName := ""
+	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+		configName = owner.Name
+	}
+
 	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
@@ -70,7 +75,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 	}
 
 	return &appsv1.Deployment{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
 			Namespace:   pkg.GetServingSystemNamespace(),
 			Labels:      MakeElaResourceLabels(rev),
@@ -84,7 +89,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 				RollingUpdate: &rollingUpdateConfig,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: meta_v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeElaAutoScalerLabels(rev),
 					Annotations: annotations,
 				},
@@ -113,7 +118,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 								},
 								{
 									Name:  "ELA_CONFIGURATION",
-									Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+									Value: configName,
 								},
 								{
 									Name:  "ELA_REVISION",
@@ -151,7 +156,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 // the given revision.
 func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
 			Namespace:   pkg.GetServingSystemNamespace(),
 			Labels:      makeElaAutoScalerLabels(rev),

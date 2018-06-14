@@ -25,11 +25,17 @@ import (
 	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // MakeElaQueueContainer creates the container spec for queue sidecar.
 func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
+	configName := ""
+	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+		configName = owner.Name
+	}
+
 	const elaQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
@@ -75,6 +81,7 @@ func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerC
 		},
 		Args: []string{
 			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -83,7 +90,7 @@ func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerC
 			},
 			{
 				Name:  "ELA_CONFIGURATION",
-				Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+				Value: configName,
 			},
 			{
 				Name:  "ELA_REVISION",

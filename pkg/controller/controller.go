@@ -22,13 +22,13 @@ import (
 
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -57,14 +57,6 @@ type Base struct {
 	// ElaClientSet allows us to configure Ela objects
 	ElaClientSet clientset.Interface
 
-	// KubeInformerFactory provides shared informers for resources
-	// in all known API group versions
-	KubeInformerFactory kubeinformers.SharedInformerFactory
-
-	// ElaInformerFactory provides shared informers for resources
-	// in all known API group versions
-	ElaInformerFactory informers.SharedInformerFactory
-
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
@@ -82,55 +74,54 @@ type Base struct {
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
 	Logger *zap.SugaredLogger
+
+	// don't start the workers until informers are synced
+	informersSynced []cache.InformerSynced
+}
+
+// Options defines the common controller options passed to NewBase.
+// We define this to reduce the boilerplate argument list when
+// creating derivative controllers.
+type Options struct {
+	KubeClientSet    kubernetes.Interface
+	ServingClientSet clientset.Interface
+	Logger           *zap.SugaredLogger
 }
 
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
-func NewBase(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
-	informer cache.SharedIndexInformer,
-	controllerAgentName string,
-	workQueueName string,
-	logger *zap.SugaredLogger) *Base {
+func NewBase(opt Options, controllerAgentName, workQueueName string,
+	informers []cache.SharedIndexInformer) *Base {
 
 	// Enrich the logs with controller name
-	logger = logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
+	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
 	// Create event broadcaster
 	logger.Debug("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(
+		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	base := &Base{
-		KubeClientSet:       kubeClientSet,
-		ElaClientSet:        elaClientSet,
-		KubeInformerFactory: kubeInformerFactory,
-		ElaInformerFactory:  elaInformerFactory,
-		Recorder:            recorder,
-		WorkQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		Logger:              logger,
+		KubeClientSet: opt.KubeClientSet,
+		ElaClientSet:  opt.ServingClientSet,
+		Recorder:      recorder,
+		WorkQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		Logger:        logger,
 	}
 
-	// Set up an event handler for when the resource types of interest change
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: base.enqueueWork,
-		UpdateFunc: func(old, new interface{}) {
-			base.enqueueWork(new)
-		},
-		DeleteFunc: base.enqueueWork,
-	})
+	for _, i := range informers {
+		base.informersSynced = append(base.informersSynced, i.HasSynced)
+	}
 
 	return base
 }
 
-// enqueueWork takes a resource and converts it into a
+// Enqueue takes a resource and converts it into a
 // namespace/name string which is then put onto the work queue.
-func (c *Base) enqueueWork(obj interface{}) {
+func (c *Base) Enqueue(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
@@ -140,6 +131,25 @@ func (c *Base) enqueueWork(obj interface{}) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
+// EnqueueControllerOf takes a resource, identifies its controller resource, and
+// converts it into a namespace/name string which is then put onto the work queue.
+func (c *Base) EnqueueControllerOf(obj interface{}) {
+	// TODO(mattmoor): This will not properly handle Delete, which we do
+	// not currently use.  Consider using "cache.DeletedFinalStateUnknown"
+	// to enqueue the last known owner.
+	object, err := meta.Accessor(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	// If we can determine the controller ref of this object, then
+	// add that object to our workqueue.
+	if owner := metav1.GetControllerOf(object); owner != nil {
+		c.WorkQueue.AddRateLimited(object.GetNamespace() + "/" + owner.Name)
+	}
+}
+
 // RunController will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
@@ -147,7 +157,6 @@ func (c *Base) enqueueWork(obj interface{}) {
 func (c *Base) RunController(
 	threadiness int,
 	stopCh <-chan struct{},
-	informersSynced []cache.InformerSynced,
 	syncHandler func(string) error,
 	controllerName string) error {
 
@@ -159,7 +168,7 @@ func (c *Base) RunController(
 
 	// Wait for the caches to be synced before starting workers
 	logger.Info("Waiting for informer caches to sync")
-	for i, synced := range informersSynced {
+	for i, synced := range c.informersSynced {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			return fmt.Errorf("failed to wait for cache at index %v to sync", i)
 		}

@@ -166,7 +166,8 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory) {
+	elaInformer informers.SharedInformerFactory,
+	servingSystemInformer kubeinformers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -187,15 +188,19 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
+	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
 
 	controller = NewController(
-		kubeClient,
-		elaClient,
+		ctrl.Options{
+			kubeClient,
+			elaClient,
+			testLogger,
+		},
 		kubeInformer,
 		elaInformer,
+		servingSystemInformer,
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
-		testLogger,
 	).(*Controller)
 
 	return
@@ -207,15 +212,17 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
+	servingSystemInformer kubeinformers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+	kubeClient, elaClient, controller, kubeInformer, elaInformer, servingSystemInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
 	stopCh = make(chan struct{})
 	kubeInformer.Start(stopCh)
 	elaInformer.Start(stopCh)
+	servingSystemInformer.Start(stopCh)
 
 	// Run the controller.
 	go func() {
@@ -228,7 +235,7 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -346,7 +353,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	h := NewHooks()
@@ -435,7 +442,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -517,7 +524,7 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -592,7 +599,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	// A standalone inactive revision
@@ -671,7 +678,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -775,7 +782,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -910,7 +917,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
-	_, elaClient, controller, _, _ := newTestController(t)
+	_, elaClient, controller, _, _, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -975,7 +982,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1005,7 +1012,7 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 }
 
 func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1059,7 +1066,7 @@ func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1104,7 +1111,7 @@ func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 }
 
 func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1152,7 +1159,7 @@ func sortConditions(a, b v1alpha1.RouteCondition) bool {
 }
 
 func TestCreateRouteRevisionMissingCondition(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1196,7 +1203,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 }
 
 func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1240,7 +1247,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 }
 
 func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1283,7 +1290,7 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 }
 
 func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a route label in configuration which is expected to be deleted.
@@ -1327,7 +1334,7 @@ func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
 	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
@@ -1376,7 +1383,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 }
 
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	routeClient := elaClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
@@ -1392,12 +1399,12 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 
 	route, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1420,10 +1427,10 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	// We need to update the config in the client since getDirectTrafficTargets
 	// gets the configuration from there
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
-	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 
 	route, err = routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1447,7 +1454,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 }
 
 func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1482,12 +1489,12 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 		},
 	)
 
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 }
 
 // Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -1510,7 +1517,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	// Before ingress has an IP address, route isn't marked as Ready.
 	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
-	controller.updateIngressEvent(nil, ingress)
+	controller.SyncIngress(ingress)
 
 	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
 	for _, ct := range []v1alpha1.RouteConditionType{"Ready"} {
@@ -1529,7 +1536,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
 		IP: "127.0.0.1",
 	}}
-	controller.updateIngressEvent(nil, ingress)
+	controller.SyncIngress(ingress)
 
 	// Verify now that Route.Status.Conditions is set correctly.
 	newRoute, _ = routeClient.Get(route.Name, metav1.GetOptions{})
@@ -1547,7 +1554,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
@@ -1579,7 +1586,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com":  "selector:\n  app: prod",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
@@ -1594,7 +1601,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -1610,7 +1617,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					defaultDomainSuffix: "",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -1626,7 +1633,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.updateConfigMapEvent(nil, &domainConfig)
+			controller.SyncConfigMap(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}}

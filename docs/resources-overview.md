@@ -1,3 +1,5 @@
+For a truly high-level overview, [see these slides](https://docs.google.com/presentation/d/1CbwVC7W2JaSxRyltU8CS1bIsrIXu1RrZqvnlMlDaaJE/edit#slide=id.p)
+
 # Resources
 
 This document provides a high-level description of the resources deployed to a Kubernetes cluster in order to run Knative Serving. The exact list of resources is going to change frequently during the current phase of active development. In order to keep this document from becoming out-of-date frequently it doesn't describe the exact individual resources but instead the higher level objects which they form.

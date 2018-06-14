@@ -9,7 +9,7 @@ define logging output.
 Knative requires the following Fluentd plugins to process log records:
 
 * [fluentd](https://github.com/fluent/fluentd) >= v0.14.0
-* [fluent-plugin-kubernetes_metadata_filter](https://github.com/fabric8io/fluent-plugin-kubernetes_metadata_filter) >= 1.0.0
+* [fluent-plugin-kubernetes_metadata_filter](https://github.com/fabric8io/fluent-plugin-kubernetes_metadata_filter) >= 1.0.0 AND < 2.1.0
 * [fluent-plugin-detect-exceptions](https://github.com/GoogleCloudPlatform/fluent-plugin-detect-exceptions) >= 0.0.9
 * [fluent-plugin-multi-format-parser](https://github.com/repeatedly/fluent-plugin-multi-format-parser) >= 1.0.0
 

@@ -29,18 +29,8 @@ const fluentdSidecarPreOutputConfig = `
 	path /var/log/revisions/**/*.*
 	pos_file /var/log/varlog.log.pos
 	tag raw.*
-	<parse>
-		@type multi_format
-		<pattern>
-			format json
-			time_key fluentd-time # fluentd-time is reserved for structured logs
-			time_format %Y-%m-%dT%H:%M:%S.%NZ
-		</pattern>
-		<pattern>
-			format none
-			message_key log
-		</pattern>
-	</parse>
+	format none
+	message_key log
 	read_from_head true
 </source>
 

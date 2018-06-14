@@ -31,7 +31,7 @@ work-in-progress.*
         project resources/assets not covered by the above, including web sites
         and their domains, blogs, social-media accounts, etc.
 
-    *   Manage the Knative brand to decide which things can be called "Knative”
+    *   Manage the Knative brand to decide which things can be called “Knative”
         and how that mark can be used in relation to other efforts or vendors.
 
 ## Committee Mechanics

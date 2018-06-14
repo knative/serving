@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -105,8 +106,8 @@ type RevisionSpec struct {
 	ServingState RevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
-	// (SingleConcurrency or MultiConcurrency) for the
-	// Revision. Defaults to MultiConcurrency.
+	// (Single or Multi) for the
+	// Revision. Defaults to Multi.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
@@ -227,17 +228,6 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-// IsFailed looks to all non-Ready conditions; if any are false, then
-// this node is in a terminal failure state.
-func (rs *RevisionStatus) IsFailed() bool {
-	for _, cond := range rs.Conditions {
-		if cond.Type != RevisionConditionReady && cond.Status == corev1.ConditionFalse {
-			return true
-		}
-	}
-	return false
-}
-
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
@@ -257,6 +247,12 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
 	new.LastTransitionTime = metav1.NewTime(time.Now())
@@ -402,13 +398,12 @@ func (rs *RevisionStatus) MarkContainerMissing(message string) {
 }
 
 func (rs *RevisionStatus) checkAndMarkReady() {
-	ra := rs.GetCondition(RevisionConditionResourcesAvailable)
-	if ra == nil || ra.Status != corev1.ConditionTrue {
-		return
-	}
-	ch := rs.GetCondition(RevisionConditionContainerHealthy)
-	if ch == nil || ch.Status != corev1.ConditionTrue {
-		return
+	rct := []RevisionConditionType{RevisionConditionContainerHealthy, RevisionConditionResourcesAvailable}
+	for _, cond := range rct {
+		c := rs.GetCondition(cond)
+		if c == nil || c.Status != corev1.ConditionTrue {
+			return
+		}
 	}
 	rs.markReady()
 }
