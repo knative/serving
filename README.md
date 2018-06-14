@@ -56,11 +56,10 @@ To get started as a developer, [pick a Kubernetes cluster of your
 choice](https://kubernetes.io/docs/setup/pick-right-solution/) and
 follow the [Knative installation
 instructions](https://github.com/knative/install) to get the system up
-and running and [run some sample code](./sample/README.md).
-
-The install instructions include a [sample
+and running and [run some sample code](./sample/README.md). The
+install instructions also include a [sample
 application](https://github.com/knative/install#test-app) which
-demonsrates some features of Knative.
+demonstrates some of the key features of Knative.
 
 To join the conversation, head over to
 https://groups.google.com/d/forum/knative-users.
