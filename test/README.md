@@ -62,6 +62,12 @@ go test -v -tags=e2e -count=1 ./test/conformance --resolvabledomain
 go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
 ```
 
+In case you want to run the `e2e-tests.sh` script, you'll need kubernetes `kubetest` installed:
+
+```bash
+go get -u k8s.io/test-infra/kubetest
+```
+
 ### Environment requirements
 
 These tests require:
