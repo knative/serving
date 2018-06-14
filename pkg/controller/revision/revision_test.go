@@ -172,6 +172,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"panic-window":                "10s",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 	},
 		getTestControllerConfigMap(),
@@ -378,6 +379,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 			"panic-window":                    "10s",
 			"scale-to-zero-threshold":         "10m",
 			"concurrency-quantum-of-time":     "100ms",
+			"tick-interval":                   "2s",
 		},
 	}, getTestControllerConfigMap(),
 	)
