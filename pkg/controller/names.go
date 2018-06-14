@@ -72,6 +72,14 @@ func GetElaK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
+func GetServiceConfigurationName(u *v1alpha1.Service) string {
+	return u.Name
+}
+
+func GetServiceRouteName(u *v1alpha1.Service) string {
+	return u.Name
+}
+
 func GetElaK8SActivatorServiceName() string {
 	return "activator-service"
 }
