@@ -18,9 +18,12 @@ limitations under the License.
 package e2e
 
 import (
-	"github.com/golang/glog"
+	"math"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -39,7 +42,9 @@ var (
 
 func isExpectedOutput() func(body string) (bool, error) {
 	return func(body string) (bool, error) {
-		return strings.Contains(body, autoscaleExpectedOutput), nil
+		containsAutoscaleOutput := strings.Contains(body, autoscaleExpectedOutput)
+		containsHelloworldOutput := strings.Contains(body, helloWorldExpectedOutput)
+		return containsAutoscaleOutput || containsHelloworldOutput, nil
 	}
 }
 
@@ -89,6 +94,43 @@ func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
 	configMap.Data["scale-to-zero-threshold"] = threshold
 	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Update(configMap)
 	return err
+}
+
+func generateSustainedQpsTraffic(clients *test.Clients, names test.ResourceNames, qps int, duration time.Duration, domain string) float64 {
+	glog.Infof("Generating %d QPS for %v", qps, duration)
+
+	qpms := time.Duration(math.Ceil(float64(1000/qps))) * time.Millisecond
+	tick := time.Tick(qpms)
+	done := time.After(duration)
+	totalRequests := 0
+	successfulRequests := make(chan bool)
+	for {
+		select {
+		case <-done:
+			glog.Infof("Done generating %d total requests.", totalRequests)
+			glog.Infof("Waiting for all requests to complete.")
+			numSuccess := 0
+			for i := 0; i < totalRequests; i++ {
+				if <-successfulRequests {
+					numSuccess++
+				}
+
+			}
+			return (float64(numSuccess) / float64(totalRequests))
+		case <-tick:
+			totalRequests++
+
+			go func() {
+				err := test.WaitForEndpointState(clients.Kube,
+					test.Flags.ResolvableDomain,
+					domain,
+					NamespaceName,
+					names.Route,
+					isExpectedOutput())
+				successfulRequests <- (err == nil)
+			}()
+		}
+	}
 }
 
 func setup(t *testing.T) *test.Clients {
@@ -222,4 +264,192 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		glog.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
 	}
+}
+
+func TestAutoscaleErrorRatesToFreshlyReservedRevision(t *testing.T) {
+	clients := setup(t)
+
+	imagePath := strings.Join(
+		[]string{
+			test.Flags.DockerRepo,
+			"helloworld"},
+		"/")
+
+	glog.Infof("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(clients, imagePath)
+	if err != nil {
+		t.Fatalf("Failed to create Route and Configuration: %v", err)
+	}
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) })
+	defer tearDown(clients, names)
+
+	glog.Infof(`When the Revision can have traffic routed to it,
+	            the Route is marked as Ready.`)
+	err = test.WaitForRouteState(
+		clients.Routes,
+		names.Route,
+		func(r *v1alpha1.Route) (bool, error) {
+			return r.Status.IsReady(), nil
+		})
+	if err != nil {
+		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
+			 %v`, names.Route, err)
+	}
+
+	glog.Infof("Serves the expected data at the endpoint")
+	config, err := clients.Configs.Get(names.Config, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf(`Configuration %s was not updated with the new
+		         revision: %v`, names.Config, err)
+	}
+	deploymentName :=
+		config.Status.LatestCreatedRevisionName + "-deployment"
+	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+	}
+	domain := route.Status.Domain
+
+	err = test.WaitForEndpointState(
+		clients.Kube,
+		test.Flags.ResolvableDomain,
+		domain,
+		NamespaceName,
+		names.Route,
+		isExpectedOutput())
+	if err != nil {
+		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
+			 the expected text \"%v\": %v`,
+			names.Route, domain, helloWorldExpectedOutput, err)
+	}
+
+	glog.Infof("Put the Revision in Reserved state by scaling to 0.")
+	glog.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
+		    faster testing.`)
+
+	err = setScaleToZeroThreshold(clients, "1m")
+	if err != nil {
+		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
+		          cause the test to time out. Failing fast instead. %v`, err)
+	}
+
+	err = test.WaitForDeploymentState(
+		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		deploymentName,
+		isDeploymentScaledToZero())
+	if err != nil {
+		glog.Fatalf(`Unable to observe the Deployment named %s scaling
+		           down. %s`, deploymentName, err)
+	}
+
+	glog.Infof("Scaled down, resetting ScaleToZeroThreshold.")
+	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	glog.Infof(`The autoscaler spins up additional replicas once again when
+              traffic increases.`)
+
+	successRate := generateSustainedQpsTraffic(clients, names, 10, 1*time.Minute, domain)
+	minSuccessRate := 0.99
+	if successRate < minSuccessRate {
+		t.Fatalf("Expected a success rate greater than %0.3f, but got %0.3f", minSuccessRate, successRate)
+	}
+	glog.Infof("Completed the sustained QPS test with a success rate of %0.3f", successRate)
+}
+
+func TestAutoscaleErrorRatesToFullyReservedRevision(t *testing.T) {
+	clients := setup(t)
+
+	imagePath := strings.Join(
+		[]string{
+			test.Flags.DockerRepo,
+			"helloworld"},
+		"/")
+
+	glog.Infof("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(clients, imagePath)
+	if err != nil {
+		t.Fatalf("Failed to create Route and Configuration: %v", err)
+	}
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) })
+	defer tearDown(clients, names)
+
+	glog.Infof(`When the Revision can have traffic routed to it,
+	            the Route is marked as Ready.`)
+	err = test.WaitForRouteState(
+		clients.Routes,
+		names.Route,
+		func(r *v1alpha1.Route) (bool, error) {
+			return r.Status.IsReady(), nil
+		})
+	if err != nil {
+		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
+			 %v`, names.Route, err)
+	}
+
+	glog.Infof("Serves the expected data at the endpoint")
+	config, err := clients.Configs.Get(names.Config, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf(`Configuration %s was not updated with the new
+		         revision: %v`, names.Config, err)
+	}
+	deploymentName :=
+		config.Status.LatestCreatedRevisionName + "-deployment"
+	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+	}
+	domain := route.Status.Domain
+
+	err = test.WaitForEndpointState(
+		clients.Kube,
+		test.Flags.ResolvableDomain,
+		domain,
+		NamespaceName,
+		names.Route,
+		isExpectedOutput())
+	if err != nil {
+		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
+			 the expected text \"%v\": %v`,
+			names.Route, domain, helloWorldExpectedOutput, err)
+	}
+
+	glog.Infof("Put the Revision in Reserved state by scaling to 0.")
+	glog.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
+		    faster testing.`)
+
+	err = setScaleToZeroThreshold(clients, "1m")
+	if err != nil {
+		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
+		          cause the test to time out. Failing fast instead. %v`, err)
+	}
+
+	err = test.WaitForDeploymentState(
+		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		deploymentName,
+		isDeploymentScaledToZero())
+	if err != nil {
+		glog.Fatalf(`Unable to observe the Deployment named %s scaling
+		           down. %s`, deploymentName, err)
+	}
+
+	glog.Infof("Wait until all pods are fully terminated.")
+	pc := clients.Kube.CoreV1().Pods(NamespaceName)
+
+	err = test.WaitForPodListState(
+		pc,
+		func(p *v1.PodList) (bool, error) {
+			return len(p.Items) == 0, nil
+		})
+
+	glog.Infof("Scaled down, resetting ScaleToZeroThreshold.")
+	glog.Infof("Scaled down, resetting ScaleToZeroThreshold.")
+	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	glog.Infof(`The autoscaler spins up additional replicas once again when
+              traffic increases.`)
+
+	successRate := generateSustainedQpsTraffic(clients, names, 10, 1*time.Minute, domain)
+	minSuccessRate := 0.99
+	if successRate < minSuccessRate {
+		t.Fatalf("Expected a success rate greater than %0.3f, but got %0.3f", minSuccessRate, successRate)
+	}
+	glog.Infof("Completed the sustained QPS test with a success rate of %0.3f", successRate)
 }

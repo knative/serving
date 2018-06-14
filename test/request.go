@@ -20,10 +20,11 @@ package test
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/golang/glog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -94,7 +95,6 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, resolvableDomain 
 		endpoint = domain
 	}
 
-	glog.Infof("Wait for the endpoint to be up and handling requests")
 	// TODO(#348): The ingress endpoint tends to return 503's and 404's
 	return waitForRequestToDomainState(endpoint, spoofDomain, []int{503, 404}, inState)
 }
