@@ -16,16 +16,6 @@ so that `go test ./...` can be used to run only [the unit tests](README.md#runni
 // +build e2e
 ```
 
-## Presubmit tests
-
-[`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
-
-This script, and consequently, the e2e and conformance tests will be run before every code submission. You can run these tests manually with:
-
-```shell
-test/presubmit-tests.sh
-```
-
 ## Test library
 
 In the [`test`](/test/) dir you will find several libraries in the `test` package

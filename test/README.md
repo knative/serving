@@ -11,6 +11,22 @@ The conformance tests are a subset of the end to end test with [more strict requ
 
 If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
+## Presubmit tests
+
+[`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
+
+This script, and consequently, the e2e and conformance tests will be run before every code submission. You can run these tests manually with:
+
+```shell
+test/presubmit-tests.sh
+```
+
+_Note that to run `presubmit-tests.sh` or `e2e-tests.sh` scripts, you'll need kubernetes `kubetest` installed:_
+
+```bash
+go get -u k8s.io/test-infra/kubetest
+```
+
 ## Running unit tests
 
 To run all unit tests:
