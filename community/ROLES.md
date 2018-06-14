@@ -1,6 +1,6 @@
-# Elafros Community Roles
+# Knative Community Roles
 
-This document describes the set of roles individuals may have within the Elafros
+This document describes the set of roles individuals may have within the Knative
 community, the requirements of each role, and the privileges that each role
 grants.
 
@@ -14,7 +14,7 @@ grants.
 
 ## Role Summary
 
-Here is the set of roles we use within the Elafros community, the general
+Here is the set of roles we use within the Knative community, the general
 responsibilities expected by individuals in each role, the requirements
 necessary to join or stay in a given role, and the concrete manifestation of the
 role in terms of permissions and privileges.
@@ -36,7 +36,7 @@ role in terms of permissions and privileges.
     <td>n/a</td>
     <td>
         <p>Can submit PRs</p>
-        <p>Commenting permission on the Elafros Team drive</p>
+        <p>Commenting permission on the Knative Team drive</p>
     </td>
     <td>GitHub Organization</td>
   </tr>
@@ -49,9 +49,9 @@ role in terms of permissions and privileges.
         <p>Has made multiple contributions to the project</p>
     </td>
     <td>
-        <p>Member of the GitHub Elafros org</p>
-        <p>Member of the Elafros Slack workspace</p>
-        <p>Edit permission on the Elafros Team drive</p>
+        <p>Member of the GitHub Knative org</p>
+        <p>Member of the Knative Slack workspace</p>
+        <p>Edit permission on the Knative Team drive</p>
     </td>
     <td>GitHub Organization</td>
   </tr>
@@ -87,11 +87,11 @@ role in terms of permissions and privileges.
     <td>Manage & control permissions</td>
     <td>Sponsored by the technical oversight committee</td>
     <td>
-        <p>Admin privileges on the GitHub Elafros org and all its repos</p>
-        <p>Admin privileges on the Elafros Slack workspace</p>
-        <p>Admin privileges on the Elafros Team Drive</p>
+        <p>Admin privileges on the GitHub Knative org and all its repos</p>
+        <p>Admin privileges on the Knative Slack workspace</p>
+        <p>Admin privileges on the Knative Team Drive</p>
         <p>Admin privileges on the Google Search Console for knative.dev</p>
-        <p>Admin privilege to the Elafros email lists.</p>
+        <p>Admin privilege to the Knative email lists.</p>
     </td>
     <td>
         <p>GitHub Organization</p>
@@ -104,7 +104,7 @@ role in terms of permissions and privileges.
 ## Collaborator
 
 Individuals may be added as an outside collaborator (with READ access) to a repo
-in the Elafros GitHub organization without becoming a member. This allows them
+in the Knative GitHub organization without becoming a member. This allows them
 to be assigned issues and PRs until they become a member, but will not allow
 tests to be run against their PRs automatically nor allow them to interact with
 the PR bot.
@@ -152,7 +152,7 @@ this is not a requirement.
 
 *   Sponsored by 1 approver.
 
-    *   Done by adding GitHub user to Elafros organization
+    *   Done by adding GitHub user to Knative organization
 
 ### Responsibilities and privileges
 
@@ -288,14 +288,14 @@ Administrators are responsible for the bureaucratic aspects of the project.
 
 ### Responsibilities and privileges
 
-*   Manage the Elafros GitHub repo, including granting membership and
+*   Manage the Knative GitHub repo, including granting membership and
     controlling repo read/write permissions
 
-*   Manage the Elafros Slack team
+*   Manage the Knative Slack team
 
-*   Manage the Elafros Google group forum
+*   Manage the Knative Google group forum
 
-*   Manage any additional Elafros technical collaboration assets
+*   Manage any additional Knative technical collaboration assets
 
 *   Expected to be responsive to membership and permission change requests
     <!-- TODO SLA for admin response -->

@@ -1,6 +1,6 @@
-# Elafros Working Group Processes
+# Knative Working Group Processes
 
-This document describes the processes we use to manage the Elafros working
+This document describes the processes we use to manage the Knative working
 groups. This includes how they are formed, how leads are established, how they
 are run, etc.
 
@@ -16,16 +16,16 @@ are run, etc.
 
 ## Why working groups?
 
-Elafros working groups are organizations responsible for the design and
-implementation of large architectural aspects of the overall Elafros project.
+Knative working groups are organizations responsible for the design and
+implementation of large architectural aspects of the overall Knative project.
 Working groups operate with a fair amount of autonomy within the broader scope
 of the project. They tend to be long-lived, representing major initiatives over
-Elafros’s lifetime.
+Knative’s lifetime.
 
 Some working groups focus on specific technologies. Other working groups are
 cross-cutting in nature.
 
-The technical oversight committee is responsible for the Elafros project as a
+The technical oversight committee is responsible for the Knative project as a
 whole. It sets the overall direction of the project, helps make crosscutting
 architectural decisions, helps establish and dissolve working groups, and helps
 ensure all working groups are generally rowing in the same direction
@@ -126,7 +126,7 @@ and open community discussion.
 Each working group should have at least 2 leads, ideally 3, though young working
 groups may have only 1 lead initially. Working groups should strive to include
 representatives from multiple organizations as both leads and members. Working
-group leads must be Members of the Elafros project (that is, have made multiple
+group leads must be Members of the Knative project (that is, have made multiple
 contributions to the project in the form of code, design, or documentation).
 
 Please see the [Community Roles](ROLES.md) document for a description of a
