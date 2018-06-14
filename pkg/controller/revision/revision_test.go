@@ -42,9 +42,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/queue"
 	appsv1 "k8s.io/api/apps/v1"
@@ -52,6 +50,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
+	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -203,9 +203,10 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 func getTestControllerConfig() ControllerConfig {
 	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
 	return ControllerConfig{
-		QueueSidecarImage:                 testQueueImage,
-		AutoscalerImage:                   testAutoscalerImage,
-		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		QueueSidecarImage:                     testQueueImage,
+		AutoscalerImage:                       testAutoscalerImage,
+		AutoscaleConcurrencyQuantumOfTime:     k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		AutoscaleEnableVerticalPodAutoscaling: k8sflag.Bool("enable-vertical-pod-autoscaling", false),
 
 		EnableVarLogCollection:     true,
 		FluentdSidecarImage:        testFluentdImage,
@@ -270,7 +271,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
-        vpaInformer vpainformers.SharedInformerFactory) {
+	vpaInformer vpainformers.SharedInformerFactory) {
 	testControllerConfig := getTestControllerConfig()
 	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
 }
