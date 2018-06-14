@@ -88,5 +88,5 @@ channel.
 
 Your own path to becoming a Knative contributor can [begin
 anywhere](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22).
-[Bug reports](https://github.com/knative/serving/issues/new) and friction
-logs from new developers are especially welcome.
+[Bug reports](https://github.com/knative/serving/issues/new) and
+friction logs from new developers are especially welcome.
