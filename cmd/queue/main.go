@@ -238,6 +238,7 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
+	flag.Parse()
 	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("queueproxy")
 	defer logger.Sync()
 
@@ -254,7 +255,7 @@ func main() {
 	}
 	proxy = httputil.NewSingleHostReverseProxy(target)
 
-	logger.Info("Queue container is starting")
+	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		logger.Fatal("Error getting in cluster config", zap.Error(err))
