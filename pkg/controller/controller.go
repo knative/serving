@@ -25,6 +25,8 @@ import (
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -129,7 +131,24 @@ func (c *Base) Enqueue(obj interface{}) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
-// TODO(mattmoor): EnqueueControllerOf
+// EnqueueControllerOf takes a resource, identifies its controller resource, and
+// converts it into a namespace/name string which is then put onto the work queue.
+func (c *Base) EnqueueControllerOf(obj interface{}) {
+	// TODO(mattmoor): This will not properly handle Delete, which we do
+	// not currently use.  Consider using "cache.DeletedFinalStateUnknown"
+	// to enqueue the last known owner.
+	object, err := meta.Accessor(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+
+	// If we can determine the controller ref of this object, then
+	// add that object to our workqueue.
+	if owner := metav1.GetControllerOf(object); owner != nil {
+		c.WorkQueue.AddRateLimited(object.GetNamespace() + "/" + owner.Name)
+	}
+}
 
 // RunController will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
