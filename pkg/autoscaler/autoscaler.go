@@ -45,17 +45,21 @@ type statKey struct {
 	time    time.Time
 }
 
-// holds an aggregation across all pods
+// Creates a new totalAggregation
+func newTotalAggregation() *totalAggregation {
+	return &totalAggregation{
+		perPodAggregations: make(map[string]*perPodAggregation),
+	}
+}
+
+// Holds an aggregation across all pods
 type totalAggregation struct {
 	perPodAggregations map[string]*perPodAggregation
 	probeCount         int32
 }
 
-// aggregates a given stat to the correct pod-aggregation
+// Aggregates a given stat to the correct pod-aggregation
 func (agg *totalAggregation) aggregate(stat Stat) {
-	if agg.perPodAggregations == nil {
-		agg.perPodAggregations = make(map[string]*perPodAggregation)
-	}
 	current, exists := agg.perPodAggregations[stat.PodName]
 	if !exists {
 		current = &perPodAggregation{}
@@ -65,12 +69,12 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 	agg.probeCount += 1
 }
 
-// the number of pods that are observable via stats
+// The number of pods that are observable via stats
 func (agg *totalAggregation) observedPods() int {
 	return len(agg.perPodAggregations)
 }
 
-// the observed concurrency per pod (sum of all average concurrencies
+// The observed concurrency per pod (sum of all average concurrencies
 // distributed over the observed pods)
 func (agg *totalAggregation) observedConcurrencyPerPod() float64 {
 	accumulatedConcurrency := float64(0)
@@ -80,19 +84,19 @@ func (agg *totalAggregation) observedConcurrencyPerPod() float64 {
 	return accumulatedConcurrency / float64(agg.observedPods())
 }
 
-// hols an aggregation per pod
+// Hols an aggregation per pod
 type perPodAggregation struct {
 	accumulatedConcurrency float64
 	probeCount             int32
 }
 
-// aggregates the given concurrency
+// Aggregates the given concurrency
 func (agg *perPodAggregation) aggregate(concurrency float64) {
 	agg.accumulatedConcurrency += concurrency
 	agg.probeCount += 1
 }
 
-// calculates the average concurrency over all values given
+// Calculates the average concurrency over all values given
 func (agg *perPodAggregation) calculateAverage() float64 {
 	return agg.accumulatedConcurrency / float64(agg.probeCount)
 }
@@ -148,10 +152,10 @@ func (a *Autoscaler) Record(ctx context.Context, stat Stat) {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	logger := logging.FromContext(ctx)
 	// 60 second window
-	stableData := &totalAggregation{}
+	stableData := newTotalAggregation()
 
 	// 6 second window
-	panicData := &totalAggregation{}
+	panicData := newTotalAggregation()
 
 	// Last stat per Pod
 	lastStat := make(map[string]Stat)
@@ -165,15 +169,15 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		if instant.Add(*a.StableWindow.Get()).After(now) {
 			stableData.aggregate(stat)
 
-			// if there's no last stat for this pod, set it
+			// If there's no last stat for this pod, set it
 			if _, ok := lastStat[stat.PodName]; !ok {
 				lastStat[stat.PodName] = stat
 			}
-			// if the current last stat is older than the new one, override
+			// If the current last stat is older than the new one, override
 			if lastStat[stat.PodName].Time.Before(*stat.Time) {
 				lastStat[stat.PodName] = stat
 			}
-			// update lastRequestTime if the current stat is newer and
+			// Update lastRequestTime if the current stat is newer and
 			// actually contains requests
 			if lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
 				lastRequestTime = *stat.Time
