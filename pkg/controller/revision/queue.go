@@ -105,10 +105,6 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 				Value: strconv.Itoa(autoscalerPort),
 			},
 			{
-				Name:  "ELA_PROTOCOL",
-				Value: string(rev.Spec.Protocol),
-			},
-			{
 				Name: "ELA_POD",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{

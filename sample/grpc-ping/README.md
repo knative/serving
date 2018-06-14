@@ -45,5 +45,5 @@ export SERVICE_IP=`kubectl get ingress grpc-ping-ela-ingress -o jsonpath="{.stat
 1. Use the client to send message streams to the gRPC server
 
 ```
-go run client/client.go -server_addr="$SERVICE_IP:80" -server_host_override="$SERVICE_HOST"
+go run -tags=grpcping client/client.go -server_addr="$SERVICE_IP:80" -server_host_override="$SERVICE_HOST"
 ```

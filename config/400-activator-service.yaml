@@ -35,10 +35,10 @@ metadata:
   name: activator-grpc-service
   namespace: knative-serving-system
   labels:
-    app: ela-activator
+    app: activator
 spec:
   selector:
-    app: ela-activator
+    app: activator
   ports:
   - name: grpc
     protocol: TCP

@@ -305,41 +305,6 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return
 }
 
-// This function is used to verify pass through of container environment
-// variables.
-func checkEnv(env []corev1.EnvVar, name, value, fieldPath string) error {
-	nameFound := false
-	for _, e := range env {
-		if e.Name == name {
-			nameFound = true
-			if value != "" && e.Value != value {
-				return fmt.Errorf("Incorrect environment variable %s. Expected value %s. Got %s.", name, value, e.Value)
-			}
-			if fieldPath != "" {
-				if vf := e.ValueFrom; vf == nil {
-					return fmt.Errorf("Incorrect environment variable %s. Missing value source.", name)
-				} else if fr := vf.FieldRef; fr == nil {
-					return fmt.Errorf("Incorrect environment variable %s. Missing field ref.", name)
-				} else if fr.FieldPath != fieldPath {
-					return fmt.Errorf("Incorrect environment variable %s. Expected field path %s. Got %s.",
-						name, fr.FieldPath, fieldPath)
-				}
-			}
-		}
-	}
-	if !nameFound {
-		return fmt.Errorf("Missing environment variable %s", name)
-	}
-	return nil
-}
-
-func compareRevisionConditions(want []v1alpha1.RevisionCondition, got []v1alpha1.RevisionCondition) string {
-	for i := range got {
-		got[i].LastTransitionTime = metav1.NewTime(time.Time{})
-	}
-	return cmp.Diff(want, got)
-}
-
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since syncHandler looks in the lister, we need to add it to the informer
@@ -383,6 +348,33 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 
 	createRevision(elaClient, elaInformer, controller, rev)
 
+	// This function is used to verify pass through of container environment
+	// variables.
+	checkEnv := func(env []corev1.EnvVar, name, value, fieldPath string) {
+		nameFound := false
+		for _, e := range env {
+			if e.Name == name {
+				nameFound = true
+				if value != "" && e.Value != value {
+					t.Errorf("Incorrect environment variable %s. Expected value %s. Got %s.", name, value, e.Value)
+				}
+				if fieldPath != "" {
+					if vf := e.ValueFrom; vf == nil {
+						t.Errorf("Incorrect environment variable %s. Missing value source.", name)
+					} else if fr := vf.FieldRef; fr == nil {
+						t.Errorf("Incorrect environment variable %s. Missing field ref.", name)
+					} else if fr.FieldPath != fieldPath {
+						t.Errorf("Incorrect environment variable %s. Expected field path %s. Got %s.",
+							name, fr.FieldPath, fieldPath)
+					}
+				}
+			}
+		}
+		if !nameFound {
+			t.Errorf("Missing environment variable %s", name)
+		}
+	}
+
 	// Look for the revision deployment.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
 	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
@@ -410,30 +402,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		}
 		if container.Name == "queue-proxy" {
 			foundQueueProxy = true
-			if err := checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, ""); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_REVISION", "test-rev", ""); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_POD", "", "metadata.name"); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_PROTOCOL", "http", ""); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), ""); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), ""); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_LOGGING_CONFIG", controllerConfig.QueueProxyLoggingConfig, ""); err != nil {
-				t.Error(err)
-			}
-			if err := checkEnv(container.Env, "ELA_LOGGING_LEVEL", controllerConfig.QueueProxyLoggingLevel, ""); err != nil {
-				t.Error(err)
-			}
+			checkEnv(container.Env, "ELA_NAMESPACE", testNamespace, "")
+			checkEnv(container.Env, "ELA_CONFIGURATION", config.Name, "")
+			checkEnv(container.Env, "ELA_REVISION", rev.Name, "")
+			checkEnv(container.Env, "ELA_POD", "", "metadata.name")
+			checkEnv(container.Env, "ELA_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
+			checkEnv(container.Env, "ELA_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			checkEnv(container.Env, "ELA_LOGGING_CONFIG", controllerConfig.QueueProxyLoggingConfig, "")
+			checkEnv(container.Env, "ELA_LOGGING_LEVEL", controllerConfig.QueueProxyLoggingLevel, "")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}

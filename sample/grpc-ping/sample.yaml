@@ -22,4 +22,4 @@ spec:
     spec:
       protocol: grpc
       container:
-        image: gcr.io/cf-elafros-dog/sample/grpc-ping
+        image: github.com/knative/serving/sample/grpc-ping

@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	RequestInterval = 1 * time.Second
-	RequestTimeout  = 1 * time.Minute
+	requestInterval = 1 * time.Second
+	requestTimeout  = 1 * time.Minute
 )
 
 func waitForRequestToDomainState(address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) error {
@@ -48,7 +48,7 @@ func waitForRequestToDomainState(address string, spoofDomain string, retryableCo
 	}
 
 	var body []byte
-	err = wait.PollImmediate(RequestInterval, RequestTimeout, func() (bool, error) {
+	err = wait.PollImmediate(requestInterval, requestTimeout, func() (bool, error) {
 		resp, err := h.Do(req)
 		if err != nil {
 			return true, err

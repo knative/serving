@@ -36,7 +36,7 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
-	h2 "github.com/knative/serving/pkg/h2c"
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
@@ -271,7 +271,7 @@ func main() {
 
 	httpProxy = httputil.NewSingleHostReverseProxy(target)
 	h2cProxy = httputil.NewSingleHostReverseProxy(target)
-	h2cProxy.Transport = h2.NewTransport()
+	h2cProxy.Transport = h2cutil.NewTransport()
 
 	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()
