@@ -69,17 +69,7 @@ wait_until_pods_running istio-system
 kubectl label namespace default istio-injection=enabled
 
 header "Installing Knative Serving"
-# Install might fail before succeding, so we retry a few times.
-# For details, see https://github.com/knative/install/issues/13
-installed=0
-for i in {1..10}; do
-  kubectl apply -f ${SERVING_RELEASE} && installed=1 && break
-  sleep 30
-done
-if (( ! installed )); then
-  echo "ERROR: could not install Knative Serving"
-  exit 1
-fi
+kubectl apply -f ${SERVING_RELEASE}
 
 wait_until_pods_running knative-serving-system
 wait_until_pods_running build-system
