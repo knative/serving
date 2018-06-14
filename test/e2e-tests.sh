@@ -141,6 +141,7 @@ function dump_stack_info() {
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
+  kubectl label namespace $2 istio-injection=enabled
   report_go_test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
   local result=$?
   [[ ${result} -ne 0 ]] && dump_stack_info
@@ -157,6 +158,10 @@ function run_smoke_test() {
   local IMAGE="gcr.io/elafros-e2e-tests/ela-e2e-test/sample/helloworld"
   sed "s@github.com/knative/serving/sample/helloworld@${IMAGE}@g" \
     sample/helloworld/sample.yaml > ${YAML}
+
+  local TARGET_NAMESPACE=$(grep "namespace:" ${YAML} -m 1 | awk '{ print $2 }')
+  kubectl label namespace ${TARGET_NAMESPACE} istio-injection=enabled
+
   kubectl apply -f ${YAML}
   local service_host=""
   local service_ip=""
@@ -178,6 +183,7 @@ function run_smoke_test() {
     # service_host or service_ip might contain a useful error, dump it.
     echo "FAILED -- No ingress found. ${service_host}${service_ip}"
     kubectl delete -f ${YAML}
+    kubectl label namespace ${TARGET_NAMESPACE} istio-injection-
     return 1
   fi
   local failed=1
@@ -191,6 +197,7 @@ function run_smoke_test() {
     sleep 2
   done
   kubectl delete -f ${YAML}
+  kubectl label namespace ${TARGET_NAMESPACE} istio-injection-
   if (( failed )); then
     echo "FAILED -- Timeout waiting for app to be serving"
     return 1

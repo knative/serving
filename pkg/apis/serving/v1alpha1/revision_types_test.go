@@ -438,6 +438,33 @@ func TestTypicalFlowWithContainerMissing(t *testing.T) {
 	}
 }
 
+func TestMarkNetworkMissing(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	r.Status.InitializeBuildCondition()
+
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+
+	// Mark the revision status NetworkProxyMissing
+	r.Status.MarkNetworkProxyMissing()
+
+	// Marking NetworkProxyMissing shouldn't affect the build condition
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "NetworkProxyMissing" {
+		t.Errorf("MarkNetworkProxyMissing = %v, want missing istio proxy", got)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != "NetworkProxyMissing" {
+		t.Errorf("MarkNetworkProxyMissing = %v, want missing istio proxy", got)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != "NetworkProxyMissing" {
+		t.Errorf("MarkNetworkProxyMissing = %v, want missing istio proxy", got)
+	}
+}
+
 func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
