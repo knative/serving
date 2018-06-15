@@ -203,7 +203,7 @@ func (ss *ServiceStatus) InitializeConditions() {
 	}
 }
 
-func (ss *ServiceStatus) PropagateConfiguration(cs ConfigurationStatus) {
+func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	cc := cs.GetCondition(ConfigurationConditionReady)
 	if cc == nil {
 		return
@@ -226,7 +226,7 @@ func (ss *ServiceStatus) PropagateConfiguration(cs ConfigurationStatus) {
 	}
 }
 
-func (ss *ServiceStatus) PropagateRoute(rs RouteStatus) {
+func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return

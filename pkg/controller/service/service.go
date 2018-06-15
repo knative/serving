@@ -155,7 +155,7 @@ func (c *Controller) Reconcile(key string) error {
 	}
 
 	// Update our Status based on the state of our underlying Configuration.
-	service.Status.PropagateConfiguration(config.Status)
+	service.Status.PropagateConfigurationStatus(config.Status)
 
 	routeName := controller.GetServiceRouteName(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
@@ -175,7 +175,7 @@ func (c *Controller) Reconcile(key string) error {
 	}
 
 	// Update our Status based on the state of our underlying Route.
-	service.Status.PropagateRoute(route.Status)
+	service.Status.PropagateRouteStatus(route.Status)
 
 	// Update the Status of the Service with the latest generation that
 	// we just reconciled against so we don't keep generating Revisions.
