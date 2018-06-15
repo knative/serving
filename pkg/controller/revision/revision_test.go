@@ -796,6 +796,30 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	}
 }
 
+func TestCreateRevWithVPA(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.AutoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("", true)
+	_, _, elaClient, vpaClient, controller, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
+	rev := getTestRevision()
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	createdVpa, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(ctrl.GetRevisionVpaName(rev), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get vpa: %v", err)
+	}
+	createdRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// Verify label selectors match
+	if want, got := createdRev.ObjectMeta.Labels, createdVpa.Spec.Selector.MatchLabels; reflect.DeepEqual(want, got) {
+		t.Fatalf("Mismatched labels. Wanted %v. Got %v.", want, got)
+	}
+}
+
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"

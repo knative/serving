@@ -50,7 +50,7 @@ func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 }
 
 func GetRevisionVpaName(u *v1alpha1.Revision) string {
-	return u.Name + "-vpa"
+	return u.Name
 }
 
 func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
