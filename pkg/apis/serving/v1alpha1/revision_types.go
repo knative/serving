@@ -18,11 +18,13 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
 
 // +genclient
@@ -104,8 +106,8 @@ type RevisionSpec struct {
 	ServingState RevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
-	// (SingleConcurrency or MultiConcurrency) for the
-	// Revision. Defaults to MultiConcurrency.
+	// (Single or Multi) for the
+	// Revision. Defaults to Multi.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
@@ -226,17 +228,6 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-// IsFailed looks to all non-Ready conditions; if any are false, then
-// this node is in a terminal failure state.
-func (rs *RevisionStatus) IsFailed() bool {
-	for _, cond := range rs.Conditions {
-		if cond.Type != RevisionConditionReady && cond.Status == corev1.ConditionFalse {
-			return true
-		}
-	}
-	return false
-}
-
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
@@ -246,7 +237,7 @@ func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionConditi
 	return nil
 }
 
-func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
+func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	if new == nil {
 		return
 	}
@@ -256,6 +247,12 @@ func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
 	new.LastTransitionTime = metav1.NewTime(time.Now())
@@ -271,4 +268,170 @@ func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
 		}
 	}
 	rs.Conditions = conditions
+}
+
+func (rs *RevisionStatus) InitializeConditions() {
+	// We don't include BuildSucceeded here because it could confuse users if
+	// no `buildName` was specified.
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
+		if rc := rs.GetCondition(cond); rc == nil {
+			rs.setCondition(&RevisionCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (rs *RevisionStatus) InitializeBuildCondition() {
+	if rc := rs.GetCondition(RevisionConditionBuildSucceeded); rc == nil {
+		rs.setCondition(&RevisionCondition{
+			Type:   RevisionConditionBuildSucceeded,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkBuilding() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionBuildSucceeded,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:   cond,
+			Status: corev1.ConditionUnknown,
+			Reason: "Building",
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkBuildSucceeded() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionBuildSucceeded,
+		Status: corev1.ConditionTrue,
+	})
+	// Clear "Reason: Building".  There is a risk this could reset a "Ready: False" state,
+	// but not as things exist today.
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionUnknown,
+	})
+}
+
+func (rs *RevisionStatus) MarkBuildFailed(bc *buildv1alpha1.BuildCondition) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionBuildSucceeded,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  bc.Reason,
+			Message: bc.Message,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkDeploying(reason string) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:   cond,
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkServiceTimeout() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ProgressDeadlineExceeded",
+			Message: message,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkContainerHealthy() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionContainerHealthy,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RevisionStatus) MarkResourcesAvailable() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionResourcesAvailable,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RevisionStatus) MarkInactive() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionFalse,
+		Reason: "Inactive",
+	})
+}
+
+func (rs *RevisionStatus) MarkContainerMissing(message string) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ContainerMissing",
+			Message: message,
+		})
+	}
+}
+
+func (rs *RevisionStatus) checkAndMarkReady() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionResourcesAvailable,
+	} {
+		c := rs.GetCondition(cond)
+		if c == nil || c.Status != corev1.ConditionTrue {
+			return
+		}
+	}
+	rs.markReady()
+}
+
+func (rs *RevisionStatus) markReady() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

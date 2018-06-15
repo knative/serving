@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/knative/serving/pkg"
 
@@ -33,14 +32,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -82,18 +78,11 @@ type RevisionRoute struct {
 }
 
 // Controller implements the controller for Route resources.
-// +controller:group=ela,version=v1alpha1,kind=Route,resource=routes
 type Controller struct {
 	*controller.Base
 
 	// lister indexes properties about Route
-	lister listers.RouteLister
-	synced cache.InformerSynced
-
-	// don't start the workers until configuration cache have been synced
-	configSynced cache.InformerSynced
-
-	configMapInformer cache.SharedIndexInformer
+	routeLister listers.RouteLister
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
@@ -110,63 +99,74 @@ type Controller struct {
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // reconcileKey - function for mapping queue keys to resource names
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
+	opt controller.Options,
 	kubeInformerFactory kubeinformers.SharedInformerFactory,
 	elaInformerFactory informers.SharedInformerFactory,
+	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
 	config *rest.Config,
-	enableScaleToZero *k8sflag.BoolFlag,
-	logger *zap.SugaredLogger) controller.Interface {
+	enableScaleToZero *k8sflag.BoolFlag) controller.Interface {
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
-	informer := elaInformerFactory.Serving().V1alpha1().Routes()
+	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
 	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 
-	// An alternate to below is to create a shared informer factory
-	// using NewFilteredSharedInformerFactory and use it to create
-	// shared informers using it and share the informer across multiple callers,
-	// but this case is quite specific and isn't too common to be shared.
-	// If it turns our that more than once caller needs it, we should bump this up
-	// to cmd/main.go and create a shared informer factory.
-	// The resync period is set to 15 minutes, because we don't really need to
-	// keep reading domain config map every 30 seconds like we do with our other
-	// informers. If we somehow miss to update the config map, 15 minute seems
-	// like a reasonable delay to reconcile it back as domain configuration
-	// should only change very few times if ever throughout the lifetime of a cluster.
-	configMapInformer := coreinformers.NewFilteredConfigMapInformer(kubeClientSet, pkg.GetServingSystemNamespace(),
-		time.Minute*15, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, nil)
+	informers := []cache.SharedIndexInformer{
+		routeInformer.Informer(),
+		configInformer.Informer(),
+		ingressInformer.Informer(),
+		configMapInformer.Informer(),
+	}
 
-	domainConfig, err := NewDomainConfig(kubeClientSet)
+	domainConfig, err := NewDomainConfig(opt.KubeClientSet)
 	if err != nil {
-		logger.Fatalf("Error loading controller config: %v", err)
+		opt.Logger.Fatalf("Error loading domain config: %v", err)
 	}
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Routes", logger),
-		lister:            informer.Lister(),
-		synced:            informer.Informer().HasSynced,
-		configSynced:      configInformer.Informer().HasSynced,
-		configMapInformer: configMapInformer,
+		Base:              controller.NewBase(opt, controllerAgentName, "Routes", informers),
+		routeLister:       routeInformer.Lister(),
 		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
 
 	controller.Logger.Info("Setting up event handlers")
+	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.Enqueue,
+		UpdateFunc: func(old, new interface{}) {
+			controller.Enqueue(new)
+		},
+		DeleteFunc: controller.Enqueue,
+	})
+
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigurationEvent,
-		UpdateFunc: controller.updateConfigurationEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncConfiguration(obj.(*v1alpha1.Configuration))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncConfiguration(new.(*v1alpha1.Configuration))
+		},
 	})
+	// v1beta1.Ingress
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: controller.updateIngressEvent,
+		AddFunc: func(obj interface{}) {
+			controller.SyncIngress(obj.(*v1beta1.Ingress))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncIngress(new.(*v1beta1.Ingress))
+		},
 	})
-	configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigMapEvent,
-		UpdateFunc: controller.updateConfigMapEvent,
+	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			controller.SyncConfigMap(obj.(*corev1.ConfigMap))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			controller.SyncConfigMap(new.(*corev1.ConfigMap))
+		},
 	})
 	return controller
 }
@@ -176,9 +176,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	go c.configMapInformer.Run(stopCh)
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced, c.configSynced, c.configMapInformer.HasSynced},
-		c.updateRouteEvent, "Route")
+	return c.RunController(threadiness, stopCh, c.updateRouteEvent, "Route")
 }
 
 // loggerWithRouteInfo enriches the logs with route name and namespace.
@@ -201,7 +199,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Route resource with this namespace/name
-	route, err := c.lister.Routes(namespace).Get(name)
+	route, err := c.routeLister.Routes(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -407,7 +405,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 			revMap[revName] = rev
 		}
 	}
-	route.Status.MarkTrafficAssigned()
 
 	return configMap, revMap, nil
 }
@@ -446,34 +443,43 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 	ns := route.Namespace
 	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
 
+	allTrafficAssigned := true
 	for _, tt := range route.Spec.Traffic {
-		if tt.ConfigurationName != "" {
-			configName := tt.ConfigurationName
-			if config, ok := configMap[configName]; ok {
-
-				revName := config.Status.LatestReadyRevisionName
-				if revName == "" {
-					logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
-					continue
-				}
-				// Check if it is a duplicated revision
-				if _, ok := revMap[revName]; !ok {
-					rev, err := revisionClient.Get(revName, metav1.GetOptions{})
-					if err != nil {
-						logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
-						if apierrs.IsNotFound(err) {
-							route.Status.MarkTrafficNotAssigned("Revision", revName)
-							if _, err := c.updateStatus(ctx, route); err != nil {
-								// If we failed to update the status, return that error instead of the "revision not found" error.
-								return err
-							}
-						}
-						return err
-					}
-					revMap[revName] = rev
+		configName := tt.ConfigurationName
+		if tt.ConfigurationName == "" {
+			continue
+		}
+		config, ok := configMap[configName]
+		if !ok {
+			continue
+		}
+		revName := config.Status.LatestReadyRevisionName
+		if revName == "" {
+			logger.Infof("Configuration %s is not ready, skipping.", tt.ConfigurationName)
+			allTrafficAssigned = false
+			continue
+		}
+		if _, ok := revMap[revName]; ok {
+			// Skip duplicated revisions
+			continue
+		}
+		rev, err := revisionClient.Get(revName, metav1.GetOptions{})
+		if err != nil {
+			logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
+			if apierrs.IsNotFound(err) {
+				route.Status.MarkTrafficNotAssigned("Revision", revName)
+				if _, err := c.updateStatus(ctx, route); err != nil {
+					// If we failed to update the status, return that error instead of the "revision not found" error.
+					return err
 				}
 			}
+			return err
 		}
+		revMap[revName] = rev
+	}
+
+	if allTrafficAssigned {
+		route.Status.MarkTrafficAssigned()
 	}
 
 	return nil
@@ -698,16 +704,18 @@ func (c *Controller) computeRevisionRoutes(
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
 	// https://github.com/knative/serving/issues/882
-	if totalInactivePercent > 0 {
-		activatorRoute := RevisionRoute{
-			Name:         controller.GetElaK8SActivatorServiceName(),
-			RevisionName: inactiveRev,
-			Service:      controller.GetElaK8SActivatorServiceName(),
-			Namespace:    pkg.GetServingSystemNamespace(),
-			Weight:       totalInactivePercent,
-		}
-		ret = append(ret, activatorRoute)
+	// TODO: We are adding activator to the route whether the weight is zero or positive
+	// to workaround https://github.com/istio/istio/issues/5204
+	// Once migration to Istio Gateway completes, we should change this back so that activator
+	// is added to the list only if its weight is positive
+	activatorRoute := RevisionRoute{
+		Name:         controller.GetElaK8SActivatorServiceName(),
+		RevisionName: inactiveRev,
+		Service:      controller.GetElaK8SActivatorServiceName(),
+		Namespace:    pkg.GetServingSystemNamespace(),
+		Weight:       totalInactivePercent,
 	}
+	ret = append(ret, activatorRoute)
 	return ret, inactiveRev, nil
 }
 
@@ -958,8 +966,7 @@ func (c *Controller) removeOutdatedRouteRules(ctx context.Context, u *v1alpha1.R
 	return nil
 }
 
-func (c *Controller) addConfigurationEvent(obj interface{}) {
-	config := obj.(*v1alpha1.Configuration)
+func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 	configName := config.Name
 	ns := config.Namespace
 
@@ -976,7 +983,7 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 
 	logger := loggerWithRouteInfo(c.Logger, ns, routeName)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	route, err := c.lister.Routes(ns).Get(routeName)
+	route, err := c.routeLister.Routes(ns).Get(routeName)
 	if err != nil {
 		logger.Error("Error fetching route upon configuration becoming ready", zap.Error(err))
 		return
@@ -989,17 +996,14 @@ func (c *Controller) addConfigurationEvent(obj interface{}) {
 	}
 }
 
-func (c *Controller) updateConfigurationEvent(old, new interface{}) {
-	c.addConfigurationEvent(new)
-}
-
-func (c *Controller) updateIngressEvent(old, new interface{}) {
-	ingress := new.(*v1beta1.Ingress)
-	// If ingress isn't owned by a route, no route update is required.
-	routeName := controller.LookupOwningRouteName(ingress.OwnerReferences)
-	if routeName == "" {
+func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {
+	or := metav1.GetControllerOf(ingress)
+	if or == nil || or.Kind != "Route" {
+		// If ingress isn't owned by a route, no route update is required.
 		return
 	}
+	routeName := or.Name
+
 	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
 		// Route isn't ready if having no load-balancer ingress.
 		return
@@ -1038,8 +1042,7 @@ func (c *Controller) updateIngressEvent(old, new interface{}) {
 	}
 }
 
-func (c *Controller) addConfigMapEvent(obj interface{}) {
-	configMap := obj.(*corev1.ConfigMap)
+func (c *Controller) SyncConfigMap(configMap *corev1.ConfigMap) {
 	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetDomainConfigMapName() {
 		return
 	}
@@ -1051,8 +1054,4 @@ func (c *Controller) addConfigMapEvent(obj interface{}) {
 		return
 	}
 	c.setDomainConfig(newDomainConfig)
-}
-
-func (c *Controller) updateConfigMapEvent(old, new interface{}) {
-	c.addConfigMapEvent(new)
 }

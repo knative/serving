@@ -15,6 +15,9 @@
 apiVersion: v1
 kind: Service
 metadata:
+  # Name of this service is referred at multiple places. 
+  # Any changes to this name should ensure to fix it in
+  # all places where this name is referred.
   name: fluentd-ds
   namespace: monitoring
   labels:

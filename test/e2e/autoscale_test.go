@@ -18,7 +18,7 @@ limitations under the License.
 package e2e
 
 import (
-	"log"
+	"github.com/golang/glog"
 	"strings"
 	"testing"
 
@@ -33,6 +33,10 @@ const (
 	autoscaleExpectedOutput = "39999983"
 )
 
+var (
+	initialScaleToZeroThreshold string
+)
+
 func isExpectedOutput() func(body string) (bool, error) {
 	return func(body string) (bool, error) {
 		return strings.Contains(body, autoscaleExpectedOutput), nil
@@ -41,20 +45,20 @@ func isExpectedOutput() func(body string) (bool, error) {
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas > 1, nil
+		return d.Status.ReadyReplicas >= 1, nil
 	}
 }
 
-func isDeploymentScaledDown() func(d *v1beta1.Deployment) (bool, error) {
+func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas <= 1, nil
+		return d.Status.ReadyReplicas == 0, nil
 	}
 }
 
 func generateTrafficBurst(clients *test.Clients, names test.ResourceNames, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
-	log.Printf("Performing %d concurrent requests.", num)
+	glog.Infof("Performing %d concurrent requests.", num)
 	for i := 0; i < num; i++ {
 		go func() {
 			test.WaitForEndpointState(clients.Kube,
@@ -67,14 +71,46 @@ func generateTrafficBurst(clients *test.Clients, names test.ResourceNames, num i
 		}()
 	}
 
-	log.Println("Waiting for all requests to complete.")
+	glog.Infof("Waiting for all requests to complete.")
 	for i := 0; i < num; i++ {
 		<-concurrentRequests
 	}
 }
 
-func TestAutoscaleUpDownUp(t *testing.T) {
+func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
+	return clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Get("config-autoscaler", metav1.GetOptions{})
+}
+
+func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
+	configMap, err := getAutoscalerConfigMap(clients)
+	if err != nil {
+		return err
+	}
+	configMap.Data["scale-to-zero-threshold"] = threshold
+	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Update(configMap)
+	return err
+}
+
+func setup(t *testing.T) *test.Clients {
 	clients := Setup(t)
+
+	configMap, err := getAutoscalerConfigMap(clients)
+	if err != nil {
+		glog.Infof("Unable to retrieve the autoscale configMap. Assuming a ScaleToZero value of '5m'. %v", err)
+		initialScaleToZeroThreshold = "5m"
+	} else {
+		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
+	}
+	return clients
+}
+
+func tearDown(clients *test.Clients, names test.ResourceNames) {
+	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	TearDown(clients, names)
+}
+
+func TestAutoscaleUpDownUp(t *testing.T) {
+	clients := setup(t)
 
 	imagePath := strings.Join(
 		[]string{
@@ -82,15 +118,15 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			"autoscale"},
 		"/")
 
-	log.Println("Creating a new Route and Configuration")
+	glog.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
-	defer TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names) })
+	defer tearDown(clients, names)
 
-	log.Println(`When the Revision can have traffic routed to it,
+	glog.Infof(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
 	err = test.WaitForRouteState(
 		clients.Routes,
@@ -103,7 +139,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			 %v`, names.Route, err)
 	}
 
-	log.Println("Serves the expected data at the endpoint")
+	glog.Infof("Serves the expected data at the endpoint")
 	config, err := clients.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(`Configuration %s was not updated with the new
@@ -130,7 +166,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
-	log.Println(`The autoscaler spins up additional replicas when traffic
+	glog.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
 	generateTrafficBurst(clients, names, 5, domain)
 	err = test.WaitForDeploymentState(
@@ -138,47 +174,52 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		deploymentName,
 		isDeploymentScaledUp())
 	if err != nil {
-		log.Fatalf(`Unable to observe the Deployment named %s scaling
+		glog.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
 	}
 
-	log.Println(`The autoscaler successfully scales down when devoid of
+	glog.Infof(`The autoscaler successfully scales down when devoid of
 		    traffic.`)
+
+	glog.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
+		    faster testing.`)
+
+	err = setScaleToZeroThreshold(clients, "1m")
+	if err != nil {
+		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
+		          cause the test to time out. Failing fast instead. %v`, err)
+	}
+
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledDown())
+		isDeploymentScaledToZero())
 	if err != nil {
-		log.Fatalf(`Unable to observe the Deployment named %s scaling
+		glog.Fatalf(`Unable to observe the Deployment named %s scaling
 		           down. %s`, deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	log.Println("Wait until there are pods available to scale into.")
+	glog.Infof("Wait until there are pods available to scale into.")
 	pc := clients.Kube.CoreV1().Pods(NamespaceName)
-	pods, err := pc.List(metav1.ListOptions{})
-	podCount := 0
-	if err != nil {
-		log.Printf("Unable to get pod count. Defaulting to 1.")
-		podCount = 1
-	} else {
-		podCount = len(pods.Items)
-	}
+
 	err = test.WaitForPodListState(
 		pc,
 		func(p *v1.PodList) (bool, error) {
-			return len(p.Items) < podCount, nil
+			return len(p.Items) == 0, nil
 		})
 
-	log.Println(`The autoscaler spins up additional replicas once again when
-	            traffic increases.`)
+	glog.Infof("Scaled down, resetting ScaleToZeroThreshold.")
+	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	glog.Infof(`The autoscaler spins up additional replicas once again when
+              traffic increases.`)
 	generateTrafficBurst(clients, names, 8, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
 		isDeploymentScaledUp())
 	if err != nil {
-		log.Fatalf(`Unable to observe the Deployment named %s scaling
+		glog.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
 	}
 }

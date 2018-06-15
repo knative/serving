@@ -59,11 +59,9 @@ Type names should be chosen such that these interpretations are clear:
 * `BuildSucceeded` works because `True` = success and `False` = failure.
 * `BuildCompleted` does not, because `False` could mean "in-progress".
 
-Conditions may also be omitted entirely if reconciliation has been
-skipped. When all conditions have succeeded, the "happy state"
-should clear other conditions for output legibility. Until the
-"happy state" is set, conditions should be persisted for the
-benefit of UI tools representing progress on the outcome.
+Conditions may also be omitted entirely if it doesn't pertain to the
+resource at hand.  e.g. Revisions that take pre-build containers may
+elide Build-related conditions.
 
 Conditions with a status of `False` will also supply additional details
 about the failure in [the "Reason" and "Message" sections](#condition-reason-and-message).

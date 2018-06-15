@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"errors"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 
@@ -24,10 +26,10 @@ import (
 )
 
 // MakeServiceConfiguration creates a Configuration from a Service object.
-func MakeServiceConfiguration(service *v1alpha1.Service) *v1alpha1.Configuration {
+func MakeServiceConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      service.Name,
+			Name:      controller.GetServiceConfigurationName(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
@@ -38,8 +40,10 @@ func MakeServiceConfiguration(service *v1alpha1.Service) *v1alpha1.Configuration
 
 	if service.Spec.RunLatest != nil {
 		c.Spec = service.Spec.RunLatest.Configuration
-	} else {
+	} else if service.Spec.Pinned != nil {
 		c.Spec = service.Spec.Pinned.Configuration
+	} else {
+		return nil, errors.New("malformed Service: one of runLatest or pinned must be present.")
 	}
-	return c
+	return c, nil
 }

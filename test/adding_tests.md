@@ -16,16 +16,6 @@ so that `go test ./...` can be used to run only [the unit tests](README.md#runni
 // +build e2e
 ```
 
-## Presubmit tests
-
-[`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
-
-This script, and consequently, the e2e and conformance tests will be run before every code submission. You can run these tests manually with:
-
-```shell
-test/presubmit-tests.sh
-```
-
 ## Test library
 
 In the [`test`](/test/) dir you will find several libraries in the `test` package
@@ -34,6 +24,7 @@ you can use in your tests.
 You can:
 
 * [Use common test flags](#use-common-test-flags)
+* [Output log](#output-log)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
 * [Poll Knative Serving resources](#poll-knative-serving-resources)
@@ -54,6 +45,13 @@ imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 ```
 
 _See [e2e_flags.go](./e2e_flags.go)._
+
+### Output log
+
+Log output should be provided exclusively using [the glog library](https://godoc.org/github.com/golang/glog).
+Package "github.com/knative/serving/test" contains a `Verbose` function to be used for all verbose logging.
+Internally, it defines `glog.Level` 10 as log level. _See [e2e_flags.go](./e2e_flags.go)._
+Also _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `test.Verbose()` call.
 
 ### Get access to client objects
 

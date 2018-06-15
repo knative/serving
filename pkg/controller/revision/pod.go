@@ -17,6 +17,11 @@ limitations under the License.
 package revision
 
 import (
+	"net"
+	"strings"
+
+	"go.uber.org/zap"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/queue"
@@ -24,7 +29,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -50,8 +55,9 @@ const (
 	fluentdContainerMaxMemory = "100M"
 	envoyContainerMaxMemory   = "100M"
 
-	fluentdConfigMapVolumeName = "configmap"
-	varLogVolumeName           = "varlog"
+	fluentdConfigMapVolumeName     = "configmap"
+	varLogVolumeName               = "varlog"
+	istioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 )
 
 func hasHTTPPath(p *corev1.Probe) bool {
@@ -65,9 +71,12 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 // MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(
-	rev *v1alpha1.Revision,
-	controllerConfig *ControllerConfig) *corev1.PodSpec {
+func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
+	configName := ""
+	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+		configName = owner.Name
+	}
+
 	varLogVolume := corev1.Volume{
 		Name: varLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -122,7 +131,7 @@ func MakeElaPodSpec(
 		userContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
-	podSpe := &corev1.PodSpec{
+	podSpec := &corev1.PodSpec{
 		Containers:         []corev1.Container{*userContainer, *MakeElaQueueContainer(rev, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -160,7 +169,7 @@ func MakeElaPodSpec(
 				},
 				{
 					Name:  "ELA_CONFIGURATION",
-					Value: controller.LookupOwningConfigurationName(rev.OwnerReferences),
+					Value: configName,
 				},
 				{
 					Name:  "ELA_REVISION",
@@ -191,15 +200,16 @@ func MakeElaPodSpec(
 			},
 		}
 
-		podSpe.Containers = append(podSpe.Containers, fluentdContainer)
-		podSpe.Volumes = append(podSpe.Volumes, fluentdConfigMapVolume)
+		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
+		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
 	}
 
-	return podSpe
+	return podSpec
 }
 
 // MakeElaDeployment creates a deployment.
-func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deployment {
+func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespace string,
+	networkConfig *NetworkConfig) *appsv1.Deployment {
 	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
@@ -208,8 +218,26 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deploymen
 	podTemplateAnnotations := MakeElaResourceAnnotations(u)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
+	// Inject the IP ranges for istio sidecar configuration.
+	// We will inject this value only if all of the following are true:
+	// - the config map contains a non-empty value
+	// - the user doesn't specify this annotation in configuration's pod template
+	// - configured values are valid CIDR notation IP addresses
+	// If these conditions are not met, this value will be left untouched.
+	// * is a special value that is accepted as a valid.
+	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
+	if _, ok := podTemplateAnnotations[istioOutboundIPRangeAnnotation]; !ok {
+		if len(networkConfig.IstioOutboundIPRanges) > 0 {
+			if err := validateOutboundIPRanges(networkConfig.IstioOutboundIPRanges); err != nil {
+				logger.Errorf("Failed to parse IP ranges %v. Not setting the annotation. Error: %v", networkConfig.IstioOutboundIPRanges, err)
+			} else {
+				podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
+			}
+		}
+	}
+
 	return &appsv1.Deployment{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionDeploymentName(u),
 			Namespace:   namespace,
 			Labels:      MakeElaResourceLabels(u),
@@ -223,11 +251,25 @@ func MakeElaDeployment(u *v1alpha1.Revision, namespace string) *appsv1.Deploymen
 				RollingUpdate: &rollingUpdateConfig,
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: meta_v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels:      MakeElaResourceLabels(u),
 					Annotations: podTemplateAnnotations,
 				},
 			},
 		},
 	}
+}
+
+func validateOutboundIPRanges(s string) error {
+	// * is a valid value
+	if s == "*" {
+		return nil
+	}
+	cidrs := strings.Split(s, ",")
+	for _, cidr := range cidrs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return err
+		}
+	}
+	return nil
 }

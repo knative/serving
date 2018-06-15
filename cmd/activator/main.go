@@ -20,11 +20,11 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/signals"
-	"github.com/golang/glog"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -44,12 +44,13 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target := &url.URL{
-		// TODO: Wire Activator into Istio mesh to support TLS
-		//       (https://github.com/knative/serving/issues/838)
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
+		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	// TODO: Clear the host to avoid 404's.
+	// https://github.com/elafros/elafros/issues/964
+	r.Host = ""
 	proxy.ServeHTTP(w, r)
 }
 

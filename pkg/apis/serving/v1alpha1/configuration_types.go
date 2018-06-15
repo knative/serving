@@ -18,6 +18,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
+	"time"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
@@ -91,6 +94,9 @@ type ConfigurationCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+
+	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
 
 	// +optional
@@ -146,8 +152,8 @@ func (r *Configuration) GetSpecJSON() ([]byte, error) {
 
 // IsReady looks at the conditions on the ConfigurationStatus.
 // ConfigurationConditionReady returns true if ConditionStatus is True
-func (configStatus *ConfigurationStatus) IsReady() bool {
-	if c := configStatus.GetCondition(ConfigurationConditionReady); c != nil {
+func (cs *ConfigurationStatus) IsReady() bool {
+	if c := cs.GetCondition(ConfigurationConditionReady); c != nil {
 		return c.Status == corev1.ConditionTrue
 	}
 	return false
@@ -156,9 +162,9 @@ func (configStatus *ConfigurationStatus) IsReady() bool {
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
 // and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
 // it returns false.
-func (configStatus *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
-	return configStatus.IsReady() &&
-		configStatus.LatestCreatedRevisionName == configStatus.LatestReadyRevisionName
+func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
+	return cs.IsReady() &&
+		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
 func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
@@ -170,28 +176,87 @@ func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *C
 	return nil
 }
 
-func (configStatus *ConfigurationStatus) SetCondition(new *ConfigurationCondition) {
+func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	if new == nil {
 		return
 	}
 
 	t := new.Type
 	var conditions []ConfigurationCondition
-	for _, cond := range configStatus.Conditions {
+	for _, cond := range cs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
-	configStatus.Conditions = conditions
+	cs.Conditions = conditions
 }
 
-func (configStatus *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
+func (cs *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
 	var conditions []ConfigurationCondition
-	for _, cond := range configStatus.Conditions {
+	for _, cond := range cs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	configStatus.Conditions = conditions
+	cs.Conditions = conditions
+}
+
+func (cs *ConfigurationStatus) InitializeConditions() {
+	for _, cond := range []ConfigurationConditionType{
+		ConfigurationConditionLatestRevisionReady,
+		ConfigurationConditionReady,
+	} {
+		if rc := cs.GetCondition(cond); rc == nil {
+			cs.setCondition(&ConfigurationCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
+	cs.LatestCreatedRevisionName = name
+	if cs.LatestReadyRevisionName != name {
+		cs.setCondition(&ConfigurationCondition{
+			Type:   ConfigurationConditionLatestRevisionReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
+
+func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
+	cs.LatestReadyRevisionName = name
+	for _, cond := range []ConfigurationConditionType{
+		ConfigurationConditionLatestRevisionReady,
+		ConfigurationConditionReady,
+	} {
+		cs.setCondition(&ConfigurationCondition{
+			Type:   cond,
+			Status: corev1.ConditionTrue,
+		})
+	}
+}
+
+func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
+	cct := []ConfigurationConditionType{ConfigurationConditionLatestRevisionReady}
+	if cs.LatestReadyRevisionName == "" {
+		cct = append(cct, ConfigurationConditionReady)
+	}
+	for _, cond := range cct {
+		cs.setCondition(&ConfigurationCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "RevisionFailed",
+			Message: fmt.Sprintf("revision %q failed with message: %s", name, message),
+		})
+	}
 }

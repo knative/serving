@@ -42,15 +42,15 @@ data:
   # observed pods.
   max-scale-up-rate: "10"
 
-  # Concurrency quantum of time is the minimum time a request consumes
-  # for the purpose of reporting concurrency metrics. The number of
-  # quantums of time that fit into 1 second determines the max QPS the
-  # pod will handle. Requests can span multiple quantums of time in
-  # which case the request duration is rounded up.
+  # Concurrency quantum of time is the minimum time is the quantum in
+  # which concurrency will be measured by the queue-proxy.
+  # The maximum concurrency in each of the "buckets" (of the duration
+  # defined here) is taken and the average over all buckets is
+  # reported.
   concurrency-quantum-of-time: "100ms"
 
   # Scale to zero feature flag
-  enable-scale-to-zero: "false"
+  enable-scale-to-zero: "true"
 
   # Experimental: enable vertical pod autoscaling.
   # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)

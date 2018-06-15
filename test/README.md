@@ -11,6 +11,22 @@ The conformance tests are a subset of the end to end test with [more strict requ
 
 If you want to add more tests, see [adding_tests.md](./adding_tests.md).
 
+## Presubmit tests
+
+[`presubmit-tests.sh`](./presubmit-tests.sh) is the entry point for both the [end-to-end tests](/test/e2e) and the [conformance tests](/test/conformance)
+
+This script, and consequently, the e2e and conformance tests will be run before every code submission. You can run these tests manually with:
+
+```shell
+test/presubmit-tests.sh
+```
+
+_Note that to run `presubmit-tests.sh` or `e2e-tests.sh` scripts, you'll need kubernetes `kubetest` installed:_
+
+```bash
+go get -u k8s.io/test-infra/kubetest
+```
+
 ## Running unit tests
 
 To run all unit tests:
@@ -42,6 +58,7 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
 * Since these tests are fairly slow, running them with logging
   enabled is recommended (`-v`).
+* Using [`--logverbose`](#output-verbose-log) to see the verbose log output from test as well as from k8s libraries.
 * Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
 
 You can [use test flags](#flags) to control the environment
@@ -111,6 +128,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 * [`--cluster`](#specifying-cluster)
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
+* [`--logverbose`](#output-verbose-log)
 
 ### Specifying kubeconfig
 
@@ -169,3 +187,11 @@ and spoof the `Host` in the header.
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests directly against
 `Route.Status.Domain` and does not need to spoof the `Host`.
+
+#### Output verbose log
+
+The `--logverbose` argument lets you see verbose test logs and k8s logs.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/e2e --logverbose
+```
