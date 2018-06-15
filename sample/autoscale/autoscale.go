@@ -17,7 +17,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -83,10 +82,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusOK)
 		p := primes(n)
-		// Log a bunch of crap.
-		for i := 0; i < 100; i++ {
-			log.Printf("[%v] Largest prime smaller than %v is %v.", i, n, p[len(p)-1])
-		}
 		json.NewEncoder(w).Encode(p[len(p)-1:])
 	}
 }
