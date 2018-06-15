@@ -273,9 +273,11 @@ func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
 func (rs *RevisionStatus) InitializeConditions() {
 	// We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.
-	rct := []RevisionConditionType{RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy, RevisionConditionReady}
-	for _, cond := range rct {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
 		if rc := rs.GetCondition(cond); rc == nil {
 			rs.setCondition(&RevisionCondition{
 				Type:   cond,
@@ -295,7 +297,10 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 }
 
 func (rs *RevisionStatus) MarkBuilding() {
-	for _, cond := range []RevisionConditionType{RevisionConditionBuildSucceeded, RevisionConditionReady} {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionBuildSucceeded,
+		RevisionConditionReady,
+	} {
 		rs.setCondition(&RevisionCondition{
 			Type:   cond,
 			Status: corev1.ConditionUnknown,
@@ -318,7 +323,10 @@ func (rs *RevisionStatus) MarkBuildSucceeded() {
 }
 
 func (rs *RevisionStatus) MarkBuildFailed(bc *buildv1alpha1.BuildCondition) {
-	for _, cond := range []RevisionConditionType{RevisionConditionBuildSucceeded, RevisionConditionReady} {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionBuildSucceeded,
+		RevisionConditionReady,
+	} {
 		rs.setCondition(&RevisionCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
@@ -329,9 +337,11 @@ func (rs *RevisionStatus) MarkBuildFailed(bc *buildv1alpha1.BuildCondition) {
 }
 
 func (rs *RevisionStatus) MarkDeploying(reason string) {
-	rct := []RevisionConditionType{RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy, RevisionConditionReady}
-	for _, cond := range rct {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
 		rs.setCondition(&RevisionCondition{
 			Type:   cond,
 			Status: corev1.ConditionUnknown,
@@ -341,7 +351,10 @@ func (rs *RevisionStatus) MarkDeploying(reason string) {
 }
 
 func (rs *RevisionStatus) MarkServiceTimeout() {
-	for _, cond := range []RevisionConditionType{RevisionConditionResourcesAvailable, RevisionConditionReady} {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
 		rs.setCondition(&RevisionCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
@@ -352,7 +365,10 @@ func (rs *RevisionStatus) MarkServiceTimeout() {
 }
 
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
-	for _, cond := range []RevisionConditionType{RevisionConditionResourcesAvailable, RevisionConditionReady} {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
 		rs.setCondition(&RevisionCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
@@ -387,7 +403,10 @@ func (rs *RevisionStatus) MarkInactive() {
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
-	for _, cond := range []RevisionConditionType{RevisionConditionContainerHealthy, RevisionConditionReady} {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
 		rs.setCondition(&RevisionCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
@@ -398,8 +417,10 @@ func (rs *RevisionStatus) MarkContainerMissing(message string) {
 }
 
 func (rs *RevisionStatus) checkAndMarkReady() {
-	rct := []RevisionConditionType{RevisionConditionContainerHealthy, RevisionConditionResourcesAvailable}
-	for _, cond := range rct {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionResourcesAvailable,
+	} {
 		c := rs.GetCondition(cond)
 		if c == nil || c.Status != corev1.ConditionTrue {
 			return
