@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/activator"
@@ -29,8 +30,35 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	maxRetry      = 60
+	retryInterval = 1 * time.Second
+)
+
 type activationHandler struct {
 	act activator.Activator
+}
+
+// retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
+// a small delay for k8s to include the ready IP in service.
+// https://github.com/knative/serving/issues/660#issuecomment-384062553
+type retryRoundTripper struct{}
+
+func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	transport := http.DefaultTransport.(*http.Transport)
+	resp, err := transport.RoundTrip(r)
+	i := 1
+	for ; i < maxRetry; i++ {
+		if err == nil && resp != nil && resp.StatusCode != 503 {
+			break
+		}
+		resp.Body.Close()
+		time.Sleep(retryInterval)
+		resp, err = transport.RoundTrip(r)
+	}
+	// TODO: add metrics for number of tries and the response code.
+	glog.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	return resp, nil
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +76,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = retryRoundTripper{}
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/elafros/elafros/issues/964
 	r.Host = ""

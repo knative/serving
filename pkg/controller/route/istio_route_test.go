@@ -17,10 +17,10 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
-	"github.com/knative/serving/pkg/controller"
 	"github.com/google/go-cmp/cmp"
+	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/controller"
 )
 
 const (
@@ -77,6 +77,7 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[controller.GetRevisionHeaderName()] = testInactiveRev
 	appendHeaders[controller.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = sixtySecondsInMs
 	expectedIstioRouteSpec := istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
 			Name:      "test-route-service",

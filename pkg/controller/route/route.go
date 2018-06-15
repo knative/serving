@@ -704,16 +704,14 @@ func (c *Controller) computeRevisionRoutes(
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
 	// https://github.com/knative/serving/issues/882
-	if totalInactivePercent > 0 {
-		activatorRoute := RevisionRoute{
-			Name:         controller.GetElaK8SActivatorServiceName(),
-			RevisionName: inactiveRev,
-			Service:      controller.GetElaK8SActivatorServiceName(),
-			Namespace:    pkg.GetServingSystemNamespace(),
-			Weight:       totalInactivePercent,
-		}
-		ret = append(ret, activatorRoute)
+	activatorRoute := RevisionRoute{
+		Name:         controller.GetElaK8SActivatorServiceName(),
+		RevisionName: inactiveRev,
+		Service:      controller.GetElaK8SActivatorServiceName(),
+		Namespace:    pkg.GetServingSystemNamespace(),
+		Weight:       totalInactivePercent,
 	}
+	ret = append(ret, activatorRoute)
 	return ret, inactiveRev, nil
 }
 
