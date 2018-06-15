@@ -30,5 +30,13 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   "serving:v1alpha1 istio:v1alpha2" \
   --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
+# Generate defaulters manually because generate-groups.sh doesn't, contrary to
+# the usage docs. This can be removed when/if generate-groups.sh allows adding
+# "defaulter" to the list of generators.
+${GOPATH}/bin/defaulter-gen \
+  --input-dirs github.com/knative/serving/pkg/apis/serving/v1alpha1 \
+   -O zz_generated.defaulters \
+   --go-header-file hack/../hack/boilerplate/boilerplate.go.txt
+
 # Make sure our dependencies are up-to-date
 ${SERVING_ROOT}/hack/update-deps.sh
