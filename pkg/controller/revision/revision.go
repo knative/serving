@@ -38,10 +38,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
-	kubeinformers "k8s.io/client-go/informers"
 
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	vpav1alpha1informers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
+	appsv1informers "k8s.io/client-go/informers/apps/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -52,7 +55,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -167,30 +169,14 @@ type ControllerConfig struct {
 func NewController(
 	opt controller.Options,
 	vpaClient vpa.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
-	buildInformerFactory buildinformers.SharedInformerFactory,
-	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
-	vpaInformerFactory vpainformers.SharedInformerFactory,
+	revisionInformer servinginformers.RevisionInformer,
+	buildInformer buildinformers.BuildInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
+	deploymentInformer appsv1informers.DeploymentInformer,
+	endpointsInformer corev1informers.EndpointsInformer,
+	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
 	config *rest.Config,
 	controllerConfig *ControllerConfig) controller.Interface {
-
-	// obtain references to a shared index informer for the Revision and Endpoint type.
-	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
-	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
-	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
-
-	informers := []cache.SharedIndexInformer{
-		revisionInformer.Informer(),
-		buildInformer.Informer(),
-		configMapInformer.Informer(),
-		deploymentInformer.Informer(),
-		endpointsInformer.Informer(),
-		vpaInformer.Informer(),
-	}
 
 	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
 	if err != nil {
@@ -198,7 +184,7 @@ func NewController(
 	}
 
 	controller := &Controller{
-		Base:             controller.NewBase(opt, controllerAgentName, "Revisions", informers),
+		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),
 		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
@@ -979,7 +965,7 @@ func (c *Controller) reconcileVpa(ctx context.Context, rev *v1alpha1.Revision) e
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

@@ -26,6 +26,8 @@ In the Reserve state, the Revision has no scheduled Pods and consumes no CPU.  T
 
 In the Retired state, the Revision has provisioned resources.  No requests will be served for the Revision.
 
+Note: Retired state is currently not set anywhere. See [issue 1203](https://github.com/knative/serving/issues/1203).
+
 ## Context 
 
 ```

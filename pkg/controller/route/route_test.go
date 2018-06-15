@@ -192,13 +192,14 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			testLogger,
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
-		kubeInformer,
-		elaInformer,
-		servingSystemInformer,
+		elaInformer.Serving().V1alpha1().Routes(),
+		elaInformer.Serving().V1alpha1().Configurations(),
+		kubeInformer.Extensions().V1beta1().Ingresses(),
+		servingSystemInformer.Core().V1().ConfigMaps(),
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
 	).(*Controller)
@@ -412,6 +413,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
 	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name:      "test-route-service",
@@ -509,14 +511,13 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, getActivatorDestinationWeight(0),
-			{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", otherRev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 0,
-			}},
+		}, getActivatorDestinationWeight(0), {
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", otherRev.Name),
+				Namespace: testNamespace,
+			},
+			Weight: 0,
+		}},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -646,6 +647,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
 	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name:      fmt.Sprintf("%s-service", route.Name),

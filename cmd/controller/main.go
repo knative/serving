@@ -30,6 +30,7 @@ import (
 
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -160,19 +161,30 @@ func main() {
 	opt := controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: elaClient,
+		BuildClientSet:   buildClient,
 		Logger:           logger,
 	}
+
+	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
+	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
+	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
+	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
+	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
+	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
+	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(opt, buildClient, elaInformerFactory, cfg),
-		revision.NewController(opt, vpaClient, kubeInformerFactory, elaInformerFactory,
-			buildInformerFactory, servingSystemInformerFactory, vpaInformerFactory,
-			cfg, &revControllerConfig),
-		route.NewController(opt, kubeInformerFactory, elaInformerFactory,
-			servingSystemInformerFactory, cfg, autoscaleEnableScaleToZero),
-		service.NewController(opt, elaInformerFactory, cfg),
+		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
+		revision.NewController(opt, vpaClient, revisionInformer, buildInformer, configMapInformer,
+			deploymentInformer, endpointsInformer, vpaInformer, cfg, &revControllerConfig),
+		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
+			configMapInformer, cfg, autoscaleEnableScaleToZero),
+		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
 	}
 
 	go kubeInformerFactory.Start(stopCh)
@@ -180,6 +192,24 @@ func main() {
 	go buildInformerFactory.Start(stopCh)
 	go servingSystemInformerFactory.Start(stopCh)
 	go vpaInformerFactory.Start(stopCh)
+
+	// Wait for the caches to be synced before starting controllers.
+	logger.Info("Waiting for informer caches to sync")
+	for i, synced := range []cache.InformerSynced{
+		serviceInformer.Informer().HasSynced,
+		routeInformer.Informer().HasSynced,
+		configurationInformer.Informer().HasSynced,
+		revisionInformer.Informer().HasSynced,
+		buildInformer.Informer().HasSynced,
+		configMapInformer.Informer().HasSynced,
+		deploymentInformer.Informer().HasSynced,
+		endpointsInformer.Informer().HasSynced,
+		ingressInformer.Informer().HasSynced,
+	} {
+		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
+			logger.Fatalf("failed to wait for cache at index %v to sync", i)
+		}
+	}
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {

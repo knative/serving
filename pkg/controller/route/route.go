@@ -31,13 +31,12 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
@@ -45,6 +44,8 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	extv1beta1informers "k8s.io/client-go/informers/extensions/v1beta1"
 )
 
 var (
@@ -100,25 +101,12 @@ type Controller struct {
 // reconcileKey - function for mapping queue keys to resource names
 func NewController(
 	opt controller.Options,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
-	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
+	routeInformer servinginformers.RouteInformer,
+	configInformer servinginformers.ConfigurationInformer,
+	ingressInformer extv1beta1informers.IngressInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
 	config *rest.Config,
 	enableScaleToZero *k8sflag.BoolFlag) controller.Interface {
-
-	// obtain references to a shared index informer for the Routes and
-	// Configurations type.
-	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
-	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
-	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
-
-	informers := []cache.SharedIndexInformer{
-		routeInformer.Informer(),
-		configInformer.Informer(),
-		ingressInformer.Informer(),
-		configMapInformer.Informer(),
-	}
 
 	domainConfig, err := NewDomainConfig(opt.KubeClientSet)
 	if err != nil {
@@ -128,7 +116,7 @@ func NewController(
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	controller := &Controller{
-		Base:              controller.NewBase(opt, controllerAgentName, "Routes", informers),
+		Base:              controller.NewBase(opt, controllerAgentName, "Routes"),
 		routeLister:       routeInformer.Lister(),
 		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
@@ -367,8 +355,8 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 	map[string]*v1alpha1.Configuration, map[string]*v1alpha1.Revision, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(ns)
-	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
+	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(ns)
+	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(ns)
 	configMap := map[string]*v1alpha1.Configuration{}
 	revMap := map[string]*v1alpha1.Revision{}
 
@@ -414,7 +402,7 @@ func (c *Controller) extendConfigurationsWithIndirectTrafficTargets(
 	revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(ns)
+	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(ns)
 
 	// Get indirect configurations.
 	for _, rev := range revMap {
@@ -441,7 +429,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 	revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
+	revisionClient := c.ServingClientSet.ServingV1alpha1().Revisions(ns)
 
 	allTrafficAssigned := true
 	for _, tt := range route.Spec.Traffic {
@@ -488,7 +476,7 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 func (c *Controller) setLabelForGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(route.Namespace)
+	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
 
 	// Validate
 	for _, config := range configMap {
@@ -524,7 +512,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 func (c *Controller) setLabelForGivenRevisions(
 	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(route.Namespace)
+	revisionClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
 
 	// Validate revision if it already has a route label
 	for _, rev := range revMap {
@@ -569,7 +557,7 @@ func (c *Controller) setLabelForGivenRevisions(
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(route.Namespace)
+	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
 	// Get Configurations set as traffic target before this sync.
 	oldConfigsList, err := configClient.List(
 		metav1.ListOptions{
@@ -599,7 +587,7 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
 	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(route.Namespace)
+	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
 
 	oldRevList, err := revClient.List(
 		metav1.ListOptions{
@@ -732,7 +720,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 	elaNS := controller.GetElaNamespaceName(ns)
-	revClient := c.ElaClientSet.ServingV1alpha1().Revisions(ns)
+	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(ns)
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {
 		configName := tt.ConfigurationName
@@ -769,7 +757,7 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 	logger := logging.FromContext(ctx)
 	// grab a client that's specific to RouteRule.
 	ns := route.Namespace
-	routeClient := c.ElaClientSet.ConfigV1alpha2().RouteRules(ns)
+	routeClient := c.ServingClientSet.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
 		logger.Errorf("Failed to create resource client")
 		return nil, fmt.Errorf("Couldn't get a routeClient")
@@ -848,7 +836,7 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
 
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(route.Namespace)
+	routeClient := c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace)
 	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
 		logger.Warn("Failed to update route status", zap.Error(err))
@@ -930,7 +918,7 @@ func (c *Controller) consolidateTrafficTargets(ctx context.Context, route *v1alp
 func (c *Controller) removeOutdatedRouteRules(ctx context.Context, u *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 	ns := u.Namespace
-	routeClient := c.ElaClientSet.ConfigV1alpha2().RouteRules(ns)
+	routeClient := c.ServingClientSet.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
 		logger.Error("Failed to create resource client")
 		return errors.New("Couldn't get a routeClient")
@@ -1015,7 +1003,7 @@ func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {
 		}
 	}
 	ns := ingress.Namespace
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(ns)
+	routeClient := c.ServingClientSet.ServingV1alpha1().Routes(ns)
 	route, err := routeClient.Get(routeName, metav1.GetOptions{})
 	if err != nil {
 		c.Logger.Error(
