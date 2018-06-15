@@ -108,13 +108,13 @@ func NewController(
 
 	// obtain references to a shared index informer for the Routes and
 	// Configurations type.
-	informer := elaInformerFactory.Serving().V1alpha1().Routes()
+	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
 	configInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 
 	informers := []cache.SharedIndexInformer{
-		informer.Informer(),
+		routeInformer.Informer(),
 		configInformer.Informer(),
 		ingressInformer.Informer(),
 		configMapInformer.Informer(),
@@ -129,13 +129,13 @@ func NewController(
 	// domainConfig haven't started yet.
 	controller := &Controller{
 		Base:              controller.NewBase(opt, controllerAgentName, "Routes", informers),
-		lister:            informer.Lister(),
+		lister:            routeInformer.Lister(),
 		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
 
 	controller.Logger.Info("Setting up event handlers")
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.Enqueue,
 		UpdateFunc: func(old, new interface{}) {
 			controller.Enqueue(new)

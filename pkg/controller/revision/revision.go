@@ -166,14 +166,14 @@ func NewController(
 	controllerConfig *ControllerConfig) controller.Interface {
 
 	// obtain references to a shared index informer for the Revision and Endpoint type.
-	informer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
 	informers := []cache.SharedIndexInformer{
-		informer.Informer(),
+		revisionInformer.Informer(),
 		buildInformer.Informer(),
 		configMapInformer.Informer(),
 		deploymentInformer.Informer(),
@@ -187,7 +187,7 @@ func NewController(
 
 	controller := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions", informers),
-		lister:           informer.Lister(),
+		lister:           revisionInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
@@ -196,7 +196,7 @@ func NewController(
 
 	// Set up an event handler for when the resource types of interest change
 	controller.Logger.Info("Setting up event handlers")
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.Enqueue,
 		UpdateFunc: func(old, new interface{}) {
 			controller.Enqueue(new)

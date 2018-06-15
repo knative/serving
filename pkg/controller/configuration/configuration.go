@@ -58,23 +58,23 @@ func NewController(
 
 	// obtain references to a shared index informer for the Configuration
 	// and Revision type.
-	informer := elaInformerFactory.Serving().V1alpha1().Configurations()
+	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 
 	informers := []cache.SharedIndexInformer{
-		informer.Informer(),
+		configurationInformer.Informer(),
 		revisionInformer.Informer(),
 	}
 
 	c := &Controller{
 		Base:           controller.NewBase(opt, controllerAgentName, "Configurations", informers),
 		buildClientSet: buildClientSet,
-		lister:         informer.Lister(),
+		lister:         configurationInformer.Lister(),
 		revisionLister: revisionInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	configurationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.Enqueue,
 		UpdateFunc: controller.PassNew(c.Enqueue),
 		DeleteFunc: c.Enqueue,

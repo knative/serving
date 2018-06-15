@@ -56,25 +56,25 @@ func NewController(
 	config *rest.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
-	informer := elaInformerFactory.Serving().V1alpha1().Services()
+	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
 	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
 
 	informers := []cache.SharedIndexInformer{
-		informer.Informer(),
+		serviceInformer.Informer(),
 		configurationInformer.Informer(),
 		routeInformer.Informer(),
 	}
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services", informers),
-		lister:              informer.Lister(),
+		lister:              serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.Enqueue,
 		UpdateFunc: controller.PassNew(c.Enqueue),
 		DeleteFunc: c.Enqueue,
