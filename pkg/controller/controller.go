@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
@@ -80,8 +81,11 @@ type Base struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
-	// ElaClientSet allows us to configure Ela objects
-	ElaClientSet clientset.Interface
+	// ServingClientSet allows us to configure Ela objects
+	ServingClientSet clientset.Interface
+
+	// BuildClientSet allows us to configure Build objects
+	BuildClientSet buildclientset.Interface
 
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -100,9 +104,6 @@ type Base struct {
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
 	Logger *zap.SugaredLogger
-
-	// don't start the workers until informers are synced
-	informersSynced []cache.InformerSynced
 }
 
 // Options defines the common controller options passed to NewBase.
@@ -111,13 +112,13 @@ type Base struct {
 type Options struct {
 	KubeClientSet    kubernetes.Interface
 	ServingClientSet clientset.Interface
+	BuildClientSet   buildclientset.Interface
 	Logger           *zap.SugaredLogger
 }
 
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
-func NewBase(opt Options, controllerAgentName, workQueueName string,
-	informers []cache.SharedIndexInformer) *Base {
+func NewBase(opt Options, controllerAgentName, workQueueName string) *Base {
 
 	// Enrich the logs with controller name
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
@@ -131,15 +132,12 @@ func NewBase(opt Options, controllerAgentName, workQueueName string,
 		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	base := &Base{
-		KubeClientSet: opt.KubeClientSet,
-		ElaClientSet:  opt.ServingClientSet,
-		Recorder:      recorder,
-		WorkQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		Logger:        logger,
-	}
-
-	for _, i := range informers {
-		base.informersSynced = append(base.informersSynced, i.HasSynced)
+		KubeClientSet:    opt.KubeClientSet,
+		ServingClientSet: opt.ServingClientSet,
+		BuildClientSet:   opt.BuildClientSet,
+		Recorder:         recorder,
+		WorkQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		Logger:           logger,
 	}
 
 	return base
@@ -191,14 +189,6 @@ func (c *Base) RunController(
 
 	logger := c.Logger
 	logger.Infof("Starting %s controller", controllerName)
-
-	// Wait for the caches to be synced before starting workers
-	logger.Info("Waiting for informer caches to sync")
-	for i, synced := range c.informersSynced {
-		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
-			return fmt.Errorf("failed to wait for cache at index %v to sync", i)
-		}
-	}
 
 	// Launch workers to process Revision resources
 	logger.Info("Starting workers")

@@ -36,9 +36,12 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	kubeinformers "k8s.io/client-go/informers"
 
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	appsv1informers "k8s.io/client-go/informers/apps/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -49,7 +52,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -158,27 +160,13 @@ type ControllerConfig struct {
 // queue - message queue for handling new events.  unique to this controller.
 func NewController(
 	opt controller.Options,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
-	buildInformerFactory buildinformers.SharedInformerFactory,
-	servingSystemInformerFactory kubeinformers.SharedInformerFactory,
+	revisionInformer servinginformers.RevisionInformer,
+	buildInformer buildinformers.BuildInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
+	deploymentInformer appsv1informers.DeploymentInformer,
+	endpointsInformer corev1informers.EndpointsInformer,
 	config *rest.Config,
 	controllerConfig *ControllerConfig) controller.Interface {
-
-	// obtain references to a shared index informer for the Revision and Endpoint type.
-	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
-	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
-	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
-
-	informers := []cache.SharedIndexInformer{
-		revisionInformer.Informer(),
-		buildInformer.Informer(),
-		configMapInformer.Informer(),
-		deploymentInformer.Informer(),
-		endpointsInformer.Informer(),
-	}
 
 	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
 	if err != nil {
@@ -186,7 +174,7 @@ func NewController(
 	}
 
 	controller := &Controller{
-		Base:             controller.NewBase(opt, controllerAgentName, "Revisions", informers),
+		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),
 		revisionLister:   revisionInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
@@ -861,7 +849,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ElaClientSet.ServingV1alpha1().Revisions(rev.Namespace)
+	prClient := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace)
 	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

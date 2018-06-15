@@ -343,7 +343,7 @@ func TestReconcile(t *testing.T) {
 					KubeClientSet:    fakekubeclientset.NewSimpleClientset(),
 					ServingClientSet: client,
 					Logger:           zap.NewNop().Sugar(),
-				}, controllerAgentName, "Services", nil),
+				}, controllerAgentName, "Services"),
 				serviceLister:       tt.fields.s,
 				configurationLister: tt.fields.c,
 				routeLister:         tt.fields.r,
@@ -430,11 +430,16 @@ func TestNew(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+
+	serviceInformer := servingInformer.Serving().V1alpha1().Services()
+	routeInformer := servingInformer.Serving().V1alpha1().Routes()
+	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
+
 	_ = NewController(controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           zap.NewNop().Sugar(),
-	}, servingInformer, &rest.Config{})
+	}, serviceInformer, configurationInformer, routeInformer, &rest.Config{})
 }
 
 var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {

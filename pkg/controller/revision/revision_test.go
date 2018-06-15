@@ -242,14 +242,15 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			zap.NewNop().Sugar(),
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
-		kubeInformer,
-		elaInformer,
-		buildInformer,
-		servingSystemInformer,
+		elaInformer.Serving().V1alpha1().Revisions(),
+		buildInformer.Build().V1alpha1().Builds(),
+		servingSystemInformer.Core().V1().ConfigMaps(),
+		kubeInformer.Apps().V1().Deployments(),
+		kubeInformer.Core().V1().Endpoints(),
 		&rest.Config{},
 		controllerConfig,
 	).(*Controller)
