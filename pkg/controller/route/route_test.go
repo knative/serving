@@ -192,9 +192,9 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			testLogger,
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           testLogger,
 		},
 		kubeInformer,
 		elaInformer,
