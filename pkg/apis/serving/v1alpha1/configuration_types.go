@@ -210,9 +210,10 @@ func (cs *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
 }
 
 func (cs *ConfigurationStatus) InitializeConditions() {
-	rct := []ConfigurationConditionType{
-		ConfigurationConditionLatestRevisionReady, ConfigurationConditionReady}
-	for _, cond := range rct {
+	for _, cond := range []ConfigurationConditionType{
+		ConfigurationConditionLatestRevisionReady,
+		ConfigurationConditionReady,
+	} {
 		if rc := cs.GetCondition(cond); rc == nil {
 			cs.setCondition(&ConfigurationCondition{
 				Type:   cond,
@@ -235,7 +236,9 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
 	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionLatestRevisionReady, ConfigurationConditionReady} {
+		ConfigurationConditionLatestRevisionReady,
+		ConfigurationConditionReady,
+	} {
 		cs.setCondition(&ConfigurationCondition{
 			Type:   cond,
 			Status: corev1.ConditionTrue,

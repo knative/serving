@@ -189,9 +189,11 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 }
 
 func (ss *ServiceStatus) InitializeConditions() {
-	sct := []ServiceConditionType{ServiceConditionReady,
-		ServiceConditionConfigurationReady, ServiceConditionRouteReady}
-	for _, cond := range sct {
+	for _, cond := range []ServiceConditionType{
+		ServiceConditionReady,
+		ServiceConditionConfigurationReady,
+		ServiceConditionRouteReady,
+	} {
 		if rc := ss.GetCondition(cond); rc == nil {
 			ss.setCondition(&ServiceCondition{
 				Type:   cond,
@@ -201,7 +203,7 @@ func (ss *ServiceStatus) InitializeConditions() {
 	}
 }
 
-func (ss *ServiceStatus) PropagateConfiguration(cs ConfigurationStatus) {
+func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	cc := cs.GetCondition(ConfigurationConditionReady)
 	if cc == nil {
 		return
@@ -224,7 +226,7 @@ func (ss *ServiceStatus) PropagateConfiguration(cs ConfigurationStatus) {
 	}
 }
 
-func (ss *ServiceStatus) PropagateRoute(rs RouteStatus) {
+func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return
@@ -248,8 +250,10 @@ func (ss *ServiceStatus) PropagateRoute(rs RouteStatus) {
 }
 
 func (ss *ServiceStatus) checkAndMarkReady() {
-	sct := []ServiceConditionType{ServiceConditionConfigurationReady, ServiceConditionRouteReady}
-	for _, cond := range sct {
+	for _, cond := range []ServiceConditionType{
+		ServiceConditionConfigurationReady,
+		ServiceConditionRouteReady,
+	} {
 		c := ss.GetCondition(cond)
 		if c == nil || c.Status != corev1.ConditionTrue {
 			return

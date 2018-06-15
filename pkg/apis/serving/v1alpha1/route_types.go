@@ -221,9 +221,11 @@ func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 }
 
 func (rs *RouteStatus) InitializeConditions() {
-	rct := []RouteConditionType{RouteConditionAllTrafficAssigned,
-		RouteConditionIngressReady, RouteConditionReady}
-	for _, cond := range rct {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionIngressReady,
+		RouteConditionReady,
+	} {
 		if rc := rs.GetCondition(cond); rc == nil {
 			rs.setCondition(&RouteCondition{
 				Type:   cond,
@@ -242,7 +244,10 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 }
 
 func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
-	for _, cond := range []RouteConditionType{RouteConditionAllTrafficAssigned, RouteConditionReady} {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionReady,
+	} {
 		rs.setCondition(&RouteCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
@@ -261,7 +266,10 @@ func (rs *RouteStatus) MarkIngressReady() {
 }
 
 func (rs *RouteStatus) checkAndMarkReady() {
-	for _, cond := range []RouteConditionType{RouteConditionAllTrafficAssigned, RouteConditionIngressReady} {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionIngressReady,
+	} {
 		ata := rs.GetCondition(cond)
 		if ata == nil || ata.Status != corev1.ConditionTrue {
 			return

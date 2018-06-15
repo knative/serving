@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -43,7 +44,7 @@ type Controller struct {
 	*controller.Base
 
 	// listers index properties about resources
-	lister              listers.ServiceLister
+	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
 	routeLister         listers.RouteLister
 }
@@ -56,22 +57,25 @@ func NewController(
 	config *rest.Config) controller.Interface {
 
 	// obtain references to a shared index informer for the Services.
-	informer := elaInformerFactory.Serving().V1alpha1().Services()
+	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
 	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
 
-	informers := []cache.SharedIndexInformer{informer.Informer(),
-		configurationInformer.Informer(), routeInformer.Informer()}
+	informers := []cache.SharedIndexInformer{
+		serviceInformer.Informer(),
+		configurationInformer.Informer(),
+		routeInformer.Informer(),
+	}
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services", informers),
-		lister:              informer.Lister(),
+		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.Enqueue,
 		UpdateFunc: controller.PassNew(c.Enqueue),
 		DeleteFunc: c.Enqueue,
@@ -124,7 +128,7 @@ func (c *Controller) Reconcile(key string) error {
 	logger := loggerWithServiceInfo(c.Logger, namespace, name)
 
 	// Get the Service resource with this namespace/name
-	service, err := c.lister.Services(namespace).Get(name)
+	service, err := c.serviceLister.Services(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		runtime.HandleError(fmt.Errorf("service %q in work queue no longer exists", key))
@@ -155,7 +159,7 @@ func (c *Controller) Reconcile(key string) error {
 	}
 
 	// Update our Status based on the state of our underlying Configuration.
-	service.Status.PropagateConfiguration(config.Status)
+	service.Status.PropagateConfigurationStatus(config.Status)
 
 	routeName := controller.GetServiceRouteName(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
@@ -175,7 +179,7 @@ func (c *Controller) Reconcile(key string) error {
 	}
 
 	// Update our Status based on the state of our underlying Route.
-	service.Status.PropagateRoute(route.Status)
+	service.Status.PropagateRouteStatus(route.Status)
 
 	// Update the Status of the Service with the latest generation that
 	// we just reconciled against so we don't keep generating Revisions.
@@ -193,7 +197,7 @@ func (c *Controller) Reconcile(key string) error {
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	existing, err := c.lister.Services(service.Namespace).Get(service.Name)
+	existing, err := c.serviceLister.Services(service.Namespace).Get(service.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -208,12 +212,11 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace)
 	cfg, err := MakeServiceConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
-	return configClient.Create(cfg)
+	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -226,21 +229,19 @@ func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation
 
-	if diff := cmp.Diff(desiredConfig.Spec, config.Spec); diff == "" {
+	if equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) {
 		// No differences to reconcile.
 		return config, nil
-	} else {
-		logger.Infof("Reconciling configuration diff (-desired,+observed): %v", diff)
 	}
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
+
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	config.Spec = desiredConfig.Spec
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace)
-	return configClient.Update(config)
+	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
 }
 
 func (c *Controller) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace)
-	return routeClient.Create(MakeServiceRoute(service))
+	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
 }
 
 func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -250,14 +251,13 @@ func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.R
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation
 
-	if diff := cmp.Diff(desiredRoute.Spec, route.Spec); diff == "" {
+	if equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
 		// No differences to reconcile.
 		return route, nil
-	} else {
-		logger.Infof("Reconciling route diff (-desired,+observed): %v", diff)
 	}
+	logger.Infof("Reconciling route diff (-desired, +observed): %v", cmp.Diff(desiredRoute.Spec, route.Spec))
+
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	route.Spec = desiredRoute.Spec
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace)
-	return routeClient.Update(route)
+	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
 }
