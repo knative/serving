@@ -54,7 +54,7 @@ data:
 
   # Experimental: enable vertical pod autoscaling.
   # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
-  enable-vertical-pod-autoscaling: "true"
+  enable-vertical-pod-autoscaling: "false"
   #
   # This will be the multi-concurrency-target when
   # enable-vertical-pod-autoscaling is true. And it will be the new
