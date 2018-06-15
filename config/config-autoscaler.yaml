@@ -24,7 +24,7 @@ data:
   # each pod. This is the primary knob for fast autoscaling which will
   # try achieve an concurrency per pod of the target
   # concurrency. Single-concurrency must target a value close to 1.0.
-  multi-concurrency-target: "10.0"
+  multi-concurrency-target: "1.0"
   single-concurrency-target: "0.9"
 
   # When operating in a stable mode, the autoscaler operates on the
@@ -55,6 +55,11 @@ data:
   # Experimental: enable vertical pod autoscaling.
   # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
   enable-vertical-pod-autoscaling: "true"
+  #
+  # This will be the multi-concurrency-target when
+  # enable-vertical-pod-autoscaling is true. And it will be the new
+  # default when the experiment is launched and removed.
+  vpa-multi-concurrency-target: "10.0"
   
   # Dynamic parameters (take effect when config map is updated):
 
