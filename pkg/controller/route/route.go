@@ -704,6 +704,10 @@ func (c *Controller) computeRevisionRoutes(
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
 	// https://github.com/knative/serving/issues/882
+	// TODO: We are adding activator to the route whether the weight is zero or positive
+	// to workaround https://github.com/istio/istio/issues/5204
+	// Once migration to Istio Gateway completes, we should change this back so that activator
+	// is added to the list only if its weight is positive
 	activatorRoute := RevisionRoute{
 		Name:         controller.GetElaK8SActivatorServiceName(),
 		RevisionName: inactiveRev,

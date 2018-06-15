@@ -45,8 +45,10 @@ type activationHandler struct {
 type retryRoundTripper struct{}
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	transport := http.DefaultTransport.(*http.Transport)
+	transport := http.DefaultTransport
 	resp, err := transport.RoundTrip(r)
+	// TODO: Activator should retry with backoff.
+	// https://github.com/knative/serving/issues/1229
 	i := 1
 	for ; i < maxRetry; i++ {
 		if err == nil && resp != nil && resp.StatusCode != 503 {

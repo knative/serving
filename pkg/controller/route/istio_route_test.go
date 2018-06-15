@@ -77,7 +77,7 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[controller.GetRevisionHeaderName()] = testInactiveRev
 	appendHeaders[controller.GetRevisionHeaderNamespace()] = testNamespace
-	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = sixtySecondsInMs
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedIstioRouteSpec := istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
 			Name:      "test-route-service",
