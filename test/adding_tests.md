@@ -27,7 +27,7 @@ You can:
 * [Output log](#output-log)
 * [Get access to client objects](#get-access-to-client-objects)
 * [Make requests against deployed services](#make-requests-against-deployed-services)
-* [Poll Knative Serving resources](#poll-knative-serving-resources)
+* [Check Knative Serving resources](#check-knative-serving-resources)
 * [Verify resource state transitions](#verify-resource-state-transitions)
 * [Generate boilerplate CRDs](#generate-boilerplate-crds)
 * [Ensure test cleanup](#ensure-test-cleanup)
@@ -114,13 +114,13 @@ should be used or the domain should be used directly.
 
 _See [request.go](./request.go)._
 
-### Poll Knative Serving resources
+### Check Knative Serving resources
 
 After creating Knative Serving resources or making changes to them, you will need to wait for the system
-to realize those chnages. You can use the Knative Serving CRD polling methods to poll the resources until
-they get into the desired state or time out.
+to realize those changes. You can use the Knative Serving CRD check and polling methods to check the
+resources are either in or reach the desired state.
 
-These functions use the kubernetes [`wait` package](https://godoc.org/k8s.io/apimachinery/pkg/util/wait).
+The `WaitFor*` functions use the kubernetes [`wait` package](https://godoc.org/k8s.io/apimachinery/pkg/util/wait).
 To poll they use [`PollImmediate`](https://godoc.org/k8s.io/apimachinery/pkg/util/wait#PollImmediate)
 and the return values of the function you provide behave the same as
 [`ConditionFunc`](https://godoc.org/k8s.io/apimachinery/pkg/util/wait#ConditionFunc):
@@ -141,7 +141,20 @@ err := test.WaitForConfigurationState(clients.Configs, configName, func(c *v1alp
 })
 ```
 
-_See [crd_polling.go](./crd_polling.go)._
+We also have `Check*` variants of many of these methods with identical signatures, same example:
+
+```go
+var revisionName string
+err := test.CheckConfigurationState(clients.Configs, configName, func(c *v1alpha1.Configuration) (bool, error) {
+    if c.Status.LatestCreatedRevisionName != "" {
+        revisionName = c.Status.LatestCreatedRevisionName
+        return true, nil
+    }
+    return false, nil
+})
+```
+
+_See [crd_checks.go](./crd_checks.go)._
 
 ### Verify resource state transitions
 
