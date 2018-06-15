@@ -35,8 +35,8 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
 # "defaulter" to the list of generators.
 ${GOPATH}/bin/defaulter-gen \
   --input-dirs github.com/knative/serving/pkg/apis/serving/v1alpha1 \
-   -O zz_generated.defaulters \
-   --go-header-file hack/../hack/boilerplate/boilerplate.go.txt
+  -O zz_generated.defaulters \
+  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Make sure our dependencies are up-to-date
 ${SERVING_ROOT}/hack/update-deps.sh
