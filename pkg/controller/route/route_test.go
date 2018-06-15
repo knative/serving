@@ -339,7 +339,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}},
+		}, getActivatorDestinationWeight(0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -509,13 +509,14 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, {
-			Destination: v1alpha2.IstioService{
-				Name:      fmt.Sprintf("%s-service", otherRev.Name),
-				Namespace: testNamespace,
-			},
-			Weight: 0,
-		}},
+		}, getActivatorDestinationWeight(0),
+			{
+				Destination: v1alpha2.IstioService{
+					Name:      fmt.Sprintf("%s-service", otherRev.Name),
+					Namespace: testNamespace,
+				},
+				Weight: 0,
+			}},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -588,7 +589,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 10,
-		}},
+		}, getActivatorDestinationWeight(0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -773,7 +774,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 15,
-		}},
+		},
+			getActivatorDestinationWeight(0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -856,7 +858,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 50,
-		}},
+		}, getActivatorDestinationWeight(0)},
 	})
 
 	// Expects authority header to have the traffic target name prefixed to the
@@ -1442,6 +1444,9 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	expectedTrafficTargets = []v1alpha1.TrafficTarget{{
 		RevisionName: rev.Name,
 		Percent:      100,
+	}, {
+		Name:    ctrl.GetElaK8SActivatorServiceName(),
+		Percent: 0,
 	}}
 	if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
 		t.Errorf("Unexpected traffic target diff (-want +got): %v", diff)
