@@ -96,36 +96,3 @@ func unmarshalServices(
 
 	return oldService, newService, nil
 }
-
-// SetServiceDefaults set defaults on an services.
-// Service does not have any defaults, per-se, but because it holds a Configuration,
-// we need to set the Configuration's defaults. SetServiceDefaults dispatches to
-// SetConfigurationSpecDefaults to accomplish this.
-func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
-	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		logger := logging.FromContext(ctx)
-		_, service, err := unmarshalServices(ctx, nil, crd, "SetServiceDefaults")
-		if err != nil {
-			return err
-		}
-
-		var (
-			configSpec v1alpha1.ConfigurationSpec
-			patchBase  string
-		)
-
-		if service.Spec.RunLatest != nil {
-			configSpec = service.Spec.RunLatest.Configuration
-			patchBase = "/spec/runLatest/configuration"
-		} else if service.Spec.Pinned != nil {
-			configSpec = service.Spec.Pinned.Configuration
-			patchBase = "/spec/pinned/configuration"
-		} else {
-			// We could error here, but validateSpec should catch this.
-			logger.Info("could not find config in SetServiceDefaults")
-			return nil
-		}
-
-		return setConfigurationSpecDefaults(patches, patchBase, configSpec)
-	}
-}

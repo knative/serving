@@ -19,11 +19,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/google/go-cmp/cmp"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -52,38 +51,6 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 
 		return nil
 	}
-}
-
-// SetRevisionDefaults set defaults on an revisions.
-func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
-	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		_, revision, err := unmarshalRevisions(ctx, nil, crd, "SetRevisionDefaults")
-		if err != nil {
-			return err
-		}
-
-		return setRevisionSpecDefaults(patches, "/spec", revision.Spec)
-	}
-}
-
-func setRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.RevisionSpec) error {
-	if spec.ServingState == "" {
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      path.Join(patchBase, "servingState"),
-			Value:     v1alpha1.RevisionServingStateActive,
-		})
-	}
-
-	if spec.ConcurrencyModel == "" {
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      path.Join(patchBase, "concurrencyModel"),
-			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-		})
-	}
-
-	return nil
 }
 
 func unmarshalRevisions(ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revision, *v1alpha1.Revision, error) {

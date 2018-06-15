@@ -97,15 +97,9 @@ type ControllerOptions struct {
 // is denied. Mutations should be appended to the patches operations.
 type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
 
-// ResourceDefaulter defines a signature for resource specific (Route, Configuration, etc.)
-// handlers that can set defaults on an object. If non-nil error is returned, object creation
-// is denied. Mutations should be appended to the patches operations.
-type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
-
 // GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
 type GenericCRDHandler struct {
 	Factory   runtime.Object
-	Defaulter ResourceDefaulter
 	Validator ResourceCallback
 }
 
@@ -214,12 +208,10 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		handlers: map[string]GenericCRDHandler{
 			"Revision": GenericCRDHandler{
 				Factory:   &v1alpha1.Revision{},
-				Defaulter: SetRevisionDefaults(ctx),
 				Validator: ValidateRevision(ctx),
 			},
 			"Configuration": GenericCRDHandler{
 				Factory:   &v1alpha1.Configuration{},
-				Defaulter: SetConfigurationDefaults(ctx),
 				Validator: ValidateConfiguration(ctx),
 			},
 			"Route": GenericCRDHandler{
@@ -228,7 +220,6 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 			},
 			"Service": GenericCRDHandler{
 				Factory:   &v1alpha1.Service{},
-				Defaulter: SetServiceDefaults(ctx),
 				Validator: ValidateService(ctx),
 			},
 		},
@@ -497,15 +488,6 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 	if err != nil {
 		logger.Error("Failed to update generation", zap.Error(err))
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
-	}
-
-	if defaulter := handler.Defaulter; defaulter != nil {
-		if err := defaulter(&patches, newObj); err != nil {
-			logger.Error("Failed the resource specific defaulter", zap.Error(err))
-			// Return the error message as-is to give the defaulter callback
-			// discretion over (our portion of) the message that the user sees.
-			return nil, err
-		}
 	}
 
 	if err := handler.Validator(&patches, oldObj, newObj); err != nil {

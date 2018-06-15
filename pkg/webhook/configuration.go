@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 	"reflect"
 	"strings"
 
@@ -121,29 +120,6 @@ func validateContainer(container corev1.Container) error {
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		return errDisallowedFields(strings.Join(ignoredFields, ", "))
-	}
-	return nil
-}
-
-// SetConfigurationDefaults set defaults on an configurations.
-func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
-	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		_, config, err := unmarshalConfigurations(ctx, nil, crd, "SetConfigurationDefaults")
-		if err != nil {
-			return err
-		}
-
-		return setConfigurationSpecDefaults(patches, "/spec", config.Spec)
-	}
-}
-
-func setConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
-	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      path.Join(patchBase, "revisionTemplate/spec/concurrencyModel"),
-			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-		})
 	}
 	return nil
 }
