@@ -31,7 +31,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	// listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 
 	. "github.com/knative/serving/pkg/controller/testing"
@@ -345,7 +344,7 @@ func TestReconcile(t *testing.T) {
 					ServingClientSet: client,
 					Logger:           zap.NewNop().Sugar(),
 				}, controllerAgentName, "Services", nil),
-				lister:              tt.fields.s,
+				serviceLister:       tt.fields.s,
 				configurationLister: tt.fields.c,
 				routeLister:         tt.fields.r,
 			}

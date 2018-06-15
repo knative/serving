@@ -43,7 +43,7 @@ type Controller struct {
 	*controller.Base
 
 	// listers index properties about resources
-	lister              listers.ServiceLister
+	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
 	routeLister         listers.RouteLister
 }
@@ -68,7 +68,7 @@ func NewController(
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services", informers),
-		lister:              serviceInformer.Lister(),
+		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
@@ -127,7 +127,7 @@ func (c *Controller) Reconcile(key string) error {
 	logger := loggerWithServiceInfo(c.Logger, namespace, name)
 
 	// Get the Service resource with this namespace/name
-	service, err := c.lister.Services(namespace).Get(name)
+	service, err := c.serviceLister.Services(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		runtime.HandleError(fmt.Errorf("service %q in work queue no longer exists", key))
@@ -196,7 +196,7 @@ func (c *Controller) Reconcile(key string) error {
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	existing, err := c.lister.Services(service.Namespace).Get(service.Name)
+	existing, err := c.serviceLister.Services(service.Namespace).Get(service.Name)
 	if err != nil {
 		return nil, err
 	}

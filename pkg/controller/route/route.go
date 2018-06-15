@@ -82,7 +82,7 @@ type Controller struct {
 	*controller.Base
 
 	// lister indexes properties about Route
-	lister listers.RouteLister
+	routeLister listers.RouteLister
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
@@ -129,7 +129,7 @@ func NewController(
 	// domainConfig haven't started yet.
 	controller := &Controller{
 		Base:              controller.NewBase(opt, controllerAgentName, "Routes", informers),
-		lister:            routeInformer.Lister(),
+		routeLister:       routeInformer.Lister(),
 		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
@@ -199,7 +199,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Route resource with this namespace/name
-	route, err := c.lister.Routes(namespace).Get(name)
+	route, err := c.routeLister.Routes(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -981,7 +981,7 @@ func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 
 	logger := loggerWithRouteInfo(c.Logger, ns, routeName)
 	ctx := logging.WithLogger(context.TODO(), logger)
-	route, err := c.lister.Routes(ns).Get(routeName)
+	route, err := c.routeLister.Routes(ns).Get(routeName)
 	if err != nil {
 		logger.Error("Error fetching route upon configuration becoming ready", zap.Error(err))
 		return

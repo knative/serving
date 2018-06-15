@@ -91,7 +91,7 @@ type Controller struct {
 	*controller.Base
 
 	// lister indexes properties about Revision
-	lister listers.RevisionLister
+	revisionLister listers.RevisionLister
 
 	buildtracker *buildTracker
 
@@ -187,7 +187,7 @@ func NewController(
 
 	controller := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions", informers),
-		lister:           revisionInformer.Lister(),
+		revisionLister:   revisionInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
@@ -268,7 +268,7 @@ func (c *Controller) syncHandler(key string) error {
 	logger.Info("Running reconcile Revision")
 
 	// Get the Revision resource with this namespace/name
-	rev, err := c.lister.Revisions(namespace).Get(name)
+	rev, err := c.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -355,7 +355,7 @@ func (c *Controller) SyncBuild(build *buildv1alpha1.Build) {
 	for k := range c.buildtracker.GetTrackers(build) {
 		// Look up the revision to mark complete.
 		namespace, name := splitKey(k)
-		rev, err := c.lister.Revisions(namespace).Get(name)
+		rev, err := c.revisionLister.Revisions(namespace).Get(name)
 		if err != nil {
 			c.Logger.Error("Error fetching revision upon build completion",
 				zap.String(logkey.Namespace, namespace), zap.String(logkey.Revision, name), zap.Error(err))
@@ -396,7 +396,7 @@ func (c *Controller) SyncDeployment(deployment *appsv1.Deployment) {
 	namespace := deployment.Namespace
 	logger := loggerWithRevisionInfo(c.Logger, namespace, revName)
 
-	rev, err := c.lister.Revisions(namespace).Get(revName)
+	rev, err := c.revisionLister.Revisions(namespace).Get(revName)
 	if err != nil {
 		logger.Error("Error fetching revision", zap.Error(err))
 		return
@@ -425,7 +425,7 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	}
 	logger := loggerWithRevisionInfo(c.Logger, namespace, revName)
 
-	rev, err := c.lister.Revisions(namespace).Get(revName)
+	rev, err := c.revisionLister.Revisions(namespace).Get(revName)
 	if err != nil {
 		logger.Error("Error fetching revision", zap.Error(err))
 		return
@@ -568,7 +568,7 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 
 	// Before toggling the status to Deploying, fetch the latest state of the revision.
-	latestRev, err := c.lister.Revisions(rev.Namespace).Get(rev.Name)
+	latestRev, err := c.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		logger.Error("Error refetching revision", zap.Error(err))
 		return err

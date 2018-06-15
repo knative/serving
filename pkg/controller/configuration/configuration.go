@@ -45,8 +45,8 @@ type Controller struct {
 	buildClientSet buildclientset.Interface
 
 	// listers index properties about resources
-	lister         listers.ConfigurationLister
-	revisionLister listers.RevisionLister
+	configurationLister listers.ConfigurationLister
+	revisionLister      listers.RevisionLister
 }
 
 // NewController creates a new Configuration controller
@@ -67,10 +67,10 @@ func NewController(
 	}
 
 	c := &Controller{
-		Base:           controller.NewBase(opt, controllerAgentName, "Configurations", informers),
-		buildClientSet: buildClientSet,
-		lister:         configurationInformer.Lister(),
-		revisionLister: revisionInformer.Lister(),
+		Base:                controller.NewBase(opt, controllerAgentName, "Configurations", informers),
+		buildClientSet:      buildClientSet,
+		configurationLister: configurationInformer.Lister(),
+		revisionLister:      revisionInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
@@ -117,7 +117,7 @@ func (c *Controller) Reconcile(key string) error {
 	logger := loggerWithConfigInfo(c.Logger, namespace, name)
 
 	// Get the Configuration resource with this namespace/name
-	config, err := c.lister.Configurations(namespace).Get(name)
+	config, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
 		runtime.HandleError(fmt.Errorf("configuration %q in work queue no longer exists", key))
@@ -252,7 +252,7 @@ func generateRevisionName(u *v1alpha1.Configuration) string {
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	newu, err := c.lister.Configurations(u.Namespace).Get(u.Name)
+	newu, err := c.configurationLister.Configurations(u.Namespace).Get(u.Name)
 	if err != nil {
 		return nil, err
 	}
