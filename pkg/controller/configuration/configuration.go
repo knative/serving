@@ -73,7 +73,7 @@ func NewController(
 	c.Logger.Info("Setting up event handlers")
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.Enqueue,
-		UpdateFunc: controller.PassSecond(c.Enqueue),
+		UpdateFunc: controller.PassNew(c.Enqueue),
 		DeleteFunc: c.Enqueue,
 	})
 
@@ -81,7 +81,7 @@ func NewController(
 		FilterFunc: controller.Filter("Configuration"),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
-			UpdateFunc: controller.PassSecond(c.Enqueue),
+			UpdateFunc: controller.PassNew(c.Enqueue),
 		},
 	})
 	return c

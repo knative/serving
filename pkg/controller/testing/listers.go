@@ -31,7 +31,7 @@ type ServiceLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.ServiceLister = (*ServiceLister)(nil)
 
-func (r *ServiceLister) List(selector labels.Selector) (ret []*v1alpha1.Service, err error) {
+func (r *ServiceLister) List(selector labels.Selector) ([]*v1alpha1.Service, error) {
 	return r.Items, r.Err
 }
 
@@ -47,7 +47,7 @@ type nsServiceLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.ServiceNamespaceLister = (*nsServiceLister)(nil)
 
-func (r *nsServiceLister) List(selector labels.Selector) (ret []*v1alpha1.Service, err error) {
+func (r *nsServiceLister) List(selector labels.Selector) ([]*v1alpha1.Service, error) {
 	return r.r.Items, r.r.Err
 }
 
@@ -69,7 +69,7 @@ type RouteLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.RouteLister = (*RouteLister)(nil)
 
-func (r *RouteLister) List(selector labels.Selector) (ret []*v1alpha1.Route, err error) {
+func (r *RouteLister) List(selector labels.Selector) ([]*v1alpha1.Route, error) {
 	return r.Items, r.Err
 }
 
@@ -85,7 +85,7 @@ type nsRouteLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.RouteNamespaceLister = (*nsRouteLister)(nil)
 
-func (r *nsRouteLister) List(selector labels.Selector) (ret []*v1alpha1.Route, err error) {
+func (r *nsRouteLister) List(selector labels.Selector) ([]*v1alpha1.Route, error) {
 	return r.r.Items, r.r.Err
 }
 
@@ -107,7 +107,7 @@ type ConfigurationLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.ConfigurationLister = (*ConfigurationLister)(nil)
 
-func (r *ConfigurationLister) List(selector labels.Selector) (ret []*v1alpha1.Configuration, err error) {
+func (r *ConfigurationLister) List(selector labels.Selector) ([]*v1alpha1.Configuration, error) {
 	return r.Items, r.Err
 }
 
@@ -123,7 +123,7 @@ type nsConfigurationLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.ConfigurationNamespaceLister = (*nsConfigurationLister)(nil)
 
-func (r *nsConfigurationLister) List(selector labels.Selector) (ret []*v1alpha1.Configuration, err error) {
+func (r *nsConfigurationLister) List(selector labels.Selector) ([]*v1alpha1.Configuration, error) {
 	return r.r.Items, r.r.Err
 }
 
@@ -145,7 +145,7 @@ type RevisionLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.RevisionLister = (*RevisionLister)(nil)
 
-func (r *RevisionLister) List(selector labels.Selector) (ret []*v1alpha1.Revision, err error) {
+func (r *RevisionLister) List(selector labels.Selector) ([]*v1alpha1.Revision, error) {
 	return r.Items, r.Err
 }
 
@@ -161,7 +161,7 @@ type nsRevisionLister struct {
 // Assert that our fake implements the interface it is faking.
 var _ listers.RevisionNamespaceLister = (*nsRevisionLister)(nil)
 
-func (r *nsRevisionLister) List(selector labels.Selector) (ret []*v1alpha1.Revision, err error) {
+func (r *nsRevisionLister) List(selector labels.Selector) ([]*v1alpha1.Revision, error) {
 	return r.r.Items, r.r.Err
 }
 

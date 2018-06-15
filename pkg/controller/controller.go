@@ -49,7 +49,11 @@ func init() {
 	elascheme.AddToScheme(scheme.Scheme)
 }
 
-func PassSecond(f func(interface{})) func(interface{}, interface{}) {
+// PassNew makes it simple to create an UpdateFunc for use with
+// cache.ResourceEventHandlerFuncs that can delegate the same methods
+// as AddFunc/DeleteFunc but passing through only the second argument
+// (which is the "new" object).
+func PassNew(f func(interface{})) func(interface{}, interface{}) {
 	return func(first, second interface{}) {
 		f(second)
 	}
