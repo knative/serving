@@ -192,13 +192,14 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			testLogger,
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
-		kubeInformer,
-		elaInformer,
-		servingSystemInformer,
+		elaInformer.Serving().V1alpha1().Routes(),
+		elaInformer.Serving().V1alpha1().Configurations(),
+		kubeInformer.Extensions().V1beta1().Ingresses(),
+		servingSystemInformer.Core().V1().ConfigMaps(),
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
 	).(*Controller)

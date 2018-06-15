@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging/logkey"
@@ -53,22 +53,13 @@ type Controller struct {
 // Registers eventhandlers to enqueue events
 func NewController(
 	opt controller.Options,
-	elaInformerFactory informers.SharedInformerFactory,
+	serviceInformer servinginformers.ServiceInformer,
+	configurationInformer servinginformers.ConfigurationInformer,
+	routeInformer servinginformers.RouteInformer,
 	config *rest.Config) controller.Interface {
 
-	// obtain references to a shared index informer for the Services.
-	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
-	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
-	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
-
-	informers := []cache.SharedIndexInformer{
-		serviceInformer.Informer(),
-		configurationInformer.Informer(),
-		routeInformer.Informer(),
-	}
-
 	c := &Controller{
-		Base:                controller.NewBase(opt, controllerAgentName, "Services", informers),
+		Base:                controller.NewBase(opt, controllerAgentName, "Services"),
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
@@ -204,7 +195,7 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 	// Check if there is anything to update.
 	if !reflect.DeepEqual(existing.Status, service.Status) {
 		existing.Status = service.Status
-		serviceClient := c.ElaClientSet.ServingV1alpha1().Services(service.Namespace)
+		serviceClient := c.ServingClientSet.ServingV1alpha1().Services(service.Namespace)
 		// TODO: for CRD there's no updatestatus, so use normal update.
 		return serviceClient.Update(existing)
 	}
@@ -216,7 +207,7 @@ func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 	if err != nil {
 		return nil, err
 	}
-	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
+	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -237,11 +228,11 @@ func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v
 
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	config.Spec = desiredConfig.Spec
-	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
+	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
 }
 
 func (c *Controller) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
 }
 
 func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -259,5 +250,5 @@ func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.R
 
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	route.Spec = desiredRoute.Spec
-	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
 }
