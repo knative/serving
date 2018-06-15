@@ -28,24 +28,9 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
-	scheme.AddTypeDefaultingFunc(&Configuration{}, func(obj interface{}) { SetObjectDefaults_Configuration(obj.(*Configuration)) })
-	scheme.AddTypeDefaultingFunc(&ConfigurationList{}, func(obj interface{}) { SetObjectDefaults_ConfigurationList(obj.(*ConfigurationList)) })
 	scheme.AddTypeDefaultingFunc(&Revision{}, func(obj interface{}) { SetObjectDefaults_Revision(obj.(*Revision)) })
 	scheme.AddTypeDefaultingFunc(&RevisionList{}, func(obj interface{}) { SetObjectDefaults_RevisionList(obj.(*RevisionList)) })
-	scheme.AddTypeDefaultingFunc(&Service{}, func(obj interface{}) { SetObjectDefaults_Service(obj.(*Service)) })
-	scheme.AddTypeDefaultingFunc(&ServiceList{}, func(obj interface{}) { SetObjectDefaults_ServiceList(obj.(*ServiceList)) })
 	return nil
-}
-
-func SetObjectDefaults_Configuration(in *Configuration) {
-	SetDefaults_Configuration(in)
-}
-
-func SetObjectDefaults_ConfigurationList(in *ConfigurationList) {
-	for i := range in.Items {
-		a := &in.Items[i]
-		SetObjectDefaults_Configuration(a)
-	}
 }
 
 func SetObjectDefaults_Revision(in *Revision) {
@@ -56,16 +41,5 @@ func SetObjectDefaults_RevisionList(in *RevisionList) {
 	for i := range in.Items {
 		a := &in.Items[i]
 		SetObjectDefaults_Revision(a)
-	}
-}
-
-func SetObjectDefaults_Service(in *Service) {
-	SetDefaults_Service(in)
-}
-
-func SetObjectDefaults_ServiceList(in *ServiceList) {
-	for i := range in.Items {
-		a := &in.Items[i]
-		SetObjectDefaults_Service(a)
 	}
 }

@@ -46,22 +46,3 @@ func SetDefaults_Revision(rev *Revision) {
 		rev.Spec.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
 	}
 }
-
-func SetDefaults_Configuration(config *Configuration) {
-	if config.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
-		config.Spec.RevisionTemplate.Spec.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
-	}
-}
-
-func SetDefaults_Service(svc *Service) {
-	config := &Configuration{}
-	if svc.Spec.RunLatest != nil {
-		config.Spec = svc.Spec.RunLatest.Configuration
-		SetDefaults_Configuration(config)
-		svc.Spec.RunLatest.Configuration = config.Spec
-	} else if svc.Spec.Pinned != nil {
-		config.Spec = svc.Spec.Pinned.Configuration
-		SetDefaults_Configuration(config)
-		svc.Spec.Pinned.Configuration = config.Spec
-	}
-}

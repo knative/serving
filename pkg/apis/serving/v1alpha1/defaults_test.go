@@ -35,64 +35,6 @@ var testCases = []struct {
 			},
 		},
 	},
-
-	{
-		name:   "Configuration",
-		before: &Configuration{},
-		after: &Configuration{
-			Spec: ConfigurationSpec{
-				RevisionTemplate: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						ConcurrencyModel: RevisionRequestConcurrencyModelMulti,
-					},
-				},
-			},
-		},
-	},
-
-	{
-		name: "Service RunLatest",
-		before: &Service{
-			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{},
-			},
-		},
-		after: &Service{
-			Spec: ServiceSpec{
-				RunLatest: &RunLatestType{
-					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
-							Spec: RevisionSpec{
-								ConcurrencyModel: RevisionRequestConcurrencyModelMulti,
-							},
-						},
-					},
-				},
-			},
-		},
-	},
-
-	{
-		name: "Service Pinned",
-		before: &Service{
-			Spec: ServiceSpec{
-				Pinned: &PinnedType{},
-			},
-		},
-		after: &Service{
-			Spec: ServiceSpec{
-				Pinned: &PinnedType{
-					Configuration: ConfigurationSpec{
-						RevisionTemplate: RevisionTemplateSpec{
-							Spec: RevisionSpec{
-								ConcurrencyModel: RevisionRequestConcurrencyModelMulti,
-							},
-						},
-					},
-				},
-			},
-		},
-	},
 }
 
 func TestDefaults(t *testing.T) {
