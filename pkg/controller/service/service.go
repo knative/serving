@@ -211,12 +211,11 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace)
 	cfg, err := MakeServiceConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
-	return configClient.Create(cfg)
+	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -237,13 +236,11 @@ func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v
 	}
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	config.Spec = desiredConfig.Spec
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace)
-	return configClient.Update(config)
+	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
 }
 
 func (c *Controller) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace)
-	return routeClient.Create(MakeServiceRoute(service))
+	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
 }
 
 func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -261,6 +258,5 @@ func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.R
 	}
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	route.Spec = desiredRoute.Spec
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace)
-	return routeClient.Update(route)
+	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
 }
