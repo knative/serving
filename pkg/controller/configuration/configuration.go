@@ -23,6 +23,7 @@ import (
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -128,6 +129,8 @@ func (c *Controller) Reconcile(key string) error {
 
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
+	// Set configuration defaults.
+	scheme.Scheme.Default(config)
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation
