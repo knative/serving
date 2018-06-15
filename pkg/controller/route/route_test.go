@@ -412,6 +412,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
 	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name:      "test-route-service",
@@ -509,14 +510,13 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, getActivatorDestinationWeight(0),
-			{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", otherRev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 0,
-			}},
+		}, getActivatorDestinationWeight(0), {
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", otherRev.Name),
+				Namespace: testNamespace,
+			},
+			Weight: 0,
+		}},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -646,6 +646,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
 	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name:      fmt.Sprintf("%s-service", route.Name),
