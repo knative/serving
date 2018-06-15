@@ -681,6 +681,7 @@
 [[projects]]
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -952,6 +953,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d18bf8494f8ff68a79c816a83d8e7a6b9b72629d89b137ffb3f0bf0ee9f19e5b"
+  inputs-digest = "1577ac66c930a057af55991e718ed2034acf607a5a567e867263d4dd9f355394"
   solver-name = "gps-cdcl"
   solver-version = 1

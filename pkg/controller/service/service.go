@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -228,12 +229,12 @@ func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredConfig.Spec.Generation = config.Spec.Generation
 
-	if diff := cmp.Diff(desiredConfig.Spec, config.Spec); diff == "" {
+	if equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) {
 		// No differences to reconcile.
 		return config, nil
-	} else {
-		logger.Infof("Reconciling configuration diff (-desired,+observed): %v", diff)
 	}
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
+
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	config.Spec = desiredConfig.Spec
 	return c.ElaClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
@@ -250,12 +251,12 @@ func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.R
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation
 
-	if diff := cmp.Diff(desiredRoute.Spec, route.Spec); diff == "" {
+	if equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
 		// No differences to reconcile.
 		return route, nil
-	} else {
-		logger.Infof("Reconciling route diff (-desired,+observed): %v", diff)
 	}
+	logger.Infof("Reconciling route diff (-desired, +observed): %v", cmp.Diff(desiredRoute.Spec, route.Spec))
+
 	// Preserve the rest of the object (e.g. ObjectMeta)
 	route.Spec = desiredRoute.Spec
 	return c.ElaClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
