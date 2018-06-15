@@ -1,55 +1,166 @@
+---
 apiVersion: v1
 kind: Namespace
-metadata: {name: build-system}
-
+metadata:
+  name: build-system
 ---
 apiVersion: v1
 kind: ServiceAccount
-metadata: {name: build-controller, namespace: build-system}
-
+metadata:
+  name: build-controller
+  namespace: build-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
-metadata: {name: build-controller-admin}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cluster-admin}
+metadata:
+  name: build-controller-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
 subjects:
-- {kind: ServiceAccount, name: build-controller, namespace: build-system}
-
+- kind: ServiceAccount
+  name: build-controller
+  namespace: build-system
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
-metadata: {name: builds.build.dev}
+metadata:
+  name: builds.build.dev
 spec:
   group: build.dev
-  names: {kind: Build, plural: builds}
+  names:
+    kind: Build
+    plural: builds
   scope: Namespaced
   version: v1alpha1
-
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
-metadata: {name: buildtemplates.build.dev}
+metadata:
+  name: buildtemplates.build.dev
 spec:
   group: build.dev
-  names: {kind: BuildTemplate, plural: buildtemplates}
+  names:
+    kind: BuildTemplate
+    plural: buildtemplates
   scope: Namespaced
   version: v1alpha1
-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: build-controller
+  name: build-controller
+  namespace: build-system
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: build-controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: build-webhook
+  name: build-webhook
+  namespace: build-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    role: build-webhook
+---
+apiVersion: v1
+data:
+  loglevel.autoscaler: info
+  loglevel.controller: info
+  loglevel.queueproxy: info
+  loglevel.webhook: info
+  zap-logger-config: |
+    {
+      "level": "info",
+      "development": false,
+      "sampling": {
+        "initial": 100,
+        "thereafter": 100
+      },
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"],
+      "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "",
+        "levelKey": "level",
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "msg",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "",
+        "durationEncoder": "",
+        "callerEncoder": ""
+      }
+    }
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: build-system
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
-metadata: {name: build-controller, namespace: build-system}
+metadata:
+  name: build-controller
+  namespace: build-system
 spec:
   replicas: 1
   template:
     metadata:
-      labels: {app: build-controller}
+      labels:
+        app: build-controller
     spec:
       containers:
-      - args: [-builder, cluster, -logtostderr, -stderrthreshold, INFO, -creds-image,
-          'gcr.io/build-crd/github.com/elafros/build/cmd/creds-init@sha256:a7281d37ea08587680eda1cca0b5f48e16ed59e77de43c6b3239c7ff0806a97c',
-          -git-image, 'gcr.io/build-crd/github.com/elafros/build/cmd/git-init@sha256:735823a7f88556f33530ca56326cb0828aae0ce98ccb113750655afaaed4c241']
-        image: gcr.io/build-crd/github.com/elafros/build/cmd/controller@sha256:0af871213dee2df6afd2ace310acaa9c1ceacb192a2e6cf64eaff37f01b327cd
+      - args:
+        - -builder
+        - cluster
+        - -logtostderr
+        - -stderrthreshold
+        - INFO
+        - -creds-image
+        - gcr.io/build-crd/github.com/knative/build/cmd/creds-init@sha256:30eaef209dc037dd79f79009792caab5fb2991aa728e9c1cfd41c737ad649b4d
+        - -git-image
+        - gcr.io/build-crd/github.com/knative/build/cmd/git-init@sha256:f92f04e37a6960fc588caa4f94f01e43277766edc0284ce3c1f73988f7162c15
+        image: gcr.io/build-crd/github.com/knative/build/cmd/controller@sha256:4478d5bb35930021ade5bf68012bc715a8b6fff28e47df535a22f2d303a6c277
         name: build-controller
       serviceAccountName: build-controller
-
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: build-webhook
+  namespace: build-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: build-webhook
+        role: build-webhook
+    spec:
+      containers:
+      - image: gcr.io/build-crd/github.com/knative/build/cmd/webhook@sha256:b8af5e463fdac66b0443bceb797c38b8a00c5e424e781d425f351bf176cf07ad
+        name: build-webhook
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: build-controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
