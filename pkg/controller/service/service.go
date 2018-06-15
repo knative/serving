@@ -60,8 +60,11 @@ func NewController(
 	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
 
-	informers := []cache.SharedIndexInformer{informer.Informer(),
-		configurationInformer.Informer(), routeInformer.Informer()}
+	informers := []cache.SharedIndexInformer{
+		informer.Informer(),
+		configurationInformer.Informer(),
+		routeInformer.Informer(),
+	}
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services", informers),

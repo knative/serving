@@ -61,7 +61,10 @@ func NewController(
 	informer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 
-	informers := []cache.SharedIndexInformer{informer.Informer(), revisionInformer.Informer()}
+	informers := []cache.SharedIndexInformer{
+		informer.Informer(),
+		revisionInformer.Informer(),
+	}
 
 	c := &Controller{
 		Base:           controller.NewBase(opt, controllerAgentName, "Configurations", informers),

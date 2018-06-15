@@ -172,8 +172,13 @@ func NewController(
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 
-	informers := []cache.SharedIndexInformer{informer.Informer(), buildInformer.Informer(),
-		configMapInformer.Informer(), deploymentInformer.Informer(), endpointsInformer.Informer()}
+	informers := []cache.SharedIndexInformer{
+		informer.Informer(),
+		buildInformer.Informer(),
+		configMapInformer.Informer(),
+		deploymentInformer.Informer(),
+		endpointsInformer.Informer(),
+	}
 
 	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
 	if err != nil {

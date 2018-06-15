@@ -113,8 +113,12 @@ func NewController(
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 
-	informers := []cache.SharedIndexInformer{informer.Informer(), configInformer.Informer(),
-		ingressInformer.Informer(), configMapInformer.Informer()}
+	informers := []cache.SharedIndexInformer{
+		informer.Informer(),
+		configInformer.Informer(),
+		ingressInformer.Informer(),
+		configMapInformer.Informer(),
+	}
 
 	domainConfig, err := NewDomainConfig(opt.KubeClientSet)
 	if err != nil {
