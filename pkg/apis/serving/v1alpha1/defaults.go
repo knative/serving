@@ -16,7 +16,9 @@ limitations under the License.
 
 package v1alpha1
 
-import "k8s.io/apimachinery/pkg/runtime"
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+)
 
 // Use these defaulting functions by calling the Default() method on the Scheme
 // var in the generated clientset scheme package.
@@ -39,5 +41,27 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 func SetDefaults_Revision(rev *Revision) {
 	if rev.Spec.ServingState == "" {
 		rev.Spec.ServingState = RevisionServingStateActive
+	}
+	if rev.Spec.ConcurrencyModel == "" {
+		rev.Spec.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
+	}
+}
+
+func SetDefaults_Configuration(config *Configuration) {
+	if config.Spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
+		config.Spec.RevisionTemplate.Spec.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
+	}
+}
+
+func SetDefaults_Service(svc *Service) {
+	config := &Configuration{}
+	if svc.Spec.RunLatest != nil {
+		config.Spec = svc.Spec.RunLatest.Configuration
+		SetDefaults_Configuration(config)
+		svc.Spec.RunLatest.Configuration = config.Spec
+	} else if svc.Spec.Pinned != nil {
+		config.Spec = svc.Spec.Pinned.Configuration
+		SetDefaults_Configuration(config)
+		svc.Spec.Pinned.Configuration = config.Spec
 	}
 }

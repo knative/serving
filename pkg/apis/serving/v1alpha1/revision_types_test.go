@@ -17,36 +17,9 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
-
-// We can't import the generated scheme because it depends on this package,
-// creating an import cycle.
-func getTestScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	if err := AddToScheme(scheme); err != nil {
-		panic(err)
-	}
-	return scheme
-}
-
-func TestRevisionDefaults(t *testing.T) {
-	var testScheme = getTestScheme()
-
-	wantRev := &Revision{
-		Spec: RevisionSpec{
-			ServingState: RevisionServingStateActive,
-		},
-	}
-	rev := &Revision{}
-	testScheme.Default(rev)
-	if diff := cmp.Diff(wantRev, rev); diff != "" {
-		t.Errorf("Unexpected default revision (-want +got): %v", diff)
-	}
-}
 
 func TestGeneration(t *testing.T) {
 	r := Revision{}
