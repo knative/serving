@@ -56,7 +56,7 @@ const (
 	testNamespace string = "test"
 )
 
-var revName string = getTestRevision().Name
+var revName = getTestRevision().Name
 
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
@@ -135,9 +135,9 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			zap.NewNop().Sugar(),
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
 		buildClient,
 		elaInformer,
@@ -236,7 +236,7 @@ func TestCreateConfigurationsCreatesRevision(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	if err := controller.Reconcile(KeyOrDie(reconciledConfig)); err != nil {
+	if err = controller.Reconcile(KeyOrDie(reconciledConfig)); err != nil {
 		t.Fatalf("controller.Reconcile() = %v", err)
 	}
 
@@ -352,7 +352,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(reconciledConfig)); err != nil {
+	if err = controller.Reconcile(KeyOrDie(reconciledConfig)); err != nil {
 		t.Fatalf("controller.Reconcile() = %v", err)
 	}
 
@@ -532,7 +532,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
+	if err = controller.Reconcile(KeyOrDie(config)); err != nil {
 		t.Fatalf("controller.Reconcile() = %v", err)
 	}
 
