@@ -20,4 +20,5 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 // +groupName=serving.knative.dev
+// +k8s:defaulter-gen=TypeMeta
 package v1alpha1
