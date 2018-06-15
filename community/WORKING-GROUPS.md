@@ -74,9 +74,10 @@ Meeting Notes              | [Notes](https://docs.google.com/document/d/1uGDehQu
 Document Folder            | [Folder](https://drive.google.com/corp/drive/folders/1S22YmGl6B1ppYApwa1j5j9Nc6rEChlPo)
 Slack Channel              | [#eventing](https://knative.slack.com/messages/C9JP909F0/)
 
-&nbsp;                                                        | Leads       | Company | Profile
-------------------------------------------------------------- | ----------- | ------- | -------
-<img width="30px" src="https://github.com/vaikas-google.png"> | Ville Aikas | Google  | [vaikas-google](https://github.com/vaikas-google)
+&nbsp;                                                        | Leads          | Company | Profile
+------------------------------------------------------------- | -------------- | ------- | -------
+<img width="30px" src="https://github.com/vaikas-google.png"> | Ville Aikas    | Google  | [vaikas-google](https://github.com/vaikas-google)
+<img width="30px" src="https://github.com/inlined.png">       | Thomas Bouldin | Google  | [inlined](https://github.com/inlined)
 
 ## Scaling
 
