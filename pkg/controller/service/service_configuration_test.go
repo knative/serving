@@ -83,7 +83,7 @@ func createServiceWithPinned() *v1alpha1.Service {
 
 func TestRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
-	c := MakeServiceConfiguration(s)
+	c, _ := MakeServiceConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -108,7 +108,7 @@ func TestRunLatest(t *testing.T) {
 
 func TestPinned(t *testing.T) {
 	s := createServiceWithPinned()
-	c := MakeServiceConfiguration(s)
+	c, _ := MakeServiceConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
