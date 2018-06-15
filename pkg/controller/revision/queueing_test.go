@@ -40,8 +40,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, _, stopCh := newRunningTestController(t, rev)
-	defer close(stopCh)
+	kubeClient, _, _, _, controller, kubeInformer, buildInformer, elaInformer, servingSystemInformer, vpaInformer := newTestController(t, rev)
 
 	h := NewHooks()
 
@@ -52,6 +51,21 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 		return HookComplete
 	})
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	kubeInformer.Start(stopCh)
+	buildInformer.Start(stopCh)
+	elaInformer.Start(stopCh)
+	servingSystemInformer.Start(stopCh)
+	vpaInformer.Start(stopCh)
+
+	go func() {
+		if err := controller.Run(2, stopCh); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)
