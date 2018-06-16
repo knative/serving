@@ -76,10 +76,11 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionAutoscalerName(rev),
-			Namespace:   pkg.GetServingSystemNamespace(),
-			Labels:      MakeElaResourceLabels(rev),
-			Annotations: MakeElaResourceAnnotations(rev),
+			Name:            controller.GetRevisionAutoscalerName(rev),
+			Namespace:       pkg.GetServingSystemNamespace(),
+			Labels:          MakeElaResourceLabels(rev),
+			Annotations:     MakeElaResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -157,10 +158,11 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionAutoscalerName(rev),
-			Namespace:   pkg.GetServingSystemNamespace(),
-			Labels:      makeElaAutoScalerLabels(rev),
-			Annotations: MakeElaResourceAnnotations(rev),
+			Name:            controller.GetRevisionAutoscalerName(rev),
+			Namespace:       pkg.GetServingSystemNamespace(),
+			Labels:          makeElaAutoScalerLabels(rev),
+			Annotations:     MakeElaResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

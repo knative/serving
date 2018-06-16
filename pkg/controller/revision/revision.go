@@ -74,8 +74,6 @@ const (
 
 	serviceTimeoutDuration       = 5 * time.Minute
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
-	// TODO (arvtiwar): this should be a config option.
-	progressDeadlineSeconds int32 = 120
 )
 
 var (
@@ -471,19 +469,17 @@ func (c *Controller) reconcileOnceBuilt(ctx context.Context, rev *v1alpha1.Revis
 	deletionTimestamp := accessor.GetDeletionTimestamp()
 	logger.Infof("Check the deletionTimestamp: %s\n", deletionTimestamp)
 
-	elaNS := controller.GetElaNamespaceName(rev.Namespace)
-
 	if deletionTimestamp == nil && rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
 		logger.Info("Creating or reconciling resources for revision")
-		return c.createK8SResources(ctx, rev, elaNS)
+		return c.createK8SResources(ctx, rev)
 	}
-	return c.deleteK8SResources(ctx, rev, elaNS)
+	return c.deleteK8SResources(ctx, rev)
 }
 
-func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("Deleting the resources for revision")
-	err := c.deleteDeployment(ctx, rev, ns)
+	err := c.deleteDeployment(ctx, rev)
 	if err != nil {
 		logger.Error("Failed to delete a deployment", zap.Error(err))
 	}
@@ -501,7 +497,7 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 	logger.Info("Deleted autoscaler Service")
 
-	err = c.deleteService(ctx, rev, ns)
+	err = c.deleteService(ctx, rev)
 	if err != nil {
 		logger.Error("Failed to delete k8s service", zap.Error(err))
 	}
@@ -518,10 +514,10 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	return nil
 }
 
-func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	// Fire off a Deployment..
-	if err := c.reconcileDeployment(ctx, rev, ns); err != nil {
+	if err := c.reconcileDeployment(ctx, rev); err != nil {
 		logger.Error("Failed to create a deployment", zap.Error(err))
 		return err
 	}
@@ -540,7 +536,7 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 
 	// Create k8s service
-	serviceName, err := c.reconcileService(ctx, rev, ns)
+	serviceName, err := c.reconcileService(ctx, rev)
 	if err != nil {
 		logger.Error("Failed to create k8s service", zap.Error(err))
 	} else {
@@ -589,9 +585,10 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	return nil
 }
 
-func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
+	ns := controller.GetElaNamespaceName(rev.Namespace)
 	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -609,8 +606,9 @@ func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	return nil
 }
 
-func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
+	ns := controller.GetElaNamespaceName(rev.Namespace)
 	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
@@ -629,14 +627,9 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	}
 
 	// Create the deployment.
-	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
-	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
-	deployment := MakeElaDeployment(logger, rev, ns, c.getNetworkConfig())
-	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
-
-	deployment.Spec.Template.Spec = *podSpec
+	deployment := MakeElaDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -649,18 +642,15 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	}
 
-	// Set the ProgressDeadlineSeconds
-	deployment.Spec.ProgressDeadlineSeconds = new(int32)
-	*deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
-
 	logger.Infof("Creating Deployment: %q", deployment.Name)
 	_, createErr := dc.Create(deployment)
 
 	return createErr
 }
 
-func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
+	ns := controller.GetElaNamespaceName(rev.Namespace)
 	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
@@ -676,8 +666,9 @@ func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, 
 	return nil
 }
 
-func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision, ns string) (string, error) {
+func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) (string, error) {
 	logger := logging.FromContext(ctx)
+	ns := controller.GetElaNamespaceName(rev.Namespace)
 	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
 
@@ -694,9 +685,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		return serviceName, nil
 	}
 
-	controllerRef := controller.NewRevisionControllerRef(rev)
-	service := MakeRevisionK8sService(rev, ns)
-	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
+	service := MakeRevisionK8sService(rev)
 	logger.Infof("Creating service: %q", service.Name)
 	_, err := sc.Create(service)
 	return serviceName, err
@@ -764,7 +753,8 @@ func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.Owner
 func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.CoreV1().Services(pkg.GetServingSystemNamespace())
+	ns := pkg.GetServingSystemNamespace()
+	sc := c.KubeClientSet.CoreV1().Services(ns)
 	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
 	}
@@ -783,7 +773,8 @@ func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	sc := c.KubeClientSet.CoreV1().Services(pkg.GetServingSystemNamespace())
+	ns := pkg.GetServingSystemNamespace()
+	sc := c.KubeClientSet.CoreV1().Services(ns)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -796,9 +787,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		return nil
 	}
 
-	controllerRef := controller.NewRevisionControllerRef(rev)
 	service := MakeElaAutoscalerService(rev)
-	service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	logger.Infof("Creating autoscaler Service: %q", service.Name)
 	_, err = sc.Create(service)
 	return err
@@ -807,7 +796,8 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
+	ns := pkg.GetServingSystemNamespace()
+	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -827,7 +817,8 @@ func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alph
 func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
-	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
+	ns := pkg.GetServingSystemNamespace()
+	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -840,9 +831,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 		return nil
 	}
 
-	controllerRef := controller.NewRevisionControllerRef(rev)
 	deployment := MakeElaAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
-	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
 	logger.Infof("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)
 	return err
