@@ -295,7 +295,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 
 	// Then create the actual route rules.
 	logger.Info("Creating Istio route rules")
-	revisionRoutes, err := c.createOrUpdateRouteRules(ctx, route, configMap, revMap)
+	revisionRoutes, inactiveRev, err := c.createOrUpdateRouteRules(ctx, route, configMap, revMap)
 	if err != nil {
 		logger.Error("Failed to create routes", zap.Error(err))
 		return nil, err
@@ -314,7 +314,27 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 		route.Status.Traffic = traffic
 	}
 	route.Status.Domain = c.routeDomain(route)
-	return c.updateStatus(ctx, route)
+	newRoute, err := c.updateStatus(ctx, route)
+	if err != nil {
+		logger.Error("Failed to update routes", zap.Error(err))
+		return nil, err
+	}
+	// After the route rules are updated, mark the revision inactive. In case of deactivation,
+	// the routerules need to point to activator-service before we deactivate the deployment.
+	if inactiveRev != "" {
+		revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(route.Namespace)
+		rev, err := revisionClient.Get(inactiveRev, metav1.GetOptions{})
+		if err != nil {
+			logger.Errorf("Failed to fetch the inactive revision %s: %s", inactiveRev, err)
+			return nil, err
+		}
+		rev.Status.MarkInactive()
+		if _, err = revisionClient.Update(rev); err != nil {
+			logger.Errorf("Failed to update revision %s to be inactive: %s", inactiveRev, err)
+			return nil, err
+		}
+	}
+	return newRoute, nil
 }
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
@@ -673,33 +693,34 @@ func (c *Controller) computeRevisionRoutes(
 			return nil, "", err
 		}
 
-		hasRouteRule := true
+		revisionWeight := tt.Percent
 		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if enableScaleToZero && cond != nil {
 			// A revision is considered inactive (yet) if it's in
-			// "Inactive" condition or "Activating" condition.
+			// "Inactive" condition, "Activating" or "Deactivating" condition.
+			logger.Infof("cond: %v", cond)
 			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
-				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) ||
+				(cond.Reason == "Deactivating" && cond.Status == corev1.ConditionFalse) {
 				// Let inactiveRev be the Reserve revision with the largest traffic weight.
 				if tt.Percent > maxInactivePercent {
 					maxInactivePercent = tt.Percent
 					inactiveRev = rev.Name
 				}
 				totalInactivePercent += tt.Percent
-				hasRouteRule = false
+				revisionWeight = 0
 			}
 		}
 
-		if hasRouteRule {
-			rr := RevisionRoute{
-				Name:         tt.Name,
-				RevisionName: rev.Name,
-				Service:      rev.Status.ServiceName,
-				Namespace:    elaNS,
-				Weight:       tt.Percent,
-			}
-			ret = append(ret, rr)
+		rr := RevisionRoute{
+			Name:         tt.Name,
+			RevisionName: rev.Name,
+			Service:      rev.Status.ServiceName,
+			Namespace:    elaNS,
+			Weight:       revisionWeight,
 		}
+		logger.Infof("RevisionRoute: %v", rr)
+		ret = append(ret, rr)
 	}
 
 	// TODO: The ideal solution is to append different revision name as headers for each inactive revision.
@@ -765,31 +786,31 @@ func (c *Controller) computeEmptyRevisionRoutes(
 }
 
 func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alpha1.Route,
-	configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
+	configMap map[string]*v1alpha1.Configuration, revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, string, error) {
 	logger := logging.FromContext(ctx)
 	// grab a client that's specific to RouteRule.
 	ns := route.Namespace
 	routeClient := c.ElaClientSet.ConfigV1alpha2().RouteRules(ns)
 	if routeClient == nil {
 		logger.Errorf("Failed to create resource client")
-		return nil, fmt.Errorf("Couldn't get a routeClient")
+		return nil, "", fmt.Errorf("Couldn't get a routeClient")
 	}
 
 	revisionRoutes, inactiveRev, err := c.computeRevisionRoutes(ctx, route, configMap, revMap)
 	if err != nil {
 		logger.Errorf("Failed to get routes for %s : %q", route.Name, err)
-		return nil, err
+		return nil, "", err
 	}
 	if len(revisionRoutes) == 0 {
 		logger.Errorf("No routes were found for the service %q", route.Name)
-		return nil, nil
+		return nil, "", nil
 	}
 
 	// TODO: remove this once https://github.com/istio/istio/issues/5204 is fixed.
 	emptyRoutes, err := c.computeEmptyRevisionRoutes(ctx, route, configMap, revMap)
 	if err != nil {
 		logger.Errorf("Failed to get empty routes for %s : %q", route.Name, err)
-		return nil, err
+		return nil, "", err
 	}
 	revisionRoutes = append(revisionRoutes, emptyRoutes...)
 	// Create route rule for the route domain
@@ -797,19 +818,19 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 	routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
-			return nil, err
+			return nil, "", err
 		}
 		routeRules = MakeIstioRoutes(route, nil, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 		if _, err := routeClient.Create(routeRules); err != nil {
 			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
-			return nil, err
+			return nil, "", err
 		}
 		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 	} else {
 		routeRules.Spec = makeIstioRouteSpec(route, nil, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 		if _, err := routeClient.Update(routeRules); err != nil {
 			c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Istio route rule %q: %s", routeRules.Name, err)
-			return nil, err
+			return nil, "", err
 		}
 		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 	}
@@ -823,26 +844,26 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 		routeRules, err := routeClient.Get(routeRuleName, metav1.GetOptions{})
 		if err != nil {
 			if !apierrs.IsNotFound(err) {
-				return nil, err
+				return nil, "", err
 			}
 			routeRules = MakeIstioRoutes(route, &tt, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 			if _, err := routeClient.Create(routeRules); err != nil {
 				c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create Istio route rule %q: %s", routeRules.Name, err)
-				return nil, err
+				return nil, "", err
 			}
 			c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created Istio route rule %q", routeRules.Name)
 		} else {
 			routeRules.Spec = makeIstioRouteSpec(route, &tt, ns, revisionRoutes, c.routeDomain(route), inactiveRev)
 			if _, err := routeClient.Update(routeRules); err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			c.Recorder.Eventf(route, corev1.EventTypeNormal, "Updated", "Updated Istio route rule %q", routeRules.Name)
 		}
 	}
 	if err := c.removeOutdatedRouteRules(ctx, route); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return revisionRoutes, nil
+	return revisionRoutes, inactiveRev, nil
 }
 
 func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {

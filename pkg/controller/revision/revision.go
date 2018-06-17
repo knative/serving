@@ -78,7 +78,7 @@ const (
 
 var (
 	elaPodReplicaCount   = int32(1)
-	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 0}
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 )
 
@@ -494,12 +494,26 @@ func (c *Controller) reconcileOnceBuilt(ctx context.Context, rev *v1alpha1.Revis
 
 func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
 	logger := logging.FromContext(ctx)
-	logger.Info("Deleting the resources for revision")
-	err := c.deleteDeployment(ctx, rev, ns)
-	if err != nil {
-		logger.Error("Failed to delete a deployment", zap.Error(err))
+	if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil {
+		if cond.Reason != "Inactive" {
+			if cond.Reason != "Deactivating" {
+				rev.Status.MarkDeactivating()
+				if _, err := c.updateStatus(rev); err != nil {
+					logger.Error("Error updating revision condition to be deactivating",
+						zap.Error(err))
+					return err
+				}
+			}
+			return nil
+		}
 	}
-	logger.Info("Deleted deployment")
+
+	logger.Info("Scale the deployment to 0")
+	err := c.deactivateDeployment(ctx, rev, ns)
+	if err != nil {
+		logger.Error("Failed to scale a deployment to 0", zap.Error(err))
+	}
+	logger.Info("Scaled the deployment to 0")
 
 	err = c.deleteAutoscalerDeployment(ctx, rev)
 	if err != nil {
@@ -512,21 +526,6 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
 	}
 	logger.Info("Deleted autoscaler Service")
-
-	err = c.deleteService(ctx, rev, ns)
-	if err != nil {
-		logger.Error("Failed to delete k8s service", zap.Error(err))
-	}
-	logger.Info("Deleted service")
-
-	// And the deployment is no longer ready, so update that
-	rev.Status.MarkInactive()
-	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
-	if _, err := c.updateStatus(rev); err != nil {
-		logger.Error("Error recording inactivation of revision", zap.Error(err))
-		return err
-	}
-
 	return nil
 }
 
@@ -601,6 +600,26 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	return nil
 }
 
+func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+	logger := logging.FromContext(ctx)
+	deploymentName := controller.GetRevisionDeploymentName(rev)
+	dc := c.KubeClientSet.AppsV1().Deployments(ns)
+	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	logger.Infof("Deactvaing Deployment %q", deploymentName)
+	deployment.Spec.Replicas = new(int32)
+	*deployment.Spec.Replicas = int32(0)
+	_, err = dc.Update(deployment)
+	if err != nil {
+		logger.Errorf("Error deactivating deployment %q: %s", deploymentName, err)
+	}
+	logger.Infof("Successfully scaled deployment %s to 0.", deploymentName)
+	return nil
+}
+
 func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
@@ -627,31 +646,30 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
-	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
-			return err
-		}
-		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
-	} else {
-		// TODO(mattmoor): Compare the deployments and update if it has changed
-		// out from under us.
-		logger.Infof("Found existing deployment %q", deploymentName)
-		return nil
-	}
-
 	// Create the deployment.
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	// Create a single pod so that it gets created before deployment->RS to try to speed
 	// things up
 	podSpec := MakeElaPodSpec(rev, c.controllerConfig)
+	isCreate := false
+	_, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		if !apierrs.IsNotFound(err) {
+			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
+			return err
+		}
+		isCreate = true
+	}
+
 	deployment := MakeElaDeployment(logger, rev, ns, c.getNetworkConfig())
 	deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
-
+	// Set the ProgressDeadlineSeconds
+	deployment.Spec.ProgressDeadlineSeconds = new(int32)
+	*deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
 	deployment.Spec.Template.Spec = *podSpec
 
 	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment); err != nil {
+	if err = c.resolver.Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
 		if _, err := c.updateStatus(rev); err != nil {
@@ -661,14 +679,14 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	}
 
-	// Set the ProgressDeadlineSeconds
-	deployment.Spec.ProgressDeadlineSeconds = new(int32)
-	*deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
-
-	logger.Infof("Creating Deployment: %q", deployment.Name)
-	_, createErr := dc.Create(deployment)
-
-	return createErr
+	if isCreate {
+		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
+		_, err = dc.Create(deployment)
+	} else {
+		logger.Infof("Found existing deployment %q, updating", deploymentName)
+		_, err = dc.Update(deployment)
+	}
+	return err
 }
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision, ns string) error {

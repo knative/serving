@@ -31,7 +31,9 @@ func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels[serving.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
-		labels[k] = v
+		if k != "serving.knative.dev/route" {
+			labels[k] = v
+		}
 	}
 	// If users don't specify an app: label we will automatically
 	// populate it with the revision name to get the benefit of richer

@@ -229,6 +229,8 @@ func (c *Controller) createRevision(config *v1alpha1.Configuration, revName stri
 		rev.Labels = make(map[string]string)
 	}
 	rev.Labels[serving.ConfigurationLabelKey] = config.Name
+	logger.Infof("config here: %v", config)
+	rev.Labels[serving.RouteLabelKey] = config.Labels[serving.RouteLabelKey]
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)
 	}

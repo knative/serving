@@ -16,6 +16,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -31,8 +33,7 @@ import (
 )
 
 const (
-	maxRetry      = 60
-	retryInterval = 1 * time.Second
+	maxRetry = 10
 )
 
 type activationHandler struct {
@@ -45,22 +46,28 @@ type activationHandler struct {
 type retryRoundTripper struct{}
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	transport := http.DefaultTransport
-	resp, err := transport.RoundTrip(r)
-	// TODO: Activator should retry with backoff.
-	// https://github.com/knative/serving/issues/1229
-	i := 1
+	transport := http.DefaultTransport.(*http.Transport)
+	timeout := 500 * time.Millisecond
+
+	i := 0
 	for ; i < maxRetry; i++ {
-		if err == nil && resp != nil && resp.StatusCode != 503 {
-			break
+		transport.DialContext = (&net.Dialer{
+			Timeout:   timeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext
+		resp, err := transport.RoundTrip(r)
+		if err == nil && resp != nil {
+			//defer resp.Body.Close()
+			if resp.StatusCode != 503 {
+				return resp, nil
+			}
 		}
-		resp.Body.Close()
-		time.Sleep(retryInterval)
-		resp, err = transport.RoundTrip(r)
+		timeout = timeout + timeout
+		log.Printf("Retrying request to %v in %v", r.URL.Host, timeout)
+		time.Sleep(timeout)
 	}
 	// TODO: add metrics for number of tries and the response code.
-	glog.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
-	return resp, nil
+	return transport.RoundTrip(r)
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
