@@ -4,3 +4,4 @@
 
 **/zz_generated.*.go linguist-generated=true
 /pkg/client/** linguist-generated=true
+/pkg/controller/testing/** linguist-generated=true
