@@ -72,7 +72,7 @@ kubectl get routerule <routerule-name> -o yaml
 
 If you don't know the name of your route rule, use the ```kubectl get routerule``` command to find it.
 
-This returns the configuration of your route rule. Compare the domains between your route and route rule; they should match. 
+The command returns the configuration of your route rule. Compare the domains between your route and route rule; they should match. 
 
 ### Check ingress status
 Enter:
@@ -81,7 +81,7 @@ Enter:
 kubectl get ingress
 ```
 
-This returns the status of the ingress. You can see the name, age, domains, and IP address.
+The command returns the status of the ingress. You can see the name, age, domains, and IP address.
 
 
 ## Check Revision status
@@ -112,7 +112,7 @@ conditions:
     type: Ready
 ```
 
-If you see this condition, to debug further:
+If you see this condition, check the following to continue debugging:
 
   * [Check Pod status](#check-pod-status)
   * [Check application logs](#check-application-logs)
