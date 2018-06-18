@@ -38,6 +38,9 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
 }
 
+// SetDefaults_Revision sets default values for a Revision resource.
+// TODO When https://github.com/kubernetes/kubernetes/pull/63604 is merged and
+// available in beta, OpenAPI defaults should probably replace this.
 func SetDefaults_Revision(rev *Revision) {
 	if rev.Spec.ServingState == "" {
 		rev.Spec.ServingState = RevisionServingStateActive
