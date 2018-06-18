@@ -4,7 +4,7 @@
 
 First, deploy monitoring components.
 
-### Elasticsearch, Kibana, Prometheus & Grafana Setup
+### Elasticsearch, Kibana, Prometheus, and Grafana Setup
 
 You can use two different setups:
 
@@ -30,7 +30,7 @@ kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
-### Stackdriver(logs), Prometheus & Grafana Setup
+### Stackdriver, Prometheus, and Grafana Setup
 
 If your Knative Serving is not built on a GCP based cluster or you want to send logs to
 another GCP project, you need to build your own Fluentd image and modify the
@@ -63,13 +63,15 @@ kubectl apply -R -f config/monitoring/100-common \
 
 ## Accessing logs
 
-### Elasticsearch & Kibana
+### Kibana and Elasticsearch
 
 To start the Kibana UI up on local port 8001, enter the following command:
 
 ```shell
 kubectl proxy
 ```
+
+This sets up a local proxy from your computer to the Kubernetes master that allows you to access multiple logging and reporting tools, including Kibana and Elasticsearch.
 
 Then navigate to the Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana")
 (*It might take a couple of minutes for the proxy to work*).
@@ -162,15 +164,15 @@ To create a new index pattern that will store per request traces captured by Zip
 
 1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana"). 
 
-1. Navigate to Management -> Index Patterns -> +Create Index Pattern
+1. Navigate to Management -> Index Patterns -> Create Index Pattern.
 
-1. Type `zipkin*` in the "Index pattern" text field
+1. Enter `zipkin*` in the "Index pattern" text field.
 
 1. Click **Create**.
 
-(This is a one time step and is needed only for fresh installations.)
+(This is a one-time step that's only needed for new installations.)
 
-Open Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/ "http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/"). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application within this UI. Click on a trace to see a detailed view of a specific call.
+Open the Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/ "http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/"). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application. Click on a trace to see a detailed view of a specific call.
 
 To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it, then explore the traces it generates from Zipkin UI.
 
@@ -181,7 +183,7 @@ The following metrics are collected by default:
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
 
-There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy them using kubectl apply -f.
+There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy them using `kubectl apply -f`.
 
 ## Default logs
 
