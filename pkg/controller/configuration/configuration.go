@@ -20,11 +20,10 @@ import (
 	"fmt"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging/logkey"
@@ -43,8 +42,6 @@ const controllerAgentName = "configuration-controller"
 type Controller struct {
 	*controller.Base
 
-	buildClientSet buildclientset.Interface
-
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
@@ -53,23 +50,12 @@ type Controller struct {
 // NewController creates a new Configuration controller
 func NewController(
 	opt controller.Options,
-	buildClientSet buildclientset.Interface,
-	elaInformerFactory informers.SharedInformerFactory,
+	configurationInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
 	config *rest.Config) controller.Interface {
 
-	// obtain references to a shared index informer for the Configuration
-	// and Revision type.
-	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
-	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
-
-	informers := []cache.SharedIndexInformer{
-		configurationInformer.Informer(),
-		revisionInformer.Informer(),
-	}
-
 	c := &Controller{
-		Base:                controller.NewBase(opt, controllerAgentName, "Configurations", informers),
-		buildClientSet:      buildClientSet,
+		Base:                controller.NewBase(opt, controllerAgentName, "Configurations"),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
@@ -213,7 +199,7 @@ func (c *Controller) createRevision(config *v1alpha1.Configuration, revName stri
 			},
 			Spec: *config.Spec.Build,
 		}
-		created, err := c.buildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
+		created, err := c.BuildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			return nil, err
 		}
@@ -240,7 +226,7 @@ func (c *Controller) createRevision(config *v1alpha1.Configuration, revName stri
 	// Delete revisions when the parent Configuration is deleted.
 	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
 
-	created, err := c.ElaClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
+	created, err := c.ServingClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +247,6 @@ func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configur
 	}
 	newu.Status = u.Status
 	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ElaClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
+	return c.ServingClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
 	//	return configClient.UpdateStatus(newu)
 }

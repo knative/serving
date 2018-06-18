@@ -71,6 +71,7 @@ const (
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
 	// it would from a "Reserve" state.
+	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 

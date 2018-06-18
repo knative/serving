@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	istiov1alpha2 "github.com/knative/serving/pkg/apis/istio/v1alpha2"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const requestTimeoutMs = "60000"
 
 // makeIstioRouteSpec creates an Istio route
 func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, inactiveRev string) istiov1alpha2.RouteRuleSpec {
@@ -34,7 +36,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 	}
 	spec := istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
-			Name:      controller.GetElaK8SServiceName(u),
+			Name:      controller.GetServingK8SServiceName(u),
 			Namespace: ns,
 		},
 		Match: istiov1alpha2.Match{
@@ -60,6 +62,9 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 		appendHeaders := make(map[string]string)
 		appendHeaders[controller.GetRevisionHeaderName()] = inactiveRev
 		appendHeaders[controller.GetRevisionHeaderNamespace()] = u.Namespace
+		// Set the Envoy upstream timeout to be 60 seconds, in case the revision needs longer time to come up
+		// https://www.envoyproxy.io/docs/envoy/v1.5.0/configuration/http_filters/router_filter#x-envoy-upstream-rq-timeout-ms
+		appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 		spec.AppendHeaders = appendHeaders
 	}
 	return spec

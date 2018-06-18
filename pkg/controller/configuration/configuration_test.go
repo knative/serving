@@ -135,12 +135,13 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			zap.NewNop().Sugar(),
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			BuildClientSet:   buildClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
-		buildClient,
-		elaInformer,
+		elaInformer.Serving().V1alpha1().Configurations(),
+		elaInformer.Serving().V1alpha1().Revisions(),
 		&rest.Config{},
 	).(*Controller)
 

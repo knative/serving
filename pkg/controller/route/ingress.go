@@ -42,7 +42,7 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 
 	path := v1beta1.HTTPIngressPath{
 		Backend: v1beta1.IngressBackend{
-			ServiceName: controller.GetElaK8SServiceName(route),
+			ServiceName: controller.GetServingK8SServiceName(route),
 			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
 		},
 	}
@@ -62,7 +62,7 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 
 	return &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetElaK8SIngressName(route),
+			Name:      controller.GetServingK8SIngressName(route),
 			Namespace: route.Namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "istio",

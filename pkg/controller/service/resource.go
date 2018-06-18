@@ -20,9 +20,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-// MakeElaResourceLabels constructs the labels we will apply to Route and Configuration
+// MakeServingResourceLabels constructs the labels we will apply to Route and Configuration
 // resources.
-func MakeElaResourceLabels(s *v1alpha1.Service) map[string]string {
+func MakeServingResourceLabels(s *v1alpha1.Service) map[string]string {
 	labels := make(map[string]string, len(s.ObjectMeta.Labels)+1)
 	labels[serving.ServiceLabelKey] = s.Name
 

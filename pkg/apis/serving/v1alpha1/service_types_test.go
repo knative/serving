@@ -278,6 +278,43 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRouteReady, t)
 }
 
+func TestConfigurationUnknownPropagation(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRouteReady, t)
+
+	// Configuration and Route become ready, making us ready.
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		Conditions: []ConfigurationCondition{{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Conditions: []RouteCondition{{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededService(svc.Status, ServiceConditionReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionRouteReady, t)
+
+	// Configuration flipping back to Unknown causes us to become ongoing immediately
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		Conditions: []ConfigurationCondition{{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationReady, t)
+	// Route is unaffected.
+	checkConditionSucceededService(svc.Status, ServiceConditionRouteReady, t)
+}
+
 func TestRouteFailurePropagation(t *testing.T) {
 	svc := &Service{}
 	svc.Status.InitializeConditions()
@@ -295,6 +332,43 @@ func TestRouteFailurePropagation(t *testing.T) {
 	checkConditionFailedService(svc.Status, ServiceConditionReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationReady, t)
 	checkConditionFailedService(svc.Status, ServiceConditionRouteReady, t)
+}
+
+func TestRouteUnknownPropagation(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRouteReady, t)
+
+	// Configuration and Route become ready, making us ready.
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		Conditions: []ConfigurationCondition{{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Conditions: []RouteCondition{{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededService(svc.Status, ServiceConditionReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionRouteReady, t)
+
+	// Route flipping back to Unknown causes us to become ongoing immediately
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Conditions: []RouteCondition{{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRouteReady, t)
+	// Configuration is unaffected.
+	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationReady, t)
 }
 
 func checkConditionSucceededService(rs ServiceStatus, rct ServiceConditionType, t *testing.T) *ServiceCondition {

@@ -105,13 +105,6 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 					} else {
 						log.Printf("Revision %s/%s is ready", rev.namespace, rev.name)
 					}
-					// After a pod goes ready, there is a poll loop to publish that fact, then there are
-					// controllers that wake up to propagate the info to each node which configures iptables on
-					// a max frequency loop, so it's always possible that there's a small delay.
-					// The delay should be O(seconds) max, most of the time.
-					// TODO: rely on readinessProbe instead of a hard-coded sleep.
-					// https://github.com/elafros/elafros/issues/974
-					time.Sleep(2 * time.Second)
 					break RevisionReady
 				} else {
 					return internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
@@ -122,7 +115,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Get the revision endpoint
 	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
-	serviceName := controller.GetElaK8SServiceNameForRevision(revision)
+	serviceName := controller.GetServingK8SServiceNameForRevision(revision)
 	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get service %s for revision %s/%s: %v",

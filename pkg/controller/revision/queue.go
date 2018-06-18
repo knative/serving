@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeElaQueueContainer creates the container spec for queue sidecar.
-func MakeElaQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
+// MakeServingQueueContainer creates the container spec for queue sidecar.
+func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
