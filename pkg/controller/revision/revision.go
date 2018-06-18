@@ -627,8 +627,6 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	}
 
 	// Create the deployment.
-	// Create a single pod so that it gets created before deployment->RS to try to speed
-	// things up
 	deployment := MakeElaDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
 
 	// Resolve tag image references to digests.
