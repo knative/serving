@@ -23,7 +23,7 @@ import (
 	"github.com/knative/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -32,13 +32,14 @@ var servicePort = 80
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same
 // serving.RevisionLabelKey label. Traffic is routed to queue-proxy port.
-func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
+func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        controller.GetElaK8SServiceNameForRevision(u),
-			Namespace:   ns,
-			Labels:      MakeElaResourceLabels(u),
-			Annotations: MakeElaResourceAnnotations(u),
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            controller.GetElaK8SServiceNameForRevision(rev),
+			Namespace:       controller.GetElaNamespaceName(rev.Namespace),
+			Labels:          MakeElaResourceLabels(rev),
+			Annotations:     MakeElaResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -50,7 +51,7 @@ func MakeRevisionK8sService(u *v1alpha1.Revision, ns string) *corev1.Service {
 			},
 			Type: "NodePort",
 			Selector: map[string]string{
-				serving.RevisionLabelKey: u.Name,
+				serving.RevisionLabelKey: rev.Name,
 			},
 		},
 	}

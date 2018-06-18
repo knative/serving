@@ -44,6 +44,12 @@ const (
 	istioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 )
 
+var (
+	// TODO (arvtiwar): this should be a config option.
+	// Must be var for us to take its address.
+	progressDeadlineSeconds int32 = 120
+)
+
 func hasHTTPPath(p *corev1.Probe) bool {
 	if p == nil {
 		return false
@@ -192,14 +198,14 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) 
 }
 
 // MakeElaDeployment creates a deployment.
-func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespace string,
-	networkConfig *NetworkConfig) *appsv1.Deployment {
+func MakeElaDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
+	networkConfig *NetworkConfig, controllerConfig *ControllerConfig) *appsv1.Deployment {
 	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
 	}
 
-	podTemplateAnnotations := MakeElaResourceAnnotations(u)
+	podTemplateAnnotations := MakeElaResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
@@ -222,23 +228,26 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionDeploymentName(u),
-			Namespace:   namespace,
-			Labels:      MakeElaResourceLabels(u),
-			Annotations: MakeElaResourceAnnotations(u),
+			Name:            controller.GetRevisionDeploymentName(rev),
+			Namespace:       controller.GetElaNamespaceName(rev.Namespace),
+			Labels:          MakeElaResourceLabels(rev),
+			Annotations:     MakeElaResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
-			Selector: MakeElaResourceSelector(u),
+			Selector: MakeElaResourceSelector(rev),
 			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},
+			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeElaResourceLabels(u),
+					Labels:      MakeElaResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
+				Spec: *MakeElaPodSpec(rev, controllerConfig),
 			},
 		},
 	}
