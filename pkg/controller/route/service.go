@@ -33,7 +33,7 @@ var servicePort = 80
 func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetElaK8SServiceName(route),
+			Name:      controller.GetServingK8SServiceName(route),
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewRouteControllerRef(route),

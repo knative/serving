@@ -209,8 +209,8 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 		return
 	}
 	sct := []ServiceConditionType{ServiceConditionConfigurationReady}
-	// If the underlying Configuration reported failure, then bubble it up.
-	if cc.Status == corev1.ConditionFalse {
+	// If the underlying Configuration reported not ready, then bubble it up.
+	if cc.Status != corev1.ConditionTrue {
 		sct = append(sct, ServiceConditionReady)
 	}
 	for _, cond := range sct {
@@ -232,8 +232,8 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 		return
 	}
 	sct := []ServiceConditionType{ServiceConditionRouteReady}
-	// If the underlying Route reported failure, then bubble it up.
-	if rc.Status == corev1.ConditionFalse {
+	// If the underlying Route reported not ready, then bubble it up.
+	if rc.Status != corev1.ConditionTrue {
 		sct = append(sct, ServiceConditionReady)
 	}
 	for _, cond := range sct {

@@ -32,9 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeElaAutoscalerDeployment creates the deployment of the
+// MakeServingAutoscalerDeployment creates the deployment of the
 // autoscaler for a particular revision.
-func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *appsv1.Deployment {
+func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *appsv1.Deployment {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -45,7 +45,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
 	}
 
-	annotations := MakeElaResourceAnnotations(rev)
+	annotations := MakeServingResourceAnnotations(rev)
 	annotations[sidecarIstioInjectAnnotation] = "true"
 
 	replicas := int32(1)
@@ -76,21 +76,22 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionAutoscalerName(rev),
-			Namespace:   pkg.GetServingSystemNamespace(),
-			Labels:      MakeElaResourceLabels(rev, true),
-			Annotations: MakeElaResourceAnnotations(rev),
+			Name:            controller.GetRevisionAutoscalerName(rev),
+			Namespace:       pkg.GetServingSystemNamespace(),
+			Labels:          MakeServingResourceLabels(rev, true),
+			Annotations:     MakeServingResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
-			Selector: MakeElaResourceSelector(rev),
+			Selector: MakeServingResourceSelector(rev),
 			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      makeElaAutoScalerLabels(rev),
+					Labels:      makeServingAutoScalerLabels(rev),
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
@@ -152,15 +153,16 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 	}
 }
 
-// MakeElaAutoscalerService returns a service for the autoscaler of
+// MakeServingAutoscalerService returns a service for the autoscaler of
 // the given revision.
-func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
+func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionAutoscalerName(rev),
-			Namespace:   pkg.GetServingSystemNamespace(),
-			Labels:      makeElaAutoScalerLabels(rev),
-			Annotations: MakeElaResourceAnnotations(rev),
+			Name:            controller.GetRevisionAutoscalerName(rev),
+			Namespace:       pkg.GetServingSystemNamespace(),
+			Labels:          makeServingAutoScalerLabels(rev),
+			Annotations:     MakeServingResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -178,10 +180,10 @@ func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	}
 }
 
-// makeElaAutoScalerLabels constructs the labels we will apply to
+// makeServingAutoScalerLabels constructs the labels we will apply to
 // service and deployment specs for autoscaler.
-func makeElaAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
-	labels := MakeElaResourceLabels(rev, true)
+func makeServingAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
+	labels := MakeServingResourceLabels(rev, true)
 	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

@@ -242,14 +242,15 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 
 	controller = NewController(
 		ctrl.Options{
-			kubeClient,
-			elaClient,
-			zap.NewNop().Sugar(),
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
-		kubeInformer,
-		elaInformer,
-		buildInformer,
-		servingSystemInformer,
+		elaInformer.Serving().V1alpha1().Revisions(),
+		buildInformer.Build().V1alpha1().Builds(),
+		servingSystemInformer.Core().V1().ConfigMaps(),
+		kubeInformer.Apps().V1().Deployments(),
+		kubeInformer.Core().V1().Endpoints(),
 		&rest.Config{},
 		controllerConfig,
 	).(*Controller)
@@ -384,7 +385,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	foundQueueProxy := false
-	foundElaContainer := false
+	foundServingContainer := false
 	foundFluentdProxy := false
 	expectedPreStop := &corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
@@ -420,7 +421,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			}
 		}
 		if container.Name == userContainerName {
-			foundElaContainer = true
+			foundServingContainer = true
 			// verify that the ReadinessProbe has our port.
 			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(queue.RequestQueuePort) {
 				t.Errorf("Expect ReadinessProbe handler to have port %d, saw %v",
@@ -445,7 +446,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if !foundFluentdProxy {
 		t.Error("Missing fluentd-proxy container")
 	}
-	if !foundElaContainer {
+	if !foundServingContainer {
 		t.Errorf("Missing %q container", userContainerName)
 	}
 	expectedLabels := sumMaps(
