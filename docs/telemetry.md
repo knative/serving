@@ -65,43 +65,61 @@ kubectl apply -R -f config/monitoring/100-common \
 
 ### Elasticsearch & Kibana
 
-Run,
+To start the Kibana UI up on local port 8001, enter the following command:
 
 ```shell
 kubectl proxy
 ```
 
-Then open Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
-(*it might take a couple of minutes for the proxy to work*).
-When Kibana is opened the first time, it will ask you to create an index. Accept the default options as is. As more logs get ingested,
-new fields will be discovered and to have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+Then navigate to the Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana")
+(*It might take a couple of minutes for the proxy to work*).
+
+When Kibana is opened the first time, it will ask you to create an index. Accept the default options:
+
+![Kibana UI Configuring an Index Pattern]()
+
+The Discover tab of the Kibana UI looks like this:
+
+![Kibana UI Discover tab]()
+
+You can change the time frame of logs Kibana displays in the upper right corner of the screen. The main search bar is across the top of the Dicover page.
+
+As more logs are ingested, new fields will be discovered. To have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
 
 #### Accessing configuration and revision logs
 
-To access to logs for a configuration, use the following search term in Kibana UI:
+To access the logs for a configuration, enter the following search query in Kibana:
+
 ```
 kubernetes.labels.knative_dev\/configuration: "configuration-example"
 ```
 
-Replace `configuration-example` with your configuration's name.
+Replace `configuration-example` with your configuration's name. The configuration name is specified in the `.yaml` file as follows:
 
-To access logs for a revision, use the following search term in Kibana UI:
+```yaml
+-spec:	
+-  traffic:	
+-  - configurationName: configuration-example	
+-    percent: 100
+```
+
+To access logs for a revision, enter the following search query in Kibana:
 
 ```
 kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
 ```
 
-Replace `configuration-example-00001` with your revision's name.
+Replace `configuration-example-00001` with your revision's name. 
 
 #### Accessing build logs
 
-To access to logs for a build, use the following search term in Kibana UI:
+To access the logs for a build, enter the following search query in Kibana:
 
 ```
 kubernetes.labels.build\-name: "test-build"
 ```
 
-Replace `test-build` with your build's name. A build's name is specified in its YAML file as follows:
+Replace `test-build` with your build's name. The build name is specified in the `.yaml` file as follows:
 
 ```yaml
 apiVersion: build.dev/v1alpha1
@@ -134,21 +152,31 @@ Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The foll
 
 ### Accessing per request traces
 
-First open Kibana UI as shown above. Browse to Management -> Index Patterns -> +Create Index Pattern and type "zipkin*" (without the quotes) to the "Index pattern" text field and hit "Create" button. This will create a new index pattern that will store per request traces captured by Zipkin. This is a one time step and is needed only for fresh installations.
+To create a new index pattern that will store per request traces captured by Zipkin:
 
-Next, start the proxy if it is not already running:
+1. To start the Kibana UI serving on local port 8001, enter the following command:
 
-```shell
-kubectl proxy
-```
+	```shell
+	kubectl proxy
+	```
 
-Then open Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application within this UI. Click on a trace to see a detailed view of a specific call.
+1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana"). 
 
-To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it and explore the traces it generates from Zipkin UI.
+1. Navigate to Management -> Index Patterns -> +Create Index Pattern
+
+1. Type `zipkin*` in the "Index pattern" text field
+
+1. Click **Create**.
+
+(This is a one time step and is needed only for fresh installations.)
+
+Open Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/ "http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/"). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application within this UI. Click on a trace to see a detailed view of a specific call.
+
+To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it, then explore the traces it generates from Zipkin UI.
 
 ## Default metrics
 
-Following metrics are collected by default:
+The following metrics are collected by default:
 * Knative Serving controller metrics
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
@@ -166,14 +194,15 @@ To enable log collection from other containers and destinations, see
 [setting up a logging plugin](setting-up-a-logging-plugin.md).
 
 ## Metrics troubleshooting
-You can use Prometheus web UI to troubleshoot publishing and service discovery issues for metrics.
+You can use the Prometheus web UI to troubleshoot publishing and service discovery issues for metrics.
 To access to the web UI, forward the Prometheus server to your machine:
 
 ```shell
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=prometheus --output=jsonpath="{.items[0].metadata.name}") 9090
 ```
 
-Then browse to http://localhost:9090 to access the UI:
+Then browse to http://localhost:9090 to access the UI.
+
 * To see the targets that are being scraped, go to Status -> Targets
 * To see what Prometheus service discovery is picking up vs. dropping, go to Status -> Service Discovery
 
