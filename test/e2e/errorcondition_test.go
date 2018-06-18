@@ -20,13 +20,14 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/golang/glog"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 const (

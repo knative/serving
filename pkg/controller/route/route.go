@@ -203,6 +203,11 @@ func (c *Controller) updateRouteEvent(key string) error {
 
 	logger.Infof("Reconciling route :%v", route)
 
+	protocol, err := c.getProtocolFromTrafficTargets(ctx, route)
+	if err != nil {
+		return err
+	}
+
 	// Create a placeholder service that is simply used by istio as a placeholder.
 	// This service could eventually be the 'activator' service that will get all the
 	// fallthrough traffic if there are no route rules (revisions to target).
@@ -210,7 +215,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	// that selects nothing.
 	logger.Info("Creating/Updating placeholder k8s services")
 
-	if err := c.reconcilePlaceholderService(ctx, route); err != nil {
+	if err := c.reconcilePlaceholderService(ctx, route, protocol); err != nil {
 		return err
 	}
 
@@ -223,7 +228,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 
 	// Then create or update the Ingress rule for this service
 	logger.Info("Creating or updating ingress rule")
-	if err := c.reconcileIngress(ctx, route); err != nil {
+	if err := c.reconcileIngress(ctx, route, protocol); err != nil {
 		logger.Error("Failed to create or update ingress rule", zap.Error(err))
 		return err
 	}
@@ -243,6 +248,30 @@ func (c *Controller) setDomainConfig(cfg *DomainConfig) {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
 	c.domainConfig = cfg
+}
+
+func (c *Controller) getProtocolFromTrafficTargets(
+	ctx context.Context,
+	route *v1alpha1.Route) (v1alpha1.RevisionProtocolType, error) {
+
+	//TODO(bsnchan) Defaulting to HTTP when there is no direct targets
+	//TODO(dprotaso) Need to handle the case when the protocol changes
+	// ie the placeholder service and the ingress
+	protocol := v1alpha1.RevisionProtocolHTTP
+	configMap, revMap, err := c.getDirectTrafficTargets(ctx, route)
+
+	if err != nil {
+		return protocol, err
+	}
+
+	for _, c := range configMap {
+		return c.Spec.RevisionTemplate.Spec.Protocol, nil
+	}
+	for _, r := range revMap {
+		return r.Spec.Protocol, nil
+	}
+
+	return protocol, nil
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
@@ -305,9 +334,9 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 	return c.updateStatus(ctx, route)
 }
 
-func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
+func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route, protocol v1alpha1.RevisionProtocolType) error {
 	logger := logging.FromContext(ctx)
-	service := MakeRouteK8SService(route)
+	service := MakeRouteK8SService(route, protocol)
 	if _, err := c.KubeClientSet.CoreV1().Services(route.Namespace).Create(service); err != nil {
 		if apierrs.IsAlreadyExists(err) {
 			// Service already exist.
@@ -322,11 +351,11 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 	return nil
 }
 
-func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route) error {
+func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route, protocol v1alpha1.RevisionProtocolType) error {
 	logger := logging.FromContext(ctx)
 	ingressNamespace := route.Namespace
 	ingressName := controller.GetServingK8SIngressName(route)
-	ingress := MakeRouteIngress(route)
+	ingress := MakeRouteIngress(route, protocol)
 	ingressClient := c.KubeClientSet.ExtensionsV1beta1().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(ingressName, metav1.GetOptions{})
 
@@ -696,10 +725,16 @@ func (c *Controller) computeRevisionRoutes(
 	// to workaround https://github.com/istio/istio/issues/5204
 	// Once migration to Istio Gateway completes, we should change this back so that activator
 	// is added to the list only if its weight is positive
+	revProtocol := v1alpha1.RevisionProtocolHTTP
+	if inactiveRev != "" {
+		rev := revMap[inactiveRev]
+		revProtocol = rev.Spec.Protocol
+	}
+
 	activatorRoute := RevisionRoute{
-		Name:         controller.GetServingK8SActivatorServiceName(),
+		Name:         controller.GetServingK8SActivatorServiceName(revProtocol),
 		RevisionName: inactiveRev,
-		Service:      controller.GetServingK8SActivatorServiceName(),
+		Service:      controller.GetServingK8SActivatorServiceName(revProtocol),
 		Namespace:    pkg.GetServingSystemNamespace(),
 		Weight:       totalInactivePercent,
 	}

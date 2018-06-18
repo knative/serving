@@ -30,7 +30,7 @@ import (
 // MakeRouteIngress creates an ingress rule, owned by the provided v1alpha1.Route. This ingress rule
 // targets Istio by using the simple placeholder service name. All the routing actually happens in
 // the route rules.
-func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
+func MakeRouteIngress(route *v1alpha1.Route, protocol v1alpha1.RevisionProtocolType) *v1beta1.Ingress {
 	// We used to have a distinct service, but in the ela world, use the
 	// name for serviceID too.
 
@@ -43,7 +43,10 @@ func MakeRouteIngress(route *v1alpha1.Route) *v1beta1.Ingress {
 	path := v1beta1.HTTPIngressPath{
 		Backend: v1beta1.IngressBackend{
 			ServiceName: controller.GetServingK8SServiceName(route),
-			ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+			ServicePort: intstr.IntOrString{
+				Type:   intstr.String,
+				StrVal: string(protocol),
+			},
 		},
 	}
 

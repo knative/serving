@@ -102,6 +102,7 @@ func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) 
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
+			Protocol: v1alpha1.RevisionProtocolHTTP,
 			Container: corev1.Container{
 				Image: "test-image",
 			},
@@ -128,6 +129,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 					Container: corev1.Container{
 						Image: "test-image",
 					},
+					Protocol: v1alpha1.RevisionProtocolHTTP,
 				},
 			},
 		},
@@ -151,10 +153,10 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 	}
 }
 
-func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
+func getActivatorDestinationWeight(protocol v1alpha1.RevisionProtocolType, w int) v1alpha2.DestinationWeight {
 	return v1alpha2.DestinationWeight{
 		Destination: v1alpha2.IstioService{
-			Name:      ctrl.GetServingK8SActivatorServiceName(),
+			Name:      ctrl.GetServingK8SActivatorServiceName(protocol),
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Weight: w,
@@ -340,7 +342,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, getActivatorDestinationWeight(0)},
+		}, getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -430,7 +432,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				},
 			},
 		},
-		Route:         []v1alpha2.DestinationWeight{getActivatorDestinationWeight(100)},
+		Route: []v1alpha2.DestinationWeight{
+			getActivatorDestinationWeight(rev.Spec.Protocol, 100),
+		},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -511,7 +515,7 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 100,
-		}, getActivatorDestinationWeight(0), {
+		}, getActivatorDestinationWeight(latestReadyRev.Spec.Protocol, 0), {
 			Destination: v1alpha2.IstioService{
 				Name:      fmt.Sprintf("%s-service", otherRev.Name),
 				Namespace: testNamespace,
@@ -590,7 +594,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 10,
-		}, getActivatorDestinationWeight(0)},
+		}, getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -670,7 +674,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 90,
-		}, getActivatorDestinationWeight(10)},
+		},
+			getActivatorDestinationWeight(rev.Spec.Protocol, 10),
+		},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -777,7 +783,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			},
 			Weight: 15,
 		},
-			getActivatorDestinationWeight(0)},
+			getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -860,7 +866,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 50,
-		}, getActivatorDestinationWeight(0)},
+		}, getActivatorDestinationWeight(rev.Spec.Protocol, 0)},
 	})
 
 	// Expects authority header to have the traffic target name prefixed to the
@@ -1447,7 +1453,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 		RevisionName: rev.Name,
 		Percent:      100,
 	}, {
-		Name:    ctrl.GetServingK8SActivatorServiceName(),
+		Name:    ctrl.GetServingK8SActivatorServiceName(rev.Spec.Protocol),
 		Percent: 0,
 	}}
 	if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
@@ -1664,5 +1670,76 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		if ingress.Spec.Rules[1].Host != expectedWildcardHost {
 			t.Errorf("Expected ingress host %q but saw %q", expectedWildcardHost, ingress.Spec.Rules[1].Host)
 		}
+	}
+}
+
+func TestCreateRouteWithGRPCProtocol(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+
+	h := NewHooks()
+	// Look for the events. Events are delivered asynchronously so we need to use
+	// hooks here. Each hook tests for a specific event.
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Istio route rule "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	rev.Spec.Protocol = "grpc"
+
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+
+	// A route targeting the revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{
+			v1alpha1.TrafficTarget{
+				RevisionName: "test-rev",
+				Percent:      100,
+			},
+		},
+	)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	// Look for the placeholder service.
+	expectedServiceName := fmt.Sprintf("%s-service", route.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("error getting service: %v", err)
+	}
+
+	expectedPorts := []corev1.ServicePort{
+		corev1.ServicePort{
+			Name: "grpc",
+			Port: 80,
+		},
+	}
+
+	if diff := cmp.Diff(expectedPorts, service.Spec.Ports); diff != "" {
+		t.Errorf("Unexpected service ports diff (-want +got): %v", diff)
+	}
+
+	// Look for the ingress.
+	expectedIngressName := fmt.Sprintf("%s-ingress", route.Name)
+	ingress, err := kubeClient.ExtensionsV1beta1().Ingresses(testNamespace).Get(expectedIngressName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("error getting ingress: %v", err)
+	}
+
+	for i, rule := range ingress.Spec.Rules {
+		for j, path := range rule.HTTP.Paths {
+			actualServicePort := path.Backend.ServicePort.StrVal
+			if actualServicePort != "grpc" {
+				t.Errorf("Ingress backend servicePort is not 'grpc' - got %q at rule[%d], path[%d] ", actualServicePort, i, j)
+			}
+		}
+	}
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
 	}
 }

@@ -18,9 +18,10 @@ limitations under the License.
 package e2e
 
 import (
-	"github.com/golang/glog"
 	"strings"
 	"testing"
+
+	"github.com/golang/glog"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"

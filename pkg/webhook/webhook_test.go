@@ -161,6 +161,45 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
 }
 
+func TestInvalidNewConfigurationProtocol(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	old := createConfiguration(testGeneration, testConfigurationName)
+	new := createConfiguration(testGeneration, testConfigurationName)
+
+	old.Spec.RevisionTemplate.Spec.Protocol = "http"
+	new.Spec.RevisionTemplate.Spec.Protocol = "grpc"
+	req := createUpdateConfiguration(&old, &new)
+	expectFailsWith(t, ac.admit(testCtx, req), "The Revision protocol cannot be changed on update")
+}
+
+func TestIncorrectReadinessCheckForProtocol(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	config := createConfiguration(testGeneration, testConfigurationName)
+	config.Spec.RevisionTemplate.Spec.Protocol = "grpc"
+	config.Spec.RevisionTemplate.Spec.Container.ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{},
+		},
+	}
+
+	req := createUpdateConfiguration(nil, &config)
+	expectFailsWith(t, ac.admit(testCtx, req), "GRPC protocol should use a TCP readiness probe")
+}
+
+func TestIncorrectLivenessCheckForProtocol(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	config := createConfiguration(testGeneration, testConfigurationName)
+	config.Spec.RevisionTemplate.Spec.Protocol = "grpc"
+	config.Spec.RevisionTemplate.Spec.Container.LivenessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{},
+		},
+	}
+
+	req := createUpdateConfiguration(nil, &config)
+	expectFailsWith(t, ac.admit(testCtx, req), "GRPC protocol should use a TCP liveness probe")
+}
+
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	resp := ac.admit(testCtx, createValidCreateConfiguration())
@@ -488,12 +527,12 @@ func TestUpdatingWebhook(t *testing.T) {
 
 func createUpdateConfiguration(old, new *v1alpha1.Configuration) *admissionv1beta1.AdmissionRequest {
 	req := createBaseUpdateConfiguration()
-	marshaled, err := json.Marshal(old)
+	marshaled, err := json.Marshal(new)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
 	req.Object.Raw = marshaled
-	marshaledOld, err := json.Marshal(new)
+	marshaledOld, err := json.Marshal(old)
 	if err != nil {
 		panic("failed to marshal configuration")
 	}
@@ -692,6 +731,7 @@ func createConfiguration(generation int64, configurationName string) v1alpha1.Co
 						}},
 					},
 					ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
+					Protocol:         v1alpha1.RevisionProtocolHTTP,
 				},
 			},
 		},

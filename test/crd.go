@@ -18,10 +18,11 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	"github.com/golang/glog"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"

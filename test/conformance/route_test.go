@@ -19,9 +19,10 @@ package conformance
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"strings"
 	"testing"
+
+	"github.com/golang/glog"
 
 	"encoding/json"
 

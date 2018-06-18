@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,6 +89,7 @@ func getTestRevision() *v1alpha1.Revision {
 			UID: "test-rev-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
+			Protocol: v1alpha1.RevisionProtocolHTTP,
 			// corev1.Container has a lot of setting.  We try to pass many
 			// of them here to verify that we pass through the settings to
 			// derived objects.
@@ -630,6 +632,32 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestCreateRevisionWithGRPCProtocol(t *testing.T) {
+	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+
+	config := getTestConfiguration()
+	config.Spec.RevisionTemplate.Spec.Protocol = v1alpha1.RevisionProtocolGRPC
+
+	rev := getTestRevision()
+	rev.Spec.Protocol = v1alpha1.RevisionProtocolGRPC
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedServiceName := fmt.Sprintf("%s-service", rev.Name)
+	service, err := kubeClient.CoreV1().Services(testNamespace).Get(expectedServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision service: %v", err)
+	}
+
+	for _, port := range service.Spec.Ports {
+		servicePortName := port.Name
+		if strings.HasPrefix(servicePortName, string(v1alpha1.RevisionProtocolHTTP)) {
+			t.Errorf("Revision service port name does not match protocol: expected %v got %v.",
+				v1alpha1.RevisionProtocolHTTP, servicePortName)
 		}
 	}
 }
