@@ -224,7 +224,7 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionDeploymentName(u),
 			Namespace:   namespace,
-			Labels:      MakeElaResourceLabels(u),
+			Labels:      MakeElaResourceLabels(u, true),
 			Annotations: MakeElaResourceAnnotations(u),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -236,7 +236,7 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeElaResourceLabels(u),
+					Labels:      MakeElaResourceLabels(u, true),
 					Annotations: podTemplateAnnotations,
 				},
 			},

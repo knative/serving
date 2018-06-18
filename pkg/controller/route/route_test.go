@@ -429,7 +429,16 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				},
 			},
 		},
-		Route:         []v1alpha2.DestinationWeight{getActivatorDestinationWeight(100)},
+		Route: []v1alpha2.DestinationWeight{
+			{
+				Destination: v1alpha2.IstioService{
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
+				},
+				Weight: 0,
+			},
+			getActivatorDestinationWeight(100),
+		},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -663,13 +672,22 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{{
-			Destination: v1alpha2.IstioService{
-				Name:      fmt.Sprintf("%s-service", cfgrev.Name),
-				Namespace: testNamespace,
+		Route: []v1alpha2.DestinationWeight{
+			{
+				Destination: v1alpha2.IstioService{
+					Name:      "p-deadbeef-service",
+					Namespace: testNamespace,
+				},
+				Weight: 90,
 			},
-			Weight: 90,
-		}, getActivatorDestinationWeight(10)},
+			{
+				Destination: v1alpha2.IstioService{
+					Name:      "test-rev-service",
+					Namespace: testNamespace,
+				},
+				Weight: 0,
+			},
+			getActivatorDestinationWeight(10)},
 		AppendHeaders: appendHeaders,
 	}
 

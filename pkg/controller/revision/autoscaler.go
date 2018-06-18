@@ -78,7 +78,7 @@ func MakeElaAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionAutoscalerName(rev),
 			Namespace:   pkg.GetServingSystemNamespace(),
-			Labels:      MakeElaResourceLabels(rev),
+			Labels:      MakeElaResourceLabels(rev, true),
 			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -181,7 +181,7 @@ func MakeElaAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // makeElaAutoScalerLabels constructs the labels we will apply to
 // service and deployment specs for autoscaler.
 func makeElaAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
-	labels := MakeElaResourceLabels(rev)
+	labels := MakeElaResourceLabels(rev, true)
 	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

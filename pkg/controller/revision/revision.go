@@ -489,33 +489,50 @@ func (c *Controller) reconcileOnceBuilt(ctx context.Context, rev *v1alpha1.Revis
 		logger.Info("Creating or reconciling resources for revision")
 		return c.createK8SResources(ctx, rev, elaNS)
 	}
-	return c.deleteK8SResources(ctx, rev, elaNS)
+	return c.teardownK8SResources(ctx, rev, elaNS)
 }
 
-func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
+func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
 	logger := logging.FromContext(ctx)
-	if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil {
-		if cond.Reason != "Inactive" {
-			if cond.Reason != "Deactivating" {
-				rev.Status.MarkDeactivating()
-				if _, err := c.updateStatus(rev); err != nil {
-					logger.Error("Error updating revision condition to be deactivating",
-						zap.Error(err))
-					return err
-				}
-			}
-			return nil
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateRetired {
+		// Delete the k8s deployment and revision service if serving state is Retired.
+		logger.Info("Deleting the resources for revision")
+		err := c.deleteDeployment(ctx, rev, ns)
+		if err != nil {
+			logger.Error("Failed to delete a deployment", zap.Error(err))
 		}
+		logger.Info("Deleted deployment")
+		err = c.deleteService(ctx, rev, ns)
+		if err != nil {
+			logger.Error("Failed to delete k8s service", zap.Error(err))
+		}
+		logger.Info("Deleted service")
+	} else {
+		// Serving state is RevisionServingStateReserve. Delete the revision service and update
+		// the dpeloyment replicas to be 0.
+		if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil {
+			if cond.Reason != "Inactive" {
+				if cond.Reason != "Deactivating" {
+					rev.Status.MarkDeactivating()
+					if _, err := c.updateStatus(rev); err != nil {
+						logger.Error("Error updating revision condition to be deactivating",
+							zap.Error(err))
+						return err
+					}
+				}
+				return nil
+			}
+		}
+
+		logger.Info("Scale the deployment to 0")
+		err := c.deactivateDeployment(ctx, rev, ns)
+		if err != nil {
+			logger.Error("Failed to scale a deployment to 0", zap.Error(err))
+		}
+		logger.Info("Scaled the deployment to 0")
 	}
 
-	logger.Info("Scale the deployment to 0")
-	err := c.deactivateDeployment(ctx, rev, ns)
-	if err != nil {
-		logger.Error("Failed to scale a deployment to 0", zap.Error(err))
-	}
-	logger.Info("Scaled the deployment to 0")
-
-	err = c.deleteAutoscalerDeployment(ctx, rev)
+	err := c.deleteAutoscalerDeployment(ctx, rev)
 	if err != nil {
 		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
 	}

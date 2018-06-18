@@ -320,7 +320,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 		return nil, err
 	}
 	// After the route rules are updated, mark the revision inactive. In case of deactivation,
-	// the routerules need to point to activator-service before we deactivate the deployment.
+	// the routerules need to point to activator-service before we tear down k8s resources.
 	if inactiveRev != "" {
 		revisionClient := c.ElaClientSet.ServingV1alpha1().Revisions(route.Namespace)
 		rev, err := revisionClient.Get(inactiveRev, metav1.GetOptions{})

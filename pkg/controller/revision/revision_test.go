@@ -1489,10 +1489,11 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 	updateRevision(elaClient, elaInformer, controller, rev)
 
-	// Expect the deployment to be gone.
-	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
-	if err == nil {
-		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
+	// Expect the deployment to be there.
+	_, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+
+	if err != nil {
+		t.Fatalf("Expected k8s deployment to be there but it was gone: %s/%s", testNamespace, expectedDeploymentName)
 	}
 }
 
