@@ -39,6 +39,7 @@ function cleanup() {
 function build_tests() {
   header "Running build tests"
   go build ./cmd/... ./sample/... ./pkg/...
+  ./hack/verify-codegen.sh
 }
 
 function unit_tests() {
