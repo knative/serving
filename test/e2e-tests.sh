@@ -334,13 +334,8 @@ exit_if_failed
 
 # Run the tests
 
-header "Running 'hello world' test"
-kubectl create namespace noodleburg
-go test -v -tags=e2e ./test/e2e -run HelloWorld -dockerrepo gcr.io/elafros-e2e-tests/ela-e2e-test
-exit_if_failed
-
 run_e2e_tests conformance pizzaplanet ela-conformance-test
-# run_e2e_tests e2e noodleburg ela-e2e-test
+run_e2e_tests e2e noodleburg ela-e2e-test
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

@@ -37,6 +37,7 @@ const (
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
+	t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
 
 	// Specify an invalid image path
