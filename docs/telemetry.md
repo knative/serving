@@ -19,7 +19,7 @@ kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
-1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+1. **150-elasticsearch-dev**: This configuration collects everything **150-elasticsearch-prod** does, plus Knative Serving controller logs.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
@@ -32,7 +32,7 @@ kubectl apply -R -f config/monitoring/100-common \
 
 ### Stackdriver, Prometheus, and Grafana Setup
 
-If your Knative Serving is not built on a GCP based cluster or you want to send logs to
+If your Knative Serving is not built on a Google Cloud Platform based cluster, or you want to send logs to
 another GCP project, you need to build your own Fluentd image and modify the
 configuration first. See
 
@@ -41,7 +41,7 @@ configuration first. See
 
 Then you can use two different setups:
 
-1. **150-stackdriver-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+1. **150-stackdriver-prod**: This configuration collects logs and metrics from user containers, build controller, and Istio requests.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
@@ -51,7 +51,7 @@ kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
-2. **150-stackdriver-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+2. **150-stackdriver-dev**: This configuration collects everything **150-stackdriver-prod** does, plus Knative Serving controller logs.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
@@ -63,7 +63,7 @@ kubectl apply -R -f config/monitoring/100-common \
 
 ## Accessing logs
 
-### Kibana and Elasticsearch
+### Kibana
 
 To start the Kibana UI up on local port 8001, enter the following command:
 
@@ -71,7 +71,7 @@ To start the Kibana UI up on local port 8001, enter the following command:
 kubectl proxy
 ```
 
-This sets up a local proxy from your computer to the Kubernetes master that allows you to access multiple logging and reporting tools, including Kibana and Elasticsearch.
+This sets up a local proxy from your computer to the Kubernetes master that allows you to access multiple logging and reporting tools, including Kibana.
 
 Then navigate to the Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana")
 (*It might take a couple of minutes for the proxy to work*).
@@ -137,13 +137,13 @@ your GCP project which stores your logs via Stackdriver.
 
 ## Accessing metrics
 
-Run:
+Enter:
 
 ```shell
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
+Then open the Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
 
 * **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
 * **Nodes:** CPU, memory, network and disk metrics at node level
@@ -334,7 +334,8 @@ definitions is to use Grafana UI (make sure to login with as admin user) and [ex
 above to enable Prometheus UI)
 
 ## Generating logs
-Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec, add the following args to redirect the logs to stderr:
+Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec, add the following arguments to redirect the logs to stderr:
+
 ```yaml
 args:
 - "-logtostderr=true"
@@ -347,6 +348,7 @@ See [helloworld](../sample/helloworld/README.md) sample's configuration file as 
 Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
 
 ## Delete monitoring components
+Enter:
 
 ```shell
 ko delete --ignore-not-found=true \
