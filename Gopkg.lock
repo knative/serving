@@ -533,13 +533,14 @@
   packages = [
     "context",
     "context/ctxhttp",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
-    "lex/httplex",
+    "internal/socks",
     "proxy"
   ]
-  revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
+  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [[projects]]
   branch = "master"
@@ -953,6 +954,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "edd4655990f9e22d6adeebd339be0d4710134ee1c2f62f0cffbe8dbbeb3010f9"
+  inputs-digest = "9794defec7ac7f7e8d21464a8bbd7e943b3bda0dfa0210cc2118357e889533e5"
   solver-name = "gps-cdcl"
   solver-version = 1
