@@ -649,28 +649,17 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
-	// // Create the deployment.
-	// controllerRef := controller.NewRevisionControllerRef(rev)
-	// // Create a single pod so that it gets created before deployment->RS to try to speed
-	// // things up
-	// podSpec := MakeServingPodSpec(rev, c.controllerConfig)
-	isCreate := false
+	deploymentExists := true
 	_, err := dc.Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
 			return err
 		}
-		isCreate = true
+		deploymentExists = false
 	}
 
 	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
-	// deployment.OwnerReferences = append(deployment.OwnerReferences, *controllerRef)
-	// // Set the ProgressDeadlineSeconds
-	// deployment.Spec.ProgressDeadlineSeconds = new(int32)
-	// *deployment.Spec.ProgressDeadlineSeconds = progressDeadlineSeconds
-	// deployment.Spec.Template.Spec = *podSpec
-
 	// Resolve tag image references to digests.
 	if err = c.resolver.Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
@@ -682,14 +671,14 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	}
 
-	if isCreate {
-		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
-		_, err = dc.Create(deployment)
-	} else {
+	if deploymentExists {
 		// TODO(mattmoor): Compare the deployments and update if it has changed
 		// out from under us.
 		logger.Infof("Found existing deployment %q, updating", deploymentName)
 		_, err = dc.Update(deployment)
+	} else {
+		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
+		_, err = dc.Create(deployment)
 	}
 	return err
 }
