@@ -23,15 +23,15 @@ ERROR: Non-zero return code '1' from command: Process exited with status 1
 ```
 
 ## Check application logs
-Knative Serving provides default out-of-box logs for your application. After entering
+Knative Serving provides default out-of-the-box logs for your application. After entering
 `kubectl proxy`, you can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 to search for logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
 
 ### Stdout/stderr logs
 
-You can find the logs emitted to `stdout/stderr` from your application on
-Kibana UI by following steps:
+To find the logs sent to `stdout/stderr` from your application in the
+Kibana UI:
 
 1. Click `Discover` on the left side bar.
 1. Choose `logstash-*` index pattern on the left top.
@@ -39,8 +39,7 @@ Kibana UI by following steps:
 
 ### Request logs
 
-You can find the request logs of your application on Kibana UI by following
-steps:
+To find the request logs of your application in the Kibana UI :
 
 1. Click `Discover` on the left side bar.
 1. Choose `logstash-*` index pattern on the left top.
@@ -63,7 +62,7 @@ are not implemented yet).
 
 ### Check Istio routing
 
-Compare your Knative `route` object's configuration (obtained in the previous step) to the Istio `routerule` object's configuration.
+Compare your Knative `Route` object's configuration (obtained in the previous step) to the Istio `RouteRule` object's configuration.
 
 Enter the following, replacing `<routerule-name>` with the appopriate value:
 
@@ -89,7 +88,7 @@ This returns the status of the ingress. You can see the name, age, domains, and 
 
 If you configure your `Route` with `Configuration`, run the following command to
 get the name of the `Revision` created for you deployment(look up the
-configuration name in the `Route` yaml file):
+configuration name in the `Route` .yaml file):
 
 ```shell
 kubectl get configuration <configuration-name> -o jsonpath="{.status.latestCreatedRevisionName}"
@@ -115,17 +114,17 @@ conditions:
 
 If you see this condition, to debug further:
 
-  1. [Check Pod status](#check-pod-status)
-  1. [Check application logs](#check-application-logs)
-  1. [Check Istio routing](#check-istio-routing)
+  * [Check Pod status](#check-pod-status)
+  * [Check application logs](#check-application-logs)
+  * [Check Istio routing](#check-istio-routing)
 
 If you see other conditions, to debug further:
 
-  1. Look up the meaning of the conditions in Elafro
+  * Look up the meaning of the conditions in Knative
      [Error Conditions and Reporting](../spec/errors.md). Note: some of them
-     are not implemented yet. An alternation is to
+     are not implemented yet. An alternative is to
      [check Pod status](#check-pod-status).
-  1. If you are using `BUILD` to deploy and the `BuidComplete` condition is not
+  * If you are using `BUILD` to deploy and the `BuidComplete` condition is not
      `True`, [check BUILD status](#check-build-status).
 
 ## Check Pod status
