@@ -1,17 +1,17 @@
 # Application Debugging Guide
 
-You deployed your app to Knative Serving but it is not working as expected. Go through
+You deployed your app to Knative Serving, but it isn't working as expected. Go through
 this step by step guide to understand what failed.
 
 ## Check command line output
 
 Check your deploy command output to see whether it succeeded or not. If your
-deployment process was terminated, there should be error message showing up in
-the output and describing the reason why the deployment failed.
+deployment process was terminated, there should be an error message showing up in
+the output that describes the reason why the deployment failed.
 
-This kind of failures is most likely due to either misconfigured manifest or wrong
-command. For example, the following output says that you should configure route
-traffic percent summing to 100:
+This kind of failure is most likely due to either a misconfigured manifest or wrong
+command. For example, the following output says that you must configure route
+traffic percent to sum to 100:
 
 ```
 Error from server (InternalError): error when applying patch:
@@ -23,7 +23,7 @@ ERROR: Non-zero return code '1' from command: Process exited with status 1
 ```
 
 ## Check application logs
-Knative Serving provides default out-of-box logs for your application. After executing
+Knative Serving provides default out-of-box logs for your application. After entering
 `kubectl proxy`, you can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
 to search for logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
@@ -49,7 +49,7 @@ steps:
 
 ## Check Route status
 
-Run the following command to get `status` of the `Route` object with which you deployed
+Run the following command to get the `status` of the `Route` object with which you deployed
 your application:
 
 ```shell
@@ -57,9 +57,33 @@ kubectl get route <route-name> -o yaml
 ```
 
 The `conditions` in `status` provide the reason if there is any failure. For
-details, see Elafro
+details, see Knative
 [Error Conditions and Reporting](../spec/errors.md)(currently some of them
 are not implemented yet).
+
+### Check Istio routing
+
+Compare your Knative `route` object's configuration (obtained in the previous step) to the Istio `routerule` object's configuration.
+
+Enter the following, replacing `<routerule-name>` with the appopriate value:
+
+```shell
+kubectl get routerule <routerule-name> -o yaml
+```
+
+If you don't know the name of your route rule, use the ```kubectl get routerule``` command to find it.
+
+This returns the configuration of your route rule. Compare the domains between your route and route rule; they should match. 
+
+### Check ingress status
+Enter:
+
+```shell
+kubectl get ingress
+```
+
+This returns the status of the ingress. You can see the name, age, domains, and IP address.
+
 
 ## Check Revision status
 
@@ -141,7 +165,3 @@ The `conditions` in `status` provide the reason if there is any failure. To acce
 * All build logs: `_exists_:"kubernetes.labels.build-name"`
 * Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
 * Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`
-
-## Check Istio routing
-
-TBD.
