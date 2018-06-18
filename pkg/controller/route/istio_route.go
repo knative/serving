@@ -36,7 +36,7 @@ func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string
 	}
 	spec := istiov1alpha2.RouteRuleSpec{
 		Destination: istiov1alpha2.IstioService{
-			Name:      controller.GetElaK8SServiceName(u),
+			Name:      controller.GetServingK8SServiceName(u),
 			Namespace: ns,
 		},
 		Match: istiov1alpha2.Match{

@@ -418,7 +418,7 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	}
 
 	// Check to see if endpoint is the service endpoint
-	if eName != controller.GetElaK8SServiceNameForRevision(rev) {
+	if eName != controller.GetServingK8SServiceNameForRevision(rev) {
 		return
 	}
 
@@ -588,7 +588,7 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
-	ns := controller.GetElaNamespaceName(rev.Namespace)
+	ns := controller.GetServingNamespaceName(rev.Namespace)
 	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
 		return nil
@@ -608,7 +608,7 @@ func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revisio
 
 func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	ns := controller.GetElaNamespaceName(rev.Namespace)
+	ns := controller.GetServingNamespaceName(rev.Namespace)
 	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
@@ -627,7 +627,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	}
 
 	// Create the deployment.
-	deployment := MakeElaDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
+	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -648,9 +648,9 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	ns := controller.GetElaNamespaceName(rev.Namespace)
+	ns := controller.GetServingNamespaceName(rev.Namespace)
 	sc := c.KubeClientSet.CoreV1().Services(ns)
-	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
+	serviceName := controller.GetServingK8SServiceNameForRevision(rev)
 
 	logger.Infof("Deleting service %q", serviceName)
 	tmp := metav1.DeletePropagationForeground
@@ -666,9 +666,9 @@ func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) 
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) (string, error) {
 	logger := logging.FromContext(ctx)
-	ns := controller.GetElaNamespaceName(rev.Namespace)
+	ns := controller.GetServingNamespaceName(rev.Namespace)
 	sc := c.KubeClientSet.CoreV1().Services(ns)
-	serviceName := controller.GetElaK8SServiceNameForRevision(rev)
+	serviceName := controller.GetServingK8SServiceNameForRevision(rev)
 
 	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -785,7 +785,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		return nil
 	}
 
-	service := MakeElaAutoscalerService(rev)
+	service := MakeServingAutoscalerService(rev)
 	logger.Infof("Creating autoscaler Service: %q", service.Name)
 	_, err = sc.Create(service)
 	return err
@@ -829,7 +829,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 		return nil
 	}
 
-	deployment := MakeElaAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
+	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
 	logger.Infof("Creating autoscaler Deployment: %q", deployment.Name)
 	_, err = dc.Create(deployment)
 	return err

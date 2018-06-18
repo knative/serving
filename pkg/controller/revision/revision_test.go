@@ -385,7 +385,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	}
 
 	foundQueueProxy := false
-	foundElaContainer := false
+	foundServingContainer := false
 	foundFluentdProxy := false
 	expectedPreStop := &corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
@@ -421,7 +421,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			}
 		}
 		if container.Name == userContainerName {
-			foundElaContainer = true
+			foundServingContainer = true
 			// verify that the ReadinessProbe has our port.
 			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(queue.RequestQueuePort) {
 				t.Errorf("Expect ReadinessProbe handler to have port %d, saw %v",
@@ -446,7 +446,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	if !foundFluentdProxy {
 		t.Error("Missing fluentd-proxy container")
 	}
-	if !foundElaContainer {
+	if !foundServingContainer {
 		t.Errorf("Missing %q container", userContainerName)
 	}
 	expectedLabels := sumMaps(
