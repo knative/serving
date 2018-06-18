@@ -76,11 +76,11 @@ Then navigate to the Kibana UI at this [link](http://localhost:8001/api/v1/names
 
 When Kibana is opened the first time, it will ask you to create an index. Accept the default options:
 
-![Kibana UI Configuring an Index Pattern]()
+![Kibana UI Configuring an Index Pattern](https://github.com/samodell/serving/blob/patch-1/docs/kibana-landing-page-configure-index.png)
 
 The Discover tab of the Kibana UI looks like this:
 
-![Kibana UI Discover tab]()
+![Kibana UI Discover tab](https://github.com/samodell/serving/blob/patch-1/docs/kibana-discover-tab-annotated.png)
 
 You can change the time frame of logs Kibana displays in the upper right corner of the screen. The main search bar is across the top of the Dicover page.
 
