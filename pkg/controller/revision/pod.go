@@ -230,7 +230,7 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionDeploymentName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeServingResourceLabels(rev, true),
+			Labels:          MakeServingResourceLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
@@ -244,7 +244,7 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeServingResourceLabels(rev, true),
+					Labels:      MakeServingResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
 				Spec: *MakeServingPodSpec(rev, controllerConfig),

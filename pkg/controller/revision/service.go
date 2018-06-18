@@ -37,7 +37,7 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetServingK8SServiceNameForRevision(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeServingResourceLabels(rev, true),
+			Labels:          MakeServingResourceLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},

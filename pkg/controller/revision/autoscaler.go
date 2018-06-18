@@ -78,7 +78,7 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
-			Labels:          MakeServingResourceLabels(rev, true),
+			Labels:          MakeServingResourceLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
@@ -183,7 +183,7 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // makeServingAutoScalerLabels constructs the labels we will apply to
 // service and deployment specs for autoscaler.
 func makeServingAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
-	labels := MakeServingResourceLabels(rev, true)
+	labels := MakeServingResourceLabels(rev)
 	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

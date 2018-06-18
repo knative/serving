@@ -78,9 +78,8 @@ func getTestRevision() *v1alpha1.Revision {
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				"testLabel1":          "foo",
-				"testLabel2":          "bar",
-				serving.RouteLabelKey: "test-route",
+				"testLabel1": "foo",
+				"testLabel2": "bar",
 			},
 			Annotations: map[string]string{
 				"testAnnotation": "test",

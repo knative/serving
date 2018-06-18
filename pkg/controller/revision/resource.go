@@ -25,13 +25,13 @@ import (
 const appLabelKey = "app"
 
 // MakeServingResourceLabels constructs the labels we will apply to K8s resources.
-func MakeServingResourceLabels(revision *v1alpha1.Revision, includeRouteLabel bool) map[string]string {
+func MakeServingResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+2)
 	labels[serving.RevisionLabelKey] = revision.Name
 	labels[serving.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
-		if includeRouteLabel || k != serving.RouteLabelKey {
+		if k != serving.RouteLabelKey {
 			labels[k] = v
 		}
 	}
@@ -48,7 +48,7 @@ func MakeServingResourceLabels(revision *v1alpha1.Revision, includeRouteLabel bo
 func MakeServingResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
 	// Deployment spec.selector is an immutable field so we need to exclude the route label,
 	// which could change in a revision.
-	return &metav1.LabelSelector{MatchLabels: MakeServingResourceLabels(revision, false)}
+	return &metav1.LabelSelector{MatchLabels: MakeServingResourceLabels(revision)}
 }
 
 // MakeServingResourceAnnotations creates the annotations we will apply to
