@@ -64,7 +64,7 @@ are not implemented yet).
 
 Compare your Knative `Route` object's configuration (obtained in the previous step) to the Istio `RouteRule` object's configuration.
 
-Enter the following, replacing `<routerule-name>` with the appopriate value:
+Enter the following, replacing `<routerule-name>` with the appropriate value:
 
 ```shell
 kubectl get routerule <routerule-name> -o yaml
