@@ -325,7 +325,7 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 	ingressNamespace := route.Namespace
-	ingressName := controller.GetElaK8SIngressName(route)
+	ingressName := controller.GetServingK8SIngressName(route)
 	ingress := MakeRouteIngress(route)
 	ingressClient := c.KubeClientSet.ExtensionsV1beta1().Ingresses(ingressNamespace)
 	existing, err := ingressClient.Get(ingressName, metav1.GetOptions{})
@@ -631,7 +631,7 @@ func (c *Controller) computeRevisionRoutes(
 	// The total percent of all inactive revisions.
 	totalInactivePercent := 0
 	ns := route.Namespace
-	elaNS := controller.GetElaNamespaceName(ns)
+	elaNS := controller.GetServingNamespaceName(ns)
 	ret := []RevisionRoute{}
 
 	for _, tt := range route.Spec.Traffic {
@@ -697,9 +697,9 @@ func (c *Controller) computeRevisionRoutes(
 	// Once migration to Istio Gateway completes, we should change this back so that activator
 	// is added to the list only if its weight is positive
 	activatorRoute := RevisionRoute{
-		Name:         controller.GetElaK8SActivatorServiceName(),
+		Name:         controller.GetServingK8SActivatorServiceName(),
 		RevisionName: inactiveRev,
-		Service:      controller.GetElaK8SActivatorServiceName(),
+		Service:      controller.GetServingK8SActivatorServiceName(),
 		Namespace:    pkg.GetServingSystemNamespace(),
 		Weight:       totalInactivePercent,
 	}
@@ -719,7 +719,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	elaNS := controller.GetElaNamespaceName(ns)
+	elaNS := controller.GetServingNamespaceName(ns)
 	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(ns)
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {

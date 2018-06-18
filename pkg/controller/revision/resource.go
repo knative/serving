@@ -24,8 +24,8 @@ import (
 
 const appLabelKey = "app"
 
-// MakeElaResourceLabels constructs the labels we will apply to K8s resources.
-func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
+// MakeServingResourceLabels constructs the labels we will apply to K8s resources.
+func MakeServingResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+2)
 	labels[serving.RevisionLabelKey] = revision.Name
 	labels[serving.RevisionUID] = string(revision.UID)
@@ -42,14 +42,14 @@ func MakeElaResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	return labels
 }
 
-// MakeElaResourceSelector constructs the Selector we will apply to K8s resources.
-func MakeElaResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: MakeElaResourceLabels(revision)}
+// MakeServingResourceSelector constructs the Selector we will apply to K8s resources.
+func MakeServingResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
+	return &metav1.LabelSelector{MatchLabels: MakeServingResourceLabels(revision)}
 }
 
-// MakeElaResourceAnnotations creates the annotations we will apply to
+// MakeServingResourceAnnotations creates the annotations we will apply to
 // child resource of the given revision.
-func MakeElaResourceAnnotations(revision *v1alpha1.Revision) map[string]string {
+func MakeServingResourceAnnotations(revision *v1alpha1.Revision) map[string]string {
 	annotations := make(map[string]string, len(revision.ObjectMeta.Annotations)+1)
 	for k, v := range revision.ObjectMeta.Annotations {
 		annotations[k] = v

@@ -81,7 +81,7 @@ type Base struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
-	// ServingClientSet allows us to configure Ela objects
+	// ServingClientSet allows us to configure Serving objects
 	ServingClientSet clientset.Interface
 
 	// BuildClientSet allows us to configure Build objects

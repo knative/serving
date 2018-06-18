@@ -60,8 +60,8 @@ func hasHTTPPath(p *corev1.Probe) bool {
 	return p.Handler.HTTPGet.Path != ""
 }
 
-// MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
+// MakeServingPodSpec creates a pod spec.
+func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -122,7 +122,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) 
 	}
 
 	podSpec := &corev1.PodSpec{
-		Containers:         []corev1.Container{*userContainer, *MakeElaQueueContainer(rev, controllerConfig)},
+		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
@@ -197,15 +197,15 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) 
 	return podSpec
 }
 
-// MakeElaDeployment creates a deployment.
-func MakeElaDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
+// MakeServingDeployment creates a deployment.
+func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 	networkConfig *NetworkConfig, controllerConfig *ControllerConfig) *appsv1.Deployment {
 	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
 	}
 
-	podTemplateAnnotations := MakeElaResourceAnnotations(rev)
+	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
@@ -229,14 +229,14 @@ func MakeElaDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionDeploymentName(rev),
-			Namespace:       controller.GetElaNamespaceName(rev.Namespace),
-			Labels:          MakeElaResourceLabels(rev),
-			Annotations:     MakeElaResourceAnnotations(rev),
+			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
+			Labels:          MakeServingResourceLabels(rev),
+			Annotations:     MakeServingResourceAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
-			Selector: MakeElaResourceSelector(rev),
+			Selector: MakeServingResourceSelector(rev),
 			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
@@ -244,10 +244,10 @@ func MakeElaDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeElaResourceLabels(rev),
+					Labels:      MakeServingResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *MakeElaPodSpec(rev, controllerConfig),
+				Spec: *MakeServingPodSpec(rev, controllerConfig),
 			},
 		},
 	}
