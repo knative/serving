@@ -1,6 +1,6 @@
 # Logs and metrics
 
-## Monitoring components Setup
+## Monitoring components setup
 
 First, deploy monitoring components.
 
