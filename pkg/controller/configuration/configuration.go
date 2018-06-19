@@ -70,7 +70,7 @@ func NewController(
 		FilterFunc: controller.Filter("Configuration"),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(c.Enqueue),
+			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
 		},
 	})
 	return c
