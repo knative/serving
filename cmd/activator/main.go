@@ -49,9 +49,16 @@ type retryRoundTripper struct {
 	transport2 http.RoundTripper
 }
 
-func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	transport := rrt.transport
-	if r.ProtoMajor == 2 {
+var defaultRetryTransport http.RoundTripper = &retryRoundTripper{
+	transport:  http.DefaultTransport,
+	transport2: h2cutil.NewTransport(),
+}
+
+func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var transport http.RoundTripper
+	if r.ProtoMajor == 1 {
+		transport = rrt.transport
+	} else {
 		transport = rrt.transport2
 	}
 	resp, err := transport.RoundTrip(r)
@@ -86,10 +93,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = retryRoundTripper{
-		transport:  http.DefaultTransport,
-		transport2: h2cutil.NewTransport(),
-	}
+	proxy.Transport = defaultRetryTransport
 
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/elafros/elafros/issues/964
