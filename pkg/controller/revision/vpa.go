@@ -5,20 +5,20 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 )
 
 func MakeVpa(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 	return &vpa.VerticalPodAutoscaler{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionVpaName(rev),
 			Namespace:   rev.Namespace,
 			Labels:      MakeElaResourceLabels(rev),
 			Annotations: MakeElaResourceAnnotations(rev),
 		},
 		Spec: vpa.VerticalPodAutoscalerSpec{
-			Selector: &meta_v1.LabelSelector{
+			Selector: &metav1.LabelSelector{
 				MatchLabels: MakeElaResourceLabels(rev),
 			},
 			UpdatePolicy: vpa.PodUpdatePolicy{
