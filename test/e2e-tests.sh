@@ -148,17 +148,7 @@ function run_smoke_test() {
   # Building the sample image using docker takes about 20 minutes (June 2018)
   # when running the tests on prow, compared to 1 minute on a workstation.
   # Thus we use a prebuilt image stored in GCR when running on Prow.
-  # TODO(adrcunha): Use a single approach here.
-  if (( IS_PROW )); then
-    local IMAGE="gcr.io/elafros-e2e-tests/ela-e2e-test/sample/helloworld"
-  else
-    local IMAGE="${KO_DOCKER_REPO}/smoke/helloworld"
-    docker build \
-      --build-arg SAMPLE=helloworld \
-      --tag ${IMAGE} \
-      --file=sample/Dockerfile.golang .
-    docker push "${IMAGE}"
-  fi
+  local IMAGE="gcr.io/elafros-e2e-tests/ela-e2e-test/sample/helloworld"
   sed "s@github.com/knative/serving/sample/helloworld@${IMAGE}@g" \
     sample/helloworld/sample.yaml > ${YAML}
   kubectl apply -f ${YAML}
@@ -261,6 +251,7 @@ if [[ -z $1 ]]; then
   region="$(gcloud compute zones list --filter=name=${E2E_CLUSTER_ZONE} --format='value(region)')"
   if [[ -n "${target_pools}" ]]; then
     echo "Found leaked target pools, deleting"
+    gcloud compute forwarding-rules delete -q --project=${gcp_project} --region=${region} ${target_pools}
     gcloud compute target-pools delete -q --project=${gcp_project} --region=${region} ${target_pools}
   fi
   if [[ -n "${http_health_checks}" ]]; then
