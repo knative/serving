@@ -63,15 +63,15 @@ kubectl apply -R -f config/monitoring/100-common \
 
 ## Accessing logs
 
-### Kibana
+### Kibana and Elasticsearch
 
-To start the Kibana UI up on local port 8001, enter the following command:
+To start the Kibana UI (the visualization tool for [Elasticsearch](https://info.elastic.co)) up on local port 8001, enter the following command:
 
 ```shell
 kubectl proxy
 ```
 
-This sets up a local proxy from your computer to the Kubernetes master that allows you to access multiple logging and reporting tools, including Kibana.
+This sets up a local proxy from your computer to the Kubernetes master that allows you to access multiple logging and reporting tools, including the Kibana UI.
 
 Then navigate to the Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana")
 (*It might take a couple of minutes for the proxy to work*).
