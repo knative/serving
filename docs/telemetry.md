@@ -10,25 +10,25 @@ You can use two different setups:
 
 1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 
-```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
-```
+	```shell
+	kubectl apply -R -f config/monitoring/100-common \
+	    -f config/monitoring/150-elasticsearch-prod \
+	    -f third_party/config/monitoring/common \
+	    -f third_party/config/monitoring/elasticsearch \
+	    -f config/monitoring/200-common \
+	    -f config/monitoring/200-common/100-istio.yaml
+	```
 
 1. **150-elasticsearch-dev**: This configuration collects everything **150-elasticsearch-prod** does, plus Knative Serving controller logs.
 
-```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-dev \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
-```
+	```shell
+	kubectl apply -R -f config/monitoring/100-common \
+	    -f config/monitoring/150-elasticsearch-dev \
+	    -f third_party/config/monitoring/common \
+	    -f third_party/config/monitoring/elasticsearch \
+	    -f config/monitoring/200-common \
+	    -f config/monitoring/200-common/100-istio.yaml
+	```
 
 ### Stackdriver, Prometheus, and Grafana Setup
 
