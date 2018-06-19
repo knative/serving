@@ -53,6 +53,7 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 )
@@ -266,6 +267,8 @@ func (c *Controller) syncHandler(key string) error {
 	}
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
+	// Set revision defaults.
+	scheme.Scheme.Default(rev)
 	rev.Status.InitializeConditions()
 
 	if err := c.updateRevisionLoggingURL(rev); err != nil {

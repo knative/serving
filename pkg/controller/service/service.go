@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -130,6 +131,8 @@ func (c *Controller) Reconcile(key string) error {
 
 	// Don't modify the informers copy
 	service = service.DeepCopy()
+	// Set service defaults.
+	scheme.Scheme.Default(service)
 	service.Status.InitializeConditions()
 
 	configName := controller.GetServiceConfigurationName(service)

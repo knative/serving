@@ -36,6 +36,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -199,6 +200,8 @@ func (c *Controller) updateRouteEvent(key string) error {
 	}
 	// Don't modify the informers copy
 	route = route.DeepCopy()
+	// Set route defaults.
+	scheme.Scheme.Default(route)
 	route.Status.InitializeConditions()
 
 	logger.Infof("Reconciling route :%v", route)

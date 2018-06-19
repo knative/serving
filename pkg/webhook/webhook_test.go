@@ -307,11 +307,6 @@ func TestValidNewRevisionObject(t *testing.T) {
 			Path:      "/spec/generation",
 			Value:     1,
 		},
-		jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/servingState",
-			Value:     v1alpha1.RevisionServingStateActive,
-		},
 	})
 }
 
@@ -691,7 +686,6 @@ func createConfiguration(generation int64, configurationName string) v1alpha1.Co
 							Value: envVarValue,
 						}},
 					},
-					ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
 				},
 			},
 		},
@@ -727,7 +721,6 @@ func createRevision(revName string) v1alpha1.Revision {
 			Container: corev1.Container{
 				Image: "test-image",
 			},
-			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
 		},
 	}
 }
