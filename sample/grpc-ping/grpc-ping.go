@@ -58,6 +58,8 @@ func main() {
 
 	pingServer := &pingServer{}
 
+	// The grpcServer is currently configured to serve h2c traffic by default.
+	// To configure credentials or encyrption, see: https://grpc.io/docs/guides/auth.html#go
 	grpcServer := grpc.NewServer()
 	ping.RegisterPingServiceServer(grpcServer, pingServer)
 	grpcServer.Serve(lis)
