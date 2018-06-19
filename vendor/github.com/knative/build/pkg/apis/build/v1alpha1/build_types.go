@@ -192,6 +192,15 @@ type BuildList struct {
 	Items []Build `json:"items"`
 }
 
+func (bs *BuildStatus) GetCondition(t BuildConditionType) *BuildCondition {
+	for _, cond := range bs.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
+}
+
 func (b *BuildStatus) SetCondition(newCond *BuildCondition) {
 	if newCond == nil {
 		return

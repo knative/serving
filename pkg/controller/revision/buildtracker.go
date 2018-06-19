@@ -18,7 +18,6 @@ package revision
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -29,14 +28,6 @@ type key string
 
 func getKey(namespace, name string) key {
 	return key(fmt.Sprintf("%s/%s", namespace, name))
-}
-
-func splitKey(k key) (string, string) {
-	parts := strings.Split(string(k), "/")
-	if len(parts) != 2 {
-		panic("key type invariant violated.")
-	}
-	return parts[0], parts[1]
 }
 
 type set map[key]struct{}
