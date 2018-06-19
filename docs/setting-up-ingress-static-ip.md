@@ -25,7 +25,7 @@ kubectl get svc istio-ingress -n istio-system
 ```
 The result should be something like
 ```
-NAME            TYPE           CLUSTER-IP      EXTERNAL-IP      PORTS)                      AGE
+NAME            TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)                      AGE
 istio-ingress   LoadBalancer   10.59.251.183   35.231.181.148   80:32000/TCP,443:31270/TCP   9h
 ```
 
