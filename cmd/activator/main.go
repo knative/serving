@@ -16,8 +16,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -27,13 +25,16 @@ import (
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/signals"
+	"github.com/knative/serving/third_party/h2c"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 const (
-	maxRetry = 10
+	maxRetry      = 30
+	retryInterval = 1 * time.Second
 )
 
 type activationHandler struct {
@@ -46,28 +47,28 @@ type activationHandler struct {
 type retryRoundTripper struct{}
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	transport := http.DefaultTransport.(*http.Transport)
-	timeout := 500 * time.Millisecond
+	var transport http.RoundTripper
 
-	i := 0
+	transport = http.DefaultTransport
+	if r.ProtoMajor == 2 {
+		transport = h2cutil.NewTransport()
+	}
+
+	resp, err := transport.RoundTrip(r)
+	// TODO: Activator should retry with backoff.
+	// https://github.com/knative/serving/issues/1229
+	i := 1
 	for ; i < maxRetry; i++ {
-		transport.DialContext = (&net.Dialer{
-			Timeout:   timeout,
-			KeepAlive: 30 * time.Second,
-		}).DialContext
-		resp, err := transport.RoundTrip(r)
-		if err == nil && resp != nil {
-			//defer resp.Body.Close()
-			if resp.StatusCode != 503 {
-				return resp, nil
-			}
+		if err == nil && resp != nil && resp.StatusCode != 503 {
+			break
 		}
-		timeout = timeout + timeout
-		log.Printf("Retrying request to %v in %v", r.URL.Host, timeout)
-		time.Sleep(timeout)
+		resp.Body.Close()
+		time.Sleep(retryInterval)
+		resp, err = transport.RoundTrip(r)
 	}
 	// TODO: add metrics for number of tries and the response code.
-	return transport.RoundTrip(r)
+	glog.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	return resp, nil
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
@@ -86,9 +87,11 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = retryRoundTripper{}
+
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/elafros/elafros/issues/964
 	r.Host = ""
+
 	proxy.ServeHTTP(w, r)
 }
 
@@ -121,5 +124,5 @@ func main() {
 	}()
 
 	http.HandleFunc("/", ah.handler)
-	http.ListenAndServe(":8080", nil)
+	h2c.ListenAndServe(":8080", nil)
 }

@@ -493,22 +493,21 @@ func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Rev
 		logger.Info("Deleted service")
 	} else {
 		// Serving state is RevisionServingStateReserve. Delete the revision service and update
-		// the dpeloyment replicas to be 0.
-		if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil {
-			if cond.Reason != "Inactive" {
-				if cond.Reason != "Deactivating" {
-					rev.Status.MarkDeactivating()
-					if _, err := c.updateStatus(rev); err != nil {
-						logger.Error("Error updating revision condition to be deactivating",
-							zap.Error(err))
-						return err
-					}
-				}
+		// the deployment replicas to be 0.
+		if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil && cond.Reason != "Inactive" {
+			if cond.Reason == "Deactivating" {
 				return nil
 			}
+			rev.Status.MarkDeactivating()
+			_, err := c.updateStatus(rev)
+			if err != nil {
+				logger.Error("Error updating revision condition to be deactivating",
+					zap.Error(err))
+			}
+			return err
 		}
 
-		logger.Info("Scale the deployment to 0")
+		logger.Info("Scaling the deployment to 0")
 		err := c.deactivateDeployment(ctx, rev)
 		if err != nil {
 			logger.Error("Failed to scale a deployment to 0", zap.Error(err))
@@ -610,7 +609,7 @@ func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Rev
 		return err
 	}
 
-	logger.Infof("Deactvaing Deployment %q", deploymentName)
+	logger.Infof("Deactivating deployment %q", deploymentName)
 	deployment.Spec.Replicas = new(int32)
 	*deployment.Spec.Replicas = int32(0)
 	_, err = dc.Update(deployment)
