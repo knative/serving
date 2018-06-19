@@ -31,6 +31,9 @@ func MakeServingResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels[serving.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
+		// The route for a revision could change, therefore it is excluded in
+		// revision labels. If the set of labels changed, the deployment could
+		// end up with multiple replica sets.
 		if k != serving.RouteLabelKey {
 			labels[k] = v
 		}

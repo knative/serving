@@ -673,22 +673,19 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			{
-				Destination: v1alpha2.IstioService{
-					Name:      "p-deadbeef-service",
-					Namespace: testNamespace,
-				},
-				Weight: 90,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "p-deadbeef-service",
+				Namespace: testNamespace,
 			},
-			{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 0,
+			Weight: 90,
+		}, {
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-			getActivatorDestinationWeight(10)},
+			Weight: 0,
+		}, getActivatorDestinationWeight(10)},
 		AppendHeaders: appendHeaders,
 	}
 
