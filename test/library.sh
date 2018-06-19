@@ -81,7 +81,7 @@ function delete_gcr_images() {
 function wait_until_pods_running() {
   echo -n "Waiting until all pods in namespace $1 are up"
   for i in {1..150}; do  # timeout after 5 minutes
-    local pods="$(kubectl get pods -n $1 | grep -v NAME)"
+    local pods="$(kubectl get pods -n $1 2>/dev/null | grep -v NAME)"
     local not_running=$(echo "${pods}" | grep -v Running | wc -l)
     if [[ -n "${pods}" && ${not_running} == 0 ]]; then
       echo -e "\nAll pods are up:"
@@ -99,7 +99,7 @@ function wait_until_pods_running() {
 # Returns the name of the Knative Serving pod of the given app.
 # Parameters: $1 - Knative Serving app name.
 function get_ela_pod() {
-  kubectl get pods -n ela-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
+  kubectl get pods -n knative-serving-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
 }
 
 # Sets the given user as cluster admin.

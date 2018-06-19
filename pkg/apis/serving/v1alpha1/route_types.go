@@ -18,6 +18,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,13 +36,16 @@ import (
 // "latest ready" revision changes, and smoothly rolling out latest revisions.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
 type Route struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Route (from the client).
+	// +optional
 	Spec RouteSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Route (from the controller).
+	// +optional
 	Status RouteStatus `json:"status,omitempty"`
 }
 
@@ -75,9 +81,11 @@ type RouteSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// Traffic specifies how to distribute traffic over a collection of Knative Serving Revisions and Configurations.
+	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 }
 
@@ -87,6 +95,9 @@ type RouteCondition struct {
 	Type RouteConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -102,6 +113,9 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady RouteConditionType = "Ready"
+	// RouteConditionIngressReady is set when the route's underlying ingress
+	// resource has been set up.
+	RouteConditionIngressReady RouteConditionType = "IngressReady"
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
@@ -112,22 +126,26 @@ const (
 type RouteStatus struct {
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
 	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
 	Domain string `json:"domain,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
 	// LatestReadyRevisionName that we last observed.
+	// +optional
 	Traffic []TrafficTarget `json:"traffic,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []RouteCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
@@ -169,7 +187,7 @@ func (rs *RouteStatus) GetCondition(t RouteConditionType) *RouteCondition {
 	return nil
 }
 
-func (rs *RouteStatus) SetCondition(new *RouteCondition) {
+func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	if new == nil {
 		return
 	}
@@ -179,8 +197,15 @@ func (rs *RouteStatus) SetCondition(new *RouteCondition) {
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	rs.Conditions = conditions
 }
@@ -193,4 +218,69 @@ func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 		}
 	}
 	rs.Conditions = conditions
+}
+
+func (rs *RouteStatus) InitializeConditions() {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionIngressReady,
+		RouteConditionReady,
+	} {
+		if rc := rs.GetCondition(cond); rc == nil {
+			rs.setCondition(&RouteCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (rs *RouteStatus) MarkTrafficAssigned() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionAllTrafficAssigned,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionReady,
+	} {
+		rs.setCondition(&RouteCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  kind + "Missing",
+			Message: fmt.Sprintf("Referenced %s %q not found", kind, name),
+		})
+	}
+}
+
+func (rs *RouteStatus) MarkIngressReady() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionIngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RouteStatus) checkAndMarkReady() {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionIngressReady,
+	} {
+		ata := rs.GetCondition(cond)
+		if ata == nil || ata.Status != corev1.ConditionTrue {
+			return
+		}
+	}
+	rs.markReady()
+}
+
+func (rs *RouteStatus) markReady() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

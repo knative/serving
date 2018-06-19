@@ -1,4 +1,4 @@
-# Elafros Working Groups
+# Knative Working Groups
 
 Most community activity is organized into *working groups*.
 

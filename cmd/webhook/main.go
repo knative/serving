@@ -20,6 +20,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/webhook"
@@ -30,7 +31,7 @@ import (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("ela-webhook")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")
@@ -49,10 +50,10 @@ func main() {
 	}
 
 	options := webhook.ControllerOptions{
-		ServiceName:      "ela-webhook",
-		ServiceNamespace: "ela-system",
+		ServiceName:      "webhook",
+		ServiceNamespace: pkg.GetServingSystemNamespace(),
 		Port:             443,
-		SecretName:       "ela-webhook-certs",
+		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
 	}
 	controller, err := webhook.NewAdmissionController(clientset, options, logger)

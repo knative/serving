@@ -342,7 +342,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-  revision = "bfc0222e894da677b45fd63828a89676aa706589"
+  revision = "5127da35831f0c56d234e23ff087e9caf77d75e7"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -533,13 +533,14 @@
   packages = [
     "context",
     "context/ctxhttp",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
-    "lex/httplex",
+    "internal/socks",
     "proxy"
   ]
-  revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
+  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [[projects]]
   branch = "master"
@@ -681,6 +682,7 @@
 [[projects]]
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -952,6 +954,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "621e4f5bec0b084d127193a1a2ec95460b8368224d81f7c2611900a91c1bbb12"
+  inputs-digest = "9794defec7ac7f7e8d21464a8bbd7e943b3bda0dfa0210cc2118357e889533e5"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,9 +108,7 @@ func getTestRevisionWithCondition(name string, cond v1alpha1.RevisionCondition) 
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: fmt.Sprintf("%s-service", name),
-			Conditions: []v1alpha1.RevisionCondition{
-				cond,
-			},
+			Conditions:  []v1alpha1.RevisionCondition{cond},
 		},
 	}
 }
@@ -154,8 +154,8 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
 	return v1alpha2.DestinationWeight{
 		Destination: v1alpha2.IstioService{
-			Name:      ctrl.GetElaK8SActivatorServiceName(),
-			Namespace: ctrl.GetElaK8SActivatorNamespace(),
+			Name:      ctrl.GetServingK8SActivatorServiceName(),
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Weight: w,
 	}
@@ -166,35 +166,42 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory) {
+	elaInformer informers.SharedInformerFactory,
+	servingSystemInformer kubeinformers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
+	domainConfig := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ctrl.GetDomainConfigMapName(),
+			Namespace: pkg.GetServingSystemNamespace(),
+		},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			prodDomainSuffix:    "selector:\n  app: prod",
+		},
+	}
+	kubeClient.Core().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&domainConfig)
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
+	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
 
 	controller = NewController(
-		kubeClient,
-		elaClient,
-		kubeInformer,
-		elaInformer,
-		&rest.Config{},
-		ctrl.Config{
-			Domains: map[string]*ctrl.LabelSelector{
-				defaultDomainSuffix: &ctrl.LabelSelector{},
-				prodDomainSuffix: &ctrl.LabelSelector{
-					Selector: map[string]string{
-						"app": "prod",
-					},
-				},
-			},
+		ctrl.Options{
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			Logger:           zap.NewNop().Sugar(),
 		},
+		elaInformer.Serving().V1alpha1().Routes(),
+		elaInformer.Serving().V1alpha1().Configurations(),
+		kubeInformer.Extensions().V1beta1().Ingresses(),
+		servingSystemInformer.Core().V1().ConfigMaps(),
+		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
-		testLogger,
 	).(*Controller)
 
 	return
@@ -206,15 +213,17 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
+	servingSystemInformer kubeinformers.SharedInformerFactory,
 	stopCh chan struct{}) {
 
-	kubeClient, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+	kubeClient, elaClient, controller, kubeInformer, elaInformer, servingSystemInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
 	stopCh = make(chan struct{})
 	kubeInformer.Start(stopCh)
 	elaInformer.Start(stopCh)
+	servingSystemInformer.Start(stopCh)
 
 	// Run the controller.
 	go func() {
@@ -227,13 +236,13 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ingress"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Istio route rule "test-route-istio"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
 
@@ -243,12 +252,10 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: "test-rev",
+			Percent:      100,
+		}},
 	)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
@@ -263,19 +270,17 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		t.Errorf("error getting service: %v", err)
 	}
 
-	expectedPorts := []corev1.ServicePort{
-		corev1.ServicePort{
-			Name: "http",
-			Port: 80,
-		},
-	}
+	expectedPorts := []corev1.ServicePort{{
+		Name: "http",
+		Port: 80,
+	}}
 
 	if diff := cmp.Diff(expectedPorts, service.Spec.Ports); diff != "" {
 		t.Errorf("Unexpected service ports diff (-want +got): %v", diff)
 	}
 
 	// Look for the ingress.
-	expectedIngressName := fmt.Sprintf("%s-ela-ingress", route.Name)
+	expectedIngressName := fmt.Sprintf("%s-ingress", route.Name)
 	ingress, err := kubeClient.ExtensionsV1beta1().Ingresses(testNamespace).Get(expectedIngressName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error getting ingress: %v", err)
@@ -303,13 +308,11 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	}
 
 	// Check owner refs
-	expectedRefs := []metav1.OwnerReference{
-		metav1.OwnerReference{
-			APIVersion: "serving.knative.dev/v1alpha1",
-			Kind:       "Route",
-			Name:       route.Name,
-		},
-	}
+	expectedRefs := []metav1.OwnerReference{{
+		APIVersion: "serving.knative.dev/v1alpha1",
+		Kind:       "Route",
+		Name:       route.Name,
+	}}
 
 	if diff := cmp.Diff(expectedRefs, routerule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
@@ -331,15 +334,13 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 100,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 100,
+		}, getActivatorDestinationWeight(0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -353,14 +354,14 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ela-ingress"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Ingress "test-route-ingress"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created Istio route rule "test-route-istio"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
 
@@ -375,12 +376,10 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: "test-rev",
+			Percent:      100,
+		}},
 	)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
@@ -401,13 +400,11 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	}
 
 	// Check owner refs
-	expectedRefs := []metav1.OwnerReference{
-		metav1.OwnerReference{
-			APIVersion: "serving.knative.dev/v1alpha1",
-			Kind:       "Route",
-			Name:       route.Name,
-		},
-	}
+	expectedRefs := []metav1.OwnerReference{{
+		APIVersion: "serving.knative.dev/v1alpha1",
+		Kind:       "Route",
+		Name:       route.Name,
+	}}
 
 	if diff := cmp.Diff(expectedRefs, routerule.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
@@ -416,6 +413,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
 	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name:      "test-route-service",
@@ -432,9 +430,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			getActivatorDestinationWeight(100),
-		},
+		Route:         []v1alpha2.DestinationWeight{getActivatorDestinationWeight(100)},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -448,7 +444,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -477,12 +473,10 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           100,
+		}},
 	)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
@@ -511,22 +505,19 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", latestReadyRev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 100,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", latestReadyRev.Name),
+				Namespace: testNamespace,
 			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", otherRev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 0,
+			Weight: 100,
+		}, getActivatorDestinationWeight(0), {
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", otherRev.Name),
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 0,
+		}},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -535,7 +526,7 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -552,16 +543,13 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           90,
-			},
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      10,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           90,
+		}, {
+			RevisionName: rev.Name,
+			Percent:      10,
+		}},
 	)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
@@ -590,22 +578,19 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", cfgrev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 90,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", cfgrev.Name),
+				Namespace: testNamespace,
 			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", rev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 10,
+			Weight: 90,
+		}, {
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", rev.Name),
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 10,
+		}, getActivatorDestinationWeight(0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -616,7 +601,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	// A standalone inactive revision
@@ -640,16 +625,13 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           90,
-			},
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      10,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           90,
+		}, {
+			RevisionName: rev.Name,
+			Percent:      10,
+		}},
 	)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
@@ -665,6 +647,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	appendHeaders := make(map[string]string)
 	appendHeaders[ctrl.GetRevisionHeaderName()] = "test-rev"
 	appendHeaders[ctrl.GetRevisionHeaderNamespace()] = testNamespace
+	appendHeaders["x-envoy-upstream-rq-timeout-ms"] = requestTimeoutMs
 	expectedRouteSpec := v1alpha2.RouteRuleSpec{
 		Destination: v1alpha2.IstioService{
 			Name:      fmt.Sprintf("%s-service", route.Name),
@@ -681,16 +664,13 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      fmt.Sprintf("%s-service", cfgrev.Name),
-					Namespace: testNamespace,
-				},
-				Weight: 90,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      fmt.Sprintf("%s-service", cfgrev.Name),
+				Namespace: testNamespace,
 			},
-			getActivatorDestinationWeight(10),
-		},
+			Weight: 90,
+		}, getActivatorDestinationWeight(10)},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -701,7 +681,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -719,39 +699,31 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	// A route with duplicate targets. These will be deduped.
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: "test-config",
-				Percent:           30,
-			},
-			v1alpha1.TrafficTarget{
-				ConfigurationName: "test-config",
-				Percent:           20,
-			},
-			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      10,
-			},
-			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      5,
-			},
-			v1alpha1.TrafficTarget{
-				Name:         "test-revision-1",
-				RevisionName: "test-rev",
-				Percent:      10,
-			},
-			v1alpha1.TrafficTarget{
-				Name:         "test-revision-1",
-				RevisionName: "test-rev",
-				Percent:      10,
-			},
-			v1alpha1.TrafficTarget{
-				Name:         "test-revision-2",
-				RevisionName: "test-rev",
-				Percent:      15,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: "test-config",
+			Percent:           30,
+		}, {
+			ConfigurationName: "test-config",
+			Percent:           20,
+		}, {
+			RevisionName: "test-rev",
+			Percent:      10,
+		}, {
+			RevisionName: "test-rev",
+			Percent:      5,
+		}, {
+			Name:         "test-revision-1",
+			RevisionName: "test-rev",
+			Percent:      10,
+		}, {
+			Name:         "test-revision-1",
+			RevisionName: "test-rev",
+			Percent:      10,
+		}, {
+			Name:         "test-revision-2",
+			RevisionName: "test-rev",
+			Percent:      15,
+		}},
 	)
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
@@ -780,36 +752,32 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "p-deadbeef-service",
-					Namespace: testNamespace,
-				},
-				Weight: 50,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "p-deadbeef-service",
+				Namespace: testNamespace,
 			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 15,
+			Weight: 50,
+		}, {
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 20,
+			Weight: 15,
+		}, {
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 15,
+			Weight: 20,
+		}, {
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
+			Weight: 15,
 		},
+			getActivatorDestinationWeight(0)},
 	}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
@@ -818,7 +786,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -836,18 +804,15 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// A route targeting both the config and standalone revision with named
 	// targets
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				Name:         "foo",
-				RevisionName: "test-rev",
-				Percent:      50,
-			},
-			v1alpha1.TrafficTarget{
-				Name:              "bar",
-				ConfigurationName: "test-config",
-				Percent:           50,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			Name:         "foo",
+			RevisionName: "test-rev",
+			Percent:      50,
+		}, {
+			Name:              "bar",
+			ConfigurationName: "test-config",
+			Percent:           50,
+		}},
 	)
 
 	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -883,22 +848,19 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 50,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "p-deadbeef-service",
-					Namespace: testNamespace,
-				},
-				Weight: 50,
+			Weight: 50,
+		}, {
+			Destination: v1alpha2.IstioService{
+				Name:      "p-deadbeef-service",
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 50,
+		}, getActivatorDestinationWeight(0)},
 	})
 
 	// Expects authority header to have the traffic target name prefixed to the
@@ -920,15 +882,13 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 100,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 100,
+		}},
 	})
 
 	// Expects authority header to have the traffic target name prefixed to the
@@ -950,34 +910,29 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			v1alpha2.DestinationWeight{
-				Destination: v1alpha2.IstioService{
-					Name:      "p-deadbeef-service",
-					Namespace: testNamespace,
-				},
-				Weight: 100,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "p-deadbeef-service",
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 100,
+		}},
 	})
 }
 
 func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
-	_, elaClient, controller, _, _ := newTestController(t)
+	_, elaClient, controller, _, _, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           50,
-			},
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-				Name:              "foo",
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           50,
+		}, {
+			ConfigurationName: config.Name,
+			Percent:           100,
+			Name:              "foo",
+		}},
 	)
 	extraRouteRule := &v1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1031,16 +986,14 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           100,
+		}},
 	)
 
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
@@ -1063,16 +1016,14 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 }
 
 func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           100,
+		}},
 	)
 
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
@@ -1119,16 +1070,14 @@ func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: rev.Name,
+			Percent:      100,
+		}},
 	)
 
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
@@ -1166,16 +1115,14 @@ func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 }
 
 func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: rev.Name,
+			Percent:      100,
+		}},
 	)
 	// Set config's route label with another route name to trigger an error.
 	config.Labels = map[string]string{serving.RouteLabelKey: "another-route"}
@@ -1210,17 +1157,108 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	}
 }
 
-func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+// Helper to compare RouteConditions
+func sortConditions(a, b v1alpha1.RouteCondition) bool {
+	return a.Type < b.Type
+}
+
+func TestCreateRouteRevisionMissingCondition(t *testing.T) {
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			// Note that since no Revision with this name exists,
+			// this will trigger the RevisionMissing condition.
+			RevisionName: "does-not-exist",
+			Percent:      100,
+		}},
+	)
+
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := `revisions.serving.knative.dev "does-not-exist" not found`
+	// Should return error.
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+
+	// Verify that Route.Status.Conditions were correctly set.
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+
+	for _, ct := range []v1alpha1.RouteConditionType{"AllTrafficAssigned", "Ready"} {
+		got := newRoute.Status.GetCondition(ct)
+		want := &v1alpha1.RouteCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionMissing",
+			Message:            `Referenced Revision "does-not-exist" not found`,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{{
+			// Note that since no Configuration with this name exists,
+			// this will trigger the ConfigurationMissing condition.
+			ConfigurationName: "does-not-exist",
+			Percent:           100,
+		}},
+	)
+
+	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	expectedErrMsg := `configurations.serving.knative.dev "does-not-exist" not found`
+	// Should return error.
+	err := controller.updateRouteEvent(route.Namespace + "/" + route.Name)
+	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
+		t.Errorf("unexpected error: %q expected: %q", got, wanted)
+	}
+
+	// Verify that Route.Status.Conditions were correctly set.
+	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+
+	for _, ct := range []v1alpha1.RouteConditionType{"AllTrafficAssigned", "Ready"} {
+		got := newRoute.Status.GetCondition(ct)
+		want := &v1alpha1.RouteCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "ConfigurationMissing",
+			Message:            `Referenced Configuration "does-not-exist" not found`,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	config := getTestConfiguration()
+	rev := getTestRevisionForConfig(config)
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: rev.Name,
+			Percent:      100,
+		}},
 	)
 	// Set config's route label with route name to make sure config's label will not be set
 	// by function setLabelForGivenConfigurations.
@@ -1256,7 +1294,7 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 }
 
 func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a route label in configuration which is expected to be deleted.
@@ -1300,10 +1338,10 @@ func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
-	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 
 	// Create a route.
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
@@ -1335,7 +1373,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 		}
 
 		// Confirms that the ingress is updated in tandem with the route.
-		ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
+		ingress, _ := ingressClient.Get(ctrl.GetServingK8SIngressName(route), metav1.GetOptions{})
 
 		expectedHost := route.Status.Domain
 		expectedWildcardHost := fmt.Sprintf("*.%s", route.Status.Domain)
@@ -1349,30 +1387,28 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 }
 
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	routeClient := elaClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           100,
+		}},
 	)
 
 	routeClient.Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 
 	route, err := routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1395,10 +1431,10 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 	// We need to update the config in the client since getDirectTrafficTargets
 	// gets the configuration from there
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
-	// Since addConfigurationEvent looks in the lister, we need to add it to the
+	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
 	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 
 	route, err = routeClient.Get(route.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1407,12 +1443,13 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 
 	// Now the configuration has a LatestReadyRevisionName, so its revision should
 	// be targeted
-	expectedTrafficTargets = []v1alpha1.TrafficTarget{
-		v1alpha1.TrafficTarget{
-			RevisionName: rev.Name,
-			Percent:      100,
-		},
-	}
+	expectedTrafficTargets = []v1alpha1.TrafficTarget{{
+		RevisionName: rev.Name,
+		Percent:      100,
+	}, {
+		Name:    ctrl.GetServingK8SActivatorServiceName(),
+		Percent: 0,
+	}}
 	if diff := cmp.Diff(expectedTrafficTargets, route.Status.Traffic); diff != "" {
 		t.Errorf("Unexpected traffic target diff (-want +got): %v", diff)
 	}
@@ -1424,16 +1461,14 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 }
 
 func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) {
-	_, elaClient, controller, _, elaInformer := newTestController(t)
+	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			ConfigurationName: config.Name,
+			Percent:           100,
+		}},
 	)
 	// If set config.Status.LatestReadyRevisionName = rev.Name, the test should fail.
 	config.Status.LatestCreatedRevisionName = rev.Name
@@ -1461,46 +1496,173 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 		},
 	)
 
-	controller.addConfigurationEvent(config)
+	controller.SyncConfiguration(config)
 }
 
 // Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
-	kubeClient, elaClient, controller, _, _ := newTestController(t)
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+
+	// A standalone revision
+	rev := getTestRevision("test-rev")
+	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			{
-				RevisionName: "test-rev",
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: rev.Name,
+			Percent:      100,
+		}},
 	)
 	// Create a route.
 	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
-	// Create an ingress owned by this route.
-	controller.reconcileIngress(testCtx, route)
+	// Since updateRouteEvent looks in the lister, we need to add it to the informer
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.updateRouteEvent(KeyOrDie(route))
+
 	// Before ingress has an IP address, route isn't marked as Ready.
-	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
-	ingress, _ := ingressClient.Get(ctrl.GetElaK8SIngressName(route), metav1.GetOptions{})
-	controller.updateIngressEvent(nil, ingress)
-	route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-	if nil != route.Status.Conditions {
-		t.Errorf("Route Status.Conditions should be nil, saw %v", route.Status.Conditions)
+	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
+	ingress, _ := ingressClient.Get(ctrl.GetServingK8SIngressName(route), metav1.GetOptions{})
+	controller.SyncIngress(ingress)
+
+	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
+	for _, ct := range []v1alpha1.RouteConditionType{"Ready"} {
+		got := newRoute.Status.GetCondition(ct)
+		want := &v1alpha1.RouteCondition{
+			Type:               ct,
+			Status:             corev1.ConditionUnknown,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
 	}
+
 	// Update the Ingress IP.
 	ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{
 		IP: "127.0.0.1",
 	}}
-	controller.updateIngressEvent(nil, ingress)
+	controller.SyncIngress(ingress)
+
 	// Verify now that Route.Status.Conditions is set correctly.
-	expectedConditions := []v1alpha1.RouteCondition{{
-		Type:   v1alpha1.RouteConditionReady,
-		Status: corev1.ConditionTrue,
+	newRoute, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+	for _, ct := range []v1alpha1.RouteConditionType{"Ready"} {
+		got := newRoute.Status.GetCondition(ct)
+		want := &v1alpha1.RouteCondition{
+			Type:               ct,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestUpdateDomainConfigMap(t *testing.T) {
+	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
+	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
+
+	// Create a route.
+	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	routeClient.Create(route)
+	controller.updateRouteEvent(KeyOrDie(route))
+
+	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
+
+	// Test changes in domain config map. Routes should get updated appropriately.
+	expectations := []struct {
+		apply                func()
+		expectedDomainSuffix string
+	}{{
+		expectedDomainSuffix: prodDomainSuffix,
+		apply:                func() {},
+	}, {
+		expectedDomainSuffix: "mytestdomain.com",
+		apply: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ctrl.GetDomainConfigMapName(),
+					Namespace: pkg.GetServingSystemNamespace(),
+				},
+				Data: map[string]string{
+					defaultDomainSuffix: "",
+					"mytestdomain.com":  "selector:\n  app: prod",
+				},
+			}
+			controller.SyncConfigMap(&domainConfig)
+		},
+	}, {
+		expectedDomainSuffix: "newdefault.net",
+		apply: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ctrl.GetDomainConfigMapName(),
+					Namespace: pkg.GetServingSystemNamespace(),
+				},
+				Data: map[string]string{
+					"newdefault.net":   "",
+					"mytestdomain.com": "selector:\n  app: prod",
+				},
+			}
+			controller.SyncConfigMap(&domainConfig)
+			route.Labels = make(map[string]string)
+		},
+	}, {
+		// An unrelated config map
+		expectedDomainSuffix: "newdefault.net",
+		apply: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "SomethingDifferent",
+					Namespace: pkg.GetServingSystemNamespace(),
+				},
+				Data: map[string]string{
+					defaultDomainSuffix: "",
+				},
+			}
+			controller.SyncConfigMap(&domainConfig)
+			route.Labels = make(map[string]string)
+		},
+	}, {
+		// An invalid config map
+		expectedDomainSuffix: "newdefault.net",
+		apply: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ctrl.GetDomainConfigMapName(),
+					Namespace: pkg.GetServingSystemNamespace(),
+				},
+				Data: map[string]string{
+					"mytestdomain.com": "selector:\n  app: prod",
+				},
+			}
+			controller.SyncConfigMap(&domainConfig)
+			route.Labels = make(map[string]string)
+		},
 	}}
-	newRoute, _ := routeClient.Get(route.Name, metav1.GetOptions{})
-	if diff := cmp.Diff(expectedConditions, newRoute.Status.Conditions); diff != "" {
-		t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+	for _, expectation := range expectations {
+		expectation.apply()
+		elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+		routeClient.Update(route)
+		controller.updateRouteEvent(KeyOrDie(route))
+
+		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+		if route.Status.Domain != expectedDomain {
+			t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+		}
+		ingress, _ := ingressClient.Get(ctrl.GetServingK8SIngressName(route), metav1.GetOptions{})
+		expectedHost := route.Status.Domain
+		expectedWildcardHost := fmt.Sprintf("*.%s", route.Status.Domain)
+		if ingress.Spec.Rules[0].Host != expectedHost {
+			t.Errorf("Expected ingress host %q but saw %q", expectedHost, ingress.Spec.Rules[0].Host)
+		}
+		if ingress.Spec.Rules[1].Host != expectedWildcardHost {
+			t.Errorf("Expected ingress host %q but saw %q", expectedWildcardHost, ingress.Spec.Rules[1].Host)
+		}
 	}
 }

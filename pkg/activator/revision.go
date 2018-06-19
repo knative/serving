@@ -33,7 +33,7 @@ var _ Activator = (*revisionActivator)(nil)
 type revisionActivator struct {
 	readyTimout time.Duration // for testing
 	kubeClient  kubernetes.Interface
-	elaClient   clientset.Interface
+	knaClient   clientset.Interface
 }
 
 // NewRevisionActivator creates an Activator that changes revision
@@ -43,7 +43,7 @@ func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.I
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
-		elaClient:   elaClient,
+		knaClient:   elaClient,
 	}
 }
 
@@ -60,7 +60,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// Get the current revision serving state
-	revisionClient := r.elaClient.ServingV1alpha1().Revisions(rev.namespace)
+	revisionClient := r.knaClient.ServingV1alpha1().Revisions(rev.namespace)
 	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get revision %s/%s: %v", rev.namespace, rev.name, err)
@@ -84,7 +84,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Wait for the revision to be ready
 	if !revision.Status.IsReady() {
-		wi, err := r.elaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
+		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {
@@ -102,6 +102,8 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 					if !revision.Status.IsReady() {
 						log.Printf("Revision %s/%s is not yet ready", rev.namespace, rev.name)
 						continue
+					} else {
+						log.Printf("Revision %s/%s is ready", rev.namespace, rev.name)
 					}
 					break RevisionReady
 				} else {
@@ -112,33 +114,25 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// Get the revision endpoint
-	//
-	// TODO: figure out why do we need to use the pod IP directly to avoid the delay.
-	// We should be able to use the k8s service cluster IP.
-	// https://github.com/knative/serving/issues/660
-	endpointName := controller.GetElaK8SServiceNameForRevision(revision)
-	k8sEndpoint, err := r.kubeClient.CoreV1().Endpoints(rev.namespace).Get(endpointName, metav1.GetOptions{})
+	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
+	serviceName := controller.GetServingK8SServiceNameForRevision(revision)
+	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		return internalError("Unable to get endpoint %s for revision %s/%s: %v",
-			endpointName, rev.namespace, rev.name, err)
+		return internalError("Unable to get service %s for revision %s/%s: %v",
+			serviceName, rev.namespace, rev.name, err)
 	}
-	if len(k8sEndpoint.Subsets) != 1 {
-		return internalError("Revision %s/%s needs one endpoint subset. Found %v", rev.namespace, rev.name, len(k8sEndpoint.Subsets))
+
+	// TODO: in the future, the target service could have more than one port.
+	// https://github.com/elafros/elafros/issues/837
+	if len(svc.Spec.Ports) != 1 {
+		return internalError("Revision %s/%s needs one port. Found %v", rev.namespace, rev.name, len(svc.Spec.Ports))
 	}
-	subset := k8sEndpoint.Subsets[0]
-	if len(subset.Addresses) != 1 || len(subset.Ports) != 1 {
-		return internalError("Revision %s/%s needs one endpoint address and port. Found %v addresses and %v ports",
-			rev.namespace, rev.name, len(subset.Addresses), len(subset.Ports))
-	}
-	ip := subset.Addresses[0].IP
-	port := subset.Ports[0].Port
-	if ip == "" || port == 0 {
-		return internalError("Invalid ip %q or port %q for revision %s/%s", ip, port, rev.namespace, rev.name)
-	}
+	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, revision.Namespace)
+	port := svc.Spec.Ports[0].Port
 
 	// Return the endpoint and active=true
 	end = Endpoint{
-		IP:   ip,
+		FQDN: fqdn,
 		Port: port,
 	}
 	return end, 0, nil

@@ -1,12 +1,12 @@
-# Elafros Community
+# Knative Community
 
-Welcome to the Elafros community!
+Welcome to the Knative community!
 
 This is the starting point for becoming a contributor - improving code,
 improving docs, giving talks, etc.
 
 *   [Introduction](#introduction)
-*   [Elafros authors](#knative-authors)
+*   [Knative authors](#knative-authors)
 *   [Slack team](#slack-team)
 *   [How can I help?](#how-can-i-help-)
 *   [Questions and issues](#questions-and-issues)
@@ -15,7 +15,7 @@ Other Documents
 
 *   [Code of Conduct](CODE-OF-CONDUCT.md) - all contributors must abide by the
     code of conduct
-*   [Contributing to Elafros](CONTRIBUTING.md) - guidelines and advice on
+*   [Contributing to Knative](CONTRIBUTING.md) - guidelines and advice on
     becoming a contributor
 *   [Working Groups](WORKING-GROUPS.md) - describes our various working groups
 *   [Working Group Processes](WORKING-GROUP-PROCESSES.md) - describes how
@@ -25,26 +25,26 @@ Other Documents
 *   [Steering Committee](STEERING-COMMITTEE.md) - describes our steering
     committee
 *   [Community Roles](ROLES.md) - describes the roles individuals can assume
-    within the Elafros community
+    within the Knative community
 *   [Reviewing and Merging Pull Requests](REVIEWING.md) - how we manage pull
     requests
 
 ## Introduction
 
-Elafros is an open source specification and implementation of a serverless
+Knative is an open source specification and implementation of a serverless
 container platform.
 
 <!-- TODO Visit [knative.dev](https://knative.dev) for in-depth information about using
-Elafros. -->
+Knative. -->
 
-## Elafros authors
+## Knative authors
 
-Elafros is an open source project with an active development community. The
+Knative is an open source project with an active development community. The
 project was started by Google.
 
 ## Slack team
 
-Real-time Elafros discussion is available at https://knative.slack.com.
+Real-time Knative discussion is available at https://knative.slack.com.
 
 <!-- TODO ## Community meeting
 
@@ -64,10 +64,10 @@ in our community. -->
 [architecture](https://knative.dev/docs/concepts/what-is-knative/overview.html#architecture)
 and read some [design docs](./CONTRIBUTING.md#design-documents). -->
 
-If you're looking for something to do to get your feet wet working on Elafros,
+If you're looking for something to do to get your feet wet working on Knative,
 look for GitHub issues marked with the Help Wanted label:
 
-*   [Primary Elafros
+*   [Primary Knative
     repo](https://github.com/knative/serving/issues?q=is%3Aopen+is%3Aissue+label%3A%22community%2Fhelp+wanted%22)
 *   [Documentation
     repo](https://github.com/knative/serving.dev/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
@@ -79,9 +79,9 @@ we could use your help in spiffing up our public-facing web site.
 
 ## Questions and issues
 
-<!-- TODO If you've got questions or issues with using Elafros, checkout our [help
+<!-- TODO If you've got questions or issues with using Knative, checkout our [help
 page](https://knative.dev/help). -->
 
-If you're a developer trying to hack on or use the Elafros code, head to
-[knative-dev@](https://groups.google.com/forum/#!forum/knative-dev) or [Elafros
+If you're a developer trying to hack on or use the Knative code, head to
+[knative-dev@](https://groups.google.com/forum/#!forum/knative-dev) or [Knative
 Slack](https://knative.slack.com) for help.

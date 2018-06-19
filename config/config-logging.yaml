@@ -16,9 +16,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-logging
-  namespace: ela-system
+  namespace: knative-serving-system
 data:
-  # Common configuration for all Elafros codebase
+  # Common configuration for all Knative codebase
   zap-logger-config: |
     {
       "level": "info",

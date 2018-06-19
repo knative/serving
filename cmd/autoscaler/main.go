@@ -27,13 +27,13 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
+	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	ela_autoscaler "github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 
 	"github.com/gorilla/websocket"
 
@@ -150,7 +150,7 @@ func scaleSerializer() {
 }
 
 func scaleTo(podCount int32) {
-	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (float64)(podCount))
 	if currentScale == podCount {
 		return
 	}
@@ -160,9 +160,9 @@ func scaleTo(podCount int32) {
 		logger.Error("Error getting Deployment %q: %s", elaDeployment, zap.Error(err))
 		return
 	}
-	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
-	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (int64)(deployment.Status.Replicas))
-	statsReporter.Report(ela_autoscaler.ActualPodCountM, (int64)(deployment.Status.ReadyReplicas))
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (float64)(podCount))
+	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (float64)(deployment.Status.Replicas))
+	statsReporter.Report(ela_autoscaler.ActualPodCountM, (float64)(deployment.Status.ReadyReplicas))
 
 	if *deployment.Spec.Replicas == podCount {
 		currentScale = podCount
@@ -222,7 +222,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLoggerFromDefaultConfigMap("loglevel.autoscaler").Named("ela-autoscaler")
+	logger = logging.NewLoggerFromDefaultConfigMap("loglevel.autoscaler").Named("autoscaler")
 	defer logger.Sync()
 
 	initEnv()

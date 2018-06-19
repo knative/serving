@@ -19,7 +19,7 @@ limitations under the License.
 package test
 
 import (
-	"log"
+	"github.com/golang/glog"
 	"os"
 	"os/signal"
 )
@@ -30,8 +30,9 @@ func CleanupOnInterrupt(cleanup func()) {
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for _ = range c {
-			log.Println("Test interrupted, cleaning up.")
+			glog.Infof("Test interrupted, cleaning up.")
 			cleanup()
+			os.Exit(1)
 		}
 	}()
 }

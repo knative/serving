@@ -33,11 +33,14 @@ import (
 	"time"
 
 	"github.com/knative/serving/cmd/util"
+	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/third_party/h2c"
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
@@ -50,9 +53,7 @@ const (
 	// reporting so that latency in the stat pipeline doesn't
 	// interfere with request handling.
 	statReportingQueueLength = 10
-	// Add enough buffer to keep track of as many requests as can
-	// be handled in a quantum of time. Because the request out
-	// channel isn't drained until the end of a quantum of time.
+	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
 	// Number of seconds the /quitquitquit handler should wait before
 	// returning.  The purpose is to kill the container alive a little
@@ -66,19 +67,21 @@ const (
 )
 
 var (
-	podName                  string
-	elaNamespace             string
-	elaConfiguration         string
-	elaRevision              string
-	elaAutoscaler            string
-	elaAutoscalerPort        string
-	statChan                 = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqInChan                = make(chan queue.Poke, requestCountingQueueLength)
-	reqOutChan               = make(chan queue.Poke, requestCountingQueueLength)
-	kubeClient               *kubernetes.Clientset
-	statSink                 *websocket.Conn
-	proxy                    *httputil.ReverseProxy
-	logger                   *zap.SugaredLogger
+	podName           string
+	elaNamespace      string
+	elaConfiguration  string
+	elaRevision       string
+	elaAutoscaler     string
+	elaAutoscalerPort string
+	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan           = make(chan queue.ReqEvent, requestCountingQueueLength)
+	kubeClient        *kubernetes.Clientset
+	statSink          *websocket.Conn
+	logger            *zap.SugaredLogger
+
+	h2cProxy  *httputil.ReverseProxy
+	httpProxy *httputil.ReverseProxy
+
 	concurrencyQuantumOfTime = flag.Duration("concurrencyQuantumOfTime", 100*time.Millisecond, "")
 	concurrencyModel         = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
 	singleConcurrencyBreaker = queue.NewBreaker(singleConcurrencyQueueDepth, 1)
@@ -95,7 +98,7 @@ func initEnv() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, queue.AutoscalerNamespace, elaAutoscalerPort)
+		elaAutoscaler, pkg.GetServingSystemNamespace(), elaAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// Everything is coming up at the same time.  We wait a
@@ -142,6 +145,14 @@ func statReporter() {
 	}
 }
 
+func proxyForRequest(req *http.Request) *httputil.ReverseProxy {
+	if req.ProtoMajor == 2 {
+		return h2cProxy
+	}
+
+	return httpProxy
+}
+
 func isProbe(r *http.Request) bool {
 	// Since K8s 1.8, prober requests have
 	//   User-Agent = "kube-probe/{major-version}.{minor-version}".
@@ -149,15 +160,18 @@ func isProbe(r *http.Request) bool {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	proxy := proxyForRequest(r)
+
 	if isProbe(r) {
 		// Do not count health checks for concurrency metrics
 		proxy.ServeHTTP(w, r)
 		return
 	}
+
 	// Metrics for autoscaling
-	reqInChan <- queue.Poke{}
+	reqChan <- queue.ReqIn
 	defer func() {
-		reqOutChan <- queue.Poke{}
+		reqChan <- queue.ReqOut
 	}()
 	if *concurrencyModel == string(v1alpha1.RevisionRequestConcurrencyModelSingle) {
 		// Enforce single concurrency and breaking
@@ -239,7 +253,8 @@ func setupAdminHandlers(server *http.Server) {
 }
 
 func main() {
-	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("ela-queueproxy")
+	flag.Parse()
+	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("queueproxy")
 	defer logger.Sync()
 
 	initEnv()
@@ -253,9 +268,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to parse localhost url", zap.Error(err))
 	}
-	proxy = httputil.NewSingleHostReverseProxy(target)
 
-	logger.Info("Queue container is starting")
+	httpProxy = httputil.NewSingleHostReverseProxy(target)
+	h2cProxy = httputil.NewSingleHostReverseProxy(target)
+	h2cProxy.Transport = h2cutil.NewTransport()
+
+	logger.Infof("Queue container is starting, concurrencyModel: %s", *concurrencyModel)
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		logger.Fatal("Error getting in cluster config", zap.Error(err))
@@ -270,8 +288,7 @@ func main() {
 	bucketTicker := time.NewTicker(*concurrencyQuantumOfTime).C
 	reportTicker := time.NewTicker(time.Second).C
 	queue.NewStats(podName, queue.Channels{
-		ReqInChan:        reqInChan,
-		ReqOutChan:       reqOutChan,
+		ReqChan:          reqChan,
 		QuantizationChan: bucketTicker,
 		ReportChan:       reportTicker,
 		StatChan:         statChan,
@@ -282,10 +299,15 @@ func main() {
 		}
 	}()
 
-	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", queue.RequestQueuePort), Handler: nil}
 	adminServer := &http.Server{
-		Addr: fmt.Sprintf(":%d", queue.RequestQueueAdminPort), Handler: nil}
+		Addr:    fmt.Sprintf(":%d", queue.RequestQueueAdminPort),
+		Handler: nil,
+	}
+
+	h2cServer := h2c.Server{Server: &http.Server{
+		Addr:    fmt.Sprintf(":%d", queue.RequestQueuePort),
+		Handler: http.HandlerFunc(handler),
+	}}
 
 	// Add a SIGTERM handler to gracefully shutdown the servers during
 	// pod termination.
@@ -295,11 +317,12 @@ func main() {
 		<-sigTermChan
 		// Calling server.Shutdown() allows pending requests to
 		// complete, while no new work is accepted.
-		server.Shutdown(context.Background())
+
+		h2cServer.Shutdown(context.Background())
 		adminServer.Shutdown(context.Background())
 		os.Exit(0)
 	}()
-	http.HandleFunc("/", handler)
-	go server.ListenAndServe()
+
+	go h2cServer.ListenAndServe()
 	setupAdminHandlers(adminServer)
 }

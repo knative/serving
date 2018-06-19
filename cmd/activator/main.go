@@ -19,18 +19,56 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
+	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/signals"
-	"github.com/golang/glog"
+	"github.com/knative/serving/third_party/h2c"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
+const (
+	maxRetry      = 60
+	retryInterval = 1 * time.Second
+)
+
 type activationHandler struct {
 	act activator.Activator
+}
+
+// retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
+// a small delay for k8s to include the ready IP in service.
+// https://github.com/knative/serving/issues/660#issuecomment-384062553
+type retryRoundTripper struct{}
+
+func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var transport http.RoundTripper
+
+	transport = http.DefaultTransport
+	if r.ProtoMajor == 2 {
+		transport = h2cutil.NewTransport()
+	}
+
+	resp, err := transport.RoundTrip(r)
+	// TODO: Activator should retry with backoff.
+	// https://github.com/knative/serving/issues/1229
+	i := 1
+	for ; i < maxRetry; i++ {
+		if err == nil && resp != nil && resp.StatusCode != 503 {
+			break
+		}
+		resp.Body.Close()
+		time.Sleep(retryInterval)
+		resp, err = transport.RoundTrip(r)
+	}
+	// TODO: add metrics for number of tries and the response code.
+	glog.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	return resp, nil
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
@@ -44,12 +82,16 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target := &url.URL{
-		// TODO: Wire Activator into Istio mesh to support TLS
-		//       (https://github.com/knative/serving/issues/838)
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
+		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = retryRoundTripper{}
+
+	// TODO: Clear the host to avoid 404's.
+	// https://github.com/elafros/elafros/issues/964
+	r.Host = ""
+
 	proxy.ServeHTTP(w, r)
 }
 
@@ -82,5 +124,5 @@ func main() {
 	}()
 
 	http.HandleFunc("/", ah.handler)
-	http.ListenAndServe(":8080", nil)
+	h2c.ListenAndServe(":8080", nil)
 }

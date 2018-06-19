@@ -24,15 +24,15 @@ import (
 )
 
 // MakeServiceRoute creates a Route from a Service object.
-func MakeServiceRoute(service *v1alpha1.Service, configName string) *v1alpha1.Route {
+func MakeServiceRoute(service *v1alpha1.Service) *v1alpha1.Route {
 	c := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      service.Name,
+			Name:      controller.GetServiceRouteName(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
 			},
-			Labels: MakeElaResourceLabels(service),
+			Labels: MakeServingResourceLabels(service),
 		},
 	}
 
@@ -42,7 +42,7 @@ func MakeServiceRoute(service *v1alpha1.Service, configName string) *v1alpha1.Ro
 	// If there's RunLatest, use the configName, otherwise pin to a specific Revision
 	// as specified in the Pinned section of the Service spec.
 	if service.Spec.RunLatest != nil {
-		tt.ConfigurationName = configName
+		tt.ConfigurationName = controller.GetServiceConfigurationName(service)
 	} else {
 		tt.RevisionName = service.Spec.Pinned.RevisionName
 	}

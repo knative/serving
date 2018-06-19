@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,6 +36,13 @@ type BuildTemplate struct {
 }
 
 type BuildTemplateSpec struct {
+	// TODO: Generation does not work correctly with CRD. They are scrubbed
+	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
+	// So, we add Generation here. Once that gets fixed, remove this and use
+	// ObjectMeta.Generation instead.
+	// +optional
+	Generation int64 `json:"generation,omitempty"`
+
 	// Parameters defines the parameters that can be populated in a template.
 	Parameters []ParameterSpec    `json:"parameters,omitempty"`
 	Steps      []corev1.Container `json:"steps"`
@@ -49,6 +58,8 @@ type BuildTemplateConditionType string
 
 const (
 	// BuildTemplateInvalid specifies that the given specification is invalid.
+	//
+	// TODO(jasonhall): Remove when webhook validation rejects invalid build templates.
 	BuildTemplateInvalid BuildTemplateConditionType = "Invalid"
 )
 
@@ -114,3 +125,7 @@ func (b *BuildTemplateStatus) RemoveCondition(t BuildTemplateConditionType) {
 	}
 	b.Conditions = conditions
 }
+
+func (bt *BuildTemplate) GetGeneration() int64           { return bt.Spec.Generation }
+func (bt *BuildTemplate) SetGeneration(generation int64) { bt.Spec.Generation = generation }
+func (bt *BuildTemplate) GetSpecJSON() ([]byte, error)   { return json.Marshal(bt.Spec) }
