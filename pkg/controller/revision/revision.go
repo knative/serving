@@ -36,7 +36,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
@@ -234,17 +233,6 @@ func NewController(
 		AddFunc:    controller.addConfigMapEvent,
 		UpdateFunc: controller.updateConfigMapEvent,
 	})
-
-	if controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
-		vpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				controller.SyncVpa(obj.(*vpav1alpha1.VerticalPodAutoscaler))
-			},
-			UpdateFunc: func(old, new interface{}) {
-				controller.SyncVpa(new.(*vpav1alpha1.VerticalPodAutoscaler))
-			},
-		})
-	}
 
 	return controller
 }
@@ -480,42 +468,6 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	}
 	c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
-}
-
-func (c *Controller) SyncVpa(verticalPodAutoscaler *vpav1alpha1.VerticalPodAutoscaler) {
-	// cond := getVpaProgressCondition(verticalPodAutoscaler)
-	// if cond == nil {
-	// 	return
-	// }
-
-	or := metav1.GetControllerOf(verticalPodAutoscaler)
-	if or == nil || or.Kind != "Revision" {
-		return
-	}
-
-	revName := or.Name
-	namespace := verticalPodAutoscaler.Namespace
-	logger := loggerWithRevisionInfo(c.Logger, namespace, revName)
-
-	// TODO: do something if the VPA goes sideways.
-	logger.Infof("Something happened to the VPA for %+v.", or)
-
-	// rev, err := c.revisionLister.Revisions(namespace).Get(revName)
-	// if err != nil {
-	// 	logger.Error("Error fetching revision", zap.Error(err))
-	// 	return
-	// }
-	// // Set the revision condition reason to ProgressDeadlineExceeded
-	// rev.Status.MarkProgressDeadlineExceeded(
-	// 	fmt.Sprintf("Unable to create vpa for more than %d seconds.", progressDeadlineSeconds))
-
-	// logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
-	// if _, err := c.updateStatus(rev); err != nil {
-	// 	logger.Error("Error recording revision completion", zap.Error(err))
-	// 	return
-	// }
-	// c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded", "Revision %s not ready due to VerticalPodAutoscaler timeout", revName)
-	// return
 }
 
 // reconcileOnceBuilt handles enqueued messages that have an image.
