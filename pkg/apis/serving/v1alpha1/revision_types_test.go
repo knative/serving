@@ -409,6 +409,14 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
+	// Deactivate the revision to simulate scale to zero.
+	r.Status.MarkDeactivating()
+	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Deactivating" {
+		t.Errorf("MarkDeactivating = %v, want Deactivating", got)
+	}
+
 	// From a Ready state, make the revision inactive to simulate scale to zero.
 	r.Status.MarkInactive()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
