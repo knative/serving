@@ -168,8 +168,9 @@ function run_smoke_test() {
     sleep 2
   done
   echo
-  if [[ -z ${service_host} ]]; then
-    echo "FAILED -- No ingress found"
+  if [[ -z "${service_host}" || -z "${service_ip}" ]]; then
+    # service_host or service_ip might contain a useful error, dump it.
+    echo "FAILED -- No ingress found. ${service_host}${service_ip}"
     kubectl delete -f ${YAML}
     return 1
   fi
