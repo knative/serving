@@ -484,15 +484,17 @@ func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Rev
 		err := c.deleteDeployment(ctx, rev)
 		if err != nil {
 			logger.Error("Failed to delete a deployment", zap.Error(err))
+			return err
 		}
 		logger.Info("Deleted deployment")
 		err = c.deleteService(ctx, rev)
 		if err != nil {
 			logger.Error("Failed to delete k8s service", zap.Error(err))
+			return err
 		}
 		logger.Info("Deleted service")
 	} else {
-		// Serving state is RevisionServingStateReserve. Delete the revision service and update
+		// Serving state is RevisionServingStateReserve. Keep the revision service and update
 		// the deployment replicas to be 0.
 		if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil && cond.Reason != "Inactive" {
 			if cond.Reason == "Deactivating" {
@@ -511,6 +513,7 @@ func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Rev
 		err := c.deactivateDeployment(ctx, rev)
 		if err != nil {
 			logger.Error("Failed to scale a deployment to 0", zap.Error(err))
+			return err
 		}
 		logger.Info("Scaled the deployment to 0")
 	}
@@ -518,12 +521,14 @@ func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Rev
 	err := c.deleteAutoscalerDeployment(ctx, rev)
 	if err != nil {
 		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
+		return err
 	}
 	logger.Info("Deleted autoscaler Deployment")
 
 	err = c.deleteAutoscalerService(ctx, rev)
 	if err != nil {
 		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
+		return err
 	}
 	logger.Info("Deleted autoscaler Service")
 	return nil
@@ -615,6 +620,7 @@ func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Rev
 	_, err = dc.Update(deployment)
 	if err != nil {
 		logger.Errorf("Error deactivating deployment %q: %s", deploymentName, err)
+		return err
 	}
 	logger.Infof("Successfully scaled deployment %s to 0.", deploymentName)
 	return nil

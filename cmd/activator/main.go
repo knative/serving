@@ -44,16 +44,16 @@ type activationHandler struct {
 // retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
 // a small delay for k8s to include the ready IP in service.
 // https://github.com/knative/serving/issues/660#issuecomment-384062553
-type retryRoundTripper struct{}
+type retryRoundTripper struct {
+	transport  http.RoundTripper
+	transport2 http.RoundTripper
+}
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	var transport http.RoundTripper
-
-	transport = http.DefaultTransport
+	transport := rrt.transport
 	if r.ProtoMajor == 2 {
-		transport = h2cutil.NewTransport()
+		transport = rrt.transport2
 	}
-
 	resp, err := transport.RoundTrip(r)
 	// TODO: Activator should retry with backoff.
 	// https://github.com/knative/serving/issues/1229
@@ -86,7 +86,10 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = retryRoundTripper{}
+	proxy.Transport = retryRoundTripper{
+		transport:  http.DefaultTransport,
+		transport2: h2cutil.NewTransport(),
+	}
 
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/elafros/elafros/issues/964
