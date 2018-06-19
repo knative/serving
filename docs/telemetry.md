@@ -132,7 +132,7 @@ metadata:
 
 ### Stackdriver
 
-Go to [Pantheon logging page](https://console.cloud.google.com/logs/viewer) for
+Go to the [Google Cloud Console logging page](https://console.cloud.google.com/logs/viewer) for
 your GCP project which stores your logs via Stackdriver.
 
 ## Accessing metrics
