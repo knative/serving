@@ -146,3 +146,63 @@ function ko() {
     $local_ko $@
   fi
 }
+
+# Runs a go test and generate a junit summary through bazel.
+# Parameters: $1... - parameters to go test
+function report_go_test() {
+  # Just run regular go tests if not on Prow.
+  if (( ! IS_PROW )); then
+    go test $@
+    return
+  fi
+  local report=$(mktemp)
+  local summary=$(mktemp)
+  local failed=0
+  # Run tests in verbose mode to capture details.
+  # go doesn't like repeating -v, so remove if passed.
+  local args=("${@/-v}")
+  go test -v ${args[@]} > ${report} || failed=$?
+  # Tests didn't run.
+  [[ ! -s ${report} ]] && return 1
+  # Create a fake workspace to generate a bazel-like test structure
+  touch WORKSPACE
+  local targets=""
+  # Parse the report and generate fake tests for each passing/failing test.
+  while read line ; do
+    local fields=(`echo -n ${line}`)
+    local field0="${fields[0]}"
+    local field1="${fields[1]}"
+    local name=${fields[2]}
+    # Ignore subtests (those containing slashes)
+    if [[ -n "${name##*/*}" ]]; then
+      if [[ ${field1} =~ (PASS|FAIL): ]]; then
+        # Populate BUILD.bazel
+        local src="${name}.sh"
+        echo "exit 0" > ${src}
+        if [[ ${field1} == "FAIL:" ]]; then
+          read error
+          echo "cat <<ERROR-EOF" > ${src}
+          echo "${error}" >> ${src}
+          echo "ERROR-EOF" >> ${src}
+          echo "exit 1" >> ${src}
+        fi
+        chmod +x ${src}
+        echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
+      elif [[ ${field0} =~ FAIL|ok ]]; then
+        # Update the summary with the result for the package
+        echo "${line}" >> ${summary}
+        # Create the package structure, move tests and BUILD file
+        local package=${field1/github.com\//}
+        mkdir -p ${package}
+        targets="${targets} //${package}/..."
+        mv *.sh BUILD.bazel ${package}
+      fi
+    fi
+  done < ${report}
+  # If any test failed, show the detailed report.
+  # Otherwise, just show the summary.
+  (( failed )) && cat ${report} || cat ${summary}
+  # Always generate the junit summary.
+  bazel test ${targets} > /dev/null 2>&1
+  return ${failed}
+}
