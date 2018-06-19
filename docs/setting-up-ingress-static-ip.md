@@ -1,7 +1,6 @@
 # Setting Up Static IP for Cluster Ingresses
 All Ingresses in Istio service mesh share the same IP address, which is the 
-external IP of service "istio-ingress" under namespace "istio-system". To set 
-the static IP for Ingresses, you just need to set external IP of service
+external IP address of service "istio-ingress" under namespace "istio-system". To set the static IP for Ingresses, you just need to set external IP of service
  "istio-ingress" to the static IP.
 
 ## Step 1: Reserve a static IP
@@ -14,7 +13,7 @@ TODO: find out how to reserve static IP in other cloud platforms.
 
 ## Step 2: Update istio.yaml
 Set the loadBalancerIP of "istio-ingress" service by adding the following 
-patch into the spec of "istio-ingress" service in istio.yaml (https://github.com/knative/serving/blob/master/third_party/istio-0.8.0/istio.yaml#L1999)
+patch into the spec of "istio-ingress" service in [istio.yaml](https://github.com/knative/serving/blob/master/third_party/istio-0.8.0/istio.yaml#L1999)
 ```
 loadBalancerIP: <your-static-ip-address>
 ```
