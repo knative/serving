@@ -14,12 +14,12 @@ func MakeVpa(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionVpaName(rev),
 			Namespace:   rev.Namespace,
-			Labels:      MakeElaResourceLabels(rev),
-			Annotations: MakeElaResourceAnnotations(rev),
+			Labels:      MakeServingResourceLabels(rev),
+			Annotations: MakeServingResourceAnnotations(rev),
 		},
 		Spec: vpa.VerticalPodAutoscalerSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: MakeElaResourceLabels(rev),
+				MatchLabels: MakeServingResourceLabels(rev),
 			},
 			UpdatePolicy: vpa.PodUpdatePolicy{
 				UpdateMode: vpa.UpdateModeAuto,
