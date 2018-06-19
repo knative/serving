@@ -32,7 +32,7 @@ func MakeServiceRoute(service *v1alpha1.Service) *v1alpha1.Route {
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
 			},
-			Labels: MakeElaResourceLabels(service),
+			Labels: MakeServingResourceLabels(service),
 		},
 	}
 

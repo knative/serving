@@ -115,7 +115,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Get the revision endpoint
 	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
-	serviceName := controller.GetElaK8SServiceNameForRevision(revision)
+	serviceName := controller.GetServingK8SServiceNameForRevision(revision)
 	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get service %s for revision %s/%s: %v",

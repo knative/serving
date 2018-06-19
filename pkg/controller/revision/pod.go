@@ -60,6 +60,12 @@ const (
 	istioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 )
 
+var (
+	// TODO (arvtiwar): this should be a config option.
+	// Must be var for us to take its address.
+	progressDeadlineSeconds int32 = 120
+)
+
 func hasHTTPPath(p *corev1.Probe) bool {
 	if p == nil {
 		return false
@@ -70,8 +76,8 @@ func hasHTTPPath(p *corev1.Probe) bool {
 	return p.Handler.HTTPGet.Path != ""
 }
 
-// MakeElaPodSpec creates a pod spec.
-func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
+// MakeServingPodSpec creates a pod spec.
+func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -132,7 +138,7 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) 
 	}
 
 	podSpec := &corev1.PodSpec{
-		Containers:         []corev1.Container{*userContainer, *MakeElaQueueContainer(rev, controllerConfig)},
+		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
@@ -207,15 +213,15 @@ func MakeElaPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) 
 	return podSpec
 }
 
-// MakeElaDeployment creates a deployment.
-func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespace string,
-	networkConfig *NetworkConfig) *appsv1.Deployment {
+// MakeServingDeployment creates a deployment.
+func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
+	networkConfig *NetworkConfig, controllerConfig *ControllerConfig) *appsv1.Deployment {
 	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
 		MaxUnavailable: &elaPodMaxUnavailable,
 		MaxSurge:       &elaPodMaxSurge,
 	}
 
-	podTemplateAnnotations := MakeElaResourceAnnotations(u)
+	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
@@ -238,23 +244,26 @@ func MakeElaDeployment(logger *zap.SugaredLogger, u *v1alpha1.Revision, namespac
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionDeploymentName(u),
-			Namespace:   namespace,
-			Labels:      MakeElaResourceLabels(u),
-			Annotations: MakeElaResourceAnnotations(u),
+			Name:            controller.GetRevisionDeploymentName(rev),
+			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
+			Labels:          MakeServingResourceLabels(rev),
+			Annotations:     MakeServingResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &elaPodReplicaCount,
-			Selector: MakeElaResourceSelector(u),
+			Selector: MakeServingResourceSelector(rev),
 			Strategy: appsv1.DeploymentStrategy{
 				Type:          "RollingUpdate",
 				RollingUpdate: &rollingUpdateConfig,
 			},
+			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeElaResourceLabels(u),
+					Labels:      MakeServingResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
+				Spec: *MakeServingPodSpec(rev, controllerConfig),
 			},
 		},
 	}
