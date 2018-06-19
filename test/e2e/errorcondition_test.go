@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"testing"
@@ -37,7 +38,6 @@ const (
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
-	t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
 
 	// Specify an invalid image path
@@ -58,12 +58,12 @@ func TestContainerErrorMsg(t *testing.T) {
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
-		if cond != nil {
-			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) && cond.Status == "False" {
+		if cond != nil && cond.Status != corev1.ConditionUnknown {
+			if strings.Contains(cond.Message, manifestUnknown) && cond.Status == corev1.ConditionFalse {
 				return true, nil
 			}
-			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
-			return true, errors.New(s)
+			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
+				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
 	})
@@ -84,8 +84,8 @@ func TestContainerErrorMsg(t *testing.T) {
 			if cond.Reason == containerMissing && strings.HasPrefix(cond.Message, manifestUnknown) {
 				return true, nil
 			}
-			s := fmt.Sprintf("The revision %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\"), but with (Reason=\"%s\", Message=\"%s\")", revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
-			return true, errors.New(s)
+			return true, fmt.Errorf("The revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
+				revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
 		}
 		return false, nil
 	})
