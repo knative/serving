@@ -21,13 +21,14 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
 	h2cutil "github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/third_party/h2c"
+	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -38,13 +39,16 @@ const (
 )
 
 type activationHandler struct {
-	act activator.Activator
+	act    activator.Activator
+	logger *zap.SugaredLogger
 }
 
 // retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
 // a small delay for k8s to include the ready IP in service.
 // https://github.com/knative/serving/issues/660#issuecomment-384062553
-type retryRoundTripper struct{}
+type retryRoundTripper struct {
+	logger *zap.SugaredLogger
+}
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	var transport http.RoundTripper
@@ -67,7 +71,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		resp, err = transport.RoundTrip(r)
 	}
 	// TODO: add metrics for number of tries and the response code.
-	glog.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
 	return resp, nil
 }
 
@@ -77,7 +81,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)
 	if err != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-		glog.Errorf(msg)
+		a.logger.Errorf(msg)
 		http.Error(w, msg, int(status))
 		return
 	}
@@ -86,7 +90,9 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = retryRoundTripper{}
+	proxy.Transport = retryRoundTripper{
+		logger: a.logger,
+	}
 
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/elafros/elafros/issues/964
@@ -97,24 +103,27 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	glog.Info("Starting the knative activator...")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.activator").Named("activator")
+	defer logger.Sync()
+
+	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatal(err)
+		logger.Fatal("Error getting in cluster configuration", zap.Error(err))
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatal(err)
+		logger.Fatal("Error building new config", zap.Error(err))
 	}
 	elaClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %v", err)
+		logger.Fatal("Error building ela clientset: %v", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, elaClient)
+	a := activator.NewRevisionActivator(kubeClient, elaClient, logger)
 	a = activator.NewDedupingActivator(a)
-	ah := &activationHandler{a}
+	ah := &activationHandler{a, logger}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
