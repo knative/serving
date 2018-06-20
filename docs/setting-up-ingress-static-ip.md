@@ -14,16 +14,17 @@ TODO: find out how to reserve static IP in other cloud platforms.
 ### Prerequest 2: Deploy Istio
 Follow the [instruction](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#deploy-istio) to deploy Istio into your cluster.
 
-Now you can start to set up static IP for Ingresses.
+Once you reach this point, you can start to set up static IP for Ingresses.
 
-## Step 1: Update external IP of istio-ingress service
+## Set Up Static IP for Ingresses
+### Step 1: Update external IP of istio-ingress service
 Run following command to reset the external IP fo istio-ingress service to the 
 static IP you reserved.
 ```
 kubectl patch svc istio-ingress -n istio-system --patch '{"spec": { "loadBalancerIP": "<your-reserved-static-ip>" }}'
 ```
 
-## Step 2: Verify static IP address of Ingress
+### Step 2: Verify static IP address of Ingresses
 You can check the external IP of "istio-ingress" service with command
 ```
 kubectl get svc istio-ingress -n istio-system

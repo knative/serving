@@ -103,7 +103,6 @@ Once you've [setup your development environment](#getting-started), stand up `Kn
 
 ### Deploy Istio
 
-Run following command to deploy Istio.
 ```shell
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
