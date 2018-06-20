@@ -18,6 +18,106 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func TestRouteGeneration(t *testing.T) {
+	r := Route{}
+	if a := r.GetGeneration(); a != 0 {
+		t.Errorf("empty route generation should be 0 was: %d", a)
+	}
+
+	r.SetGeneration(5)
+	if e, a := int64(5), r.GetGeneration(); e != a {
+		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
+	}
+}
+
+func TestRouteIsReady(t *testing.T) {
+	cases := []struct {
+		name    string
+		status  RouteStatus
+		isReady bool
+	}{{
+		name:    "empty status should not be ready",
+		status:  RouteStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionIngressReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type: RouteConditionReady,
+			}},
+		},
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionIngressReady,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionIngressReady,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isReady: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
 func TestRouteConditions(t *testing.T) {
 	svc := &Route{}
 	foo := &RouteCondition{
