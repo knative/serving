@@ -18,6 +18,7 @@ package configuration
 
 import (
 	"fmt"
+	"reflect"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -242,8 +243,11 @@ func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configur
 	if err != nil {
 		return nil, err
 	}
-	newu.Status = u.Status
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return c.ServingClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
-	//	return configClient.UpdateStatus(newu)
+	if !reflect.DeepEqual(newu.Status, u.Status) {
+		newu.Status = u.Status
+		// TODO: for CRD there's no updatestatus, so use normal update
+		return c.ServingClientSet.ServingV1alpha1().Configurations(u.Namespace).Update(newu)
+		//	return configClient.UpdateStatus(newu)
+	}
+	return newu, nil
 }
