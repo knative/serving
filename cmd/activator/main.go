@@ -14,14 +14,17 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/configmap"
@@ -53,11 +56,23 @@ type retryRoundTripper struct {
 }
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	var transport http.RoundTripper
+	var err error
+	var reqBody []byte
 
-	transport = http.DefaultTransport
+	transport := http.DefaultTransport
+
 	if r.ProtoMajor == 2 {
 		transport = h2cutil.NewTransport()
+	}
+
+	if r.Body != nil {
+		reqBody, err = ioutil.ReadAll(r.Body)
+
+		if err != nil {
+			glog.Infof("Error reading request body: %s", err)
+			return nil, err
+		}
+		r.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
 	}
 
 	resp, err := transport.RoundTrip(r)
@@ -68,13 +83,28 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		if err == nil && resp != nil && resp.StatusCode != 503 {
 			break
 		}
-		resp.Body.Close()
+
+		if err != nil {
+			glog.Infof("Error making a request: %s", err)
+		}
+
+		if resp != nil {
+			resp.Body.Close()
+		}
+
 		time.Sleep(retryInterval)
+
+		if r.Body != nil {
+			r.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
+		}
+
 		resp, err = transport.RoundTrip(r)
 	}
 	// TODO: add metrics for number of tries and the response code.
-	rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
-	return resp, nil
+	if resp != nil {
+		rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	}
+	return resp, err
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
