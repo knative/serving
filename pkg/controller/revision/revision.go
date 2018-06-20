@@ -261,6 +261,7 @@ func (c *Controller) Reconcile(key string) error {
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 	rev.Status.InitializeConditions()
+	c.updateRevisionLoggingURL(rev)
 
 	if rev.Spec.BuildName != "" {
 		rev.Status.InitializeBuildCondition()
@@ -302,25 +303,31 @@ func (c *Controller) Reconcile(key string) error {
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
 	if bc == nil || bc.Status == corev1.ConditionTrue {
 		// There is no build, or the build completed successfully.
-		return c.reconcileOnceBuilt(ctx, rev, namespace)
+
+		switch rev.Spec.ServingState {
+		case v1alpha1.RevisionServingStateActive:
+			logger.Info("Creating or reconciling resources for revision")
+			return c.createK8SResources(ctx, rev)
+
+		case v1alpha1.RevisionServingStateReserve:
+			return c.deleteK8SResources(ctx, rev)
+
+		// TODO(mattmoor): Nothing sets this state, and it should be removed.
+		case v1alpha1.RevisionServingStateRetired:
+			return c.deleteK8SResources(ctx, rev)
+
+		default:
+			logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
+		}
 	}
 	return nil
 }
 
-func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
+func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) {
 	logURLTmpl := c.controllerConfig.LoggingURLTemplate
-	if logURLTmpl == "" {
-		return nil
+	if logURLTmpl != "" {
+		rev.Status.LogURL = strings.Replace(logURLTmpl, "${REVISION_UID}", string(rev.UID), -1)
 	}
-
-	url := strings.Replace(logURLTmpl, "${REVISION_UID}", string(rev.UID), -1)
-
-	if rev.Status.LogURL == url {
-		return nil
-	}
-	rev.Status.LogURL = url
-	_, err := c.updateStatus(rev)
-	return err
 }
 
 func (c *Controller) EnqueueBuildTrackers(obj interface{}) {
@@ -426,22 +433,6 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	}
 	c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
-}
-
-// reconcileOnceBuilt handles enqueued messages that have an image.
-func (c *Controller) reconcileOnceBuilt(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
-	logger := logging.FromContext(ctx)
-
-	if err := c.updateRevisionLoggingURL(rev); err != nil {
-		logger.Error("Error updating the revisions logging url", zap.Error(err))
-		return err
-	}
-
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
-		logger.Info("Creating or reconciling resources for revision")
-		return c.createK8SResources(ctx, rev)
-	}
-	return c.deleteK8SResources(ctx, rev)
 }
 
 func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -809,11 +800,15 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 	if err != nil {
 		return nil, err
 	}
-	newRev.Status = rev.Status
+	// Check if there is anything to update.
+	if !reflect.DeepEqual(newRev.Status, rev.Status) {
+		newRev.Status = rev.Status
 
-	// TODO: for CRD there's no updatestatus, so use normal update
-	return prClient.Update(newRev)
-	//	return prClient.UpdateStatus(newRev)
+		// TODO: for CRD there's no updatestatus, so use normal update
+		return prClient.Update(newRev)
+		//	return prClient.UpdateStatus(newRev)
+	}
+	return rev, nil
 }
 
 // Given an endpoint see if it's managed by us and return the
