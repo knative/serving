@@ -51,8 +51,6 @@ func MakeServingResourceLabels(revision *v1alpha1.Revision) map[string]string {
 
 // MakeServingResourceSelector constructs the Selector we will apply to K8s resources.
 func MakeServingResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
-	// Deployment spec.selector is an immutable field so we need to exclude the route label,
-	// which could change in a revision.
 	return &metav1.LabelSelector{MatchLabels: MakeServingResourceLabels(revision)}
 }
 
