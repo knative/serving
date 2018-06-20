@@ -44,7 +44,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -52,6 +51,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -92,6 +92,7 @@ type Controller struct {
 
 	// lister indexes properties about Revision
 	revisionLister listers.RevisionLister
+	buildLister    buildlisters.BuildLister
 
 	buildtracker *buildTracker
 
@@ -171,9 +172,10 @@ func NewController(
 		opt.Logger.Fatalf("Error loading network config: %v", err)
 	}
 
-	controller := &Controller{
+	c := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),
 		revisionLister:   revisionInformer.Lister(),
+		buildLister:      buildInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
@@ -181,48 +183,42 @@ func NewController(
 	}
 
 	// Set up an event handler for when the resource types of interest change
-	controller.Logger.Info("Setting up event handlers")
+	c.Logger.Info("Setting up event handlers")
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.Enqueue,
-		UpdateFunc: func(old, new interface{}) {
-			controller.Enqueue(new)
-		},
-		DeleteFunc: controller.Enqueue,
+		AddFunc:    c.Enqueue,
+		UpdateFunc: controller.PassNew(c.Enqueue),
+		DeleteFunc: c.Enqueue,
 	})
 
 	buildInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			controller.SyncBuild(obj.(*buildv1alpha1.Build))
-		},
-		UpdateFunc: func(old, new interface{}) {
-			controller.SyncBuild(new.(*buildv1alpha1.Build))
-		},
+		AddFunc:    c.EnqueueBuildTrackers,
+		UpdateFunc: controller.PassNew(c.EnqueueBuildTrackers),
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			controller.SyncEndpoints(obj.(*corev1.Endpoints))
+			c.SyncEndpoints(obj.(*corev1.Endpoints))
 		},
 		UpdateFunc: func(old, new interface{}) {
-			controller.SyncEndpoints(new.(*corev1.Endpoints))
+			c.SyncEndpoints(new.(*corev1.Endpoints))
 		},
 	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			controller.SyncDeployment(obj.(*appsv1.Deployment))
+			c.SyncDeployment(obj.(*appsv1.Deployment))
 		},
 		UpdateFunc: func(old, new interface{}) {
-			controller.SyncDeployment(new.(*appsv1.Deployment))
+			c.SyncDeployment(new.(*appsv1.Deployment))
 		},
 	})
 
 	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addConfigMapEvent,
-		UpdateFunc: controller.updateConfigMapEvent,
+		AddFunc:    c.addConfigMapEvent,
+		UpdateFunc: c.updateConfigMapEvent,
 	})
 
-	return controller
+	return c
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -230,7 +226,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, c.syncHandler, "Revision")
+	return c.RunController(threadiness, stopCh, c.Reconcile, "Revision")
 }
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.
@@ -238,10 +234,10 @@ func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *
 	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Revision, name))
 }
 
-// syncHandler compares the actual state with the desired, and attempts to
+// Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
-func (c *Controller) syncHandler(key string) error {
+func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -255,63 +251,60 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Get the Revision resource with this namespace/name
 	rev, err := c.revisionLister.Revisions(namespace).Get(name)
-	if err != nil {
-		// The resource may no longer exist, in which case we stop
-		// processing.
-		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
-			return nil
-		}
+	// The resource may no longer exist, in which case we stop processing.
+	if errors.IsNotFound(err) {
+		runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
+		return nil
+	} else if err != nil {
 		return err
 	}
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 	rev.Status.InitializeConditions()
 
-	if err := c.updateRevisionLoggingURL(rev); err != nil {
-		logger.Error("Error updating the revisions logging url", zap.Error(err))
-		return err
-	}
-
 	if rev.Spec.BuildName != "" {
 		rev.Status.InitializeBuildCondition()
-		if done, failed := isBuildDone(rev); !done {
-			if alreadyTracked := c.buildtracker.Track(rev); !alreadyTracked {
-				rev.Status.MarkBuilding()
-				// Let this trigger a reconciliation loop.
-				if _, err := c.updateStatus(rev); err != nil {
-					logger.Error("Error recording the BuildSucceeded=Unknown condition",
-						zap.Error(err))
-					return err
-				}
+		build, err := c.buildLister.Builds(rev.Namespace).Get(rev.Spec.BuildName)
+		if err != nil {
+			logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, key, err)
+			return err
+		}
+		before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+		rev.Status.PropagateBuildStatus(build.Status)
+		after := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+		if before.Status != after.Status {
+			// Create events when the Build result is in.
+			if after.Status == corev1.ConditionTrue {
+				c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", after.Message)
+				c.buildtracker.Untrack(rev)
+			} else if after.Status == corev1.ConditionFalse {
+				c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", after.Message)
+				c.buildtracker.Untrack(rev)
 			}
-			return nil
-		} else {
-			// The Build's complete, so stop tracking it.
-			c.buildtracker.Untrack(rev)
-			if failed {
-				return nil
-			}
-			// If the build didn't fail, proceed to creating K8s resources.
+		}
+		// If the Build isn't done, then add it to our tracker.
+		// TODO(#1267): See the comment in SyncBuild about replacing this utility.
+		if after.Status == corev1.ConditionUnknown {
+			logger.Errorf("Tracking revision: %v", rev.Name)
+			c.buildtracker.Track(rev)
 		}
 	}
 
-	_, err = controller.GetOrCreateRevisionNamespace(ctx, namespace, c.KubeClientSet)
-	if err != nil {
-		logger.Panic("Failed to create namespace", zap.Error(err))
+	// TODO(mattmoor): Remove this comment.
+	// In the level-based reconciliation we've started moving to in #1208, this should be the last thing we do.
+	// This controller is substantial enough that we will slowly move pieces above this line until it is the
+	// last thing, and then remove this comment.
+	if _, err := c.updateStatus(rev); err != nil {
+		logger.Error("Error updating Revision status", zap.Error(err))
+		return err
 	}
-	logger.Info("Namespace validated to exist, moving on")
 
-	return c.reconcileWithImage(ctx, rev, namespace)
-}
-
-// reconcileWithImage handles enqueued messages that have an image.
-func (c *Controller) reconcileWithImage(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
-	err := c.reconcileOnceBuilt(ctx, rev, ns)
-	if err != nil {
-		logging.FromContext(ctx).Error("Reconcile once build failed", zap.Error(err))
+	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
+	if bc == nil || bc.Status == corev1.ConditionTrue {
+		// There is no build, or the build completed successfully.
+		return c.reconcileOnceBuilt(ctx, rev, namespace)
 	}
-	return err
+	return nil
 }
 
 func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
@@ -330,40 +323,17 @@ func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) error {
 	return err
 }
 
-func (c *Controller) SyncBuild(build *buildv1alpha1.Build) {
-	bc := getBuildDoneCondition(build)
-	if bc == nil {
-		// The build isn't done, so ignore this event.
-		return
-	}
+func (c *Controller) EnqueueBuildTrackers(obj interface{}) {
+	build := obj.(*buildv1alpha1.Build)
 
-	// For each of the revisions watching this build, mark their build phase as complete.
-	for k := range c.buildtracker.GetTrackers(build) {
-		// Look up the revision to mark complete.
-		namespace, name := splitKey(k)
-		rev, err := c.revisionLister.Revisions(namespace).Get(name)
-		if err != nil {
-			c.Logger.Error("Error fetching revision upon build completion",
-				zap.String(logkey.Namespace, namespace), zap.String(logkey.Revision, name), zap.Error(err))
-		}
-		if bc.Status == corev1.ConditionUnknown {
-			// Should never happen
-			continue
-		}
-		if bc.Type == buildv1alpha1.BuildSucceeded && bc.Status == corev1.ConditionTrue {
-			c.Recorder.Event(rev, corev1.EventTypeNormal, "BuildSucceeded", bc.Message)
-			rev.Status.MarkBuildSucceeded()
-		} else {
-			c.Recorder.Event(rev, corev1.EventTypeWarning, "BuildFailed", bc.Message)
-			rev.Status.MarkBuildFailed(bc)
-		}
-		if _, err := c.updateStatus(rev); err != nil {
-			c.Logger.Error("Error marking build completion",
-				zap.String(logkey.Namespace, namespace), zap.String(logkey.Revision, name), zap.Error(err))
+	// TODO(#1267): We should consider alternatives to the buildtracker that
+	// allow us to shed this indexed state.
+	if bc := getBuildDoneCondition(build); bc != nil {
+		// For each of the revisions watching this build, mark their build phase as complete.
+		for k := range c.buildtracker.GetTrackers(build) {
+			c.EnqueueKey(string(k))
 		}
 	}
-
-	return
 }
 
 func (c *Controller) SyncDeployment(deployment *appsv1.Deployment) {
@@ -461,15 +431,13 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 // reconcileOnceBuilt handles enqueued messages that have an image.
 func (c *Controller) reconcileOnceBuilt(ctx context.Context, rev *v1alpha1.Revision, ns string) error {
 	logger := logging.FromContext(ctx)
-	accessor, err := meta.Accessor(rev)
-	if err != nil {
-		logger.Panic("Failed to get metadata", zap.Error(err))
+
+	if err := c.updateRevisionLoggingURL(rev); err != nil {
+		logger.Error("Error updating the revisions logging url", zap.Error(err))
+		return err
 	}
 
-	deletionTimestamp := accessor.GetDeletionTimestamp()
-	logger.Infof("Check the deletionTimestamp: %s\n", deletionTimestamp)
-
-	if deletionTimestamp == nil && rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
 		logger.Info("Creating or reconciling resources for revision")
 		return c.createK8SResources(ctx, rev)
 	}
