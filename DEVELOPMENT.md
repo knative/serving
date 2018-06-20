@@ -103,8 +103,6 @@ Once you've [setup your development environment](#getting-started), stand up `Kn
 
 ### Deploy Istio
 
-Follow the [instruction](./docs/setting-up-ingress-static-ip.md) to set up static IP for Ingresses in the cluster if it is needed.
-
 Run following command to deploy Istio.
 ```shell
 kubectl create clusterrolebinding cluster-admin-binding \
@@ -119,6 +117,8 @@ Then label namespaces with `istio-injection=enabled`:
 ```shell
 kubectl label namespace default istio-injection=enabled
 ```
+
+Follow the [instruction](./docs/setting-up-ingress-static-ip.md) to set up static IP for Ingresses in the cluster if it is needed.
 
 ### Deploy Build
 
