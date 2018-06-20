@@ -77,6 +77,7 @@ const (
 
 // RevisionRequestConcurrencyModelType is an enumeration of the
 // concurrency models supported by a Revision.
+// Deprecated in favor of InstanceMaxRequestConcurrency.
 type RevisionRequestConcurrencyModelType string
 
 const (
@@ -89,6 +90,8 @@ const (
 	// Container.
 	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
 )
+
+type RevisionInstanceRequestMaxConcurrencyType int64
 
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
@@ -109,8 +112,17 @@ type RevisionSpec struct {
 	// ConcurrencyModel specifies the desired concurrency model
 	// (Single or Multi) for the
 	// Revision. Defaults to Multi.
+	// Deprecated in favor of InstanceMaxRequestConcurrency.
 	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+
+	// InstanceMaxRequestConcurrency specifies the maximum allowed
+	// in-flight (concurrent) requests per instance of the Revision
+	// container. Defaults to `0` which means the system should
+	// decide. This field replaces ConcurrencyModel. A value of `1`
+	// is equivalent to `Single` and `0` is equivalent to `Multi`.
+	// +optional
+	InstanceMaxRequestConcurrency RevisionInstanceRequestMaxConcurrencyType `json:"instanceMaxConcurrency,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified
