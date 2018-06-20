@@ -50,3 +50,4 @@ data:
   loglevel.autoscaler: "info"
   loglevel.queueproxy: "info"
   loglevel.webhook: "info"
+  loglevel.activator: "info"

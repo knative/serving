@@ -71,6 +71,8 @@ trap cleanup EXIT
 
 SKIP_TESTS=0
 TAG_RELEASE=0
+DONT_PUBLISH=0
+KO_FLAGS=""
 
 for parameter in "$@"; do
   case $parameter in
@@ -82,6 +84,15 @@ for parameter in "$@"; do
       TAG_RELEASE=1
       shift
       ;;
+    --publish)
+      DONT_PUBLISH=0
+      shift
+      ;;
+    --nopublish)
+      DONT_PUBLISH=1
+      KO_FLAGS="-L"
+      shift
+      ;;
     *)
       echo "error: unknown option ${parameter}"
       exit 1
@@ -91,6 +102,8 @@ done
 
 readonly SKIP_TESTS
 readonly TAG_RELEASE
+readonly DONT_PUBLISH
+readonly KO_FLAGS
 
 if (( ! SKIP_TESTS )); then
   banner "RUNNING RELEASE VALIDATION TESTS"
@@ -120,15 +133,17 @@ readonly TAG
 # If this is a prow job, authenticate against GCR.
 (( IS_PROW )) && gcr_auth
 
-echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
-echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
+if (( ! DONT_PUBLISH )); then
+  echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
+  echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
+fi
 
 echo "Copying Build release"
 cp ${SERVING_ROOT_DIR}/third_party/config/build/release.yaml ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 
 echo "Building Knative Serving"
-ko resolve -f config/ >> ${OUTPUT_YAML}
+ko resolve ${KO_FLAGS} -f config/ >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 
 echo "Building Monitoring & Logging"
@@ -156,6 +171,11 @@ ko resolve -R -f config/monitoring/100-common \
     -f config/monitoring/200-common/100-istio.yaml >> ${LITE_YAML}
 
 tag_knative_images ${OUTPUT_YAML} ${TAG}
+
+if (( DONT_PUBLISH )); then
+  echo "New release built successfully"
+  exit 0
+fi
 
 echo "Publishing release.yaml"
 publish_yaml ${OUTPUT_YAML}
