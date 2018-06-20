@@ -430,16 +430,13 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				},
 			},
 		},
-		Route: []v1alpha2.DestinationWeight{
-			{
-				Destination: v1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 0,
+		Route: []v1alpha2.DestinationWeight{{
+			Destination: v1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-			getActivatorDestinationWeight(100),
-		},
+			Weight: 0,
+		}, getActivatorDestinationWeight(100)},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -599,8 +596,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 10,
-		}, getActivatorDestinationWeight(0)},
-	}
+		}, getActivatorDestinationWeight(0)}}
 
 	if diff := cmp.Diff(expectedRouteSpec, routerule.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %v", diff)
@@ -875,8 +871,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Weight: 50,
-		}, getActivatorDestinationWeight(0)},
-	})
+		}, getActivatorDestinationWeight(0)}})
 
 	// Expects authority header to have the traffic target name prefixed to the
 	// domain suffix. Also weights 100% of the traffic to the specified traffic

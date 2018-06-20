@@ -684,9 +684,10 @@ func (c *Controller) computeRevisionRoutes(
 		revisionWeight := tt.Percent
 		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if enableScaleToZero && cond != nil {
-			// A revision is considered inactive (yet) if it's in
+			// A revision is considered inactive if it's in
 			// "Inactive" condition, "Activating" or "Deactivating" condition.
-			logger.Infof("cond: %v", cond)
+			// TODO: consilidate revision conditions.
+			// https://github.com/knative/serving/issues/645
 			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
 				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) ||
 				(cond.Reason == "Deactivating" && cond.Status == corev1.ConditionFalse) {

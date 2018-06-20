@@ -593,6 +593,10 @@ func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Rev
 		logger.Errorf("Failed to get deployment %q", deploymentName)
 		return err
 	}
+	if *deployment.Spec.Replicas == 0 {
+		logger.Infof("Deployment %s is scaled to 0 already.", deploymentName)
+		return nil
+	}
 
 	logger.Infof("Deactivating deployment %q", deploymentName)
 	deployment.Spec.Replicas = new(int32)

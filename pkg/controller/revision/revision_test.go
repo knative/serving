@@ -1478,8 +1478,8 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	// appropriate.
 	createRevision(elaClient, elaInformer, controller, rev)
 
-	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deploymentName := fmt.Sprintf("%s-deployment", rev.Name)
+	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(deploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
@@ -1490,10 +1490,13 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be there.
-	_, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	_, err = kubeClient.AppsV1().Deployments(testNamespace).Get(deploymentName, metav1.GetOptions{})
 
 	if err != nil {
-		t.Fatalf("Expected k8s deployment to be there but it was gone: %s/%s", testNamespace, expectedDeploymentName)
+		if apierrs.IsNotFound(err) {
+			t.Fatalf("Expected k8s deployment to be there but it was gone: %s/%s", testNamespace, deploymentName)
+		}
+		t.Fatalf("There was an error to get the deployment %s while it exists", deploymentName)
 	}
 }
 
