@@ -31,7 +31,14 @@ func MakeServingResourceLabels(revision *v1alpha1.Revision) map[string]string {
 	labels[serving.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
-		labels[k] = v
+		// TODO: Use a fixed set for revision labels. If the set of labels changed,
+		// the deployment could end up with multiple replica sets.
+		// https://github.com/knative/serving/issues/1293
+		// The route for a revision could change, therefore it is excluded
+		// in revision labels as a temporary solution.
+		if k != serving.RouteLabelKey {
+			labels[k] = v
+		}
 	}
 	// If users don't specify an app: label we will automatically
 	// populate it with the revision name to get the benefit of richer

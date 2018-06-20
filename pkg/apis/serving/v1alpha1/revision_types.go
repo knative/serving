@@ -398,6 +398,14 @@ func (rs *RevisionStatus) MarkInactive() {
 	})
 }
 
+func (rs *RevisionStatus) MarkDeactivating() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionFalse,
+		Reason: "Deactivating",
+	})
+}
+
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionContainerHealthy,

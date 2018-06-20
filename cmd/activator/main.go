@@ -34,30 +34,33 @@ import (
 )
 
 const (
-	maxRetry      = 60
+	maxRetry      = 30
 	retryInterval = 1 * time.Second
 )
 
 type activationHandler struct {
-	act    activator.Activator
-	logger *zap.SugaredLogger
+	act        activator.Activator
+	logger     *zap.SugaredLogger
+	transport  http.RoundTripper
+	transport2 http.RoundTripper
 }
 
 // retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
 // a small delay for k8s to include the ready IP in service.
 // https://github.com/knative/serving/issues/660#issuecomment-384062553
 type retryRoundTripper struct {
-	logger *zap.SugaredLogger
+	transport  http.RoundTripper
+	transport2 http.RoundTripper
+	logger     *zap.SugaredLogger
 }
 
-func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	var transport http.RoundTripper
-
-	transport = http.DefaultTransport
-	if r.ProtoMajor == 2 {
-		transport = h2cutil.NewTransport()
+	if r.ProtoMajor == 1 {
+		transport = rrt.transport
+	} else {
+		transport = rrt.transport2
 	}
-
 	resp, err := transport.RoundTrip(r)
 	// TODO: Activator should retry with backoff.
 	// https://github.com/knative/serving/issues/1229
@@ -90,8 +93,10 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = retryRoundTripper{
-		logger: a.logger,
+	proxy.Transport = &retryRoundTripper{
+		transport:  a.transport,
+		transport2: a.transport2,
+		logger:     a.logger,
 	}
 
 	// TODO: Clear the host to avoid 404's.
@@ -123,7 +128,11 @@ func main() {
 
 	a := activator.NewRevisionActivator(kubeClient, elaClient, logger)
 	a = activator.NewDedupingActivator(a)
-	ah := &activationHandler{a, logger}
+	ah := &activationHandler{
+		act:        a,
+		logger:     logger,
+		transport:  http.DefaultTransport,
+		transport2: h2cutil.NewTransport()}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()

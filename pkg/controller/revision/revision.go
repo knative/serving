@@ -78,7 +78,7 @@ const (
 
 var (
 	elaPodReplicaCount   = int32(1)
-	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 0}
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 )
 
@@ -441,45 +441,44 @@ func (c *Controller) reconcileOnceBuilt(ctx context.Context, rev *v1alpha1.Revis
 		logger.Info("Creating or reconciling resources for revision")
 		return c.createK8SResources(ctx, rev)
 	}
-	return c.deleteK8SResources(ctx, rev)
+	return c.teardownK8SResources(ctx, rev)
 }
 
-func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	logger.Info("Deleting the resources for revision")
-	err := c.deleteDeployment(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete a deployment", zap.Error(err))
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateRetired {
+		// Delete the k8s deployment and revision service if serving state is Retired.
+		logger.Info("Deleting the resources for revision")
+		if err := c.deleteDeployment(ctx, rev); err != nil {
+			return err
+		}
+		if err := c.deleteService(ctx, rev); err != nil {
+			return err
+		}
+	} else {
+		// Serving state is RevisionServingStateReserve. Keep the revision service and update
+		// the deployment replicas to be 0.
+		if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil && cond.Reason != "Inactive" {
+			if cond.Reason == "Deactivating" {
+				logger.Info("The revision is in Deactivating condition")
+				return nil
+			}
+			rev.Status.MarkDeactivating()
+			_, err := c.updateStatus(rev)
+			if err != nil {
+				logger.Error("Error updating revision condition to be deactivating",
+					zap.Error(err))
+			}
+			return err
+		}
+		if err := c.deactivateDeployment(ctx, rev); err != nil {
+			return err
+		}
 	}
-	logger.Info("Deleted deployment")
-
-	err = c.deleteAutoscalerDeployment(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Deployment")
-
-	err = c.deleteAutoscalerService(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Service")
-
-	err = c.deleteService(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete k8s service", zap.Error(err))
-	}
-	logger.Info("Deleted service")
-
-	// And the deployment is no longer ready, so update that
-	rev.Status.MarkInactive()
-	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
-	if _, err := c.updateStatus(rev); err != nil {
-		logger.Error("Error recording inactivation of revision", zap.Error(err))
+	if err := c.deleteAutoscalerDeployment(ctx, rev); err != nil {
 		return err
 	}
-
-	return nil
+	return c.deleteAutoscalerService(ctx, rev)
 }
 
 func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -553,6 +552,32 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	return nil
 }
 
+func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	deploymentName := controller.GetRevisionDeploymentName(rev)
+	dc := c.KubeClientSet.AppsV1().Deployments(rev.Namespace)
+	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorf("Failed to get deployment %q", deploymentName)
+		return err
+	}
+	if *deployment.Spec.Replicas == 0 {
+		logger.Infof("Deployment %s is scaled to 0 already.", deploymentName)
+		return nil
+	}
+
+	logger.Infof("Deactivating deployment %q", deploymentName)
+	deployment.Spec.Replicas = new(int32)
+	*deployment.Spec.Replicas = int32(0)
+	_, err = dc.Update(deployment)
+	if err != nil {
+		logger.Errorf("Error deactivating deployment %q: %s", deploymentName, err)
+		return err
+	}
+	logger.Infof("Successfully scaled deployment %s to 0.", deploymentName)
+	return nil
+}
+
 func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
@@ -581,24 +606,19 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
-	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
+	deploymentExists := true
+	_, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
 			return err
 		}
-		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
-	} else {
-		// TODO(mattmoor): Compare the deployments and update if it has changed
-		// out from under us.
-		logger.Infof("Found existing deployment %q", deploymentName)
-		return nil
+		deploymentExists = false
 	}
 
-	// Create the deployment.
 	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
-
 	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment); err != nil {
+	if err = c.resolver.Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
 		if _, err := c.updateStatus(rev); err != nil {
@@ -608,10 +628,16 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	}
 
-	logger.Infof("Creating Deployment: %q", deployment.Name)
-	_, createErr := dc.Create(deployment)
-
-	return createErr
+	if deploymentExists {
+		// TODO(mattmoor): Compare the deployments and update if it has changed
+		// out from under us.
+		logger.Infof("Found existing deployment %q, updating", deploymentName)
+		_, err = dc.Update(deployment)
+	} else {
+		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
+		_, err = dc.Create(deployment)
+	}
+	return err
 }
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) error {
