@@ -318,16 +318,16 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 }
 
 func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 }
 
 type fixedResolver struct {
@@ -871,10 +871,10 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 	rev := getTestRevision()
 	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// Look for the revision deployment.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
@@ -933,7 +933,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 }
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
-	_, buildClient, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	_, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
@@ -949,8 +949,16 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 				Args:    []string{"-c", "echo Hello"},
 			}},
 		},
+		Status: buildv1alpha1.BuildStatus{
+			Conditions: []buildv1alpha1.BuildCondition{{
+				Type:   buildv1alpha1.BuildSucceeded,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
 	}
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
@@ -979,7 +987,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 }
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
-	kubeClient, buildClient, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -1005,15 +1013,17 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 		},
 	}
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
 	// watching for this build to complete, so make it complete, but
@@ -1026,8 +1036,11 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		}},
 	}
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.SyncBuild(bld)
+	controller.EnqueueBuildTrackers(bld)
+	controller.Reconcile(KeyOrDie(rev))
 
 	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1058,7 +1071,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, buildClient, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	h := NewHooks()
@@ -1092,15 +1105,17 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		},
 	}
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
 	// watching for this build to complete, so make it complete
@@ -1112,8 +1127,11 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 			Message: completeMessage,
 		}},
 	}
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.SyncBuild(bld)
+	controller.EnqueueBuildTrackers(bld)
+	controller.Reconcile(KeyOrDie(rev))
 
 	completedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1126,6 +1144,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		want := &v1alpha1.RevisionCondition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
+			Message:            completeMessage,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -1140,7 +1159,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 }
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
-	_, buildClient, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	_, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -1162,14 +1181,16 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	}
 
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
 	// watching for this build to complete, so make it complete, but
@@ -1182,8 +1203,11 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		}},
 	}
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.SyncBuild(bld)
+	controller.EnqueueBuildTrackers(bld)
+	controller.Reconcile(KeyOrDie(rev))
 
 	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1215,9 +1239,9 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 
 	revClient.Create(rev)
 
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// Look for revision's deployment.
 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
@@ -1262,9 +1286,9 @@ func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
 
 	revClient.Create(rev)
 
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// Look for revision's deployment.
 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
@@ -1318,9 +1342,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	deployingRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {

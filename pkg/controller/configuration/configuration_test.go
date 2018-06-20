@@ -523,11 +523,13 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	revision := revList.Items[0].DeepCopy()
 
 	// mark the revision not ready with the status
-	revision.Status.MarkBuildFailed(&buildv1alpha1.BuildCondition{
-		Type:    buildv1alpha1.BuildSucceeded,
-		Status:  corev1.ConditionFalse,
-		Reason:  "StepFailed",
-		Message: "Build step failed with error",
+	revision.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  "StepFailed",
+			Message: "Build step failed with error",
+		}},
 	})
 
 	// Since Reconcile looks in the lister, we need to add it to the informer

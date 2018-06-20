@@ -152,7 +152,7 @@ func (c *Base) Enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.WorkQueue.AddRateLimited(key)
+	c.EnqueueKey(key)
 }
 
 // EnqueueControllerOf takes a resource, identifies its controller resource, and
@@ -170,8 +170,13 @@ func (c *Base) EnqueueControllerOf(obj interface{}) {
 	// If we can determine the controller ref of this object, then
 	// add that object to our workqueue.
 	if owner := metav1.GetControllerOf(object); owner != nil {
-		c.WorkQueue.AddRateLimited(object.GetNamespace() + "/" + owner.Name)
+		c.EnqueueKey(object.GetNamespace() + "/" + owner.Name)
 	}
+}
+
+// EnqueueKey takes a namespace/name string and puts it onto the work queue.
+func (c *Base) EnqueueKey(key string) {
+	c.WorkQueue.AddRateLimited(key)
 }
 
 // RunController will set up the event handlers for types we are interested in, as well

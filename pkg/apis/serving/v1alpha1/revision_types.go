@@ -297,41 +297,36 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 	}
 }
 
-func (rs *RevisionStatus) MarkBuilding() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionBuildSucceeded,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:   cond,
-			Status: corev1.ConditionUnknown,
-			Reason: "Building",
-		})
-	}
-}
-
-func (rs *RevisionStatus) MarkBuildSucceeded() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionBuildSucceeded,
-		Status: corev1.ConditionTrue,
-	})
-	// Clear "Reason: Building".  There is a risk this could reset a "Ready: False" state,
-	// but not as things exist today.
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionUnknown,
-	})
-}
-
-func (rs *RevisionStatus) MarkBuildFailed(bc *buildv1alpha1.BuildCondition) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionBuildSucceeded,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
+func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
+	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
+	if bc == nil {
+		// TODO(mattmoor): When Build validation is synchronous, get rid
+		// of this special logic and just return.
+		bc = bs.GetCondition(buildv1alpha1.BuildInvalid)
+		if bc == nil {
+			return
+		}
+		bc = &buildv1alpha1.BuildCondition{
+			Type:    buildv1alpha1.BuildSucceeded,
 			Status:  corev1.ConditionFalse,
 			Reason:  bc.Reason,
+			Message: bc.Message,
+		}
+	}
+	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
+	// If the underlying Build is not ready, then mark the Revision not ready.
+	if bc.Status != corev1.ConditionTrue {
+		rct = append(rct, RevisionConditionReady)
+	}
+	reason := "Building"
+	if bc.Status != corev1.ConditionUnknown {
+		reason = bc.Reason
+	}
+	for _, cond := range rct {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  bc.Status,
+			Reason:  reason,
 			Message: bc.Message,
 		})
 	}
