@@ -19,8 +19,7 @@
 # called from command line.
 
 # Default GKE version to be used with Knative Serving
-readonly SERVING_GKE_VERSION=1.10.2-gke.3
-readonly SERVING_GKE_IMAGE=ubuntu
+readonly SERVING_GKE_VERSION=latest
 
 # Useful environment variables
 [[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0
