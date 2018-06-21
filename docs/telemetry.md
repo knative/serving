@@ -65,28 +65,30 @@ kubectl apply -R -f config/monitoring/100-common \
 
 ### Kibana and Elasticsearch
 
-To start the Kibana UI (the visualization tool for [Elasticsearch](https://info.elastic.co)) up on local port 8001, enter the following command:
+To open the Kibana UI (the visualization tool for [Elasticsearch](https://info.elastic.co)), enter the following command:
 
 ```shell
 kubectl proxy
 ```
 
-This sets up a local proxy from your computer to the Kubernetes master that allows you to access multiple logging and reporting tools, including the Kibana UI.
+This starts a local proxy of Kibana on port 8001. The Kibana UI is only exposed within the cluster for security reasons.
 
-Then navigate to the Kibana UI at this [link](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana")
+Navigate to the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana")
 (*It might take a couple of minutes for the proxy to work*).
 
 When Kibana is opened the first time, it will ask you to create an index. Accept the default options:
 
-![Kibana UI Configuring an Index Pattern](https://github.com/samodell/serving/blob/patch-1/docs/kibana-landing-page-configure-index.png)
+![Kibana UI Configuring an Index Pattern](/docs/kibana-landing-page-configure-index.png)
 
 The Discover tab of the Kibana UI looks like this:
 
-![Kibana UI Discover tab](https://github.com/samodell/serving/blob/patch-1/docs/kibana-discover-tab-annotated.png)
+![Kibana UI Discover tab](/docs/kibana-discover-tab-annotated.png)
 
 You can change the time frame of logs Kibana displays in the upper right corner of the screen. The main search bar is across the top of the Dicover page.
 
 As more logs are ingested, new fields will be discovered. To have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+
+<!-- TODO: create a video walkthrough of the Kibana UI -->
 
 #### Accessing configuration and revision logs
 
