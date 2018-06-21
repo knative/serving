@@ -34,10 +34,26 @@ import (
 )
 
 const (
-	// Each Knative Serving pod gets 1 cpu.
+	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
+	// for how CPU and memory values were calculated.
+
+	// Each Knative Serving pod gets 500m cpu initially.
 	userContainerCPU    = "400m"
 	queueContainerCPU   = "25m"
-	fluentdContainerCPU = "75m"
+	fluentdContainerCPU = "25m"
+	envoyContainerCPU   = "50m"
+
+	// Limit CPU recommendation to 2000m
+	userContainerMaxCPU    = "1700m"
+	queueContainerMaxCPU   = "200m"
+	fluentdContainerMaxCPU = "100m"
+	envoyContainerMaxCPU   = "200m"
+
+	// Limit memory recommendation to 4G
+	userContainerMaxMemory    = "3700M"
+	queueContainerMaxMemory   = "100M"
+	fluentdContainerMaxMemory = "100M"
+	envoyContainerMaxMemory   = "100M"
 
 	fluentdConfigMapVolumeName     = "configmap"
 	varLogVolumeName               = "varlog"

@@ -52,6 +52,15 @@ data:
   # Scale to zero feature flag
   enable-scale-to-zero: "true"
 
+  # Experimental: enable vertical pod autoscaling.
+  # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
+  enable-vertical-pod-autoscaling: "false"
+  #
+  # This will be the multi-concurrency-target when
+  # enable-vertical-pod-autoscaling is true. And it will be the new
+  # default when the experiment is launched and removed.
+  vpa-multi-concurrency-target: "10.0"
+  
   # Dynamic parameters (take effect when config map is updated):
 
   # Scale to zero threshold is the time a revision must be idle before
