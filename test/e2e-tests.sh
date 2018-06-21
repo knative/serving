@@ -218,7 +218,6 @@ if [[ -z $1 ]]; then
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
-    --gcp-node-image="${SERVING_GKE_IMAGE,,}"
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
     --gcp-network="${E2E_NETWORK_NAME}"
@@ -241,7 +240,8 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "v${SERVING_GKE_VERSION}" \
+    --extract "gke-${SERVING_GKE_VERSION}" \
+    --gcp-node-image ${SERVING_GKE_IMAGE} \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.
