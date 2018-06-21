@@ -484,9 +484,9 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 // It is used when the revision serving state is Reserve.
 func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	logger.Info("Scale the deployment to 0 for the revision")
-	if err := c.deactivateDeployment(ctx, rev); err != nil {
-		logger.Error("Failed to deactivate a deployment", zap.Error(err))
+	logger.Info("Scaling the deployment to 0 for the revision")
+	if err := c.scaleRevisionResourcesToZero(ctx, rev); err != nil {
+		logger.Error("Failed to scale the deployment to 0", zap.Error(err))
 		return err
 	}
 
@@ -527,7 +527,7 @@ func (c *Controller) deleteAutoscalerResources(ctx context.Context, rev *v1alpha
 	return nil
 }
 
-func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	dc := c.KubeClientSet.AppsV1().Deployments(rev.Namespace)
@@ -541,12 +541,12 @@ func (c *Controller) deactivateDeployment(ctx context.Context, rev *v1alpha1.Rev
 		return nil
 	}
 
-	logger.Infof("Deactivating deployment %q", deploymentName)
+	logger.Infof("Setting deployment %q to 0", deploymentName)
 	deployment.Spec.Replicas = new(int32)
 	*deployment.Spec.Replicas = int32(0)
 	_, err = dc.Update(deployment)
 	if err != nil {
-		logger.Errorf("Error deactivating deployment %q: %s", deploymentName, err)
+		logger.Errorf("Error scaling deployment %q to 0: %s", deploymentName, err)
 		return err
 	}
 	logger.Infof("Successfully scaled deployment %s to 0.", deploymentName)
@@ -644,18 +644,9 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
-	deploymentExists := true
-	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
-			return err
-		}
-		deploymentExists = false
-	}
-
-	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
+	desiredDeployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
 	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment); err != nil {
+	if err := c.resolver.Resolve(desiredDeployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
 		if _, updateErr := c.updateStatus(rev); updateErr != nil {
@@ -665,17 +656,26 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	}
 
-	var err error
-	if deploymentExists {
-		// TODO(mattmoor): Compare the deployments and update if it has changed
-		// out from under us.
-		logger.Infof("Found existing deployment %q, updating", deploymentName)
-		_, err = dc.Update(deployment)
-	} else {
+	if existingDeployment, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
+		if !apierrs.IsNotFound(err) {
+			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
+			return err
+		}
 		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
-		_, err = dc.Create(deployment)
+		_, err := dc.Create(desiredDeployment)
+		return err
+	} else {
+		logger.Infof("Found existing deployment %q", deploymentName)
+		// TODO(mattmoor): Compare the deployments and update if it has changed
+		// out from under us. So far the deployment could only be updated for replicas field.
+		if *existingDeployment.Spec.Replicas == *desiredDeployment.Spec.Replicas {
+			logger.Infof("The existing deployment %q replicas count %d is expected", deploymentName, *existingDeployment.Spec.Replicas)
+			return nil
+		}
+		logger.Infof("Updating deployment %q", deploymentName)
+		_, err := dc.Update(desiredDeployment)
+		return err
 	}
-	return err
 }
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) error {
