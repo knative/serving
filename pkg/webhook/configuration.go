@@ -118,6 +118,9 @@ func validateContainer(container corev1.Container) error {
 	if len(container.VolumeMounts) > 0 {
 		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.volumeMounts")
 	}
+	if container.Lifecycle != nil {
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.lifecycle")
+	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		return errDisallowedFields(strings.Join(ignoredFields, ", "))
