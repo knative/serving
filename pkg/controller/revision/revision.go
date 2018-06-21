@@ -541,7 +541,7 @@ func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1al
 		return nil
 	}
 
-	logger.Infof("Setting deployment %q to 0", deploymentName)
+	logger.Infof("Setting deployment %q replicas to 0", deploymentName)
 	deployment.Spec.Replicas = new(int32)
 	*deployment.Spec.Replicas = int32(0)
 	_, err = dc.Update(deployment)
