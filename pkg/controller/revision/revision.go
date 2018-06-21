@@ -665,6 +665,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return err
 	}
 
+	var err error
 	if deploymentExists {
 		// TODO(mattmoor): Compare the deployments and update if it has changed
 		// out from under us.
