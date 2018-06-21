@@ -69,7 +69,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		reqBody, err = ioutil.ReadAll(r.Body)
 
 		if err != nil {
-			glog.Infof("Error reading request body: %s", err)
+			glog.Errorf("Error reading request body: %s", err)
 			return nil, err
 		}
 		r.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
@@ -85,7 +85,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		}
 
 		if err != nil {
-			glog.Infof("Error making a request: %s", err)
+			glog.Errorf("Error making a request: %s", err)
 		}
 
 		if resp != nil {
@@ -94,6 +94,9 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 
 		time.Sleep(retryInterval)
 
+		// The request body cannot be read multiple times for retries.
+		// The workaround is to clone the request body into a byte array
+		// so the body can be read multiple times.
 		if r.Body != nil {
 			r.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
 		}
