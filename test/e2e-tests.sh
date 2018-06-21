@@ -243,7 +243,7 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "${SERVING_GKE_VERSION}" \
+    --extract "gke-${SERVING_GKE_VERSION}" \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.
