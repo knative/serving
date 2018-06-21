@@ -182,7 +182,7 @@ spec:
         readinessProbe: ...  # Optional
 
       # +optional max request concurrency per instance.  Defaults to `0` (system decides).
-      instanceMaxRequestConcurrency: ...
+      instanceConcurrency: ...
       # +optional. max time the instance is allowed for responding to a request
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as.
@@ -259,12 +259,12 @@ spec:
   # Some function or server frameworks or application code may be
   # written to expect that each request will be granted a single-tenant
   # process to run (i.e. that the request code is run
-  # single-threaded). An instanceMaxRequestConcurrency value of `1` will
+  # single-threaded). An instanceConcurrency value of `1` will
   # guarantee that only one request is handled at a time by a given
   # instance of the Revision container. A value of `2` or more will
   # limit request concurrency to that value.  A value of `0` means the
   # system should decide.
-  instanceMaxRequestConcurrency: 0 | 1 | 2-N
+  instanceConcurrency: 0 | 1 | 2-N
 
   # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
@@ -336,7 +336,7 @@ spec:  # One of "runLatest" or "pinned"
         - ...
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
-      instanceMaxRequestConcurrency: ... # Optional
+      instanceConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
   # Example, only one of runLatest or pinned can be set in practice.
@@ -358,7 +358,7 @@ spec:  # One of "runLatest" or "pinned"
         - ...
         livenessProbe: ...  # Optional
         readinessProbe: ...  # Optional
-      instanceMaxRequestConcurrency: ... # Optional
+      instanceConcurrency: ... # Optional
       timeoutSeconds: ...
       serviceAccountName: ...  # Name of the service account the code should run as
 status:
