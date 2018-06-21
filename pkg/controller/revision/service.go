@@ -42,13 +42,11 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       httpServicePortName,
-					Port:       int32(servicePort),
-					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
-				},
-			},
+			Ports: []corev1.ServicePort{{
+				Name:       httpServicePortName,
+				Port:       int32(servicePort),
+				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
+			}},
 			Type: "NodePort",
 			Selector: map[string]string{
 				serving.RevisionLabelKey: rev.Name,
