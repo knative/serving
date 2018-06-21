@@ -2,8 +2,8 @@
 All Ingresses in Istio service mesh share the same IP address, which is the 
 external IP address of service "istio-ingress" under namespace "istio-system". So to set static IP for Ingresses, you just need to set the external IP of service "istio-ingress" to the static IP you need.
 
-## Prerequest
-### Prerequest 1: Reserve a static IP
+## Prerequisites
+### Prerequisite 1: Reserve a static IP
 #### Knative on GKE
 If you are running Knative cluster on GKE, you can follow the [instruction](https://cloud.google.com/compute/docs/ip-addresses/reserve-static-external-ip-address#reserve_new_static) to reserve a REGIONAL 
 IP address. The region of the IP address should be the region your Knative
@@ -11,7 +11,7 @@ IP address. The region of the IP address should be the region your Knative
 
 TODO: find out how to reserve static IP in other cloud platforms.
 
-### Prerequest 2: Deploy Istio
+### Prerequisite 2: Deploy Istio
 Follow the [instruction](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#deploy-istio) to deploy Istio into your cluster.
 
 Once you reach this point, you can start to set up static IP for Ingresses.
