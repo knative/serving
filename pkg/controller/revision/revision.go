@@ -740,16 +740,15 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 	ns := pkg.GetServingSystemNamespace()
 	sc := c.KubeClientSet.CoreV1().Services(ns)
 	_, err := sc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("Autoscaler Service get for %q failed: %s", autoscalerName, err)
-			return err
-		}
-		logger.Infof("Autoscaler Service %q doesn't exist, creating", autoscalerName)
-	} else {
+	if err == nil {
 		logger.Infof("Found existing autoscaler Service %q", autoscalerName)
 		return nil
 	}
+	if !apierrs.IsNotFound(err) {
+		logger.Errorf("Autoscaler Service get for %q failed: %s", autoscalerName, err)
+		return err
+	}
+	logger.Infof("Autoscaler Service %q doesn't exist, creating", autoscalerName)
 
 	service := MakeServingAutoscalerService(rev)
 	logger.Infof("Creating autoscaler Service: %q", service.Name)
@@ -779,16 +778,15 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	ns := pkg.GetServingSystemNamespace()
 	dc := c.KubeClientSet.AppsV1().Deployments(ns)
 	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("Autoscaler Deployment get for %q failed: %s", autoscalerName, err)
-			return err
-		}
-		logger.Infof("Autoscaler Deployment %q doesn't exist, creating", autoscalerName)
-	} else {
+	if err == nil {
 		logger.Infof("Found existing autoscaler Deployment %q", autoscalerName)
 		return nil
 	}
+	if !apierrs.IsNotFound(err) {
+		logger.Errorf("Autoscaler Deployment get for %q failed: %s", autoscalerName, err)
+		return err
+	}
+	logger.Infof("Autoscaler Deployment %q doesn't exist, creating", autoscalerName)
 
 	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
 	logger.Infof("Creating autoscaler Deployment: %q", deployment.Name)
@@ -817,16 +815,15 @@ func (c *Controller) reconcileVpa(ctx context.Context, rev *v1alpha1.Revision) e
 	vpaName := controller.GetRevisionVpaName(rev)
 	vs := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace)
 	_, err := vs.Get(vpaName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("VPA get for %q failed: %v", vpaName, err)
-			return err
-		}
-		logger.Infof("VPA %q doesn't exist, creating", vpaName)
-	} else {
-		logger.Info("Found exising VPA %q", vpaName)
+	if err == nil {
+		logger.Infof("Found exising VPA %q", vpaName)
 		return nil
 	}
+	if !apierrs.IsNotFound(err) {
+		logger.Errorf("VPA get for %q failed: %v", vpaName, err)
+		return err
+	}
+	logger.Infof("VPA %q doesn't exist, creating", vpaName)
 
 	controllerRef := controller.NewRevisionControllerRef(rev)
 	vpaObj := MakeVpa(rev)
