@@ -212,21 +212,21 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		client:  client,
 		options: options,
 		handlers: map[string]GenericCRDHandler{
-			"Revision": GenericCRDHandler{
+			"Revision": {
 				Factory:   &v1alpha1.Revision{},
 				Defaulter: SetRevisionDefaults(ctx),
 				Validator: ValidateRevision(ctx),
 			},
-			"Configuration": GenericCRDHandler{
+			"Configuration": {
 				Factory:   &v1alpha1.Configuration{},
 				Defaulter: SetConfigurationDefaults(ctx),
 				Validator: ValidateConfiguration(ctx),
 			},
-			"Route": GenericCRDHandler{
+			"Route": {
 				Factory:   &v1alpha1.Route{},
 				Validator: ValidateRoute(ctx),
 			},
-			"Service": GenericCRDHandler{
+			"Service": {
 				Factory:   &v1alpha1.Service{},
 				Defaulter: SetServiceDefaults(ctx),
 				Validator: ValidateService(ctx),
@@ -321,29 +321,27 @@ func (ac *AdmissionController) register(
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ac.options.WebhookName,
 		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{
-			{
-				Name: ac.options.WebhookName,
-				Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-					Operations: []admissionregistrationv1beta1.OperationType{
-						admissionregistrationv1beta1.Create,
-						admissionregistrationv1beta1.Update,
-					},
-					Rule: admissionregistrationv1beta1.Rule{
-						APIGroups:   []string{serving.GroupName},
-						APIVersions: []string{knativeAPIVersion},
-						Resources:   resources,
-					},
-				}},
-				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-					Service: &admissionregistrationv1beta1.ServiceReference{
-						Namespace: ac.options.ServiceNamespace,
-						Name:      ac.options.ServiceName,
-					},
-					CABundle: caCert,
+		Webhooks: []admissionregistrationv1beta1.Webhook{{
+			Name: ac.options.WebhookName,
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
 				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{serving.GroupName},
+					APIVersions: []string{knativeAPIVersion},
+					Resources:   resources,
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: ac.options.ServiceNamespace,
+					Name:      ac.options.ServiceName,
+				},
+				CABundle: caCert,
 			},
-		},
+		}},
 	}
 
 	// Set the owner to our deployment
