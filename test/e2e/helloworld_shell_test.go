@@ -54,7 +54,7 @@ func cleanup(yamlFilename string) {
 
 func TestHelloWorldFromShell(t *testing.T) {
 	// Container is expected to live in <gcr>/sample/helloworld
-        // To regenerate it, see https://github.com/knative/serving/tree/master/sample/helloworld#setup
+	// To regenerate it, see https://github.com/knative/serving/tree/master/sample/helloworld#setup
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "sample", "helloworld"}, "/")
 
 	glog.Infof("Creating manifest")
