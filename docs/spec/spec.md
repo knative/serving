@@ -382,11 +382,11 @@ status:
     status: False
     reason: RevisionMissing
     message: "Revision 'qyzz' referenced in traffic not found"
-  - type: ConfigurationReady
+  - type: ConfigurationsReady
     status: False
     reason: ContainerMissing
     message: "Unable to start because container is missing and build failed."
-  - type: RouteReady
+  - type: RoutesReady
     status: False
     reason: RevisionMissing
     message: "Revision 'qyzz' referenced in traffic not found"

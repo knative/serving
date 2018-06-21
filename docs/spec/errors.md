@@ -107,7 +107,7 @@ resources to cause a new Revision to be created.
 
 If the latest Revision fails to become `Ready` for any reason within
 some reasonable timeframe, the Configuration and Service should signal
-this with the `Ready` status and `ConfigurationReady` status, respectively,
+this with the `Ready` status and `ConfigurationsReady` status, respectively,
 copying the reason and the message from the `Ready` condition on the Revision.
 
 ```http
@@ -140,11 +140,11 @@ status:
     status: False
     reason: BuildFailed
     message: "Build Step XYZ failed with error message: $LASTLOGLINE"
-  - type: ConfigurationReady
+  - type: ConfigurationsReady
     status: False
     reason: BuildFailed
     message: "Build Step XYZ failed with error message: $LASTLOGLINE"
-  - type: RouteReady
+  - type: RoutesReady
     status: True
 ```
 
@@ -361,7 +361,7 @@ status:
     status: False
     reason: RevisionMissing
     message: "The configuration 'abc' does not have a LatestReadyRevision."
-  - type: RouteReady
+  - type: RoutesReady
     status: False
     reason: RevisionMissing
     message: "The configuration 'abc' does not have a LatestReadyRevision."

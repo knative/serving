@@ -74,9 +74,9 @@ optional but recommended.
 The Service's controller will track the statuses of its owned Configuration
 and Route, reflecting their statuses and conditions as its own.
 
-The owned Configuration's Ready condition is surfaced as the Service's
-ConfigurationReady condition. The owned Route's Ready condition is surfaced as
-the Service's RouteReady condition.
+The owned Configurations' Ready conditions are surfaced as the Service's
+ConfigurationsReady condition. The owned Routes' Ready conditions are
+surfaced as the Service's RoutesReady condition.
 
 
 # Orchestration
