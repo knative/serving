@@ -324,7 +324,7 @@ func (c *Controller) Reconcile(key string) error {
 			return c.createK8SResources(ctx, rev)
 
 		case v1alpha1.RevisionServingStateReserve:
-			return c.teardownK8SResources(ctx, rev)
+			return c.scaleRevisionResourcesToZero(ctx, rev)
 
 		// TODO(mattmoor): Nothing sets this state, and it should be removed.
 		case v1alpha1.RevisionServingStateRetired:
@@ -449,7 +449,7 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	return
 }
 
-// teardownK8SResources deletes autoscaler resources, and deletes the revision service and deployment.
+// deleteK8SResources deletes autoscaler resources, and deletes the revision service and deployment.
 // It is used when the revision serving state is Retired.
 func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
@@ -480,12 +480,12 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	return nil
 }
 
-// teardownK8SResources deletes autoscaler resources, but keeps the revision service and deployment.
+// scaleRevisionResourcesToZero deletes autoscaler resources, but keeps the revision service and deployment.
 // It is used when the revision serving state is Reserve.
-func (c *Controller) teardownK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("Scaling the deployment to 0 for the revision")
-	if err := c.scaleRevisionResourcesToZero(ctx, rev); err != nil {
+	if err := c.scaleDeploymentToZero(ctx, rev); err != nil {
 		logger.Error("Failed to scale the deployment to 0", zap.Error(err))
 		return err
 	}
@@ -527,7 +527,7 @@ func (c *Controller) deleteAutoscalerResources(ctx context.Context, rev *v1alpha
 	return nil
 }
 
-func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Controller) scaleDeploymentToZero(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	dc := c.KubeClientSet.AppsV1().Deployments(rev.Namespace)
