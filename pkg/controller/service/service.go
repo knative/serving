@@ -76,7 +76,7 @@ func NewController(
 		FilterFunc: controller.Filter("Service"),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(c.Enqueue),
+			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
 		},
 	})
 
@@ -84,7 +84,7 @@ func NewController(
 		FilterFunc: controller.Filter("Service"),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
-			UpdateFunc: controller.PassNew(c.Enqueue),
+			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
 		},
 	})
 
