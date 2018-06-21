@@ -13,7 +13,7 @@ func MakeVpa(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 	return &vpa.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        controller.GetRevisionVpaName(rev),
-			Namespace:   rev.Namespace,
+			Namespace:   controller.GetServingNamespaceName(rev.Namespace),
 			Labels:      MakeServingResourceLabels(rev),
 			Annotations: MakeServingResourceAnnotations(rev),
 		},
@@ -25,40 +25,35 @@ func MakeVpa(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 				UpdateMode: vpa.UpdateModeAuto,
 			},
 			ResourcePolicy: vpa.PodResourcePolicy{
-				ContainerPolicies: []vpa.ContainerResourcePolicy{
-					vpa.ContainerResourcePolicy{
-						Name: userContainerName,
-						Mode: vpa.ContainerScalingModeOn,
-						MaxAllowed: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse(userContainerMaxCPU),
-							corev1.ResourceName("memory"): resource.MustParse(userContainerMaxMemory),
-						},
+				ContainerPolicies: []vpa.ContainerResourcePolicy{{
+					Name: userContainerName,
+					Mode: vpa.ContainerScalingModeOn,
+					MaxAllowed: corev1.ResourceList{
+						corev1.ResourceName("cpu"):    resource.MustParse(userContainerMaxCPU),
+						corev1.ResourceName("memory"): resource.MustParse(userContainerMaxMemory),
 					},
-					vpa.ContainerResourcePolicy{
-						Name: queueContainerName,
-						Mode: vpa.ContainerScalingModeOn,
-						MaxAllowed: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse(queueContainerMaxCPU),
-							corev1.ResourceName("memory"): resource.MustParse(queueContainerMaxMemory),
-						},
+				}, {
+					Name: queueContainerName,
+					Mode: vpa.ContainerScalingModeOn,
+					MaxAllowed: corev1.ResourceList{
+						corev1.ResourceName("cpu"):    resource.MustParse(queueContainerMaxCPU),
+						corev1.ResourceName("memory"): resource.MustParse(queueContainerMaxMemory),
 					},
-					vpa.ContainerResourcePolicy{
-						Name: fluentdContainerName,
-						Mode: vpa.ContainerScalingModeOn,
-						MaxAllowed: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse(fluentdContainerMaxCPU),
-							corev1.ResourceName("memory"): resource.MustParse(fluentdContainerMaxMemory),
-						},
+				}, {
+					Name: fluentdContainerName,
+					Mode: vpa.ContainerScalingModeOn,
+					MaxAllowed: corev1.ResourceList{
+						corev1.ResourceName("cpu"):    resource.MustParse(fluentdContainerMaxCPU),
+						corev1.ResourceName("memory"): resource.MustParse(fluentdContainerMaxMemory),
 					},
-					vpa.ContainerResourcePolicy{
-						Name: envoyContainerName,
-						Mode: vpa.ContainerScalingModeOn,
-						MaxAllowed: corev1.ResourceList{
-							corev1.ResourceName("cpu"):    resource.MustParse(envoyContainerMaxCPU),
-							corev1.ResourceName("memory"): resource.MustParse(envoyContainerMaxMemory),
-						},
+				}, {
+					Name: envoyContainerName,
+					Mode: vpa.ContainerScalingModeOn,
+					MaxAllowed: corev1.ResourceList{
+						corev1.ResourceName("cpu"):    resource.MustParse(envoyContainerMaxCPU),
+						corev1.ResourceName("memory"): resource.MustParse(envoyContainerMaxMemory),
 					},
-				},
+				}},
 			},
 		},
 	}
