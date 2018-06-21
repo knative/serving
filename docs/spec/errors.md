@@ -107,8 +107,8 @@ resources to cause a new Revision to be created.
 
 If the latest Revision fails to become `Ready` for any reason within
 some reasonable timeframe, the Configuration and Service should signal
-this with the `LatestRevisionReady` status, copying the reason and the
-message from the `Ready` condition on the Revision.
+this with the `Ready` status and `ConfigurationsReady` status, respectively,
+copying the reason and the message from the `Ready` condition on the Revision.
 
 ```http
 GET /api/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
@@ -120,10 +120,10 @@ status:
   latestReadyRevisionName: abc
   latestCreatedRevisionName: bcd  # Hasn't become "Ready"
   conditions:
-  - type: LatestRevisionReady
+  - type: Ready
     status: False
     reason: BuildFailed
-    meassage: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
 ```http
@@ -137,11 +137,15 @@ status:
   latestCreatedRevisionName: bcd  # Hasn't become "Ready"
   conditions:
   - type: Ready
-    status: True  # If an earlier version is serving
-  - type: LatestRevisionReady
     status: False
     reason: BuildFailed
-    meassage: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+  - type: ConfigurationsReady
+    status: False
+    reason: BuildFailed
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+  - type: RoutesReady
+    status: True
 ```
 
 ### Build failed
@@ -357,10 +361,12 @@ status:
     status: False
     reason: RevisionMissing
     message: "The configuration 'abc' does not have a LatestReadyRevision."
-  - type: LatestRevisionReady
+  - type: RoutesReady
     status: False
-    reason: ExitCode127
-    message: "Container failed with: SyntaxError: Unexpected identifier"
+    reason: RevisionMissing
+    message: "The configuration 'abc' does not have a LatestReadyRevision."
+  - type: ConfigurationsReady
+    status: True
 ```
 
 ### Revision not found by Route
@@ -446,7 +452,7 @@ status:
 ### Latest Revision of a Configuration deleted
 
 If the most recent Revision is deleted, the Configuration will set
-`LatestRevisionReady` to False.
+`Ready` to False.
 
 If the deleted Revision was also the most recent to become ready, the
 Configuration will also clear the `latestReadyRevisionName`. Additionally,
@@ -468,7 +474,7 @@ spec:
 status:
   latestCreatedRevision: abc
   conditions:
-  - type: LatestRevisionReady
+  - type: Ready
     status: False
     reason: RevisionMissing
     message: "The latest Revision appears to have been deleted."

@@ -130,7 +130,7 @@ status:
 ```
 
 ```http
-GET /apis/serving.knative.dev/v1alpha1/namespaces/default/service/my-service
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/services/my-service
 ```
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1

@@ -53,7 +53,7 @@ metadata:
   namespace: default
   labels:
     knative.dev/type: ...  # +optional convention: function|app
- 
+
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -109,7 +109,7 @@ kind: Configuration
 metadata:
   name: my-service
   namespace: default
-  
+
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -121,8 +121,8 @@ spec:
   # +optional. composable Build spec, if omitted provide image directly
   build:  # This is a build.knative.dev/v1alpha1.BuildTemplateSpec
     source:
-      # oneof git|gcs|custom: 
-      
+      # oneof git|gcs|custom:
+
       # +optional.
       git:
         url: https://github.com/jrandom/myrepo
@@ -164,7 +164,7 @@ spec:
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container:
         # image either provided as pre-built container, or built by Knative Serving from
-        # source. When built by knative, set to the same as build template, e.g. 
+        # source. When built by knative, set to the same as build template, e.g.
         # build.template.arguments[_IMAGE], as the "promise" of a future build.
         # If buildName is provided, it is expected that this image will be
         # present when the referenced build is complete.
@@ -193,7 +193,7 @@ status:
   # latest created revision, may still be in the process of being materialized
   latestCreatedRevisionName: def
   conditions:  # See also the [error conditions documentation](errors.md)
-  - type: LatestRevisionReady
+  - type: Ready
     status: False
     reason: ContainerMissing
     message: "Unable to start because container is missing and build failed."
@@ -307,7 +307,7 @@ metadata:
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
   creationTimestamp: ...
-  generation: ... 
+  generation: ...
   selfLink: ...
   ...
 
@@ -369,14 +369,27 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
+  # current rollout status list. configurationName references
+  #   are dereferenced to latest revision
+  traffic:
+  - revisionName: ...  # latestReadyRevisionName from a configurationName in spec
+    name: ...
+    percent: ...  # percentages add to 100. 0 is a valid list value
+  - ...
+
   conditions:  # See also the documentation in errors.md
   - type: Ready
-    status: True
-    message: "Revision starting"
-  - type: LatestRevisionReady
+    status: False
+    reason: RevisionMissing
+    message: "Revision 'qyzz' referenced in traffic not found"
+  - type: ConfigurationsReady
     status: False
     reason: ContainerMissing
     message: "Unable to start because container is missing and build failed."
+  - type: RoutesReady
+    status: False
+    reason: RevisionMissing
+    message: "Revision 'qyzz' referenced in traffic not found"
 
   observedGeneration: ...  # last generation being reconciled
 ```
