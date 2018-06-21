@@ -365,6 +365,8 @@ status:
     status: False
     reason: RevisionMissing
     message: "The configuration 'abc' does not have a LatestReadyRevision."
+  - type: ConfigurationsReady
+    status: True
 ```
 
 ### Revision not found by Route
