@@ -164,7 +164,7 @@ function report_go_test() {
   go test -v ${args[@]} > ${report} || failed=$?
   # Tests didn't run.
   [[ ! -s ${report} ]] && return 1
-  # Create a fake workspace to generate a bazel-like test structure
+  # Create WORKSPACE file, required to use bazel
   touch WORKSPACE
   local targets=""
   # Parse the report and generate fake tests for each passing/failing test.
