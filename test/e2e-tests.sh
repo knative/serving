@@ -103,6 +103,11 @@ function teardown() {
 
 function exit_if_failed() {
   [[ $? -eq 0 ]] && return 0
+  dump_stack_info
+  exit 1
+}
+
+function dump_stack_info() {
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***    Start of information dump    ***"
@@ -131,14 +136,15 @@ function exit_if_failed() {
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
   echo "***************************************"
-  exit 1
 }
 
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
-  exit_if_failed
+  report_go_test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  local result=$?
+  [[ ${result} -ne 0 ]] && dump_stack_info
+  return ${result}
 }
 
 # Smoke test: deploy the "hello world" app using command line.
@@ -327,7 +333,10 @@ exit_if_failed
 # Run the tests
 
 run_e2e_tests conformance pizzaplanet ela-conformance-test
+result=$?
 run_e2e_tests e2e noodleburg ela-e2e-test
+[[ $? -eq 0 && ${result} -eq 0 ]]
+exit_if_failed
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
