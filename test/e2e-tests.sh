@@ -101,7 +101,7 @@ function teardown() {
   fi
 }
 
-function exit_if_failed() {
+function abort_if_failed() {
   [[ $? -eq 0 ]] && return 0
   dump_stack_info
   exit 1
@@ -226,11 +226,11 @@ if [[ -z $1 ]]; then
   )
   if (( ! IS_PROW )); then
     CLUSTER_CREATION_ARGS+=(--gcp-project=${PROJECT_ID:?"PROJECT_ID must be set to the GCP project where the tests are run."})
-  else
-    # On prow, set bogus SSH keys for kubetest, we're not using them.
-    touch $HOME/.ssh/google_compute_engine.pub
-    touch $HOME/.ssh/google_compute_engine
   fi
+  # SSH keys are not used, but kubetest checks for their existence.
+  # Touch them so if they don't exist, empty files are create to satisfy the check.
+  touch $HOME/.ssh/google_compute_engine.pub
+  touch $HOME/.ssh/google_compute_engine
   # Clear user and cluster variables, so they'll be set to the test cluster.
   # DOCKER_REPO_OVERRIDE is not touched because when running locally it must
   # be a writeable docker repo.
@@ -324,19 +324,18 @@ set +o errexit
 set +o pipefail
 
 wait_until_pods_running knative-serving-system
-exit_if_failed
+abort_if_failed
 
 # Ensure we have a minimum working cluster.
 run_smoke_test
-exit_if_failed
+abort_if_failed
 
 # Run the tests
 
 run_e2e_tests conformance pizzaplanet ela-conformance-test
 result=$?
 run_e2e_tests e2e noodleburg ela-e2e-test
-[[ $? -eq 0 && ${result} -eq 0 ]]
-exit_if_failed
+[[ $? -ne 0 || ${result} -ne 0 ]] && exit 1
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.
