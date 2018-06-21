@@ -20,6 +20,7 @@
 
 # Default GKE version to be used with Knative Serving
 readonly SERVING_GKE_VERSION=latest
+readonly SERVING_GKE_IMAGE=cos
 
 # Useful environment variables
 [[ -n "${PROW_JOB_ID}" ]] && IS_PROW=1 || IS_PROW=0

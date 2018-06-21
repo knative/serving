@@ -244,6 +244,7 @@ if [[ -z $1 ]]; then
     --up \
     --down \
     --extract "gke-${SERVING_GKE_VERSION}" \
+    --gcp-node-image ${SERVING_GKE_IMAGE} \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.

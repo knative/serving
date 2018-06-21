@@ -52,6 +52,7 @@ fi
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
 gcloud --project=${PROJECT_ID} container clusters create \
   --cluster-version=${SERVING_GKE_VERSION} \
+  --image-type=${SERVING_GKE_IMAGE} \
   --zone=${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
