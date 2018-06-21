@@ -95,56 +95,45 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						corev1.Container{
-							Name:  "autoscaler",
-							Image: autoscalerImage,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceName("cpu"): resource.MustParse("25m"),
-								},
-							},
-							Ports: []corev1.ContainerPort{{
-								Name:          "autoscaler-port",
-								ContainerPort: autoscalerPort,
-							}},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "ELA_NAMESPACE",
-									Value: rev.Namespace,
-								},
-								{
-									Name:  "ELA_DEPLOYMENT",
-									Value: controller.GetRevisionDeploymentName(rev),
-								},
-								{
-									Name:  "ELA_CONFIGURATION",
-									Value: configName,
-								},
-								{
-									Name:  "ELA_REVISION",
-									Value: rev.Name,
-								},
-								{
-									Name:  "ELA_AUTOSCALER_PORT",
-									Value: strconv.Itoa(autoscalerPort),
-								},
-							},
-							Args: []string{
-								fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								corev1.VolumeMount{
-									Name:      autoscalerConfigName,
-									MountPath: "/etc/config-autoscaler",
-								},
-								corev1.VolumeMount{
-									Name:      loggingConfigName,
-									MountPath: "/etc/config-logging",
-								},
+					Containers: []corev1.Container{{
+						Name:  "autoscaler",
+						Image: autoscalerImage,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceName("cpu"): resource.MustParse("25m"),
 							},
 						},
-					},
+						Ports: []corev1.ContainerPort{{
+							Name:          "autoscaler-port",
+							ContainerPort: autoscalerPort,
+						}},
+						Env: []corev1.EnvVar{{
+							Name:  "ELA_NAMESPACE",
+							Value: rev.Namespace,
+						}, {
+							Name:  "ELA_DEPLOYMENT",
+							Value: controller.GetRevisionDeploymentName(rev),
+						}, {
+							Name:  "ELA_CONFIGURATION",
+							Value: configName,
+						}, {
+							Name:  "ELA_REVISION",
+							Value: rev.Name,
+						}, {
+							Name:  "ELA_AUTOSCALER_PORT",
+							Value: strconv.Itoa(autoscalerPort),
+						}},
+						Args: []string{
+							fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
+						},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      autoscalerConfigName,
+							MountPath: "/etc/config-autoscaler",
+						}, {
+							Name:      loggingConfigName,
+							MountPath: "/etc/config-logging",
+						}},
+					}},
 					ServiceAccountName: "autoscaler",
 					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
 				},
@@ -165,13 +154,11 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "autoscaler-port",
-					Port:       int32(autoscalerPort),
-					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: autoscalerPort},
-				},
-			},
+			Ports: []corev1.ServicePort{{
+				Name:       "autoscaler-port",
+				Port:       int32(autoscalerPort),
+				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: autoscalerPort},
+			}},
 			Type: "NodePort",
 			Selector: map[string]string{
 				serving.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),

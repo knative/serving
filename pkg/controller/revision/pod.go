@@ -164,46 +164,36 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
 				},
 			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "FLUENTD_ARGS",
-					Value: "--no-supervisor -q",
-				},
-				{
-					Name:  "ELA_CONTAINER_NAME",
-					Value: userContainerName,
-				},
-				{
-					Name:  "ELA_CONFIGURATION",
-					Value: configName,
-				},
-				{
-					Name:  "ELA_REVISION",
-					Value: rev.Name,
-				},
-				{
-					Name:  "ELA_NAMESPACE",
-					Value: rev.Namespace,
-				},
-				{
-					Name: "ELA_POD_NAME",
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.name",
-						},
+			Env: []corev1.EnvVar{{
+				Name:  "FLUENTD_ARGS",
+				Value: "--no-supervisor -q",
+			}, {
+				Name:  "ELA_CONTAINER_NAME",
+				Value: userContainerName,
+			}, {
+				Name:  "ELA_CONFIGURATION",
+				Value: configName,
+			}, {
+				Name:  "ELA_REVISION",
+				Value: rev.Name,
+			}, {
+				Name:  "ELA_NAMESPACE",
+				Value: rev.Namespace,
+			}, {
+				Name: "ELA_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
 					},
 				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      varLogVolumeName,
-					MountPath: "/var/log/revisions",
-				},
-				{
-					Name:      fluentdConfigMapVolumeName,
-					MountPath: "/etc/fluent/config.d",
-				},
-			},
+			}},
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:      varLogVolumeName,
+				MountPath: "/var/log/revisions",
+			}, {
+				Name:      fluentdConfigMapVolumeName,
+				MountPath: "/etc/fluent/config.d",
+			}},
 		}
 
 		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
