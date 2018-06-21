@@ -630,7 +630,7 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: enabled
+    policy: disabled
     template: |-
       initContainers:
       - name: istio-init
@@ -3257,10 +3257,12 @@ webhooks:
         resources: ["pods"]
     failurePolicy: Fail
     namespaceSelector:
-      matchLabels:
-        istio-injection: enabled
+      matchExpressions:
+      - key: istio-injection
+        operator: NotIn
+        values:
+        - disabled
+
 
 ---
 # Source: istio/charts/mixer/templates/config.yaml
-
-
