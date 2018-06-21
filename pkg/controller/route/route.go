@@ -41,19 +41,9 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.uber.org/zap"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	extv1beta1informers "k8s.io/client-go/informers/extensions/v1beta1"
-)
-
-var (
-	processItemCount = stats.Int64(
-		"controller_route_queue_process_count",
-		"Counter to keep track of items in the route work queue.",
-		stats.UnitNone)
-	statusTagKey tag.Key
 )
 
 const (

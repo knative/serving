@@ -56,31 +56,6 @@ data:
         regex: (.*)
         target_label: service
         replacement: $1
-    # Knative Serving controller
-    - job_name: controller
-      kubernetes_sd_configs:
-      - role: endpoints
-      relabel_configs:
-      # Scrape only the the targets matching the following metadata
-      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
-        action: keep
-        regex: knative-serving-system;controller;metrics
-      # Rename metadata labels to be reader friendly
-      - source_labels: [__meta_kubernetes_namespace]
-        action: replace
-        regex: (.*)
-        target_label: namespace
-        replacement: $1
-      - source_labels: [__meta_kubernetes_pod_name]
-        action: replace
-        regex: (.*)
-        target_label: pod
-        replacement: $1
-      - source_labels: [__meta_kubernetes_service_name]
-        action: replace
-        regex: (.*)
-        target_label: service
-        replacement: $1
     # Fluentd daemonset
     - job_name: fluentd-ds
       kubernetes_sd_configs:
