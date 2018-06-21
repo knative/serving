@@ -41,12 +41,10 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{
-			v1alpha1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      100,
-			},
-		},
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: "test-rev",
+			Percent:      100,
+		}},
 	)
 	// TODO(grantr): inserting the route at client creation is necessary
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we

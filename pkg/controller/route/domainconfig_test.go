@@ -81,18 +81,18 @@ func TestNewConfigNoEntry(t *testing.T) {
 func TestNewConfig(t *testing.T) {
 	expectedConfig := DomainConfig{
 		Domains: map[string]*LabelSelector{
-			"test-domain.foo.com": &LabelSelector{
+			"test-domain.foo.com": {
 				Selector: map[string]string{
 					"app": "foo",
 				},
 			},
-			"bar.com": &LabelSelector{
+			"bar.com": {
 				Selector: map[string]string{
 					"app":     "bar",
 					"version": "beta",
 				},
 			},
-			"default.com": &LabelSelector{},
+			"default.com": {},
 		},
 	}
 	kubeClient := fakekubeclientset.NewSimpleClientset()
@@ -119,56 +119,49 @@ func TestNewConfig(t *testing.T) {
 func TestLookupDomainForLabels(t *testing.T) {
 	config := DomainConfig{
 		Domains: map[string]*LabelSelector{
-			"test-domain.foo.com": &LabelSelector{
+			"test-domain.foo.com": {
 				Selector: map[string]string{
 					"app": "foo",
 				},
 			},
-			"foo.com": &LabelSelector{
+			"foo.com": {
 				Selector: map[string]string{
 					"app":     "foo",
 					"version": "prod",
 				},
 			},
-			"bar.com": &LabelSelector{
+			"bar.com": {
 				Selector: map[string]string{
 					"app": "bar",
 				},
 			},
-			"default.com": &LabelSelector{},
+			"default.com": {},
 		},
 	}
 
 	expectations := []struct {
 		labels map[string]string
 		domain string
-	}{
-		{
-			labels: map[string]string{"app": "foo"},
-			domain: "test-domain.foo.com",
-		},
-		{
-			// This should match two selector, but the one with version=prod is more specific.
-			labels: map[string]string{"app": "foo", "version": "prod"},
-			domain: "foo.com",
-		},
-		{
-			labels: map[string]string{"app": "bar"},
-			domain: "bar.com",
-		},
-		{
-			labels: map[string]string{"app": "bar", "version": "whatever"},
-			domain: "bar.com",
-		},
-		{
-			labels: map[string]string{"app": "whatever"},
-			domain: "default.com",
-		},
-		{
-			labels: map[string]string{},
-			domain: "default.com",
-		},
-	}
+	}{{
+		labels: map[string]string{"app": "foo"},
+		domain: "test-domain.foo.com",
+	}, {
+		// This should match two selector, but the one with version=prod is more specific.
+		labels: map[string]string{"app": "foo", "version": "prod"},
+		domain: "foo.com",
+	}, {
+		labels: map[string]string{"app": "bar"},
+		domain: "bar.com",
+	}, {
+		labels: map[string]string{"app": "bar", "version": "whatever"},
+		domain: "bar.com",
+	}, {
+		labels: map[string]string{"app": "whatever"},
+		domain: "default.com",
+	}, {
+		labels: map[string]string{},
+		domain: "default.com",
+	}}
 
 	for _, expected := range expectations {
 		domain := config.LookupDomainForLabels(expected.labels)

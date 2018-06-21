@@ -103,15 +103,13 @@ func calculateDestinationWeights(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, 
 				istioServiceNs = r.Namespace
 			}
 		}
-		return []istiov1alpha2.DestinationWeight{
-			istiov1alpha2.DestinationWeight{
-				Destination: istiov1alpha2.IstioService{
-					Name:      istioServiceName,
-					Namespace: istioServiceNs,
-				},
-				Weight: 100,
+		return []istiov1alpha2.DestinationWeight{{
+			Destination: istiov1alpha2.IstioService{
+				Name:      istioServiceName,
+				Namespace: istioServiceNs,
 			},
-		}
+			Weight: 100,
+		}}
 	}
 
 	destinationWeights := []istiov1alpha2.DestinationWeight{}
