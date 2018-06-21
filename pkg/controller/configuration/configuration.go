@@ -149,7 +149,7 @@ func (c *Controller) Reconcile(key string) error {
 		created, ready := config.Status.LatestCreatedRevisionName, config.Status.LatestReadyRevisionName
 		if ready == "" {
 			// Surface an event for the first revision becoming ready.
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationsReady",
+			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
 		if created != ready {
