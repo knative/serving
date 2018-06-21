@@ -83,6 +83,10 @@ var (
 	elaPodReplicaCount   = int32(1)
 	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	foregroundDeletion   = metav1.DeletePropagationForeground
+	fgDeleteOptions      = &metav1.DeleteOptions{
+		PropagationPolicy: &foregroundDeletion,
+	}
 )
 
 type resolver interface {
@@ -534,16 +538,6 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		return nil
 	}
 
-	// Before toggling the status to Deploying, fetch the latest state of the revision.
-	latestRev, err := c.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
-	if err != nil {
-		logger.Error("Error refetching revision", zap.Error(err))
-		return err
-	}
-	if latestRev.Status.IsReady() {
-		return nil
-	}
-
 	// Checking existing revision condition to see if it is the initial deployment or
 	// during the reactivating process. If a revision is in condition "Inactive" or "Activating",
 	// we need to route traffic to the activator; if a revision is in condition "Deploying",
@@ -572,20 +566,15 @@ func (c *Controller) deleteDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	ns := controller.GetServingNamespaceName(rev.Namespace)
-	dc := c.KubeClientSet.AppsV1().Deployments(ns)
-	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
-		return nil
-	}
 
-	logger.Infof("Deleting Deployment %q", deploymentName)
-	tmp := metav1.DeletePropagationForeground
-	err := dc.Delete(deploymentName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
+	err := c.KubeClientSet.AppsV1().Deployments(ns).Delete(deploymentName, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		logger.Errorf("deployments.Delete for %q failed: %s", deploymentName, err)
 		return err
 	}
+	logger.Infof("Deleted Deployment %q", deploymentName)
 	return nil
 }
 
@@ -631,19 +620,17 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	ns := controller.GetServingNamespaceName(rev.Namespace)
-	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetServingK8SServiceNameForRevision(rev)
+	ns := controller.GetServingNamespaceName(rev.Namespace)
 
-	logger.Infof("Deleting service %q", serviceName)
-	tmp := metav1.DeletePropagationForeground
-	err := sc.Delete(serviceName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
+	err := c.KubeClientSet.CoreV1().Services(ns).Delete(serviceName, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		logger.Errorf("service.Delete for %q failed: %s", serviceName, err)
 		return err
 	}
+	logger.Infof("Deleted service %q", serviceName)
 	return nil
 }
 
@@ -735,19 +722,15 @@ func (c *Controller) deleteAutoscalerService(ctx context.Context, rev *v1alpha1.
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	ns := pkg.GetServingSystemNamespace()
-	sc := c.KubeClientSet.CoreV1().Services(ns)
-	if _, err := sc.Get(autoscalerName, metav1.GetOptions{}); err != nil && apierrs.IsNotFound(err) {
+
+	err := c.KubeClientSet.CoreV1().Services(ns).Delete(autoscalerName, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
 		return nil
-	}
-	logger.Infof("Deleting autoscaler Service %q", autoscalerName)
-	tmp := metav1.DeletePropagationForeground
-	err := sc.Delete(autoscalerName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
+	} else if err != nil {
 		logger.Errorf("Autoscaler Service delete for %q failed: %s", autoscalerName, err)
 		return err
 	}
+	logger.Infof("Deleted autoscaler Service %q", autoscalerName)
 	return nil
 }
 
@@ -778,20 +761,15 @@ func (c *Controller) deleteAutoscalerDeployment(ctx context.Context, rev *v1alph
 	logger := logging.FromContext(ctx)
 	autoscalerName := controller.GetRevisionAutoscalerName(rev)
 	ns := pkg.GetServingSystemNamespace()
-	dc := c.KubeClientSet.AppsV1().Deployments(ns)
-	_, err := dc.Get(autoscalerName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
+
+	err := c.KubeClientSet.AppsV1().Deployments(ns).Delete(autoscalerName, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
 		return nil
-	}
-	logger.Infof("Deleting autoscaler Deployment %q", autoscalerName)
-	tmp := metav1.DeletePropagationForeground
-	err = dc.Delete(autoscalerName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
+	} else if err != nil {
 		logger.Errorf("Autoscaler Deployment delete for %q failed: %s", autoscalerName, err)
 		return err
 	}
+	logger.Infof("Deleted autoscaler Deployment %q", autoscalerName)
 	return nil
 }
 
@@ -821,20 +799,16 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 func (c *Controller) deleteVpa(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	vpaName := controller.GetRevisionVpaName(rev)
-	vs := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace)
-	_, err := vs.Get(vpaName, metav1.GetOptions{})
-	if err != nil && apierrs.IsNotFound(err) {
+	ns := rev.Namespace
+
+	err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Delete(vpaName, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
 		return nil
-	}
-	logger.Infof("Deleting VPA %q", vpaName)
-	tmp := metav1.DeletePropagationForeground
-	err = vs.Delete(vpaName, &metav1.DeleteOptions{
-		PropagationPolicy: &tmp,
-	})
-	if err != nil && !apierrs.IsNotFound(err) {
+	} else if err != nil {
 		logger.Errorf("VPA delete for %q failed: %v", vpaName, err)
 		return err
 	}
+	logger.Infof("Deleted VPA %q", vpaName)
 	return nil
 }
 
