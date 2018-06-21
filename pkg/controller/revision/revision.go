@@ -645,8 +645,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
 	deploymentExists := true
-	_, err := dc.Get(deploymentName, metav1.GetOptions{})
-	if err != nil {
+	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
 			return err
@@ -656,12 +655,12 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
 	// Resolve tag image references to digests.
-	if err = c.resolver.Resolve(deployment); err != nil {
+	if err := c.resolver.Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
-		if _, err := c.updateStatus(rev); err != nil {
-			logger.Error("Error recording resolution problem", zap.Error(err))
-			return err
+		if _, updateErr := c.updateStatus(rev); updateErr != nil {
+			logger.Error("Error recording resolution problem", zap.Error(updateErr))
+			return updateErr
 		}
 		return err
 	}
