@@ -20,14 +20,15 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/golang/glog"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 const (
@@ -57,7 +58,7 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionLatestRevisionReady)
+		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && cond.Status != corev1.ConditionUnknown {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.Status == corev1.ConditionFalse {
 				return true, nil

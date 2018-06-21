@@ -299,7 +299,7 @@ func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
 	}
 }
 
-func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
+func TestMarkConfigurationsReadyWhenLatestRevisionReady(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
@@ -325,7 +325,7 @@ func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
 	}
 
 	// Config should be initialized with its conditions as Unknown.
-	if got, want := len(reconciledConfig.Status.Conditions), 2; got != want {
+	if got, want := len(reconciledConfig.Status.Conditions), 1; got != want {
 		t.Errorf("Conditions length diff; got %v, want %v", got, want)
 	}
 	// Config should not have a latest ready revision
@@ -464,7 +464,7 @@ func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testin
 		Conditions: []v1alpha1.ConfigurationCondition{{
 			Type:   v1alpha1.ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
-			Reason: "LatestRevisionReady",
+			Reason: "Ready",
 		}},
 		LatestCreatedRevisionName: revName,
 		LatestReadyRevisionName:   revName,
@@ -544,7 +544,7 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 		t.Fatalf("Couldn't get config: %v", err)
 	}
 
-	for _, ct := range []v1alpha1.ConfigurationConditionType{"LatestRevisionReady"} {
+	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
 		got := readyConfig.Status.GetCondition(ct)
 		want := &v1alpha1.ConfigurationCondition{
 			Type:               ct,
@@ -572,14 +572,14 @@ func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
 	}
 }
 
-func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
+func TestMarkConfigurationsReadyWhenLatestRevisionRecovers(t *testing.T) {
 	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
 	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
 
 	config := getTestConfiguration()
 	config.Status.LatestCreatedRevisionName = revName
 	config.Status.Conditions = []v1alpha1.ConfigurationCondition{{
-		Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
+		Type:    v1alpha1.ConfigurationConditionReady,
 		Status:  corev1.ConditionFalse,
 		Reason:  "BuildFailed",
 		Message: "Build step failed with error",
