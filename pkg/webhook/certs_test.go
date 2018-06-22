@@ -55,18 +55,15 @@ func TestCreateCerts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	// Verify domain names
-	if len(caParsedCert.DNSNames) == 3 {
-		expectedDNSNames := []string{
-			"webhook.knative-serving-system",
-			"webhook.knative-serving-system.svc",
-			"webhook.knative-serving-system.svc.cluster.local",
-		}
-		if !cmp.Equal(caParsedCert.DNSNames, expectedDNSNames) {
-			t.Fatalf("Expected %s CA Cert DNS Name but got %s", expectedDNSNames, caParsedCert.DNSNames)
-		}
-	} else {
-		t.Fatal("Expected DNSNames to be set on CA certificate")
+	expectedDNSNames := []string{
+		"webhook.knative-serving-system",
+		"webhook.knative-serving-system.svc",
+		"webhook.knative-serving-system.svc.cluster.local",
+	}
+	if cmp.Diff(caParsedCert.DNSNames, expectedDNSNames) != "" {
+		t.Fatalf("Expected %s CA Cert DNS Name but got %s", expectedDNSNames, caParsedCert.DNSNames)
 	}
 
 	// Verify Server Cert is Signed by CA Cert
