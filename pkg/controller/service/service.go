@@ -138,6 +138,7 @@ func (c *Controller) Reconcile(key string) error {
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, service)
 	if _, err := c.updateStatus(service); err != nil {
+		logger.Warn("Failed to update service status", zap.Error(err))
 		return err
 	}
 	return err

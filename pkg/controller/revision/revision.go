@@ -278,6 +278,7 @@ func (c *Controller) Reconcile(key string) error {
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, rev)
 	if _, err := c.updateStatus(rev); err != nil {
+		logger.Warn("Failed to update revision status", zap.Error(err))
 		return err
 	}
 	return err

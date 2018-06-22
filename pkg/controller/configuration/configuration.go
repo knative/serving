@@ -123,6 +123,7 @@ func (c *Controller) Reconcile(key string) error {
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, config)
 	if _, err := c.updateStatus(config); err != nil {
+		logger.Warn("Failed to update configuration status", zap.Error(err))
 		return err
 	}
 	return err

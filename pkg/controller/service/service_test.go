@@ -97,10 +97,10 @@ func TestReconcile(t *testing.T) {
 							Type:   v1alpha1.ServiceConditionReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationReady,
+							Type:   v1alpha1.ServiceConditionConfigurationsReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionRouteReady,
+							Type:   v1alpha1.ServiceConditionRoutesReady,
 							Status: corev1.ConditionUnknown,
 						}},
 					},
