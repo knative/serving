@@ -17,6 +17,7 @@ limitations under the License.
 package configuration
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -26,6 +27,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -102,6 +104,7 @@ func (c *Controller) Reconcile(key string) error {
 	}
 	// Wrap our logger with the additional context of the configuration that we are reconciling.
 	logger := loggerWithConfigInfo(c.Logger, namespace, name)
+	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Configuration resource with this namespace/name
 	config, err := c.configurationLister.Configurations(namespace).Get(name)
@@ -115,6 +118,18 @@ func (c *Controller) Reconcile(key string) error {
 
 	// Don't modify the informer's copy.
 	config = config.DeepCopy()
+
+	// Reconcile this copy of the configuration and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, config)
+	if _, err := c.updateStatus(config); err != nil {
+		return err
+	}
+	return err
+}
+
+func (c *Controller) reconcile(ctx context.Context, config *v1alpha1.Configuration) error {
+	logger := logging.FromContext(ctx)
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation
@@ -170,12 +185,6 @@ func (c *Controller) Reconcile(key string) error {
 	default:
 		err := fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 		logger.Errorf("Error reconciling Configuration %q: %v", config.Name, err)
-		return err
-	}
-
-	// Reflect any status changes that occurred during reconciliation.
-	if _, err := c.updateStatus(config); err != nil {
-		logger.Error("Error updating configuration", zap.Error(err))
 		return err
 	}
 

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -34,6 +35,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 )
 
@@ -117,6 +119,7 @@ func (c *Controller) Reconcile(key string) error {
 
 	// Wrap our logger with the additional context of the configuration that we are reconciling.
 	logger := loggerWithServiceInfo(c.Logger, namespace, name)
+	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Service resource with this namespace/name
 	service, err := c.serviceLister.Services(namespace).Get(name)
@@ -130,6 +133,18 @@ func (c *Controller) Reconcile(key string) error {
 
 	// Don't modify the informers copy
 	service = service.DeepCopy()
+
+	// Reconcile this copy of the service and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, service)
+	if _, err := c.updateStatus(service); err != nil {
+		return err
+	}
+	return err
+}
+
+func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) error {
+	logger := logging.FromContext(ctx)
 	service.Status.InitializeConditions()
 
 	configName := controller.GetServiceConfigurationName(service)
@@ -176,13 +191,6 @@ func (c *Controller) Reconcile(key string) error {
 	// we just reconciled against so we don't keep generating Revisions.
 	// TODO(#642): Remove this.
 	service.Status.ObservedGeneration = service.Spec.Generation
-
-	logger.Infof("Updating the Service status:\n%+v", service)
-
-	if _, err := c.updateStatus(service); err != nil {
-		logger.Errorf("Failed to update Service %q: %v", service.Name, err)
-		return err
-	}
 
 	return nil
 }

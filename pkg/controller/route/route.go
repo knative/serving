@@ -189,6 +189,18 @@ func (c *Controller) updateRouteEvent(key string) error {
 	}
 	// Don't modify the informers copy
 	route = route.DeepCopy()
+
+	// Reconcile this copy of the route and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, route)
+	if _, err := c.updateStatus(ctx, route); err != nil {
+		return err
+	}
+	return err
+}
+
+func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error {
+	logger := logging.FromContext(ctx)
 	route.Status.InitializeConditions()
 
 	logger.Infof("Reconciling route :%v", route)
@@ -204,10 +216,10 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 
-	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
+	// Call syncTrafficTargets, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
 
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
+	if _, err := c.syncTrafficTargets(ctx, route); err != nil {
 		return err
 	}
 
@@ -217,10 +229,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 		logger.Error("Failed to create or update ingress rule", zap.Error(err))
 		return err
 	}
-
-	logger.Info("Route successfully synced")
-	_, err = c.updateStatus(ctx, route)
-	return err
+	return nil
 }
 
 func (c *Controller) getDomainConfig() *DomainConfig {
@@ -240,10 +249,10 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
 }
 
-// syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
+// syncTrafficTargets attempts to converge the actual state and desired state
 // according to the traffic targets in Spec field for Route resource. It then updates the Status
 // block of the Route and returns the updated one.
-func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+func (c *Controller) syncTrafficTargets(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
 	c.consolidateTrafficTargets(ctx, route)
 	configMap, revMap, err := c.getDirectTrafficTargets(ctx, route)
@@ -292,7 +301,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 		route.Status.Traffic = traffic
 	}
 	route.Status.Domain = c.routeDomain(route)
-	return c.updateStatus(ctx, route)
+	return route, nil
 }
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
@@ -358,10 +367,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 				logger.Infof("Failed to fetch Configuration %q: %v", configName, err)
 				if apierrs.IsNotFound(err) {
 					route.Status.MarkTrafficNotAssigned("Configuration", configName)
-					if _, err := c.updateStatus(ctx, route); err != nil {
-						// If we failed to update the status, return that error instead of the "config not found" error.
-						return nil, nil, err
-					}
 				}
 				return nil, nil, err
 			}
@@ -373,10 +378,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 				logger.Infof("Failed to fetch Revision %q: %v", revName, err)
 				if apierrs.IsNotFound(err) {
 					route.Status.MarkTrafficNotAssigned("Revision", revName)
-					if _, err := c.updateStatus(ctx, route); err != nil {
-						// If we failed to update the status, return that error instead of the "revision not found" error.
-						return nil, nil, err
-					}
 				}
 				return nil, nil, err
 			}
@@ -446,10 +447,6 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 			logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
 			if apierrs.IsNotFound(err) {
 				route.Status.MarkTrafficNotAssigned("Revision", revName)
-				if _, err := c.updateStatus(ctx, route); err != nil {
-					// If we failed to update the status, return that error instead of the "revision not found" error.
-					return err
-				}
 			}
 			return err
 		}
@@ -969,9 +966,10 @@ func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
+	if _, err := c.syncTrafficTargets(ctx, route); err != nil {
 		logger.Error("Error updating route upon configuration becoming ready", zap.Error(err))
 	}
+	c.updateStatus(ctx, route)
 }
 
 func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {

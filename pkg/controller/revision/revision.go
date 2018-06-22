@@ -19,7 +19,6 @@ package revision
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"reflect"
 	"strings"
@@ -274,6 +273,19 @@ func (c *Controller) Reconcile(key string) error {
 	}
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
+
+	// Reconcile this copy of the revision and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, rev)
+	if _, err := c.updateStatus(rev); err != nil {
+		return err
+	}
+	return err
+}
+
+func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(rev)
 
@@ -281,7 +293,7 @@ func (c *Controller) Reconcile(key string) error {
 		rev.Status.InitializeBuildCondition()
 		build, err := c.buildLister.Builds(rev.Namespace).Get(rev.Spec.BuildName)
 		if err != nil {
-			logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, key, err)
+			logger.Errorf("Error fetching Build %q for Revision %q: %v", rev.Spec.BuildName, rev.Name, err)
 			return err
 		}
 		before := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
@@ -303,15 +315,6 @@ func (c *Controller) Reconcile(key string) error {
 			logger.Errorf("Tracking revision: %v", rev.Name)
 			c.buildtracker.Track(rev)
 		}
-	}
-
-	// TODO(mattmoor): Remove this comment.
-	// In the level-based reconciliation we've started moving to in #1208, this should be the last thing we do.
-	// This controller is substantial enough that we will slowly move pieces above this line until it is the
-	// last thing, and then remove this comment.
-	if _, err := c.updateStatus(rev); err != nil {
-		logger.Error("Error updating Revision status", zap.Error(err))
-		return err
 	}
 
 	bc := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
@@ -426,7 +429,6 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 		logger.Infof("Endpoint %q is ready", eName)
 		rev.Status.MarkResourcesAvailable()
 		rev.Status.MarkContainerHealthy()
-		log.Printf("UPDATING STATUS TO: %v", rev.Status.Conditions)
 		if _, err := c.updateStatus(rev); err != nil {
 			logger.Error("Error marking revision ready", zap.Error(err))
 			return
@@ -452,44 +454,41 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("Deleting the resources for revision")
-	err := c.deleteDeployment(ctx, rev)
-	if err != nil {
+
+	if err := c.deleteDeployment(ctx, rev); err != nil {
 		logger.Error("Failed to delete a deployment", zap.Error(err))
+		return err
 	}
 	logger.Info("Deleted deployment")
 
-	err = c.deleteAutoscalerDeployment(ctx, rev)
-	if err != nil {
+	if err := c.deleteAutoscalerDeployment(ctx, rev); err != nil {
 		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
+		return err
 	}
 	logger.Info("Deleted autoscaler Deployment")
 
-	err = c.deleteAutoscalerService(ctx, rev)
-	if err != nil {
+	if err := c.deleteAutoscalerService(ctx, rev); err != nil {
 		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
+		return err
 	}
 	logger.Info("Deleted autoscaler Service")
 
 	if c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
 		if err := c.deleteVpa(ctx, rev); err != nil {
 			logger.Error("Failed to delete VPA", zap.Error(err))
+			return err
 		}
 		logger.Info("Deleted VPA")
 	}
 
-	err = c.deleteService(ctx, rev)
-	if err != nil {
+	if err := c.deleteService(ctx, rev); err != nil {
 		logger.Error("Failed to delete k8s service", zap.Error(err))
+		return err
 	}
 	logger.Info("Deleted service")
 
 	// And the deployment is no longer ready, so update that
 	rev.Status.MarkInactive()
-	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
-	if _, err := c.updateStatus(rev); err != nil {
-		logger.Error("Error recording inactivation of revision", zap.Error(err))
-		return err
-	}
 
 	return nil
 }
@@ -505,13 +504,16 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	// Autoscale the service
 	if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
 		logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
+		return err
 	}
 	if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
 		logger.Error("Failed to create autoscaler Service", zap.Error(err))
+		return err
 	}
 	if c.controllerConfig.EnableVarLogCollection {
 		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
 			logger.Error("Failed to create fluent config map", zap.Error(err))
+			return err
 		}
 	}
 
@@ -519,15 +521,14 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	if c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
 		if err := c.reconcileVpa(ctx, rev); err != nil {
 			logger.Error("Failed to create the vertical pod autoscaler for Deployment", zap.Error(err))
+			return err
 		}
 	}
 
 	// Create k8s service
-	serviceName, err := c.reconcileService(ctx, rev)
-	if err != nil {
+	if err := c.reconcileService(ctx, rev); err != nil {
 		logger.Error("Failed to create k8s service", zap.Error(err))
-	} else {
-		rev.Status.ServiceName = serviceName
+		return err
 	}
 
 	// Check to see if the revision has already been marked as ready and
@@ -550,14 +551,6 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		}
 	}
 	rev.Status.MarkDeploying(reason)
-
-	// By updating our deployment status we will trigger a Reconcile()
-	// that will watch for service to become ready for serving traffic.
-	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
-	if _, err := c.updateStatus(rev); err != nil {
-		logger.Error("Error recording build completion", zap.Error(err))
-		return err
-	}
 
 	return nil
 }
@@ -605,10 +598,6 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	if err := c.resolver.Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
-		if _, err := c.updateStatus(rev); err != nil {
-			logger.Error("Error recording resolution problem", zap.Error(err))
-			return err
-		}
 		return err
 	}
 
@@ -634,29 +623,30 @@ func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) 
 	return nil
 }
 
-func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) (string, error) {
+func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	ns := controller.GetServingNamespaceName(rev.Namespace)
 	sc := c.KubeClientSet.CoreV1().Services(ns)
 	serviceName := controller.GetServingK8SServiceNameForRevision(rev)
+	rev.Status.ServiceName = serviceName
 
 	if _, err := sc.Get(serviceName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("services.Get for %q failed: %s", serviceName, err)
-			return "", err
+			return err
 		}
 		logger.Infof("serviceName %q doesn't exist, creating", serviceName)
 	} else {
 		// TODO(vaikas): Check that the service is legit and matches what we expect
 		// to have there.
 		logger.Infof("Found existing service %q", serviceName)
-		return serviceName, nil
+		return nil
 	}
 
 	service := MakeRevisionK8sService(rev)
 	logger.Infof("Creating service: %q", service.Name)
 	_, err := sc.Create(service)
-	return serviceName, err
+	return err
 }
 
 func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
