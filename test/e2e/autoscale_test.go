@@ -18,14 +18,15 @@ limitations under the License.
 package e2e
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 const (
@@ -101,6 +102,13 @@ func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
 	} else {
 		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
 	}
+
+	err = setScaleToZeroThreshold(clients, "1m")
+	if err != nil {
+		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
+		          cause the test to time out. Failing fast instead. %v`, err)
+	}
+
 	return clients
 }
 
@@ -187,12 +195,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
 		    faster testing.`)
 
-	err = setScaleToZeroThreshold(clients, "1m")
-	if err != nil {
-		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
-		          cause the test to time out. Failing fast instead. %v`, err)
-	}
-
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
@@ -212,8 +214,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 			return len(p.Items) == 0, nil
 		})
 
-	logger.Infof("Scaled down, resetting ScaleToZeroThreshold.")
-	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
 	generateTrafficBurst(clients, logger, names, 8, domain)
