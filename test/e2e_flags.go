@@ -49,7 +49,7 @@ const VerboseLogLevel glog.Level = 10
 var Logger = initializeLogger()
 
 func initializeLogger() *zap.SugaredLogger {
-	configJSON := "{\"level\": \"info\", \"outputPaths\": [\"stdout\"], \"errorOutputPaths\": [\"stderr\"], \"encoding\": \"json\", \"encoderConfig\": {\"levelKey\": \"level\", \"nameKey\": \"logger\", \"callerKey\": \"caller\", \"messageKey\": \"msg\", \"stacktraceKey\": \"stacktrace\", \"levelEncoder\": \"\", \"timeEncoder\": \"\", \"durationEncoder\": \"\", \"callerEncoder\": \"\"}}"
+	configJSON := "{\"level\": \"info\", \"outputPaths\": [\"stdout\"], \"errorOutputPaths\": [\"stderr\"], \"encoding\": \"console\", \"encoderConfig\": {\"levelKey\": \"level\", \"nameKey\": \"logger\", \"callerKey\": \"caller\", \"messageKey\": \"msg\", \"stacktraceKey\": \"stacktrace\", \"levelEncoder\": \"\", \"timeEncoder\": \"\", \"durationEncoder\": \"\", \"callerEncoder\": \"\"}}"
   var logger *zap.SugaredLogger
 	if (Flags.LogVerbose) {
 		logger = logging.NewLogger(configJSON, "Debug")
