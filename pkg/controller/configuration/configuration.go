@@ -31,6 +31,7 @@ import (
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -107,7 +108,7 @@ func (c *Controller) Reconcile(key string) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Configuration resource with this namespace/name
-	config, err := c.configurationLister.Configurations(namespace).Get(name)
+	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
 		runtime.HandleError(fmt.Errorf("configuration %q in work queue no longer exists", key))
@@ -117,12 +118,17 @@ func (c *Controller) Reconcile(key string) error {
 	}
 
 	// Don't modify the informer's copy.
-	config = config.DeepCopy()
+	config := original.DeepCopy()
 
 	// Reconcile this copy of the configuration and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, config)
-	if _, err := c.updateStatus(config); err != nil {
+	if equality.Semantic.DeepEqual(original.Status, config.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else if _, err := c.updateStatus(config); err != nil {
 		logger.Warn("Failed to update configuration status", zap.Error(err))
 		return err
 	}

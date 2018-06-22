@@ -122,7 +122,7 @@ func (c *Controller) Reconcile(key string) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Service resource with this namespace/name
-	service, err := c.serviceLister.Services(namespace).Get(name)
+	original, err := c.serviceLister.Services(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		runtime.HandleError(fmt.Errorf("service %q in work queue no longer exists", key))
@@ -132,12 +132,17 @@ func (c *Controller) Reconcile(key string) error {
 	}
 
 	// Don't modify the informers copy
-	service = service.DeepCopy()
+	service := original.DeepCopy()
 
 	// Reconcile this copy of the service and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, service)
-	if _, err := c.updateStatus(service); err != nil {
+	if equality.Semantic.DeepEqual(original.Status, service.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else if _, err := c.updateStatus(service); err != nil {
 		logger.Warn("Failed to update service status", zap.Error(err))
 		return err
 	}

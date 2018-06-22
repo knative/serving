@@ -28,6 +28,7 @@ import (
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -177,7 +178,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Route resource with this namespace/name
-	route, err := c.routeLister.Routes(namespace).Get(name)
+	original, err := c.routeLister.Routes(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -188,12 +189,17 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 	// Don't modify the informers copy
-	route = route.DeepCopy()
+	route := original.DeepCopy()
 
 	// Reconcile this copy of the route and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, route)
-	if _, err := c.updateStatus(ctx, route); err != nil {
+	if equality.Semantic.DeepEqual(original.Status, route.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else if _, err := c.updateStatus(ctx, route); err != nil {
 		return err
 	}
 	return err
