@@ -92,6 +92,18 @@ func TestReconcile(t *testing.T) {
 					},
 					// There is no spec.{runLatest,pinned} in this
 					// Service to trigger the error condition.
+					Status: v1alpha1.ServiceStatus{
+						Conditions: []v1alpha1.ServiceCondition{{
+							Type:   v1alpha1.ServiceConditionReady,
+							Status: corev1.ConditionUnknown,
+						}, {
+							Type:   v1alpha1.ServiceConditionConfigurationsReady,
+							Status: corev1.ConditionUnknown,
+						}, {
+							Type:   v1alpha1.ServiceConditionRoutesReady,
+							Status: corev1.ConditionUnknown,
+						}},
+					},
 				}},
 			},
 			r: &RouteLister{},
@@ -141,10 +153,10 @@ func TestReconcile(t *testing.T) {
 						Type:   v1alpha1.ServiceConditionReady,
 						Status: corev1.ConditionUnknown,
 					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationReady,
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
 						Status: corev1.ConditionUnknown,
 					}, {
-						Type:   v1alpha1.ServiceConditionRouteReady,
+						Type:   v1alpha1.ServiceConditionRoutesReady,
 						Status: corev1.ConditionUnknown,
 					}},
 				},
@@ -192,10 +204,10 @@ func TestReconcile(t *testing.T) {
 						Type:   v1alpha1.ServiceConditionReady,
 						Status: corev1.ConditionUnknown,
 					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationReady,
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
 						Status: corev1.ConditionUnknown,
 					}, {
-						Type:   v1alpha1.ServiceConditionRouteReady,
+						Type:   v1alpha1.ServiceConditionRoutesReady,
 						Status: corev1.ConditionUnknown,
 					}},
 				},
@@ -218,10 +230,10 @@ func TestReconcile(t *testing.T) {
 							Type:   v1alpha1.ServiceConditionReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationReady,
+							Type:   v1alpha1.ServiceConditionConfigurationsReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionRouteReady,
+							Type:   v1alpha1.ServiceConditionRoutesReady,
 							Status: corev1.ConditionUnknown,
 						}},
 					},
@@ -258,10 +270,10 @@ func TestReconcile(t *testing.T) {
 							Type:   v1alpha1.ServiceConditionReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationReady,
+							Type:   v1alpha1.ServiceConditionConfigurationsReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionRouteReady,
+							Type:   v1alpha1.ServiceConditionRoutesReady,
 							Status: corev1.ConditionUnknown,
 						}},
 					},
@@ -301,10 +313,10 @@ func TestReconcile(t *testing.T) {
 							Type:   v1alpha1.ServiceConditionReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationReady,
+							Type:   v1alpha1.ServiceConditionConfigurationsReady,
 							Status: corev1.ConditionUnknown,
 						}, {
-							Type:   v1alpha1.ServiceConditionRouteReady,
+							Type:   v1alpha1.ServiceConditionRoutesReady,
 							Status: corev1.ConditionUnknown,
 						}},
 					},
