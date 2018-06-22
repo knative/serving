@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 Pivotal Software, Inc. All Rights Reserved.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -21,6 +21,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestCreateCerts(t *testing.T) {
@@ -43,38 +45,38 @@ func TestCreateCerts(t *testing.T) {
 	}
 
 	// Test Server Cert
-	sCert, err := validCert(serverCertPEM)
+	sCert, err := validCertificate(serverCertPEM, t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Test CA Cert
-	caParsedCert, err := validCert(caCertBytes)
+	caParsedCert, err := validCertificate(caCertBytes, t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Verify domain names
 	if len(caParsedCert.DNSNames) == 3 {
-		svcName := "webhook" + "." + "knative-serving-system"
-		if caParsedCert.DNSNames[0] != svcName {
-			t.Fatalf("Expected %s CA Cert DNS Name but got %s", svcName, caParsedCert.DNSNames[0])
+		expectedDNSNames := []string{
+			"webhook.knative-serving-system",
+			"webhook.knative-serving-system.svc",
+			"webhook.knative-serving-system.svc.cluster.local",
 		}
-		if caParsedCert.DNSNames[1] != svcName+".svc" {
-			t.Fatalf("Expected %s CA Cert DNS Name but got %s", svcName, caParsedCert.DNSNames[1])
-		}
-		if caParsedCert.DNSNames[2] != svcName+".svc.cluster.local" {
-			t.Fatalf("Expected %s CA Cert DNS Name but got %s", svcName, caParsedCert.DNSNames[2])
+		if !cmp.Equal(caParsedCert.DNSNames, expectedDNSNames) {
+			t.Fatalf("Expected %s CA Cert DNS Name but got %s", expectedDNSNames, caParsedCert.DNSNames)
 		}
 	} else {
 		t.Fatal("Expect cert domain names to be set")
 	}
+
 	// Verify Server Cert is Signed by CA Cert
 	if err = sCert.CheckSignatureFrom(caParsedCert); err != nil {
 		t.Fatal("Failed to validate parent", err)
 	}
 }
 
-func validCert(cert []byte) (*x509.Certificate, error) {
+func validCertificate(cert []byte, t *testing.T) (*x509.Certificate, error) {
+	t.Helper()
 	caCert, _ := pem.Decode(cert)
 	if caCert.Type != "CERTIFICATE" {
 		return nil, fmt.Errorf("Expected %s but got %s", "CERTIFICATE", caCert.Type)
