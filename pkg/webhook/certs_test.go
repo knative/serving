@@ -66,12 +66,12 @@ func TestCreateCerts(t *testing.T) {
 			t.Fatalf("Expected %s CA Cert DNS Name but got %s", expectedDNSNames, caParsedCert.DNSNames)
 		}
 	} else {
-		t.Fatal("Expect cert domain names to be set")
+		t.Fatal("Expected DNSNames to be set on CA certificate")
 	}
 
 	// Verify Server Cert is Signed by CA Cert
 	if err = sCert.CheckSignatureFrom(caParsedCert); err != nil {
-		t.Fatal("Failed to validate parent", err)
+		t.Fatal("Failed to verify that the signature on server certificate is from parent CA cert", err)
 	}
 }
 
