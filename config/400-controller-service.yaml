@@ -18,7 +18,7 @@ metadata:
   labels:
     app: controller
   name: controller
-  namespace: knative-serving-system
+  namespace: knative-serving
 spec:
   ports:
   - name: metrics

@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-network
-  namespace: knative-serving-system
+  namespace: knative-serving
 data:
   # Specifies the IP ranges that Istio sidecar will intercept.
   # Replace this with the IP ranges of your cluster (see below for some examples).

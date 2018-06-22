@@ -16,7 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: activator
-  namespace: knative-serving-system
+  namespace: knative-serving
 spec:
   # TODO: Increase the replicas
   # https://github.com/knative/serving/issues/695

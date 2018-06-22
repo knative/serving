@@ -131,7 +131,7 @@ function dump_stack_info() {
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_ela_pod controller) -n knative-serving-system
+  kubectl logs $(get_ela_pod controller) -n knative-serving
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
@@ -323,7 +323,7 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving-system
+wait_until_pods_running knative-serving
 abort_if_failed
 
 # Ensure we have a minimum working cluster.

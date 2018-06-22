@@ -19,5 +19,5 @@ package pkg
 // GetServingSystemNamespace returns the namespace where
 // serving controllers are deployed to.
 func GetServingSystemNamespace() string {
-	return "knative-serving-system"
+	return "knative-serving"
 }
