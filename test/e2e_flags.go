@@ -56,7 +56,6 @@ func initializeLogger() *zap.SugaredLogger {
 	} else {
 		logger = logging.NewLogger(configJSON, "")
 	}
-	//logger = logger.With(zap.String("TC", "ZapLogTest"))
 	defer logger.Sync()
 	return logger
 }

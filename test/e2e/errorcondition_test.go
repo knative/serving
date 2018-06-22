@@ -41,7 +41,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
 
-	//add TC specific name to its own logger
+	//add test case specific name to its own logger
 	logger := test.Logger.Named("TestContainerErrorMsg")
 
 	// Specify an invalid image path

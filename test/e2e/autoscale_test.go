@@ -110,7 +110,7 @@ func tearDown(clients *test.Clients, names test.ResourceNames) {
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	//add TC specific name to its own logger
+	//add test case specific name to its own logger
 	logger := test.Logger.Named("TestAutoscaleUpDownUp")
 
 	clients := setup(t, logger)

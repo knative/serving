@@ -39,7 +39,7 @@ func isHelloWorldExpectedOutput() func(body string) (bool, error) {
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	//add TC specific name to its own logger
+	//add test case specific name to its own logger
 	logger := test.Logger.Named("TestHelloWorld")
 
 	var imagePath string

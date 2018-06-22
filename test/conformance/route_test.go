@@ -70,7 +70,7 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 	return nil
 }
 
-func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, logger *zap.SugaredLogger, names test.ResourceNames, expectedText string) {
+func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, expectedText string) {
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
 	err := test.WaitForRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {
 		if cond := r.Status.GetCondition(v1alpha1.RouteConditionReady); cond == nil {
@@ -145,7 +145,7 @@ func tearDown(clients *test.Clients, names test.ResourceNames) {
 func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
-	//add TC specific name to its own logger
+	//add test case specific name to its own logger
 	logger := test.Logger.Named("TestRouteCreation")
 
 	var imagePaths []string
@@ -153,7 +153,7 @@ func TestRouteCreation(t *testing.T) {
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
 
 	var names test.ResourceNames
-	names.Config = test.AppendRandomString("prod",logger)
+	names.Config = test.AppendRandomString("prod", logger)
 	names.Route = test.AppendRandomString("pizzaplanet", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
@@ -172,7 +172,7 @@ func TestRouteCreation(t *testing.T) {
 	}
 	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, logger, names, "What a spaceport!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "What a spaceport!")
 
 	logger.Infof("Updating the Configuration to use a different image")
 	err = updateConfigWithImage(clients, names, imagePaths)
@@ -187,5 +187,5 @@ func TestRouteCreation(t *testing.T) {
 	}
 	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, logger, names, "Re-energize yourself with a slice of pepperoni!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "Re-energize yourself with a slice of pepperoni!")
 }
