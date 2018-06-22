@@ -199,6 +199,7 @@ func main() {
 		deploymentInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
 		ingressInformer.Informer().HasSynced,
+		vpaInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)
