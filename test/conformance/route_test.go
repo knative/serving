@@ -89,7 +89,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	err = test.WaitForEndpointState(clients.Kube, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, namespaceName, names.Route, func(body string) (bool, error) {
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, namespaceName, names.Route, func(body string) (bool, error) {
 		return body == expectedText, nil
 	})
 	if err != nil {
@@ -148,14 +148,13 @@ func TestRouteCreation(t *testing.T) {
 	//add TC specific name to its own logger
 	logger := test.Logger.Named("TestRouteCreation")
 
-
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image2}, "/"))
 
 	var names test.ResourceNames
-	names.Config = test.AppendRandomString("prod")
-	names.Route = test.AppendRandomString("pizzaplanet")
+	names.Config = test.AppendRandomString("prod",logger)
+	names.Route = test.AppendRandomString("pizzaplanet", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)

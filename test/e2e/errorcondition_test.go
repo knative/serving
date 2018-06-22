@@ -22,13 +22,10 @@ import (
 	"fmt"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	//	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/test"
-	//	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
-	//	"context"
 	"testing"
 	"time"
 )
