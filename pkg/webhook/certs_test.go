@@ -62,8 +62,8 @@ func TestCreateCerts(t *testing.T) {
 		"webhook.knative-serving-system.svc",
 		"webhook.knative-serving-system.svc.cluster.local",
 	}
-	if cmp.Diff(caParsedCert.DNSNames, expectedDNSNames) != "" {
-		t.Fatalf("Expected %s CA Cert DNS Name but got %s", expectedDNSNames, caParsedCert.DNSNames)
+	if diff := cmp.Diff(caParsedCert.DNSNames, expectedDNSNames); diff != "" {
+		t.Fatalf("Unexpected CA Cert DNS Name (-want +got) : %v", diff)
 	}
 
 	// Verify Server Cert is Signed by CA Cert
