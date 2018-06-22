@@ -8,7 +8,8 @@ First, deploy monitoring components.
 
 You can use two different setups:
 
-1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build
+controller and Istio requests.
 
 	```shell
 	kubectl apply -R -f config/monitoring/100-common \
@@ -19,7 +20,8 @@ You can use two different setups:
 	    -f config/monitoring/200-common/100-istio.yaml
 	```
 
-1. **150-elasticsearch-dev**: This configuration collects everything **150-elasticsearch-prod** does, plus Knative Serving controller logs.
+1. **150-elasticsearch-dev**: This configuration collects everything **150-elasticsearch-prod** does,
+plus Knative Serving controller logs.
 
 	```shell
 	kubectl apply -R -f config/monitoring/100-common \
@@ -41,7 +43,8 @@ configuration first. See
 
 Then you can use two different setups:
 
-1. **150-stackdriver-prod**: This configuration collects logs and metrics from user containers, build controller, and Istio requests.
+1. **150-stackdriver-prod**: This configuration collects logs and metrics from user containers, build controller,
+and Istio requests.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
@@ -84,9 +87,11 @@ The Discover tab of the Kibana UI looks like this:
 
 ![Kibana UI Discover tab](/docs/kibana-discover-tab-annotated.png)
 
-You can change the time frame of logs Kibana displays in the upper right corner of the screen. The main search bar is across the top of the Dicover page.
+You can change the time frame of logs Kibana displays in the upper right corner of the screen. The main
+search bar is across the top of the Dicover page.
 
-As more logs are ingested, new fields will be discovered. To have them indexed, go to Management -> Index Patterns -> Refresh button (on top right) -> Refresh fields.
+As more logs are ingested, new fields will be discovered. To have them indexed, go to
+Management > Index Patterns > Refresh button (on top right) > Refresh fields.
 
 <!-- TODO: create a video walkthrough of the Kibana UI -->
 
@@ -98,13 +103,11 @@ To access the logs for a configuration, enter the following search query in Kiba
 kubernetes.labels.knative_dev\/configuration: "configuration-example"
 ```
 
-Replace `configuration-example` with your configuration's name. The configuration name is specified in the `.yaml` file as follows:
+Replace `configuration-example` with your configuration's name. Enter the following command to get
+your configuration's name:
 
-```yaml
--spec:	
--  traffic:	
--  - configurationName: configuration-example	
--    percent: 100
+```shell
+kubectl get configurations
 ```
 
 To access logs for a revision, enter the following search query in Kibana:
@@ -113,7 +116,7 @@ To access logs for a revision, enter the following search query in Kibana:
 kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
 ```
 
-Replace `configuration-example-00001` with your revision's name. 
+Replace `configuration-example-00001` with your revision's name.
 
 #### Accessing build logs
 
@@ -145,7 +148,8 @@ Enter:
 kubectl port-forward -n monitoring $(kubectl get pods -n monitoring --selector=app=grafana --output=jsonpath="{.items..metadata.name}") 3000
 ```
 
-Then open the Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are pre-installed with Knative Serving:
+Then open the Grafana UI at [http://localhost:3000](http://localhost:3000). The following dashboards are
+pre-installed with Knative Serving:
 
 * **Revision HTTP Requests:** HTTP request count, latency and size metrics per revision and per configuration
 * **Nodes:** CPU, memory, network and disk metrics at node level
@@ -156,9 +160,10 @@ Then open the Grafana UI at [http://localhost:3000](http://localhost:3000). The 
 
 ### Accessing per request traces
 
-To create a new index pattern that will store per request traces captured by Zipkin:
+Before you can view per request metrics, you'll need to create a new index pattern that will store
+per request traces captured by Zipkin:
 
-1. To start the Kibana UI serving on local port 8001, enter the following command:
+1. Start the Kibana UI serving on local port 8001 by entering the following command:
 
 	```shell
 	kubectl proxy
@@ -172,11 +177,14 @@ To create a new index pattern that will store per request traces captured by Zip
 
 1. Click **Create**.
 
-(This is a one-time step that's only needed for new installations.)
+After you've created the Zipkin index pattern, open the [Zipkin UI](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/ "http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/"). Click on
+"Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application.
+Click on a trace to see a detailed view of a specific call.
 
-Open the Zipkin UI at this [link](http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/ "http://localhost:8001/api/v1/namespaces/istio-system/services/zipkin:9411/proxy/zipkin/"). Click on "Find Traces" to see the latest traces. You can search for a trace ID or look at traces of a specific application. Click on a trace to see a detailed view of a specific call.
+To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md),
+send some traffic to it, then explore the traces it generates from Zipkin UI.
 
-To see a demo of distributed tracing, deploy the [Telemetry sample](../sample/telemetrysample/README.md), send some traffic to it, then explore the traces it generates from Zipkin UI.
+<!--TODO: Consider adding a video here. -->
 
 ## Default metrics
 
@@ -185,7 +193,8 @@ The following metrics are collected by default:
 * Istio metrics (mixer, envoy and pilot)
 * Node and pod metrics
 
-There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy them using `kubectl apply -f`.
+There are several other collectors that are pre-configured but not enabled. To see the full list, browse to config/monitoring/prometheus-exporter and config/monitoring/prometheus-servicemonitor folders and deploy
+them using `kubectl apply -f`.
 
 ## Default logs
 
@@ -336,7 +345,9 @@ definitions is to use Grafana UI (make sure to login with as admin user) and [ex
 above to enable Prometheus UI)
 
 ## Generating logs
-Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec, add the following arguments to redirect the logs to stderr:
+<!--TODO: Explain why we recommend using glog. -->
+Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code. In your container spec,
+add the following arguments to redirect the logs to stderr:
 
 ```yaml
 args:
