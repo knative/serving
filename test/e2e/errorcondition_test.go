@@ -37,40 +37,6 @@ const (
 	containerMissing = "ContainerMissing"
 )
 
-// TestZapLog test
-func TestContainerZapLog(t *testing.T) {
-	/*rawJSON := []byte(`{
-		"level": "info",
-		"development" : false,
-	  "encoding": "json",
-	  "outputPaths": ["stdout", "/tmp/logs"],
-	  "errorOutputPaths": ["stderr"],
-	  "initialFields": {"foo": "bar"},
-	  "encoderConfig": {
-	    "messageKey": "message",
-	    "levelKey": "level",
-	    "levelEncoder": "lowercase"
-	  }
-	}`)*/
-	logger := test.Logger.Named("Zaglog")
-	logger.Infof("informational 111")
-	logger.Error("error 222")
-	logger.Debug("verbose 333")
-
-	/*logger2, _ := zap.NewProduction()
-		defer logger2.Sync() // flushes buffer, if any
-		sugar := logger2.Sugar()
-		sugar.Infow("Jessie structure test",
-	  // Structured context as loosely typed key-value pairs.
-	  "field1", "111",
-	  "field2", "222",
-	)
-		sugar.Infof("Jessie test: %s", "blabla")
-		sugar.Info("informational")
-		sugar.Errorf("error")
-		sugar.Debug("verbose")*/
-}
-
 // TestContainerErrorMsg is to validate the error condition defined at
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
@@ -81,7 +47,6 @@ func TestContainerErrorMsg(t *testing.T) {
 
 	//add TC specific name to its own logger
 	logger := test.Logger.Named("TestContainerErrorMsg")
-
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
