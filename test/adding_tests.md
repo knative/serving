@@ -51,8 +51,8 @@ _See [e2e_flags.go](./e2e_flags.go)._
 We are using [Knative logging library](/pkg/logging) for structured logging, it is built on top of [zap](https://github.com/uber-go/zap).
 All test case should define its own logger with test case name as logger name, and pass it around; this way, all output from the test case will be tagged by same logger name.
 Pls see below for sample code from test case [`TestHelloWorld`](./e2e/helloworld_test.go)
-`logger.Debug` outputs debug log. Pls _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `logger.Debug()` call.
-When tests are run with `--logverbose` option, debug logs will show.
+To output debug log, use `logger.Debug()`. Pls _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `logger.Debug()` call.
+When tests are run with `--logverbose` option, debug log will show.
 
 ```go
 func TestHelloWorld(t *testing.T) {
