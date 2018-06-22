@@ -21,10 +21,11 @@ package test
 import (
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
 	"os"
 	"os/user"
 	"path"
+
+	"github.com/golang/glog"
 )
 
 // Flags will include the k8s cluster (defaults to $K8S_CLUSTER_OVERRIDE), kubeconfig (defaults to ./kube/config)
@@ -36,6 +37,7 @@ type EnvironmentFlags struct {
 	Cluster          string
 	DockerRepo       string
 	Kubeconfig       string
+	Namespace        string
 	ResolvableDomain bool
 	LogVerbose       bool
 }
@@ -58,6 +60,9 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
+
+	flag.StringVar(&f.Namespace, "namespace", "",
+		"Provide the namespace you would like to use for these tests.")
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")

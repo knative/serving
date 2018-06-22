@@ -11,15 +11,21 @@ import (
 )
 
 const (
-	// NamespaceName is the namespace used for the e2e tests.
-	NamespaceName = "noodleburg"
-
 	configName = "prod"
 	routeName  = "noodleburg"
 )
 
+var (
+	// NamespaceName is the namespace used for the e2e tests.
+	NamespaceName = "noodleburg"
+)
+
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
+	if test.Flags.Namespace != "" {
+		NamespaceName = test.Flags.Namespace
+	}
+
 	clients, err := test.NewClients(
 		test.Flags.Kubeconfig,
 		test.Flags.Cluster,

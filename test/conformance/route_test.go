@@ -19,9 +19,10 @@ package conformance
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"strings"
 	"testing"
+
+	"github.com/golang/glog"
 
 	"encoding/json"
 
@@ -37,9 +38,12 @@ import (
 )
 
 const (
+	image1 = "pizzaplanetv1"
+	image2 = "pizzaplanetv2"
+)
+
+var (
 	namespaceName = "pizzaplanet"
-	image1        = "pizzaplanetv1"
-	image2        = "pizzaplanetv2"
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
@@ -129,6 +133,10 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 }
 
 func setup(t *testing.T) *test.Clients {
+	if test.Flags.Namespace != "" {
+		namespaceName = test.Flags.Namespace
+	}
+
 	clients, err := test.NewClients(test.Flags.Kubeconfig, test.Flags.Cluster, namespaceName)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)

@@ -126,6 +126,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 
 * [`--kubeconfig`](#specifying-kubeconfig)
 * [`--cluster`](#specifying-cluster)
+* [`--namespace`](#specifying-namespace)
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
 * [`--logverbose`](#output-verbose-log)
@@ -162,7 +163,17 @@ The current cluster names can be obtained by running:
 kubectl config get-clusters
 ```
 
-#### Overridding docker repo
+### Specifying namespace
+
+The `--namespace` argument lets you specify the namespace to use for the
+tests. By default, `conformance` will use `noodleburg` and `e2e` will use `pizzaplanet`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/conformance --namespace your-namespace-name
+go test -v -tags=e2e -count=1 ./test/e2e --namespace your-namespace-name
+```
+
+### Overridding docker repo
 
 The `--dockerrepo` argument lets you specify the docker repo from which images used
 by your tests should be pulled. This will default to the value
@@ -174,7 +185,7 @@ go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
 go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
-#### Using a resolvable domain
+### Using a resolvable domain
 
 If you set up your cluster using [the getting started
 docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
@@ -188,7 +199,7 @@ If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests directly against
 `Route.Status.Domain` and does not need to spoof the `Host`.
 
-#### Output verbose log
+### Output verbose log
 
 The `--logverbose` argument lets you see verbose test logs and k8s logs.
 
