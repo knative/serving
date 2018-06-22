@@ -147,57 +147,6 @@ function run_e2e_tests() {
   return ${result}
 }
 
-# Smoke test: deploy the "hello world" app using command line.
-function run_smoke_test() {
-  header "Running smoke test (hello world)"
-  local YAML="$(mktemp -t helloworld.yaml.XXXXXXXXXX)"
-  # Building the sample image using docker takes about 20 minutes (June 2018)
-  # when running the tests on prow, compared to 1 minute on a workstation.
-  # Thus we use a prebuilt image stored in GCR when running on Prow.
-  local IMAGE="gcr.io/elafros-e2e-tests/ela-e2e-test/sample/helloworld"
-  sed "s@github.com/knative/serving/sample/helloworld@${IMAGE}@g" \
-    sample/helloworld/sample.yaml > ${YAML}
-  kubectl apply -f ${YAML}
-  local service_host=""
-  local service_ip=""
-  echo -n "Waiting for Ingress to come up"
-  for i in {1..150}; do  # timeout after 5 minutes
-    service_host=$(kubectl get route route-example \
-      -o jsonpath="{.status.domain}" 2>/dev/null)
-    service_ip=$(kubectl get ingress route-example-ingress \
-      -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}" 2>/dev/null)
-    if [[ -n "${service_host}" && -n "${service_ip}" ]]; then
-      echo -e -n "\nIngress is at $service_ip / $service_host"
-      break
-    fi
-    echo -n "."
-    sleep 2
-  done
-  echo
-  if [[ -z "${service_host}" || -z "${service_ip}" ]]; then
-    # service_host or service_ip might contain a useful error, dump it.
-    echo "FAILED -- No ingress found. ${service_host}${service_ip}"
-    kubectl delete -f ${YAML}
-    return 1
-  fi
-  local failed=1
-  for i in {1..60}; do  # timeout after 2 minutes
-    local output="$(curl --header "Host:${service_host}" http://${service_ip})"
-    if [[ "${output}" == "Hello World: shiniestnewestversion!" ]]; then
-      failed=0
-      break
-    fi
-    echo "Got unexpected output '${output}' from app, retrying"
-    sleep 2
-  done
-  kubectl delete -f ${YAML}
-  if (( failed )); then
-    echo "FAILED -- Timeout waiting for app to be serving"
-    return 1
-  fi
-  return 0
-}
-
 # Script entry point.
 
 cd ${SERVING_ROOT_DIR}
@@ -324,10 +273,6 @@ set +o errexit
 set +o pipefail
 
 wait_until_pods_running knative-serving-system
-abort_if_failed
-
-# Ensure we have a minimum working cluster.
-run_smoke_test
 abort_if_failed
 
 # Run the tests
