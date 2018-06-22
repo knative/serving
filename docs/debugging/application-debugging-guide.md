@@ -1,17 +1,17 @@
 # Application Debugging Guide
 
-You deployed your app to Knative Serving, but it isn't working as expected. Go through
-this step by step guide to understand what failed.
+You deployed your app to Knative Serving, but it isn't working as expected.
+Go through this step by step guide to understand what failed.
 
 ## Check command line output
 
 Check your deploy command output to see whether it succeeded or not. If your
-deployment process was terminated, there should be an error message showing up in
-the output that describes the reason why the deployment failed.
+deployment process was terminated, there should be an error message showing up
+in the output that describes the reason why the deployment failed.
 
-This kind of failure is most likely due to either a misconfigured manifest or wrong
-command. For example, the following output says that you must configure route
-traffic percent to sum to 100:
+This kind of failure is most likely due to either a misconfigured manifest or
+wrong command. For example, the following output says that you must configure
+route traffic percent to sum to 100:
 
 ```
 Error from server (InternalError): error when applying patch:
@@ -26,7 +26,8 @@ ERROR: Non-zero return code '1' from command: Process exited with status 1
 Knative Serving provides default out-of-the-box logs for your application. After entering
 `kubectl proxy`, you can go to the
 [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
-to search for logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
+to search for logs. _(See [telemetry guide](../telemetry.md) for more information
+on logging and monitoring features of Knative Serving.)_
 
 ### Stdout/stderr logs
 
@@ -48,8 +49,8 @@ To find the request logs of your application in the Kibana UI :
 
 ## Check Route status
 
-Run the following command to get the `status` of the `Route` object with which you deployed
-your application:
+Run the following command to get the `status` of the `Route` object with which
+you deployed your application:
 
 ```shell
 kubectl get route <route-name> -o yaml
@@ -62,7 +63,8 @@ are not implemented yet).
 
 ### Check Istio routing
 
-Compare your Knative `Route` object's configuration (obtained in the previous step) to the Istio `RouteRule` object's configuration.
+Compare your Knative `Route` object's configuration (obtained in the previous
+step) to the Istio `RouteRule` object's configuration.
 
 Enter the following, replacing `<routerule-name>` with the appropriate value:
 
@@ -70,9 +72,11 @@ Enter the following, replacing `<routerule-name>` with the appropriate value:
 kubectl get routerule <routerule-name> -o yaml
 ```
 
-If you don't know the name of your route rule, use the ```kubectl get routerule``` command to find it.
+If you don't know the name of your route rule, use the
+```kubectl get routerule``` command to find it.
 
-The command returns the configuration of your route rule. Compare the domains between your route and route rule; they should match. 
+The command returns the configuration of your route rule. Compare the domains
+between your route and route rule; they should match.
 
 ### Check ingress status
 Enter:
@@ -81,14 +85,15 @@ Enter:
 kubectl get ingress
 ```
 
-The command returns the status of the ingress. You can see the name, age, domains, and IP address.
+The command returns the status of the ingress. You can see the name, age,
+domains, and IP address.
 
 
 ## Check Revision status
 
-If you configure your `Route` with `Configuration`, run the following command to
-get the name of the `Revision` created for you deployment(look up the
-configuration name in the `Route` .yaml file):
+If you configure your `Route` with `Configuration`, run the following
+command to get the name of the `Revision` created for you deployment
+(look up the configuration name in the `Route` .yaml file):
 
 ```shell
 kubectl get configuration <configuration-name> -o jsonpath="{.status.latestCreatedRevisionName}"
@@ -160,7 +165,13 @@ your `Revision`:
 kubectl get build $(kubectl get revision <revision-name> -o jsonpath="{.spec.buildName}") -o yaml
 ```
 
-The `conditions` in `status` provide the reason if there is any failure. To access build logs, first execute `kubectl proxy` and then open [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana). Use any of the following filters within Kibana UI to see build logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
+The `conditions` in `status` provide the reason if there is any failure. To
+access build logs, first execute `kubectl proxy` and then open [Kibana
+UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-
+logging/proxy/app/kibana). Use any of the following filters within Kibana UI to
+see build logs. _(See [telemetry guide](../telemetry.md) for more information on
+logging and monitoring features of Knative Serving.)_
+
 * All build logs: `_exists_:"kubernetes.labels.build-name"`
 * Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
 * Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`
