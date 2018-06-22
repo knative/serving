@@ -17,9 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
-	"net/http"
 	"time"
 
 	"github.com/knative/serving/pkg"
@@ -44,16 +42,12 @@ import (
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 )
 
 const (
 	threadsPerController = 2
-	metricsScrapeAddr    = ":9090"
-	metricsScrapePath    = "/metrics"
 )
 
 var (
@@ -222,31 +216,7 @@ func main() {
 		}(ctrlr)
 	}
 
-	// Setup the metrics to flow to Prometheus.
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "knative"})
-	if err != nil {
-		logger.Fatalf("failed to create the Prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(10 * time.Second)
-
-	// Start the endpoint that Prometheus scraper talks to
-	srv := &http.Server{Addr: metricsScrapeAddr}
-	http.Handle(metricsScrapePath, promExporter)
-	go func() {
-		logger.Infof("Starting metrics listener at %s", metricsScrapeAddr)
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
-		}
-	}()
-
 	<-stopCh
-
-	// Close the http server gracefully
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	srv.Shutdown(ctx)
 }
 
 func init() {
