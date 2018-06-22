@@ -238,6 +238,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 			Name:      ctrl.GetNetworkConfigMapName(),
 		},
 	})
+	createNamespace(kubeClient, testNamespace)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -328,6 +329,18 @@ func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.Sh
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
 	controller.Reconcile(KeyOrDie(rev))
+}
+
+func createNamespace(kubeClient *fakekubeclientset.Clientset, namespace string) {
+	kubeClient.CoreV1().Namespaces().Create(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+				Labels: map[string]string{
+					istioInjectionLabel: "enabled",
+				},
+			},
+		})
 }
 
 type fixedResolver struct {
@@ -1416,6 +1429,41 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 	)
 
 	controller.SyncEndpoints(endpoints)
+}
+
+func TestIstioLabelInjectionNotInNamespace(t *testing.T) {
+	kubeclient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+
+	ns, err := kubeclient.CoreV1().Namespaces().Get(testNamespace, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get namespaces: %s", err)
+	}
+	ns.SetLabels(map[string]string{})
+
+	_, err = kubeclient.CoreV1().Namespaces().Update(ns)
+
+	rev := getTestRevision()
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
+	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	for _, ct := range []v1alpha1.RevisionConditionType{"ContainerHealthy", "Ready", "ResourcesAvailable"} {
+		got := failedRev.Status.GetCondition(ct)
+		want := &v1alpha1.RevisionCondition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "NetworkProxyMissing",
+			Message:            "Missing istio proxy",
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
+	}
 }
 
 func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {

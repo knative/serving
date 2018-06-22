@@ -398,6 +398,21 @@ func (rs *RevisionStatus) MarkInactive() {
 	})
 }
 
+func (rs *RevisionStatus) MarkNetworkProxyMissing() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+		RevisionConditionResourcesAvailable,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "NetworkProxyMissing",
+			Message: "Missing istio proxy",
+		})
+	}
+}
+
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionContainerHealthy,

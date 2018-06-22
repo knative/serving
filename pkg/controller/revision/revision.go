@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -43,7 +44,6 @@ import (
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -59,6 +59,8 @@ import (
 )
 
 const (
+	istioInjectionLabel string = "istio-injection"
+
 	userContainerName string = "user-container"
 	userPortName      string = "user-port"
 	userPort                 = 8080
@@ -265,12 +267,13 @@ func (c *Controller) Reconcile(key string) error {
 	// Get the Revision resource with this namespace/name
 	rev, err := c.revisionLister.Revisions(namespace).Get(name)
 	// The resource may no longer exist, in which case we stop processing.
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
 		return nil
 	} else if err != nil {
 		return err
 	}
+
 	// Don't modify the informer's copy.
 	rev = rev.DeepCopy()
 
@@ -325,6 +328,15 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		switch rev.Spec.ServingState {
 		case v1alpha1.RevisionServingStateActive:
 			logger.Info("Creating or reconciling resources for revision")
+			err := c.checkNamespaceHasIstioInjectionLabel(rev.Namespace)
+			if err != nil {
+				rev.Status.MarkNetworkProxyMissing()
+				if _, err := c.updateStatus(rev); err != nil {
+					logger.Error("Error recording inactivation of revision for: ", zap.Error(err))
+					return err
+				}
+				return apierrs.NewBadRequest("Missing Istio Proxy")
+			}
 			return c.createK8SResources(ctx, rev)
 
 		case v1alpha1.RevisionServingStateReserve:
@@ -450,6 +462,24 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	}
 	c.Recorder.Eventf(rev, corev1.EventTypeWarning, "RevisionFailed", "Revision did not become ready due to endpoint %q", endpoint.Name)
 	return
+}
+
+func (c *Controller) checkNamespaceHasIstioInjectionLabel(namespace string) error {
+	ns, err := c.KubeClientSet.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error fetching namespace: %s", err)
+	}
+
+	val, ok := ns.GetLabels()[istioInjectionLabel]
+
+	if !ok {
+		return errors.New("Missing istio injection label")
+	}
+
+	if val != "enabled" {
+		return errors.New("Expected istio injection label value to be 'enabled'")
+	}
+	return nil
 }
 
 func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {

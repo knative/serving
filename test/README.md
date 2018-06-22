@@ -88,7 +88,12 @@ These tests require:
     kubectl create namespace pizzaplanet
     kubectl create namespace noodleburg
     ```
-3. A docker repo containing [the test images](#test-images)
+3. Label the `pizzaplanet` and `noodleburg` namespaces with `istio-injection=enabled`.
+    ```bash
+    kubectl label namespace pizzaplanet istio-injection=enabled
+    kubectl label namespace noodleburg istio-injection=enabled
+    ```
+4. A docker repo containing [the test images](#test-images)
 
 ## Test images
 
