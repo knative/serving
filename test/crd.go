@@ -18,11 +18,10 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	"github.com/golang/glog"
 	"math/rand"
 	"sync"
 	"time"
-
+	"go.uber.org/zap"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,18 +86,20 @@ var r *rand.Rand
 // once is used to initialize r
 var once sync.Once
 
-func initSeed() {
+func initSeed(logger *zap.SugaredLogger) func() {
+	return func() {
 	seed := time.Now().UTC().UnixNano()
-	glog.Infof("Seeding rand.Rand with %v\n", seed)
+	logger.Infof("Seeding rand.Rand with %v\n", seed)
 	r = rand.New(rand.NewSource(seed))
+	}
 }
 
 // AppendRandomString will generate a random string that begins with prefix. This is useful
 // if you want to make sure that your tests can run at the same time against the same
 // environment without conflicting. This method will seed rand with the current time when
 // called for the first time.
-func AppendRandomString(prefix string) string {
-	once.Do(initSeed)
+func AppendRandomString(prefix string, logger *zap.SugaredLogger) string {
+	once.Do(initSeed(logger))
 	suffix := make([]byte, randSuffixLen)
 	for i := range suffix {
 		suffix[i] = letterBytes[r.Intn(len(letterBytes))]

@@ -22,6 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/knative/serving/pkg/logging"
+	"go.uber.org/zap"
 	"os"
 	"os/user"
 	"path"
@@ -42,6 +44,22 @@ type EnvironmentFlags struct {
 
 // VerboseLogLevel defines verbose log level as 10
 const VerboseLogLevel glog.Level = 10
+
+// Logger is to be used by TC for logging
+var Logger = initializeLogger()
+
+func initializeLogger() *zap.SugaredLogger {
+	configJSON := "{\"level\": \"info\", \"outputPaths\": [\"stdout\"], \"errorOutputPaths\": [\"stderr\"], \"encoding\": \"json\", \"encoderConfig\": {\"levelKey\": \"level\", \"nameKey\": \"logger\", \"callerKey\": \"caller\", \"messageKey\": \"msg\", \"stacktraceKey\": \"stacktrace\", \"levelEncoder\": \"\", \"timeEncoder\": \"\", \"durationEncoder\": \"\", \"callerEncoder\": \"\"}}"
+  var logger *zap.SugaredLogger
+	if (Flags.LogVerbose) {
+		logger = logging.NewLogger(configJSON, "Debug")
+	} else {
+		logger = logging.NewLogger(configJSON, "")
+	}
+	//logger = logger.With(zap.String("TC", "ZapLogTest"))
+	defer logger.Sync()
+	return logger
+}
 
 func initializeFlags() *EnvironmentFlags {
 	var f EnvironmentFlags
@@ -75,9 +93,4 @@ func initializeFlags() *EnvironmentFlags {
 		glog.Infof("Logging set to verbose mode with logLevel %d", VerboseLogLevel)
 	}
 	return &f
-}
-
-// Verbose outputs verbose logging with defined logleve VerboseLogLevel.
-func Verbose(format string, args ...interface{}) {
-	glog.V(VerboseLogLevel).Infof(format, args)
 }
