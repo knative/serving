@@ -100,10 +100,10 @@ const (
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady ServiceConditionType = "Ready"
 	// ServiceConditionRoutesReady is set when the service's underlying
-	// route has reported readiness.
+	// routes have reported readiness.
 	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
 	// ServiceConditionConfigurationsReady is set when the service's underlying
-	// configuration has reported readiness.
+	// configurations have reported readiness.
 	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 

@@ -78,8 +78,8 @@ type ConfigurationSpec struct {
 type ConfigurationConditionType string
 
 const (
-	// ConfigurationConditionReady is set to indicate the status of the latest
-	// revision of the configuration when it has not become ready yet.
+	// ConfigurationConditionReady is set when the configuration's latest
+	// underlying revision has reported readiness.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
 )
 
