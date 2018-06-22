@@ -81,7 +81,7 @@ const (
 
 var (
 	elaPodReplicaCount   = int32(1)
-	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 0}
 	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
 	foregroundDeletion   = metav1.DeletePropagationForeground
 	fgDeleteOptions      = &metav1.DeleteOptions{
@@ -324,7 +324,7 @@ func (c *Controller) Reconcile(key string) error {
 			return c.createK8SResources(ctx, rev)
 
 		case v1alpha1.RevisionServingStateReserve:
-			return c.deleteK8SResources(ctx, rev)
+			return c.scaleRevisionResourcesToZero(ctx, rev)
 
 		// TODO(mattmoor): Nothing sets this state, and it should be removed.
 		case v1alpha1.RevisionServingStateRetired:
@@ -449,39 +449,25 @@ func (c *Controller) SyncEndpoints(endpoint *corev1.Endpoints) {
 	return
 }
 
+// deleteK8SResources deletes autoscaler resources, and deletes the revision service and deployment.
+// It is used when the revision serving state is Retired.
 func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("Deleting the resources for revision")
-	err := c.deleteDeployment(ctx, rev)
-	if err != nil {
+	if err := c.deleteDeployment(ctx, rev); err != nil {
 		logger.Error("Failed to delete a deployment", zap.Error(err))
-	}
-	logger.Info("Deleted deployment")
-
-	err = c.deleteAutoscalerDeployment(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Deployment")
-
-	err = c.deleteAutoscalerService(ctx, rev)
-	if err != nil {
-		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
-	}
-	logger.Info("Deleted autoscaler Service")
-
-	if c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
-		if err := c.deleteVpa(ctx, rev); err != nil {
-			logger.Error("Failed to delete VPA", zap.Error(err))
-		}
-		logger.Info("Deleted VPA")
+		return err
 	}
 
-	err = c.deleteService(ctx, rev)
-	if err != nil {
+	if err := c.deleteService(ctx, rev); err != nil {
 		logger.Error("Failed to delete k8s service", zap.Error(err))
+		return err
 	}
-	logger.Info("Deleted service")
+
+	if err := c.deleteAutoscalerResources(ctx, rev); err != nil {
+		logger.Error("Failed to delete autoscaler resources", zap.Error(err))
+		return err
+	}
 
 	// And the deployment is no longer ready, so update that
 	rev.Status.MarkInactive()
@@ -491,6 +477,79 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 		return err
 	}
 
+	return nil
+}
+
+// scaleRevisionResourcesToZero deletes autoscaler resources, but keeps the revision service and deployment.
+// It is used when the revision serving state is Reserve.
+func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	logger.Info("Scaling the deployment to 0 for the revision")
+	if err := c.scaleDeploymentToZero(ctx, rev); err != nil {
+		logger.Error("Failed to scale the deployment to 0", zap.Error(err))
+		return err
+	}
+
+	if err := c.deleteAutoscalerResources(ctx, rev); err != nil {
+		logger.Error("Failed to delete autoscaler resources", zap.Error(err))
+		return err
+	}
+
+	// And the deployment is no longer ready, so update that
+	rev.Status.MarkInactive()
+	logger.Infof("Updating status with the following conditions %+v", rev.Status.Conditions)
+	if _, err := c.updateStatus(rev); err != nil {
+		logger.Error("Error recording inactivation of revision", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) deleteAutoscalerResources(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	if err := c.deleteAutoscalerDeployment(ctx, rev); err != nil {
+		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
+		return err
+	}
+
+	if err := c.deleteAutoscalerService(ctx, rev); err != nil {
+		logger.Error("Failed to delete autoscaler Service", zap.Error(err))
+		return err
+	}
+
+	if c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+		if err := c.deleteVpa(ctx, rev); err != nil {
+			logger.Error("Failed to delete VPA", zap.Error(err))
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller) scaleDeploymentToZero(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	deploymentName := controller.GetRevisionDeploymentName(rev)
+	dc := c.KubeClientSet.AppsV1().Deployments(rev.Namespace)
+	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorf("Failed to get deployment %q", deploymentName)
+		return err
+	}
+	if *deployment.Spec.Replicas == 0 {
+		logger.Infof("Deployment %s is scaled to 0 already.", deploymentName)
+		return nil
+	}
+
+	logger.Infof("Setting deployment %q replicas to 0", deploymentName)
+	deployment.Spec.Replicas = new(int32)
+	*deployment.Spec.Replicas = int32(0)
+	_, err = dc.Update(deployment)
+	if err != nil {
+		logger.Errorf("Error scaling deployment %q to 0: %s", deploymentName, err)
+		return err
+	}
+	logger.Infof("Successfully scaled deployment %s to 0.", deploymentName)
 	return nil
 }
 
@@ -585,37 +644,38 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	// First, check if deployment exists already.
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 
-	if _, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
+	desiredDeployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
+	// Resolve tag image references to digests.
+	if err := c.resolver.Resolve(desiredDeployment); err != nil {
+		logger.Error("Error resolving deployment", zap.Error(err))
+		rev.Status.MarkContainerMissing(err.Error())
+		if _, updateErr := c.updateStatus(rev); updateErr != nil {
+			logger.Error("Error recording resolution problem", zap.Error(updateErr))
+			return updateErr
+		}
+		return err
+	}
+
+	if existingDeployment, err := dc.Get(deploymentName, metav1.GetOptions{}); err != nil {
 		if !apierrs.IsNotFound(err) {
 			logger.Errorf("deployments.Get for %q failed: %s", deploymentName, err)
 			return err
 		}
 		logger.Infof("Deployment %q doesn't exist, creating", deploymentName)
+		_, err := dc.Create(desiredDeployment)
+		return err
 	} else {
-		// TODO(mattmoor): Compare the deployments and update if it has changed
-		// out from under us.
 		logger.Infof("Found existing deployment %q", deploymentName)
-		return nil
-	}
-
-	// Create the deployment.
-	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
-
-	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment); err != nil {
-		logger.Error("Error resolving deployment", zap.Error(err))
-		rev.Status.MarkContainerMissing(err.Error())
-		if _, err := c.updateStatus(rev); err != nil {
-			logger.Error("Error recording resolution problem", zap.Error(err))
-			return err
+		// TODO(mattmoor): Compare the deployments and update if it has changed
+		// out from under us. So far the deployment could only be updated for replicas field.
+		if *existingDeployment.Spec.Replicas == *desiredDeployment.Spec.Replicas {
+			logger.Infof("The existing deployment %q replicas count %d is expected", deploymentName, *existingDeployment.Spec.Replicas)
+			return nil
 		}
+		logger.Infof("Updating deployment %q", deploymentName)
+		_, err := dc.Update(desiredDeployment)
 		return err
 	}
-
-	logger.Infof("Creating Deployment: %q", deployment.Name)
-	_, createErr := dc.Create(deployment)
-
-	return createErr
 }
 
 func (c *Controller) deleteService(ctx context.Context, rev *v1alpha1.Revision) error {

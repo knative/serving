@@ -264,13 +264,6 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 		return nil, err
 	}
 
-	if err := c.deleteLabelForOutsideOfGivenRevisions(ctx, route, revMap); err != nil {
-		return nil, err
-	}
-	if err := c.setLabelForGivenRevisions(ctx, route, revMap); err != nil {
-		return nil, err
-	}
-
 	// Then create the actual route rules.
 	logger.Info("Creating Istio route rules")
 	revisionRoutes, err := c.createOrUpdateRouteRules(ctx, route, configMap, revMap)
@@ -499,51 +492,6 @@ func (c *Controller) setLabelForGivenConfigurations(
 	return nil
 }
 
-func (c *Controller) setLabelForGivenRevisions(
-	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	revisionClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
-
-	// Validate revision if it already has a route label
-	for _, rev := range revMap {
-		if routeName, ok := rev.Labels[serving.RouteLabelKey]; ok {
-			if routeName != route.Name {
-				errMsg := fmt.Sprintf("Revision %q is already in use by %q, and cannot be used by %q",
-					rev.Name, routeName, route.Name)
-				c.Recorder.Event(route, corev1.EventTypeWarning, "RevisionInUse", errMsg)
-				logger.Error(errMsg)
-				return errors.New(errMsg)
-			}
-		}
-	}
-
-	for _, rev := range revMap {
-		if rev.Labels != nil {
-			if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
-				continue
-			}
-		}
-		// Fetch the latest version of the revision to label, to narrow the window for
-		// optimistic concurrency failures.
-		latestRev, err := revisionClient.Get(rev.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if latestRev.Labels == nil {
-			latestRev.Labels = make(map[string]string)
-		} else if _, ok := latestRev.Labels[serving.RouteLabelKey]; ok {
-			continue
-		}
-		latestRev.Labels[serving.RouteLabelKey] = route.Name
-		if _, err := revisionClient.Update(latestRev); err != nil {
-			logger.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
@@ -566,36 +514,6 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 			delete(config.Labels, serving.RouteLabelKey)
 			if _, err := configClient.Update(&config); err != nil {
 				logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
-	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
-
-	oldRevList, err := revClient.List(
-		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name),
-		},
-	)
-	if err != nil {
-		logger.Errorf("Failed to fetch revisions with label '%s=%s': %s",
-			serving.RouteLabelKey, route.Name, err)
-		return err
-	}
-
-	// Delete label for newly removed revisions as traffic target.
-	for _, rev := range oldRevList.Items {
-		if _, ok := revMap[rev.Name]; !ok {
-			delete(rev.Labels, serving.RouteLabelKey)
-			if _, err := revClient.Update(&rev); err != nil {
-				logger.Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
 				return err
 			}
 		}
