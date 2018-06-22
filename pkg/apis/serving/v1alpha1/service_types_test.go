@@ -15,6 +15,7 @@ package v1alpha1
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -315,6 +316,23 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 }
 
+func TestConfigurationStatusPropagation(t *testing.T) {
+	svc := &Service{}
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		LatestReadyRevisionName:   "foo",
+		LatestCreatedRevisionName: "bar",
+	})
+
+	want := ServiceStatus{
+		LatestReadyRevisionName:   "foo",
+		LatestCreatedRevisionName: "bar",
+	}
+
+	if diff := cmp.Diff(want, svc.Status); diff != "" {
+		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+	}
+}
+
 func TestRouteFailurePropagation(t *testing.T) {
 	svc := &Service{}
 	svc.Status.InitializeConditions()
@@ -369,6 +387,35 @@ func TestRouteUnknownPropagation(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 	// Configuration is unaffected.
 	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
+}
+
+func TestRouteStatusPropagation(t *testing.T) {
+	svc := &Service{}
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Domain: "example.com",
+		Traffic: []TrafficTarget{{
+			Percent:      100,
+			RevisionName: "newstuff",
+		}, {
+			Percent:      0,
+			RevisionName: "oldstuff",
+		}},
+	})
+
+	want := ServiceStatus{
+		Domain: "example.com",
+		Traffic: []TrafficTarget{{
+			Percent:      100,
+			RevisionName: "newstuff",
+		}, {
+			Percent:      0,
+			RevisionName: "oldstuff",
+		}},
+	}
+
+	if diff := cmp.Diff(want, svc.Status); diff != "" {
+		t.Errorf("unexpected ServiceStatus (-want +got): %s", diff)
+	}
 }
 
 func checkConditionSucceededService(rs ServiceStatus, rct ServiceConditionType, t *testing.T) *ServiceCondition {

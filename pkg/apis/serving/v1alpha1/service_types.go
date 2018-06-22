@@ -111,6 +111,32 @@ type ServiceStatus struct {
 	// +optional
 	Conditions []ServiceCondition `json:"conditions,omitempty"`
 
+	// From RouteStatus.
+	// Domain holds the top-level domain that will distribute traffic over the provided targets.
+	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	Domain string `json:"domain,omitempty"`
+
+	// From RouteStatus.
+	// Traffic holds the configured traffic distribution.
+	// These entries will always contain RevisionName references.
+	// When ConfigurationName appears in the spec, this will hold the
+	// LatestReadyRevisionName that we last observed.
+	// +optional
+	Traffic []TrafficTarget `json:"traffic,omitempty"`
+
+	// From ConfigurationStatus.
+	// LatestReadyRevisionName holds the name of the latest Revision stamped out
+	// from this Service's Configuration that has had its "Ready" condition become "True".
+	// +optional
+	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
+
+	// From ConfigurationStatus.
+	// LatestCreatedRevisionName is the last revision that was created from this Service's
+	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+	// +optional
+	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
+
 	// ObservedGeneration is the 'Generation' of the Service that
 	// was last processed by the controller.
 	// +optional
@@ -204,6 +230,9 @@ func (ss *ServiceStatus) InitializeConditions() {
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
+	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
+	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
+
 	cc := cs.GetCondition(ConfigurationConditionReady)
 	if cc == nil {
 		return
@@ -227,6 +256,9 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 }
 
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
+	ss.Domain = rs.Domain
+	ss.Traffic = rs.Traffic
+
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return
