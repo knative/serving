@@ -49,13 +49,31 @@ const VerboseLogLevel glog.Level = 10
 var Logger = initializeLogger()
 
 func initializeLogger() *zap.SugaredLogger {
-	configJSON := "{\"level\": \"info\", \"outputPaths\": [\"stdout\"], \"errorOutputPaths\": [\"stderr\"], \"encoding\": \"console\", \"encoderConfig\": {\"levelKey\": \"level\", \"nameKey\": \"logger\", \"callerKey\": \"caller\", \"messageKey\": \"msg\", \"stacktraceKey\": \"stacktrace\", \"levelEncoder\": \"\", \"timeEncoder\": \"\", \"durationEncoder\": \"\", \"callerEncoder\": \"\"}}"
-  var logger *zap.SugaredLogger
-	if (Flags.LogVerbose) {
-		logger = logging.NewLogger(configJSON, "Debug")
-	} else {
-		logger = logging.NewLogger(configJSON, "")
+	configJSON := []byte(`{
+	  "level": "info",
+	  "encoding": "console",
+	  "outputPaths": ["stdout"],
+	  "errorOutputPaths": ["stderr"],
+	  "encoderConfig": {
+	    "messageKey": "message",
+			"levelKey": "level",
+			"nameKey": "logger",
+			"callerKey": "caller",
+			"messageKey": "msg",
+      "stacktraceKey": "stacktrace",
+      "lineEnding": "",
+      "levelEncoder": "",
+      "timeEncoder": "",
+      "durationEncoder": "",
+      "callerEncoder": ""
+	  }
+	}`)
+	var logger *zap.SugaredLogger
+	var logLevel string
+	if Flags.LogVerbose {
+		logLevel = "Debug"
 	}
+	logger = logging.NewLogger(string(configJSON), logLevel)
 	defer logger.Sync()
 	return logger
 }
