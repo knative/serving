@@ -25,8 +25,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/golang/glog"
 	"github.com/knative/serving/test"
 )
 
@@ -53,11 +51,14 @@ func cleanup(yamlFilename string) {
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
+	//add test case specific name to its own logger
+	logger := test.Logger.Named("TestHelloWorldFromShell")
+
 	// Container is expected to live in <gcr>/sample/helloworld
 	// To regenerate it, see https://github.com/knative/serving/tree/master/sample/helloworld#setup
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "sample", "helloworld"}, "/")
 
-	glog.Infof("Creating manifest")
+	logger.Infof("Creating manifest")
 
 	// Create manifest file.
 	newYaml, err := ioutil.TempFile("", "helloworld")
@@ -66,7 +67,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	}
 	newYamlFilename := newYaml.Name()
 	defer cleanup(newYamlFilename)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) })
+	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) },logger)
 
 	// Populate manifets file with the real path to the container
 	content, err := ioutil.ReadFile(sampleYaml)
@@ -81,15 +82,15 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to close new manifest file: %v", err)
 	}
 
-	glog.Infof("Manifest file is '%s'", newYamlFilename)
-	glog.Info("Deploying using kubectl")
+	logger.Infof("Manifest file is '%s'", newYamlFilename)
+	logger.Info("Deploying using kubectl")
 
 	// Deply using kubectl
 	if err = exec.Command("kubectl", "apply", "-f", newYamlFilename).Run(); err != nil {
 		t.Fatalf("Error running kubectl: %v", err)
 	}
 
-	glog.Info("Waiting for ingress to come up")
+	logger.Info("Waiting for ingress to come up")
 
 	// Wait for ingress to come up
 	serviceIP := ""
@@ -105,9 +106,9 @@ func TestHelloWorldFromShell(t *testing.T) {
 		// serviceHost or serviceIP might contain a useful error, dump them.
 		t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
 	}
-	glog.Infof("Ingress is at %s/%s", serviceIP, serviceHost)
+	logger.Infof("Ingress is at %s/%s", serviceIP, serviceHost)
 
-	glog.Info("Accessing app using curl")
+	logger.Info("Accessing app using curl")
 
 	outputString := ""
 	timeout = servingTimeout
@@ -120,11 +121,11 @@ func TestHelloWorldFromShell(t *testing.T) {
 			errorString = err.Error()
 		}
 		outputString = strings.TrimSpace(string(output))
-		glog.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
 	}
 
 	if outputString != helloWorldSampleExpectedOutput {
 		t.Fatalf("Timeout waiting for app to start serving")
 	}
-	glog.Info("App is serving")
+	logger.Info("App is serving")
 }
