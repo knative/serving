@@ -131,11 +131,11 @@ func TestReconcile(t *testing.T) {
 		key: "foo/run-latest",
 		wantCreates: []metav1.Object{
 			&v1alpha1.Configuration{
-				ObjectMeta: om("foo", "run-latest"),
+				ObjectMeta: com("foo", "run-latest", or("run-latest")),
 				Spec:       configSpec,
 			},
 			&v1alpha1.Route{
-				ObjectMeta: om("foo", "run-latest"),
+				ObjectMeta: com("foo", "run-latest", or("run-latest")),
 				Spec:       runLatestSpec("run-latest"),
 			},
 		},
@@ -182,11 +182,11 @@ func TestReconcile(t *testing.T) {
 		key: "foo/pinned",
 		wantCreates: []metav1.Object{
 			&v1alpha1.Configuration{
-				ObjectMeta: om("foo", "pinned"),
+				ObjectMeta: com("foo", "pinned", or("pinned")),
 				Spec:       configSpec,
 			},
 			&v1alpha1.Route{
-				ObjectMeta: om("foo", "pinned"),
+				ObjectMeta: com("foo", "pinned", or("pinned")),
 				Spec:       pinnedSpec("pinned-0001"),
 			},
 		},
@@ -336,8 +336,6 @@ func TestReconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var names []string
-
 			var objs []runtime.Object
 			for _, s := range tt.fields.s.Items {
 				objs = append(objs, s)
@@ -393,10 +391,6 @@ func TestReconcile(t *testing.T) {
 					t.Errorf("unexpected action[%d]: %#v", i, action)
 				}
 				obj := action.GetObject()
-				if tt.wantCreates[i].GetName() == "<generated>" {
-					tt.wantCreates[i].SetName(names[0])
-					names = names[1:]
-				}
 				if diff := cmp.Diff(tt.wantCreates[i], obj, ignoreLastTransitionTime); diff != "" {
 					t.Errorf("unexpected create (-want +got): %s", diff)
 				}
@@ -488,9 +482,16 @@ func or(name string) []metav1.OwnerReference {
 
 func om(namespace, name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
+		Name:      name,
+		Namespace: namespace,
+	}
+}
+
+func com(namespace, name string, or []metav1.OwnerReference) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
 		Name:            name,
 		Namespace:       namespace,
 		Labels:          map[string]string{serving.ServiceLabelKey: name},
-		OwnerReferences: or(name),
+		OwnerReferences: or,
 	}
 }
