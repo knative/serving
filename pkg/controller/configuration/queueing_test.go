@@ -89,18 +89,16 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-// TODO(mattmoor): Merge and prune these setup methods.
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory) {
+	elaInformer informers.SharedInformerFactory,
+	stopCh chan struct{}) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	buildClient = fakebuildclientset.NewSimpleClientset()
 	// The ability to insert objects here is intended to work around the problem
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
@@ -115,26 +113,13 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		ctrl.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: elaClient,
-			BuildClientSet:   buildClient,
+			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
 			Logger:           zap.NewNop().Sugar(),
 		},
 		elaInformer.Serving().V1alpha1().Configurations(),
 		elaInformer.Serving().V1alpha1().Revisions(),
 		&rest.Config{},
 	).(*Controller)
-
-	return
-}
-
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	kubeClient, _, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
 
 	// Start the informers. This must happen after the call to NewController,
 	// otherwise there are no informers to be started.
