@@ -20,9 +20,20 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
+
+	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/serving/pkg/controller"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	kubeinformers "k8s.io/client-go/informers"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
 	hooks "github.com/knative/serving/pkg/controller/testing"
 )
@@ -34,6 +45,112 @@ import (
 - invalid key given to syncHandler
 - resource doesn't exist in lister (from syncHandler)
 */
+
+const (
+	testNamespace string = "test"
+)
+
+func getTestConfiguration() *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
+			Name:      "test-config",
+			Namespace: testNamespace,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			//TODO(grantr): This is a workaround for generation initialization
+			Generation: 1,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					ServiceAccountName: "test-account",
+					// corev1.Container has a lot of setting.  We try to pass many
+					// of them here to verify that we pass through the settings to
+					// the derived Revisions.
+					Container: corev1.Container{
+						Image:      "gcr.io/repo/image",
+						Command:    []string{"echo"},
+						Args:       []string{"hello", "world"},
+						WorkingDir: "/tmp",
+						Env: []corev1.EnvVar{{
+							Name:  "EDITOR",
+							Value: "emacs",
+						}},
+						LivenessProbe: &corev1.Probe{
+							TimeoutSeconds: 42,
+						},
+						ReadinessProbe: &corev1.Probe{
+							TimeoutSeconds: 43,
+						},
+						TerminationMessagePath: "/dev/null",
+					},
+				},
+			},
+		},
+	}
+}
+
+// TODO(mattmoor): Merge and prune these setup methods.
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	buildClient *fakebuildclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory) {
+
+	// Create fake clients
+	kubeClient = fakekubeclientset.NewSimpleClientset()
+	buildClient = fakebuildclientset.NewSimpleClientset()
+	// The ability to insert objects here is intended to work around the problem
+	// with watches not firing in client-go 1.9. When we update to client-go 1.10
+	// this can probably be removed.
+	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
+
+	// Create informer factories with fake clients. The second parameter sets the
+	// resync period to zero, disabling it.
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
+
+	controller = NewController(
+		ctrl.Options{
+			KubeClientSet:    kubeClient,
+			ServingClientSet: elaClient,
+			BuildClientSet:   buildClient,
+			Logger:           zap.NewNop().Sugar(),
+		},
+		elaInformer.Serving().V1alpha1().Configurations(),
+		elaInformer.Serving().V1alpha1().Revisions(),
+		&rest.Config{},
+	).(*Controller)
+
+	return
+}
+
+func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	elaClient *fakeclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	elaInformer informers.SharedInformerFactory,
+	stopCh chan struct{}) {
+
+	kubeClient, _, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
+
+	// Start the informers. This must happen after the call to NewController,
+	// otherwise there are no informers to be started.
+	stopCh = make(chan struct{})
+	kubeInformer.Start(stopCh)
+	elaInformer.Start(stopCh)
+
+	// Run the controller.
+	go func() {
+		if err := controller.Run(2, stopCh); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
+	return
+}
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	config := getTestConfiguration()
