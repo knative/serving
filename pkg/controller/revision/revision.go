@@ -347,6 +347,12 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			return err
 		}
 
+		// Ensure our namespace has the configuration for the fluentd sidecar.
+		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
+			logger.Error("Failed to create fluent config map", zap.Error(err))
+			return err
+		}
+
 		switch rev.Spec.ServingState {
 		case v1alpha1.RevisionServingStateActive:
 			return c.createK8SResources(ctx, rev)
@@ -436,12 +442,6 @@ func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revis
 	}
 	if err := c.reconcileVpa(ctx, rev); err != nil {
 		logger.Error("Failed to create the vertical pod autoscaler for Deployment", zap.Error(err))
-		return err
-	}
-
-	// Ensure our namespace has the configuration for the fluentd sidecar.
-	if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
-		logger.Error("Failed to create fluent config map", zap.Error(err))
 		return err
 	}
 
@@ -718,33 +718,32 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	ns := rev.Namespace
 
 	// One ConfigMap for Fluentd sidecar per namespace. It has multiple owner
-	// references. Can not set blockOwnerDeletion and Controller to true.
-	revRef := newRevisionNonControllerRef(rev)
+	// references. Cannot set BlockOwnerDeletion nor Controller to true.
 
-	cmc := c.KubeClientSet.CoreV1().ConfigMaps(ns)
-	configMap, err := cmc.Get(fluentdConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		if !apierrs.IsNotFound(err) {
-			logger.Errorf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
-			return err
-		}
+	// Our informer is restricted to our controller's namespace, so we don't
+	// go through its ConfigMapLister.
+	configMap, err := c.KubeClientSet.CoreV1().ConfigMaps(ns).Get(fluentdConfigMapName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
 		configMap = MakeFluentdConfigMap(ns, c.controllerConfig.FluentdSidecarOutputConfig)
-		configMap.OwnerReferences = append(configMap.OwnerReferences, *revRef)
+		configMap.OwnerReferences = append(configMap.OwnerReferences, *newRevisionNonControllerRef(rev))
 		logger.Infof("Creating configmap: %q", configMap.Name)
-		_, err = cmc.Create(configMap)
+		_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
+		return err
+	} else if err != nil {
+		logger.Errorf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
 		return err
 	}
 
-	// ConfigMap exists, going to update it
+	// ConfigMap exists, make sure it has the right content.
 	desiredConfigMap := configMap.DeepCopy()
 	desiredConfigMap.Data = map[string]string{
 		"varlog.conf": makeFullFluentdConfig(c.controllerConfig.FluentdSidecarOutputConfig),
 	}
-	addOwnerReference(desiredConfigMap, revRef)
+	addOwnerReference(desiredConfigMap, newRevisionNonControllerRef(rev))
 	if !reflect.DeepEqual(desiredConfigMap, configMap) {
 		logger.Infof("Updating configmap: %q", desiredConfigMap.Name)
-		_, err = cmc.Update(desiredConfigMap)
+		_, err := c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(desiredConfigMap)
 		return err
 	}
 	return nil
