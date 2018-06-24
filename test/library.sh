@@ -147,7 +147,7 @@ function ko() {
   fi
 }
 
-# Runs a go test and generate a junit summary through bazel.
+# Runs a go test and generate junit results through bazel.
 # Parameters: $1... - parameters to go test
 function report_go_test() {
   # Just run regular go tests if not on Prow.
@@ -156,9 +156,9 @@ function report_go_test() {
     return
   fi
   local report=$(mktemp)
-  local summary=$(mktemp)
   local failed=0
-  # Run tests in verbose mode to capture details.
+  # Run tests in verbose mode to capture details, including the
+  # duration of each test.
   # go doesn't like repeating -v, so remove if passed.
   local args=("${@/-v}")
   go test -v ${args[@]} > ${report} || failed=$?
@@ -189,8 +189,6 @@ function report_go_test() {
         chmod +x ${src}
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
       elif [[ ${field0} =~ FAIL|ok ]]; then
-        # Update the summary with the result for the package
-        echo "${line}" >> ${summary}
         # Create the package structure, move tests and BUILD file
         local package=${field1/github.com\//}
         mkdir -p ${package}
@@ -199,10 +197,10 @@ function report_go_test() {
       fi
     fi
   done < ${report}
-  # If any test failed, show the detailed report.
-  # Otherwise, just show the summary.
-  (( failed )) && cat ${report} || cat ${summary}
-  # Always generate the junit summary.
+  # Show the detailed results. The duration of each test will be parsed from
+  # these results to measure latency over time. TODO(adrcunha)
+  cat ${report}
+  # Generate the junit results.
   bazel test ${targets} > /dev/null 2>&1
   return ${failed}
 }
