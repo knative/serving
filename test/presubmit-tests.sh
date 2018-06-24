@@ -21,9 +21,6 @@
 # Use the flags --build-tests, --unit-tests and --integration-tests
 # to run a specific set of tests.
 
-set -o errexit
-set -o pipefail
-
 # Extensions or file patterns that don't require presubmit tests
 readonly NO_PRESUBMIT_FILES=(\.md \.png ^OWNERS)
 
