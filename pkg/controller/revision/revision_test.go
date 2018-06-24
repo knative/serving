@@ -860,7 +860,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 
 	createRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
 
-	createdVpa, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(ctrl.GetRevisionVpaName(rev), metav1.GetOptions{})
+	createdVPA, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(ctrl.GetRevisionVPAName(rev), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get vpa: %v", err)
 	}
@@ -870,7 +870,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 	}
 
 	// Verify label selectors match
-	if want, got := createdRev.ObjectMeta.Labels, createdVpa.Spec.Selector.MatchLabels; reflect.DeepEqual(want, got) {
+	if want, got := createdRev.ObjectMeta.Labels, createdVPA.Spec.Selector.MatchLabels; reflect.DeepEqual(want, got) {
 		t.Fatalf("Mismatched labels. Wanted %v. Got %v.", want, got)
 	}
 }
@@ -1654,7 +1654,7 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.AutoscalerImage = ""
-	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
@@ -1663,7 +1663,7 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 		*ctrl.NewConfigurationControllerRef(config),
 	)
 
-	createRevision(elaClient, elaInformer, controller, rev)
+	createRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
 
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 
