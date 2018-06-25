@@ -534,6 +534,7 @@ var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
 	return strings.HasSuffix(p.String(), "LastTransitionTime.Time")
 }, cmp.Ignore())
 
+// or builds OwnerReferences for a child of a Configuration
 func or(name string) []metav1.OwnerReference {
 	return []metav1.OwnerReference{{
 		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
@@ -544,6 +545,7 @@ func or(name string) []metav1.OwnerReference {
 	}}
 }
 
+// om builds ObjectMeta for a Configuration
 func om(namespace, name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      name,
@@ -551,6 +553,7 @@ func om(namespace, name string) metav1.ObjectMeta {
 	}
 }
 
+// com builds the ObjectMeta for a Child of a Configuration
 func com(namespace, name string, generation int) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      fmt.Sprintf("%s-%05d", name, generation),

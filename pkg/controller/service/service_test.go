@@ -470,6 +470,7 @@ func pinnedSpec(name string) v1alpha1.RouteSpec {
 	}
 }
 
+// or builds OwnerReferences for a child of a Service
 func or(name string) []metav1.OwnerReference {
 	return []metav1.OwnerReference{{
 		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
@@ -480,6 +481,7 @@ func or(name string) []metav1.OwnerReference {
 	}}
 }
 
+// om builds ObjectMeta for a Service
 func om(namespace, name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      name,
@@ -487,6 +489,7 @@ func om(namespace, name string) metav1.ObjectMeta {
 	}
 }
 
+// com builds the ObjectMeta for a Child of a Service
 func com(namespace, name string, or []metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:            name,
