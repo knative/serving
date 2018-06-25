@@ -20,15 +20,13 @@ package e2e
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"testing"
-
-	"github.com/golang/glog"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"testing"
 )
 
 const (
@@ -38,23 +36,28 @@ const (
 // TestContainerErrorMsg is to validate the error condition defined at
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
+
 func TestContainerErrorMsg(t *testing.T) {
+	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
+
+	//add test case specific name to its own logger
+	logger := test.Logger.Named("TestContainerErrorMsg")
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "invalidhelloworld"}, "/")
 
-	glog.Infof("Creating a new Route and Configuration %s", imagePath)
-	names, err := CreateRouteAndConfig(clients, imagePath)
+	logger.Infof("Creating a new Route and Configuration %s", imagePath)
+	names, err := CreateRouteAndConfig(clients, logger, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
 	defer TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
+	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
 
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
-	glog.Infof("When the imagepath is invalid, the Configuration should have error status.")
+	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
 	err = test.WaitForConfigurationState(clients.Configs, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
@@ -63,8 +66,9 @@ func TestContainerErrorMsg(t *testing.T) {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.Status == corev1.ConditionFalse {
 				return true, nil
 			}
-			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
-				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
+			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
+			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
+			return true, errors.New(s)
 		}
 		return false, nil
 	})
@@ -78,7 +82,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	glog.Infof("When the imagepath is invalid, the revision should have error status.")
+	logger.Infof("When the imagepath is invalid, the revision should have error status.")
 	err = test.WaitForRevisionState(clients.Revisions, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
@@ -95,14 +99,14 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	glog.Infof("When the revision has error condition, logUrl should be populated.")
+	logger.Infof("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	test.Verbose("LogURL: %s", logURL)
+	logger.Debugf("LogURL: %s", logURL)
 
 	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
 }

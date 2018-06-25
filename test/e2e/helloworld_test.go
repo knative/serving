@@ -18,14 +18,12 @@ limitations under the License.
 package e2e
 
 import (
-	"github.com/golang/glog"
-	"strings"
-	"testing"
-
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"testing"
 )
 
 const (
@@ -41,18 +39,21 @@ func isHelloWorldExpectedOutput() func(body string) (bool, error) {
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
+	//add test case specific name to its own logger
+	logger := test.Logger.Named("TestHelloWorld")
+
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
-	glog.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, imagePath)
+	logger.Infof("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(clients, logger, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) })
+	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
 	defer TearDown(clients, names)
 
-	glog.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
+	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {
 		if cond := r.Status.GetCondition(v1alpha1.RouteConditionReady); cond == nil {
 			return false, nil
@@ -69,7 +70,7 @@ func TestHelloWorld(t *testing.T) {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
-	err = test.WaitForEndpointState(clients.Kube, test.Flags.ResolvableDomain, domain, NamespaceName, names.Route, isHelloWorldExpectedOutput())
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, NamespaceName, names.Route, isHelloWorldExpectedOutput())
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
