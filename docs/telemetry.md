@@ -85,11 +85,11 @@ Navigate to the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/s
 When Kibana is opened the first time, it will ask you to create an index.
 Accept the default options:
 
-![Kibana UI Configuring an Index Pattern](/docs/images/kibana-landing-page-configure-index.png)
+![Kibana UI Configuring an Index Pattern](images/kibana-landing-page-configure-index.png)
 
 The Discover tab of the Kibana UI looks like this:
 
-![Kibana UI Discover tab](/docs/images/kibana-discover-tab-annotated.png)
+![Kibana UI Discover tab](images/kibana-discover-tab-annotated.png)
 
 You can change the time frame of logs Kibana displays in the upper right corner
 of the screen. The main search bar is across the top of the Dicover page.
@@ -108,8 +108,8 @@ To access the logs for a configuration, enter the following search query in Kiba
 kubernetes.labels.knative_dev\/configuration: "configuration-example"
 ```
 
-Replace `configuration-example` with your configuration's name. Enter the following command to get
-your configuration's name:
+Replace `configuration-example` with your configuration's name. Enter the following
+command to get your configuration's name:
 
 ```shell
 kubectl get configurations
