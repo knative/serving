@@ -202,7 +202,7 @@ func (c *Controller) createRevision(config *v1alpha1.Configuration, revName stri
 		build := &buildv1alpha1.Build{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:       config.Namespace,
-				GenerateName:    fmt.Sprintf("%s-", config.Name),
+				Name:            revName,
 				OwnerReferences: []metav1.OwnerReference{*controllerRef},
 			},
 			Spec: *config.Spec.Build,
