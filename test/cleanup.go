@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,18 +19,18 @@ limitations under the License.
 package test
 
 import (
-	"github.com/golang/glog"
+	"go.uber.org/zap"
 	"os"
 	"os/signal"
 )
 
 // CleanupOnInterrupt will execute the function cleanup if an interrupt signal is caught
-func CleanupOnInterrupt(cleanup func()) {
+func CleanupOnInterrupt(cleanup func(), logger *zap.SugaredLogger ) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		for _ = range c {
-			glog.Infof("Test interrupted, cleaning up.")
+			logger.Infof("Test interrupted, cleaning up.")
 			cleanup()
 			os.Exit(1)
 		}

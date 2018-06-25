@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -41,19 +42,9 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.uber.org/zap"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	extv1beta1informers "k8s.io/client-go/informers/extensions/v1beta1"
-)
-
-var (
-	processItemCount = stats.Int64(
-		"controller_route_queue_process_count",
-		"Counter to keep track of items in the route work queue.",
-		stats.UnitNone)
-	statusTagKey tag.Key
 )
 
 const (
@@ -187,7 +178,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Route resource with this namespace/name
-	route, err := c.routeLister.Routes(namespace).Get(name)
+	original, err := c.routeLister.Routes(namespace).Get(name)
 	if err != nil {
 		// The resource may no longer exist, in which case we stop
 		// processing.
@@ -198,7 +189,24 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 	// Don't modify the informers copy
-	route = route.DeepCopy()
+	route := original.DeepCopy()
+
+	// Reconcile this copy of the route and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, route)
+	if equality.Semantic.DeepEqual(original.Status, route.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else if _, err := c.updateStatus(ctx, route); err != nil {
+		return err
+	}
+	return err
+}
+
+func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error {
+	logger := logging.FromContext(ctx)
 	route.Status.InitializeConditions()
 
 	logger.Infof("Reconciling route :%v", route)
@@ -214,10 +222,10 @@ func (c *Controller) updateRouteEvent(key string) error {
 		return err
 	}
 
-	// Call syncTrafficTargetsAndUpdateRouteStatus, which also updates the Route.Status
+	// Call syncTrafficTargets, which also updates the Route.Status
 	// to contain the domain we will use for Ingress creation.
 
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
+	if _, err := c.syncTrafficTargets(ctx, route); err != nil {
 		return err
 	}
 
@@ -227,10 +235,7 @@ func (c *Controller) updateRouteEvent(key string) error {
 		logger.Error("Failed to create or update ingress rule", zap.Error(err))
 		return err
 	}
-
-	logger.Info("Route successfully synced")
-	_, err = c.updateStatus(ctx, route)
-	return err
+	return nil
 }
 
 func (c *Controller) getDomainConfig() *DomainConfig {
@@ -250,10 +255,10 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
 }
 
-// syncTrafficTargetsAndUpdateRouteStatus attempts to converge the actual state and desired state
+// syncTrafficTargets attempts to converge the actual state and desired state
 // according to the traffic targets in Spec field for Route resource. It then updates the Status
 // block of the Route and returns the updated one.
-func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+func (c *Controller) syncTrafficTargets(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
 	c.consolidateTrafficTargets(ctx, route)
 	configMap, revMap, err := c.getDirectTrafficTargets(ctx, route)
@@ -302,7 +307,7 @@ func (c *Controller) syncTrafficTargetsAndUpdateRouteStatus(ctx context.Context,
 		route.Status.Traffic = traffic
 	}
 	route.Status.Domain = c.routeDomain(route)
-	return c.updateStatus(ctx, route)
+	return route, nil
 }
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
@@ -368,10 +373,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 				logger.Infof("Failed to fetch Configuration %q: %v", configName, err)
 				if apierrs.IsNotFound(err) {
 					route.Status.MarkTrafficNotAssigned("Configuration", configName)
-					if _, err := c.updateStatus(ctx, route); err != nil {
-						// If we failed to update the status, return that error instead of the "config not found" error.
-						return nil, nil, err
-					}
 				}
 				return nil, nil, err
 			}
@@ -383,10 +384,6 @@ func (c *Controller) getDirectTrafficTargets(ctx context.Context, route *v1alpha
 				logger.Infof("Failed to fetch Revision %q: %v", revName, err)
 				if apierrs.IsNotFound(err) {
 					route.Status.MarkTrafficNotAssigned("Revision", revName)
-					if _, err := c.updateStatus(ctx, route); err != nil {
-						// If we failed to update the status, return that error instead of the "revision not found" error.
-						return nil, nil, err
-					}
 				}
 				return nil, nil, err
 			}
@@ -456,10 +453,6 @@ func (c *Controller) extendRevisionsWithIndirectTrafficTargets(
 			logger.Errorf("Failed to fetch Revision %s: %s", revName, err)
 			if apierrs.IsNotFound(err) {
 				route.Status.MarkTrafficNotAssigned("Revision", revName)
-				if _, err := c.updateStatus(ctx, route); err != nil {
-					// If we failed to update the status, return that error instead of the "revision not found" error.
-					return err
-				}
 			}
 			return err
 		}
@@ -979,9 +972,10 @@ func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
 
 	// Don't modify the informers copy
 	route = route.DeepCopy()
-	if _, err := c.syncTrafficTargetsAndUpdateRouteStatus(ctx, route); err != nil {
+	if _, err := c.syncTrafficTargets(ctx, route); err != nil {
 		logger.Error("Error updating route upon configuration becoming ready", zap.Error(err))
 	}
+	c.updateStatus(ctx, route)
 }
 
 func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {

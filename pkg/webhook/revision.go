@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc. All Rights Reserved.
+Copyright 2017 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/google/go-cmp/cmp"
 	"github.com/mattbaird/jsonpatch"
 )
 

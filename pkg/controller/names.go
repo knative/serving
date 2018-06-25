@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +51,10 @@ func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
 
 func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
+}
+
+func GetRevisionVpaName(u *v1alpha1.Revision) string {
+	return u.Name
 }
 
 func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {

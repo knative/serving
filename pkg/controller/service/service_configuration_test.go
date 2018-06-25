@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -137,13 +137,11 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 		return
 	}
 
-	expectedRefs := []metav1.OwnerReference{
-		metav1.OwnerReference{
-			APIVersion: "serving.knative.dev/v1alpha1",
-			Kind:       "Service",
-			Name:       testServiceName,
-		},
-	}
+	expectedRefs := []metav1.OwnerReference{{
+		APIVersion: "serving.knative.dev/v1alpha1",
+		Kind:       "Service",
+		Name:       testServiceName,
+	}}
 	if diff := cmp.Diff(expectedRefs, ownerRefs, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
 		t.Errorf("Unexpected service owner refs diff (-want +got): %v", diff)
 	}

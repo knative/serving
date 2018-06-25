@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,17 +45,14 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCPU),
 			},
 		},
-		Ports: []corev1.ContainerPort{
-			{
-				Name:          queue.RequestQueuePortName,
-				ContainerPort: int32(queue.RequestQueuePort),
-			},
+		Ports: []corev1.ContainerPort{{
+			Name:          queue.RequestQueuePortName,
+			ContainerPort: int32(queue.RequestQueuePort),
+		}, {
 			// Provides health checks and lifecycle hooks.
-			{
-				Name:          queue.RequestQueueAdminPortName,
-				ContainerPort: int32(queue.RequestQueueAdminPort),
-			},
-		},
+			Name:          queue.RequestQueueAdminPortName,
+			ContainerPort: int32(queue.RequestQueueAdminPort),
+		}},
 		// This handler (1) marks the service as not ready and (2)
 		// adds a small delay before the container is killed.
 		Lifecycle: &corev1.Lifecycle{
@@ -83,43 +80,34 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
 			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "ELA_NAMESPACE",
-				Value: rev.Namespace,
-			},
-			{
-				Name:  "ELA_CONFIGURATION",
-				Value: configName,
-			},
-			{
-				Name:  "ELA_REVISION",
-				Value: rev.Name,
-			},
-			{
-				Name:  "ELA_AUTOSCALER",
-				Value: controller.GetRevisionAutoscalerName(rev),
-			},
-			{
-				Name:  "ELA_AUTOSCALER_PORT",
-				Value: strconv.Itoa(autoscalerPort),
-			},
-			{
-				Name: "ELA_POD",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
+		Env: []corev1.EnvVar{{
+			Name:  "ELA_NAMESPACE",
+			Value: rev.Namespace,
+		}, {
+			Name:  "ELA_CONFIGURATION",
+			Value: configName,
+		}, {
+			Name:  "ELA_REVISION",
+			Value: rev.Name,
+		}, {
+			Name:  "ELA_AUTOSCALER",
+			Value: controller.GetRevisionAutoscalerName(rev),
+		}, {
+			Name:  "ELA_AUTOSCALER_PORT",
+			Value: strconv.Itoa(autoscalerPort),
+		}, {
+			Name: "ELA_POD",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
 				},
 			},
-			{
-				Name:  "ELA_LOGGING_CONFIG",
-				Value: controllerConfig.QueueProxyLoggingConfig,
-			},
-			{
-				Name:  "ELA_LOGGING_LEVEL",
-				Value: controllerConfig.QueueProxyLoggingLevel,
-			},
-		},
+		}, {
+			Name:  "ELA_LOGGING_CONFIG",
+			Value: controllerConfig.QueueProxyLoggingConfig,
+		}, {
+			Name:  "ELA_LOGGING_LEVEL",
+			Value: controllerConfig.QueueProxyLoggingLevel,
+		}},
 	}
 }

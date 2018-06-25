@@ -1,0 +1,24 @@
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Route
+metadata:
+  name: grpc-ping
+  namespace: default
+spec:
+  traffic:
+  - configurationName: grpc-ping
+    percent: 100
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Configuration
+metadata:
+  name: grpc-ping
+  namespace: default
+spec:
+  revisionTemplate:
+    metadata:
+      labels:
+        elafros.dev/type: app
+    spec:
+      container:
+        image: github.com/knative/serving/sample/grpc-ping

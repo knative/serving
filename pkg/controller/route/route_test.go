@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -203,34 +203,6 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
 	).(*Controller)
-
-	return
-}
-
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	kubeClient, elaClient, controller, kubeInformer, elaInformer, servingSystemInformer = newTestController(t, elaObjects...)
-
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-	servingSystemInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
 
 	return
 }

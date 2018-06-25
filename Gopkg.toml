@@ -50,8 +50,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-06-15
-  revision = "5127da35831f0c56d234e23ff087e9caf77d75e7"
+  # HEAD as of 2018-06-18
+  revision = "5dba97ea172464d6459c393330ffba2152ec78dd"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"

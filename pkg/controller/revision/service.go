@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -42,13 +42,11 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       httpServicePortName,
-					Port:       int32(servicePort),
-					TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
-				},
-			},
+			Ports: []corev1.ServicePort{{
+				Name:       httpServicePortName,
+				Port:       int32(servicePort),
+				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
+			}},
 			Type: "NodePort",
 			Selector: map[string]string{
 				serving.RevisionLabelKey: rev.Name,

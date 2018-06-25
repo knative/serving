@@ -30,8 +30,7 @@ To use a k8s cluster running in GKE:
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
-      --cluster-version=1.10.2-gke.3 \
-      --image-type "UBUNTU" \
+      --cluster-version=latest \
       --zone=us-east1-d \
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
@@ -54,10 +53,10 @@ To use a k8s cluster running in GKE:
     # Get the list of valid versions in us-east1-d
     gcloud container get-server-config --zone us-east1-d
     ```
-    
+
 1.  **Alternately**, if you wish to re-use an already-created cluster,
     you can fetch the credentials to your local machine with:
-    
+
     ```shell
     # Load credentials for the new cluster in us-east1-d
     gcloud container clusters get-credentials --zone us-east1-d knative-demo
@@ -172,7 +171,7 @@ For example, use these steps to allow Minikube to pull Knative Serving and Build
 from GCR as published in our development flow (`ko apply -f config/`).
 _This is only necessary if you are not using public Knative Serving and Build images._
 
-1.  Create a Kubernetes secret in the `knative-serving-system` and `build-system` namespace:
+1.  Create a Kubernetes secret in the `knative-serving` and `build-system` namespace:
 
     ```shell
     for prefix in ela build; do

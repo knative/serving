@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -99,12 +99,12 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady ServiceConditionType = "Ready"
-	// ServiceConditionRouteReady is set when the service's underlying
-	// route has reported readiness.
-	ServiceConditionRouteReady ServiceConditionType = "RouteReady"
-	// ServiceConditionConfigurationReady is set when the service's underlying
-	// configuration has reported readiness.
-	ServiceConditionConfigurationReady ServiceConditionType = "ConfigurationReady"
+	// ServiceConditionRoutesReady is set when the service's underlying
+	// routes have reported readiness.
+	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
+	// ServiceConditionConfigurationsReady is set when the service's underlying
+	// configurations have reported readiness.
+	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 
 type ServiceStatus struct {
@@ -191,8 +191,8 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 func (ss *ServiceStatus) InitializeConditions() {
 	for _, cond := range []ServiceConditionType{
 		ServiceConditionReady,
-		ServiceConditionConfigurationReady,
-		ServiceConditionRouteReady,
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
 	} {
 		if rc := ss.GetCondition(cond); rc == nil {
 			ss.setCondition(&ServiceCondition{
@@ -208,7 +208,7 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	if cc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionConfigurationReady}
+	sct := []ServiceConditionType{ServiceConditionConfigurationsReady}
 	// If the underlying Configuration reported not ready, then bubble it up.
 	if cc.Status != corev1.ConditionTrue {
 		sct = append(sct, ServiceConditionReady)
@@ -231,7 +231,7 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	if rc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionRouteReady}
+	sct := []ServiceConditionType{ServiceConditionRoutesReady}
 	// If the underlying Route reported not ready, then bubble it up.
 	if rc.Status != corev1.ConditionTrue {
 		sct = append(sct, ServiceConditionReady)
@@ -251,8 +251,8 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 
 func (ss *ServiceStatus) checkAndMarkReady() {
 	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationReady,
-		ServiceConditionRouteReady,
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
 	} {
 		c := ss.GetCondition(cond)
 		if c == nil || c.Status != corev1.ConditionTrue {

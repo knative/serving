@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ fi
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
 gcloud --project=${PROJECT_ID} container clusters create \
   --cluster-version=${SERVING_GKE_VERSION} \
-  --image-type "${SERVING_GKE_IMAGE^^}" \
+  --image-type=${SERVING_GKE_IMAGE} \
   --zone=${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
@@ -69,7 +69,7 @@ kubectl label namespace default istio-injection=enabled
 header "Installing Knative Serving"
 kubectl apply -f ${SERVING_RELEASE}
 
-wait_until_pods_running knative-serving-system
+wait_until_pods_running knative-serving
 wait_until_pods_running build-system
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC. All rights reserved.
+Copyright 2018 The Knative Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -39,104 +39,79 @@ func TestIsReady(t *testing.T) {
 		name    string
 		status  RevisionStatus
 		isReady bool
-	}{
-		{
-			name:    "empty status should not be ready",
-			status:  RevisionStatus{},
-			isReady: false,
+	}{{
+		name:    "empty status should not be ready",
+		status:  RevisionStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionBuildSucceeded,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "Different condition type should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionBuildSucceeded,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "False condition status should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
 		},
-		{
-			name: "Unknown condition status should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionUnknown,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type: RevisionConditionReady,
+			}},
 		},
-		{
-			name: "Missing condition status should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type: RevisionConditionReady,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "True condition status should be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionBuildSucceeded,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "Multiple conditions with ready status should be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionBuildSucceeded,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionBuildSucceeded,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "Multiple conditions with ready status false should not be ready",
-			status: RevisionStatus{
-				Conditions: []RevisionCondition{
-					{
-						Type:   RevisionConditionBuildSucceeded,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   RevisionConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
-		},
-	}
+		isReady: false,
+	}}
 
 	for _, tc := range cases {
 		if e, a := tc.isReady, tc.status.IsReady(); e != a {
@@ -233,25 +208,39 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	r.Status.MarkBuilding()
+	// Empty BuildStatus keeps things as-is.
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{})
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
 	want := "Building"
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil || got.Reason != want {
-		t.Errorf("MarkBuilding = %v, wanted %v", got, want)
+		t.Errorf("PropagateBuildStatus(Unknown) = %v, wanted %v", got, want)
 	}
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkBuilding = %v, wanted %v", got, want)
+		t.Errorf("PropagateBuildStatus(Unknown) = %v, wanted %v", got, want)
 	}
 
-	r.Status.MarkBuildSucceeded()
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionTrue,
+		}},
+	})
 	checkConditionSucceededRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	want = "" // Should be cleared.
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
-		t.Errorf("MarkBuildSucceeded = %v, wanted %v", got, want)
-	}
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	// All of these conditions should get this status.
 	want = "TheReason"
@@ -311,18 +300,72 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	r.Status.MarkBuilding()
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	wantReason, wantMessage := "this is the reason", "and this the message"
-	r.Status.MarkBuildFailed(&buildv1alpha1.BuildCondition{
-		Type:    buildv1alpha1.BuildSucceeded,
-		Status:  corev1.ConditionFalse,
-		Reason:  wantReason,
-		Message: wantMessage,
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  wantReason,
+			Message: wantMessage,
+		}},
+	})
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil {
+		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
+	} else if got.Reason != wantReason {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
+	} else if got.Message != wantMessage {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
+	}
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil {
+		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
+	} else if got.Reason != wantReason {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
+	} else if got.Message != wantMessage {
+		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
+	}
+}
+
+func TestTypicalFlowWithBuildInvalid(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	r.Status.InitializeBuildCondition()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:   buildv1alpha1.BuildSucceeded,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	wantReason, wantMessage := "this is the reason", "and this the message"
+	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
+		Conditions: []buildv1alpha1.BuildCondition{{
+			Type:    buildv1alpha1.BuildInvalid,
+			Status:  corev1.ConditionTrue,
+			Reason:  wantReason,
+			Message: wantMessage,
+		}},
 	})
 	if got := checkConditionFailedRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil {
 		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)

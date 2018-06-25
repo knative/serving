@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -103,15 +103,13 @@ func calculateDestinationWeights(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, 
 				istioServiceNs = r.Namespace
 			}
 		}
-		return []istiov1alpha2.DestinationWeight{
-			istiov1alpha2.DestinationWeight{
-				Destination: istiov1alpha2.IstioService{
-					Name:      istioServiceName,
-					Namespace: istioServiceNs,
-				},
-				Weight: 100,
+		return []istiov1alpha2.DestinationWeight{{
+			Destination: istiov1alpha2.IstioService{
+				Name:      istioServiceName,
+				Namespace: istioServiceNs,
 			},
-		}
+			Weight: 100,
+		}}
 	}
 
 	destinationWeights := []istiov1alpha2.DestinationWeight{}

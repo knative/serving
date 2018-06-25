@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
+	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -192,9 +194,10 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 func getTestControllerConfig() ControllerConfig {
 	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
 	return ControllerConfig{
-		QueueSidecarImage:                 testQueueImage,
-		AutoscalerImage:                   testAutoscalerImage,
-		AutoscaleConcurrencyQuantumOfTime: k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		QueueSidecarImage:                     testQueueImage,
+		AutoscalerImage:                       testAutoscalerImage,
+		AutoscaleConcurrencyQuantumOfTime:     k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
+		AutoscaleEnableVerticalPodAutoscaling: k8sflag.Bool("enable-vertical-pod-autoscaling", false),
 
 		EnableVarLogCollection:     true,
 		FluentdSidecarImage:        testFluentdImage,
@@ -215,16 +218,19 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
+	vpaClient *fakevpaclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory) {
+	servingSystemInformer kubeinformers.SharedInformerFactory,
+	vpaInformer vpainformers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	buildClient = fakebuildclientset.NewSimpleClientset()
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
+	vpaClient = fakevpaclientset.NewSimpleClientset()
 
 	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -239,6 +245,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
 	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
+	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
 		ctrl.Options{
@@ -246,11 +253,13 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 			ServingClientSet: elaClient,
 			Logger:           zap.NewNop().Sugar(),
 		},
+		vpaClient,
 		elaInformer.Serving().V1alpha1().Revisions(),
 		buildInformer.Build().V1alpha1().Builds(),
 		servingSystemInformer.Core().V1().ConfigMaps(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Endpoints(),
+		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 		&rest.Config{},
 		controllerConfig,
 	).(*Controller)
@@ -264,57 +273,29 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
+	vpaClient *fakevpaclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory) {
+	servingSystemInformer kubeinformers.SharedInformerFactory,
+	vpaInformer vpainformers.SharedInformerFactory) {
 	testControllerConfig := getTestControllerConfig()
 	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
 }
 
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	var servingSystemInformer kubeinformers.SharedInformerFactory
-	var buildInformer buildinformers.SharedInformerFactory
-	kubeClient, _, elaClient, controller, kubeInformer, buildInformer, elaInformer, servingSystemInformer = newTestController(t, elaObjects...)
-
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	buildInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-	servingSystemInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
-	return
-}
-
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 }
 
 func updateRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 }
 
 type fixedResolver struct {
@@ -331,7 +312,7 @@ func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
 
 func TestCreateRevCreatesStuff(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -643,7 +624,7 @@ func (r *errorResolver) Resolve(deploy *appsv1.Deployment) error {
 }
 
 func TestResolutionFailed(t *testing.T) {
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -682,7 +663,7 @@ func TestResolutionFailed(t *testing.T) {
 func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.EnableVarLogCollection = false
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
@@ -723,7 +704,7 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 }
 
 func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
@@ -752,7 +733,7 @@ func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
 }
 
 func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	revRef := *newRevisionNonControllerRef(rev)
 	oldRev := getTestRevision()
@@ -788,7 +769,7 @@ func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
 func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://logging.test.com?filter=${REVISION_UID}"
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -805,10 +786,34 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	}
 }
 
+func TestCreateRevWithVPA(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.AutoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("", true)
+	_, _, elaClient, vpaClient, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
+	rev := getTestRevision()
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	createdVpa, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(ctrl.GetRevisionVpaName(rev), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get vpa: %v", err)
+	}
+	createdRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
+	// Verify label selectors match
+	if want, got := createdRev.ObjectMeta.Labels, createdVpa.Spec.Selector.MatchLabels; reflect.DeepEqual(want, got) {
+		t.Fatalf("Mismatched labels. Wanted %v. Got %v.", want, got)
+	}
+}
+
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -830,14 +835,14 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 }
 
 func TestCreateRevPreservesAppLabel(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// Look for the revision deployment.
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
@@ -896,7 +901,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 }
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
-	_, buildClient, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
@@ -912,8 +917,16 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 				Args:    []string{"-c", "echo Hello"},
 			}},
 		},
+		Status: buildv1alpha1.BuildStatus{
+			Conditions: []buildv1alpha1.BuildCondition{{
+				Type:   buildv1alpha1.BuildSucceeded,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
 	}
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
@@ -942,7 +955,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 }
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
-	kubeClient, buildClient, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -968,15 +981,17 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 		},
 	}
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
 	// watching for this build to complete, so make it complete, but
@@ -989,8 +1004,11 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		}},
 	}
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.SyncBuild(bld)
+	controller.EnqueueBuildTrackers(bld)
+	controller.Reconcile(KeyOrDie(rev))
 
 	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1021,7 +1039,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, buildClient, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	h := NewHooks()
@@ -1055,15 +1073,17 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		},
 	}
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
 	// watching for this build to complete, so make it complete
@@ -1075,8 +1095,11 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 			Message: completeMessage,
 		}},
 	}
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.SyncBuild(bld)
+	controller.EnqueueBuildTrackers(bld)
+	controller.Reconcile(KeyOrDie(rev))
 
 	completedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1089,6 +1112,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 		want := &v1alpha1.RevisionCondition{
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
+			Message:            completeMessage,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -1103,7 +1127,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 }
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
-	_, buildClient, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, buildClient, elaClient, _, controller, _, buildInformer, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -1125,14 +1149,16 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 	}
 
 	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
 	rev := getTestRevision()
 	// Direct the Revision to wait for this build to complete.
 	rev.Spec.BuildName = bld.Name
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// After the initial update to the revision, we should be
 	// watching for this build to complete, so make it complete, but
@@ -1145,8 +1171,11 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 			Message: errMessage,
 		}},
 	}
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.SyncBuild(bld)
+	controller.EnqueueBuildTrackers(bld)
+	controller.Reconcile(KeyOrDie(rev))
 
 	failedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1169,18 +1198,21 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
-
-	var testProgressDeadlineSeconds int32 = 10
 
 	rev := getTestRevision()
 
 	revClient.Create(rev)
 
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
+
+	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
 
 	// Look for revision's deployment.
 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
@@ -1189,14 +1221,13 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 
 	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
 		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
 	}
-
-	//set ProgressDeadlineSeconds on Dep spec
-	deployment.Spec.ProgressDeadlineSeconds = &testProgressDeadlineSeconds
-	controller.SyncDeployment(deployment)
+	controller.Reconcile(KeyOrDie(rev))
 
 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1217,17 +1248,84 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	}
 }
 
+// TODO(mattmoor): This is meant to test the checkAndUpdateDeployment logic in the,
+// Revision controller.  However, this logic is commented out because in practice it
+// fights with the defaulting logic for a Deployment.
+// func TestDeploymentCorrection(t *testing.T) {
+// 	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
+// 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
+
+// 	rev := getTestRevision()
+
+// 	revClient.Create(rev)
+
+// 	// Since Reconcile looks in the lister, we need to add it to the informer
+// 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+// 	controller.Reconcile(KeyOrDie(rev))
+
+// 	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get revision: %v", err)
+// 	}
+
+// 	// Look for revision's deployment.
+// 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
+
+// 	deployment, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get ela deployment: %v", err)
+// 	}
+
+// 	// First make a change that we don't expect the Revision controller to reconcile.
+// 	var tmp int32 = 37
+// 	deployment.Spec.Replicas = &tmp
+// 	// Then create a copy to compare against.
+// 	want := deployment.DeepCopy()
+// 	// Lastly, make an edit we expect the controller to revert.
+// 	deployment.Spec.Template.Spec.Containers[0].Image = "busybox"
+
+// 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+// 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
+
+// 	controller.Reconcile(KeyOrDie(rev))
+
+// 	got, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get ela deployment: %v", err)
+// 	}
+// 	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+// 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+// 	}
+
+// 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get revision: %v", err)
+// 	}
+// 	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+// 		got := rev2Inspect.Status.GetCondition(ct)
+// 		want := &v1alpha1.RevisionCondition{
+// 			Type:               ct,
+// 			Status:             corev1.ConditionUnknown,
+// 			Reason:             "Updating",
+// 			LastTransitionTime: got.LastTransitionTime,
+// 		}
+// 		if diff := cmp.Diff(want, got); diff != "" {
+// 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+// 		}
+// 	}
+// }
+
 func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
 
 	revClient.Create(rev)
 
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	// Look for revision's deployment.
 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
@@ -1247,7 +1345,8 @@ func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
 		Status: corev1.ConditionFalse,
 		Reason: "ProgressDeadlineExceeded",
 	}}
-	controller.SyncDeployment(deployment)
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
+	controller.Reconcile(KeyOrDie(rev))
 
 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1270,7 +1369,7 @@ func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
 }
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -1281,9 +1380,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, expectedMessage))
 
 	revClient.Create(rev)
-	// Since syncHandler looks in the lister, we need to add it to the informer
+	// Since Reconcile looks in the lister, we need to add it to the informer
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	controller.syncHandler(KeyOrDie(rev))
+	controller.Reconcile(KeyOrDie(rev))
 
 	deployingRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1332,7 +1431,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{{
@@ -1358,7 +1457,7 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 }
 
 func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	// Mark the revision already ready.
 	rev.Status.Conditions = []v1alpha1.RevisionCondition{{
@@ -1388,7 +1487,7 @@ func TestDoNotUpdateRevIfRevIsMarkedAsFailed(t *testing.T) {
 }
 
 func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) {
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	creationTime := time.Now().Add(-10 * time.Minute)
@@ -1425,7 +1524,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 }
 
 func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
-	_, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	_, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	createRevision(elaClient, elaInformer, controller, rev)
@@ -1445,7 +1544,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 }
 
 func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1453,10 +1552,11 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 
 	// Now, update the revision serving state to Retired, and force another
 	// run of the controller.
@@ -1464,7 +1564,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be gone.
-	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
@@ -1472,7 +1572,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 }
 
 func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1480,10 +1580,11 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 
 	// Now, update the revision serving state to Reserve, and force another
 	// run of the controller.
@@ -1491,14 +1592,14 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be gone.
-	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
 	}
 }
 
 func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision. The k8s resources should not be created.
@@ -1525,7 +1626,7 @@ func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
 }
 
 func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision. The k8s resources should not be created.
@@ -1614,7 +1715,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string, updateRandomConfigMap bool) map[string]string {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, elaClient, controller, _, _, elaInformer, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -77,6 +77,10 @@ var (
 	enableScaleToZero       = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
 	multiConcurrencyTarget  = autoscaleFlagSet.Float64("multi-concurrency-target", 0.0, k8sflag.Required)
 	singleConcurrencyTarget = autoscaleFlagSet.Float64("single-concurrency-target", 0.0, k8sflag.Required)
+
+	// Vertical pod autoscaling experiment
+	enableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
+	vpaMultiConcurrencyTarget    = autoscaleFlagSet.Float64("vpa-multi-concurrency-target", 10.0)
 )
 
 func initEnv() {
@@ -93,7 +97,11 @@ func autoscaler() {
 	case string(v1alpha1.RevisionRequestConcurrencyModelSingle):
 		targetConcurrency = singleConcurrencyTarget
 	case string(v1alpha1.RevisionRequestConcurrencyModelMulti):
-		targetConcurrency = multiConcurrencyTarget
+		if enableVerticalPodAutoscaling.Get() {
+			targetConcurrency = vpaMultiConcurrencyTarget
+		} else {
+			targetConcurrency = multiConcurrencyTarget
+		}
 	default:
 		logger.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}

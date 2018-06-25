@@ -48,10 +48,24 @@ _See [e2e_flags.go](./e2e_flags.go)._
 
 ### Output log
 
-Log output should be provided exclusively using [the glog library](https://godoc.org/github.com/golang/glog).
-Package "github.com/knative/serving/test" contains a `Verbose` function to be used for all verbose logging.
-Internally, it defines `glog.Level` 10 as log level. _See [e2e_flags.go](./e2e_flags.go)._
-Also _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `test.Verbose()` call.
+We are using [Knative logging library](/pkg/logging) for structured logging, it is built on top of [zap](https://github.com/uber-go/zap).
+All test case should define its own logger with test case name as logger name, and pass it around; this way, all output from the test case will be tagged by same logger name.
+Pls see below for sample code from test case [`TestHelloWorld`](./e2e/helloworld_test.go).
+
+To output debug log, use `logger.Debug()`. Pls _see [errorcondition_test.go](./e2e/errorcondition_test.go)._ for an example of `logger.Debug()` call.
+When tests are run with `--logverbose` option, debug log will show.
+
+```go
+func TestHelloWorld(t *testing.T) {
+    clients := Setup(t)
+    //add test case specific name to its own logger
+    logger := test.Logger.Named("TestHelloWorld")
+    var imagePath string
+    imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+    logger.Infof("Creating a new Route and Configuration")
+    ...
+}
+```
 
 ### Get access to client objects
 

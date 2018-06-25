@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,620 +16,554 @@ limitations under the License.
 
 package configuration
 
-/* TODO tests:
-- If a Congfiguration is created and deleted before the queue fires, no Revision
-  is created.
-- When a Congfiguration is updated, a new Revision is created and
-	Congfiguration's LatestReadyRevisionName points to it. Also the previous Congfiguration
-	still exists.
-- When a Congfiguration controller is created and a Congfiguration is already
-	out of sync, the controller creates or updates a Revision for the out of sync
-	Congfiguration.
-*/
 import (
 	"fmt"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
-
-	kubeinformers "k8s.io/client-go/informers"
+	"github.com/knative/serving/pkg/controller"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	. "github.com/knative/serving/pkg/controller/testing"
 )
 
-const (
-	testNamespace string = "test"
+var (
+	boolTrue     = true
+	revisionSpec = v1alpha1.RevisionSpec{
+		Container: corev1.Container{
+			Image: "busybox",
+		},
+	}
+	buildSpec = buildv1alpha1.BuildSpec{
+		Steps: []corev1.Container{{
+			Image: "build-step1",
+		}, {
+			Image: "build-step2",
+		}},
+	}
 )
 
-var revName string = getTestRevision().Name
-
-func getTestConfiguration() *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
-			Name:      "test-config",
-			Namespace: testNamespace,
+// This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
+func TestReconcile(t *testing.T) {
+	type fields struct {
+		c *ConfigurationLister
+		r *RevisionLister
+	}
+	tests := []struct {
+		name        string
+		fields      fields
+		key         string
+		wantErr     bool
+		wantCreates []metav1.Object
+		wantUpdates []clientgotesting.UpdateActionImpl
+		wantDeletes []clientgotesting.DeleteActionImpl
+		wantQueue   []string
+	}{{
+		name: "bad workqueue key",
+		fields: fields{
+			c: &ConfigurationLister{},
+			r: &RevisionLister{},
 		},
-		Spec: v1alpha1.ConfigurationSpec{
-			//TODO(grantr): This is a workaround for generation initialization
-			Generation: 1,
-			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+		key: "too/many/parts",
+	}, {
+		name: "key not found",
+		fields: fields{
+			c: &ConfigurationLister{},
+			r: &RevisionLister{},
+		},
+		key: "foo/not-found",
+	}, {
+		name: "create revision matching generation",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "no-revisions-yet"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 1234,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+				}},
+			},
+			r: &RevisionLister{},
+		},
+		wantCreates: []metav1.Object{
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "no-revisions-yet", 1234),
+				Spec:       revisionSpec,
+			},
+		},
+		wantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "no-revisions-yet"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 1234,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "no-revisions-yet-01234",
+					ObservedGeneration:        1234,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		}},
+		key: "foo/no-revisions-yet",
+	}, {
+		name: "create revision matching generation with build",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "need-rev-and-build"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 99998,
+						Build:      &buildSpec,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: v1alpha1.RevisionSpec{
+								Container: corev1.Container{
+									Image: "busybox",
+								},
+							},
+						},
+					},
+				}},
+			},
+			r: &RevisionLister{},
+		},
+		wantCreates: []metav1.Object{
+			&buildv1alpha1.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       "foo",
+					Name:            "need-rev-and-build-99998",
+					OwnerReferences: or("need-rev-and-build"),
+				},
+				Spec: buildSpec,
+			},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "need-rev-and-build", 99998),
 				Spec: v1alpha1.RevisionSpec{
-					ServiceAccountName: "test-account",
-					// corev1.Container has a lot of setting.  We try to pass many
-					// of them here to verify that we pass through the settings to
-					// the derived Revisions.
+					BuildName: "need-rev-and-build-99998",
 					Container: corev1.Container{
-						Image:      "gcr.io/repo/image",
-						Command:    []string{"echo"},
-						Args:       []string{"hello", "world"},
-						WorkingDir: "/tmp",
-						Env: []corev1.EnvVar{{
-							Name:  "EDITOR",
-							Value: "emacs",
-						}},
-						LivenessProbe: &corev1.Probe{
-							TimeoutSeconds: 42,
-						},
-						ReadinessProbe: &corev1.Probe{
-							TimeoutSeconds: 43,
-						},
-						TerminationMessagePath: "/dev/null",
+						Image: "busybox",
 					},
 				},
 			},
 		},
-	}
-}
-
-func getTestRevision() *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
-			Name:      generateRevisionName(getTestConfiguration()),
-			Namespace: testNamespace,
-		},
-		Spec: v1alpha1.RevisionSpec{
-			Container: corev1.Container{
-				Image: "test-image",
+		wantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "need-rev-and-build"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 99998,
+					Build:      &buildSpec,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "need-rev-and-build-99998",
+					ObservedGeneration:        99998,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		}},
+		key: "foo/need-rev-and-build",
+	}, {
+		name: "reconcile revision matching generation (ready: unknown)",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "matching-revision-not-done"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 5432,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+				}},
+			},
+			r: &RevisionLister{
+				Items: []*v1alpha1.Revision{{
+					ObjectMeta: com("foo", "matching-revision-not-done", 5432),
+					Spec:       revisionSpec,
+				}},
 			},
 		},
-	}
-}
-
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory) {
-
-	// Create fake clients
-	kubeClient = fakekubeclientset.NewSimpleClientset()
-	buildClient = fakebuildclientset.NewSimpleClientset()
-	// The ability to insert objects here is intended to work around the problem
-	// with watches not firing in client-go 1.9. When we update to client-go 1.10
-	// this can probably be removed.
-	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
-
-	// Create informer factories with fake clients. The second parameter sets the
-	// resync period to zero, disabling it.
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
-
-	controller = NewController(
-		ctrl.Options{
-			KubeClientSet:    kubeClient,
-			ServingClientSet: elaClient,
-			BuildClientSet:   buildClient,
-			Logger:           zap.NewNop().Sugar(),
+		wantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-not-done"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5432,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "matching-revision-not-done-05432",
+					ObservedGeneration:        5432,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		}},
+		key: "foo/matching-revision-not-done",
+	}, {
+		name: "reconcile revision matching generation (ready: true)",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "matching-revision-done"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 5555,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+				}},
+			},
+			r: &RevisionLister{
+				Items: []*v1alpha1.Revision{{
+					ObjectMeta: com("foo", "matching-revision-done", 5555),
+					Spec:       revisionSpec,
+					Status: v1alpha1.RevisionStatus{
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   v1alpha1.RevisionConditionReady,
+							Status: corev1.ConditionTrue,
+						}},
+					},
+				}},
+			},
 		},
-		elaInformer.Serving().V1alpha1().Configurations(),
-		elaInformer.Serving().V1alpha1().Revisions(),
-		&rest.Config{},
-	).(*Controller)
-
-	return
-}
-
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	kubeClient, _, elaClient, controller, kubeInformer, elaInformer = newTestController(t, elaObjects...)
-
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
-	return
-}
-
-func TestCreateConfigurationsCreatesRevision(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-	config := getTestConfiguration()
-	h := NewHooks()
-
-	// Look for the event. Events are delivered asynchronously so we need to use
-	// hooks here.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Created Revision .+"))
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	list, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("error listing revisions: %v", err)
-	}
-
-	if got, want := len(list.Items), 1; got != want {
-		t.Fatalf("expected %v revisions, got %v", want, got)
-	}
-
-	rev := list.Items[0].DeepCopy()
-	if diff := cmp.Diff(config.Spec.RevisionTemplate.Spec, rev.Spec); diff != "" {
-		t.Errorf("rev spec != config RevisionTemplate spec (-want +got): %v", diff)
-	}
-
-	if rev.Labels[serving.ConfigurationLabelKey] != config.Name {
-		t.Errorf("rev does not have configuration label <%s:%s>", serving.ConfigurationLabelKey, config.Name)
-	}
-
-	if rev.Annotations[serving.ConfigurationGenerationAnnotationKey] != fmt.Sprintf("%v", config.Spec.Generation) {
-		t.Errorf("rev does not have generation annotation <%s:%s>", serving.ConfigurationGenerationAnnotationKey, config.Name)
-	}
-
-	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Labels {
-		if rev.Labels[k] != v {
-			t.Errorf("revisionTemplate label %s=%s not passed to revision", k, v)
-		}
-	}
-
-	for k, v := range config.Spec.RevisionTemplate.ObjectMeta.Annotations {
-		if rev.Annotations[k] != v {
-			t.Errorf("revisionTemplate annotation %s=%s not passed to revision", k, v)
-		}
-	}
-
-	if len(rev.OwnerReferences) != 1 || config.Name != rev.OwnerReferences[0].Name {
-		t.Errorf("expected owner references to have 1 ref with name %s", config.Name)
-	}
-
-	// Check that rerunning reconciliation does nothing.
-	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	if err := controller.Reconcile(KeyOrDie(reconciledConfig)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	list, err = elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("error listing revisions: %v", err)
-	}
-	// Still have one revision.
-	if got, want := len(list.Items), 1; got != want {
-		t.Fatalf("expected %v revisions, got %v", want, got)
-	}
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCreateConfigurationCreatesBuildAndRevision(t *testing.T) {
-	_, buildClient, elaClient, controller, _, elaInformer := newTestController(t)
-	config := getTestConfiguration()
-	config.Spec.Build = &buildv1alpha1.BuildSpec{
-		Steps: []corev1.Container{{
-			Name:    "nop",
-			Image:   "busybox:latest",
-			Command: []string{"/bin/sh"},
-			Args:    []string{"-c", "echo Hello"},
+		wantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-done"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5555,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "matching-revision-done-05555",
+					LatestReadyRevisionName:   "matching-revision-done-05555",
+					ObservedGeneration:        5555,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			},
 		}},
-	}
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	revList, err := elaClient.ServingV1alpha1().Revisions(testNamespace).List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("error listing revisions: %v", err)
-	}
-	if got, want := len(revList.Items), 1; got != want {
-		t.Fatalf("expected %v revisions, got %v", want, got)
-	}
-	if got, want := revList.Items[0].Spec.ServiceAccountName, "test-account"; got != want {
-		t.Fatalf("expected service account name %v, got %v", want, got)
-	}
-
-	buildList, err := buildClient.BuildV1alpha1().Builds(testNamespace).List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("error listing builds: %v", err)
-	}
-	if got, want := len(buildList.Items), 1; got != want {
-		t.Fatalf("expected %v builds, got %v", want, got)
-	}
-
-	b := buildList.Items[0]
-	if diff := cmp.Diff(config.Spec.Build.Steps, b.Spec.Steps); diff != "" {
-		t.Errorf("Unexpected build steps diff (-want +got): %v", diff)
-	}
-}
-
-func TestMarkConfigurationReadyWhenLatestRevisionReady(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-
-	config := getTestConfiguration()
-	config.Status.LatestCreatedRevisionName = revName
-
-	// Events are delivered asynchronously so we need to use hooks here. Each hook
-	// tests for a specific event.
-	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Configuration becomes ready"))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "LatestReadyRevisionName updated to .+"))
-
-	configClient.Create(config)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-
-	// Config should be initialized with its conditions as Unknown.
-	if got, want := len(reconciledConfig.Status.Conditions), 2; got != want {
-		t.Errorf("Conditions length diff; got %v, want %v", got, want)
-	}
-	// Config should not have a latest ready revision
-	if got, want := reconciledConfig.Status.LatestReadyRevisionName, ""; got != want {
-		t.Errorf("Latest in Status diff; got %v, want %v", got, want)
-	}
-
-	// Get the revision created
-	revList, err := elaClient.ServingV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("error listing revisions: %v", err)
-	}
-	if got, want := len(revList.Items), 1; got != want {
-		t.Fatalf("expected %d revisions, got %d", want, got)
-	}
-	revision := revList.Items[0].DeepCopy()
-
-	// mark the revision as Ready
-	revision.Status = v1alpha1.RevisionStatus{
-		Conditions: []v1alpha1.RevisionCondition{{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
+		key: "foo/matching-revision-done",
+	}, {
+		name: "reconcile revision matching generation (ready: true, idempotent)",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "matching-revision-done-idempotent"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 5566,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+					Status: v1alpha1.ConfigurationStatus{
+						LatestCreatedRevisionName: "matching-revision-done-idempotent-05566",
+						LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
+						ObservedGeneration:        5566,
+						Conditions: []v1alpha1.ConfigurationCondition{{
+							Type:   v1alpha1.ConfigurationConditionReady,
+							Status: corev1.ConditionTrue,
+						}},
+					},
+				}},
+			},
+			r: &RevisionLister{
+				Items: []*v1alpha1.Revision{{
+					ObjectMeta: com("foo", "matching-revision-done-idempotent", 5566),
+					Spec:       revisionSpec,
+					Status: v1alpha1.RevisionStatus{
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   v1alpha1.RevisionConditionReady,
+							Status: corev1.ConditionTrue,
+						}},
+					},
+				}},
+			},
+		},
+		key: "foo/matching-revision-done-idempotent",
+	}, {
+		name: "reconcile revision matching generation (ready: false)",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "matching-revision-failed"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 5555,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+				}},
+			},
+			r: &RevisionLister{
+				Items: []*v1alpha1.Revision{{
+					ObjectMeta: com("foo", "matching-revision-failed", 5555),
+					Spec:       revisionSpec,
+					Status: v1alpha1.RevisionStatus{
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:    v1alpha1.RevisionConditionReady,
+							Status:  corev1.ConditionFalse,
+							Reason:  "Armageddon",
+							Message: "It's the end of the world as we know it.",
+						}},
+					},
+				}},
+			},
+		},
+		wantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-failed"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5555,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "matching-revision-failed-05555",
+					ObservedGeneration:        5555,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:    v1alpha1.ConfigurationConditionReady,
+						Status:  corev1.ConditionFalse,
+						Reason:  "RevisionFailed",
+						Message: `revision "matching-revision-failed-05555" failed with message: It's the end of the world as we know it.`,
+					}},
+				},
+			},
 		}},
-	}
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(reconciledConfig)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-
-	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
-		got := readyConfig.Status.GetCondition(ct)
-		want := &v1alpha1.ConfigurationCondition{
-			Type:               ct,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
-		}
-	}
-
-	if got, want := readyConfig.Status.LatestReadyRevisionName, revision.Name; got != want {
-		t.Errorf("Latest in Status diff; got %v, want %v", got, want)
-	}
-
-	// wait for events to be created
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestDoNotUpdateConfigurationWhenRevisionIsNotReady(t *testing.T) {
-	_, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-
-	config := getTestConfiguration()
-	config.Status.LatestCreatedRevisionName = revName
-
-	configClient.Create(config)
-
-	// Create a revision owned by this Configuration. Calling IsReady() on this
-	// revision will return false.
-	controllerRef := ctrl.NewConfigurationControllerRef(config)
-	revision := getTestRevision()
-	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	// Configuration should not have changed.
-	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-
-	if diff := cmp.Diff(config, actualConfig); diff != "" {
-		t.Errorf("Unexpected configuration diff (-want +got): %v", diff)
-	}
-}
-
-func TestDoNotUpdateConfigurationWhenReadyRevisionIsNotLatestCreated(t *testing.T) {
-	_, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-
-	config := getTestConfiguration()
-	// Don't set LatestCreatedRevisionName.
-
-	configClient.Create(config)
-
-	// Create a revision owned by this Configuration. This revision is Ready, but
-	// doesn't match the LatestCreatedRevisionName.
-	controllerRef := ctrl.NewConfigurationControllerRef(config)
-	revision := getTestRevision()
-	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	revision.Status = v1alpha1.RevisionStatus{
-		Conditions: []v1alpha1.RevisionCondition{{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
+		key: "foo/matching-revision-failed",
+	}, {
+		name: "reconcile revision matching generation (ready: bad)",
+		fields: fields{
+			c: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "bad-condition"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 5555,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+				}},
+			},
+			r: &RevisionLister{
+				Items: []*v1alpha1.Revision{{
+					ObjectMeta: com("foo", "bad-condition", 5555),
+					Spec:       revisionSpec,
+					Status: v1alpha1.RevisionStatus{
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   v1alpha1.RevisionConditionReady,
+							Status: "Bad",
+						}},
+					},
+				}},
+			},
+		},
+		wantErr: true,
+		wantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "bad-condition"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5555,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "bad-condition-05555",
+					ObservedGeneration:        5555,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
 		}},
-	}
-
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	// Configuration should not have changed.
-	actualConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-
-	if diff := cmp.Diff(config, actualConfig); diff != "" {
-		t.Errorf("Unexpected configuration diff (-want +got): %v", diff)
-	}
-}
-
-func TestDoNotUpdateConfigurationWhenLatestReadyRevisionNameIsUpToDate(t *testing.T) {
-	_, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-
-	config := getTestConfiguration()
-	config.Status = v1alpha1.ConfigurationStatus{
-		Conditions: []v1alpha1.ConfigurationCondition{{
-			Type:   v1alpha1.ConfigurationConditionReady,
-			Status: corev1.ConditionTrue,
-			Reason: "LatestRevisionReady",
-		}},
-		LatestCreatedRevisionName: revName,
-		LatestReadyRevisionName:   revName,
-	}
-	configClient.Create(config)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-
-	// Create a revision owned by this Configuration. This revision is Ready and
-	// matches the Configuration's LatestReadyRevisionName.
-	controllerRef := ctrl.NewConfigurationControllerRef(config)
-	revision := getTestRevision()
-	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	revision.Status = v1alpha1.RevisionStatus{
-		Conditions: []v1alpha1.RevisionCondition{{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
-		}},
-	}
-
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-}
-
-func TestMarkConfigurationStatusWhenLatestRevisionIsNotReady(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-
-	config := getTestConfiguration()
-	config.Status.LatestCreatedRevisionName = revName
-
-	// Events are delivered asynchronously so we need to use hooks here. Each hook
-	// tests for a specific event.
-	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "events", ExpectWarningEventDelivery(t, `Latest created revision "test-config-00001" has failed`))
-
-	configClient.Create(config)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	reconciledConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-
-	// Get the revision created
-	revList, err := elaClient.ServingV1alpha1().Revisions(config.Namespace).List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("error listing revisions: %v", err)
-	}
-
-	revision := revList.Items[0].DeepCopy()
-
-	// mark the revision not ready with the status
-	revision.Status.MarkBuildFailed(&buildv1alpha1.BuildCondition{
-		Type:    buildv1alpha1.BuildSucceeded,
-		Status:  corev1.ConditionFalse,
-		Reason:  "StepFailed",
-		Message: "Build step failed with error",
-	})
-
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(reconciledConfig)
-	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
-
-	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
-
-	for _, ct := range []v1alpha1.ConfigurationConditionType{"LatestRevisionReady"} {
-		got := readyConfig.Status.GetCondition(ct)
-		want := &v1alpha1.ConfigurationCondition{
-			Type:               ct,
-			Status:             corev1.ConditionFalse,
-			Reason:             "RevisionFailed",
-			Message:            `revision "test-config-00001" failed with message: Build step failed with error`,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
-		}
-	}
-
-	if got, want := readyConfig.Status.LatestCreatedRevisionName, revision.Name; got != want {
-		t.Errorf("LatestCreatedRevision do not match; got %v, want %v", got, want)
-	}
-
-	if got, want := readyConfig.Status.LatestReadyRevisionName, ""; got != want {
-		t.Errorf("LatestReadyRevision should be empty; got %v, want %v", got, want)
-	}
-
-	// wait for events to be created
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestMarkConfigurationReadyWhenLatestRevisionRecovers(t *testing.T) {
-	kubeClient, _, elaClient, controller, _, elaInformer := newTestController(t)
-	configClient := elaClient.ServingV1alpha1().Configurations(testNamespace)
-
-	config := getTestConfiguration()
-	config.Status.LatestCreatedRevisionName = revName
-	config.Status.Conditions = []v1alpha1.ConfigurationCondition{{
-		Type:    v1alpha1.ConfigurationConditionLatestRevisionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "BuildFailed",
-		Message: "Build step failed with error",
+		key: "foo/bad-condition",
 	}}
-	// Events are delivered asynchronously so we need to use hooks here. Each hook
-	// tests for a specific event.
-	h := NewHooks()
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "Configuration becomes ready"))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "LatestReadyRevisionName updated to .+"))
 
-	configClient.Create(config)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var objs []runtime.Object
+			for _, c := range tt.fields.c.Items {
+				objs = append(objs, c)
+			}
+			for _, r := range tt.fields.r.Items {
+				objs = append(objs, r)
+			}
 
-	controllerRef := ctrl.NewConfigurationControllerRef(config)
-	revision := getTestRevision()
-	revision.OwnerReferences = append(revision.OwnerReferences, *controllerRef)
-	// mark the revision as Ready
-	revision.Status = v1alpha1.RevisionStatus{
-		Conditions: []v1alpha1.RevisionCondition{{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionTrue,
-		}},
+			kubeClient := fakekubeclientset.NewSimpleClientset()
+			client := fakeclientset.NewSimpleClientset(objs...)
+			buildClient := fakebuildclientset.NewSimpleClientset()
+			c := &Controller{
+				Base: controller.NewBase(controller.Options{
+					KubeClientSet:    kubeClient,
+					BuildClientSet:   buildClient,
+					ServingClientSet: client,
+					Logger:           zap.NewNop().Sugar(),
+				}, controllerAgentName, "Configurations"),
+				configurationLister: tt.fields.c,
+				revisionLister:      tt.fields.r,
+			}
+
+			if err := c.Reconcile(tt.key); (err != nil) != tt.wantErr {
+				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(tt.key)
+
+			c.WorkQueue.ShutDown()
+			var hasQueue []string
+			for {
+				key, shutdown := c.WorkQueue.Get()
+				if shutdown {
+					break
+				}
+				hasQueue = append(hasQueue, key.(string))
+			}
+			if diff := cmp.Diff(tt.wantQueue, hasQueue); diff != "" {
+				t.Errorf("unexpected queue (-want +got): %s", diff)
+			}
+
+			var createActions []clientgotesting.CreateAction
+			var updateActions []clientgotesting.UpdateAction
+			var deleteActions []clientgotesting.DeleteAction
+
+			type HasActions interface {
+				Actions() []clientgotesting.Action
+			}
+			for _, c := range []HasActions{buildClient, client, kubeClient} {
+				for _, action := range c.Actions() {
+					switch action.GetVerb() {
+					case "create":
+						createActions = append(createActions,
+							action.(clientgotesting.CreateAction))
+					case "update":
+						updateActions = append(updateActions,
+							action.(clientgotesting.UpdateAction))
+					case "delete":
+						deleteActions = append(deleteActions,
+							action.(clientgotesting.DeleteAction))
+					default:
+						t.Errorf("Unexpected verb %v", action.GetVerb())
+					}
+				}
+			}
+
+			for i, want := range tt.wantCreates {
+				if i >= len(createActions) {
+					t.Errorf("Missing create: %v", want)
+					continue
+				}
+				got := createActions[i]
+				if got.GetNamespace() != expectedNamespace {
+					t.Errorf("unexpected action[%d]: %#v", i, got)
+				}
+				obj := got.GetObject()
+				if diff := cmp.Diff(want, obj, ignoreLastTransitionTime); diff != "" {
+					t.Errorf("unexpected create (-want +got): %s", diff)
+				}
+			}
+			if got, want := len(createActions), len(tt.wantCreates); got > want {
+				t.Errorf("Extra creates: %v", createActions[want:])
+			}
+
+			for i, want := range tt.wantUpdates {
+				if i >= len(updateActions) {
+					t.Errorf("Missing update: %v", want)
+					continue
+				}
+				got := updateActions[i]
+				if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime); diff != "" {
+					t.Errorf("unexpected update (-want +got): %s", diff)
+				}
+			}
+			if got, want := len(updateActions), len(tt.wantUpdates); got > want {
+				t.Errorf("Extra updates: %v", updateActions[want:])
+			}
+
+			for i, want := range tt.wantDeletes {
+				if i >= len(deleteActions) {
+					t.Errorf("Missing delete: %v", want)
+					continue
+				}
+				got := deleteActions[i]
+				if got.GetName() != want.Name || got.GetNamespace() != expectedNamespace {
+					t.Errorf("unexpected delete[%d]: %#v", i, got)
+				}
+			}
+			if got, want := len(deleteActions), len(tt.wantDeletes); got > want {
+				t.Errorf("Extra deletes: %v", deleteActions[want:])
+			}
+		})
 	}
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(revision)
-	if err := controller.Reconcile(KeyOrDie(config)); err != nil {
-		t.Fatalf("controller.Reconcile() = %v", err)
-	}
+}
 
-	readyConfig, err := configClient.Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config: %v", err)
-	}
+var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
+	return strings.HasSuffix(p.String(), "LastTransitionTime.Time")
+}, cmp.Ignore())
 
-	for _, ct := range []v1alpha1.ConfigurationConditionType{"Ready"} {
-		got := readyConfig.Status.GetCondition(ct)
-		want := &v1alpha1.ConfigurationCondition{
-			Type:               ct,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected config conditions diff (-want +got): %v", diff)
-		}
-	}
+// or builds OwnerReferences for a child of a Configuration
+func or(name string) []metav1.OwnerReference {
+	return []metav1.OwnerReference{{
+		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+		Kind:               "Configuration",
+		Name:               name,
+		Controller:         &boolTrue,
+		BlockOwnerDeletion: &boolTrue,
+	}}
+}
 
-	if got, want := readyConfig.Status.LatestReadyRevisionName, revision.Name; got != want {
-		t.Errorf("LatestReadyRevision do not match; got %v, want %v", got, want)
+// om builds ObjectMeta for a Configuration
+func om(namespace, name string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      name,
+		Namespace: namespace,
 	}
+}
 
-	// wait for events to be created
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
+// com builds the ObjectMeta for a Child of a Configuration
+func com(namespace, name string, generation int) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      fmt.Sprintf("%s-%05d", name, generation),
+		Namespace: namespace,
+		Annotations: map[string]string{
+			serving.ConfigurationGenerationAnnotationKey: fmt.Sprintf("%v", generation),
+		},
+		Labels: map[string]string{
+			serving.ConfigurationLabelKey: name,
+		},
+		OwnerReferences: or(name),
 	}
 }

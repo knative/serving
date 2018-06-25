@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -40,7 +41,7 @@ func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna)
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -63,7 +64,7 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna)
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -91,7 +92,7 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 			withServingState(v1alpha1.RevisionServingStateRetired).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna)
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -120,7 +121,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna)
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	ch := make(chan activationResult)
 	go func() {
@@ -166,7 +167,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna)
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan activationResult)

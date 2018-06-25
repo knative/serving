@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC. All Rights Reserved.
+Copyright 2018 The Knative Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -133,6 +133,7 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 			MountPath: "mount/path",
 			Name:      "name",
 		}},
+		Lifecycle: &corev1.Lifecycle{},
 	}
 	configuration := v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -153,6 +154,7 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 		"revisionTemplate.spec.container.resources",
 		"revisionTemplate.spec.container.ports",
 		"revisionTemplate.spec.container.volumeMounts",
+		"revisionTemplate.spec.container.lifecycle",
 	}
 	expected := fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted, ", "))
 	if err := ValidateConfiguration(testCtx)(nil, &configuration, &configuration); err == nil || err.Error() != expected {
