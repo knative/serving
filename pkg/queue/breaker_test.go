@@ -22,6 +22,7 @@ import (
 )
 
 func TestBreakerOverload(t *testing.T) {
+	t.Skip("Skipping until #1308 is addressed")
 	b := NewBreaker(1, 1)             // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
