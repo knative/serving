@@ -284,38 +284,6 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
 }
 
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	var servingSystemInformer kubeinformers.SharedInformerFactory
-	var buildInformer buildinformers.SharedInformerFactory
-	var vpaInformer vpainformers.SharedInformerFactory
-	kubeClient, _, elaClient, _, controller, kubeInformer, buildInformer, elaInformer, servingSystemInformer, vpaInformer = newTestController(t, elaObjects...)
-
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	buildInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-	servingSystemInformer.Start(stopCh)
-	vpaInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
-	return
-}
-
 func createRevision(elaClient *fakeclientset.Clientset, elaInformer informers.SharedInformerFactory, controller *Controller, rev *v1alpha1.Revision) {
 	elaClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer

@@ -89,13 +89,12 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
+func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	elaClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	stopCh chan struct{}) {
+	elaInformer informers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -121,19 +120,6 @@ func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
 		&rest.Config{},
 	).(*Controller)
 
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
 	return
 }
 
@@ -143,8 +129,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	_, elaClient, _, _, _, stopCh := newRunningTestController(t, config)
-	defer close(stopCh)
+	_, elaClient, controller, kubeInformer, elaInformer := newTestController(t, config)
 
 	h := hooks.NewHooks()
 
@@ -155,6 +140,17 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 
 		return hooks.HookComplete
 	})
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	kubeInformer.Start(stopCh)
+	elaInformer.Start(stopCh)
+
+	go func() {
+		if err := controller.Run(2, stopCh); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

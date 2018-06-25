@@ -161,7 +161,7 @@ function report_go_test() {
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
   local args=("${@/-v}")
-  go test -v ${args[@]} > ${report} || failed=$?
+  go test -race -v ${args[@]} > ${report} || failed=$?
   # Tests didn't run.
   [[ ! -s ${report} ]] && return 1
   # Create WORKSPACE file, required to use bazel

@@ -207,34 +207,6 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	return
 }
 
-func newRunningTestController(t *testing.T, elaObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory,
-	stopCh chan struct{}) {
-
-	kubeClient, elaClient, controller, kubeInformer, elaInformer, servingSystemInformer = newTestController(t, elaObjects...)
-
-	// Start the informers. This must happen after the call to NewController,
-	// otherwise there are no informers to be started.
-	stopCh = make(chan struct{})
-	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
-	servingSystemInformer.Start(stopCh)
-
-	// Run the controller.
-	go func() {
-		if err := controller.Run(2, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
-	return
-}
-
 func TestCreateRouteCreatesStuff(t *testing.T) {
 	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
 
