@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: config-domain
-  namespace: knative-serving-system
+  namespace: knative-serving
 data:
   # These are example settings of domain.
   # prod-domain.com will be used for routes having app=prod.

@@ -19,7 +19,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: controller
-    namespace: knative-serving-system
+    namespace: knative-serving
 roleRef:
   kind: ClusterRole
   name: knative-serving-admin
@@ -32,7 +32,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: autoscaler
-    namespace: knative-serving-system
+    namespace: knative-serving
 roleRef:
   kind: ClusterRole
   name: knative-serving-write

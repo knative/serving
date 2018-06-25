@@ -69,7 +69,7 @@ kubectl label namespace default istio-injection=enabled
 header "Installing Knative Serving"
 kubectl apply -f ${SERVING_RELEASE}
 
-wait_until_pods_running knative-serving-system
+wait_until_pods_running knative-serving
 wait_until_pods_running build-system
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"

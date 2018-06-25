@@ -16,7 +16,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: webhook
-  namespace: knative-serving-system
+  namespace: knative-serving
 spec:
   replicas: 1
   template:

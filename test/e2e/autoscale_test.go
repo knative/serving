@@ -78,7 +78,7 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, name
 }
 
 func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
-	return clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Get("config-autoscaler", metav1.GetOptions{})
+	return clients.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
 }
 
 func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
@@ -87,7 +87,7 @@ func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
 		return err
 	}
 	configMap.Data["scale-to-zero-threshold"] = threshold
-	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving-system").Update(configMap)
+	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving").Update(configMap)
 	return err
 }
 
