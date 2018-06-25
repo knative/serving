@@ -174,7 +174,7 @@ per request traces captured by Zipkin:
 	kubectl proxy
 	```
 
-1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana "http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana"). 
+1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana). 
 
 1. Navigate to Management -> Index Patterns -> Create Index Pattern.
 
