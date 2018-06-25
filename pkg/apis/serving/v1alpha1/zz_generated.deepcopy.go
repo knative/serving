@@ -579,6 +579,11 @@ func (in *ServiceStatus) DeepCopyInto(out *ServiceStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Traffic != nil {
+		in, out := &in.Traffic, &out.Traffic
+		*out = make([]TrafficTarget, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
