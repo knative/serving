@@ -1198,10 +1198,8 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
-
-	var testProgressDeadlineSeconds int32 = 10
 
 	rev := getTestRevision()
 
@@ -1211,6 +1209,11 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	controller.Reconcile(KeyOrDie(rev))
 
+	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Couldn't get revision: %v", err)
+	}
+
 	// Look for revision's deployment.
 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
 
@@ -1218,14 +1221,13 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
+	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 
 	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
 		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
 	}
-
-	//set ProgressDeadlineSeconds on Dep spec
-	deployment.Spec.ProgressDeadlineSeconds = &testProgressDeadlineSeconds
-	controller.SyncDeployment(deployment)
+	controller.Reconcile(KeyOrDie(rev))
 
 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1246,8 +1248,75 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	}
 }
 
+// TODO(mattmoor): This is meant to test the checkAndUpdateDeployment logic in the,
+// Revision controller.  However, this logic is commented out because in practice it
+// fights with the defaulting logic for a Deployment.
+// func TestDeploymentCorrection(t *testing.T) {
+// 	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
+// 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
+
+// 	rev := getTestRevision()
+
+// 	revClient.Create(rev)
+
+// 	// Since Reconcile looks in the lister, we need to add it to the informer
+// 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+// 	controller.Reconcile(KeyOrDie(rev))
+
+// 	rev, err := revClient.Get(rev.Name, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get revision: %v", err)
+// 	}
+
+// 	// Look for revision's deployment.
+// 	deploymentNameToLook := ctrl.GetRevisionDeploymentName(rev)
+
+// 	deployment, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get ela deployment: %v", err)
+// 	}
+
+// 	// First make a change that we don't expect the Revision controller to reconcile.
+// 	var tmp int32 = 37
+// 	deployment.Spec.Replicas = &tmp
+// 	// Then create a copy to compare against.
+// 	want := deployment.DeepCopy()
+// 	// Lastly, make an edit we expect the controller to revert.
+// 	deployment.Spec.Template.Spec.Containers[0].Image = "busybox"
+
+// 	elaInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+// 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
+
+// 	controller.Reconcile(KeyOrDie(rev))
+
+// 	got, err := kubeClient.Apps().Deployments(testNamespace).Get(deploymentNameToLook, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get ela deployment: %v", err)
+// 	}
+// 	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+// 		t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+// 	}
+
+// 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
+// 	if err != nil {
+// 		t.Fatalf("Couldn't get revision: %v", err)
+// 	}
+// 	for _, ct := range []v1alpha1.RevisionConditionType{"Ready"} {
+// 		got := rev2Inspect.Status.GetCondition(ct)
+// 		want := &v1alpha1.RevisionCondition{
+// 			Type:               ct,
+// 			Status:             corev1.ConditionUnknown,
+// 			Reason:             "Updating",
+// 			LastTransitionTime: got.LastTransitionTime,
+// 		}
+// 		if diff := cmp.Diff(want, got); diff != "" {
+// 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+// 		}
+// 	}
+// }
+
 func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	revClient := elaClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -1276,7 +1345,8 @@ func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
 		Status: corev1.ConditionFalse,
 		Reason: "ProgressDeadlineExceeded",
 	}}
-	controller.SyncDeployment(deployment)
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
+	controller.Reconcile(KeyOrDie(rev))
 
 	rev2Inspect, err := revClient.Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
@@ -1474,7 +1544,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 }
 
 func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1482,10 +1552,11 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 
 	// Now, update the revision serving state to Retired, and force another
 	// run of the controller.
@@ -1493,7 +1564,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be gone.
-	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
@@ -1501,7 +1572,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 }
 
 func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1509,10 +1580,11 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	createRevision(elaClient, elaInformer, controller, rev)
 
 	expectedDeploymentName := fmt.Sprintf("%s-deployment", rev.Name)
-	_, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get ela deployment: %v", err)
 	}
+	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(deployment)
 
 	// Now, update the revision serving state to Reserve, and force another
 	// run of the controller.
@@ -1520,7 +1592,7 @@ func TestActiveToReserveRevisionDeletesStuff(t *testing.T) {
 	updateRevision(elaClient, elaInformer, controller, rev)
 
 	// Expect the deployment to be gone.
-	deployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
+	deployment, err = kubeClient.AppsV1().Deployments(testNamespace).Get(expectedDeploymentName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatalf("Expected ela deployment to be missing but it was really here: %v", deployment)
 	}
