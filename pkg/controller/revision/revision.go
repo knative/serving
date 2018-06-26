@@ -485,7 +485,7 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("Scaling the deployment to 0 for the revision")
-	if err := c.scaleDeploymentToZero(ctx, rev); err != nil {
+	if err := c.scaleRevisionDeploymentToZero(ctx, rev); err != nil {
 		logger.Error("Failed to scale the deployment to 0", zap.Error(err))
 		return err
 	}
@@ -508,7 +508,7 @@ func (c *Controller) scaleRevisionResourcesToZero(ctx context.Context, rev *v1al
 
 func (c *Controller) deleteAutoscalerResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if err := c.deleteAutoscalerDeployment(ctx, rev); err != nil {
+	if err := c.scaleAutoscalerDeploymentToZero(ctx, rev); err != nil {
 		logger.Error("Failed to delete autoscaler Deployment", zap.Error(err))
 		return err
 	}
@@ -527,7 +527,34 @@ func (c *Controller) deleteAutoscalerResources(ctx context.Context, rev *v1alpha
 	return nil
 }
 
-func (c *Controller) scaleDeploymentToZero(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Controller) scaleAutoscalerDeploymentToZero(ctx context.Context, rev *v1alpha1.Revision) error {
+	logger := logging.FromContext(ctx)
+	deploymentName := controller.GetRevisionAutoscalerName(rev)
+
+	dc := c.KubeClientSet.AppsV1().Deployments(pkg.GetServingSystemNamespace())
+	deployment, err := dc.Get(deploymentName, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorf("Failed to get deployment %q", deploymentName)
+		return err
+	}
+	if *deployment.Spec.Replicas == 0 {
+		logger.Infof("Deployment %s is scaled to 0 already.", deploymentName)
+		return nil
+	}
+
+	logger.Infof("Setting deployment %q replicas to 0", deploymentName)
+	deployment.Spec.Replicas = new(int32)
+	*deployment.Spec.Replicas = int32(0)
+	_, err = dc.Update(deployment)
+	if err != nil {
+		logger.Errorf("Error scaling deployment %q to 0: %s", deploymentName, err)
+		return err
+	}
+	logger.Infof("Successfully scaled deployment %s to 0.", deploymentName)
+	return nil
+}
+
+func (c *Controller) scaleRevisionDeploymentToZero(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	dc := c.KubeClientSet.AppsV1().Deployments(rev.Namespace)
