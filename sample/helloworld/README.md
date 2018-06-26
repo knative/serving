@@ -166,7 +166,7 @@ data:
 2. Apply updated domain configuration.
 
   ```shell
-  ko apply -f config/
+  kubectl apply -f config/config-domain.yaml
   ```
 
 3. [Deploy app normally](#Setup). When the ingress is ready, you'll see customized domain in HOSTS field together with assigned IP address.
