@@ -36,6 +36,15 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 		configName = owner.Name
 	}
 
+	// If AutoscalerImage is empty, connect to the multitenant autoscaler.
+	// Otherwise connect to the single-tenant autoscaler.
+	var autoscalerAddress string
+	if controllerConfig.AutoscalerImage == "" {
+		autoscalerAddress = "autoscaler"
+	} else {
+		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
+	}
+
 	const elaQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
@@ -91,7 +100,7 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			Value: rev.Name,
 		}, {
 			Name:  "ELA_AUTOSCALER",
-			Value: controller.GetRevisionAutoscalerName(rev),
+			Value: autoscalerAddress,
 		}, {
 			Name:  "ELA_AUTOSCALER_PORT",
 			Value: strconv.Itoa(autoscalerPort),

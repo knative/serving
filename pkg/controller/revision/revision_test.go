@@ -1651,6 +1651,35 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 	}
 }
 
+func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
+	controllerConfig := getTestControllerConfig()
+	controllerConfig.AutoscalerImage = ""
+	kubeClient, _, elaClient, _, controller, _, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewConfigurationControllerRef(config),
+	)
+
+	createRevision(elaClient, elaInformer, controller, rev)
+
+	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
+
+	// Look for the autoscaler deployment.
+	_, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Errorf("Expected autoscaler deployment %s to not exist.", expectedAutoscalerName)
+	}
+
+	// Look for the autoscaler service.
+	_, err = kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Errorf("Expected autoscaler service %s to not exist.", expectedAutoscalerName)
+	}
+}
+
 func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	var annotations map[string]string
 

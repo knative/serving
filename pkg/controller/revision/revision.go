@@ -422,14 +422,17 @@ func (c *Controller) deleteK8SResources(ctx context.Context, rev *v1alpha1.Revis
 func (c *Controller) createK8SResources(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 
-	// Set up resources to autoscale the user resources.
-	if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
-		logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
-		return err
-	}
-	if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
-		logger.Error("Failed to create autoscaler Service", zap.Error(err))
-		return err
+	// If an autoscaler image is defined, then set up resources to autoscale the
+	// user	resources.
+	if c.controllerConfig.AutoscalerImage != "" {
+		if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
+			logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
+			return err
+		}
+		if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
+			logger.Error("Failed to create autoscaler Service", zap.Error(err))
+			return err
+		}
 	}
 	if err := c.reconcileVpa(ctx, rev); err != nil {
 		logger.Error("Failed to create the vertical pod autoscaler for Deployment", zap.Error(err))
