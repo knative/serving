@@ -97,6 +97,13 @@ var (
 	}
 )
 
+type Changed bool
+
+const (
+	WasChanged Changed = true
+	Unchanged  Changed = false
+)
+
 type resolver interface {
 	Resolve(*appsv1.Deployment) error
 }
@@ -430,13 +437,13 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			// // It may change if a user edits things around our controller, which we
 			// // should not allow, or if our expectations of how the deployment should look
 			// // changes (e.g. we update our controller with new sidecars).
-			// var updated bool
-			// deployment, updated, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+			// var changed Changed
+			// deployment, changed, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 			// if err != nil {
 			// 	logger.Errorf("Error updating Deployment %q: %v", deploymentName, err)
 			// 	return err
 			// }
-			// if updated {
+			// if changed == WasChanged {
 			// 	logger.Infof("Updated Deployment %q", deploymentName)
 			// 	rev.Status.MarkDeploying("Updating")
 			// }
@@ -490,7 +497,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 // TODO(mattmoor): See the comment at the commented call site above.
-// func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, bool, error) {
+// func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
 // 	logger := logging.FromContext(ctx)
 
 // 	desiredDeployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
@@ -507,14 +514,14 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 // 	}
 
 // 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-// 		return deployment, false, nil
+// 		return deployment, Unchanged, nil
 // 	}
 // 	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
 // 		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
 // 	deployment.Spec = desiredDeployment.Spec
 
 // 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-// 	return d, true, err
+// 	return d, WasChanged, err
 // }
 
 func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
@@ -558,13 +565,13 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			// It may change if a user edits things around our controller, which we
 			// should not allow, or if our expectations of how the service should look
 			// changes (e.g. we update our controller with new sidecars).
-			var updated bool
-			service, updated, err = c.checkAndUpdateService(ctx, rev, MakeRevisionK8sService, service)
+			var changed Changed
+			service, changed, err = c.checkAndUpdateService(ctx, rev, MakeRevisionK8sService, service)
 			if err != nil {
 				logger.Errorf("Error updating Service %q: %v", serviceName, err)
 				return err
 			}
-			if updated {
+			if changed == WasChanged {
 				logger.Infof("Updated Service %q", serviceName)
 				rev.Status.MarkDeploying("Updating")
 			}
@@ -635,20 +642,20 @@ func (c *Controller) createService(ctx context.Context, rev *v1alpha1.Revision, 
 	return c.KubeClientSet.CoreV1().Services(service.Namespace).Create(service)
 }
 
-func (c *Controller) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, bool, error) {
+func (c *Controller) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
 	logger := logging.FromContext(ctx)
 
 	desiredService := sf(rev)
 
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
-		return service, false, nil
+		return service, Unchanged, nil
 	}
 	logger.Infof("Reconciling service diff (-desired, +observed): %v",
 		cmp.Diff(desiredService.Spec, service.Spec))
 	service.Spec = desiredService.Spec
 
 	d, err := c.KubeClientSet.CoreV1().Services(service.Namespace).Update(service)
-	return d, true, err
+	return d, WasChanged, err
 }
 
 func (c *Controller) deleteService(ctx context.Context, svc *corev1.Service) error {
@@ -755,14 +762,14 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 			// It may change if a user edits things around our controller, which we
 			// should not allow, or if our expectations of how the service should look
 			// changes (e.g. we update our controller with new sidecars).
-			var updated bool
-			service, updated, err = c.checkAndUpdateService(
+			var changed Changed
+			service, changed, err = c.checkAndUpdateService(
 				ctx, rev, MakeServingAutoscalerService, service)
 			if err != nil {
 				logger.Errorf("Error updating Autoscaler Service %q: %v", serviceName, err)
 				return err
 			}
-			if updated {
+			if changed == WasChanged {
 				logger.Infof("Updated Autoscaler Service %q", serviceName)
 			}
 		}
