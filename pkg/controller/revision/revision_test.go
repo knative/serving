@@ -251,9 +251,9 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		ctrl.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: elaClient,
+			VPAClientSet:     vpaClient,
 			Logger:           zap.NewNop().Sugar(),
 		},
-		vpaClient,
 		elaInformer.Serving().V1alpha1().Revisions(),
 		buildInformer.Build().V1alpha1().Builds(),
 		servingSystemInformer.Core().V1().ConfigMaps(),
