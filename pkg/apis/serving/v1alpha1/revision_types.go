@@ -57,6 +57,9 @@ type RevisionTemplateSpec struct {
 
 // RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
+//
+// TODO: move ServingState to a serving sub-resource of revision:
+// https://github.com/knative/serving/issues/645#issuecomment-391789031
 type RevisionServingStateType string
 
 const (
@@ -67,6 +70,9 @@ const (
 	// traffic quickly. It should have Kubernetes resources, but the Istio route
 	// should be pointed to the activator.
 	RevisionServingStateReserve RevisionServingStateType = "Reserve"
+	// The revision has been idle longer than the reserve threshold
+	// and is being placed into a Reserve state.
+	RevisionServingStateToReserve RevisionServingStateType = "ToReserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
