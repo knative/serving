@@ -4,6 +4,10 @@ A simple web server written in Go that you can use for testing. It reads in an
 env variable 'TARGET' and prints "Hello World: ${TARGET}!" if
 TARGET is not specified, it will use "NOT SPECIFIED" as the TARGET.
 
+*Note:* There are a number of hello world samples in different languages available
+in the [Knative docs](https://github.com/knative/docs/tree/master/serving/samples) 
+repoistory.
+
 ## Prerequisites
 
 1. [Install Knative Serving](https://github.com/knative/install/blob/master/README.md)
