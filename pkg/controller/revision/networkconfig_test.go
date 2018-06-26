@@ -23,36 +23,23 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
-func TestNewConfigMissingConfigMap(t *testing.T) {
-	_, err := NewNetworkConfig(fakekubeclientset.NewSimpleClientset())
-	if err == nil {
-		t.Error("Expected an error value when config map doesn't exist.")
-	}
-}
-
 func TestNewConfigNoEntry(t *testing.T) {
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
+	c := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetNetworkConfigMapName(),
 		},
 	})
-	c, err := NewNetworkConfig(kubeClient)
-	if err != nil {
-		t.Errorf("Didn't expect an error but got %v", err)
-	} else if len(c.IstioOutboundIPRanges) > 0 {
+	if len(c.IstioOutboundIPRanges) > 0 {
 		t.Error("Expected an empty value when config map doesn't have the entry.")
 	}
 }
 
 func TestNewConfig(t *testing.T) {
-	kubeClient := fakekubeclientset.NewSimpleClientset()
 	want := "10.10.10.10/12"
-	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
+	c := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetNetworkConfigMapName(),
@@ -62,10 +49,6 @@ func TestNewConfig(t *testing.T) {
 			"bar.com":                "selector:\n  app: bar\n  version: beta",
 		},
 	})
-	c, err := NewNetworkConfig(kubeClient)
-	if err != nil {
-		t.Errorf("Didn't expect an error but got %v", err)
-	}
 	if c.IstioOutboundIPRanges != want {
 		t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
 	}
