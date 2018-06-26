@@ -148,7 +148,7 @@ kubectl delete -f sample/helloworld/sample.yaml
 
 Knative uses `demo-domain.com` as default domain; To use your own customized domain, there are a few steps involved.
 
-1.Change [domain configuration](/config/config-domain.yaml) to replace `demo-domain.com` with your own domain name, for example, `foo.com`.
+1. Change [domain configuration](/config/config-domain.yaml) to replace `demo-domain.com` with your own domain name, for example, `foo.com`.
 
 ```
 data:
@@ -163,22 +163,22 @@ data:
   foo.com: |
 ```
 
-2.Apply updated domain configuration.
+2. Apply updated domain configuration.
 
   ```shell
   ko apply -f config/
   ```
 
-3.[Deploy app normally](#Setup). When the ingress is ready, you'll see customized domain in HOSTS field together with assigned IP address.
+3. [Deploy app normally](#Setup). When the ingress is ready, you'll see customized domain in HOSTS field together with assigned IP address.
 
 ```
 NAME                    HOSTS                                                                       ADDRESS        PORTS     AGE
 route-example-ingress   route-example.default.foo.com,*.route-example.default.foo.com   35.237.28.44   80        2m
 ```
 
-4.Update DNS to point HOSTS to IP address.
+4. Update DNS to point HOSTS to IP address.
 
     1. If the domain is not registered with Google, you need to [update the NS records for your domain with your registrar](https://cloud.google.com/dns/update-name-servers).
     1. Create A record via [GCP DNS](https://pantheon.corp.google.com/net-services/dns) to map `route-example.default.foo.com` to `35.237.28.44`; Step by step instruction is [here](https://cloud.google.com/dns/quickstart).
 
-5.You should be able to access `http://route-example.default.foo.com` from browser. It may take a while for the above update to take effect though.
+5. You should be able to access `http://route-example.default.foo.com` from browser. It may take a while for the above update to take effect though.
