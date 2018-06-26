@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -30,18 +30,15 @@ const (
 )
 
 func getTestRevisionRoutes() []RevisionRoute {
-	return []RevisionRoute{
-		RevisionRoute{
-			Service:   "p-deadbeef-service",
-			Namespace: testNamespace,
-			Weight:    98,
-		},
-		RevisionRoute{
-			Service:   "test-rev-service",
-			Namespace: testNamespace,
-			Weight:    2,
-		},
-	}
+	return []RevisionRoute{{
+		Service:   "p-deadbeef-service",
+		Namespace: testNamespace,
+		Weight:    98,
+	}, {
+		Service:   "test-rev-service",
+		Namespace: testNamespace,
+		Weight:    2,
+	}}
 }
 
 func TestMakeIstioRouteSpecRevisionsActive(t *testing.T) {
@@ -92,22 +89,19 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 				},
 			},
 		},
-		Route: []istiov1alpha2.DestinationWeight{
-			istiov1alpha2.DestinationWeight{
-				Destination: istiov1alpha2.IstioService{
-					Name:      "p-deadbeef-service",
-					Namespace: testNamespace,
-				},
-				Weight: 98,
+		Route: []istiov1alpha2.DestinationWeight{{
+			Destination: istiov1alpha2.IstioService{
+				Name:      "p-deadbeef-service",
+				Namespace: testNamespace,
 			},
-			istiov1alpha2.DestinationWeight{
-				Destination: istiov1alpha2.IstioService{
-					Name:      "test-rev-service",
-					Namespace: testNamespace,
-				},
-				Weight: 2,
+			Weight: 98,
+		}, {
+			Destination: istiov1alpha2.IstioService{
+				Name:      "test-rev-service",
+				Namespace: testNamespace,
 			},
-		},
+			Weight: 2,
+		}},
 		AppendHeaders: appendHeaders,
 	}
 
@@ -122,22 +116,19 @@ func TestCalculateDestinationWeightsNoTrafficTarget(t *testing.T) {
 	// The parameter traffic target is nil.
 	route := getTestRouteWithTrafficTargets(nil)
 	rr := getTestRevisionRoutes()
-	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{
-		istiov1alpha2.DestinationWeight{
-			Destination: istiov1alpha2.IstioService{
-				Name:      "p-deadbeef-service",
-				Namespace: testNamespace,
-			},
-			Weight: 98,
+	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{{
+		Destination: istiov1alpha2.IstioService{
+			Name:      "p-deadbeef-service",
+			Namespace: testNamespace,
 		},
-		istiov1alpha2.DestinationWeight{
-			Destination: istiov1alpha2.IstioService{
-				Name:      "test-rev-service",
-				Namespace: testNamespace,
-			},
-			Weight: 2,
+		Weight: 98,
+	}, {
+		Destination: istiov1alpha2.IstioService{
+			Name:      "test-rev-service",
+			Namespace: testNamespace,
 		},
-	}
+		Weight: 2,
+	}}
 
 	destinationWeights := calculateDestinationWeights(route, nil, rr)
 
@@ -153,15 +144,13 @@ func TestCalculateDestinationWeightsWithTrafficTarget(t *testing.T) {
 	}
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{tt})
 	rr := getTestRevisionRoutes()
-	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{
-		istiov1alpha2.DestinationWeight{
-			Destination: istiov1alpha2.IstioService{
-				Name:      "test-rev-service",
-				Namespace: testNamespace,
-			},
-			Weight: 100,
+	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{{
+		Destination: istiov1alpha2.IstioService{
+			Name:      "test-rev-service",
+			Namespace: testNamespace,
 		},
-	}
+		Weight: 100,
+	}}
 
 	destinationWeights := calculateDestinationWeights(route, &tt, rr)
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC. All rights reserved.
+Copyright 2018 The Knative Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -260,89 +260,69 @@ func TestLatestReadyRevisionNameUpToDate(t *testing.T) {
 func TestTypicalFlow(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
 	// e.g. on a subsequent reconciliation.
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
 func TestFailingFirstRevisionWithRecovery(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	want := "the message"
 	r.Status.MarkLatestCreatedFailed("foo", want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t); !strings.Contains(c.Message, want) {
-		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
-	}
 	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
 
-	// When a new revision comes along the LatestRevisionReady condition becomes Unknown,
-	// but Ready is still false (we've never seen a Ready Revision).
+	// When a new revision comes along the Ready condition becomes Unknown.
 	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
-	checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	// When the new revision becomes ready, then Ready becomes true as well.
 	r.Status.SetLatestReadyRevisionName("bar")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
 func TestFailingSecondRevision(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("foo")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestReadyRevisionName("foo")
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
 	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 
 	r.Status.SetLatestCreatedRevisionName("bar")
-	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t)
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
 
-	// When the second revision fails, the Configuration remains "Ready" because there is a
-	// revision suitable for serving traffic.
+	// When the second revision fails, the Configuration becomes Failed.
 	want := "the message"
 	r.Status.MarkLatestCreatedFailed("bar", want)
-	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionLatestRevisionReady, t); !strings.Contains(c.Message, want) {
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
 		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
-	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
 func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, t *testing.T) *ConfigurationCondition {

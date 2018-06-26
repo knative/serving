@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -99,17 +99,43 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady ServiceConditionType = "Ready"
-	// ServiceConditionRouteReady is set when the service's underlying
-	// route has reported readiness.
-	ServiceConditionRouteReady ServiceConditionType = "RouteReady"
-	// ServiceConditionConfigurationReady is set when the service's underlying
-	// configuration has reported readiness.
-	ServiceConditionConfigurationReady ServiceConditionType = "ConfigurationReady"
+	// ServiceConditionRoutesReady is set when the service's underlying
+	// routes have reported readiness.
+	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
+	// ServiceConditionConfigurationsReady is set when the service's underlying
+	// configurations have reported readiness.
+	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 
 type ServiceStatus struct {
 	// +optional
 	Conditions []ServiceCondition `json:"conditions,omitempty"`
+
+	// From RouteStatus.
+	// Domain holds the top-level domain that will distribute traffic over the provided targets.
+	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	Domain string `json:"domain,omitempty"`
+
+	// From RouteStatus.
+	// Traffic holds the configured traffic distribution.
+	// These entries will always contain RevisionName references.
+	// When ConfigurationName appears in the spec, this will hold the
+	// LatestReadyRevisionName that we last observed.
+	// +optional
+	Traffic []TrafficTarget `json:"traffic,omitempty"`
+
+	// From ConfigurationStatus.
+	// LatestReadyRevisionName holds the name of the latest Revision stamped out
+	// from this Service's Configuration that has had its "Ready" condition become "True".
+	// +optional
+	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
+
+	// From ConfigurationStatus.
+	// LatestCreatedRevisionName is the last revision that was created from this Service's
+	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+	// +optional
+	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Service that
 	// was last processed by the controller.
@@ -191,8 +217,8 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 func (ss *ServiceStatus) InitializeConditions() {
 	for _, cond := range []ServiceConditionType{
 		ServiceConditionReady,
-		ServiceConditionConfigurationReady,
-		ServiceConditionRouteReady,
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
 	} {
 		if rc := ss.GetCondition(cond); rc == nil {
 			ss.setCondition(&ServiceCondition{
@@ -204,11 +230,14 @@ func (ss *ServiceStatus) InitializeConditions() {
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
+	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
+	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
+
 	cc := cs.GetCondition(ConfigurationConditionReady)
 	if cc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionConfigurationReady}
+	sct := []ServiceConditionType{ServiceConditionConfigurationsReady}
 	// If the underlying Configuration reported not ready, then bubble it up.
 	if cc.Status != corev1.ConditionTrue {
 		sct = append(sct, ServiceConditionReady)
@@ -227,11 +256,14 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 }
 
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
+	ss.Domain = rs.Domain
+	ss.Traffic = rs.Traffic
+
 	rc := rs.GetCondition(RouteConditionReady)
 	if rc == nil {
 		return
 	}
-	sct := []ServiceConditionType{ServiceConditionRouteReady}
+	sct := []ServiceConditionType{ServiceConditionRoutesReady}
 	// If the underlying Route reported not ready, then bubble it up.
 	if rc.Status != corev1.ConditionTrue {
 		sct = append(sct, ServiceConditionReady)
@@ -251,8 +283,8 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 
 func (ss *ServiceStatus) checkAndMarkReady() {
 	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationReady,
-		ServiceConditionRouteReady,
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
 	} {
 		c := ss.GetCondition(cond)
 		if c == nil || c.Status != corev1.ConditionTrue {

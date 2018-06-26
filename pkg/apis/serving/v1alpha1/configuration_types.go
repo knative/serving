@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -78,12 +78,9 @@ type ConfigurationSpec struct {
 type ConfigurationConditionType string
 
 const (
-	// ConfigurationConditionReady is set when the configuration is starting to materialize
-	// runtime resources, and becomes true when those resources are ready.
+	// ConfigurationConditionReady is set when the configuration's latest
+	// underlying revision has reported readiness.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
-	// ConfigurationConditionLatestRevisionReady is set to indicate the status of the latest
-	// revision of the configuration when it has not become ready yet
-	ConfigurationConditionLatestRevisionReady ConfigurationConditionType = "LatestRevisionReady"
 )
 
 // ConfigurationCondition defines a readiness condition for a Configuration.
@@ -211,7 +208,6 @@ func (cs *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
 
 func (cs *ConfigurationStatus) InitializeConditions() {
 	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionLatestRevisionReady,
 		ConfigurationConditionReady,
 	} {
 		if rc := cs.GetCondition(cond); rc == nil {
@@ -227,7 +223,7 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
 		cs.setCondition(&ConfigurationCondition{
-			Type:   ConfigurationConditionLatestRevisionReady,
+			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionUnknown,
 		})
 	}
@@ -236,7 +232,6 @@ func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
 	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionLatestRevisionReady,
 		ConfigurationConditionReady,
 	} {
 		cs.setCondition(&ConfigurationCondition{
@@ -247,7 +242,7 @@ func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	cct := []ConfigurationConditionType{ConfigurationConditionLatestRevisionReady}
+	cct := []ConfigurationConditionType{ConfigurationConditionReady}
 	if cs.LatestReadyRevisionName == "" {
 		cct = append(cct, ConfigurationConditionReady)
 	}

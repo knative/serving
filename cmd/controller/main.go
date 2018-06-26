@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
-	"net/http"
 	"time"
 
 	"github.com/knative/serving/pkg"
@@ -44,16 +42,12 @@ import (
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 )
 
 const (
 	threadsPerController = 2
-	metricsScrapeAddr    = ":9090"
-	metricsScrapePath    = "/metrics"
 )
 
 var (
@@ -173,6 +167,7 @@ func main() {
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
@@ -181,7 +176,8 @@ func main() {
 	controllers := []controller.Interface{
 		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
 		revision.NewController(opt, vpaClient, revisionInformer, buildInformer, configMapInformer,
-			deploymentInformer, endpointsInformer, vpaInformer, cfg, &revControllerConfig),
+			deploymentInformer, coreServiceInformer, endpointsInformer, vpaInformer,
+			cfg, &revControllerConfig),
 		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
 			configMapInformer, cfg, autoscaleEnableScaleToZero),
 		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
@@ -203,6 +199,7 @@ func main() {
 		buildInformer.Informer().HasSynced,
 		configMapInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
+		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
 		ingressInformer.Informer().HasSynced,
 	} {
@@ -222,31 +219,7 @@ func main() {
 		}(ctrlr)
 	}
 
-	// Setup the metrics to flow to Prometheus.
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "knative"})
-	if err != nil {
-		logger.Fatalf("failed to create the Prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(10 * time.Second)
-
-	// Start the endpoint that Prometheus scraper talks to
-	srv := &http.Server{Addr: metricsScrapeAddr}
-	http.Handle(metricsScrapePath, promExporter)
-	go func() {
-		logger.Infof("Starting metrics listener at %s", metricsScrapeAddr)
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Infof("Httpserver: ListenAndServe() finished with error: %v", err)
-		}
-	}()
-
 	<-stopCh
-
-	// Close the http server gracefully
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	srv.Shutdown(ctx)
 }
 
 func init() {
