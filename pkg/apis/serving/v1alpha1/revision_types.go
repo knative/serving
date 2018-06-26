@@ -352,6 +352,14 @@ func (rs *RevisionStatus) MarkDeploying(reason string) {
 	}
 }
 
+func (rs *RevisionStatus) MarkToReserve() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionFalse,
+		Reason: "Revision is being placed in Reserve state.",
+	})
+}
+
 func (rs *RevisionStatus) MarkServiceTimeout() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionResourcesAvailable,

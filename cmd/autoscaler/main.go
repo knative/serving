@@ -185,7 +185,7 @@ func scaleTo(podCount int32) {
 		if err != nil {
 			logger.Errorf("Error getting Revision %q: %s", elaRevision, zap.Error(err))
 		}
-		revision.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+		revision.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
 		revision, err = revisionClient.Update(revision)
 		if err != nil {
 			logger.Errorf("Error updating Revision %q: %s", elaRevision, zap.Error(err))
