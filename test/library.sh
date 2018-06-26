@@ -175,7 +175,7 @@ function report_go_test() {
     local name=${fields[2]}
     # Ignore subtests (those containing slashes)
     if [[ -n "${name##*/*}" ]]; then
-      if [[ ${field1} =~ (PASS|FAIL): ]]; then
+      if [[ ${field1} == PASS: || ${field1} == FAIL: ]]; then
         # Populate BUILD.bazel
         local src="${name}.sh"
         echo "exit 0" > ${src}
@@ -188,7 +188,7 @@ function report_go_test() {
         fi
         chmod +x ${src}
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
-      elif [[ ${field0} =~ FAIL|ok ]]; then
+      elif [[ ${field0} == FAIL || ${field0} == ok ]]; then
         # Update the summary with the result for the package
         echo "${line}" >> ${summary}
         # Create the package structure, move tests and BUILD file
