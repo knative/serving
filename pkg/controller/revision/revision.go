@@ -36,7 +36,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions/build/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
@@ -57,6 +56,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	vpalisters "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
 )
 
 const (
@@ -97,8 +97,8 @@ type resolver interface {
 type Controller struct {
 	*controller.Base
 
-	// VpaClientSet allows us to configure VPA objects
-	vpaClient vpa.Interface
+	// VpaLister allows us to configure VPA objects
+	vpaLister vpalisters.VerticalPodAutoscalerLister
 
 	// lister indexes properties about Revision
 	revisionLister listers.RevisionLister
@@ -170,7 +170,6 @@ type ControllerConfig struct {
 // queue - message queue for handling new events.  unique to this controller.
 func NewController(
 	opt controller.Options,
-	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
 	buildInformer buildinformers.BuildInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
@@ -187,7 +186,7 @@ func NewController(
 
 	c := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),
-		vpaClient:        vpaClient,
+		vpaLister:        vpaInformer.Lister(),
 		revisionLister:   revisionInformer.Lister(),
 		buildLister:      buildInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
@@ -799,7 +798,7 @@ func (c *Controller) deleteVpa(ctx context.Context, rev *v1alpha1.Revision) erro
 	vpaName := controller.GetRevisionVpaName(rev)
 	ns := rev.Namespace
 
-	err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Delete(vpaName, fgDeleteOptions)
+	err := c.vpaLister.VerticalPodAutoscalers().Delete(vpaName, fgDeleteOptions)
 	if apierrs.IsNotFound(err) {
 		return nil
 	} else if err != nil {
@@ -813,8 +812,7 @@ func (c *Controller) deleteVpa(ctx context.Context, rev *v1alpha1.Revision) erro
 func (c *Controller) reconcileVpa(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
 	vpaName := controller.GetRevisionVpaName(rev)
-	vs := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace)
-	_, err := vs.Get(vpaName, metav1.GetOptions{})
+	_, err := c.vpaLister.VerticalPodAutoscalers().Get(vpaName, metav1.GetOptions{})
 	if err == nil {
 		logger.Infof("Found exising VPA %q", vpaName)
 		return nil
