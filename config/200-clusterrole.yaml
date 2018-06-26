@@ -29,7 +29,7 @@ rules:
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]    
   - apiGroups: ["poc.autoscaling.k8s.io"]
     resources: ["verticalpodautoscalers"]
-    verbs: ["get", "list", "update", "patch", "watch"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]    
 ---    
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -60,6 +60,4 @@ rules:
   - apiGroups: ["config.istio.io"]
     resources: ["routerules"]
     verbs: ["get", "list", "update", "patch", "watch"]
-  - apiGroups: ["poc.autoscaling.k8s.io"]
-    resources: ["verticalpodautoscalers"]
-    verbs: ["get", "list", "update", "patch", "watch"]
+
