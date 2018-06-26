@@ -354,9 +354,10 @@ func (rs *RevisionStatus) MarkDeploying(reason string) {
 
 func (rs *RevisionStatus) MarkToReserve() {
 	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Revision is being placed in Reserve state.",
+		Type:    RevisionConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "Inactive",
+		Message: "Revision is being placed in Reserve state.",
 	})
 }
 

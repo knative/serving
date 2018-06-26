@@ -376,6 +376,13 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}
 	}
 
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateToReserve {
+		// When the Revision is transitioning to a Reserve state
+		// (ToReserve) it is should be marked unready because it
+		// is being taken out of direct routing.
+		rev.Status.MarkToReserve()
+	}
+
 	return nil
 }
 
