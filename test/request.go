@@ -31,7 +31,7 @@ import (
 
 const (
 	requestInterval = 1 * time.Second
-	requestTimeout  = 1 * time.Minute
+	requestTimeout  = 5 * time.Minute
 )
 
 func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) error {
