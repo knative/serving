@@ -188,7 +188,9 @@ func main() {
 	go elaInformerFactory.Start(stopCh)
 	go buildInformerFactory.Start(stopCh)
 	go servingSystemInformerFactory.Start(stopCh)
-	go vpaInformerFactory.Start(stopCh)
+	if autoscaleEnableVerticalPodAutoscaling.Get() {
+		go vpaInformerFactory.Start(stopCh)
+	}
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
