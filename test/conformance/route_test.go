@@ -19,9 +19,10 @@ package conformance
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 
 	"encoding/json"
 
@@ -78,7 +79,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		} else {
 			return cond.Status == corev1.ConditionTrue, nil
 		}
-	})
+	}, "RouteIsReady")
 	if err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -91,7 +92,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	}
 	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, namespaceName, names.Route, func(body string) (bool, error) {
 		return body == expectedText, nil
-	})
+	}, "WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, updatedRoute.Status.Domain, expectedText, err)
 	}
@@ -124,7 +125,7 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 			return true, nil
 		}
 		return false, nil
-	})
+	}, "ConfigurationUpdatedWithRevision")
 	return newRevisionName, err
 }
 

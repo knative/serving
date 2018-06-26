@@ -19,11 +19,13 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	"go.opencensus.io/trace"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,8 +39,13 @@ const (
 
 // WaitForRouteState polls the status of the Route called name from client every
 // interval until inState returns `true` indicating it is done, returns an
-// error or timeout.
-func WaitForRouteState(client elatyped.RouteInterface, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
+// error or timeout. desc will be used to name the metric that is emitted to
+// track how long it took for name to get into the state checked by inState.
+func WaitForRouteState(client elatyped.RouteInterface, name string, inState func(r *v1alpha1.Route) (bool, error), desc string) error {
+	metricName := fmt.Sprintf("WaitForRouteState/%s/%s", name, desc)
+	_, span := trace.StartSpan(context.Background(), metricName)
+	defer span.End()
+
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		r, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -66,8 +73,13 @@ func CheckRouteState(client elatyped.RouteInterface, name string, inState func(r
 
 // WaitForConfigurationState polls the status of the Configuration called name
 // from client every interval until inState returns `true` indicating it
-// is done, returns an error or timeout.
-func WaitForConfigurationState(client elatyped.ConfigurationInterface, name string, inState func(c *v1alpha1.Configuration) (bool, error)) error {
+// is done, returns an error or timeout. desc will be used to name the metric
+// that is emitted to track how long it took for name to get into the state checked by inState.
+func WaitForConfigurationState(client elatyped.ConfigurationInterface, name string, inState func(c *v1alpha1.Configuration) (bool, error), desc string) error {
+	metricName := fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc)
+	_, span := trace.StartSpan(context.Background(), metricName)
+	defer span.End()
+
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		c, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -95,8 +107,13 @@ func CheckConfigurationState(client elatyped.ConfigurationInterface, name string
 
 // WaitForRevisionState polls the status of the Revision called name
 // from client every interval until inState returns `true` indicating it
-// is done, returns an error or timeout.
-func WaitForRevisionState(client elatyped.RevisionInterface, name string, inState func(r *v1alpha1.Revision) (bool, error)) error {
+// is done, returns an error or timeout. desc will be used to name the metric
+// that is emitted to track how long it took for name to get into the state checked by inState.
+func WaitForRevisionState(client elatyped.RevisionInterface, name string, inState func(r *v1alpha1.Revision) (bool, error), desc string) error {
+	metricName := fmt.Sprintf("WaitForRevision/%s/%s", name, desc)
+	_, span := trace.StartSpan(context.Background(), metricName)
+	defer span.End()
+
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		r, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -124,8 +141,13 @@ func CheckRevisionState(client elatyped.RevisionInterface, name string, inState 
 
 // WaitForIngressState polls the status of the Ingress called name
 // from client every interval until inState returns `true` indicating it
-// is done, returns an error or timeout.
-func WaitForIngressState(client v1beta1.IngressInterface, name string, inState func(r *apiv1beta1.Ingress) (bool, error)) error {
+// is done, returns an error or timeout. desc will be used to name the metric
+// that is emitted to track how long it took for name to get into the state checked by inState.
+func WaitForIngressState(client v1beta1.IngressInterface, name string, inState func(r *apiv1beta1.Ingress) (bool, error), desc string) error {
+	metricName := fmt.Sprintf("WaitForIngressState/%s/%s", name, desc)
+	_, span := trace.StartSpan(context.Background(), metricName)
+	defer span.End()
+
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		i, err := client.Get(name, metav1.GetOptions{})
 		if err != nil {
