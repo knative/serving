@@ -32,8 +32,11 @@ type defaultImpl struct {
 	informer corev1informers.ConfigMapInformer
 	ns       string
 
-	m        sync.Mutex
-	watchers map[string][]Observer
+	// Guards mutations to defaultImpl fields
+	m sync.Mutex
+
+	observers map[string][]Observer
+	started   bool
 }
 
 // Asserts that defaultImpl implements Watcher.
@@ -44,33 +47,47 @@ func (di *defaultImpl) Watch(name string, w Observer) {
 	di.m.Lock()
 	defer di.m.Unlock()
 
-	if di.watchers == nil {
-		di.watchers = make(map[string][]Observer)
+	if di.observers == nil {
+		di.observers = make(map[string][]Observer)
 	}
 
-	wl, _ := di.watchers[name]
-	di.watchers[name] = append(wl, w)
+	wl, _ := di.observers[name]
+	di.observers[name] = append(wl, w)
 }
 
 // Start implements Watcher
 func (di *defaultImpl) Start(stopCh <-chan struct{}) error {
-	di.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    di.addConfigMapEvent,
-		UpdateFunc: di.updateConfigMapEvent,
-	})
+	// Scope that we want to hold the mutex.
+	if err := func() error {
+		di.m.Lock()
+		defer di.m.Unlock()
+		if di.started {
+			return errors.New("Watcher already started!")
+		}
+		di.started = true
 
-	// Start the shared informer factory.
-	go di.sif.Start(stopCh)
+		di.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    di.addConfigMapEvent,
+			UpdateFunc: di.updateConfigMapEvent,
+		})
 
-	// Wait until it has been synced.
+		// Start the shared informer factory.
+		go di.sif.Start(stopCh)
+		return nil
+	}(); err != nil {
+		return err
+	}
+
+	// Wait until it has been synced (WITHOUT holding the mutex, so callbacks happen)
 	if ok := cache.WaitForCacheSync(stopCh, di.informer.Informer().HasSynced); !ok {
 		return errors.New("Error waiting for ConfigMap informer to sync.")
 	}
 
-	// Make sure that our informers has all of the objects that we expect to exist.
+	// Holding the lock, check that all objects with Observers exist in our informers.
 	di.m.Lock()
 	defer di.m.Unlock()
-	for k := range di.watchers {
+	// Make sure that our informers has all of the objects that we expect to exist.
+	for k := range di.observers {
 		_, err := di.informer.Lister().ConfigMaps(di.ns).Get(k)
 		if err != nil {
 			return err
@@ -89,15 +106,15 @@ func (di *defaultImpl) addConfigMapEvent(obj interface{}) {
 		return
 	}
 
-	// Within our namespace, take the lock and see if there are any registered watchers.
+	// Within our namespace, take the lock and see if there are any registered observers.
 	di.m.Lock()
 	defer di.m.Unlock()
-	wl, ok := di.watchers[configMap.Name]
+	wl, ok := di.observers[configMap.Name]
 	if !ok {
-		return // No watchers.
+		return // No observers.
 	}
 
-	// Iterate over the watchers and invoke their callbacks.
+	// Iterate over the observers and invoke their callbacks.
 	for _, w := range wl {
 		w(configMap)
 	}

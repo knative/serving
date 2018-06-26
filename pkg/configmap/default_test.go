@@ -148,3 +148,30 @@ func TestWatchMissingFailsOnStart(t *testing.T) {
 		t.Fatal("cm.Start() succeeded, wanted error")
 	}
 }
+
+func TestErrorOnMultipleStarts(t *testing.T) {
+	fooCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "knative-system",
+			Name:      "foo",
+		},
+	}
+	kc := fakekubeclientset.NewSimpleClientset(fooCM)
+	cm := NewDefaultWatcher(kc, "knative-system").(*defaultImpl)
+
+	foo1 := &counter{name: "foo1"}
+	cm.Watch("foo", foo1.callback)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	// This should succeed because the watched resource exists.
+	if err := cm.Start(stopCh); err != nil {
+		t.Fatalf("cm.Start() = %v", err)
+	}
+
+	// This should error because we already called Start()
+	if err := cm.Start(stopCh); err == nil {
+		t.Fatal("cm.Start() succeeded, wanted error")
+	}
+}
