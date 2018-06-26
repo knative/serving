@@ -38,7 +38,7 @@ function cleanup() {
 
 function build_tests() {
   header "Running build tests"
-  go build ./cmd/... ./sample/... ./pkg/...
+  go build ./cmd/... ./sample/... ./pkg/... ./test/...
   # kubekins images don't have dep installed by default
   go get -u github.com/golang/dep/cmd/dep
   ./hack/verify-codegen.sh
