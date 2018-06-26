@@ -31,7 +31,11 @@ import (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("webhook")
+
+	var logger *zap.SugaredLogger
+	if logger, err := logging.NewDefaultConfigMapLogger(logging.DefaultLoggingConfigPath, "webhook"); err != nil {
+		logger.Errorf("Error initializing logger: %s", err)
+	}
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")

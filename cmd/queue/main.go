@@ -262,9 +262,20 @@ func setupAdminHandlers(server *http.Server) {
 	server.ListenAndServe()
 }
 
+func initializeLogging() *zap.SugaredLogger {
+	configJSON := os.Getenv("SERVING_LOGGING_CONFIG")
+	levelOverride := os.Getenv("SERVING_LOGGING_LEVEL")
+	genericLogger, err := logging.NewLogger(configJSON, levelOverride)
+	logger = genericLogger.Named("queueproxy")
+	if err != nil {
+		logger.Errorf("Error initializing logger: %s", err)
+	}
+	return logger
+}
+
 func main() {
 	flag.Parse()
-	logger = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL")).Named("queueproxy")
+	logger = initializeLogging()
 	defer logger.Sync()
 
 	initEnv()
