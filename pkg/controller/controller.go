@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	vpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -87,6 +88,9 @@ type Base struct {
 	// BuildClientSet allows us to configure Build objects
 	BuildClientSet buildclientset.Interface
 
+	// VPAClientSet allows us to configure VPA objects
+	VPAClientSet vpaclientset.Interface
+
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
@@ -113,6 +117,7 @@ type Options struct {
 	KubeClientSet    kubernetes.Interface
 	ServingClientSet clientset.Interface
 	BuildClientSet   buildclientset.Interface
+	VPAClientSet     vpaclientset.Interface
 	Logger           *zap.SugaredLogger
 }
 
@@ -135,6 +140,7 @@ func NewBase(opt Options, controllerAgentName, workQueueName string) *Base {
 		KubeClientSet:    opt.KubeClientSet,
 		ServingClientSet: opt.ServingClientSet,
 		BuildClientSet:   opt.BuildClientSet,
+		VPAClientSet:     opt.VPAClientSet,
 		Recorder:         recorder,
 		WorkQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		Logger:           logger,

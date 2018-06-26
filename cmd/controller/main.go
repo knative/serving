@@ -156,6 +156,7 @@ func main() {
 		KubeClientSet:    kubeClient,
 		ServingClientSet: elaClient,
 		BuildClientSet:   buildClient,
+		VPAClientSet:     vpaClient,
 		Logger:           logger,
 	}
 
@@ -175,7 +176,7 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
-		revision.NewController(opt, vpaClient, revisionInformer, buildInformer, configMapInformer,
+		revision.NewController(opt, revisionInformer, buildInformer, configMapInformer,
 			deploymentInformer, coreServiceInformer, endpointsInformer, vpaInformer,
 			cfg, &revControllerConfig),
 		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,

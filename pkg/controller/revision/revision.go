@@ -63,7 +63,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-	vpalisters "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/externalversions/poc.autoscaling.k8s.io/v1alpha1"
+	vpalisters "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/poc.autoscaling.k8s.io/v1alpha1"
 )
 
 const (
@@ -105,6 +105,7 @@ type Controller struct {
 	*controller.Base
 
 	// VpaLister allows us to configure VPA objects
+
 	vpaLister vpalisters.VerticalPodAutoscalerLister
 
 	// lister indexes properties about Revision
@@ -851,9 +852,7 @@ func (c *Controller) deleteVpa(ctx context.Context, rev *v1alpha1.Revision) erro
 	}
 
 	vpaName := controller.GetRevisionVpaName(rev)
-	ns := rev.Namespace
-
-	err := c.vpaLister.VerticalPodAutoscalers().Delete(vpaName, fgDeleteOptions)
+	err := c.VPAClientSet.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace).Delete(vpaName, fgDeleteOptions)
 	if apierrs.IsNotFound(err) {
 		return nil
 	} else if err != nil {
@@ -871,7 +870,7 @@ func (c *Controller) reconcileVpa(ctx context.Context, rev *v1alpha1.Revision) e
 	}
 
 	vpaName := controller.GetRevisionVpaName(rev)
-	_, err := c.vpaLister.VerticalPodAutoscalers().Get(vpaName, metav1.GetOptions{})
+	_, err := c.vpaLister.VerticalPodAutoscalers(rev.Namespace).Get(vpaName)
 	if err == nil {
 		logger.Infof("Found exising VPA %q", vpaName)
 		return nil
@@ -886,6 +885,7 @@ func (c *Controller) reconcileVpa(ctx context.Context, rev *v1alpha1.Revision) e
 	vpaObj := MakeVpa(rev)
 	vpaObj.OwnerReferences = append(vpaObj.OwnerReferences, *controllerRef)
 	logger.Infof("Creating VPA: %q", vpaObj.Name)
+	vs := c.VPAClientSet.PocV1alpha1().VerticalPodAutoscalers(rev.Namespace)
 	_, err = vs.Create(vpaObj)
 	return err
 }
