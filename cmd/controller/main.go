@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/configmap"
 
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
@@ -151,10 +152,13 @@ func main() {
 		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())
+
 	opt := controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: elaClient,
 		BuildClientSet:   buildClient,
+		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 	}
 
@@ -163,7 +167,6 @@ func main() {
 	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
 	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
@@ -174,11 +177,11 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
-		revision.NewController(opt, vpaClient, revisionInformer, buildInformer, configMapInformer,
+		revision.NewController(opt, vpaClient, revisionInformer, buildInformer,
 			deploymentInformer, coreServiceInformer, endpointsInformer, vpaInformer,
 			cfg, &revControllerConfig),
 		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
-			configMapInformer, cfg, autoscaleEnableScaleToZero),
+			cfg, autoscaleEnableScaleToZero),
 		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
 	}
 
@@ -187,6 +190,9 @@ func main() {
 	go buildInformerFactory.Start(stopCh)
 	go servingSystemInformerFactory.Start(stopCh)
 	go vpaInformerFactory.Start(stopCh)
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start configuration manager: %v", err)
+	}
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
@@ -196,7 +202,6 @@ func main() {
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
 		buildInformer.Informer().HasSynced,
-		configMapInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,

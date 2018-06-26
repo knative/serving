@@ -191,18 +191,12 @@ func NewController(
 	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
 	buildInformer buildinformers.BuildInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
 	config *rest.Config,
 	controllerConfig *ControllerConfig) controller.Interface {
-
-	networkConfig, err := NewNetworkConfig(opt.KubeClientSet)
-	if err != nil {
-		opt.Logger.Fatalf("Error loading network config: %v", err)
-	}
 
 	c := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),
@@ -215,7 +209,6 @@ func NewController(
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
 		controllerConfig: controllerConfig,
-		networkConfig:    networkConfig,
 	}
 
 	// Set up an event handler for when the resource types of interest change
@@ -244,10 +237,7 @@ func NewController(
 		},
 	})
 
-	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addConfigMapEvent,
-		UpdateFunc: c.updateConfigMapEvent,
-	})
+	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
 
 	return c
 }
@@ -948,30 +938,18 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 	return rev, nil
 }
 
-func (c *Controller) addConfigMapEvent(obj interface{}) {
-	configMap := obj.(*corev1.ConfigMap)
-	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetNetworkConfigMapName() {
-		return
-	}
-
+func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
 	c.Logger.Infof("Network config map is added or updated: %v", configMap)
 	newNetworkConfig := NewNetworkConfigFromConfigMap(configMap)
 	c.Logger.Infof("IstioOutboundIPRanges: %v", newNetworkConfig.IstioOutboundIPRanges)
-	c.setNetworkConfig(newNetworkConfig)
-}
 
-func (c *Controller) updateConfigMapEvent(old, new interface{}) {
-	c.addConfigMapEvent(new)
+	c.networkConfigMutex.Lock()
+	defer c.networkConfigMutex.Unlock()
+	c.networkConfig = newNetworkConfig
 }
 
 func (c *Controller) getNetworkConfig() *NetworkConfig {
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	return c.networkConfig
-}
-
-func (c *Controller) setNetworkConfig(cfg *NetworkConfig) {
-	c.networkConfigMutex.Lock()
-	defer c.networkConfigMutex.Unlock()
-	c.networkConfig = cfg
 }

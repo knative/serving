@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/configmap"
 
 	"go.uber.org/zap"
 
@@ -223,7 +224,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory,
+	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 
 	// Create fake clients
@@ -232,7 +233,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 
-	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
+	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetNetworkConfigMapName(),
@@ -244,19 +245,18 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
-	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
 		ctrl.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: elaClient,
+			ConfigMapWatcher: configMapWatcher,
 			Logger:           zap.NewNop().Sugar(),
 		},
 		vpaClient,
 		elaInformer.Serving().V1alpha1().Revisions(),
 		buildInformer.Build().V1alpha1().Builds(),
-		servingSystemInformer.Core().V1().ConfigMaps(),
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
@@ -279,7 +279,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory,
+	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 	testControllerConfig := getTestControllerConfig()
 	return newTestControllerWithConfig(t, &testControllerConfig, elaObjects...)
@@ -1689,7 +1689,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 		"*",
 	}
 	for _, want := range validList {
-		annotations = getPodAnnotationsForConfig(t, want, "", false)
+		annotations = getPodAnnotationsForConfig(t, want, "")
 		if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
 			t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
 		}
@@ -1707,7 +1707,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 		"*,*",
 	}
 	for _, invalid := range invalidList {
-		annotations = getPodAnnotationsForConfig(t, invalid, "", false)
+		annotations = getPodAnnotationsForConfig(t, invalid, "")
 		if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
 			t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, invalid, got)
 		}
@@ -1715,60 +1715,31 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 	// Configuration has an annotation override - its value must be preserved
 	want := "10.240.10.0/14"
-	annotations = getPodAnnotationsForConfig(t, "", want, false)
+	annotations = getPodAnnotationsForConfig(t, "", want)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
 	}
-	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want, false)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
-	}
-
-	// Update a random config map in serving namespace
-	want = "10.240.10.0/14"
-	annotations = getPodAnnotationsForConfig(t, "", want, true)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
-	}
-	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want, true)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
-	}
-	want = "10.10.10.0/24"
-	annotations = getPodAnnotationsForConfig(t, want, "", true)
+	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
 	}
 }
 
-func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string, updateRandomConfigMap bool) map[string]string {
+func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
 	controller.resolver = &fixedResolver{digest}
-	controller.updateConfigMapEvent(nil,
-		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ctrl.GetNetworkConfigMapName(),
-				Namespace: pkg.GetServingSystemNamespace(),
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey: configMapValue,
-			}})
-
-	if updateRandomConfigMap {
-		controller.updateConfigMapEvent(nil,
-			&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "Someotherfile",
-					Namespace: pkg.GetServingSystemNamespace(),
-				},
-				Data: map[string]string{
-					IstioOutboundIPRangesKey: "11.11.11.11/24",
-				}})
-	}
+	controller.receiveNetworkConfig(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ctrl.GetNetworkConfigMapName(),
+			Namespace: pkg.GetServingSystemNamespace(),
+		},
+		Data: map[string]string{
+			IstioOutboundIPRangesKey: configMapValue,
+		}})
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
