@@ -15,11 +15,12 @@ If you are running Knative cluster on GKE, you can follow the [instructions](htt
 IP address. The region of the IP address should be the region your Knative
  cluster is running in (e.g. us-east1, us-central1, etc.).
 
-TODO: find out how to reserve static IP in other cloud platforms.
+TODO: add documentation on reserving static IP in other cloud platforms.
 
 ### Prerequisite 2: Deploy Istio
 
-Follow the [instructions](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#deploy-istio) to deploy Istio into your cluster.
+Follow the [instructions](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#deploy-istio) 
+to deploy Istio into your cluster.
 
 Once you reach this point, you can start to set up static IP for Ingresses.
 
@@ -29,7 +30,7 @@ Once you reach this point, you can start to set up static IP for Ingresses.
 
 Run following command to reset the external IP for the "istio-ingress" service 
 to the static IP you reserved.
-```
+```shell
 kubectl patch svc istio-ingress -n istio-system --patch '{"spec": { "loadBalancerIP": "<your-reserved-static-ip>" }}'
 ```
 

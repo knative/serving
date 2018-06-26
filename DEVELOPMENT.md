@@ -117,7 +117,8 @@ Then label namespaces with `istio-injection=enabled`:
 kubectl label namespace default istio-injection=enabled
 ```
 
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need to set up static IP for Ingresses in the cluster.
+Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need 
+to set up static IP for Ingresses in the cluster.
 
 ### Deploy Build
 
