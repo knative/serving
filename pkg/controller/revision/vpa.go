@@ -9,13 +9,14 @@ import (
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 )
 
-func MakeVpa(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
+func MakeVPA(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 	return &vpa.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        controller.GetRevisionVpaName(rev),
-			Namespace:   controller.GetServingNamespaceName(rev.Namespace),
-			Labels:      MakeServingResourceLabels(rev),
-			Annotations: MakeServingResourceAnnotations(rev),
+			Name:            controller.GetRevisionVPAName(rev),
+			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
+			Labels:          MakeServingResourceLabels(rev),
+			Annotations:     MakeServingResourceAnnotations(rev),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: vpa.VerticalPodAutoscalerSpec{
 			Selector: &metav1.LabelSelector{
