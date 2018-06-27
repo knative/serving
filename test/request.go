@@ -55,7 +55,7 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 		if resp.StatusCode != 200 {
 			for _, code := range retryableCodes {
 				if resp.StatusCode == code {
-					logger.Infof("Retrying for code %v\n", resp.StatusCode)
+					logger.Infof("Retrying for code %v", resp.StatusCode)
 					return false, nil
 				}
 			}
