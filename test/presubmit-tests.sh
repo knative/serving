@@ -49,10 +49,13 @@ function build_tests() {
 
 function unit_tests() {
   header "Running unit tests"
-  report_go_test ./...
+  report_go_test -short ./...
 }
 
 function integration_tests() {
+  # Run webhook integration tests
+  report_go_test ./...
+
   # Make sure environment variables are intact.
   restore_override_vars
   ./test/e2e-tests.sh

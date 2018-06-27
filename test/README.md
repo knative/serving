@@ -32,13 +32,19 @@ go get -u k8s.io/test-infra/kubetest
 To run all unit tests:
 
 ```bash
-go test ./...
+go test -short ./...
 ```
 
 _By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need
 [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
 ## Running end to end tests
+
+To run component level integration tests:
+
+```bash
+go test ./...
+```
 
 To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you need to have a running environment that meets
 [the e2e test environment requirements](#environment-requirements), and you need to specify the build tag `e2e`.
