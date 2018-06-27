@@ -823,6 +823,10 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 	if err := c.removeOutdatedRouteRules(ctx, route); err != nil {
 		return nil, err
 	}
+
+	// TODO: verify Activator route has been installed and transition
+	//       Revision to Reserve state from ToReserve.
+
 	return revisionRoutes, nil
 }
 
