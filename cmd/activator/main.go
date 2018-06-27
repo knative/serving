@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -24,7 +25,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/configmap"
@@ -39,8 +39,9 @@ import (
 )
 
 const (
-	maxRetry      = 60
-	retryInterval = 1 * time.Second
+	maxUploadBytes = 32e6 // 32MB - same as app engine
+	maxRetry       = 60
+	retryInterval  = 1 * time.Second
 )
 
 type activationHandler struct {
@@ -57,7 +58,7 @@ type retryRoundTripper struct {
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	var err error
-	var reqBody []byte
+	var reqBody *bytes.Reader
 
 	transport := http.DefaultTransport
 
@@ -66,13 +67,15 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 	}
 
 	if r.Body != nil {
-		reqBody, err = ioutil.ReadAll(r.Body)
+		reqBytes, err := ioutil.ReadAll(r.Body)
 
 		if err != nil {
-			glog.Errorf("Error reading request body: %s", err)
+			rrt.logger.Errorf("Error reading request body: %s", err)
 			return nil, err
 		}
-		r.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
+
+		reqBody = bytes.NewReader(reqBytes)
+		r.Body = ioutil.NopCloser(reqBody)
 	}
 
 	resp, err := transport.RoundTrip(r)
@@ -85,7 +88,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		}
 
 		if err != nil {
-			glog.Errorf("Error making a request: %s", err)
+			rrt.logger.Errorf("Error making a request: %s", err)
 		}
 
 		if resp != nil {
@@ -98,7 +101,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		// The workaround is to clone the request body into a byte array
 		// so the body can be read multiple times.
 		if r.Body != nil {
-			r.Body = ioutil.NopCloser(bytes.NewReader(reqBody))
+			reqBody.Seek(0, io.SeekStart)
 		}
 
 		resp, err = transport.RoundTrip(r)
@@ -111,6 +114,11 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength > maxUploadBytes {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		return
+	}
+
 	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
 	name := r.Header.Get(controller.GetRevisionHeaderName())
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)
