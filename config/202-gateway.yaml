@@ -204,7 +204,7 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: istio-ingressgateway
+    name: knative-ingressgateway
     namespace: istio-system
 spec:
     maxReplicas: 1
@@ -212,9 +212,9 @@ spec:
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
-      name: istio-ingressgateway
+      name: knative-ingressgateway
     metrics:
       - type: Resource
         resource:
           name: cpu
-          targetAverageUtilization: 80
+          targetAverageUtilization: 60
