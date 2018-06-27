@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	sampleYaml = "test_images/helloworld/helloworld.yaml"
+	appYaml = "test_images/helloworld/helloworld.yaml"
 	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
 	ingressTimeout = 5 * time.Minute
 	servingTimeout = 2 * time.Minute
@@ -67,9 +67,9 @@ func TestHelloWorldFromShell(t *testing.T) {
 	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) },logger)
 
 	// Populate manifets file with the real path to the container
-	content, err := ioutil.ReadFile(sampleYaml)
+	content, err := ioutil.ReadFile(appYaml)
 	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", sampleYaml, err)
+		t.Fatalf("Failed to read file %s: %v", appYaml, err)
 	}
 	realContent := strings.Replace(string(content), yamlImagePlaceholder, imagePath, -1)
 	if _, err = newYaml.WriteString(realContent); err != nil {
