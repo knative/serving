@@ -1,3 +1,5 @@
+// +build integration
+
 /*
 Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,9 +37,6 @@ import (
 const testTimeout = time.Duration(10 * time.Second)
 
 func TestMissingContentType(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping webhook integration test in short mode.")
-	}
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
 		t.Errorf("testSetup() = %v", err)
@@ -88,9 +87,6 @@ func TestMissingContentType(t *testing.T) {
 }
 
 func TestEmptyRequestBody(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping webhook integration test in short mode.")
-	}
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
 		t.Errorf("testSetup() = %v", err)
@@ -144,9 +140,6 @@ func TestEmptyRequestBody(t *testing.T) {
 }
 
 func TestValidResponseForRevision(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping webhook integration test in short mode.")
-	}
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
 		t.Errorf("testSetup() = %v", err)
@@ -238,9 +231,6 @@ func TestValidResponseForRevision(t *testing.T) {
 }
 
 func TestInvalidResponseForConfiguration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping webhook integration test in short mode.")
-	}
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
 		t.Errorf("testSetup() = %v", err)
