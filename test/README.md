@@ -109,10 +109,6 @@ To run the script for all end to end test images:
 ./test/upload-test-images.sh ./test/conformance/test_images
 ```
 
-**Note:** the `TestHelloWorldFromShell` end-to-end test is an exception, as it uses the
-[sample "Hello World" app](/sample/helloworld/README.md) test image. Follow the instructions
-in the [setup section](/sample/helloworld/README.md#setup) to build and publish it.
-
 ### Adding new test images
 
 New test images should be placed in their own subdirectories. Be sure to to include a `Dockerfile`

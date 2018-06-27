@@ -29,9 +29,8 @@ import (
 )
 
 const (
-	helloWorldSampleExpectedOutput = "Hello World: shiniestnewestversion!"
-	sampleYaml = "../../sample/helloworld/sample.yaml"
-	yamlImagePlaceholder = "github.com/knative/serving/sample/helloworld"
+	sampleYaml = "test_images/helloworld/helloworld.yaml"
+	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
 	ingressTimeout = 5 * time.Minute
 	servingTimeout = 2 * time.Minute
 	checkInterval = 2 * time.Second
@@ -51,12 +50,10 @@ func cleanup(yamlFilename string) {
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger
 	logger := test.Logger.Named("TestHelloWorldFromShell")
 
-	// Container is expected to live in <gcr>/sample/helloworld
-	// To regenerate it, see https://github.com/knative/serving/tree/master/sample/helloworld#setup
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "sample", "helloworld"}, "/")
+	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
 	logger.Infof("Creating manifest")
 
@@ -112,7 +109,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 
 	outputString := ""
 	timeout = servingTimeout
-	for (outputString != helloWorldSampleExpectedOutput && timeout >= 0) {
+	for (outputString != helloWorldExpectedOutput && timeout >= 0) {
 		output, err := exec.Command("curl", "--header", "Host:" + serviceHost, "http://" + serviceIP).Output()
 		errorString := "none"
 		time.Sleep(checkInterval)
@@ -124,7 +121,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
 	}
 
-	if outputString != helloWorldSampleExpectedOutput {
+	if outputString != helloWorldExpectedOutput {
 		t.Fatalf("Timeout waiting for app to start serving")
 	}
 	logger.Info("App is serving")
