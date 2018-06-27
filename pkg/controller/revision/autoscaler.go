@@ -34,21 +34,14 @@ import (
 
 // MakeServingAutoscalerDeployment creates the deployment of the
 // autoscaler for a particular revision.
-func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string) *appsv1.Deployment {
+func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, replicaCount int32) *appsv1.Deployment {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
 	}
 
-	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
-		MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
-		MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
-	}
-
 	annotations := MakeServingResourceAnnotations(rev)
 	annotations[sidecarIstioInjectAnnotation] = "true"
-
-	replicas := int32(1)
 
 	const autoscalerConfigName = "config-autoscaler"
 	autoscalerConfigVolume := corev1.Volume{
@@ -83,12 +76,8 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: &replicaCount,
 			Selector: MakeServingResourceSelector(rev),
-			Strategy: appsv1.DeploymentStrategy{
-				Type:          "RollingUpdate",
-				RollingUpdate: &rollingUpdateConfig,
-			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeServingAutoScalerLabels(rev),

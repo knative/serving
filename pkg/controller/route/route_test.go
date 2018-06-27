@@ -986,105 +986,6 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	}
 }
 
-func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
-	config := getTestConfiguration()
-	rev := getTestRevisionForConfig(config)
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			ConfigurationName: config.Name,
-			Percent:           100,
-		}},
-	)
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
-	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.updateRouteEvent(KeyOrDie(route))
-
-	rev, err := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting revision: %v", err)
-	}
-
-	// Revision should not have route label as the revision is not marked as the Config's latest ready revision
-	expectedLabels := map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-	}
-
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
-		t.Errorf("Unexpected label diff (-want +got): %v", diff)
-	}
-
-	// Mark the revision as the Config's latest ready revision
-	config.Status.LatestReadyRevisionName = rev.Name
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
-	controller.updateRouteEvent(KeyOrDie(route))
-
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting revision: %v", err)
-	}
-
-	// Revision should have the route label
-	expectedLabels = map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-		serving.RouteLabelKey:         route.Name,
-	}
-
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
-		t.Errorf("Unexpected label diff (-want +got): %v", diff)
-	}
-}
-
-func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
-	config := getTestConfiguration()
-	rev := getTestRevisionForConfig(config)
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			RevisionName: rev.Name,
-			Percent:      100,
-		}},
-	)
-
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
-	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	controller.updateRouteEvent(KeyOrDie(route))
-
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting config: %v", err)
-	}
-
-	// Configuration should be labeled for this route
-	expectedLabels := map[string]string{serving.RouteLabelKey: route.Name}
-	if diff := cmp.Diff(expectedLabels, config.Labels); diff != "" {
-		t.Errorf("Unexpected label in configuration diff (-want +got): %v", diff)
-	}
-
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("error getting revision: %v", err)
-	}
-
-	// Revision should have the route label
-	expectedLabels = map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-		serving.RouteLabelKey:         route.Name,
-	}
-
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
-		t.Errorf("Unexpected label in revision diff (-want +got): %v", diff)
-	}
-}
-
 func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
@@ -1221,7 +1122,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 	}
 }
 
-func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
+func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -1234,10 +1135,6 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 	// Set config's route label with route name to make sure config's label will not be set
 	// by function setLabelForGivenConfigurations.
 	config.Labels = map[string]string{serving.RouteLabelKey: route.Name}
-
-	// Set revision's route label with route name to make sure revision's label will not be set
-	// by function setLabelForGivenRevisions.
-	rev.Labels[serving.RouteLabelKey] = route.Name
 
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1264,15 +1161,13 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 	controller.updateRouteEvent(route.Namespace + "/" + route.Name)
 }
 
-func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
+func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a route label in configuration which is expected to be deleted.
 	config.Labels = map[string]string{serving.RouteLabelKey: route.Name}
 	rev := getTestRevisionForConfig(config)
-	// Set a route label in revision which is expected to be deleted.
-	rev.Labels[serving.RouteLabelKey] = route.Name
 
 	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
