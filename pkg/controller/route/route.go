@@ -39,7 +39,6 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
-	extv1beta1informers "k8s.io/client-go/informers/extensions/v1beta1"
 )
 
 const (
@@ -71,7 +70,6 @@ func NewController(
 	opt controller.Options,
 	routeInformer servinginformers.RouteInformer,
 	configInformer servinginformers.ConfigurationInformer,
-	ingressInformer extv1beta1informers.IngressInformer,
 	enableScaleToZero *k8sflag.BoolFlag,
 ) *Controller {
 
