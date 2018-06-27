@@ -97,6 +97,8 @@ function teardown() {
     gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
     delete_gcr_images ${DOCKER_REPO_OVERRIDE}
   else
+    # Delete the kubernetes source downloaded by kubetest
+    rm -fr kubernetes kubernetes.tar.gz
     restore_override_vars
   fi
 }
