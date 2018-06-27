@@ -58,9 +58,9 @@ func TestCreateCerts(t *testing.T) {
 
 	// Verify domain names
 	expectedDNSNames := []string{
-		"webhook.knative-serving-system",
-		"webhook.knative-serving-system.svc",
-		"webhook.knative-serving-system.svc.cluster.local",
+		"webhook.knative-serving",
+		"webhook.knative-serving.svc",
+		"webhook.knative-serving.svc.cluster.local",
 	}
 	if diff := cmp.Diff(caParsedCert.DNSNames, expectedDNSNames); diff != "" {
 		t.Fatalf("Unexpected CA Cert DNS Name (-want +got) : %v", diff)
