@@ -546,7 +546,7 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      elaWebhookDeployment,
+			Name:      servingWebhookDeployment,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 	}

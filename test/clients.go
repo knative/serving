@@ -19,7 +19,7 @@ package test
 
 import (
 	"github.com/knative/serving/pkg/client/clientset/versioned"
-	elatyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -28,9 +28,9 @@ import (
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
 	Kube      *kubernetes.Clientset
-	Routes    elatyped.RouteInterface
-	Configs   elatyped.ConfigurationInterface
-	Revisions elatyped.RevisionInterface
+	Routes    servingtyped.RouteInterface
+	Configs   servingtyped.ConfigurationInterface
+	Revisions servingtyped.RevisionInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the

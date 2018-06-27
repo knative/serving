@@ -617,7 +617,7 @@ func (c *Controller) computeRevisionRoutes(
 	// The total percent of all inactive revisions.
 	totalInactivePercent := 0
 	ns := route.Namespace
-	elaNS := controller.GetServingNamespaceName(ns)
+	servingNS := controller.GetServingNamespaceName(ns)
 	ret := []RevisionRoute{}
 
 	for _, tt := range route.Spec.Traffic {
@@ -669,7 +669,7 @@ func (c *Controller) computeRevisionRoutes(
 				Name:         tt.Name,
 				RevisionName: rev.Name,
 				Service:      rev.Status.ServiceName,
-				Namespace:    elaNS,
+				Namespace:    servingNS,
 				Weight:       tt.Percent,
 			}
 			ret = append(ret, rr)
@@ -705,7 +705,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	elaNS := controller.GetServingNamespaceName(ns)
+	servingNS := controller.GetServingNamespaceName(ns)
 	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(ns)
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {
@@ -728,7 +728,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 					revRoutes = append(revRoutes, RevisionRoute{
 						RevisionName: rev.Name,
 						Service:      rev.Status.ServiceName,
-						Namespace:    elaNS,
+						Namespace:    servingNS,
 						Weight:       0,
 					})
 				}

@@ -109,7 +109,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
 	logger.Debugf("LogURL: %s", logURL)
 
-	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
+	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/knative/serving/issues/990 is fixed
 }
 
 // Get revision name from configuration.

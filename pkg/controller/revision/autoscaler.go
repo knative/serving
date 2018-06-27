@@ -108,19 +108,19 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 							ContainerPort: autoscalerPort,
 						}},
 						Env: []corev1.EnvVar{{
-							Name:  "ELA_NAMESPACE",
+							Name:  "SERVING_NAMESPACE",
 							Value: rev.Namespace,
 						}, {
-							Name:  "ELA_DEPLOYMENT",
+							Name:  "SERVING_DEPLOYMENT",
 							Value: controller.GetRevisionDeploymentName(rev),
 						}, {
-							Name:  "ELA_CONFIGURATION",
+							Name:  "SERVING_CONFIGURATION",
 							Value: configName,
 						}, {
-							Name:  "ELA_REVISION",
+							Name:  "SERVING_REVISION",
 							Value: rev.Name,
 						}, {
-							Name:  "ELA_AUTOSCALER_PORT",
+							Name:  "SERVING_AUTOSCALER_PORT",
 							Value: strconv.Itoa(autoscalerPort),
 						}},
 						Args: []string{
