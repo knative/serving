@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ type revisionID struct {
 	name      string
 }
 
-// Endpoint is an ip, port pair for an active revision.
+// Endpoint is a fully-qualified domain name / port pair for an active revision.
 type Endpoint struct {
-	IP   string
+	FQDN string
 	Port int32
 }

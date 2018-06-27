@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ _tmp="${SERVING_ROOT}/_tmp"
 cleanup() {
   rm -rf "${_tmp}"
 }
+
 trap "cleanup" EXIT SIGINT
 
 cleanup
@@ -35,7 +36,7 @@ mkdir -p "${TMP_DIFFROOT}"
 cp -a "${DIFFROOT}"/* "${TMP_DIFFROOT}"
 
 "${SERVING_ROOT}/hack/update-codegen.sh"
-echo "diffing ${DIFFROOT} against freshly generated codegen"
+echo "Diffing ${DIFFROOT} against freshly generated codegen"
 ret=0
 diff -Naupr "${DIFFROOT}" "${TMP_DIFFROOT}" || ret=$?
 cp -a "${TMP_DIFFROOT}"/* "${DIFFROOT}"
@@ -43,6 +44,6 @@ if [[ $ret -eq 0 ]]
 then
   echo "${DIFFROOT} up to date."
 else
-  echo "${DIFFROOT} is out of date. Please run ./hack/update-codegen.sh"
+  echo "ERROR: ${DIFFROOT} is out of date. Please run ./hack/update-codegen.sh"
   exit 1
 fi

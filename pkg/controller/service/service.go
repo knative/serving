@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,84 +17,80 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 )
 
-var (
-	processItemCount = stats.Int64(
-		"controller_service_queue_process_count",
-		"Counter to keep track of items in the service work queue",
-		stats.UnitNone)
-	statusTagKey tag.Key
-)
-
-const (
-	controllerAgentName = "service-controller"
-)
+const controllerAgentName = "service-controller"
 
 // Controller implements the controller for Service resources.
-// +controller:group=ela,version=v1alpha1,kind=Service,resource=services
 type Controller struct {
 	*controller.Base
 
-	// lister indexes properties about Services
-	lister listers.ServiceLister
-	synced cache.InformerSynced
-
-	// workqueue is a rate limited work queue. This is used to queue work to be
-	// processed instead of performing it as soon as a change happens. This
-	// means we can ensure we only process a fixed amount of resources at a
-	// time, and makes it easy to ensure we are never processing the same item
-	// simultaneously in two different workers.
-	workqueue workqueue.RateLimitingInterface
-	// recorder is an event recorder for recording Event resources to the
-	// Kubernetes API.
-	recorder record.EventRecorder
+	// listers index properties about resources
+	serviceLister       listers.ServiceLister
+	configurationLister listers.ConfigurationLister
+	routeLister         listers.RouteLister
 }
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
-	kubeClientSet kubernetes.Interface,
-	elaClientSet clientset.Interface,
-	kubeInformerFactory kubeinformers.SharedInformerFactory,
-	elaInformerFactory informers.SharedInformerFactory,
-	config *rest.Config,
-	controllerConfig controller.Config,
-	logger *zap.SugaredLogger) controller.Interface {
+	opt controller.Options,
+	serviceInformer servinginformers.ServiceInformer,
+	configurationInformer servinginformers.ConfigurationInformer,
+	routeInformer servinginformers.RouteInformer,
+	config *rest.Config) controller.Interface {
 
-	// obtain references to a shared index informer for the Services.
-	informer := elaInformerFactory.Serving().V1alpha1().Services()
-
-	controller := &Controller{
-		Base: controller.NewBase(kubeClientSet, elaClientSet, kubeInformerFactory,
-			elaInformerFactory, informer.Informer(), controllerAgentName, "Revisions", logger),
-		lister: informer.Lister(),
-		synced: informer.Informer().HasSynced,
+	c := &Controller{
+		Base:                controller.NewBase(opt, controllerAgentName, "Services"),
+		serviceLister:       serviceInformer.Lister(),
+		configurationLister: configurationInformer.Lister(),
+		routeLister:         routeInformer.Lister(),
 	}
 
-	return controller
+	c.Logger.Info("Setting up event handlers")
+	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.Enqueue,
+		UpdateFunc: controller.PassNew(c.Enqueue),
+		DeleteFunc: c.Enqueue,
+	})
+
+	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter("Service"),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    c.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
+		},
+	})
+
+	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter("Service"),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    c.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
+		},
+	})
+
+	return c
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -102,8 +98,7 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, []cache.InformerSynced{c.synced},
-		c.updateServiceEvent, "Service")
+	return c.RunController(threadiness, stopCh, c.Reconcile, "Service")
 }
 
 // loggerWithServiceInfo enriches the logs with service name and namespace.
@@ -111,10 +106,10 @@ func loggerWithServiceInfo(logger *zap.SugaredLogger, ns string, name string) *z
 	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Service, name))
 }
 
-// updateServiceEvent compares the actual state with the desired, and attempts to
+// Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
-func (c *Controller) updateServiceEvent(key string) error {
+func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -122,114 +117,152 @@ func (c *Controller) updateServiceEvent(key string) error {
 		return nil
 	}
 
+	// Wrap our logger with the additional context of the configuration that we are reconciling.
 	logger := loggerWithServiceInfo(c.Logger, namespace, name)
+	ctx := logging.WithLogger(context.TODO(), logger)
 
 	// Get the Service resource with this namespace/name
-	service, err := c.lister.Services(namespace).Get(name)
-	if err != nil {
-		// The resource may no longer exist, in which case we stop
-		// processing.
-		if apierrs.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("service %q in work queue no longer exists", key))
-			return nil
-		}
-
+	original, err := c.serviceLister.Services(namespace).Get(name)
+	if apierrs.IsNotFound(err) {
+		// The resource may no longer exist, in which case we stop processing.
+		runtime.HandleError(fmt.Errorf("service %q in work queue no longer exists", key))
+		return nil
+	} else if err != nil {
 		return err
 	}
 
 	// Don't modify the informers copy
-	service = service.DeepCopy()
+	service := original.DeepCopy()
 
-	// We added the Generation to avoid fighting the Configuration controller,
-	// which adds a Generation to avoid fighting the Revision controller. We
-	// shouldn't need this once k8s 1.10 lands, see:
-	// https://github.com/kubernetes/kubernetes/issues/58778
-	// TODO(#642): Remove this.
-	if service.GetGeneration() == service.Status.ObservedGeneration {
-		logger.Infof("Skipping reconcile since already reconciled %d == %d",
-			service.Spec.Generation, service.Status.ObservedGeneration)
-		return nil
+	// Reconcile this copy of the service and then write back any status
+	// updates regardless of whether the reconciliation errored out.
+	err = c.reconcile(ctx, service)
+	if equality.Semantic.DeepEqual(original.Status, service.Status) {
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the informer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	} else if _, err := c.updateStatus(service); err != nil {
+		logger.Warn("Failed to update service status", zap.Error(err))
+		return err
 	}
+	return err
+}
 
-	logger.Infof("Running reconcile Service for %s\n%+v\n", service.Name, service)
+func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) error {
+	logger := logging.FromContext(ctx)
+	service.Status.InitializeConditions()
 
-	config := MakeServiceConfiguration(service)
-	if err := c.reconcileConfiguration(config); err != nil {
-		logger.Errorf("Failed to update Configuration for %q: %v", service.Name, err)
+	configName := controller.GetServiceConfigurationName(service)
+	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
+	if errors.IsNotFound(err) {
+		config, err = c.createConfiguration(service)
+		if err != nil {
+			logger.Errorf("Failed to create Configuration %q: %v", configName, err)
+			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
+			return err
+		}
+	} else if err != nil {
+		logger.Errorf("Failed to reconcile Service: %q failed to Get Configuration: %q; %v", service.Name, configName, zap.Error(err))
+		return err
+	} else if config, err = c.reconcileConfiguration(service, config); err != nil {
+		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Configuration: %q; %v", service.Name, configName, zap.Error(err))
 		return err
 	}
 
-	// TODO: If revision is specified, check that the revision is ready before
-	// switching routes to it. Though route controller might just do the right thing?
+	// Update our Status based on the state of our underlying Configuration.
+	service.Status.PropagateConfigurationStatus(config.Status)
 
-	route := MakeServiceRoute(service, config.Name)
-	if err := c.reconcileRoute(route); err != nil {
-		logger.Errorf("Failed to update Route for %q: %v", service.Name, err)
+	routeName := controller.GetServiceRouteName(service)
+	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
+	if errors.IsNotFound(err) {
+		route, err = c.createRoute(service)
+		if err != nil {
+			logger.Errorf("Failed to create Route %q: %v", routeName, err)
+			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
+			return err
+		}
+	} else if err != nil {
+		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
+		return err
+	} else if route, err = c.reconcileRoute(service, route); err != nil {
+		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
 		return err
 	}
+
+	// Update our Status based on the state of our underlying Route.
+	service.Status.PropagateRouteStatus(route.Status)
 
 	// Update the Status of the Service with the latest generation that
 	// we just reconciled against so we don't keep generating Revisions.
 	// TODO(#642): Remove this.
 	service.Status.ObservedGeneration = service.Spec.Generation
 
-	logger.Infof("Updating the Service status:\n%+v", service)
-
-	if _, err := c.updateStatus(service); err != nil {
-		logger.Errorf("Failed to update Service %q: %v", service.Name, err)
-		return err
-	}
-
 	return nil
 }
 
 func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service, error) {
-	serviceClient := c.ElaClientSet.ServingV1alpha1().Services(service.Namespace)
-	existing, err := serviceClient.Get(service.Name, metav1.GetOptions{})
+	existing, err := c.serviceLister.Services(service.Namespace).Get(service.Name)
 	if err != nil {
 		return nil, err
 	}
 	// Check if there is anything to update.
 	if !reflect.DeepEqual(existing.Status, service.Status) {
 		existing.Status = service.Status
+		serviceClient := c.ServingClientSet.ServingV1alpha1().Services(service.Namespace)
 		// TODO: for CRD there's no updatestatus, so use normal update.
 		return serviceClient.Update(existing)
 	}
 	return existing, nil
 }
 
-func (c *Controller) reconcileConfiguration(config *v1alpha1.Configuration) error {
-	configClient := c.ElaClientSet.ServingV1alpha1().Configurations(config.Namespace)
-
-	existing, err := configClient.Get(config.Name, metav1.GetOptions{})
+func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+	cfg, err := MakeServiceConfiguration(service)
 	if err != nil {
-		if apierrs.IsNotFound(err) {
-			_, err := configClient.Create(config)
-			return err
-		}
-		return err
+		return nil, err
 	}
-	// TODO(vaikas): Perhaps only update if there are actual changes.
-	copy := existing.DeepCopy()
-	copy.Spec = config.Spec
-	_, err = configClient.Update(copy)
-	return err
+	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
-func (c *Controller) reconcileRoute(route *v1alpha1.Route) error {
-	routeClient := c.ElaClientSet.ServingV1alpha1().Routes(route.Namespace)
-
-	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
+func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
+	desiredConfig, err := MakeServiceConfiguration(service)
 	if err != nil {
-		if apierrs.IsNotFound(err) {
-			_, err := routeClient.Create(route)
-			return err
-		}
-		return err
+		return nil, err
 	}
-	// TODO(vaikas): Perhaps only update if there are actual changes.
-	copy := existing.DeepCopy()
-	copy.Spec = route.Spec
-	_, err = routeClient.Update(copy)
-	return err
+
+	// TODO(#642): Remove this (needed to avoid continuous updates)
+	desiredConfig.Spec.Generation = config.Spec.Generation
+
+	if equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) {
+		// No differences to reconcile.
+		return config, nil
+	}
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %v", cmp.Diff(desiredConfig.Spec, config.Spec))
+
+	// Preserve the rest of the object (e.g. ObjectMeta)
+	config.Spec = desiredConfig.Spec
+	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(config)
+}
+
+func (c *Controller) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
+}
+
+func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
+	desiredRoute := MakeServiceRoute(service)
+
+	// TODO(#642): Remove this (needed to avoid continuous updates)
+	desiredRoute.Spec.Generation = route.Spec.Generation
+
+	if equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
+		// No differences to reconcile.
+		return route, nil
+	}
+	logger.Infof("Reconciling route diff (-desired, +observed): %v", cmp.Diff(desiredRoute.Spec, route.Spec))
+
+	// Preserve the rest of the object (e.g. ObjectMeta)
+	route.Spec = desiredRoute.Spec
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(route)
 }

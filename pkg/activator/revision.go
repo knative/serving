@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@ package activator
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging/logkey"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -33,17 +34,19 @@ var _ Activator = (*revisionActivator)(nil)
 type revisionActivator struct {
 	readyTimout time.Duration // for testing
 	kubeClient  kubernetes.Interface
-	elaClient   clientset.Interface
+	knaClient   clientset.Interface
+	logger      *zap.SugaredLogger
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, logger *zap.SugaredLogger) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
-		elaClient:   elaClient,
+		knaClient:   elaClient,
+		logger:      logger,
 	}
 }
 
@@ -52,43 +55,43 @@ func (r *revisionActivator) Shutdown() {
 }
 
 func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
+	logger := loggerWithRevisionInfo(r.logger, namespace, name)
 	rev := revisionID{namespace: namespace, name: name}
 
 	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
-		log.Printf(msg, args...)
-		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(msg, args...)
+		logger.Infof(msg, args...)
+		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(fmt.Sprintf("%s for namespace: %s, revision name: %s ", msg, namespace, name), args...)
 	}
 
 	// Get the current revision serving state
-	revisionClient := r.elaClient.ServingV1alpha1().Revisions(rev.namespace)
+	revisionClient := r.knaClient.ServingV1alpha1().Revisions(rev.namespace)
 	revision, err := revisionClient.Get(rev.name, metav1.GetOptions{})
 	if err != nil {
-		return internalError("Unable to get revision %s/%s: %v", rev.namespace, rev.name, err)
+		return internalError("Unable to get revision: %v", err)
 	}
 	switch revision.Spec.ServingState {
 	default:
-		return internalError("Disregarding activation request for revision %s/%s in unknown state %v",
-			rev.namespace, rev.name, revision.Spec.ServingState)
+		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
 	case v1alpha1.RevisionServingStateRetired:
-		return internalError("Disregarding activation request for retired revision %s/%s", rev.namespace, rev.name)
+		return internalError("Disregarding activation request for retired revision ")
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do
 	case v1alpha1.RevisionServingStateReserve:
 		// Activate the revision
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		if _, err := revisionClient.Update(revision); err != nil {
-			return internalError("Failed to activate revision %s/%s: %v", rev.namespace, rev.name, err)
+			return internalError("Failed to activate revision %v", err)
 		}
-		log.Printf("Activated revision %s/%s", rev.namespace, rev.name)
+		logger.Info("Activated revision")
 	}
 
 	// Wait for the revision to be ready
 	if !revision.Status.IsReady() {
-		wi, err := r.elaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
+		wi, err := r.knaClient.ServingV1alpha1().Revisions(rev.namespace).Watch(metav1.ListOptions{
 			FieldSelector: fmt.Sprintf("metadata.name=%s", rev.name),
 		})
 		if err != nil {
-			return internalError("Failed to watch the revision %s/%s", rev.namespace, rev.name)
+			return internalError("Failed to watch the revision")
 		}
 		defer wi.Stop()
 		ch := wi.ResultChan()
@@ -96,50 +99,49 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 		for {
 			select {
 			case <-time.After(r.readyTimout):
-				return internalError("Timeout waiting for revision %s/%s to become ready", rev.namespace, rev.name)
+				return internalError("Timeout waiting for revision to become ready")
 			case event := <-ch:
 				if revision, ok := event.Object.(*v1alpha1.Revision); ok {
 					if !revision.Status.IsReady() {
-						log.Printf("Revision %s/%s is not yet ready", rev.namespace, rev.name)
+						logger.Info("Revision is not yet ready")
 						continue
+					} else {
+						logger.Info("Revision is ready")
 					}
 					break RevisionReady
 				} else {
-					return internalError("Unexpected result type for revision %s/%s: %v", rev.namespace, rev.name, event)
+					return internalError("Unexpected result type for revision: %v", event)
 				}
 			}
 		}
 	}
 
 	// Get the revision endpoint
-	//
-	// TODO: figure out why do we need to use the pod IP directly to avoid the delay.
-	// We should be able to use the k8s service cluster IP.
-	// https://github.com/knative/serving/issues/660
-	endpointName := controller.GetElaK8SServiceNameForRevision(revision)
-	k8sEndpoint, err := r.kubeClient.CoreV1().Endpoints(rev.namespace).Get(endpointName, metav1.GetOptions{})
+	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
+	serviceName := controller.GetServingK8SServiceNameForRevision(revision)
+	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		return internalError("Unable to get endpoint %s for revision %s/%s: %v",
-			endpointName, rev.namespace, rev.name, err)
+		return internalError("Unable to get service %s for revision: %v",
+			serviceName, err)
 	}
-	if len(k8sEndpoint.Subsets) != 1 {
-		return internalError("Revision %s/%s needs one endpoint subset. Found %v", rev.namespace, rev.name, len(k8sEndpoint.Subsets))
+
+	// TODO: in the future, the target service could have more than one port.
+	// https://github.com/elafros/elafros/issues/837
+	if len(svc.Spec.Ports) != 1 {
+		return internalError("Revision needs one port. Found %v", len(svc.Spec.Ports))
 	}
-	subset := k8sEndpoint.Subsets[0]
-	if len(subset.Addresses) != 1 || len(subset.Ports) != 1 {
-		return internalError("Revision %s/%s needs one endpoint address and port. Found %v addresses and %v ports",
-			rev.namespace, rev.name, len(subset.Addresses), len(subset.Ports))
-	}
-	ip := subset.Addresses[0].IP
-	port := subset.Ports[0].Port
-	if ip == "" || port == 0 {
-		return internalError("Invalid ip %q or port %q for revision %s/%s", ip, port, rev.namespace, rev.name)
-	}
+	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, revision.Namespace)
+	port := svc.Spec.Ports[0].Port
 
 	// Return the endpoint and active=true
 	end = Endpoint{
-		IP:   ip,
+		FQDN: fqdn,
 		Port: port,
 	}
 	return end, 0, nil
+}
+
+// loggerWithRevisionInfo enriches the logs with revision name and namespace.
+func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
+	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Revision, name))
 }

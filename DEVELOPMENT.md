@@ -117,6 +117,9 @@ Then label namespaces with `istio-injection=enabled`:
 kubectl label namespace default istio-injection=enabled
 ```
 
+Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need 
+to set up static IP for Ingresses in the cluster.
+
 ### Deploy Build
 
 ```shell
@@ -127,13 +130,19 @@ kubectl apply -f ./third_party/config/build/release.yaml
 
 This step includes building Knative Serving, creating and pushing developer images and deploying them to your Kubernetes cluster.
 
+First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file. 
+If this file is edited and deployed after Knative Serving installation, the changes in it will be
+effective only for newly created revisions.
+
+Next, run:
+
 ```shell
 ko apply -f config/
 ```
 
 You can see things running with:
 ```shell
-kubectl -n knative-serving-system get pods
+kubectl -n knative-serving get pods
 NAME                                READY     STATUS    RESTARTS   AGE
 controller-77897cc687-vp27q   1/1       Running   0          16s
 webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
@@ -142,7 +151,7 @@ webhook-5cb5cfc667-k7mcg      1/1       Running   0          16s
 You can access the Knative Serving Controller's logs with:
 
 ```shell
-kubectl -n knative-serving-system logs $(kubectl -n knative-serving-system get pods -l app=controller -o name)
+kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=controller -o name)
 ```
 
 If you're using a GCP project to host your Kubernetes cluster, it's good to check the
@@ -150,33 +159,38 @@ If you're using a GCP project to host your Kubernetes cluster, it's good to chec
 page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
 ### Enable log and metric collection
-You can use two different setups for collecting logs and metrics:
-1. **everything**: This configuration collects logs & metrics from user containers, build controller and istio requests.
+
+You can use two different setups for collecting logs(to Elasticsearch&Kibana) and metrics
+(See [Logs and Metrics](./docs/telemetry.md) for setting up other logging backend):
+
+1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-prod \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
 
-2. **everything-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
+1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-dev \
-    -f third_party/config/monitoring \
+    -f config/monitoring/150-elasticsearch-dev \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
-
 ```
 
-Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md)
+Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md).
 
 ## Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
+
 * **If you change a type definition ([pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.)),** then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh).
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
@@ -196,6 +210,7 @@ redeploy `Knative Serving`](./README.md#start-knative).
 You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
+  -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-0.8.0/istio.yaml

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"reflect"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,10 +30,12 @@ import (
 
 // Service
 type Service struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   ServiceSpec   `json:"spec,omitempty"`
+	// +optional
+	Spec ServiceSpec `json:"spec,omitempty"`
+	// +optional
 	Status ServiceStatus `json:"status,omitempty"`
 }
 
@@ -42,6 +46,7 @@ type ServiceSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// RunLatest defines a simple Service. It will automatically
@@ -58,15 +63,18 @@ type ServiceSpec struct {
 
 type RunLatestType struct {
 	// The configuration for this service.
+	// +optional
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
 type PinnedType struct {
 	// The revision name to pin this service to until changed
 	// to a different service type.
+	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
 	// The configuration for this service.
+	// +optional
 	Configuration ConfigurationSpec `json:"configuration,omitempty"`
 }
 
@@ -74,6 +82,9 @@ type ServiceCondition struct {
 	Type ServiceConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -88,13 +99,47 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady ServiceConditionType = "Ready"
+	// ServiceConditionRoutesReady is set when the service's underlying
+	// routes have reported readiness.
+	ServiceConditionRoutesReady ServiceConditionType = "RoutesReady"
+	// ServiceConditionConfigurationsReady is set when the service's underlying
+	// configurations have reported readiness.
+	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 
 type ServiceStatus struct {
+	// +optional
 	Conditions []ServiceCondition `json:"conditions,omitempty"`
+
+	// From RouteStatus.
+	// Domain holds the top-level domain that will distribute traffic over the provided targets.
+	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	Domain string `json:"domain,omitempty"`
+
+	// From RouteStatus.
+	// Traffic holds the configured traffic distribution.
+	// These entries will always contain RevisionName references.
+	// When ConfigurationName appears in the spec, this will hold the
+	// LatestReadyRevisionName that we last observed.
+	// +optional
+	Traffic []TrafficTarget `json:"traffic,omitempty"`
+
+	// From ConfigurationStatus.
+	// LatestReadyRevisionName holds the name of the latest Revision stamped out
+	// from this Service's Configuration that has had its "Ready" condition become "True".
+	// +optional
+	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
+
+	// From ConfigurationStatus.
+	// LatestCreatedRevisionName is the last revision that was created from this Service's
+	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+	// +optional
+	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Service that
 	// was last processed by the controller.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
@@ -136,7 +181,7 @@ func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition 
 	return nil
 }
 
-func (ss *ServiceStatus) SetCondition(new *ServiceCondition) {
+func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	if new == nil {
 		return
 	}
@@ -146,8 +191,15 @@ func (ss *ServiceStatus) SetCondition(new *ServiceCondition) {
 	for _, cond := range ss.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
 	ss.Conditions = conditions
 }
@@ -160,4 +212,91 @@ func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
 		}
 	}
 	ss.Conditions = conditions
+}
+
+func (ss *ServiceStatus) InitializeConditions() {
+	for _, cond := range []ServiceConditionType{
+		ServiceConditionReady,
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
+	} {
+		if rc := ss.GetCondition(cond); rc == nil {
+			ss.setCondition(&ServiceCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
+	ss.LatestReadyRevisionName = cs.LatestReadyRevisionName
+	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
+
+	cc := cs.GetCondition(ConfigurationConditionReady)
+	if cc == nil {
+		return
+	}
+	sct := []ServiceConditionType{ServiceConditionConfigurationsReady}
+	// If the underlying Configuration reported not ready, then bubble it up.
+	if cc.Status != corev1.ConditionTrue {
+		sct = append(sct, ServiceConditionReady)
+	}
+	for _, cond := range sct {
+		ss.setCondition(&ServiceCondition{
+			Type:    cond,
+			Status:  cc.Status,
+			Reason:  cc.Reason,
+			Message: cc.Message,
+		})
+	}
+	if cc.Status == corev1.ConditionTrue {
+		ss.checkAndMarkReady()
+	}
+}
+
+func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
+	ss.Domain = rs.Domain
+	ss.Traffic = rs.Traffic
+
+	rc := rs.GetCondition(RouteConditionReady)
+	if rc == nil {
+		return
+	}
+	sct := []ServiceConditionType{ServiceConditionRoutesReady}
+	// If the underlying Route reported not ready, then bubble it up.
+	if rc.Status != corev1.ConditionTrue {
+		sct = append(sct, ServiceConditionReady)
+	}
+	for _, cond := range sct {
+		ss.setCondition(&ServiceCondition{
+			Type:    cond,
+			Status:  rc.Status,
+			Reason:  rc.Reason,
+			Message: rc.Message,
+		})
+	}
+	if rc.Status == corev1.ConditionTrue {
+		ss.checkAndMarkReady()
+	}
+}
+
+func (ss *ServiceStatus) checkAndMarkReady() {
+	for _, cond := range []ServiceConditionType{
+		ServiceConditionConfigurationsReady,
+		ServiceConditionRoutesReady,
+	} {
+		c := ss.GetCondition(cond)
+		if c == nil || c.Status != corev1.ConditionTrue {
+			return
+		}
+	}
+	ss.markReady()
+}
+
+func (ss *ServiceStatus) markReady() {
+	ss.setCondition(&ServiceCondition{
+		Type:   ServiceConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

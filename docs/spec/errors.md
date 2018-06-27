@@ -59,11 +59,9 @@ Type names should be chosen such that these interpretations are clear:
 * `BuildSucceeded` works because `True` = success and `False` = failure.
 * `BuildCompleted` does not, because `False` could mean "in-progress".
 
-Conditions may also be omitted entirely if reconciliation has been
-skipped. When all conditions have succeeded, the "happy state"
-should clear other conditions for output legibility. Until the
-"happy state" is set, conditions should be persisted for the
-benefit of UI tools representing progress on the outcome.
+Conditions may also be omitted entirely if it doesn't pertain to the
+resource at hand.  e.g. Revisions that take pre-build containers may
+elide Build-related conditions.
 
 Conditions with a status of `False` will also supply additional details
 about the failure in [the "Reason" and "Message" sections](#condition-reason-and-message).
@@ -109,8 +107,8 @@ resources to cause a new Revision to be created.
 
 If the latest Revision fails to become `Ready` for any reason within
 some reasonable timeframe, the Configuration and Service should signal
-this with the `LatestRevisionReady` status, copying the reason and the
-message from the `Ready` condition on the Revision.
+this with the `Ready` status and `ConfigurationsReady` status, respectively,
+copying the reason and the message from the `Ready` condition on the Revision.
 
 ```http
 GET /api/serving.knative.dev/v1alpha1/namespaces/default/configurations/my-service
@@ -122,10 +120,10 @@ status:
   latestReadyRevisionName: abc
   latestCreatedRevisionName: bcd  # Hasn't become "Ready"
   conditions:
-  - type: LatestRevisionReady
+  - type: Ready
     status: False
     reason: BuildFailed
-    meassage: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
 ```
 
 ```http
@@ -139,11 +137,15 @@ status:
   latestCreatedRevisionName: bcd  # Hasn't become "Ready"
   conditions:
   - type: Ready
-    status: True  # If an earlier version is serving
-  - type: LatestRevisionReady
     status: False
     reason: BuildFailed
-    meassage: "Build Step XYZ failed with error message: $LASTLOGLINE"
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+  - type: ConfigurationsReady
+    status: False
+    reason: BuildFailed
+    message: "Build Step XYZ failed with error message: $LASTLOGLINE"
+  - type: RoutesReady
+    status: True
 ```
 
 ### Build failed
@@ -359,10 +361,12 @@ status:
     status: False
     reason: RevisionMissing
     message: "The configuration 'abc' does not have a LatestReadyRevision."
-  - type: LatestRevisionReady
+  - type: RoutesReady
     status: False
-    reason: ExitCode127
-    message: "Container failed with: SyntaxError: Unexpected identifier"
+    reason: RevisionMissing
+    message: "The configuration 'abc' does not have a LatestReadyRevision."
+  - type: ConfigurationsReady
+    status: True
 ```
 
 ### Revision not found by Route
@@ -420,10 +424,35 @@ status:
     message: "Configuration 'abc' referenced in traffic not found"
 ```
 
+### Unable to create Ingress
+
+If the Route is unable to create an Ingress resource to route its
+traffic to Revisions, the `IngressReady` condition will be marked
+as `False` with a reason of `NoIngress`.
+
+```http
+GET /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
+```
+
+```yaml
+...
+status:
+  traffic: []
+  conditions:
+  - type: Ready
+    status: False
+    reason: NoIngress
+    message: "Unable to create Ingress 'my-service-ingress'"
+  - type: IngressReady
+    status: False
+    reason: NoIngress
+    message: "Unable to create Ingress 'my-service-ingress'"
+```
+
 ### Latest Revision of a Configuration deleted
 
 If the most recent Revision is deleted, the Configuration will set
-`LatestRevisionReady` to False.
+`Ready` to False.
 
 If the deleted Revision was also the most recent to become ready, the
 Configuration will also clear the `latestReadyRevisionName`. Additionally,
@@ -445,7 +474,7 @@ spec:
 status:
   latestCreatedRevision: abc
   conditions:
-  - type: LatestRevisionReady
+  - type: Ready
     status: False
     reason: RevisionMissing
     message: "The latest Revision appears to have been deleted."

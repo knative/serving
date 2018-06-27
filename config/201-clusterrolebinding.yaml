@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: controller
-    namespace: knative-serving-system
+    namespace: knative-serving
 roleRef:
   kind: ClusterRole
-  name: cluster-admin
+  name: knative-serving-admin
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -32,21 +32,8 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: autoscaler
-    namespace: knative-serving-system
+    namespace: knative-serving
 roleRef:
   kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: knative-serving-revision-read
-subjects:
-  - kind: ServiceAccount
-    name: knative-serving-revision
-    namespace: default
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin  # TODO(josephburnett): reduce this role to read-only
+  name: knative-serving-write
   apiGroup: rbac.authorization.k8s.io

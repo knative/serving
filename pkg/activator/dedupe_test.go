@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -249,25 +249,31 @@ func TestShutdown_ReturnError(t *testing.T) {
 type fakeActivator struct {
 	t         *testing.T
 	responses map[revisionID]activationResult
-	record    []revisionID
-	holds     map[revisionID]chan struct{}
+	holds     map[revisionID]*sync.WaitGroup
+
+	record      []revisionID
+	recordMutex sync.Mutex
 }
 
 func newFakeActivator(t *testing.T, responses map[revisionID]activationResult) *fakeActivator {
 	return &fakeActivator{
 		t:         t,
 		responses: responses,
+		holds:     make(map[revisionID]*sync.WaitGroup),
 		record:    make([]revisionID, 0),
-		holds:     make(map[revisionID]chan struct{}),
 	}
 }
 
 func (f *fakeActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
 	id := revisionID{namespace, name}
+
+	f.recordMutex.Lock()
 	f.record = append(f.record, id)
+	f.recordMutex.Unlock()
+
 	if result, ok := f.responses[id]; ok {
 		if hold, ok := f.holds[id]; ok {
-			<-hold
+			hold.Wait()
 		}
 		return result.endpoint, result.status, result.err
 	}
@@ -281,15 +287,18 @@ func (f *fakeActivator) Shutdown() {
 }
 
 func (f *fakeActivator) hold(id revisionID) {
-	if _, ok := f.holds[id]; !ok {
-		f.holds[id] = make(chan struct{})
+	_, ok := f.holds[id]
+
+	if !ok {
+		f.holds[id] = new(sync.WaitGroup)
 	}
+
+	f.holds[id].Add(1)
 }
 
 func (f *fakeActivator) release(id revisionID) {
 	if h, ok := f.holds[id]; ok {
-		close(h)
-		delete(f.holds, id)
+		h.Done()
 	}
 }
 

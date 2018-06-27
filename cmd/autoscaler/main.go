@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -77,6 +77,10 @@ var (
 	enableScaleToZero       = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
 	multiConcurrencyTarget  = autoscaleFlagSet.Float64("multi-concurrency-target", 0.0, k8sflag.Required)
 	singleConcurrencyTarget = autoscaleFlagSet.Float64("single-concurrency-target", 0.0, k8sflag.Required)
+
+	// Vertical pod autoscaling experiment
+	enableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
+	vpaMultiConcurrencyTarget    = autoscaleFlagSet.Float64("vpa-multi-concurrency-target", 10.0)
 )
 
 func initEnv() {
@@ -93,16 +97,20 @@ func autoscaler() {
 	case string(v1alpha1.RevisionRequestConcurrencyModelSingle):
 		targetConcurrency = singleConcurrencyTarget
 	case string(v1alpha1.RevisionRequestConcurrencyModelMulti):
-		targetConcurrency = multiConcurrencyTarget
+		if enableVerticalPodAutoscaling.Get() {
+			targetConcurrency = vpaMultiConcurrencyTarget
+		} else {
+			targetConcurrency = multiConcurrencyTarget
+		}
 	default:
 		logger.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}
 	config := ela_autoscaler.Config{
-		TargetConcurrency:    targetConcurrency,
-		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required),
-		StableWindow:         autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required),
-		PanicWindow:          autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required),
-		ScaleToZeroThreshold: autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required, k8sflag.Dynamic),
+		TargetConcurrency:    targetConcurrency.Get(),
+		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required).Get(),
+		StableWindow:         *autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required).Get(),
+		PanicWindow:          *autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required).Get(),
+		ScaleToZeroThreshold: *autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required).Get(),
 	}
 	a := ela_autoscaler.NewAutoscaler(config, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
@@ -150,7 +158,7 @@ func scaleSerializer() {
 }
 
 func scaleTo(podCount int32) {
-	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (float64)(podCount))
 	if currentScale == podCount {
 		return
 	}
@@ -160,9 +168,9 @@ func scaleTo(podCount int32) {
 		logger.Error("Error getting Deployment %q: %s", elaDeployment, zap.Error(err))
 		return
 	}
-	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (int64)(podCount))
-	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (int64)(deployment.Status.Replicas))
-	statsReporter.Report(ela_autoscaler.ActualPodCountM, (int64)(deployment.Status.ReadyReplicas))
+	statsReporter.Report(ela_autoscaler.DesiredPodCountM, (float64)(podCount))
+	statsReporter.Report(ela_autoscaler.RequestedPodCountM, (float64)(deployment.Status.Replicas))
+	statsReporter.Report(ela_autoscaler.ActualPodCountM, (float64)(deployment.Status.ReadyReplicas))
 
 	if *deployment.Spec.Replicas == podCount {
 		currentScale = podCount
@@ -210,13 +218,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dec := gob.NewDecoder(bytes.NewBuffer(msg))
-		var stat ela_autoscaler.Stat
-		err = dec.Decode(&stat)
+		var sm ela_autoscaler.StatMessage
+		err = dec.Decode(&sm)
 		if err != nil {
 			logger.Error("Failed to decode stats", zap.Error(err))
 			continue
 		}
-		statChan <- stat
+		statChan <- sm.Stat
 	}
 }
 

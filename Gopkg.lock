@@ -342,7 +342,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-  revision = "bfc0222e894da677b45fd63828a89676aa706589"
+  revision = "5dba97ea172464d6459c393330ffba2152ec78dd"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -533,13 +533,16 @@
   packages = [
     "context",
     "context/ctxhttp",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
-    "lex/httplex",
-    "proxy"
+    "internal/socks",
+    "internal/timeseries",
+    "proxy",
+    "trace"
   ]
-  revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
+  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [[projects]]
   branch = "master"
@@ -622,6 +625,44 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  revision = "80063a038e333bbe006c878e4c5ce4c74d055498"
+
+[[projects]]
+  name = "google.golang.org/grpc"
+  packages = [
+    ".",
+    "balancer",
+    "balancer/base",
+    "balancer/roundrobin",
+    "codes",
+    "connectivity",
+    "credentials",
+    "encoding",
+    "encoding/proto",
+    "grpclog",
+    "internal",
+    "internal/backoff",
+    "internal/channelz",
+    "internal/grpcrand",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "resolver",
+    "resolver/dns",
+    "resolver/passthrough",
+    "stats",
+    "status",
+    "tap",
+    "transport"
+  ]
+  revision = "168a6198bcb0ef175f7dacec0b8691fc141dc9b8"
+  version = "v1.13.0"
+
+[[projects]]
   name = "gopkg.in/go-playground/webhooks.v3"
   packages = [
     ".",
@@ -681,6 +722,7 @@
 [[projects]]
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -728,6 +770,24 @@
   ]
   revision = "302974c03f7e50f16561ba237db776ab93594ef6"
   version = "kubernetes-1.10.0-beta.1"
+
+[[projects]]
+  branch = "vpa-release-0.1"
+  name = "k8s.io/autoscaler"
+  packages = [
+    "vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/fake",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/scheme",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/poc.autoscaling.k8s.io/v1alpha1/fake",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions/internalinterfaces",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io",
+    "vertical-pod-autoscaler/pkg/client/informers/externalversions/poc.autoscaling.k8s.io/v1alpha1",
+    "vertical-pod-autoscaler/pkg/client/listers/poc.autoscaling.k8s.io/v1alpha1"
+  ]
+  revision = "04b95d13c846a8ede6c9af8457701ca9baf081a8"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -952,6 +1012,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "621e4f5bec0b084d127193a1a2ec95460b8368224d81f7c2611900a91c1bbb12"
+  inputs-digest = "346690c5dadb1a84a397eaa9aa9c1ab5b70f2dd19924463ca4060cd3d0e2549a"
   solver-name = "gps-cdcl"
   solver-version = 1

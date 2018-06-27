@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	fakeEla "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,19 +31,21 @@ import (
 )
 
 const (
-	testNamespace = "test-namespace"
-	testRevision  = "test-rev"
+	testNamespace   = "test-namespace"
+	testRevision    = "test-rev"
+	testService     = testRevision + "-service"
+	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
 )
 
 func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
-	k8s, ela := fakeClients()
-	ela.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
-	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
-	a := NewRevisionActivator(k8s, ela)
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
-	want := Endpoint{"ip", 8080}
+	want := Endpoint{testServiceFQDN, 8080}
 	if got != want {
 		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
 	}
@@ -55,17 +58,17 @@ func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 }
 
 func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
-	k8s, ela := fakeClients()
-	ela.ServingV1alpha1().Revisions(testNamespace).Create(
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			build())
-	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
-	a := NewRevisionActivator(k8s, ela)
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
-	want := Endpoint{"ip", 8080}
+	want := Endpoint{testServiceFQDN, 8080}
 	if got != want {
 		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
 	}
@@ -76,20 +79,20 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 		t.Errorf("Unexpected error. Want nil. Got %v.", err)
 	}
 
-	rev, _ := ela.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateActive {
 		t.Errorf("Unexpected serving state. Want Active. Got %v.", rev.Spec.ServingState)
 	}
 }
 
 func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
-	k8s, ela := fakeClients()
-	ela.ServingV1alpha1().Revisions(testNamespace).Create(
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateRetired).
 			build())
-	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
-	a := NewRevisionActivator(k8s, ela)
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -104,21 +107,21 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 		t.Errorf("Expected error. Want error. Got nil.")
 	}
 
-	rev, _ := ela.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	if rev.Spec.ServingState != v1alpha1.RevisionServingStateRetired {
 		t.Errorf("Unexpected serving state. Want Retired. Got %v.", rev.Spec.ServingState)
 	}
 }
 
 func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
-	k8s, ela := fakeClients()
-	ela.ServingV1alpha1().Revisions(testNamespace).Create(
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			withReady(false).
 			build())
-	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
-	a := NewRevisionActivator(k8s, ela)
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 
 	ch := make(chan activationResult)
 	go func() {
@@ -133,17 +136,15 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	default:
 	}
 
-	rev, _ := ela.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
-	rev.Status.SetCondition(&v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: corev1.ConditionTrue,
-	})
-	ela.ServingV1alpha1().Revisions(testNamespace).Update(rev)
+	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
+	rev.Status.MarkContainerHealthy()
+	rev.Status.MarkResourcesAvailable()
+	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(3 * time.Second)
 	select {
 	case result := <-ch:
-		want := Endpoint{"ip", 8080}
+		want := Endpoint{testServiceFQDN, 8080}
 		if result.endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
 		}
@@ -159,14 +160,14 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 }
 
 func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
-	k8s, ela := fakeClients()
-	ela.ServingV1alpha1().Revisions(testNamespace).Create(
+	k8s, kna := fakeClients()
+	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder().
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			withReady(false).
 			build())
-	k8s.CoreV1().Endpoints(testNamespace).Create(newEndpointBuilder().build())
-	a := NewRevisionActivator(k8s, ela)
+	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
+	a := NewRevisionActivator(k8s, kna, zap.NewNop().Sugar())
 	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan activationResult)
@@ -182,7 +183,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	default:
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(3 * time.Second)
 	select {
 	case result := <-ch:
 		if got, want := result.endpoint, (Endpoint{}); got != want {
@@ -206,7 +207,7 @@ func fakeClients() (kubernetes.Interface, clientset.Interface) {
 			Namespace: "",
 		},
 	}
-	return fakeK8s.NewSimpleClientset(nsObj), fakeEla.NewSimpleClientset()
+	return fakeK8s.NewSimpleClientset(nsObj), fakeKna.NewSimpleClientset()
 }
 
 type revisionBuilder struct {
@@ -248,38 +249,32 @@ func (b *revisionBuilder) withServingState(servingState v1alpha1.RevisionServing
 }
 
 func (b *revisionBuilder) withReady(ready bool) *revisionBuilder {
-	var status corev1.ConditionStatus
 	if ready {
-		status = corev1.ConditionTrue
+		b.revision.Status.MarkContainerHealthy()
+		b.revision.Status.MarkResourcesAvailable()
 	} else {
-		status = corev1.ConditionFalse
+		b.revision.Status.MarkContainerMissing("reasonz")
 	}
-	new := &v1alpha1.RevisionCondition{
-		Type:   v1alpha1.RevisionConditionReady,
-		Status: status,
-	}
-	b.revision.Status.SetCondition(new)
 	return b
 }
 
-type endpointBuilder struct {
-	endpoint *corev1.Endpoints
+type serviceBuilder struct {
+	service *corev1.Service
 }
 
-func newEndpointBuilder() *endpointBuilder {
-	return &endpointBuilder{
-		endpoint: &corev1.Endpoints{
+func newServiceBuilder() *serviceBuilder {
+	return &serviceBuilder{
+
+		service: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-rev-service",
+				Name:      testService,
 				Namespace: testNamespace,
 			},
-			Subsets: []corev1.EndpointSubset{
-				corev1.EndpointSubset{
-					Addresses: []corev1.EndpointAddress{
-						corev1.EndpointAddress{IP: "ip"},
-					},
-					Ports: []corev1.EndpointPort{
-						corev1.EndpointPort{Port: int32(8080)},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name: "http",
+						Port: 8080,
 					},
 				},
 			},
@@ -287,12 +282,6 @@ func newEndpointBuilder() *endpointBuilder {
 	}
 }
 
-func (b *endpointBuilder) build() *corev1.Endpoints {
-	return b.endpoint
-}
-
-func (b *endpointBuilder) withAddressPort(address string, port int32) *endpointBuilder {
-	b.endpoint.Subsets[0].Addresses[0].IP = address
-	b.endpoint.Subsets[0].Ports[0].Port = port
-	return b
+func (b *serviceBuilder) build() *corev1.Service {
+	return b.service
 }

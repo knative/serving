@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,18 +19,60 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
+	h2cutil "github.com/knative/serving/pkg/h2c"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
-	"github.com/golang/glog"
+	"github.com/knative/serving/third_party/h2c"
+	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
+const (
+	maxRetry      = 60
+	retryInterval = 1 * time.Second
+)
+
 type activationHandler struct {
-	act activator.Activator
+	act    activator.Activator
+	logger *zap.SugaredLogger
+}
+
+// retryRoundTripper retries on 503's for up to 60 seconds. The reason is there is
+// a small delay for k8s to include the ready IP in service.
+// https://github.com/knative/serving/issues/660#issuecomment-384062553
+type retryRoundTripper struct {
+	logger *zap.SugaredLogger
+}
+
+func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var transport http.RoundTripper
+
+	transport = http.DefaultTransport
+	if r.ProtoMajor == 2 {
+		transport = h2cutil.NewTransport()
+	}
+
+	resp, err := transport.RoundTrip(r)
+	// TODO: Activator should retry with backoff.
+	// https://github.com/knative/serving/issues/1229
+	i := 1
+	for ; i < maxRetry; i++ {
+		if err == nil && resp != nil && resp.StatusCode != 503 {
+			break
+		}
+		resp.Body.Close()
+		time.Sleep(retryInterval)
+		resp, err = transport.RoundTrip(r)
+	}
+	// TODO: add metrics for number of tries and the response code.
+	rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	return resp, nil
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
@@ -39,40 +81,49 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)
 	if err != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-		glog.Errorf(msg)
+		a.logger.Errorf(msg)
 		http.Error(w, msg, int(status))
 		return
 	}
 	target := &url.URL{
-		// TODO: Wire Activator into Istio mesh to support TLS
-		//       (https://github.com/knative/serving/issues/838)
 		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port),
+		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = retryRoundTripper{
+		logger: a.logger,
+	}
+
+	// TODO: Clear the host to avoid 404's.
+	// https://github.com/elafros/elafros/issues/964
+	r.Host = ""
+
 	proxy.ServeHTTP(w, r)
 }
 
 func main() {
 	flag.Parse()
-	glog.Info("Starting the knative activator...")
+	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.activator").Named("activator")
+	defer logger.Sync()
+
+	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatal(err)
+		logger.Fatal("Error getting in cluster configuration", zap.Error(err))
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatal(err)
+		logger.Fatal("Error building new config", zap.Error(err))
 	}
 	elaClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		glog.Fatalf("Error building ela clientset: %v", err)
+		logger.Fatal("Error building ela clientset: %v", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, elaClient)
+	a := activator.NewRevisionActivator(kubeClient, elaClient, logger)
 	a = activator.NewDedupingActivator(a)
-	ah := &activationHandler{a}
+	ah := &activationHandler{a, logger}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -82,5 +133,5 @@ func main() {
 	}()
 
 	http.HandleFunc("/", ah.handler)
-	http.ListenAndServe(":8080", nil)
+	h2c.ListenAndServe(":8080", nil)
 }

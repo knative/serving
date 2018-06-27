@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -36,6 +38,13 @@ type Build struct {
 
 // BuildSpec is the spec for a Build resource
 type BuildSpec struct {
+	// TODO: Generation does not work correctly with CRD. They are scrubbed
+	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
+	// So, we add Generation here. Once that gets fixed, remove this and use
+	// ObjectMeta.Generation instead.
+	// +optional
+	Generation int64 `json:"generation,omitempty"`
+
 	Source *SourceSpec        `json:"source,omitempty"`
 	Steps  []corev1.Container `json:"steps,omitempty"`
 
@@ -147,11 +156,16 @@ type GoogleSpec struct {
 type BuildConditionType string
 
 const (
-	// BuildComplete specifies that the build has completed successfully.
-	BuildComplete BuildConditionType = "Complete"
-	// BuildFailed specifies that the build has failed.
-	BuildFailed BuildConditionType = "Failed"
+	// BuildSucceeded is set when the build is running, and becomes True
+	// when the build finishes successfully.
+	//
+	// If the build is ongoing, its status will be Unknown. If it fails,
+	// its status will be False.
+	BuildSucceeded BuildConditionType = "Succeeded"
+
 	// BuildInvalid specifies that the given build specification is invalid.
+	//
+	// TODO(jasonhall): Remove when webhook validation rejects invalid builds.
 	BuildInvalid BuildConditionType = "Invalid"
 )
 
@@ -176,6 +190,15 @@ type BuildList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Build `json:"items"`
+}
+
+func (bs *BuildStatus) GetCondition(t BuildConditionType) *BuildCondition {
+	for _, cond := range bs.Conditions {
+		if cond.Type == t {
+			return &cond
+		}
+	}
+	return nil
 }
 
 func (b *BuildStatus) SetCondition(newCond *BuildCondition) {
@@ -203,3 +226,7 @@ func (b *BuildStatus) RemoveCondition(t BuildConditionType) {
 	}
 	b.Conditions = conditions
 }
+
+func (b *Build) GetGeneration() int64           { return b.Spec.Generation }
+func (b *Build) SetGeneration(generation int64) { b.Spec.Generation = generation }
+func (b *Build) GetSpecJSON() ([]byte, error)   { return json.Marshal(b.Spec) }

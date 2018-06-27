@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ const (
 
 /*
 CreateHookFunc is a function for handling a Create hook. Its runtime.Object
-parameter will be the kubernetes resource created. The resource can be cast
+parameter will be the Kubernetes resource created. The resource can be cast
 to its actual type like this:
 
 		pod := obj.(*v1.Pod)
@@ -53,7 +53,7 @@ type CreateHookFunc func(runtime.Object) HookResult
 
 /*
 UpdateHookFunc is a function for handling an update hook. its runtime.Object
-parameter will be the kubernetes resource updated. The resource can be cast
+parameter will be the Kubernetes resource updated. The resource can be cast
 to its actual type like this:
 
 		pod := obj.(*v1.Pod)

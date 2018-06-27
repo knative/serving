@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,6 +20,10 @@ package test
 
 import (
 	"flag"
+	"fmt"
+	"github.com/golang/glog"
+	"github.com/knative/serving/pkg/logging"
+	"go.uber.org/zap"
 	"os"
 	"os/user"
 	"path"
@@ -35,6 +39,43 @@ type EnvironmentFlags struct {
 	DockerRepo       string
 	Kubeconfig       string
 	ResolvableDomain bool
+	LogVerbose       bool
+}
+
+// VerboseLogLevel defines verbose log level as 10
+const VerboseLogLevel glog.Level = 10
+
+// Logger is to be used by TC for logging
+var Logger = initializeLogger()
+
+func initializeLogger() *zap.SugaredLogger {
+	configJSON := []byte(`{
+	  "level": "info",
+	  "encoding": "console",
+	  "outputPaths": ["stdout"],
+	  "errorOutputPaths": ["stderr"],
+	  "encoderConfig": {
+	    "messageKey": "message",
+			"levelKey": "level",
+			"nameKey": "logger",
+			"callerKey": "caller",
+			"messageKey": "msg",
+      "stacktraceKey": "stacktrace",
+      "lineEnding": "",
+      "levelEncoder": "",
+      "timeEncoder": "",
+      "durationEncoder": "",
+      "callerEncoder": ""
+	  }
+	}`)
+	var logger *zap.SugaredLogger
+	var logLevel string
+	if Flags.LogVerbose {
+		logLevel = "Debug"
+	}
+	logger = logging.NewLogger(string(configJSON), logLevel)
+	defer logger.Sync()
+	return logger
 }
 
 func initializeFlags() *EnvironmentFlags {
@@ -56,5 +97,17 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
+	flag.BoolVar(&f.LogVerbose, "logverbose", false,
+		"Set this flag to true if you would like to see verbose logging.")
+
+	flag.Parse()
+	flag.Set("alsologtostderr", "true")
+	if f.LogVerbose {
+		// Both gLog and "go test" use -v flag. The code below is a work around so that we can still set v value for gLog
+		var logLevel string
+		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
+		flag.Lookup("v").Value.Set(logLevel)
+		glog.Infof("Logging set to verbose mode with logLevel %d", VerboseLogLevel)
+	}
 	return &f
 }

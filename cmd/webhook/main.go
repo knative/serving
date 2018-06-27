@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc. All Rights Reserved.
+Copyright 2017 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,6 +20,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/webhook"
@@ -50,7 +51,7 @@ func main() {
 
 	options := webhook.ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: "knative-serving-system",
+		ServiceNamespace: pkg.GetServingSystemNamespace(),
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",

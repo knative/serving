@@ -71,6 +71,13 @@ orchestrator of the underlying Routes and Configurations (much as a
 kubernetes Deployment orchestrates ReplicaSets), and its usage is
 optional but recommended.
 
+The Service's controller will track the statuses of its owned Configuration
+and Route, reflecting their statuses and conditions as its own.
+
+The owned Configurations' Ready conditions are surfaced as the Service's
+ConfigurationsReady condition. The owned Routes' Ready conditions are
+surfaced as the Service's RoutesReady condition.
+
 
 # Orchestration
 

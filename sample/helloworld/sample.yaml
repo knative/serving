@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: serving.knative.dev/v1alpha1
-kind: Route
-metadata:
-  name: route-example
-  namespace: default
-spec:
-  traffic:
-  - configurationName: configuration-example
-    percent: 100
----
 apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
@@ -46,3 +36,13 @@ spec:
             port: 8080
           initialDelaySeconds: 3
           periodSeconds: 3
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Route
+metadata:
+  name: route-example
+  namespace: default
+spec:
+  traffic:
+  - configurationName: configuration-example
+    percent: 100

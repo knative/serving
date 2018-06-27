@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
 
 // +genclient
@@ -31,21 +33,25 @@ import (
 // Revision is an immutable snapshot of code and configuration.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Revision (from the client).
+	// +optional
 	Spec RevisionSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Revision (from the controller).
+	// +optional
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
 type RevisionTemplateSpec struct {
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
+	// +optional
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
@@ -65,6 +71,7 @@ const (
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
 	// it would from a "Reserve" state.
+	// Note: currently not set anywhere. See https://github.com/knative/serving/issues/1203
 	RevisionServingStateRetired RevisionServingStateType = "Retired"
 )
 
@@ -89,17 +96,20 @@ type RevisionSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// ServingState holds a value describing the desired state the Kubernetes
 	// resources should be in for this Revision.
 	// Users must not specify this when creating a revision. It is expected
 	// that the system will manipulate this based on routability and load.
+	// +optional
 	ServingState RevisionServingStateType `json:"servingState,omitempty"`
 
 	// ConcurrencyModel specifies the desired concurrency model
-	// (SingleConcurrency or MultiConcurrency) for the
-	// Revision. Defaults to MultiConcurrency.
+	// (Single or Multi) for the
+	// Revision. Defaults to Multi.
+	// +optional
 	ConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ServiceAccountName holds the name of the Kubernetes service account
@@ -109,10 +119,12 @@ type RevisionSpec struct {
 	// This may be used to provide access to private container images by
 	// following: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
 	// TODO(ZhiminXiang): verify the corresponding service account exists.
+	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// BuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.
+	// +optional
 	BuildName string `json:"buildName,omitempty"`
 
 	// Container defines the unit of execution for this Revision.
@@ -120,6 +132,7 @@ type RevisionSpec struct {
 	// this Container, including: name, resources, ports, and volumeMounts.
 	// TODO(mattmoor): Link to the runtime contract tracked by:
 	// https://github.com/knative/serving/issues/627
+	// +optional
 	Container corev1.Container `json:"container,omitempty"`
 }
 
@@ -164,20 +177,24 @@ type RevisionStatus struct {
 	// load balances over the pods backing this Revision. When the Revision
 	// is Active, this service would be an appropriate ingress target for
 	// targeting the revision.
+	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []RevisionCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// LogURL specifies the generated logging url for this particular revision
 	// based on the revision url template specified in the controller's config.
+	// +optional
 	LogURL string `json:"logUrl,omitempty"`
 }
 
@@ -212,17 +229,6 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-// IsFailed looks to all non-Ready conditions; if any are false, then
-// this node is in a terminal failure state.
-func (rs *RevisionStatus) IsFailed() bool {
-	for _, cond := range rs.Conditions {
-		if cond.Type != RevisionConditionReady && cond.Status == corev1.ConditionFalse {
-			return true
-		}
-	}
-	return false
-}
-
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
@@ -232,7 +238,7 @@ func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionConditi
 	return nil
 }
 
-func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
+func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	if new == nil {
 		return
 	}
@@ -242,6 +248,12 @@ func (rs *RevisionStatus) SetCondition(new *RevisionCondition) {
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
 	new.LastTransitionTime = metav1.NewTime(time.Now())
@@ -257,4 +269,165 @@ func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
 		}
 	}
 	rs.Conditions = conditions
+}
+
+func (rs *RevisionStatus) InitializeConditions() {
+	// We don't include BuildSucceeded here because it could confuse users if
+	// no `buildName` was specified.
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
+		if rc := rs.GetCondition(cond); rc == nil {
+			rs.setCondition(&RevisionCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (rs *RevisionStatus) InitializeBuildCondition() {
+	if rc := rs.GetCondition(RevisionConditionBuildSucceeded); rc == nil {
+		rs.setCondition(&RevisionCondition{
+			Type:   RevisionConditionBuildSucceeded,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
+
+func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
+	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
+	if bc == nil {
+		// TODO(mattmoor): When Build validation is synchronous, get rid
+		// of this special logic and just return.
+		bc = bs.GetCondition(buildv1alpha1.BuildInvalid)
+		if bc == nil {
+			return
+		}
+		bc = &buildv1alpha1.BuildCondition{
+			Type:    buildv1alpha1.BuildSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  bc.Reason,
+			Message: bc.Message,
+		}
+	}
+	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
+	// If the underlying Build is not ready, then mark the Revision not ready.
+	if bc.Status != corev1.ConditionTrue {
+		rct = append(rct, RevisionConditionReady)
+	}
+	reason := "Building"
+	if bc.Status != corev1.ConditionUnknown {
+		reason = bc.Reason
+	}
+	for _, cond := range rct {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  bc.Status,
+			Reason:  reason,
+			Message: bc.Message,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkDeploying(reason string) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:   cond,
+			Status: corev1.ConditionUnknown,
+			Reason: reason,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkServiceTimeout() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ServiceTimeout",
+			Message: "Timed out waiting for a service endpoint to become ready",
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ProgressDeadlineExceeded",
+			Message: message,
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkContainerHealthy() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionContainerHealthy,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RevisionStatus) MarkResourcesAvailable() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionResourcesAvailable,
+		Status: corev1.ConditionTrue,
+	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RevisionStatus) MarkInactive() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionFalse,
+		Reason: "Inactive",
+	})
+}
+
+func (rs *RevisionStatus) MarkContainerMissing(message string) {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ContainerMissing",
+			Message: message,
+		})
+	}
+}
+
+func (rs *RevisionStatus) checkAndMarkReady() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionContainerHealthy,
+		RevisionConditionResourcesAvailable,
+	} {
+		c := rs.GetCondition(cond)
+		if c == nil || c.Status != corev1.ConditionTrue {
+			return
+		}
+	}
+	rs.markReady()
+}
+
+func (rs *RevisionStatus) markReady() {
+	rs.setCondition(&RevisionCondition{
+		Type:   RevisionConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

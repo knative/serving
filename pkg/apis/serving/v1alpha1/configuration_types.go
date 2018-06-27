@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
+	"time"
 
 	build "github.com/knative/build/pkg/apis/build/v1alpha1"
 
@@ -35,13 +38,16 @@ import (
 // "latest ready" revision's name.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#configuration
 type Configuration struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec holds the desired state of the Configuration (from the client).
+	// +optional
 	Spec ConfigurationSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the Configuration (from the controller).
+	// +optional
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
@@ -51,16 +57,19 @@ type ConfigurationSpec struct {
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
 	// So, we add Generation here. Once that gets fixed, remove this and use
 	// ObjectMeta.Generation instead.
+	// +optional
 	Generation int64 `json:"generation,omitempty"`
 
 	// Build optionally holds the specification for the build to
 	// perform to produce the Revision's container image.
+	// +optional
 	Build *build.BuildSpec `json:"build,omitempty"`
 
 	// RevisionTemplate holds the latest specification for the Revision to
 	// be stamped out. If a Build specification is provided, then the
 	// RevisionTemplate's BuildName field will be populated with the name of
 	// the Build object created to produce the container for the Revision.
+	// +optional
 	RevisionTemplate RevisionTemplateSpec `json:"revisionTemplate"`
 }
 
@@ -69,12 +78,9 @@ type ConfigurationSpec struct {
 type ConfigurationConditionType string
 
 const (
-	// ConfigurationConditionReady is set when the configuration is starting to materialize
-	// runtime resources, and becomes true when those resources are ready.
+	// ConfigurationConditionReady is set when the configuration's latest
+	// underlying revision has reported readiness.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
-	// ConfigurationConditionLatestRevisionReady is set to indicate the status of the latest
-	// revision of the configuration when it has not become ready yet
-	ConfigurationConditionLatestRevisionReady ConfigurationConditionType = "LatestRevisionReady"
 )
 
 // ConfigurationCondition defines a readiness condition for a Configuration.
@@ -83,6 +89,9 @@ type ConfigurationCondition struct {
 	Type ConfigurationConditionType `json:"type" description:"type of Configuration condition"`
 
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
+
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -96,19 +105,23 @@ type ConfigurationStatus struct {
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
+	// +optional
 	Conditions []ConfigurationCondition `json:"conditions,omitempty"`
 
 	// LatestReadyRevisionName holds the name of the latest Revision stamped out
 	// from this Configuration that has had its "Ready" condition become "True".
+	// +optional
 	LatestReadyRevisionName string `json:"latestReadyRevisionName,omitempty"`
 
 	// LatestCreatedRevisionName is the last revision that was created from this
 	// Configuration. It might not be ready yet, for that use LatestReadyRevisionName.
+	// +optional
 	LatestCreatedRevisionName string `json:"latestCreatedRevisionName,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
 	// even if the controller failed to process the spec and create the Revision.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
@@ -136,8 +149,8 @@ func (r *Configuration) GetSpecJSON() ([]byte, error) {
 
 // IsReady looks at the conditions on the ConfigurationStatus.
 // ConfigurationConditionReady returns true if ConditionStatus is True
-func (configStatus *ConfigurationStatus) IsReady() bool {
-	if c := configStatus.GetCondition(ConfigurationConditionReady); c != nil {
+func (cs *ConfigurationStatus) IsReady() bool {
+	if c := cs.GetCondition(ConfigurationConditionReady); c != nil {
 		return c.Status == corev1.ConditionTrue
 	}
 	return false
@@ -146,9 +159,9 @@ func (configStatus *ConfigurationStatus) IsReady() bool {
 // IsLatestReadyRevisionNameUpToDate returns true if the Configuration is ready
 // and LatestCreateRevisionName is equal to LatestReadyRevisionName. Otherwise
 // it returns false.
-func (configStatus *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
-	return configStatus.IsReady() &&
-		configStatus.LatestCreatedRevisionName == configStatus.LatestReadyRevisionName
+func (cs *ConfigurationStatus) IsLatestReadyRevisionNameUpToDate() bool {
+	return cs.IsReady() &&
+		cs.LatestCreatedRevisionName == cs.LatestReadyRevisionName
 }
 
 func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *ConfigurationCondition {
@@ -160,28 +173,85 @@ func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *C
 	return nil
 }
 
-func (configStatus *ConfigurationStatus) SetCondition(new *ConfigurationCondition) {
+func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	if new == nil {
 		return
 	}
 
 	t := new.Type
 	var conditions []ConfigurationCondition
-	for _, cond := range configStatus.Conditions {
+	for _, cond := range cs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
+		} else {
+			// If we'd only update the LastTransitionTime, then return.
+			new.LastTransitionTime = cond.LastTransitionTime
+			if reflect.DeepEqual(new, &cond) {
+				return
+			}
 		}
 	}
+	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
-	configStatus.Conditions = conditions
+	cs.Conditions = conditions
 }
 
-func (configStatus *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
+func (cs *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
 	var conditions []ConfigurationCondition
-	for _, cond := range configStatus.Conditions {
+	for _, cond := range cs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
 		}
 	}
-	configStatus.Conditions = conditions
+	cs.Conditions = conditions
+}
+
+func (cs *ConfigurationStatus) InitializeConditions() {
+	for _, cond := range []ConfigurationConditionType{
+		ConfigurationConditionReady,
+	} {
+		if rc := cs.GetCondition(cond); rc == nil {
+			cs.setCondition(&ConfigurationCondition{
+				Type:   cond,
+				Status: corev1.ConditionUnknown,
+			})
+		}
+	}
+}
+
+func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
+	cs.LatestCreatedRevisionName = name
+	if cs.LatestReadyRevisionName != name {
+		cs.setCondition(&ConfigurationCondition{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionUnknown,
+		})
+	}
+}
+
+func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
+	cs.LatestReadyRevisionName = name
+	for _, cond := range []ConfigurationConditionType{
+		ConfigurationConditionReady,
+	} {
+		cs.setCondition(&ConfigurationCondition{
+			Type:   cond,
+			Status: corev1.ConditionTrue,
+		})
+	}
+}
+
+func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
+	cct := []ConfigurationConditionType{ConfigurationConditionReady}
+	if cs.LatestReadyRevisionName == "" {
+		cct = append(cct, ConfigurationConditionReady)
+	}
+	for _, cond := range cct {
+		cs.setCondition(&ConfigurationCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "RevisionFailed",
+			Message: fmt.Sprintf("revision %q failed with message: %s", name, message),
+		})
+	}
 }

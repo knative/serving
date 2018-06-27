@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -230,7 +230,15 @@ func logHandler(client *http.Client) http.HandlerFunc {
 
 		data := map[string]string{
 			"log":  "A log in json format to STDOUT",
+			"foo":  "bar",
 			"time": timestamp.String(),
+			// Cluster operator can configure which field is used as time key and what
+			// the format is. For example, in config/monitoring/150-elasticsearch-dev/100-fluentd-configmap.yaml,
+			// fluentd-time is the reserved key to tell fluentd the logging time. It
+			// must be in the format of RFC3339Nano, i.e. %Y-%m-%dT%H:%M:%S.%NZ.
+			// Without this, fluentd uses the time when it collect the log as an
+			// event time.
+			"fluentd-time": timestamp.Format(time.RFC3339Nano),
 		}
 		jsonOutput, _ := json.Marshal(data)
 		fmt.Fprintln(os.Stdout, string(jsonOutput))
@@ -246,15 +254,7 @@ func logHandler(client *http.Client) http.HandlerFunc {
 				fmt.Fprintf(os.Stderr, "Failed to write to %s: %v", fileName, err)
 			}
 
-			data := map[string]string{
-				"log":  "A log in json format to /var/log",
-				"time": timestamp.String(),
-				// fluentd-time is the reserved key to tell fluentd the logging time. It
-				// must be in the format of RFC3339Nano, i.e. %Y-%m-%dT%H:%M:%S.%NZ.
-				// Without this, fluentd uses current time when it collect the log as an
-				// event time.
-				"fluentd-time": timestamp.Format(time.RFC3339Nano),
-			}
+			data["log"] = "A log in json format to /var/log"
 			jsonOutput, _ := json.Marshal(data)
 			if _, err := f.WriteString(string(jsonOutput) + "\n"); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to write to %s: %v", fileName, err)

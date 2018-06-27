@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc. All Rights Reserved.
+Copyright 2017 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -117,6 +117,9 @@ func validateContainer(container corev1.Container) error {
 	}
 	if len(container.VolumeMounts) > 0 {
 		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.volumeMounts")
+	}
+	if container.Lifecycle != nil {
+		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.lifecycle")
 	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.

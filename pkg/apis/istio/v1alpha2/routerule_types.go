@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ type RouteRuleSpec struct {
 	Destination   IstioService        `json:"destination"`
 	Match         Match               `json:"match,omitempty"`
 	Route         []DestinationWeight `json:"route"`
-	AppendHeaders map[string]string   `json:"appendHeaders"`
+	AppendHeaders map[string]string   `json:"appendHeaders,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

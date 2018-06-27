@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Google Inc. All Rights Reserved.
+Copyright 2017 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/knative/serving/pkg"
+
 	"go.uber.org/zap"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -39,7 +41,7 @@ import (
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: "knative-serving-system",
+		ServiceNamespace: pkg.GetServingSystemNamespace(),
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
@@ -180,21 +182,17 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createConfiguration(testGeneration, testConfigurationName)
 	new := createConfiguration(testGeneration, testConfigurationName)
-	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
-		corev1.EnvVar{
-			Name:  envVarName,
-			Value: "different",
-		},
-	}
+	new.Spec.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{{
+		Name:  envVarName,
+		Value: "different",
+	}}
 	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "replace",
-			Path:      "/spec/generation",
-			Value:     2,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
+		Operation: "replace",
+		Path:      "/spec/generation",
+		Value:     2,
+	}})
 }
 
 func TestInvalidNewRouteNameFails(t *testing.T) {
@@ -267,21 +265,17 @@ func TestValidRouteChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1, testRouteName)
 	new := createRoute(1, testRouteName)
-	new.Spec.Traffic = []v1alpha1.TrafficTarget{
-		v1alpha1.TrafficTarget{
-			RevisionName: testRevisionName,
-			Percent:      100,
-		},
-	}
+	new.Spec.Traffic = []v1alpha1.TrafficTarget{{
+		RevisionName: testRevisionName,
+		Percent:      100,
+	}}
 	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "replace",
-			Path:      "/spec/generation",
-			Value:     2,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
+		Operation: "replace",
+		Path:      "/spec/generation",
+		Value:     2,
+	}})
 }
 
 func TestValidNewRevisionObject(t *testing.T) {
@@ -299,18 +293,15 @@ func TestValidNewRevisionObject(t *testing.T) {
 	req.Object.Raw = marshaled
 	resp := ac.admit(testCtx, req)
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		},
-		jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/servingState",
-			Value:     v1alpha1.RevisionServingStateActive,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
+		Operation: "add",
+		Path:      "/spec/generation",
+		Value:     1,
+	}, {
+		Operation: "add",
+		Path:      "/spec/servingState",
+		Value:     v1alpha1.RevisionServingStateActive,
+	}})
 }
 
 func TestValidRevisionUpdates(t *testing.T) {
@@ -337,13 +328,11 @@ func TestValidRevisionUpdates(t *testing.T) {
 	req.Object.Raw = marshaled
 	resp := ac.admit(testCtx, req)
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/spec/generation",
-			Value:     1,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
+		Operation: "add",
+		Path:      "/spec/generation",
+		Value:     1,
+	}})
 }
 
 func TestInvalidRevisionUpdate(t *testing.T) {
@@ -433,28 +422,24 @@ func TestValidServiceEnvChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createServicePinned(testGeneration, testServiceName)
 	new := createServicePinned(testGeneration, testServiceName)
-	new.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{
-		corev1.EnvVar{
-			Name:  envVarName,
-			Value: "different",
-		},
-	}
+	new.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Env = []corev1.EnvVar{{
+		Name:  envVarName,
+		Value: "different",
+	}}
 	resp := ac.admit(testCtx, createUpdateService(&old, &new))
 	expectAllowed(t, resp)
-	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
-			Operation: "replace",
-			Path:      "/spec/generation",
-			Value:     2,
-		},
-	})
+	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
+		Operation: "replace",
+		Path:      "/spec/generation",
+		Value:     2,
+	}})
 }
 
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
-	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
-	_, err := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	_, err := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create webhook: %s", err)
 	}
@@ -466,19 +451,17 @@ func TestUpdatingWebhook(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ac.options.WebhookName,
 		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{
-			{
-				Name:         ac.options.WebhookName,
-				Rules:        []admissionregistrationv1beta1.RuleWithOperations{{}},
-				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
-			},
-		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{{
+			Name:         ac.options.WebhookName,
+			Rules:        []admissionregistrationv1beta1.RuleWithOperations{{}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+		}},
 	}
 
 	createDeployment(ac)
 	createWebhook(ac, webhook)
-	ac.register(testCtx, ac.client.Admissionregistration().MutatingWebhookConfigurations(), []byte{})
-	currentWebhook, _ := ac.client.Admissionregistration().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
+	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	currentWebhook, _ := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
 		t.Fatalf("Expected webhook to be updated")
 	}
@@ -564,10 +547,10 @@ func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      elaWebhookDeployment,
-			Namespace: elaSystemNamespace,
+			Namespace: pkg.GetServingSystemNamespace(),
 		},
 	}
-	ac.client.ExtensionsV1beta1().Deployments(elaSystemNamespace).Create(deployment)
+	ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Create(deployment)
 }
 
 func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {
@@ -614,7 +597,7 @@ func createValidCreateServiceRunLatest() *admissionv1beta1.AdmissionRequest {
 }
 
 func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
-	client := ac.client.Admissionregistration().MutatingWebhookConfigurations()
+	client := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	_, err := client.Create(webhook)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test webhook: %s", err))
@@ -704,13 +687,11 @@ func createRoute(generation int64, routeName string) v1alpha1.Route {
 		},
 		Spec: v1alpha1.RouteSpec{
 			Generation: generation,
-			Traffic: []v1alpha1.TrafficTarget{
-				v1alpha1.TrafficTarget{
-					Name:         "test-traffic-target",
-					RevisionName: testRevisionName,
-					Percent:      100,
-				},
-			},
+			Traffic: []v1alpha1.TrafficTarget{{
+				Name:         "test-traffic-target",
+				RevisionName: testRevisionName,
+				Percent:      100,
+			}},
 		},
 	}
 }

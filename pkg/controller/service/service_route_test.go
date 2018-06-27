@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -17,15 +17,13 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving"
-)
-
-const (
-	testConfigName string = "test-configuration"
+	"github.com/knative/serving/pkg/controller"
 )
 
 func TestRouteRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
-	r := MakeServiceRoute(s, testConfigName)
+	testConfigName := controller.GetServiceConfigurationName(s)
+	r := MakeServiceRoute(s)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -60,7 +58,7 @@ func TestRouteRunLatest(t *testing.T) {
 
 func TestRoutePinned(t *testing.T) {
 	s := createServiceWithPinned()
-	r := MakeServiceRoute(s, testConfigName)
+	r := MakeServiceRoute(s)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}

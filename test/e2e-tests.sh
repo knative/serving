@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,10 +47,21 @@ function create_istio() {
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
 }
 
+
+function create_monitoring() {
+  kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+}
+
 function create_everything() {
   create_istio
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
+  create_monitoring
 }
 
 function delete_istio() {
@@ -58,7 +69,16 @@ function delete_istio() {
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
+function delete_monitoring() {
+  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common
+}
+
 function delete_everything() {
+  delete_monitoring
   ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
   delete_istio
@@ -77,12 +97,19 @@ function teardown() {
     gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
     delete_gcr_images ${DOCKER_REPO_OVERRIDE}
   else
+    # Delete the kubernetes source downloaded by kubetest
+    rm -fr kubernetes kubernetes.tar.gz
     restore_override_vars
   fi
 }
 
-function exit_if_failed() {
+function abort_if_failed() {
   [[ $? -eq 0 ]] && return 0
+  dump_stack_info
+  exit 1
+}
+
+function dump_stack_info() {
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***    Start of information dump    ***"
@@ -106,19 +133,20 @@ function exit_if_failed() {
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_ela_pod controller) -n knative-serving-system
+  kubectl logs $(get_ela_pod controller) -n knative-serving
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
   echo "***************************************"
-  exit 1
 }
 
-function run_tests() {
+function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
-  exit_if_failed
+  report_go_test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  local result=$?
+  [[ ${result} -ne 0 ]] && dump_stack_info
+  return ${result}
 }
 
 # Script entry point.
@@ -141,7 +169,6 @@ if [[ -z $1 ]]; then
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
-    --gcp-node-image="${SERVING_GKE_IMAGE,,}"
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
     --gcp-network="${E2E_NETWORK_NAME}"
@@ -149,11 +176,11 @@ if [[ -z $1 ]]; then
   )
   if (( ! IS_PROW )); then
     CLUSTER_CREATION_ARGS+=(--gcp-project=${PROJECT_ID:?"PROJECT_ID must be set to the GCP project where the tests are run."})
-  else
-    # On prow, set bogus SSH keys for kubetest, we're not using them.
-    touch $HOME/.ssh/google_compute_engine.pub
-    touch $HOME/.ssh/google_compute_engine
   fi
+  # SSH keys are not used, but kubetest checks for their existence.
+  # Touch them so if they don't exist, empty files are create to satisfy the check.
+  touch $HOME/.ssh/google_compute_engine.pub
+  touch $HOME/.ssh/google_compute_engine
   # Clear user and cluster variables, so they'll be set to the test cluster.
   # DOCKER_REPO_OVERRIDE is not touched because when running locally it must
   # be a writeable docker repo.
@@ -164,7 +191,8 @@ if [[ -z $1 ]]; then
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "v${SERVING_GKE_VERSION}" \
+    --extract "gke-${SERVING_GKE_VERSION}" \
+    --gcp-node-image ${SERVING_GKE_IMAGE} \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
     --test-cmd-args --run-tests
   # Delete target pools and health checks that might have leaked.
@@ -181,6 +209,7 @@ if [[ -z $1 ]]; then
   region="$(gcloud compute zones list --filter=name=${E2E_CLUSTER_ZONE} --format='value(region)')"
   if [[ -n "${target_pools}" ]]; then
     echo "Found leaked target pools, deleting"
+    gcloud compute forwarding-rules delete -q --project=${gcp_project} --region=${region} ${target_pools}
     gcloud compute target-pools delete -q --project=${gcp_project} --region=${region} ${target_pools}
   fi
   if [[ -n "${http_health_checks}" ]]; then
@@ -245,13 +274,15 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving-system
-exit_if_failed
+wait_until_pods_running knative-serving
+abort_if_failed
 
 # Run the tests
 
-run_tests conformance pizzaplanet ela-conformance-test
-run_tests e2e noodleburg ela-e2e-test
+run_e2e_tests conformance pizzaplanet ela-conformance-test
+result=$?
+run_e2e_tests e2e noodleburg ela-e2e-test
+[[ $? -ne 0 || ${result} -ne 0 ]] && exit 1
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

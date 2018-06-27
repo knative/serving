@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,10 +24,8 @@ readonly K8S_CLUSTER_NAME=${1:?"First argument must be the kubernetes cluster na
 readonly K8S_CLUSTER_ZONE=us-central1-a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
-readonly ISTIO_VERSION=0.8.0
 readonly SERVING_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
 readonly ISTIO_YAML=https://storage.googleapis.com/knative-releases/latest/istio.yaml
-export ISTIO_VERSION
 readonly PROJECT_USER=$(gcloud config get-value core/account)
 readonly CURRENT_PROJECT=$(gcloud config get-value project)
 
@@ -52,7 +50,7 @@ fi
 header "Creating cluster ${K8S_CLUSTER_NAME} in ${PROJECT_ID}"
 gcloud --project=${PROJECT_ID} container clusters create \
   --cluster-version=${SERVING_GKE_VERSION} \
-  --image-type "${SERVING_GKE_IMAGE^^}" \
+  --image-type=${SERVING_GKE_IMAGE} \
   --zone=${K8S_CLUSTER_ZONE} \
   --scopes=cloud-platform \
   --machine-type=${K8S_CLUSTER_MACHINE} \
@@ -69,19 +67,9 @@ wait_until_pods_running istio-system
 kubectl label namespace default istio-injection=enabled
 
 header "Installing Knative Serving"
-# Install might fail before succeding, so we retry a few times.
-# For details, see https://github.com/knative/install/issues/13
-installed=0
-for i in {1..10}; do
-  kubectl apply -f ${SERVING_RELEASE} && installed=1 && break
-  sleep 30
-done
-if (( ! installed )); then
-  echo "ERROR: could not install Knative Serving"
-  exit 1
-fi
+kubectl apply -f ${SERVING_RELEASE}
 
-wait_until_pods_running knative-serving-system
+wait_until_pods_running knative-serving
 wait_until_pods_running build-system
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"

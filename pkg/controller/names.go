@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,8 +34,12 @@ func GetDomainConfigMapName() string {
 	return "config-domain"
 }
 
+func GetNetworkConfigMapName() string {
+	return "config-network"
+}
+
 // Various functions for naming the resources for consistency
-func GetElaNamespaceName(ns string) string {
+func GetServingNamespaceName(ns string) string {
 	// We create resources in the same namespace as the Knative Serving resources by default.
 	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
 	return ns
@@ -49,6 +53,10 @@ func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
 	return u.Name + "-autoscaler"
 }
 
+func GetRevisionVPAName(u *v1alpha1.Revision) string {
+	return u.Name + "-vpa"
+}
+
 func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
 	if tt != nil {
 		return u.Name + "-" + tt.Name + "-istio"
@@ -56,24 +64,28 @@ func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
 	return u.Name + "-istio"
 }
 
-func GetElaK8SIngressName(u *v1alpha1.Route) string {
+func GetServingK8SIngressName(u *v1alpha1.Route) string {
 	return u.Name + "-ingress"
 }
 
-func GetElaK8SServiceNameForRevision(u *v1alpha1.Revision) string {
+func GetServingK8SServiceNameForRevision(u *v1alpha1.Revision) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SServiceName(u *v1alpha1.Route) string {
+func GetServingK8SServiceName(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
-func GetElaK8SActivatorServiceName() string {
+func GetServiceConfigurationName(u *v1alpha1.Service) string {
+	return u.Name
+}
+
+func GetServiceRouteName(u *v1alpha1.Service) string {
+	return u.Name
+}
+
+func GetServingK8SActivatorServiceName() string {
 	return "activator-service"
-}
-
-func GetElaK8SActivatorNamespace() string {
-	return "knative-serving-system"
 }
 
 func GetRevisionHeaderName() string {
@@ -85,11 +97,11 @@ func GetRevisionHeaderNamespace() string {
 }
 
 func GetOrCreateRevisionNamespace(ctx context.Context, ns string, c clientset.Interface) (string, error) {
-	return GetOrCreateNamespace(ctx, GetElaNamespaceName(ns), c)
+	return GetOrCreateNamespace(ctx, GetServingNamespaceName(ns), c)
 }
 
 func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Interface) (string, error) {
-	_, err := c.Core().Namespaces().Get(namespace, metav1.GetOptions{})
+	_, err := c.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
 		logger := logging.FromContext(ctx)
 		if !apierrs.IsNotFound(err) {
@@ -103,7 +115,7 @@ func GetOrCreateNamespace(ctx context.Context, namespace string, c clientset.Int
 				Namespace: "",
 			},
 		}
-		_, err := c.Core().Namespaces().Create(nsObj)
+		_, err := c.CoreV1().Namespaces().Create(nsObj)
 		if err != nil {
 			logger.Error("Unexpected error while creating namespace", zap.Error(err))
 			return "", err

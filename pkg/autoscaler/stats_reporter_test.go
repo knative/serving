@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,10 +16,27 @@ limitations under the License.
 package autoscaler
 
 import (
+	"strings"
 	"testing"
 
 	"go.opencensus.io/stats/view"
 )
+
+func TestNewStatsReporterErrors(t *testing.T) {
+	// These are invalid as defined by the current OpenCensus library.
+	invalidTagValues := []string{
+		"naïve",                  // Includes non-ASCII character.
+		strings.Repeat("a", 256), // Longer than 255 characters.
+	}
+
+	for _, v := range invalidTagValues {
+		_, err := NewStatsReporter(v, v, v)
+		if err == nil {
+			t.Errorf("Expected err to not be nil for value %q, got nil", v)
+		}
+
+	}
+}
 
 func TestReporter_Report(t *testing.T) {
 	r := &Reporter{}
@@ -39,10 +56,18 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, func() error { return r.Report(RequestedPodCountM, 7) })
 	expectSuccess(t, func() error { return r.Report(ActualPodCountM, 5) })
 	expectSuccess(t, func() error { return r.Report(PanicM, 0) })
+	expectSuccess(t, func() error { return r.Report(ObservedPodCountM, 1) })
+	expectSuccess(t, func() error { return r.Report(ObservedStableConcurrencyM, 2) })
+	expectSuccess(t, func() error { return r.Report(ObservedPanicConcurrencyM, 3) })
+	expectSuccess(t, func() error { return r.Report(TargetConcurrencyM, 0.9) })
 	checkData(t, "desired_pod_count", wantTags, 10)
 	checkData(t, "requested_pod_count", wantTags, 7)
 	checkData(t, "actual_pod_count", wantTags, 5)
 	checkData(t, "panic_mode", wantTags, 0)
+	checkData(t, "observed_pod_count", wantTags, 1)
+	checkData(t, "observed_stable_concurrency", wantTags, 2)
+	checkData(t, "observed_panic_concurrency", wantTags, 3)
+	checkData(t, "target_concurrency_per_pod", wantTags, 0.9)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
 	expectSuccess(t, func() error { return r.Report(DesiredPodCountM, 1) })
@@ -75,7 +100,7 @@ func expectSuccess(t *testing.T, f func() error) {
 	}
 }
 
-func checkData(t *testing.T, name string, wantTags map[string]string, wantValue int) {
+func checkData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
 	if d, err := view.RetrieveData(name); err != nil {
 		t.Errorf("Reporter.Report() error = %v, wantErr %v", err, false)
 	} else {
