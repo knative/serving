@@ -98,7 +98,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		time.Sleep(retryInterval)
 
 		// The request body cannot be read multiple times for retries.
-		// The workaround is to clone the request body into a byte array
+		// The workaround is to clone the request body into a byte reader
 		// so the body can be read multiple times.
 		if r.Body != nil {
 			reqBody.Seek(0, io.SeekStart)
