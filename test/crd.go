@@ -88,9 +88,9 @@ var once sync.Once
 
 func initSeed(logger *zap.SugaredLogger) func() {
 	return func() {
-	seed := time.Now().UTC().UnixNano()
-	logger.Infof("Seeding rand.Rand with %v\n", seed)
-	r = rand.New(rand.NewSource(seed))
+		seed := time.Now().UTC().UnixNano()
+		logger.Infof("Seeding rand.Rand with %v", seed)
+		r = rand.New(rand.NewSource(seed))
 	}
 }
 
