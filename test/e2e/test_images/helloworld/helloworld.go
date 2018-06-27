@@ -30,7 +30,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	log.Print("Hello world sample started.")
+	log.Print("Hello world app started.")
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
