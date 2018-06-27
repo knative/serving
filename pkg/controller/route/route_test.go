@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/configmap"
 
 	"go.uber.org/zap"
 
@@ -167,11 +168,11 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	elaInformer informers.SharedInformerFactory,
-	servingSystemInformer kubeinformers.SharedInformerFactory) {
+	configMapWatcher configmap.Watcher) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	domainConfig := corev1.ConfigMap{
+	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctrl.GetDomainConfigMapName(),
 			Namespace: pkg.GetServingSystemNamespace(),
@@ -180,26 +181,24 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 			defaultDomainSuffix: "",
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
-	}
-	kubeClient.Core().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&domainConfig)
+	})
 	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
-	servingSystemInformer = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, pkg.GetServingSystemNamespace(), nil)
 
 	controller = NewController(
 		ctrl.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: elaClient,
+			ConfigMapWatcher: configMapWatcher,
 			Logger:           zap.NewNop().Sugar(),
 		},
 		elaInformer.Serving().V1alpha1().Routes(),
 		elaInformer.Serving().V1alpha1().Configurations(),
 		kubeInformer.Extensions().V1beta1().Ingresses(),
-		servingSystemInformer.Core().V1().ConfigMaps(),
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
 	).(*Controller)
@@ -1565,7 +1564,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com":  "selector:\n  app: prod",
 				},
 			}
-			controller.SyncConfigMap(&domainConfig)
+			controller.receiveDomainConfig(&domainConfig)
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
@@ -1580,23 +1579,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.SyncConfigMap(&domainConfig)
-			route.Labels = make(map[string]string)
-		},
-	}, {
-		// An unrelated config map
-		expectedDomainSuffix: "newdefault.net",
-		apply: func() {
-			domainConfig := corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "SomethingDifferent",
-					Namespace: pkg.GetServingSystemNamespace(),
-				},
-				Data: map[string]string{
-					defaultDomainSuffix: "",
-				},
-			}
-			controller.SyncConfigMap(&domainConfig)
+			controller.receiveDomainConfig(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}, {
@@ -1612,7 +1595,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 					"mytestdomain.com": "selector:\n  app: prod",
 				},
 			}
-			controller.SyncConfigMap(&domainConfig)
+			controller.receiveDomainConfig(&domainConfig)
 			route.Labels = make(map[string]string)
 		},
 	}}

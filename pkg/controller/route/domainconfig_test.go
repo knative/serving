@@ -24,7 +24,6 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 )
 
 func TestSelectorMatches(t *testing.T) {
@@ -57,22 +56,13 @@ func TestSelectorMatches(t *testing.T) {
 	}
 }
 
-func TestNewConfigMissingConfigMap(t *testing.T) {
-	_, err := NewDomainConfig(fakekubeclientset.NewSimpleClientset())
-	if err == nil {
-		t.Error("Expect an error when ConfigMap not exists")
-	}
-}
-
 func TestNewConfigNoEntry(t *testing.T) {
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
+	_, err := NewDomainConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetDomainConfigMapName(),
 		},
 	})
-	_, err := NewDomainConfig(kubeClient)
 	if err == nil {
 		t.Error("Expect an error when config file has no entry")
 	}
@@ -95,8 +85,7 @@ func TestNewConfig(t *testing.T) {
 			"default.com": {},
 		},
 	}
-	kubeClient := fakekubeclientset.NewSimpleClientset()
-	kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Create(&corev1.ConfigMap{
+	c, err := NewDomainConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetDomainConfigMapName(),
@@ -107,7 +96,6 @@ func TestNewConfig(t *testing.T) {
 			"default.com":         "",
 		},
 	})
-	c, err := NewDomainConfig(kubeClient)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
