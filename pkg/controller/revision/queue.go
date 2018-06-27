@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,6 +34,15 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
+	}
+
+	// If AutoscalerImage is empty, connect to the multitenant autoscaler.
+	// Otherwise connect to the single-tenant autoscaler.
+	var autoscalerAddress string
+	if controllerConfig.AutoscalerImage == "" {
+		autoscalerAddress = "autoscaler"
+	} else {
+		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
 	}
 
 	const elaQueueConfigVolumeName = "queue-config"
@@ -91,7 +100,7 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			Value: rev.Name,
 		}, {
 			Name:  "ELA_AUTOSCALER",
-			Value: controller.GetRevisionAutoscalerName(rev),
+			Value: autoscalerAddress,
 		}, {
 			Name:  "ELA_AUTOSCALER_PORT",
 			Value: strconv.Itoa(autoscalerPort),

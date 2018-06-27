@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/golang/glog"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/logging"
 )
 
@@ -279,11 +278,11 @@ func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
 	panicWindow := 6 * time.Second
 	scaleToZeroThreshold := 5 * time.Minute
 	config := Config{
-		TargetConcurrency:    k8sflag.Float64("target-concurrency", targetConcurrency),
-		MaxScaleUpRate:       k8sflag.Float64("max-scale-up-rate", 10.0),
-		StableWindow:         k8sflag.Duration("stable-window", &stableWindow),
-		PanicWindow:          k8sflag.Duration("panic-window", &panicWindow),
-		ScaleToZeroThreshold: k8sflag.Duration("scale-to-zero-threshold", &scaleToZeroThreshold),
+		TargetConcurrency:    targetConcurrency,
+		MaxScaleUpRate:       10.0,
+		StableWindow:         stableWindow,
+		PanicWindow:          panicWindow,
+		ScaleToZeroThreshold: scaleToZeroThreshold,
 	}
 	return NewAutoscaler(config, &mockReporter{})
 }

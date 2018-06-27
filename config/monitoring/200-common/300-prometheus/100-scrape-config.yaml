@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ data:
         regex: .+
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: knative-serving-system;autoscaler-port
+        regex: knative-serving;autoscaler-port
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         action: replace

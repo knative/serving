@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ function wait_until_pods_running() {
 # Returns the name of the Knative Serving pod of the given app.
 # Parameters: $1 - Knative Serving app name.
 function get_ela_pod() {
-  kubectl get pods -n knative-serving-system --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
+  kubectl get pods -n knative-serving --selector=app=$1 --output=jsonpath="{.items[0].metadata.name}"
 }
 
 # Sets the given user as cluster admin.
@@ -161,7 +161,7 @@ function report_go_test() {
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
   local args=("${@/-v}")
-  go test -v ${args[@]} > ${report} || failed=$?
+  go test -race -v ${args[@]} > ${report} || failed=$?
   # Tests didn't run.
   [[ ! -s ${report} ]] && return 1
   # Create WORKSPACE file, required to use bazel
@@ -175,7 +175,7 @@ function report_go_test() {
     local name=${fields[2]}
     # Ignore subtests (those containing slashes)
     if [[ -n "${name##*/*}" ]]; then
-      if [[ ${field1} =~ (PASS|FAIL): ]]; then
+      if [[ ${field1} == PASS: || ${field1} == FAIL: ]]; then
         # Populate BUILD.bazel
         local src="${name}.sh"
         echo "exit 0" > ${src}
@@ -188,7 +188,7 @@ function report_go_test() {
         fi
         chmod +x ${src}
         echo "sh_test(name=\"${name}\", srcs=[\"${src}\"])" >> BUILD.bazel
-      elif [[ ${field0} =~ FAIL|ok ]]; then
+      elif [[ ${field0} == FAIL || ${field0} == ok ]]; then
         # Update the summary with the result for the package
         echo "${line}" >> ${summary}
         # Create the package structure, move tests and BUILD file

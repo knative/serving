@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -92,6 +92,18 @@ func TestReconcile(t *testing.T) {
 					},
 					// There is no spec.{runLatest,pinned} in this
 					// Service to trigger the error condition.
+					Status: v1alpha1.ServiceStatus{
+						Conditions: []v1alpha1.ServiceCondition{{
+							Type:   v1alpha1.ServiceConditionReady,
+							Status: corev1.ConditionUnknown,
+						}, {
+							Type:   v1alpha1.ServiceConditionConfigurationsReady,
+							Status: corev1.ConditionUnknown,
+						}, {
+							Type:   v1alpha1.ServiceConditionRoutesReady,
+							Status: corev1.ConditionUnknown,
+						}},
+					},
 				}},
 			},
 			r: &RouteLister{},
@@ -119,11 +131,11 @@ func TestReconcile(t *testing.T) {
 		key: "foo/run-latest",
 		wantCreates: []metav1.Object{
 			&v1alpha1.Configuration{
-				ObjectMeta: om("foo", "run-latest"),
+				ObjectMeta: com("foo", "run-latest", or("run-latest")),
 				Spec:       configSpec,
 			},
 			&v1alpha1.Route{
-				ObjectMeta: om("foo", "run-latest"),
+				ObjectMeta: com("foo", "run-latest", or("run-latest")),
 				Spec:       runLatestSpec("run-latest"),
 			},
 		},
@@ -170,11 +182,11 @@ func TestReconcile(t *testing.T) {
 		key: "foo/pinned",
 		wantCreates: []metav1.Object{
 			&v1alpha1.Configuration{
-				ObjectMeta: om("foo", "pinned"),
+				ObjectMeta: com("foo", "pinned", or("pinned")),
 				Spec:       configSpec,
 			},
 			&v1alpha1.Route{
-				ObjectMeta: om("foo", "pinned"),
+				ObjectMeta: com("foo", "pinned", or("pinned")),
 				Spec:       pinnedSpec("pinned-0001"),
 			},
 		},
@@ -324,8 +336,6 @@ func TestReconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var names []string
-
 			var objs []runtime.Object
 			for _, s := range tt.fields.s.Items {
 				objs = append(objs, s)
@@ -381,10 +391,6 @@ func TestReconcile(t *testing.T) {
 					t.Errorf("unexpected action[%d]: %#v", i, action)
 				}
 				obj := action.GetObject()
-				if tt.wantCreates[i].GetName() == "<generated>" {
-					tt.wantCreates[i].SetName(names[0])
-					names = names[1:]
-				}
 				if diff := cmp.Diff(tt.wantCreates[i], obj, ignoreLastTransitionTime); diff != "" {
 					t.Errorf("unexpected create (-want +got): %s", diff)
 				}
@@ -464,6 +470,7 @@ func pinnedSpec(name string) v1alpha1.RouteSpec {
 	}
 }
 
+// or builds OwnerReferences for a child of a Service
 func or(name string) []metav1.OwnerReference {
 	return []metav1.OwnerReference{{
 		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
@@ -474,11 +481,20 @@ func or(name string) []metav1.OwnerReference {
 	}}
 }
 
+// om builds ObjectMeta for a Service
 func om(namespace, name string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      name,
+		Namespace: namespace,
+	}
+}
+
+// com builds the ObjectMeta for a Child of a Service
+func com(namespace, name string, or []metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:            name,
 		Namespace:       namespace,
 		Labels:          map[string]string{serving.ServiceLabelKey: name},
-		OwnerReferences: or(name),
+		OwnerReferences: or,
 	}
 }

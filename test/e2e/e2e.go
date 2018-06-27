@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"testing"
-
+	"go.uber.org/zap"
 	"github.com/knative/serving/test"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
@@ -41,10 +41,10 @@ func TearDown(clients *test.Clients, names test.ResourceNames) {
 
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
-func CreateRouteAndConfig(clients *test.Clients, imagePath string) (test.ResourceNames, error) {
+func CreateRouteAndConfig(clients *test.Clients, logger *zap.SugaredLogger, imagePath string) (test.ResourceNames, error) {
 	var names test.ResourceNames
-	names.Config = test.AppendRandomString(configName)
-	names.Route = test.AppendRandomString(routeName)
+	names.Config = test.AppendRandomString(configName, logger)
+	names.Route = test.AppendRandomString(routeName, logger)
 
 	_, err := clients.Configs.Create(
 		test.Configuration(test.Flags.Namespace, names, imagePath))

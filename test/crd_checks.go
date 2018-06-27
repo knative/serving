@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -32,7 +32,7 @@ import (
 
 const (
 	interval = 1 * time.Second
-	timeout  = 2 * time.Minute
+	timeout  = 5 * time.Minute
 )
 
 // WaitForRouteState polls the status of the Route called name from client every

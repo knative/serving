@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -67,9 +67,11 @@ const (
 )
 
 var (
-	podName           string
-	elaNamespace      string
-	elaConfiguration  string
+	podName          string
+	elaNamespace     string
+	elaConfiguration string
+	// elaRevision is the revision name prepended with its namespace, e.g.
+	// namespace/name.
 	elaRevision       string
 	elaAutoscaler     string
 	elaAutoscalerPort string
@@ -101,10 +103,7 @@ func connectStatSink() {
 		elaAutoscaler, pkg.GetServingSystemNamespace(), elaAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
-		// Everything is coming up at the same time.  We wait a
-		// second first to let the autoscaler start serving.  And
-		// we wait 1 second between attempts to connect so we
-		// don't overwhelm the autoscaler.
+		//TODO use exponential backoff here
 		time.Sleep(time.Second)
 
 		dialer := &websocket.Dialer{
@@ -116,6 +115,16 @@ func connectStatSink() {
 		} else {
 			logger.Info("Connected to stat sink.")
 			statSink = conn
+			waitForClose(conn)
+		}
+	}
+}
+
+func waitForClose(c *websocket.Conn) {
+	for {
+		if _, _, err := c.NextReader(); err != nil {
+			logger.Error("Error reading from websocket", zap.Error(err))
+			c.Close()
 			return
 		}
 	}
@@ -128,19 +137,20 @@ func statReporter() {
 			logger.Error("Stat sink not connected.")
 			continue
 		}
+		sm := autoscaler.StatMessage{
+			Stat:        *s,
+			RevisionKey: elaRevision,
+		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
-		err := enc.Encode(s)
+		err := enc.Encode(sm)
 		if err != nil {
 			logger.Error("Failed to encode data from stats channel", zap.Error(err))
 			continue
 		}
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
-			logger.Error("Failed to write to stat sink. Attempting to reconnect to stat sink.", zap.Error(err))
-			statSink = nil
-			go connectStatSink()
-			continue
+			logger.Error("Failed to write to stat sink.", zap.Error(err))
 		}
 	}
 }

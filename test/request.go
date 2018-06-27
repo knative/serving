@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,22 +20,21 @@ package test
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
+	"go.uber.org/zap"
 	"io/ioutil"
-	"net/http"
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"net/http"
+	"time"
 )
 
 const (
 	requestInterval = 1 * time.Second
-	requestTimeout  = 1 * time.Minute
+	requestTimeout  = 5 * time.Minute
 )
 
-func waitForRequestToDomainState(address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) error {
+func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoofDomain string, retryableCodes []int, inState func(body string) (bool, error)) error {
 	h := http.Client{}
 	req, err := http.NewRequest("GET", address, nil)
 	if err != nil {
@@ -56,7 +55,7 @@ func waitForRequestToDomainState(address string, spoofDomain string, retryableCo
 		if resp.StatusCode != 200 {
 			for _, code := range retryableCodes {
 				if resp.StatusCode == code {
-					glog.Infof("Retrying for code %v\n", resp.StatusCode)
+					logger.Infof("Retrying for code %v\n", resp.StatusCode)
 					return false, nil
 				}
 			}
@@ -72,7 +71,7 @@ func waitForRequestToDomainState(address string, spoofDomain string, retryableCo
 // WaitForEndpointState will poll an endpoint until inState indicates the state is achieved. If resolvableDomain
 // is false, it will use kubeClientset to look up the ingress (named based on routeName) in the namespace namespaceName,
 // and spoof domain in the request heaers, otherwise it will make the request directly to domain.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, resolvableDomain bool, domain string, namespaceName string, routeName string, inState func(body string) (bool, error)) error {
+func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, namespaceName string, routeName string, inState func(body string) (bool, error)) error {
 	var endpoint, spoofDomain string
 
 	// If the domain that the Route controller is configured to assign to Route.Status.Domain
@@ -94,7 +93,7 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, resolvableDomain 
 		endpoint = domain
 	}
 
-	glog.Infof("Wait for the endpoint to be up and handling requests")
+	logger.Infof("Wait for the endpoint to be up and handling requests")
 	// TODO(#348): The ingress endpoint tends to return 503's and 404's
-	return waitForRequestToDomainState(endpoint, spoofDomain, []int{503, 404}, inState)
+	return waitForRequestToDomainState(logger, endpoint, spoofDomain, []int{503, 404}, inState)
 }

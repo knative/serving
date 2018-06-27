@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -99,8 +99,7 @@ func main() {
 
 	if len(autoscalerImage) != 0 {
 		logger.Infof("Using autoscaler image: %s", autoscalerImage)
-	} else {
-		logger.Fatal("missing required flag: -autoscalerImage")
+		logger.Info("Single-tenant autoscaler deployments enabled.")
 	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -167,6 +166,7 @@ func main() {
 	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
@@ -175,7 +175,8 @@ func main() {
 	controllers := []controller.Interface{
 		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
 		revision.NewController(opt, vpaClient, revisionInformer, buildInformer, configMapInformer,
-			deploymentInformer, endpointsInformer, vpaInformer, cfg, &revControllerConfig),
+			deploymentInformer, coreServiceInformer, endpointsInformer, vpaInformer,
+			cfg, &revControllerConfig),
 		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
 			configMapInformer, cfg, autoscaleEnableScaleToZero),
 		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
@@ -197,6 +198,7 @@ func main() {
 		buildInformer.Informer().HasSynced,
 		configMapInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
+		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
 		ingressInformer.Informer().HasSynced,
 	} {

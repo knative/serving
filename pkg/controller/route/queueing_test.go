@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC.
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -46,12 +46,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			Percent:      100,
 		}},
 	)
+
 	// TODO(grantr): inserting the route at client creation is necessary
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, _, _, _, _, stopCh := newRunningTestController(t, rev, route)
-	defer close(stopCh)
+	kubeClient, _, controller, kubeInformer, elaInformer, servingSystemInformer := newTestController(t, rev, route)
 
 	h := NewHooks()
 
@@ -62,6 +62,19 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 		return HookComplete
 	})
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	kubeInformer.Start(stopCh)
+	elaInformer.Start(stopCh)
+	servingSystemInformer.Start(stopCh)
+
+	// Run the controller.
+	go func() {
+		if err := controller.Run(2, stopCh); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
 
 	if err := h.WaitForHooks(time.Second * 3); err != nil {
 		t.Error(err)

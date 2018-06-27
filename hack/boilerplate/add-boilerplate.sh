@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ if [[ -z $1 || -z $2 ]]; then
   exit 1
 fi
 
-grep -r -L -P "Copyright \d+ Google" $2  \
+grep -r -L -P "Copyright \d+ The Knative Authors" $2  \
   | grep -P "\.$1\$" \
   | xargs -I {} sh -c \
   "cat hack/boilerplate/boilerplate.$1.txt {} > /tmp/boilerplate && mv /tmp/boilerplate {}"
