@@ -57,24 +57,7 @@ func (di *defaultImpl) Watch(name string, w Observer) {
 
 // Start implements Watcher
 func (di *defaultImpl) Start(stopCh <-chan struct{}) error {
-	// Scope that we want to hold the mutex.
-	if err := func() error {
-		di.m.Lock()
-		defer di.m.Unlock()
-		if di.started {
-			return errors.New("Watcher already started!")
-		}
-		di.started = true
-
-		di.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    di.addConfigMapEvent,
-			UpdateFunc: di.updateConfigMapEvent,
-		})
-
-		// Start the shared informer factory.
-		go di.sif.Start(stopCh)
-		return nil
-	}(); err != nil {
+	if err := di.registerCallbackAndStartInformer(stopCh); err != nil {
 		return err
 	}
 
@@ -83,17 +66,37 @@ func (di *defaultImpl) Start(stopCh <-chan struct{}) error {
 		return errors.New("Error waiting for ConfigMap informer to sync.")
 	}
 
-	// Holding the lock, check that all objects with Observers exist in our informers.
+	return di.checkObservedResourcesExist()
+}
+
+func (di *defaultImpl) registerCallbackAndStartInformer(stopCh <-chan struct{}) error {
 	di.m.Lock()
 	defer di.m.Unlock()
-	// Make sure that our informers has all of the objects that we expect to exist.
+	if di.started {
+		return errors.New("Watcher already started!")
+	}
+	di.started = true
+
+	di.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    di.addConfigMapEvent,
+		UpdateFunc: di.updateConfigMapEvent,
+	})
+
+	// Start the shared informer factory (non-blocking)
+	di.sif.Start(stopCh)
+	return nil
+}
+
+func (di *defaultImpl) checkObservedResourcesExist() error {
+	di.m.Lock()
+	defer di.m.Unlock()
+	// Check that all objects with Observers exist in our informers.
 	for k := range di.observers {
 		_, err := di.informer.Lister().ConfigMaps(di.ns).Get(k)
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 

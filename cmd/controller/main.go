@@ -185,11 +185,12 @@ func main() {
 		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
 	}
 
-	go kubeInformerFactory.Start(stopCh)
-	go elaInformerFactory.Start(stopCh)
-	go buildInformerFactory.Start(stopCh)
-	go servingSystemInformerFactory.Start(stopCh)
-	go vpaInformerFactory.Start(stopCh)
+	// These are non-blocking.
+	kubeInformerFactory.Start(stopCh)
+	elaInformerFactory.Start(stopCh)
+	buildInformerFactory.Start(stopCh)
+	servingSystemInformerFactory.Start(stopCh)
+	vpaInformerFactory.Start(stopCh)
 	if err := configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
 	}
