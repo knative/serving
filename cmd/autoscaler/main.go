@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/gob"
 	"flag"
+	"log"
 	"net/http"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 
@@ -230,7 +232,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLoggerFromDefaultConfigMap("loglevel.autoscaler").Named("autoscaler")
+	loggingConfig, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(loggingConfig), "autoscaler")
 	defer logger.Sync()
 
 	initEnv()

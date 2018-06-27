@@ -22,6 +22,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,7 +31,7 @@ import (
 )
 
 // MakeServingQueueContainer creates the container spec for queue sidecar.
-func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
+func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, controllerConfig *ControllerConfig) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -113,10 +114,10 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			},
 		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
-			Value: controllerConfig.QueueProxyLoggingConfig,
+			Value: loggingConfig.LoggingConfig,
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
-			Value: controllerConfig.QueueProxyLoggingLevel,
+			Value: loggingConfig.LoggingLevel["queueproxy"],
 		}},
 	}
 }

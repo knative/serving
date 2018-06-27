@@ -17,10 +17,12 @@ package main
 
 import (
 	"flag"
+	"log"
 
 	"go.uber.org/zap"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/webhook"
@@ -31,7 +33,11 @@ import (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.webhook").Named("webhook")
+	config, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")

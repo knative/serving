@@ -134,6 +134,11 @@ type Controller struct {
 	// must go through networkConfigMutex
 	networkConfig      *NetworkConfig
 	networkConfigMutex sync.Mutex
+
+	// loggingConfig could change over time and access to it
+	// must go through loggingConfigMutex
+	loggingConfig      *logging.Config
+	loggingConfigMutex sync.Mutex
 }
 
 // ControllerConfig includes the configurations for the controller.
@@ -170,12 +175,6 @@ type ControllerConfig struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
-
-	// QueueProxyLoggingConfig is a string containing the logger configuration for queue proxy.
-	QueueProxyLoggingConfig string
-
-	// QueueProxyLoggingLevel is a string containing the logger level for queue proxy.
-	QueueProxyLoggingLevel string
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -235,6 +234,7 @@ func NewController(
 	})
 
 	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
+	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
 
 	return c
 }
@@ -470,7 +470,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig, replicaCount)
+	deployment := MakeServingDeployment(logger, rev, c.getLoggingConfig(), c.getNetworkConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -960,4 +960,22 @@ func (c *Controller) getNetworkConfig() *NetworkConfig {
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	return c.networkConfig
+}
+
+func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
+	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
+	newLoggingConfig := logging.NewConfigFromConfigMap(configMap)
+
+	c.loggingConfigMutex.Lock()
+	defer c.loggingConfigMutex.Unlock()
+	// TODO(mattmoor): When we support reconciling Deployment differences,
+	// we should consider triggering a global reconciliation here to the
+	// logging configuration changes are rolled out to active revisions.
+	c.loggingConfig = newLoggingConfig
+}
+
+func (c *Controller) getLoggingConfig() *logging.Config {
+	c.loggingConfigMutex.Lock()
+	defer c.loggingConfigMutex.Unlock()
+	return c.loggingConfig
 }

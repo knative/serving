@@ -24,6 +24,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -77,7 +78,7 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 // MakeServingPodSpec creates a pod spec.
-func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
+func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, controllerConfig *ControllerConfig) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -138,7 +139,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 	}
 
 	podSpec := &corev1.PodSpec{
-		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, controllerConfig)},
+		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, loggingConfig, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
@@ -205,7 +206,8 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 
 // MakeServingDeployment creates a deployment.
 func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
-	networkConfig *NetworkConfig, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
+	loggingConfig *logging.Config, networkConfig *NetworkConfig, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
+
 	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
@@ -244,7 +246,7 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 					Labels:      MakeServingResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *MakeServingPodSpec(rev, controllerConfig),
+				Spec: *MakeServingPodSpec(rev, loggingConfig, controllerConfig),
 			},
 		},
 	}
