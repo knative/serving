@@ -28,18 +28,17 @@ import (
 	"github.com/golang/glog"
 )
 
-// Flags will include the k8s cluster (defaults to $K8S_CLUSTER_OVERRIDE), kubeconfig (defaults to ./kube/config)
-// (for connecting to an existing cluster), dockerRepo (defaults to $DOCKER_REPO_OVERRIDE) and how to connect to deployed endpoints.
+// Flags holds the command line flags or defaults for settings in the user's environment.
+// See EnvironmentFlags for a list of supported fields.
 var Flags = initializeFlags()
 
-// EnvironmentFlags holds the command line flags or defaults for settings in the user's environment.
 type EnvironmentFlags struct {
-	Cluster          string
-	DockerRepo       string
-	Kubeconfig       string
-	Namespace        string
-	ResolvableDomain bool
-	LogVerbose       bool
+	Cluster          string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
+	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Kubeconfig       string // Path to kubeconfig (defaults to ./kube/config)
+	Namespace        string // K8s namespace (blank by default, to be overwritten by test suite)
+	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
+	LogVerbose       bool   // Enable verbose logging
 }
 
 // VerboseLogLevel defines verbose log level as 10

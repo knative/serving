@@ -18,9 +18,10 @@ limitations under the License.
 package e2e
 
 import (
-	"github.com/golang/glog"
 	"strings"
 	"testing"
+
+	"github.com/golang/glog"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
@@ -64,7 +65,7 @@ func generateTrafficBurst(clients *test.Clients, names test.ResourceNames, num i
 			test.WaitForEndpointState(clients.Kube,
 				test.Flags.ResolvableDomain,
 				domain,
-				NamespaceName,
+				test.Flags.Namespace,
 				names.Route,
 				isExpectedOutput())
 			concurrentRequests <- true
@@ -157,7 +158,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		clients.Kube,
 		test.Flags.ResolvableDomain,
 		domain,
-		NamespaceName,
+		test.Flags.Namespace,
 		names.Route,
 		isExpectedOutput())
 	if err != nil {
@@ -170,7 +171,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		    increases.`)
 	generateTrafficBurst(clients, names, 5, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
 		isDeploymentScaledUp())
 	if err != nil {
@@ -191,7 +192,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
 		isDeploymentScaledToZero())
 	if err != nil {
@@ -201,7 +202,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	// Account for the case where scaling up uses all available pods.
 	glog.Infof("Wait until there are pods available to scale into.")
-	pc := clients.Kube.CoreV1().Pods(NamespaceName)
+	pc := clients.Kube.CoreV1().Pods(test.Flags.Namespace)
 
 	err = test.WaitForPodListState(
 		pc,
@@ -215,7 +216,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
               traffic increases.`)
 	generateTrafficBurst(clients, names, 8, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
 		isDeploymentScaledUp())
 	if err != nil {

@@ -38,20 +38,17 @@ import (
 )
 
 const (
-	image1 = "pizzaplanetv1"
-	image2 = "pizzaplanetv2"
-)
-
-var (
-	namespaceName = "pizzaplanet"
+	image1               = "pizzaplanetv1"
+	image2               = "pizzaplanetv2"
+	defaultNamespaceName = "pizzaplanet"
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	_, err := clients.Configs.Create(test.Configuration(namespaceName, names, imagePaths[0]))
+	_, err := clients.Configs.Create(test.Configuration(test.Flags.Namespace, names, imagePaths[0]))
 	if err != nil {
 		return err
 	}
-	_, err = clients.Routes.Create(test.Route(namespaceName, names))
+	_, err = clients.Routes.Create(test.Route(test.Flags.Namespace, names))
 	return err
 }
 
@@ -93,7 +90,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	err = test.WaitForEndpointState(clients.Kube, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, namespaceName, names.Route, func(body string) (bool, error) {
+	err = test.WaitForEndpointState(clients.Kube, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, test.Flags.Namespace, names.Route, func(body string) (bool, error) {
 		return body == expectedText, nil
 	})
 	if err != nil {
@@ -133,11 +130,11 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 }
 
 func setup(t *testing.T) *test.Clients {
-	if test.Flags.Namespace != "" {
-		namespaceName = test.Flags.Namespace
+	if test.Flags.Namespace == "" {
+		test.Flags.Namespace = defaultNamespaceName
 	}
 
-	clients, err := test.NewClients(test.Flags.Kubeconfig, test.Flags.Cluster, namespaceName)
+	clients, err := test.NewClients(test.Flags.Kubeconfig, test.Flags.Cluster, test.Flags.Namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}
