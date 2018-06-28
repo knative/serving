@@ -114,10 +114,6 @@ function dump_stack_info() {
   echo "***           TEST FAILED           ***"
   echo "***    Start of information dump    ***"
   echo "***************************************"
-  if (( IS_PROW )) || [[ $PROJECT_ID != "" ]]; then
-    echo ">>> Project info:"
-    gcloud compute project-info describe
-  fi
   echo ">>> All resources:"
   kubectl get all --all-namespaces
   echo ">>> Services:"
