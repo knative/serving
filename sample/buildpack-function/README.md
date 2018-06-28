@@ -56,7 +56,7 @@ To access this service via `curl`, we first need to determine its ingress addres
 ```shell
 $ watch kubectl get ing
 NAME                             HOSTS                                        ADDRESS   PORTS   AGE
-buildpack-function-ingress   buildpack-function.default.demo-domain.com   0.0.0.0   80      3m
+buildpack-function-ingress   buildpack-function.default.example.com   0.0.0.0   80      3m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:

@@ -59,7 +59,7 @@ When the ingress is ready, you'll see an IP address in the ADDRESS field:
 
 ```
 NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-stock-route-example-ingress   stock-route-example.default.demo-domain.com   35.185.44.102   80        1m
+stock-route-example-ingress   stock-route-example.default.example.com   35.185.44.102   80        1m
 ```
 
 Once the `ADDRESS` gets assigned to the cluster, you can run:

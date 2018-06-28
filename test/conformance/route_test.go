@@ -19,9 +19,10 @@ package conformance
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 
 	"encoding/json"
 
@@ -78,7 +79,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		} else {
 			return cond.Status == corev1.ConditionTrue, nil
 		}
-	})
+	}, "RouteIsReady")
 	if err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -91,14 +92,14 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	}
 	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, namespaceName, names.Route, func(body string) (bool, error) {
 		return body == expectedText, nil
-	})
+	}, "WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, updatedRoute.Status.Domain, expectedText, err)
 	}
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Infof("The Revision will be marked as Ready when it can serve traffic")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady(names.Revision))
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady())
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
@@ -107,10 +108,10 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
 	})
 	if err != nil {
-		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v\n", names.Config, names.Revision, err)
+		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	logger.Infof("Updates the Route to route traffic to the Revision")
-	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
+	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -124,7 +125,7 @@ func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (strin
 			return true, nil
 		}
 		return false, nil
-	})
+	}, "ConfigurationUpdatedWithRevision")
 	return newRevisionName, err
 }
 
@@ -155,6 +156,7 @@ func TestRouteCreation(t *testing.T) {
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
 	names.Route = test.AppendRandomString("pizzaplanet", logger)
+	names.TrafficTarget = test.AppendRandomString("pizzaplanet", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)

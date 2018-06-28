@@ -132,8 +132,8 @@ type Autoscaler struct {
 	reporter     StatsReporter
 }
 
-// NewAutoscaler creates a new instance of autoscaler
-func NewAutoscaler(config Config, reporter StatsReporter) *Autoscaler {
+// New creates a new instance of autoscaler
+func New(config Config, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
 		Config:   config,
 		stats:    make(map[statKey]Stat),

@@ -17,12 +17,7 @@ limitations under the License.
 package revision
 
 import (
-	"github.com/knative/serving/pkg"
-
-	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -37,16 +32,6 @@ type NetworkConfig struct {
 	// IstioOutboundIPRange specifies the IP ranges to intercept
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
-}
-
-// NewNetworkConfig creates a DomainConfig by reading the domain configmap from
-// the supplied client.
-func NewNetworkConfig(kubeClient kubernetes.Interface) (*NetworkConfig, error) {
-	m, err := kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Get(controller.GetNetworkConfigMapName(), metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return NewNetworkConfigFromConfigMap(m), nil
 }
 
 // NewNetworkConfigFromConfigMap creates a NewNetworkConfig from the supplied ConfigMap

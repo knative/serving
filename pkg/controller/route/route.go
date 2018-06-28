@@ -44,7 +44,6 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	extv1beta1informers "k8s.io/client-go/informers/extensions/v1beta1"
 )
 
@@ -96,59 +95,47 @@ func NewController(
 	routeInformer servinginformers.RouteInformer,
 	configInformer servinginformers.ConfigurationInformer,
 	ingressInformer extv1beta1informers.IngressInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	config *rest.Config,
 	enableScaleToZero *k8sflag.BoolFlag) controller.Interface {
 
-	domainConfig, err := NewDomainConfig(opt.KubeClientSet)
-	if err != nil {
-		opt.Logger.Fatalf("Error loading domain config: %v", err)
-	}
-
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
-	controller := &Controller{
+	c := &Controller{
 		Base:              controller.NewBase(opt, controllerAgentName, "Routes"),
 		routeLister:       routeInformer.Lister(),
-		domainConfig:      domainConfig,
 		enableScaleToZero: enableScaleToZero,
 	}
 
-	controller.Logger.Info("Setting up event handlers")
+	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.Enqueue,
+		AddFunc: c.Enqueue,
 		UpdateFunc: func(old, new interface{}) {
-			controller.Enqueue(new)
+			c.Enqueue(new)
 		},
-		DeleteFunc: controller.Enqueue,
+		DeleteFunc: c.Enqueue,
 	})
 
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			controller.SyncConfiguration(obj.(*v1alpha1.Configuration))
+			c.SyncConfiguration(obj.(*v1alpha1.Configuration))
 		},
 		UpdateFunc: func(old, new interface{}) {
-			controller.SyncConfiguration(new.(*v1alpha1.Configuration))
+			c.SyncConfiguration(new.(*v1alpha1.Configuration))
 		},
 	})
 	// v1beta1.Ingress
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			controller.SyncIngress(obj.(*v1beta1.Ingress))
+			c.SyncIngress(obj.(*v1beta1.Ingress))
 		},
 		UpdateFunc: func(old, new interface{}) {
-			controller.SyncIngress(new.(*v1beta1.Ingress))
+			c.SyncIngress(new.(*v1beta1.Ingress))
 		},
 	})
-	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			controller.SyncConfigMap(obj.(*corev1.ConfigMap))
-		},
-		UpdateFunc: func(old, new interface{}) {
-			controller.SyncConfigMap(new.(*corev1.ConfigMap))
-		},
-	})
-	return controller
+
+	opt.ConfigMapWatcher.Watch(controller.GetDomainConfigMapName(), c.receiveDomainConfig)
+
+	return c
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -245,10 +232,16 @@ func (c *Controller) getDomainConfig() *DomainConfig {
 	return c.domainConfig
 }
 
-func (c *Controller) setDomainConfig(cfg *DomainConfig) {
+func (c *Controller) receiveDomainConfig(configMap *corev1.ConfigMap) {
+	newDomainConfig, err := NewDomainConfigFromConfigMap(configMap)
+	if err != nil {
+		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.",
+			zap.Error(err))
+		return
+	}
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
-	c.domainConfig = cfg
+	c.domainConfig = newDomainConfig
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
@@ -277,13 +270,6 @@ func (c *Controller) syncTrafficTargets(ctx context.Context, route *v1alpha1.Rou
 		return nil, err
 	}
 	if err := c.setLabelForGivenConfigurations(ctx, route, configMap); err != nil {
-		return nil, err
-	}
-
-	if err := c.deleteLabelForOutsideOfGivenRevisions(ctx, route, revMap); err != nil {
-		return nil, err
-	}
-	if err := c.setLabelForGivenRevisions(ctx, route, revMap); err != nil {
 		return nil, err
 	}
 
@@ -509,51 +495,6 @@ func (c *Controller) setLabelForGivenConfigurations(
 	return nil
 }
 
-func (c *Controller) setLabelForGivenRevisions(
-	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	revisionClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
-
-	// Validate revision if it already has a route label
-	for _, rev := range revMap {
-		if routeName, ok := rev.Labels[serving.RouteLabelKey]; ok {
-			if routeName != route.Name {
-				errMsg := fmt.Sprintf("Revision %q is already in use by %q, and cannot be used by %q",
-					rev.Name, routeName, route.Name)
-				c.Recorder.Event(route, corev1.EventTypeWarning, "RevisionInUse", errMsg)
-				logger.Error(errMsg)
-				return errors.New(errMsg)
-			}
-		}
-	}
-
-	for _, rev := range revMap {
-		if rev.Labels != nil {
-			if _, ok := rev.Labels[serving.RouteLabelKey]; ok {
-				continue
-			}
-		}
-		// Fetch the latest version of the revision to label, to narrow the window for
-		// optimistic concurrency failures.
-		latestRev, err := revisionClient.Get(rev.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if latestRev.Labels == nil {
-			latestRev.Labels = make(map[string]string)
-		} else if _, ok := latestRev.Labels[serving.RouteLabelKey]; ok {
-			continue
-		}
-		latestRev.Labels[serving.RouteLabelKey] = route.Name
-		if _, err := revisionClient.Update(latestRev); err != nil {
-			logger.Errorf("Failed to add route label to Revision %s: %s", rev.Name, err)
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
@@ -584,36 +525,6 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	return nil
 }
 
-func (c *Controller) deleteLabelForOutsideOfGivenRevisions(
-	ctx context.Context, route *v1alpha1.Route, revMap map[string]*v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
-	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
-
-	oldRevList, err := revClient.List(
-		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name),
-		},
-	)
-	if err != nil {
-		logger.Errorf("Failed to fetch revisions with label '%s=%s': %s",
-			serving.RouteLabelKey, route.Name, err)
-		return err
-	}
-
-	// Delete label for newly removed revisions as traffic target.
-	for _, rev := range oldRevList.Items {
-		if _, ok := revMap[rev.Name]; !ok {
-			delete(rev.Labels, serving.RouteLabelKey)
-			if _, err := revClient.Update(&rev); err != nil {
-				logger.Errorf("Failed to remove route label from Revision %s: %s", rev.Name, err)
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 // computeRevisionRoutes computes RevisionRoute for a route object. If there is one or more inactive revisions and enableScaleToZero
 // is true, a route rule with the activator service as the destination will be added. It returns the revision routes, the inactive
 // revision name to which the activator should forward requests to, and error if there is any.
@@ -631,7 +542,7 @@ func (c *Controller) computeRevisionRoutes(
 	// The total percent of all inactive revisions.
 	totalInactivePercent := 0
 	ns := route.Namespace
-	elaNS := controller.GetServingNamespaceName(ns)
+	servingNS := controller.GetServingNamespaceName(ns)
 	ret := []RevisionRoute{}
 
 	for _, tt := range route.Spec.Traffic {
@@ -665,9 +576,9 @@ func (c *Controller) computeRevisionRoutes(
 		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if enableScaleToZero && cond != nil {
 			// A revision is considered inactive (yet) if it's in
-			// "Inactive" condition or "Activating" condition.
+			// "Inactive" and "Updating" condition
 			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
-				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+				(cond.Reason == "Updating" && cond.Status == corev1.ConditionUnknown) {
 				// Let inactiveRev be the Reserve revision with the largest traffic weight.
 				if tt.Percent > maxInactivePercent {
 					maxInactivePercent = tt.Percent
@@ -683,7 +594,7 @@ func (c *Controller) computeRevisionRoutes(
 				Name:         tt.Name,
 				RevisionName: rev.Name,
 				Service:      rev.Status.ServiceName,
-				Namespace:    elaNS,
+				Namespace:    servingNS,
 				Weight:       tt.Percent,
 			}
 			ret = append(ret, rr)
@@ -719,7 +630,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 	revMap map[string]*v1alpha1.Revision) ([]RevisionRoute, error) {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	elaNS := controller.GetServingNamespaceName(ns)
+	servingNS := controller.GetServingNamespaceName(ns)
 	revClient := c.ServingClientSet.ServingV1alpha1().Revisions(ns)
 	revRoutes := []RevisionRoute{}
 	for _, tt := range route.Spec.Traffic {
@@ -742,7 +653,7 @@ func (c *Controller) computeEmptyRevisionRoutes(
 					revRoutes = append(revRoutes, RevisionRoute{
 						RevisionName: rev.Name,
 						Service:      rev.Status.ServiceName,
-						Namespace:    elaNS,
+						Namespace:    servingNS,
 						Weight:       0,
 					})
 				}
@@ -1055,18 +966,4 @@ func (c *Controller) SyncIngress(ingress *v1beta1.Ingress) {
 			zap.String(logkey.Route, routeName))
 		return
 	}
-}
-
-func (c *Controller) SyncConfigMap(configMap *corev1.ConfigMap) {
-	if configMap.Namespace != pkg.GetServingSystemNamespace() || configMap.Name != controller.GetDomainConfigMapName() {
-		return
-	}
-
-	c.Logger.Infof("Domain config map is added or updated: %v", configMap)
-	newDomainConfig, err := NewDomainConfigFromConfigMap(configMap)
-	if err != nil {
-		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.", zap.Error(err))
-		return
-	}
-	c.setDomainConfig(newDomainConfig)
 }

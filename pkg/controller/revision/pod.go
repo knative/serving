@@ -168,19 +168,19 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 				Name:  "FLUENTD_ARGS",
 				Value: "--no-supervisor -q",
 			}, {
-				Name:  "ELA_CONTAINER_NAME",
+				Name:  "SERVING_CONTAINER_NAME",
 				Value: userContainerName,
 			}, {
-				Name:  "ELA_CONFIGURATION",
+				Name:  "SERVING_CONFIGURATION",
 				Value: configName,
 			}, {
-				Name:  "ELA_REVISION",
+				Name:  "SERVING_REVISION",
 				Value: rev.Name,
 			}, {
-				Name:  "ELA_NAMESPACE",
+				Name:  "SERVING_NAMESPACE",
 				Value: rev.Namespace,
 			}, {
-				Name: "ELA_POD_NAME",
+				Name: "SERVING_POD_NAME",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
 						FieldPath: "metadata.name",
@@ -205,12 +205,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 
 // MakeServingDeployment creates a deployment.
 func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
-	networkConfig *NetworkConfig, controllerConfig *ControllerConfig) *appsv1.Deployment {
-	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
-		MaxUnavailable: &elaPodMaxUnavailable,
-		MaxSurge:       &elaPodMaxSurge,
-	}
-
+	networkConfig *NetworkConfig, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
 	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
@@ -241,12 +236,8 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &elaPodReplicaCount,
-			Selector: MakeServingResourceSelector(rev),
-			Strategy: appsv1.DeploymentStrategy{
-				Type:          "RollingUpdate",
-				RollingUpdate: &rollingUpdateConfig,
-			},
+			Replicas:                &replicaCount,
+			Selector:                MakeServingResourceSelector(rev),
 			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

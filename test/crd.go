@@ -21,17 +21,20 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-	"go.uber.org/zap"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ResourceNames holds names of related Config, Route and Revision objects.
+// ResourceNames holds names of various resources.
 type ResourceNames struct {
-	Config   string
-	Route    string
-	Revision string
+	Config        string
+	Route         string
+	Revision      string
+	Service       string
+	TrafficTarget string
 }
 
 // Route returns a Route object in namespace using the route and configuration
@@ -45,7 +48,7 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{
 				v1alpha1.TrafficTarget{
-					Name:              names.Route,
+					Name:              names.TrafficTarget,
 					ConfigurationName: names.Config,
 					Percent:           100,
 				},
@@ -74,6 +77,30 @@ func Configuration(namespace string, names ResourceNames, imagePath string) *v1a
 	}
 }
 
+// LatestService returns a RunLatest Service object in namespace with the name names.Service
+// that uses the image specifed by imagePath.
+func LatestService(namespace string, names ResourceNames, imagePath string) *v1alpha1.Service {
+	return &v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      names.Service,
+		},
+		Spec: v1alpha1.ServiceSpec{
+			RunLatest: &v1alpha1.RunLatestType{
+				Configuration: v1alpha1.ConfigurationSpec{
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: v1alpha1.RevisionSpec{
+							Container: corev1.Container{
+								Image: imagePath,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 const (
 	letterBytes   = "abcdefghijklmnopqrstuvwxyz"
 	randSuffixLen = 8
@@ -88,9 +115,9 @@ var once sync.Once
 
 func initSeed(logger *zap.SugaredLogger) func() {
 	return func() {
-	seed := time.Now().UTC().UnixNano()
-	logger.Infof("Seeding rand.Rand with %v\n", seed)
-	r = rand.New(rand.NewSource(seed))
+		seed := time.Now().UTC().UnixNano()
+		logger.Infof("Seeding rand.Rand with %v", seed)
+		r = rand.New(rand.NewSource(seed))
 	}
 }
 
