@@ -360,20 +360,6 @@ definitions is to use Grafana UI (make sure to login with as admin user) and
 7. Validate the metrics flow either by Grafana UI or Prometheus UI (see
 Troubleshooting section above to enable Prometheus UI)
 
-## Generating logs
-<!--TODO: Explain why we recommend using glog. -->
-Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code.
-In your container spec, add the following arguments to redirect the logs to stderr:
-
-```yaml
-args:
-- "-logtostderr=true"
-- "-stderrthreshold=INFO"
-```
-
-See [helloworld](../sample/helloworld/README.md) sample's configuration file as
-an example.
-
 ## Distributed tracing with Zipkin
 Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of
 [OpenZipkin](https://zipkin.io/pages/existing_instrumentations)'s Go client library.
