@@ -967,6 +967,8 @@ func (c *Controller) setRevisionServingStateReserve(ctx context.Context, revMap 
 		if !time.Now().After(t.Add(10 * time.Second)) {
 			continue
 		}
+		// TODO: Check RouteRule.Status when Istio starts populating it:
+		//       https://github.com/istio/istio/issues/882
 		c.Logger.Infof("Route rules have been in place for at least 10 seconds. " +
 			"Placing Revision into Reserve state.")
 		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
