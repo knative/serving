@@ -168,19 +168,19 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 				Name:  "FLUENTD_ARGS",
 				Value: "--no-supervisor -q",
 			}, {
-				Name:  "ELA_CONTAINER_NAME",
+				Name:  "SERVING_CONTAINER_NAME",
 				Value: userContainerName,
 			}, {
-				Name:  "ELA_CONFIGURATION",
+				Name:  "SERVING_CONFIGURATION",
 				Value: configName,
 			}, {
-				Name:  "ELA_REVISION",
+				Name:  "SERVING_REVISION",
 				Value: rev.Name,
 			}, {
-				Name:  "ELA_NAMESPACE",
+				Name:  "SERVING_NAMESPACE",
 				Value: rev.Namespace,
 			}, {
-				Name: "ELA_POD_NAME",
+				Name: "SERVING_POD_NAME",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
 						FieldPath: "metadata.name",

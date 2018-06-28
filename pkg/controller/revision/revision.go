@@ -632,6 +632,9 @@ func (c *Controller) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
 
 	desiredService := sf(rev)
 
+	// Preserve the ClusterIP field in the Service's Spec, if it has been set.
+	desiredService.Spec.ClusterIP = service.Spec.ClusterIP
+
 	if equality.Semantic.DeepEqual(desiredService.Spec, service.Spec) {
 		return service, Unchanged, nil
 	}

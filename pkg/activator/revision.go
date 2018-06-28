@@ -41,11 +41,11 @@ type revisionActivator struct {
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, elaClient clientset.Interface, logger *zap.SugaredLogger) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
-		knaClient:   elaClient,
+		knaClient:   servingClient,
 		logger:      logger,
 	}
 }
@@ -126,7 +126,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	}
 
 	// TODO: in the future, the target service could have more than one port.
-	// https://github.com/elafros/elafros/issues/837
+	// https://github.com/knative/serving/issues/837
 	if len(svc.Spec.Ports) != 1 {
 		return internalError("Revision needs one port. Found %v", len(svc.Spec.Ports))
 	}
