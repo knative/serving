@@ -158,6 +158,9 @@ const (
 	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
+	// RevisionConditionIdle is set when the revision has not
+	// received any requests for a while.
+	RevisionConditionIdle RevisionConditionType = "Idle"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -352,13 +355,30 @@ func (rs *RevisionStatus) MarkDeploying(reason string) {
 	}
 }
 
-func (rs *RevisionStatus) MarkToReserve() {
+func (rs *RevisionStatus) MarkAsIdle() {
 	rs.setCondition(&RevisionCondition{
 		Type:    RevisionConditionReady,
 		Status:  corev1.ConditionFalse,
-		Reason:  "Inactive",
+		Reason:  "Idle",
 		Message: "Revision is being placed in Reserve state.",
 	})
+	rs.setCondition(&RevisionCondition{
+		Type:    RevisionConditionIdle,
+		Status:  corev1.ConditionTrue,
+		Reason:  "Idle",
+		Message: "Revision has not received traffic recently.",
+	})
+}
+
+func (rs *RevisionStatus) UnMarkAsIdle() {
+	rs.RemoveCondition(RevisionConditionIdle)
+}
+
+func (rs *RevisionStatus) IdleTime() *metav1.Time {
+	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
+		return &cond.LastTransitionTime
+	}
+	return nil
 }
 
 func (rs *RevisionStatus) MarkServiceTimeout() {

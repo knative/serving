@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/knative/serving/pkg"
 
@@ -307,6 +308,12 @@ func (c *Controller) syncTrafficTargets(ctx context.Context, route *v1alpha1.Rou
 		route.Status.Traffic = traffic
 	}
 	route.Status.Domain = c.routeDomain(route)
+
+	// Complete two-phase teardown of idle Revisions
+	if err := c.setRevisionServingStateReserve(ctx, revMap); err != nil {
+		return nil, err
+	}
+
 	return route, nil
 }
 
@@ -824,9 +831,6 @@ func (c *Controller) createOrUpdateRouteRules(ctx context.Context, route *v1alph
 		return nil, err
 	}
 
-	// TODO: verify Activator route has been installed and transition
-	//       Revision to Reserve state from ToReserve.
-
 	return revisionRoutes, nil
 }
 
@@ -946,6 +950,29 @@ func (c *Controller) removeOutdatedRouteRules(ctx context.Context, u *v1alpha1.R
 			if !apierrs.IsNotFound(err) {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) setRevisionServingStateReserve(ctx context.Context, revMap map[string]*v1alpha1.Revision) error {
+	for _, rev := range revMap {
+		if rev.Spec.ServingState != v1alpha1.RevisionServingStateToReserve {
+			continue
+		}
+		t := rev.Status.IdleTime()
+		if t == nil {
+			continue
+		}
+		if !time.Now().After(t.Add(10 * time.Second)) {
+			continue
+		}
+		c.Logger.Infof("Route rules have been in place for at least 10 seconds. " +
+			"Placing Revision into Reserve state.")
+		rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+		_, err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
