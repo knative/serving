@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetesting "k8s.io/client-go/testing"
+	"github.com/knative/serving/bazel-elafros/external/go_sdk/src/log"
 )
 
 // HookResult is the return value of hook functions.
@@ -100,9 +101,18 @@ func (h *Hooks) OnCreate(fake *kubetesting.Fake, resource string, rf CreateHookF
 		obj := a.(kubetesting.CreateActionImpl).Object
 		if rf(obj) == HookComplete {
 			h.completionCh <- index
+		} else {
+			log.Println("lalalala")
 		}
 		return false, nil, nil
 	})
+}
+
+func untestedFunc(){
+	log.Println("lalalala")
+	log.Println("lalalala")
+	log.Println("lalalala")
+	log.Println("lalalala")
 }
 
 // OnUpdate attaches an update hook to the given Fake. The hook function is
