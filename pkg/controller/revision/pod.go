@@ -205,12 +205,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 
 // MakeServingDeployment creates a deployment.
 func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
-	networkConfig *NetworkConfig, controllerConfig *ControllerConfig) *appsv1.Deployment {
-	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
-		MaxUnavailable: &servingPodMaxUnavailable,
-		MaxSurge:       &servingPodMaxSurge,
-	}
-
+	networkConfig *NetworkConfig, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
 	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
@@ -241,12 +236,8 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &servingPodReplicaCount,
-			Selector: MakeServingResourceSelector(rev),
-			Strategy: appsv1.DeploymentStrategy{
-				Type:          "RollingUpdate",
-				RollingUpdate: &rollingUpdateConfig,
-			},
+			Replicas:                &replicaCount,
+			Selector:                MakeServingResourceSelector(rev),
 			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
