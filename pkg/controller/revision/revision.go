@@ -32,12 +32,14 @@ import (
 	"github.com/knative/serving/pkg"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -399,31 +401,27 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	deploymentName := controller.GetRevisionDeploymentName(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
 		// When Active or Reserved, deployment should exist and have a particular specification.
-		if err != nil {
-			if !apierrs.IsNotFound(err) {
-				logger.Errorf("Error reconciling deployment %q: %v", deploymentName, err)
-				return err
-			}
-
+		if apierrs.IsNotFound(getDepErr) {
 			// Deployment does not exist. Create it.
-			var replicaCount int32 = 1
-			if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-				replicaCount = 0
-			}
 			rev.Status.MarkDeploying("Deploying")
-			deployment, err = c.createDeployment(ctx, rev, replicaCount)
+			var err error
+			deployment, err = c.createDeployment(ctx, rev)
 			if err != nil {
 				logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
 				return err
 			}
 			logger.Infof("Created deployment %q", deploymentName)
+		} else if getDepErr != nil {
+			logger.Errorf("Error reconciling deployment %q: %v", deploymentName, getDepErr)
+			return getDepErr
 		} else {
 			// Deployment exist. Update the replica count based on the serving state if necessary
 			var changed Changed
+			var err error
 			deployment, changed, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 			if err != nil {
 				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
@@ -447,7 +445,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	case v1alpha1.RevisionServingStateRetired:
 		// When Retired, we remove the underlying Deployment.
-		if apierrs.IsNotFound(err) {
+		if apierrs.IsNotFound(getDepErr) {
 			// If it does not exist, then we have nothing to do.
 			return nil
 		}
@@ -465,8 +463,13 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	}
 }
 
-func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revision, replicaCount int32) (*appsv1.Deployment, error) {
+func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
+
+	var replicaCount int32 = 1
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
+		replicaCount = 0
+	}
 	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
@@ -483,57 +486,26 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
 	logger := logging.FromContext(ctx)
 
-	changed := Unchanged
-	if deployment.Spec.Replicas == nil {
-		// This is not something we should ever hit.
-		// Defaulter should have set this field.
-		logger.Errorf("Deployment has nil Replicas. This is unexpected. Reconciling the deployment: %v", deployment)
-		deployment.Spec.Replicas = new(int32)
-		changed = WasChanged
+	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
+	// MakeServingDeployment() would produce.
+	desiredDeployment := deployment.DeepCopy()
+	if desiredDeployment.Spec.Replicas == nil {
+		desiredDeployment.Spec.Replicas = new(int32)
+	}
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *desiredDeployment.Spec.Replicas == 0 {
+		*desiredDeployment.Spec.Replicas = 1
+	} else if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve && *desiredDeployment.Spec.Replicas != 0 {
+		*desiredDeployment.Spec.Replicas = 0
 	}
 
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *deployment.Spec.Replicas == 0 {
-		logger.Infof("Changing replicas from %v to %v for deployment %v", *deployment.Spec.Replicas, 1, deployment.Name)
-		*deployment.Spec.Replicas = 1
-		changed = WasChanged
-	} else if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve && *deployment.Spec.Replicas != 0 {
-		logger.Infof("Changing replicas from %v to %v for deployment %v", *deployment.Spec.Replicas, 0, deployment.Name)
-		*deployment.Spec.Replicas = 0
-		changed = WasChanged
+	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
+		return deployment, Unchanged, nil
 	}
-
-	if changed == Unchanged {
-		return deployment, changed, nil
-	}
-
-	logger.Infof("Reconciling deployment %v to update the replica count to %v", deployment.Name, *deployment.Spec.Replicas)
+	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
+		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
+	deployment.Spec = desiredDeployment.Spec
 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-	return d, changed, err
-
-	// TODO(mattmoor): Don't reconcile Deployments until we can avoid fighting with
-	// its defaulter.
-	// 	desiredDeployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
-
-	// 	// Copy the userContainerImage digest and the replica count.
-	// 	// We don't want autoscaling differences or user updates to the image tag
-	// 	// to trigger redeployments.
-	// 	desiredDeployment.Spec.Replicas = deployment.Spec.Replicas
-	// 	pod := desiredDeployment.Spec.Template.Spec
-	// 	for i := range pod.Containers {
-	// 		if pod.Containers[i].Name == userContainerName {
-	// 			pod.Containers[i].Image = desiredDeployment.Spec.Template.Spec.Containers[i].Image
-	// 		}
-	// 	}
-
-	// 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-	// 		return deployment, Unchanged, nil
-	// 	}
-	// 	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
-	// 		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
-	// 	deployment.Spec = desiredDeployment.Spec
-
-	// 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-	// 	return d, WasChanged, err
+	return d, WasChanged, err
 }
 
 // This is a generic function used both for deployment of user code & autoscaler
@@ -820,29 +792,25 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	deploymentName := controller.GetRevisionAutoscalerName(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
 		// When Active or Reserved, Autoscaler deployment should exist and have a particular specification.
-		if err != nil {
-			if !apierrs.IsNotFound(err) {
-				logger.Errorf("Error reconciling Autoscaler deployment %q: %v", deploymentName, err)
-				return err
-			}
-
+		if apierrs.IsNotFound(getDepErr) {
 			// Deployment does not exist. Create it.
-			var replicaCount int32 = 1
-			if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-				replicaCount = 0
-			}
-			deployment, err = c.createAutoscalerDeployment(ctx, rev, replicaCount)
+			var err error
+			deployment, err = c.createAutoscalerDeployment(ctx, rev)
 			if err != nil {
 				logger.Errorf("Error creating Autoscaler deployment %q: %v", deploymentName, err)
 				return err
 			}
 			logger.Infof("Created Autoscaler deployment %q", deploymentName)
+		} else if getDepErr != nil {
+			logger.Errorf("Error reconciling Autoscaler deployment %q: %v", deploymentName, getDepErr)
+			return getDepErr
 		} else {
 			// Deployment exist. Update the replica count based on the serving state if necessary
+			var err error
 			deployment, _, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 			if err != nil {
 				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
@@ -856,7 +824,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 
 	case v1alpha1.RevisionServingStateRetired:
 		// When Reserve or Retired, we remove the underlying Autoscaler Deployment.
-		if apierrs.IsNotFound(err) {
+		if apierrs.IsNotFound(getDepErr) {
 			// If it does not exist, then we have nothing to do.
 			return nil
 		}
@@ -873,7 +841,11 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	}
 }
 
-func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision, replicaCount int32) (*appsv1.Deployment, error) {
+func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
+	var replicaCount int32 = 1
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
+		replicaCount = 0
+	}
 	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
