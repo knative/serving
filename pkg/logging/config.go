@@ -19,21 +19,25 @@ package logging
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
-	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+// DefaultLoggingConfigPath is the path where the zap logging
+// config will be written in a default Knative deployment.
+const DefaultLoggingConfigPath = "/etc/config-logging"
+
 // NewLogger creates a logger with the supplied configuration.
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
-func NewLogger(configJSON string, levelOverride string) *zap.SugaredLogger {
+func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, error) {
 	logger, err := newLoggerFromConfig(configJSON, levelOverride)
 	if err == nil {
-		return logger.Sugar()
+		return logger.Sugar(), nil
 	}
 
 	logger, err2 := zap.NewProduction()
@@ -41,16 +45,23 @@ func NewLogger(configJSON string, levelOverride string) *zap.SugaredLogger {
 		panic(err2)
 	}
 
-	logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
-	return logger.Sugar()
+	return logger.Sugar(), fmt.Errorf("Failed to parse the logging config. Falling back to default logger. Error: %s. Config: %s", err, configJSON)
 }
 
-// NewLoggerFromDefaultConfigMap creates a logger using the configuration within /etc/config-logging file.
-func NewLoggerFromDefaultConfigMap(logLevelKey string) *zap.SugaredLogger {
-	loggingFlagSet := k8sflag.NewFlagSet("/etc/config-logging")
+// NewDefaultConfigMapLogger creates a logging object for the
+// for the logLevelKey within configPath corresponding
+// to the provided componentKey.
+func NewDefaultConfigMapLogger(configPath string, componentKey string) (*zap.SugaredLogger, error) {
+	logLevelKey := "loglevel." + componentKey
+
+	loggingFlagSet := k8sflag.NewFlagSet(configPath)
+	fmt.Println(loggingFlagSet)
 	zapCfg := loggingFlagSet.String("zap-logger-config", "")
 	zapLevelOverride := loggingFlagSet.String(logLevelKey, "")
-	return NewLogger(zapCfg.Get(), zapLevelOverride.Get())
+
+	genericLogger, err := NewLogger(zapCfg.Get(), zapLevelOverride.Get())
+	logger := genericLogger.Named(componentKey)
+	return logger, err
 }
 
 func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, error) {
@@ -65,6 +76,7 @@ func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, 
 
 	if len(levelOverride) > 0 {
 		var level zapcore.Level
+		// If the levelOverride can't be parsed, we just ignore it and continue.
 		if err := level.Set(levelOverride); err == nil {
 			loggingCfg.Level = zap.NewAtomicLevelAt(level)
 		}
@@ -75,7 +87,5 @@ func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, 
 		return nil, err
 	}
 
-	logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
-	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
-	return logger, nil
+	return logger, err
 }

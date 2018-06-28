@@ -17,25 +17,74 @@ limitations under the License.
 package logging
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"go.uber.org/zap"
 )
 
-func TestNewLogger(t *testing.T) {
-	logger := NewLogger("", "")
+const completeConfig = `{
+	"level": "info",
+	"development": false,
+	"sampling": {
+		"initial": 100,
+		"thereafter": 100
+	},
+	"outputPaths": ["stdout"],
+	"errorOutputPaths": ["stderr"],
+	"encoding": "json",
+	"encoderConfig": {
+		"timeKey": "",
+		"levelKey": "level",
+		"nameKey": "logger",
+		"callerKey": "caller",
+		"messageKey": "msg",
+		"stacktraceKey": "stacktrace",
+		"lineEnding": "",
+		"levelEncoder": "",
+		"timeEncoder": "",
+		"durationEncoder": "",
+		"callerEncoder": ""
+	}
+}`
+const minimalConfigTemplate = `{
+	"level": "%s",
+	"outputPaths": ["stdout"],
+	"errorOutputPaths": ["stderr"],
+	"encoding": "json"
+}`
+
+func TestNewLoggerEmptyConfig(t *testing.T) {
+	logger, err := NewLogger("", "")
+	if err == nil {
+		t.Error("expected error when providing empty config")
+	}
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
+}
 
-	logger = NewLogger("some invalid JSON here", "")
+func TestNewLoggerInvalidJson(t *testing.T) {
+	logger, err := NewLogger("some invalid JSON here", "")
+	if err == nil {
+		t.Error("expected error when providing invalid config")
+	}
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
+}
 
+func TestNewLoggerValidErrorConfig(t *testing.T) {
 	// No good way to test if all the config is applied,
 	// but at the minimum, we can check and see if level is getting applied.
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
+	jsonConfig := fmt.Sprintf(minimalConfigTemplate, "error")
+	logger, err := NewLogger(jsonConfig, "")
+	if err != nil {
+		t.Errorf("did not expect error when providing valid config with error log level: %s", err)
+	}
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -45,8 +94,14 @@ func TestNewLogger(t *testing.T) {
 	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
 		t.Error("expected to get error logs from the logger configured with error as min threshold")
 	}
+}
 
-	logger = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
+func TestNewLoggerValidInfoConfig(t *testing.T) {
+	jsonConfig := fmt.Sprintf(minimalConfigTemplate, "info")
+	logger, err := NewLogger(jsonConfig, "")
+	if err != nil {
+		t.Errorf("did not expect error when providing valid config with info log level: %s", err)
+	}
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -56,9 +111,14 @@ func TestNewLogger(t *testing.T) {
 	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
 		t.Error("expected to get info logs from the logger configured with info as min threshold")
 	}
+}
 
-	// Test logging override
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
+func TestNewLoggerOverrideInfo(t *testing.T) {
+	jsonConfig := fmt.Sprintf(minimalConfigTemplate, "error")
+	logger, err := NewLogger(jsonConfig, "info")
+	if err != nil {
+		t.Errorf("did not expect error when providing valid config with overridden info log level: %s", err)
+	}
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -68,9 +128,14 @@ func TestNewLogger(t *testing.T) {
 	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
 		t.Error("expected to get info logs from the logger configured with info as min threshold")
 	}
+}
 
-	// Invalid logging override
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
+func TestNewLoggerInvalidOverride(t *testing.T) {
+	jsonConfig := fmt.Sprintf(minimalConfigTemplate, "error")
+	logger, err := NewLogger(jsonConfig, "randomstring")
+	if err != nil {
+		t.Errorf("did not expect error when providing invalid log level override, it should just be ignored: %s", err)
+	}
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -80,4 +145,49 @@ func TestNewLogger(t *testing.T) {
 	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
 		t.Error("expected to get error logs from the logger configured with error as min threshold")
 	}
+}
+
+func TestNewDefaultConfigMapLogger(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("Could not create temporary directory for test config: %s", err)
+	}
+	defer os.RemoveAll(dir)
+	if err := writeConfig(dir, "loglevel.myfoo", "info"); err != nil {
+		t.Fatalf("Failed to write example config to temporary dir %s: %s", dir, err)
+	}
+	if err := writeConfig(dir, "zap-logger-config", completeConfig); err != nil {
+		t.Fatalf("Failed to write example config to temporary dir %s: %s", dir, err)
+	}
+
+	logger, err := NewDefaultConfigMapLogger(dir, "myfoo")
+	if err != nil {
+		t.Errorf("did not expect error when creating logger from config file: %s", err)
+	}
+	if logger == nil {
+		t.Error("expected logger to be created successfully")
+	}
+}
+func TestNewDefaultConfigMapLoggerInvalidUsesDefault(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("Could not create temporary directory for test config: %s", err)
+	}
+	defer os.RemoveAll(dir)
+	if err := writeConfig(dir, "zap-logger-config", "catbus"); err != nil {
+		t.Fatalf("Failed to write example config to temporary dir %s: %s", dir, err)
+	}
+
+	logger, err := NewDefaultConfigMapLogger(dir, "myfoo")
+	if err == nil {
+		t.Error("expected error when creating logger from invalid config file")
+	}
+	if logger == nil {
+		t.Error("expected default logger to be created successfully")
+	}
+}
+
+func writeConfig(dir, key, value string) error {
+	filename := filepath.Join(dir, key)
+	return ioutil.WriteFile(filename, []byte(value), 0666)
 }

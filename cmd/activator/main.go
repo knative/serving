@@ -103,7 +103,11 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.activator").Named("activator")
+
+	var logger *zap.SugaredLogger
+	if logger, err := logging.NewDefaultConfigMapLogger(logging.DefaultLoggingConfigPath, "activator"); err != nil {
+		logger.Errorf("Error initializing logger: %s", err)
+	}
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")

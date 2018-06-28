@@ -85,7 +85,11 @@ func newLogger(logLevel string) *zap.SugaredLogger {
 	  }
 	}`
 	configJSON := fmt.Sprintf(configJSONTemplate, logLevel)
-	return logging.NewLogger(string(configJSON), logLevel)
+	logger, err := logging.NewLogger(configJSON, logLevel)
+	if err != nil {
+		logger.Errorf("Error initializing logger: %s", err)
+	}
+	return logger
 }
 
 func initializeMetricExporter() {

@@ -22,6 +22,7 @@ import (
 
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
+	"go.uber.org/zap"
 
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
@@ -76,7 +77,11 @@ var (
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("controller")
+
+	var logger *zap.SugaredLogger
+	if logger, err := logging.NewDefaultConfigMapLogger(logging.DefaultLoggingConfigPath, "controller"); err != nil {
+		logger.Errorf("Error initializing logger: %s", err)
+	}
 	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {
