@@ -30,6 +30,10 @@ required = [
   "github.com/google/go-containerregistry/cmd/ko",
 ]
 
+ignored = [
+  "github.com/knative/serving/sample/grpc-ping*",
+]
+
 
 # Use HEAD (2018-04-21) to pick up:
 # https://github.com/spf13/cobra/pull/662
