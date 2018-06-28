@@ -158,7 +158,7 @@ Revision) should have a status field to link to the log output of the
 build.
 
 ```http
-GET /apis/build.dev/v1alpha1/namespaces/default/builds/build-1acub3
+GET /apis/build.knative.dev/v1alpha1/namespaces/default/builds/build-1acub3
 ```
 
 ```yaml

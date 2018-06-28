@@ -242,7 +242,7 @@ For example, use these steps to allow Minikube to pull Knative Serving and Build
 from GCR as published in our development flow (`ko apply -f config/`).
 _This is only necessary if you are not using public Knative Serving and Build images._
 
-1.  Create a Kubernetes secret in the `knative-serving` and `build-system` namespace:
+1.  Create a Kubernetes secret in the `knative-serving` and `knative-build` namespace:
 
     ```shell
     export DOCKER_EMAIL=your.email@here.com
@@ -257,7 +257,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
       --docker-username=_json_key \
       --docker-password="$(cat minikube-gcr-key.json)" \
       --docker-email=$DOCKER_EMAIL \
-      -n "build-system"
+      -n "knative-build"
     ```
 
     _The secret must be created in the same namespace as the pod or service
@@ -269,7 +269,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
     ```shell
     kubectl patch serviceaccount "build-controller" \
       -p '{"imagePullSecrets": [{"name": "build-gcr"}]}' \
-      -n "build-system"
+      -n "knative-build"
     kubectl patch serviceaccount "controller" \
       -p '{"imagePullSecrets": [{"name": "knative-serving-gcr"}]}' \
       -n "knative-serving"
