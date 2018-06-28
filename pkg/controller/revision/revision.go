@@ -135,6 +135,11 @@ type Controller struct {
 	// must go through loggingConfigMutex
 	loggingConfig      *logging.Config
 	loggingConfigMutex sync.Mutex
+
+	// observabilityConfig could change over time and access to it
+	// must go through observabilityConfigMutex
+	observabilityConfig      *ObservabilityConfig
+	observabilityConfigMutex sync.Mutex
 }
 
 // ControllerConfig includes the configurations for the controller.
@@ -151,25 +156,6 @@ type ControllerConfig struct {
 	// QueueSidecarImage is the name of the image used for the queue sidecar
 	// injected into the revision pod
 	QueueSidecarImage string
-
-	// logging part
-
-	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
-	// collect logs under /var/log/.
-	EnableVarLogCollection bool
-
-	// TODO(#818): Use the fluentd deamon set to collect /var/log.
-	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
-	// injected into the revision pod. It is used only when enableVarLogCollection
-	// is true.
-	FluentdSidecarImage string
-	// FluentdSidecarOutputConfig is the config for fluentd sidecar to specify
-	// logging output destination.
-	FluentdSidecarOutputConfig string
-
-	// LoggingURLTemplate is a string containing the logging url template where
-	// the variable REVISION_UID will be replaced with the created revision's UID.
-	LoggingURLTemplate string
 
 	// Repositories for which tag to digest resolving should be skipped
 	RegistriesSkippingTagResolving map[string]struct{}
@@ -237,6 +223,7 @@ func NewController(
 
 	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
+	opt.ConfigMapWatcher.Watch(controller.GetObservabilityConfigMapName(), c.receiveObservabilityConfig)
 
 	return c
 }
@@ -369,7 +356,7 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 }
 
 func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) {
-	logURLTmpl := c.controllerConfig.LoggingURLTemplate
+	logURLTmpl := c.getObservabilityConfig().LoggingURLTemplate
 	if logURLTmpl != "" {
 		rev.Status.LogURL = strings.Replace(logURLTmpl, "${REVISION_UID}", string(rev.UID), -1)
 	}
@@ -472,7 +459,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(logger, rev, c.getLoggingConfig(), c.getNetworkConfig(), c.controllerConfig, replicaCount)
+	deployment := MakeServingDeployment(logger, rev, c.getLoggingConfig(), c.getNetworkConfig(), c.getObservabilityConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -664,7 +651,7 @@ func (c *Controller) deleteService(ctx context.Context, svc *corev1.Service) err
 
 func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if !c.controllerConfig.EnableVarLogCollection {
+	if !c.getObservabilityConfig().EnableVarLogCollection {
 		return nil
 	}
 	ns := rev.Namespace
@@ -677,7 +664,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	configMap, err := c.KubeClientSet.CoreV1().ConfigMaps(ns).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
-		configMap = MakeFluentdConfigMap(ns, c.controllerConfig.FluentdSidecarOutputConfig)
+		configMap = MakeFluentdConfigMap(ns, c.getObservabilityConfig().FluentdSidecarOutputConfig)
 		configMap.OwnerReferences = append(configMap.OwnerReferences, *newRevisionNonControllerRef(rev))
 		logger.Infof("Creating configmap: %q", configMap.Name)
 		_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
@@ -690,7 +677,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	// ConfigMap exists, make sure it has the right content.
 	desiredConfigMap := configMap.DeepCopy()
 	desiredConfigMap.Data = map[string]string{
-		"varlog.conf": makeFullFluentdConfig(c.controllerConfig.FluentdSidecarOutputConfig),
+		"varlog.conf": makeFullFluentdConfig(c.getObservabilityConfig().FluentdSidecarOutputConfig),
 	}
 	addOwnerReference(desiredConfigMap, newRevisionNonControllerRef(rev))
 	if !reflect.DeepEqual(desiredConfigMap, configMap) {
@@ -980,4 +967,26 @@ func (c *Controller) getLoggingConfig() *logging.Config {
 	c.loggingConfigMutex.Lock()
 	defer c.loggingConfigMutex.Unlock()
 	return c.loggingConfig
+}
+
+func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
+	newObservabilityConfig, err := NewObservabilityConfigFromConfigMap(configMap)
+	c.observabilityConfigMutex.Lock()
+	defer c.observabilityConfigMutex.Unlock()
+	if err != nil {
+		if c.observabilityConfig != nil {
+			c.Logger.Errorf("Error updating Observability ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Observability ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Observability config map is added or updated: %v", configMap)
+	c.observabilityConfig = newObservabilityConfig
+}
+
+func (c *Controller) getObservabilityConfig() *ObservabilityConfig {
+	c.observabilityConfigMutex.Lock()
+	defer c.observabilityConfigMutex.Unlock()
+	return c.observabilityConfig
 }

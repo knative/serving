@@ -50,8 +50,6 @@ spec:
           mountPath: /etc/config-autoscaler
         - name: config-logging
           mountPath: /etc/config-logging
-        - name: config-observability
-          mountPath: /etc/config-observability
       volumes:
         - name: config-autoscaler
           configMap:
@@ -59,6 +57,3 @@ spec:
         - name: config-logging
           configMap:
             name: config-logging
-        - name: config-observability
-          configMap:
-            name: config-observability

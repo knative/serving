@@ -42,6 +42,9 @@ func TestFixedWatch(t *testing.T) {
 	cm.Watch("foo", foo2.callback)
 	bar := &counter{name: "bar"}
 	cm.Watch("bar", bar.callback)
+	// This won't increment bar.  However, it will log to make it
+	// easier to debug failed lookups in tests.
+	cm.Watch("unknown", bar.callback)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
