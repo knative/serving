@@ -88,11 +88,11 @@ const (
 )
 
 var (
-	elaPodReplicaCount   = int32(1)
-	elaPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	elaPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	foregroundDeletion   = metav1.DeletePropagationForeground
-	fgDeleteOptions      = &metav1.DeleteOptions{
+	servingPodReplicaCount   = int32(1)
+	servingPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	servingPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+	foregroundDeletion       = metav1.DeletePropagationForeground
+	fgDeleteOptions          = &metav1.DeleteOptions{
 		PropagationPolicy: &foregroundDeletion,
 	}
 )

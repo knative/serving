@@ -162,12 +162,12 @@ func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
 	}
 }
 
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
+	servingClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory,
+	servingInformer informers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher) {
 
 	// Create fake clients
@@ -182,22 +182,22 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
 	})
-	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
+	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
 		ctrl.Options{
 			KubeClientSet:    kubeClient,
-			ServingClientSet: elaClient,
+			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           zap.NewNop().Sugar(),
 		},
-		elaInformer.Serving().V1alpha1().Routes(),
-		elaInformer.Serving().V1alpha1().Configurations(),
+		servingInformer.Serving().V1alpha1().Routes(),
+		servingInformer.Serving().V1alpha1().Configurations(),
 		kubeInformer.Extensions().V1beta1().Ingresses(),
 		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
@@ -207,7 +207,7 @@ func newTestController(t *testing.T, elaObjects ...runtime.Object) (
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -219,7 +219,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
@@ -228,9 +228,9 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 			Percent:      100,
 		}},
 	)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
@@ -267,7 +267,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the route rule.
-	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	h := NewHooks()
@@ -343,7 +343,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Status: corev1.ConditionFalse,
 			Reason: "Inactive",
 		})
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
@@ -352,14 +352,14 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Percent:      100,
 		}},
 	)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
 	// Look for the route rule with activator as the destination.
-	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -436,11 +436,11 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 		},
 	}
 	config.Status.LatestReadyRevisionName = latestReadyRev.Name
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(latestReadyRev)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(otherRev)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(latestReadyRev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(otherRev)
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
@@ -449,13 +449,13 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 			Percent:           100,
 		}},
 	)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
 	}
@@ -497,20 +497,20 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.LatestReadyRevisionName = cfgrev.Name
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
@@ -522,13 +522,13 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			Percent:      10,
 		}},
 	)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
 	}
@@ -572,7 +572,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	// A standalone inactive revision
@@ -582,17 +582,17 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Status: corev1.ConditionFalse,
 			Reason: "Inactive",
 		})
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.LatestReadyRevisionName = cfgrev.Name
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
@@ -604,13 +604,13 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Percent:      10,
 		}},
 	)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
 	}
@@ -652,21 +652,21 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.LatestReadyRevisionName = cfgrev.Name
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
 
 	// A route with duplicate targets. These will be deduped.
 	route := getTestRouteWithTrafficTargets(
@@ -696,13 +696,13 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Percent:      15,
 		}},
 	)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
+	routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(fmt.Sprintf("%s-istio", route.Name), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting routerule: %v", err)
 	}
@@ -757,20 +757,20 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.LatestReadyRevisionName = cfgrev.Name
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
 
 	// A route targeting both the config and standalone revision with named
 	// targets
@@ -786,16 +786,16 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}},
 	)
 
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
 	domain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, defaultDomainSuffix)
 
 	expectRouteSpec := func(t *testing.T, name string, expectedSpec v1alpha2.RouteRuleSpec) {
-		routerule, err := elaClient.ConfigV1alpha2().RouteRules(testNamespace).Get(name, metav1.GetOptions{})
+		routerule, err := servingClient.ConfigV1alpha2().RouteRules(testNamespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("error getting routerule: %v", err)
 		}
@@ -892,7 +892,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
-	_, elaClient, controller, _, _, _ := newTestController(t)
+	_, servingClient, controller, _, _, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -915,7 +915,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 		},
 	}
 
-	// A route rule without the expected ela route label.
+	// A route rule without the expected serving route label.
 	independentRouteRule := &v1alpha2.RouteRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route-independent-istio",
@@ -926,19 +926,19 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 	config.Status.LatestCreatedRevisionName = rev.Name
 	config.Labels = map[string]string{serving.RouteLabelKey: route.Name}
 
-	elaClient.ServingV1alpha1().Configurations("test").Create(config)
-	elaClient.ServingV1alpha1().Revisions("test").Create(rev)
-	elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(extraRouteRule)
-	elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(independentRouteRule)
+	servingClient.ServingV1alpha1().Configurations("test").Create(config)
+	servingClient.ServingV1alpha1().Revisions("test").Create(rev)
+	servingClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(extraRouteRule)
+	servingClient.ConfigV1alpha2().RouteRules(route.Namespace).Create(independentRouteRule)
 
 	// Ensure extraRouteRule was created
-	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{}); err != nil {
+	if _, err := servingClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error occured. Expected route rule %s to exist.", extraRouteRule.Name)
 	}
-	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(independentRouteRule.Name, metav1.GetOptions{}); err != nil {
+	if _, err := servingClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(independentRouteRule.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error occured. Expected route rule %s to exist.", independentRouteRule.Name)
 	}
-	elaClient.ServingV1alpha1().Routes("test").Create(route)
+	servingClient.ServingV1alpha1().Routes("test").Create(route)
 
 	if err := controller.removeOutdatedRouteRules(testCtx, route); err != nil {
 		t.Errorf("Unexpected error occurred removing outdated route rules: %s", err)
@@ -946,18 +946,18 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 
 	expectedErrMsg := fmt.Sprintf("routerules.config.istio.io \"%s\" not found", extraRouteRule.Name)
 	// expect extraRouteRule to have been deleted
-	_, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{})
+	_, err := servingClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(extraRouteRule.Name, metav1.GetOptions{})
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
 		t.Errorf("Unexpected error: %q expected: %q", got, wanted)
 	}
 	// expect independentRouteRule not to have been deleted
-	if _, err := elaClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(independentRouteRule.Name, metav1.GetOptions{}); err != nil {
+	if _, err := servingClient.ConfigV1alpha2().RouteRules(route.Namespace).Get(independentRouteRule.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Error occurred fetching route rule: %s. Expected route rule to exist.", independentRouteRule.Name)
 	}
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -967,14 +967,14 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 		}},
 	)
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
+	config, err := servingClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting config: %v", err)
 	}
@@ -987,7 +987,7 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 }
 
 func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -997,14 +997,14 @@ func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
 		}},
 	)
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	rev, err := elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting revision: %v", err)
 	}
@@ -1021,10 +1021,10 @@ func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
 	// Mark the revision as the Config's latest ready revision
 	config.Status.LatestReadyRevisionName = rev.Name
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting revision: %v", err)
 	}
@@ -1041,7 +1041,7 @@ func TestSetLabelToRevisionDirectlyConfigured(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1051,14 +1051,14 @@ func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 		}},
 	)
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
+	config, err := servingClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting config: %v", err)
 	}
@@ -1069,7 +1069,7 @@ func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 		t.Errorf("Unexpected label in configuration diff (-want +got): %v", diff)
 	}
 
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting revision: %v", err)
 	}
@@ -1086,7 +1086,7 @@ func TestSetLabelToConfigurationAndRevisionIndirectlyConfigured(t *testing.T) {
 }
 
 func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1098,14 +1098,14 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	// Set config's route label with another route name to trigger an error.
 	config.Labels = map[string]string{serving.RouteLabelKey: "another-route"}
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	// No configuration updates.
-	elaClient.Fake.PrependReactor("update", "configurations",
+	servingClient.Fake.PrependReactor("update", "configurations",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Configuration was updated unexpectedly")
 			return true, nil, nil
@@ -1113,7 +1113,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	)
 
 	// No route updates.
-	elaClient.Fake.PrependReactor("update", "route",
+	servingClient.Fake.PrependReactor("update", "route",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Route was updated unexpectedly")
 			return true, nil, nil
@@ -1134,7 +1134,7 @@ func sortConditions(a, b v1alpha1.RouteCondition) bool {
 }
 
 func TestCreateRouteRevisionMissingCondition(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1146,11 +1146,11 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 		}},
 	)
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	expectedErrMsg := `revisions.serving.knative.dev "does-not-exist" not found`
 	// Should return error.
@@ -1160,7 +1160,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 	}
 
 	// Verify that Route.Status.Conditions were correctly set.
-	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	newRoute, _ := servingClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
 
 	for _, ct := range []v1alpha1.RouteConditionType{"AllTrafficAssigned", "Ready"} {
 		got := newRoute.Status.GetCondition(ct)
@@ -1178,7 +1178,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 }
 
 func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1190,11 +1190,11 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 		}},
 	)
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	expectedErrMsg := `configurations.serving.knative.dev "does-not-exist" not found`
 	// Should return error.
@@ -1204,7 +1204,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 	}
 
 	// Verify that Route.Status.Conditions were correctly set.
-	newRoute, _ := elaClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
+	newRoute, _ := servingClient.ServingV1alpha1().Routes(route.Namespace).Get(route.Name, metav1.GetOptions{})
 
 	for _, ct := range []v1alpha1.RouteConditionType{"AllTrafficAssigned", "Ready"} {
 		got := newRoute.Status.GetCondition(ct)
@@ -1222,7 +1222,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 }
 
 func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1239,14 +1239,14 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 	// by function setLabelForGivenRevisions.
 	rev.Labels[serving.RouteLabelKey] = route.Name
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	// Assert that the configuration is not updated when updateRouteEvent is called.
-	elaClient.Fake.PrependReactor("update", "configurations",
+	servingClient.Fake.PrependReactor("update", "configurations",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Configuration was updated unexpectedly")
 			return true, nil, nil
@@ -1254,7 +1254,7 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 	)
 
 	// Assert that the revision is not updated when updateRouteEvent is called.
-	elaClient.Fake.PrependReactor("update", "revision",
+	servingClient.Fake.PrependReactor("update", "revision",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Revision was updated unexpectedly")
 			return true, nil, nil
@@ -1265,7 +1265,7 @@ func TestSetLabelNotChangeConfigurationAndRevisionLabelIfLabelExists(t *testing.
 }
 
 func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a route label in configuration which is expected to be deleted.
@@ -1274,14 +1274,14 @@ func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 	// Set a route label in revision which is expected to be deleted.
 	rev.Labels[serving.RouteLabelKey] = route.Name
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
-	config, err := elaClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
+	config, err := servingClient.ServingV1alpha1().Configurations(testNamespace).Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting config: %v", err)
 	}
@@ -1292,7 +1292,7 @@ func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 		t.Errorf("Unexpected label in Configuration diff (-want +got): %v", diff)
 	}
 
-	rev, err = elaClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err = servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting revision: %v", err)
 	}
@@ -1309,13 +1309,13 @@ func TestDeleteLabelOfConfigurationAndRevisionWhenUnconfigured(t *testing.T) {
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
+	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
 
 	// Create a route.
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
@@ -1332,7 +1332,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 	}
 	for _, expectation := range expectations {
 		route.ObjectMeta.Labels = expectation.labels
-		elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
 		controller.updateRouteEvent(KeyOrDie(route))
 
@@ -1358,8 +1358,8 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 }
 
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
-	routeClient := elaClient.ServingV1alpha1().Routes(testNamespace)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	routeClient := servingClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -1372,12 +1372,12 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 
 	routeClient.Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	controller.SyncConfiguration(config)
 
@@ -1401,10 +1401,10 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 
 	// We need to update the config in the client since getDirectTrafficTargets
 	// gets the configuration from there
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Update(config)
 	// Since SyncConfiguration looks in the lister, we need to add it to the
 	// informer
-	elaInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	controller.SyncConfiguration(config)
 
 	route, err = routeClient.Get(route.Name, metav1.GetOptions{})
@@ -1432,7 +1432,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 }
 
 func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) {
-	_, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1445,14 +1445,14 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	config.Status.LatestCreatedRevisionName = rev.Name
 	config.Labels = map[string]string{serving.RouteLabelKey: route.Name}
 
-	elaClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	elaClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	// No configuration updates
-	elaClient.Fake.PrependReactor("update", "configurations",
+	servingClient.Fake.PrependReactor("update", "configurations",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Configuration was updated unexpectedly")
 			return true, nil, nil
@@ -1460,7 +1460,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 	)
 
 	// No route updates
-	elaClient.Fake.PrependReactor("update", "routes",
+	servingClient.Fake.PrependReactor("update", "routes",
 		func(a kubetesting.Action) (bool, runtime.Object, error) {
 			t.Error("Route was updated unexpectedly")
 			return true, nil, nil
@@ -1472,11 +1472,11 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 
 // Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	elaClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
@@ -1485,10 +1485,10 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 		}},
 	)
 	// Create a route.
-	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
+	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 	routeClient.Create(route)
 	// Since updateRouteEvent looks in the lister, we need to add it to the informer
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.updateRouteEvent(KeyOrDie(route))
 
@@ -1532,13 +1532,13 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, elaClient, controller, _, elaInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-	routeClient := elaClient.ServingV1alpha1().Routes(route.Namespace)
+	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)
 
 	// Create a route.
-	elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
 	controller.updateRouteEvent(KeyOrDie(route))
 
@@ -1601,7 +1601,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	}}
 	for _, expectation := range expectations {
 		expectation.apply()
-		elaInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
 		controller.updateRouteEvent(KeyOrDie(route))
 

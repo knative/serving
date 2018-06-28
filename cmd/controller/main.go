@@ -115,9 +115,9 @@ func main() {
 		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
-	elaClient, err := clientset.NewForConfig(cfg)
+	servingClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		logger.Fatalf("Error building ela clientset: %v", err)
+		logger.Fatalf("Error building serving clientset: %v", err)
 	}
 
 	buildClient, err := buildclientset.NewForConfig(cfg)
@@ -130,7 +130,7 @@ func main() {
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
 		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
@@ -156,16 +156,16 @@ func main() {
 
 	opt := controller.Options{
 		KubeClientSet:    kubeClient,
-		ServingClientSet: elaClient,
+		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
 		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 	}
 
-	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
-	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
-	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
-	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
+	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
+	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
@@ -187,7 +187,7 @@ func main() {
 
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)
-	elaInformerFactory.Start(stopCh)
+	servingInformerFactory.Start(stopCh)
 	buildInformerFactory.Start(stopCh)
 	servingSystemInformerFactory.Start(stopCh)
 	vpaInformerFactory.Start(stopCh)

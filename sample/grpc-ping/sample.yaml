@@ -18,7 +18,7 @@ spec:
   revisionTemplate:
     metadata:
       labels:
-        elafros.dev/type: app
+        knative.dev/type: app
     spec:
       container:
         image: github.com/knative/serving/sample/grpc-ping

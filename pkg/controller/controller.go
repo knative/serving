@@ -23,7 +23,7 @@ import (
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
+	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -46,9 +46,9 @@ type Interface interface {
 }
 
 func init() {
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
+	// Add serving types to the default Kubernetes Scheme so Events can be
+	// logged for serving types.
+	servingScheme.AddToScheme(scheme.Scheme)
 }
 
 // PassNew makes it simple to create an UpdateFunc for use with

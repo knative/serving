@@ -29,12 +29,12 @@
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_NAME=ela-e2e-cluster${BUILD_NUMBER}
-readonly E2E_NETWORK_NAME=ela-e2e-net${BUILD_NUMBER}
+readonly E2E_CLUSTER_NAME=knative-e2e-cluster${BUILD_NUMBER}
+readonly E2E_NETWORK_NAME=knative-e2e-net${BUILD_NUMBER}
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
+readonly TEST_RESULT_FILE=/tmp/knative-e2e-result
 readonly ISTIO_VERSION=0.8.0
 readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
@@ -133,7 +133,7 @@ function dump_stack_info() {
   echo ">>> Ingress:"
   kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
-  kubectl logs $(get_ela_pod controller) -n knative-serving
+  kubectl logs $(get_knative_pod controller) -n knative-serving
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
