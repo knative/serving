@@ -23,12 +23,6 @@ import (
 	"os"
 	"os/user"
 	"path"
-
-	"github.com/golang/glog"
-	"github.com/knative/serving/pkg/logging"
-	"go.uber.org/zap"
-
-	"github.com/golang/glog"
 )
 
 // Flags holds the command line flags or defaults for settings in the user's environment.
@@ -43,42 +37,6 @@ type EnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	LogVerbose       bool   // Enable verbose logging
 	EmitMetrics      bool   // Emit metrics
-}
-
-// VerboseLogLevel defines verbose log level as 10
-const VerboseLogLevel glog.Level = 10
-
-// Logger is to be used by TC for logging
-var Logger = initializeLogger()
-
-func initializeLogger() *zap.SugaredLogger {
-	configJSON := []byte(`{
-	  "level": "info",
-	  "encoding": "console",
-	  "outputPaths": ["stdout"],
-	  "errorOutputPaths": ["stderr"],
-	  "encoderConfig": {
-	    "messageKey": "message",
-			"levelKey": "level",
-			"nameKey": "logger",
-			"callerKey": "caller",
-			"messageKey": "msg",
-      "stacktraceKey": "stacktrace",
-      "lineEnding": "",
-      "levelEncoder": "",
-      "timeEncoder": "",
-      "durationEncoder": "",
-      "callerEncoder": ""
-	  }
-	}`)
-	var logger *zap.SugaredLogger
-	var logLevel string
-	if Flags.LogVerbose {
-		logLevel = "Debug"
-	}
-	logger = logging.NewLogger(string(configJSON), logLevel)
-	defer logger.Sync()
-	return logger
 }
 
 func initializeFlags() *EnvironmentFlags {
