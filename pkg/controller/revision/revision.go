@@ -490,7 +490,8 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	// MakeServingDeployment() would produce.
 	desiredDeployment := deployment.DeepCopy()
 	if desiredDeployment.Spec.Replicas == nil {
-		desiredDeployment.Spec.Replicas = new(int32)
+		var one int32 = 1
+		desiredDeployment.Spec.Replicas = &one
 	}
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *desiredDeployment.Spec.Replicas == 0 {
 		*desiredDeployment.Spec.Replicas = 1

@@ -569,9 +569,9 @@ func (c *Controller) computeRevisionRoutes(
 		cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if enableScaleToZero && cond != nil {
 			// A revision is considered inactive (yet) if it's in
-			// "Inactive" condition or "Activating" condition.
+			// "Inactive" and "Updating" condition
 			if (cond.Reason == "Inactive" && cond.Status == corev1.ConditionFalse) ||
-				(cond.Reason == "Activating" && cond.Status == corev1.ConditionUnknown) {
+				(cond.Reason == "Updating" && cond.Status == corev1.ConditionUnknown) {
 				// Let inactiveRev be the Reserve revision with the largest traffic weight.
 				if tt.Percent > maxInactivePercent {
 					maxInactivePercent = tt.Percent
