@@ -40,6 +40,8 @@ spec:
         # Comment the following lines to disable the single-tenant autoscaler.
         - "-autoscalerImage"
         - github.com/knative/serving/cmd/autoscaler
+        - "-registriesSkippingTagResolving"
+        - "ko.local,dev.local"
         ports:
         - name: metrics
           containerPort: 9090
