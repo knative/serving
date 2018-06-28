@@ -67,6 +67,19 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 		},
 	}
 
+	const experimentsConfigName = "config-experiments"
+	experimentsConfigVolume := corev1.Volume{
+		Name: experimentsConfigName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: experimentsConfigName,
+				},
+				Optional: func() *bool { b := true; return &b }(),
+			},
+		},
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionAutoscalerName(rev),
@@ -121,10 +134,13 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 						}, {
 							Name:      loggingConfigName,
 							MountPath: "/etc/config-logging",
+						}, {
+							Name:      experimentsConfigName,
+							MountPath: "/etc/config-experiments",
 						}},
 					}},
 					ServiceAccountName: "autoscaler",
-					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
+					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume, experimentsConfigVolume},
 				},
 			},
 		},
