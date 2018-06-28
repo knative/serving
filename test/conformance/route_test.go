@@ -99,7 +99,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Infof("The Revision will be marked as Ready when it can serve traffic")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady(names.Revision))
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady())
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
@@ -111,7 +111,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	logger.Infof("Updates the Route to route traffic to the Revision")
-	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
+	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -156,6 +156,7 @@ func TestRouteCreation(t *testing.T) {
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
 	names.Route = test.AppendRandomString("pizzaplanet", logger)
+	names.TrafficTarget = test.AppendRandomString("pizzaplanet", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)
