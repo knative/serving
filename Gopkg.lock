@@ -336,11 +336,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-<<<<<<< HEAD
   revision = "a8406e516faad7929fdad04288f05a824eb65f70"
-=======
-  revision = "e6d720f963deb985fa160e84af74eab0613a3eb4"
->>>>>>> Update build vendor, fix tests
 
 [[projects]]
   name = "github.com/magiconair/properties"
