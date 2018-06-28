@@ -48,6 +48,12 @@ func (r *digestResolver) Resolve(deploy *appsv1.Deployment) error {
 	}
 
 	for i := range pod.Containers {
+		if pod.Containers[i].Name != userContainerName {
+			// We skip our sidecars, which should largely already be digests unless
+			// folks are iterating with `ko apply -L -f config`, where tag-to-digest
+			// resolution will fail.
+			continue
+		}
 		if _, err := name.NewDigest(pod.Containers[i].Image, name.WeakValidation); err == nil {
 			// Already a digest
 			continue

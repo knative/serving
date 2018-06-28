@@ -164,6 +164,7 @@ func TestResolve(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: svcacct,
 					Containers: []corev1.Container{{
+						Name:  userContainerName,
 						Image: tag.String(),
 					}},
 				},
@@ -202,6 +203,7 @@ func TestResolveWithDigest(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "default",
 					Containers: []corev1.Container{{
+						Name:  userContainerName,
 						Image: "ubuntu@sha256:e7def0d56013d50204d73bb588d99e0baa7d69ea1bc1157549b898eb67287612",
 					}},
 				},
@@ -236,6 +238,7 @@ func TestResolveWithBadTag(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "default",
 					Containers: []corev1.Container{{
+						Name: userContainerName,
 						// Invalid character
 						Image: "ubuntu%latest",
 					}},
@@ -286,6 +289,7 @@ func TestResolveWithPingFailure(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: svcacct,
 					Containers: []corev1.Container{{
+						Name:  userContainerName,
 						Image: tag.String(),
 					}},
 				},
@@ -335,6 +339,7 @@ func TestResolveWithManifestFailure(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: svcacct,
 					Containers: []corev1.Container{{
+						Name:  userContainerName,
 						Image: tag.String(),
 					}},
 				},
@@ -359,6 +364,7 @@ func TestResolveNoAccess(t *testing.T) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "default",
 					Containers: []corev1.Container{{
+						Name:  userContainerName,
 						Image: "ubuntu:latest",
 					}},
 				},
