@@ -53,17 +53,17 @@ func TestMissingContentType(t *testing.T) {
 
 	pollErr := waitForServerAvailable(t, serverURL, testTimeout)
 	if pollErr != nil {
-		t.Errorf("waitForServerAvailable() = %v", err)
+		t.Fatalf("waitForServerAvailable() = %v", err)
 	}
 
 	tlsClient, err := createSecureTLSClient(t, ac.client, &ac.options)
 	if err != nil {
-		t.Errorf("createSecureTLSClient() = %v", err)
+		t.Fatalf("createSecureTLSClient() = %v", err)
 	}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s", serverURL), nil)
 	if err != nil {
-		t.Errorf("http.NewRequest() = %v", err)
+		t.Fatalf("http.NewRequest() = %v", err)
 	}
 
 	response, err := tlsClient.Do(req)
@@ -104,17 +104,17 @@ func TestEmptyRequestBody(t *testing.T) {
 
 	pollErr := waitForServerAvailable(t, serverURL, testTimeout)
 	if pollErr != nil {
-		t.Errorf("waitForServerAvailable() = %v", err)
+		t.Fatalf("waitForServerAvailable() = %v", err)
 	}
 
 	tlsClient, err := createSecureTLSClient(t, ac.client, &ac.options)
 	if err != nil {
-		t.Errorf("createSecureTLSClient() = %v", err)
+		t.Fatalf("createSecureTLSClient() = %v", err)
 	}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s", serverURL), nil)
 	if err != nil {
-		t.Errorf("http.NewRequest() = %v", err)
+		t.Fatalf("http.NewRequest() = %v", err)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -135,7 +135,7 @@ func TestEmptyRequestBody(t *testing.T) {
 	}
 
 	if !strings.Contains(string(responseBody), "could not decode body") {
-		t.Fatalf("Expect response to contain decode information")
+		t.Errorf("Response body to contain 'decode failure information' , got = '%s'", string(responseBody))
 	}
 }
 
@@ -157,11 +157,11 @@ func TestValidResponseForRevision(t *testing.T) {
 
 	pollErr := waitForServerAvailable(t, serverURL, testTimeout)
 	if pollErr != nil {
-		t.Errorf("waitForServerAvailable() = %v", err)
+		t.Fatalf("waitForServerAvailable() = %v", err)
 	}
 	tlsClient, err := createSecureTLSClient(t, ac.client, &ac.options)
 	if err != nil {
-		t.Errorf("createSecureTLSClient() = %v", err)
+		t.Fatalf("createSecureTLSClient() = %v", err)
 	}
 
 	admissionreq := &admissionv1beta1.AdmissionRequest{
@@ -187,7 +187,7 @@ func TestValidResponseForRevision(t *testing.T) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s", serverURL), reqBuf)
 	if err != nil {
-		t.Errorf("http.NewRequest() = %v", err)
+		t.Fatalf("http.NewRequest() = %v", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
 
@@ -226,7 +226,7 @@ func TestValidResponseForRevision(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(respPatch[0], expectJsonPatch); diff != "" {
-		t.Fatalf("Unexpected patch (-want, +got): %v", diff)
+		t.Errorf("Unexpected patch (-want, +got): %v", diff)
 	}
 }
 
@@ -248,11 +248,11 @@ func TestInvalidResponseForConfiguration(t *testing.T) {
 
 	pollErr := waitForServerAvailable(t, serverURL, testTimeout)
 	if pollErr != nil {
-		t.Errorf("waitForServerAvailable() = %v", err)
+		t.Fatalf("waitForServerAvailable() = %v", err)
 	}
 	tlsClient, err := createSecureTLSClient(t, ac.client, &ac.options)
 	if err != nil {
-		t.Errorf("createSecureTLSClient() = %v", err)
+		t.Fatalf("createSecureTLSClient() = %v", err)
 	}
 
 	var wrongModelType v1alpha1.RevisionRequestConcurrencyModelType = "wrong-model-type"
@@ -282,7 +282,7 @@ func TestInvalidResponseForConfiguration(t *testing.T) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s", serverURL), reqBuf)
 	if err != nil {
-		t.Fatalf("Failed to create request %v", err)
+		t.Fatalf("http.NewRequest() = %v", err)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
@@ -320,7 +320,7 @@ func TestInvalidResponseForConfiguration(t *testing.T) {
 	}
 
 	if !strings.Contains(reviewResponse.Response.Result.Message, "Unrecognized value for concurrencyModel") {
-		t.Fatalf("Received unexpected response status message %s", reviewResponse.Response.Result.Message)
+		t.Errorf("Received unexpected response status message %s", reviewResponse.Response.Result.Message)
 	}
 }
 
