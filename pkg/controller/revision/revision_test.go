@@ -1651,6 +1651,45 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 	}
 }
 
+func TestActiveRevisionHasNoIdleCondition(t *testing.T) {
+	// Create a Revision in Active state
+	rev := getTestRevision()
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
+	kubeClient, _, elaClient, _, controller, kubeInfomer, _, elaInformer, _, _ := newTestController(t, rev)
+
+	// Reconcile
+	updateRevision(t, kubeClient, kubeInfomer, elaClient, elaInformer, controller, rev)
+
+	// Verify no Idle condition
+	rev2, err := elaClient.ServingV1alpha1().Revisions(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting revision: %v", err)
+	}
+	if cond := rev2.Status.GetCondition(v1alpha1.RevisionConditionIdle); cond != nil {
+		t.Fatalf("Expected no Idle condition. Found one.")
+	}
+}
+
+func TestToReserveRevisionHasIdleCondition(t *testing.T) {
+	// Create a Revision in Active state
+	rev := getTestRevision()
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
+	kubeClient, _, elaClient, _, controller, kubeInfomer, _, elaInformer, _, _ := newTestController(t, rev)
+
+	// Reconcile
+	updateRevision(t, kubeClient, kubeInfomer, elaClient, elaInformer, controller, rev)
+
+	// Verify no Idle condition
+	rev2, err := elaClient.ServingV1alpha1().Revisions(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting revision: %v", err)
+	}
+	if cond := rev2.Status.GetCondition(v1alpha1.RevisionConditionIdle); cond == nil {
+		t.Fatalf("Expected Idle condition. Did not find one.")
+	}
+
+}
+
 func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.AutoscalerImage = ""
