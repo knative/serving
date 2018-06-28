@@ -112,7 +112,7 @@ func runAutoscaler() {
 		PanicWindow:          *autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required).Get(),
 		ScaleToZeroThreshold: *autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required).Get(),
 	}
-	a := autoscaler.NewAutoscaler(config, statsReporter)
+	a := autoscaler.New(config, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
 	ctx := logging.WithLogger(context.TODO(), logger)
 
