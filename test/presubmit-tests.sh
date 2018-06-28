@@ -53,7 +53,7 @@ function unit_tests() {
 }
 
 function integration_tests() {
-  # Run webhook integration tests
+  # Run integration tests
   report_go_test -tags=integration ./...
 
   # Make sure environment variables are intact.

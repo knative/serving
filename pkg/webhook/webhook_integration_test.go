@@ -39,7 +39,7 @@ const testTimeout = time.Duration(10 * time.Second)
 func TestMissingContentType(t *testing.T) {
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
-		t.Errorf("testSetup() = %v", err)
+		t.Fatalf("testSetup() = %v", err)
 	}
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -82,14 +82,14 @@ func TestMissingContentType(t *testing.T) {
 	}
 
 	if !strings.Contains(string(responseBody), "invalid Content-Type") {
-		t.Fatalf("Expect response to contain invalid header information")
+		t.Errorf("Response body to contain 'invalid Content-Type' , got = '%s'", string(responseBody))
 	}
 }
 
 func TestEmptyRequestBody(t *testing.T) {
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
-		t.Errorf("testSetup() = %v", err)
+		t.Fatalf("testSetup() = %v", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -142,7 +142,7 @@ func TestEmptyRequestBody(t *testing.T) {
 func TestValidResponseForRevision(t *testing.T) {
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
-		t.Errorf("testSetup() = %v", err)
+		t.Fatalf("testSetup() = %v", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -233,7 +233,7 @@ func TestValidResponseForRevision(t *testing.T) {
 func TestInvalidResponseForConfiguration(t *testing.T) {
 	ac, serverURL, err := testSetup(t)
 	if err != nil {
-		t.Errorf("testSetup() = %v", err)
+		t.Fatalf("testSetup() = %v", err)
 	}
 
 	stopCh := make(chan struct{})
