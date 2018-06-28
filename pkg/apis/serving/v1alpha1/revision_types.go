@@ -229,7 +229,7 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-func (rs *RevisionStatus) IsInactive() bool {
+func (rs *RevisionStatus) IsActivationRequired() bool {
 	if c := rs.GetCondition(RevisionConditionReady); c != nil {
 		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
 			(c.Reason == "Activating" && c.Status == corev1.ConditionUnknown)
@@ -238,7 +238,7 @@ func (rs *RevisionStatus) IsInactive() bool {
 }
 
 func (rs *RevisionStatus) IsRoutable() bool {
-	return rs.IsReady() || rs.IsInactive()
+	return rs.IsReady() || rs.IsActivationRequired()
 }
 
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {

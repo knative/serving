@@ -28,7 +28,7 @@ limitations under the License.
 */
 
 func TestReconcileVirtualService_Insert(t *testing.T) {
-	_, elaClient, c, _, _, _ := newTestController(t)
+	_, elaClient, c, _, _, _ := newTestController()
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -51,7 +51,7 @@ func TestReconcileVirtualService_Insert(t *testing.T) {
 }
 
 func TestReconcileVirtualService_Update(t *testing.T) {
-	_, elaClient, c, _, _, _ := newTestController(t)
+	_, elaClient, c, _, _, _ := newTestController()
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",

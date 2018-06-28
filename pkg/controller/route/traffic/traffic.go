@@ -138,7 +138,7 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 		return err
 	}
 	target.TrafficTarget.RevisionName = rev.Name
-	target.Active = !rev.Status.IsInactive()
+	target.Active = !rev.Status.IsActivationRequired()
 	t.addTarget(target)
 	return nil
 }
@@ -153,7 +153,7 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 		return fmt.Errorf("Revision %q is not routable", rev.Name)
 	}
 	t.revisions[tt.RevisionName] = rev
-	target.Active = !rev.Status.IsInactive()
+	target.Active = !rev.Status.IsActivationRequired()
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
 		if _, err := t.getConfiguration(configName); err != nil {

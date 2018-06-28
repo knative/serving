@@ -76,7 +76,7 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 	sort.Strings(names)
 	// The routes are matching rule based on domain name to traffic split targets.
 	for _, name := range names {
-		spec.Http = append(spec.Http, makeVirtualServiceRoute(getRouteDomains(name, u, domain), u.Namespace, targets[name]))
+		spec.Http = append(spec.Http, *makeVirtualServiceRoute(getRouteDomains(name, u, domain), u.Namespace, targets[name]))
 	}
 	return spec
 }
@@ -91,7 +91,7 @@ func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []stri
 	return []string{fmt.Sprintf("%s.%s", targetName, domain)}
 }
 
-func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.RevisionTarget) v1alpha3.HTTPRoute {
+func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.RevisionTarget) *v1alpha3.HTTPRoute {
 	matches := []v1alpha3.HTTPMatchRequest{}
 	// Istio list of matches are OR'ed together.  The following build a match set that matches any of the given domains.
 	for _, domain := range domains {
@@ -122,7 +122,7 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 		Route: weights,
 	}
 	// Add traffic rules for activator.
-	return addActivatorRoutes(route, ns, inactive)
+	return addActivatorRoutes(&route, ns, inactive)
 }
 
 /////////////////////////////////////////////////
@@ -136,7 +136,7 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 // the request to the inactive revision with the largest traffic weight.
 // The consequence of using appendHeaders at Spec is: if there are more than one inactive revisions, the
 // traffic split percentage would be distorted in a short period of time.
-func addActivatorRoutes(r v1alpha3.HTTPRoute, ns string, inactive []traffic.RevisionTarget) v1alpha3.HTTPRoute {
+func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.RevisionTarget) *v1alpha3.HTTPRoute {
 	if len(inactive) == 0 {
 		// No need to change
 		return r

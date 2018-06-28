@@ -34,15 +34,15 @@ func TestGeneration(t *testing.T) {
 
 }
 
-func TestIsInactive(t *testing.T) {
+func TestIsActivationRequired(t *testing.T) {
 	cases := []struct {
-		name       string
-		status     RevisionStatus
-		isInactive bool
+		name                 string
+		status               RevisionStatus
+		isActivationRequired bool
 	}{{
-		name:       "empty status should not be inactive",
-		status:     RevisionStatus{},
-		isInactive: false,
+		name:                 "empty status should not be inactive",
+		status:               RevisionStatus{},
+		isActivationRequired: false,
 	}, {
 		name: "Ready status should not be inactive",
 		status: RevisionStatus{
@@ -51,7 +51,7 @@ func TestIsInactive(t *testing.T) {
 				Status: corev1.ConditionTrue,
 			}},
 		},
-		isInactive: false,
+		isActivationRequired: false,
 	}, {
 		name: "Inactive status should be inactive",
 		status: RevisionStatus{
@@ -61,7 +61,7 @@ func TestIsInactive(t *testing.T) {
 				Reason: "Inactive",
 			}},
 		},
-		isInactive: true,
+		isActivationRequired: true,
 	}, {
 		name: "Activating status should be inactive",
 		status: RevisionStatus{
@@ -71,7 +71,7 @@ func TestIsInactive(t *testing.T) {
 				Reason: "Activating",
 			}},
 		},
-		isInactive: true,
+		isActivationRequired: true,
 	}, {
 		name: "NotReady status without reason should not be inactive",
 		status: RevisionStatus{
@@ -80,7 +80,7 @@ func TestIsInactive(t *testing.T) {
 				Status: corev1.ConditionFalse,
 			}},
 		},
-		isInactive: false,
+		isActivationRequired: false,
 	}, {
 		name: "Ready/Unknown status without reason should not be inactive",
 		status: RevisionStatus{
@@ -89,11 +89,11 @@ func TestIsInactive(t *testing.T) {
 				Status: corev1.ConditionUnknown,
 			}},
 		},
-		isInactive: false,
+		isActivationRequired: false,
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isInactive, tc.status.IsInactive(); e != a {
+		if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
 			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 		}
 	}

@@ -203,7 +203,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Weight: 100,
 		}},
 	}
-	if diff := cmp.Diff(expected, route); diff != "" {
+	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
 	}
 }
@@ -246,7 +246,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Weight: 10,
 		}},
 	}
-	if diff := cmp.Diff(expected, route); diff != "" {
+	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
 	}
 }
@@ -282,7 +282,7 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			"Knative-Serving-Namespace": "test-ns",
 		},
 	}
-	if diff := cmp.Diff(expected, route); diff != "" {
+	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
 	}
 }
@@ -323,7 +323,7 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			"Knative-Serving-Namespace": "test-ns",
 		},
 	}
-	if diff := cmp.Diff(expected, route); diff != "" {
+	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
 	}
 }

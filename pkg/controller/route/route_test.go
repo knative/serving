@@ -201,7 +201,6 @@ func newTestController(servingObjects ...runtime.Object) (
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
-		kubeInformer.Extensions().V1beta1().Ingresses(),
 		k8sflag.Bool("enable-scale-to-zero", false),
 	)
 
@@ -1022,15 +1021,6 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error getting revision: %v", err)
 	}
-
-	expectedLabels = map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-	}
-
-	// Check labels in revision, should be empty.
-	if diff := cmp.Diff(expectedLabels, rev.Labels); diff != "" {
-		t.Errorf("Unexpected label in revision diff (-want +got): %v", diff)
-	}
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
@@ -1180,7 +1170,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
