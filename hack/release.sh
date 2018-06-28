@@ -94,6 +94,10 @@ for parameter in "$@"; do
       KO_FLAGS="-L"
       shift
       ;;
+    --omit-monitoring)
+      OMIT_MONITORING=1
+      shift
+      ;;
     *)
       echo "error: unknown option ${parameter}"
       exit 1
@@ -104,6 +108,7 @@ done
 readonly SKIP_TESTS
 readonly TAG_RELEASE
 readonly DONT_PUBLISH
+readonly OMIT_MONITORING
 readonly KO_FLAGS
 
 if (( ! SKIP_TESTS )); then
