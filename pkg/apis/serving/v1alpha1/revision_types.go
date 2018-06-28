@@ -232,7 +232,7 @@ func (rs *RevisionStatus) IsReady() bool {
 func (rs *RevisionStatus) IsActivationRequired() bool {
 	if c := rs.GetCondition(RevisionConditionReady); c != nil {
 		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
-			(c.Reason == "Activating" && c.Status == corev1.ConditionUnknown)
+			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
 	}
 	return false
 }

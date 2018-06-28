@@ -63,12 +63,12 @@ func TestIsActivationRequired(t *testing.T) {
 		},
 		isActivationRequired: true,
 	}, {
-		name: "Activating status should be inactive",
+		name: "Updating status should be inactive",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
-				Reason: "Activating",
+				Reason: "Updating",
 			}},
 		},
 		isActivationRequired: true,
@@ -128,12 +128,12 @@ func TestIsRoutable(t *testing.T) {
 		},
 		isRoutable: true,
 	}, {
-		name: "Activating status should be routable",
+		name: "Updating status should be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionUnknown,
-				Reason: "Activating",
+				Reason: "Updating",
 			}},
 		},
 		isRoutable: true,
@@ -591,7 +591,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	}
 
 	// From an Inactive state, start to activate the revision.
-	want := "Activating"
+	want := "Updating"
 	r.Status.MarkDeploying(want)
 	r.Status.MarkDeploying(want)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
