@@ -142,7 +142,6 @@ type ControllerConfig struct {
 
 	// see (config-autoscaler.yaml)
 	AutoscaleConcurrencyQuantumOfTime     *k8sflag.DurationFlag
-	AutoscaleEnableSingleConcurrency      *k8sflag.BoolFlag
 	AutoscaleEnableVerticalPodAutoscaling *k8sflag.BoolFlag
 
 	// AutoscalerImage is the name of the image used for the autoscaler pod.

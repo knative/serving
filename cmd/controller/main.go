@@ -60,7 +60,6 @@ var (
 	autoscaleFlagSet                      = k8sflag.NewFlagSet("/etc/config-autoscaler")
 	autoscaleConcurrencyQuantumOfTime     = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
 	autoscaleEnableScaleToZero            = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
-	autoscaleEnableSingleConcurrency      = autoscaleFlagSet.Bool("enable-single-concurrency", false)
 	autoscaleEnableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
 
 	observabilityFlagSet             = k8sflag.NewFlagSet("/etc/config-observability")
@@ -138,7 +137,6 @@ func main() {
 
 	revControllerConfig := revision.ControllerConfig{
 		AutoscaleConcurrencyQuantumOfTime:     autoscaleConcurrencyQuantumOfTime,
-		AutoscaleEnableSingleConcurrency:      autoscaleEnableSingleConcurrency,
 		AutoscaleEnableVerticalPodAutoscaling: autoscaleEnableVerticalPodAutoscaling,
 		AutoscalerImage:                       autoscalerImage,
 		QueueSidecarImage:                     queueSidecarImage,
