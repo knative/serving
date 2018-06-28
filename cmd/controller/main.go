@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/configmap"
 
 	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
@@ -99,8 +100,7 @@ func main() {
 
 	if len(autoscalerImage) != 0 {
 		logger.Infof("Using autoscaler image: %s", autoscalerImage)
-	} else {
-		logger.Fatal("missing required flag: -autoscalerImage")
+		logger.Info("Single-tenant autoscaler deployments enabled.")
 	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -115,9 +115,9 @@ func main() {
 		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
-	elaClient, err := clientset.NewForConfig(cfg)
+	servingClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		logger.Fatalf("Error building ela clientset: %v", err)
+		logger.Fatalf("Error building serving clientset: %v", err)
 	}
 
 	buildClient, err := buildclientset.NewForConfig(cfg)
@@ -130,7 +130,7 @@ func main() {
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	elaInformerFactory := informers.NewSharedInformerFactory(elaClient, time.Second*30)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
 		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
@@ -152,21 +152,24 @@ func main() {
 		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())
+
 	opt := controller.Options{
 		KubeClientSet:    kubeClient,
-		ServingClientSet: elaClient,
+		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
+		ConfigMapWatcher: configMapWatcher,
 		Logger:           logger,
 	}
 
-	serviceInformer := elaInformerFactory.Serving().V1alpha1().Services()
-	routeInformer := elaInformerFactory.Serving().V1alpha1().Routes()
-	configurationInformer := elaInformerFactory.Serving().V1alpha1().Configurations()
-	revisionInformer := elaInformerFactory.Serving().V1alpha1().Revisions()
+	serviceInformer := servingInformerFactory.Serving().V1alpha1().Services()
+	routeInformer := servingInformerFactory.Serving().V1alpha1().Routes()
+	configurationInformer := servingInformerFactory.Serving().V1alpha1().Configurations()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
-	configMapInformer := servingSystemInformerFactory.Core().V1().ConfigMaps()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
@@ -174,18 +177,23 @@ func main() {
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
 		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
-		revision.NewController(opt, vpaClient, revisionInformer, buildInformer, configMapInformer,
-			deploymentInformer, endpointsInformer, vpaInformer, cfg, &revControllerConfig),
+		revision.NewController(opt, vpaClient, revisionInformer, buildInformer,
+			deploymentInformer, coreServiceInformer, endpointsInformer, vpaInformer,
+			cfg, &revControllerConfig),
 		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
-			configMapInformer, cfg, autoscaleEnableScaleToZero),
+			cfg, autoscaleEnableScaleToZero),
 		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
 	}
 
-	go kubeInformerFactory.Start(stopCh)
-	go elaInformerFactory.Start(stopCh)
-	go buildInformerFactory.Start(stopCh)
-	go servingSystemInformerFactory.Start(stopCh)
-	go vpaInformerFactory.Start(stopCh)
+	// These are non-blocking.
+	kubeInformerFactory.Start(stopCh)
+	servingInformerFactory.Start(stopCh)
+	buildInformerFactory.Start(stopCh)
+	servingSystemInformerFactory.Start(stopCh)
+	vpaInformerFactory.Start(stopCh)
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start configuration manager: %v", err)
+	}
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
@@ -195,8 +203,8 @@ func main() {
 		configurationInformer.Informer().HasSynced,
 		revisionInformer.Informer().HasSynced,
 		buildInformer.Informer().HasSynced,
-		configMapInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
+		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
 		ingressInformer.Informer().HasSynced,
 	} {

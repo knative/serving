@@ -67,17 +67,19 @@ const (
 )
 
 var (
-	podName           string
-	elaNamespace      string
-	elaConfiguration  string
-	elaRevision       string
-	elaAutoscaler     string
-	elaAutoscalerPort string
-	statChan          = make(chan *autoscaler.Stat, statReportingQueueLength)
-	reqChan           = make(chan queue.ReqEvent, requestCountingQueueLength)
-	kubeClient        *kubernetes.Clientset
-	statSink          *websocket.Conn
-	logger            *zap.SugaredLogger
+	podName              string
+	servingNamespace     string
+	servingConfiguration string
+	// servingRevision is the revision name prepended with its namespace, e.g.
+	// namespace/name.
+	servingRevision       string
+	servingAutoscaler     string
+	servingAutoscalerPort string
+	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
+	reqChan               = make(chan queue.ReqEvent, requestCountingQueueLength)
+	kubeClient            *kubernetes.Clientset
+	statSink              *websocket.Conn
+	logger                *zap.SugaredLogger
 
 	h2cProxy  *httputil.ReverseProxy
 	httpProxy *httputil.ReverseProxy
@@ -88,23 +90,20 @@ var (
 )
 
 func initEnv() {
-	podName = util.GetRequiredEnvOrFatal("ELA_POD", logger)
-	elaNamespace = util.GetRequiredEnvOrFatal("ELA_NAMESPACE", logger)
-	elaConfiguration = util.GetRequiredEnvOrFatal("ELA_CONFIGURATION", logger)
-	elaRevision = util.GetRequiredEnvOrFatal("ELA_REVISION", logger)
-	elaAutoscaler = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER", logger)
-	elaAutoscalerPort = util.GetRequiredEnvOrFatal("ELA_AUTOSCALER_PORT", logger)
+	podName = util.GetRequiredEnvOrFatal("SERVING_POD", logger)
+	servingNamespace = util.GetRequiredEnvOrFatal("SERVING_NAMESPACE", logger)
+	servingConfiguration = util.GetRequiredEnvOrFatal("SERVING_CONFIGURATION", logger)
+	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
+	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
+	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
 }
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		elaAutoscaler, pkg.GetServingSystemNamespace(), elaAutoscalerPort)
+		servingAutoscaler, pkg.GetServingSystemNamespace(), servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
-		// Everything is coming up at the same time.  We wait a
-		// second first to let the autoscaler start serving.  And
-		// we wait 1 second between attempts to connect so we
-		// don't overwhelm the autoscaler.
+		//TODO use exponential backoff here
 		time.Sleep(time.Second)
 
 		dialer := &websocket.Dialer{
@@ -116,6 +115,16 @@ func connectStatSink() {
 		} else {
 			logger.Info("Connected to stat sink.")
 			statSink = conn
+			waitForClose(conn)
+		}
+	}
+}
+
+func waitForClose(c *websocket.Conn) {
+	for {
+		if _, _, err := c.NextReader(); err != nil {
+			logger.Error("Error reading from websocket", zap.Error(err))
+			c.Close()
 			return
 		}
 	}
@@ -128,19 +137,20 @@ func statReporter() {
 			logger.Error("Stat sink not connected.")
 			continue
 		}
+		sm := autoscaler.StatMessage{
+			Stat:        *s,
+			RevisionKey: servingRevision,
+		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)
-		err := enc.Encode(s)
+		err := enc.Encode(sm)
 		if err != nil {
 			logger.Error("Failed to encode data from stats channel", zap.Error(err))
 			continue
 		}
 		err = statSink.WriteMessage(websocket.BinaryMessage, b.Bytes())
 		if err != nil {
-			logger.Error("Failed to write to stat sink. Attempting to reconnect to stat sink.", zap.Error(err))
-			statSink = nil
-			go connectStatSink()
-			continue
+			logger.Error("Failed to write to stat sink.", zap.Error(err))
 		}
 	}
 }
@@ -254,14 +264,14 @@ func setupAdminHandlers(server *http.Server) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLogger(os.Getenv("ELA_LOGGING_CONFIG"), os.Getenv("ELA_LOGGING_LEVEL")).Named("queueproxy")
+	logger = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL")).Named("queueproxy")
 	defer logger.Sync()
 
 	initEnv()
 	logger = logger.With(
-		zap.String(logkey.Namespace, elaNamespace),
-		zap.String(logkey.Configuration, elaConfiguration),
-		zap.String(logkey.Revision, elaRevision),
+		zap.String(logkey.Namespace, servingNamespace),
+		zap.String(logkey.Configuration, servingConfiguration),
+		zap.String(logkey.Revision, servingRevision),
 		zap.String(logkey.Pod, podName))
 
 	target, err := url.Parse("http://localhost:8080")

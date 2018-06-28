@@ -38,13 +38,13 @@ collecting log files under `/var/log`. An
 is in process to get rid of the sidecar. The steps to configure are:
 
 1. Replace `logging.fluentd-sidecar-output-config` flag in
-   [elaconfig](/config/elaconfig.yaml)  with the
+   [config-observability](/config/config-observability.yaml)  with the
    desired output configuration. **NOTE**: The Fluentd DaemonSet is in
    `monitoring` namespace while the Fluentd sidecar is in the namespace same with
    the app. There may be small differences between the configuration for DaemonSet
    and sidecar even though the desired backends are the same.
 1. Replace `logging.fluentd-sidecar-image` flag in
-   [elaconfig](/config/elaconfig.yaml) with the Fluentd image including the
+   [config-observability](/config/config-observability.yaml) with the Fluentd image including the
    desired Fluentd output plugin. In theory, this is the same
    with the one for Fluentd DaemonSet.
 
@@ -56,7 +56,7 @@ Operators need to deploy Knative components after the configuring:
 # In case there is no change with the controller code
 bazel run config:controller.delete
 # Deploy the configuration for sidecar
-kubectl apply -f config/elaconfig.yaml
+kubectl apply -f config/config-observability.yaml
 # Deploy the controller to make configuration for sidecar take effect
 bazel run config:controller.apply
 

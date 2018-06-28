@@ -13,36 +13,33 @@
 # limitations under the License.
 
 apiVersion: serving.knative.dev/v1alpha1
-kind: Route
-metadata:
-  name: steren-sample-app
-  namespace: default
-spec:
-  traffic:
-  - configurationName: steren-sample-app
-    percent: 100
----
-apiVersion: serving.knative.dev/v1alpha1
 kind: Configuration
 metadata:
-  name: steren-sample-app
+  name: configuration-example
   namespace: default
 spec:
-  build:
-    source:
-      git:
-        url: https://github.com/steren/sample-app
-        branch: master
-    template:
-      name: node-app
-      arguments:
-      - name: IMAGE
-        value: &image DOCKER_REPO_OVERRIDE/sample-app
-
   revisionTemplate:
     metadata:
       labels:
         knative.dev/type: app
     spec:
       container:
-        image: *image
+        # This is the Go import path for the binary to containerize
+        # and substitute here.
+        image: github.com/knative/serving/test_images/helloworld
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
+---
+apiVersion: serving.knative.dev/v1alpha1
+kind: Route
+metadata:
+  name: route-example
+  namespace: default
+spec:
+  traffic:
+  - configurationName: configuration-example
+    percent: 100

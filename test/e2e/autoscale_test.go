@@ -18,14 +18,15 @@ limitations under the License.
 package e2e
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 const (
@@ -66,7 +67,8 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, name
 				domain,
 				NamespaceName,
 				names.Route,
-				isExpectedOutput())
+				isExpectedOutput(),
+				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
 	}
@@ -101,6 +103,13 @@ func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
 	} else {
 		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
 	}
+
+	err = setScaleToZeroThreshold(clients, "1m")
+	if err != nil {
+		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
+		          cause the test to time out. Failing fast instead. %v`, err)
+	}
+
 	return clients
 }
 
@@ -135,7 +144,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
 			return r.Status.IsReady(), nil
-		})
+		}, "RouteIsReady")
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
 			 %v`, names.Route, err)
@@ -162,7 +171,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		domain,
 		NamespaceName,
 		names.Route,
-		isExpectedOutput())
+		isExpectedOutput(),
+		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
@@ -175,7 +185,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentIsScaledUp")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
@@ -187,16 +198,11 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
 		    faster testing.`)
 
-	err = setScaleToZeroThreshold(clients, "1m")
-	if err != nil {
-		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
-		          cause the test to time out. Failing fast instead. %v`, err)
-	}
-
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledToZero())
+		isDeploymentScaledToZero(),
+		"DeploymentScaledToZero")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 		           down. %s`, deploymentName, err)
@@ -210,17 +216,18 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		pc,
 		func(p *v1.PodList) (bool, error) {
 			return len(p.Items) == 0, nil
-		})
+		},
+		"WaitForAvailablePods")
 
-	logger.Infof("Scaled down, resetting ScaleToZeroThreshold.")
-	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
 	generateTrafficBurst(clients, logger, names, 8, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentScaledUp")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)

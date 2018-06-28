@@ -18,12 +18,13 @@ limitations under the License.
 package e2e
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 const (
@@ -60,7 +61,7 @@ func TestHelloWorld(t *testing.T) {
 		} else {
 			return cond.Status == corev1.ConditionTrue, nil
 		}
-	})
+	}, "RouteIsReady")
 	if err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -70,7 +71,7 @@ func TestHelloWorld(t *testing.T) {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, NamespaceName, names.Route, isHelloWorldExpectedOutput())
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, NamespaceName, names.Route, isHelloWorldExpectedOutput(), "HelloWorldServesText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}

@@ -99,23 +99,40 @@ Once you reach this point you are ready to do a full build and deploy as describ
 
 ## Starting Knative Serving
 
-Once you've [setup your development environment](#getting-started), stand up `Knative Serving` with:
+Once you've [setup your development environment](#getting-started), stand up
+`Knative Serving`:
 
-### Deploy Istio
+1. [Setup cluster admin](#setup-cluster-admin)
+1. [Deploy istio](#deploy-istio)
+1. [Deploy build](#deploy-build)
+1. [Deploy Knative Serving](#deploy-knative-serving)
+1. [Enable log and metric collection](#enable-log-and-metric-collection)
+
+### Setup cluster admin
+
+Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform
+the setup needed for Knative:
 
 ```shell
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
   --user="${K8S_USER_OVERRIDE}"
+```
 
+### Deploy Istio
+
+```shell
 kubectl apply -f ./third_party/istio-0.8.0/istio.yaml
 ```
 
-Then label namespaces with `istio-injection=enabled`:
+Optionally label namespaces with `istio-injection=enabled`:
 
 ```shell
 kubectl label namespace default istio-injection=enabled
 ```
+
+Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need 
+to set up static IP for Ingresses in the cluster.
 
 ### Deploy Build
 

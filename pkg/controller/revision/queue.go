@@ -36,7 +36,16 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 		configName = owner.Name
 	}
 
-	const elaQueueConfigVolumeName = "queue-config"
+	// If AutoscalerImage is empty, connect to the multitenant autoscaler.
+	// Otherwise connect to the single-tenant autoscaler.
+	var autoscalerAddress string
+	if controllerConfig.AutoscalerImage == "" {
+		autoscalerAddress = "autoscaler"
+	} else {
+		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
+	}
+
+	const servingQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,
@@ -81,32 +90,32 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
 		Env: []corev1.EnvVar{{
-			Name:  "ELA_NAMESPACE",
+			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
 		}, {
-			Name:  "ELA_CONFIGURATION",
+			Name:  "SERVING_CONFIGURATION",
 			Value: configName,
 		}, {
-			Name:  "ELA_REVISION",
+			Name:  "SERVING_REVISION",
 			Value: rev.Name,
 		}, {
-			Name:  "ELA_AUTOSCALER",
-			Value: controller.GetRevisionAutoscalerName(rev),
+			Name:  "SERVING_AUTOSCALER",
+			Value: autoscalerAddress,
 		}, {
-			Name:  "ELA_AUTOSCALER_PORT",
+			Name:  "SERVING_AUTOSCALER_PORT",
 			Value: strconv.Itoa(autoscalerPort),
 		}, {
-			Name: "ELA_POD",
+			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.name",
 				},
 			},
 		}, {
-			Name:  "ELA_LOGGING_CONFIG",
+			Name:  "SERVING_LOGGING_CONFIG",
 			Value: controllerConfig.QueueProxyLoggingConfig,
 		}, {
-			Name:  "ELA_LOGGING_LEVEL",
+			Name:  "SERVING_LOGGING_LEVEL",
 			Value: controllerConfig.QueueProxyLoggingLevel,
 		}},
 	}

@@ -1,17 +1,17 @@
 # Application Debugging Guide
 
-You deployed your app to Knative Serving but it is not working as expected. Go through
-this step by step guide to understand what failed.
+You deployed your app to Knative Serving, but it isn't working as expected.
+Go through this step by step guide to understand what failed.
 
 ## Check command line output
 
 Check your deploy command output to see whether it succeeded or not. If your
-deployment process was terminated, there should be error message showing up in
-the output and describing the reason why the deployment failed.
+deployment process was terminated, there should be an error message showing up
+in the output that describes the reason why the deployment failed.
 
-This kind of failures is most likely due to either misconfigured manifest or wrong
-command. For example, the following output says that you should configure route
-traffic percent summing to 100:
+This kind of failure is most likely due to either a misconfigured manifest or
+wrong command. For example, the following output says that you must configure
+route traffic percent to sum to 100:
 
 ```
 Error from server (InternalError): error when applying patch:
@@ -22,25 +22,78 @@ for: "STDIN": Internal error occurred: admission webhook "webhook.knative.dev" d
 ERROR: Non-zero return code '1' from command: Process exited with status 1
 ```
 
+## Check application logs
+Knative Serving provides default out-of-the-box logs for your application. After entering
+`kubectl proxy`, you can go to the
+[Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
+to search for logs. _(See [telemetry guide](../telemetry.md) for more information
+on logging and monitoring features of Knative Serving.)_
+
+### Stdout/stderr logs
+
+To find the logs sent to `stdout/stderr` from your application in the
+Kibana UI:
+
+1. Click `Discover` on the left side bar.
+1. Choose `logstash-*` index pattern on the left top.
+1. Input `tag: kubernetes*` in the top search bar then search.
+
+### Request logs
+
+To find the request logs of your application in the Kibana UI :
+
+1. Click `Discover` on the left side bar.
+1. Choose `logstash-*` index pattern on the left top.
+1. Input `tag: "requestlog.logentry.istio-system"` in the top search bar then
+   search.
+
 ## Check Route status
 
-Run the following command to get `status` of the `Route` with which you deployed
-your application:
+Run the following command to get the `status` of the `Route` object with which
+you deployed your application:
 
 ```shell
 kubectl get route <route-name> -o yaml
 ```
 
 The `conditions` in `status` provide the reason if there is any failure. For
-details, see Elafro
+details, see Knative
 [Error Conditions and Reporting](../spec/errors.md)(currently some of them
 are not implemented yet).
 
-## Check revision status
+### Check Istio routing
 
-If you configure your `Route` with `Configuration`, run the following command to
-get the name of the `Revision` created for you deployment(look up the
-configuration name in the `Route` yaml file):
+Compare your Knative `Route` object's configuration (obtained in the previous
+step) to the Istio `RouteRule` object's configuration.
+
+Enter the following, replacing `<routerule-name>` with the appropriate value:
+
+```shell
+kubectl get routerule <routerule-name> -o yaml
+```
+
+If you don't know the name of your route rule, use the
+```kubectl get routerule``` command to find it.
+
+The command returns the configuration of your route rule. Compare the domains
+between your route and route rule; they should match.
+
+### Check ingress status
+Enter:
+
+```shell
+kubectl get ingress
+```
+
+The command returns the status of the ingress. You can see the name, age,
+domains, and IP address.
+
+
+## Check Revision status
+
+If you configure your `Route` with `Configuration`, run the following
+command to get the name of the `Revision` created for you deployment
+(look up the configuration name in the `Route` .yaml file):
 
 ```shell
 kubectl get configuration <configuration-name> -o jsonpath="{.status.latestCreatedRevisionName}"
@@ -64,19 +117,19 @@ conditions:
     type: Ready
 ```
 
-If you see this condition, to debug further:
+If you see this condition, check the following to continue debugging:
 
-  1. [Check Pod status](#check-pod-status)
-  1. [Check application logs](#check-application-logs)
-  1. [Check Istio routing](#check-istio-routing)
+  * [Check Pod status](#check-pod-status)
+  * [Check application logs](#check-application-logs)
+  * [Check Istio routing](#check-istio-routing)
 
 If you see other conditions, to debug further:
 
-  1. Look up the meaning of the conditions in Elafro
+  * Look up the meaning of the conditions in Knative
      [Error Conditions and Reporting](../spec/errors.md). Note: some of them
-     are not implemented yet. An alternation is to
+     are not implemented yet. An alternative is to
      [check Pod status](#check-pod-status).
-  1. If you are using `BUILD` to deploy and the `BuidComplete` condition is not
+  * If you are using `BUILD` to deploy and the `BuidComplete` condition is not
      `True`, [check BUILD status](#check-build-status).
 
 ## Check Pod status
@@ -112,36 +165,13 @@ your `Revision`:
 kubectl get build $(kubectl get revision <revision-name> -o jsonpath="{.spec.buildName}") -o yaml
 ```
 
-The `conditions` in `status` provide the reason if there is any failure. To access build logs, first execute `kubectl proxy` and then open [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana). Use any of the following filters within Kibana UI to see build logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
+The `conditions` in `status` provide the reason if there is any failure. To
+access build logs, first execute `kubectl proxy` and then open [Kibana
+UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-
+logging/proxy/app/kibana). Use any of the following filters within Kibana UI to
+see build logs. _(See [telemetry guide](../telemetry.md) for more information on
+logging and monitoring features of Knative Serving.)_
+
 * All build logs: `_exists_:"kubernetes.labels.build-name"`
 * Build logs for a specific build: `kubernetes.labels.build-name:"<BUILD NAME>"`
 * Build logs for a specific build and step: `kubernetes.labels.build-name:"<BUILD NAME>" AND kubernetes.container_name:"build-step-<BUILD STEP NAME>"`
-
-## Check application logs
-Knative Serving provides default out-of-box logs for your application. After executing
-`kubectl proxy`, you can go to the
-[Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana)
-to search for logs. _(See [telemetry guide](../telemetry.md) for more information on logging and monitoring features of Knative Serving.)_
-
-### Stdout/stderr logs
-
-You can find the logs emitted to `stdout/stderr` from your application on
-Kibana UI by following steps:
-
-1. Click `Discover` on the left side bar.
-1. Choose `logstash-*` index pattern on the left top.
-1. Input `tag: kubernetes*` in the top search bar then search.
-
-### Request logs
-
-You can find the request logs of your application on Kibana UI by following
-steps:
-
-1. Click `Discover` on the left side bar.
-1. Choose `logstash-*` index pattern on the left top.
-1. Input `tag: "requestlog.logentry.istio-system"` in the top search bar then
-   search.
-
-## Check Istio routing
-
-TBD.
