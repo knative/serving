@@ -52,12 +52,12 @@ spec:
   rewrite:
     # Rewrite the original host header to the host header of Search service
     # in order to redirect requests to Search service.
-    authority: search-service.default.demo-domain.com
+    authority: search-service.default.example.com
   route:
   - destination:
       # istio-ingress is the k8s service created by Istio as the actual entry of all traffic incoming to the cluster.
       # Basically here we redirect the request to the cluster entry again with updated header
-      # "search-service.default.demo-domain.com" so the request will eventually be directed to Search service.
+      # "search-service.default.example.com" so the request will eventually be directed to Search service.
       name: istio-ingress
       namespace: istio-system
     weight: 100
@@ -82,11 +82,11 @@ spec:
   rewrite:
     # Rewrite the original host header to the host header of Login service
     # in order to redirect requests to Login service.
-    authority: login-service.default.demo-domain.com
+    authority: login-service.default.example.com
   route:
     # istio-ingress is the k8s service created by Istio as the actual entry of all traffic incoming to the cluster.
     # Basically here we redirect the request to the cluster entry again with updated header
-    # "login-service.default.demo-domain.com" so the request will eventually be directed to Login service. 
+    # "login-service.default.example.com" so the request will eventually be directed to Login service. 
   - destination:
       name: istio-ingress
       namespace: istio-system

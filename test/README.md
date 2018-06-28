@@ -193,7 +193,7 @@ go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 
 If you set up your cluster using [the getting started
 docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
-use the domain `demo-domain.com`, unless the route has label `app=prod` in which
+use the domain `example.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
 against the endpoint, the test use the IP assigned to the istio `*-ingress`
