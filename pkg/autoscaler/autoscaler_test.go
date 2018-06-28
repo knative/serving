@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/golang/glog"
 	"github.com/knative/serving/pkg/logging"
 )
 
@@ -40,6 +39,7 @@ func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 10,
@@ -53,6 +53,7 @@ func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 10,
@@ -66,6 +67,7 @@ func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
 func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 20,
@@ -79,6 +81,7 @@ func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
 func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 10,
@@ -92,6 +95,7 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 0,
@@ -105,6 +109,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
 func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 1,
@@ -115,6 +120,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 
 	a.expectScale(t, now, 1, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 0,
@@ -128,6 +134,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 10,
@@ -136,6 +143,7 @@ func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 			podCount:         10,
 		})
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 20,
@@ -152,6 +160,7 @@ func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 	a := newTestAutoscaler(1.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 1,
@@ -161,6 +170,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 		})
 	a.expectScale(t, now, 6, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 1,
@@ -170,6 +180,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 		})
 	a.expectScale(t, now, 36, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 1,
@@ -179,6 +190,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 		})
 	a.expectScale(t, now, 216, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 1,
@@ -188,6 +200,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 		})
 	a.expectScale(t, now, 1296, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 1,
@@ -201,6 +214,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 10,
@@ -210,6 +224,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 		})
 	a.expectScale(t, now, 10, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 100,
@@ -219,6 +234,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 		})
 	a.expectScale(t, now, 100, true)
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 1, // traffic drops off
@@ -228,6 +244,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 		})
 	a.expectScale(t, now, 100, true) // still in panic mode--no decrease
 	now = a.recordLinearSeries(
+		t,
 		now,
 		linearSeries{
 			startConcurrency: 1,
@@ -242,6 +259,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
 	a := newTestAutoscaler(10.0)
 	now := a.recordLinearSeries(
+		t,
 		time.Now(),
 		linearSeries{
 			startConcurrency: 10,
@@ -289,12 +307,12 @@ func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
 
 // Record a data point every second, for every pod, for duration of the
 // linear series, on the line from start to end concurrency.
-func (a *Autoscaler) recordLinearSeries(now time.Time, s linearSeries) time.Time {
+func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linearSeries) time.Time {
 	points := make([]int32, 0)
 	for i := 1; i <= s.durationSeconds; i++ {
 		points = append(points, int32(float64(s.startConcurrency)+float64(s.endConcurrency-s.startConcurrency)*(float64(i)/float64(s.durationSeconds))))
 	}
-	glog.Infof("Recording points: %v.", points)
+	test.Logf("Recording points: %v.", points)
 	for _, point := range points {
 		t := now
 		now = now.Add(time.Second)
