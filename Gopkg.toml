@@ -54,8 +54,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-06-28
-  revision = "a8406e516faad7929fdad04288f05a824eb65f70"
+  # HEAD as of 2018-06-29
+  revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
