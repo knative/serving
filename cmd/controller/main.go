@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"time"
 
 	"github.com/knative/serving/pkg"
@@ -68,15 +69,15 @@ var (
 	loggingFluentSidecarImage        = observabilityFlagSet.String("logging.fluentd-sidecar-image", "")
 	loggingFluentSidecarOutputConfig = observabilityFlagSet.String("logging.fluentd-sidecar-output-config", "")
 	loggingURLTemplate               = observabilityFlagSet.String("logging.revision-url-template", "")
-
-	loggingFlagSet         = k8sflag.NewFlagSet("/etc/config-logging")
-	zapConfig              = loggingFlagSet.String("zap-logger-config", "")
-	queueProxyLoggingLevel = loggingFlagSet.String("loglevel.queueproxy", "")
 )
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.controller").Named("controller")
+	config, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
 	defer logger.Sync()
 
 	if loggingEnableVarLogCollection.Get() {
@@ -147,9 +148,6 @@ func main() {
 		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
 		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
 		LoggingURLTemplate:         loggingURLTemplate.Get(),
-
-		QueueProxyLoggingConfig: zapConfig.Get(),
-		QueueProxyLoggingLevel:  queueProxyLoggingLevel.Get(),
 	}
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())

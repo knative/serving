@@ -31,6 +31,7 @@ import (
 
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/serving/pkg/logging"
 
 	"go.uber.org/zap"
 
@@ -202,9 +203,6 @@ func getTestControllerConfig() ControllerConfig {
 		EnableVarLogCollection:     true,
 		FluentdSidecarImage:        testFluentdImage,
 		FluentdSidecarOutputConfig: testFluentdSidecarOutputConfig,
-
-		QueueProxyLoggingConfig: "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
-		QueueProxyLoggingLevel:  "info",
 	}
 }
 
@@ -236,6 +234,15 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetNetworkConfigMapName(),
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      logging.ConfigName,
+		},
+		Data: map[string]string{
+			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+			"loglevel.queueproxy": "info",
 		},
 	})
 
@@ -463,8 +470,8 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_POD", "", "metadata.name")
 			checkEnv(container.Env, "SERVING_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
 			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
-			checkEnv(container.Env, "SERVING_LOGGING_CONFIG", controllerConfig.QueueProxyLoggingConfig, "")
-			checkEnv(container.Env, "SERVING_LOGGING_LEVEL", controllerConfig.QueueProxyLoggingLevel, "")
+			checkEnv(container.Env, "SERVING_LOGGING_CONFIG", controller.getLoggingConfig().LoggingConfig, "")
+			checkEnv(container.Env, "SERVING_LOGGING_LEVEL", controller.getLoggingConfig().LoggingLevel["queueproxy"], "")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}
