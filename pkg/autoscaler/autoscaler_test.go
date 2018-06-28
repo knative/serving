@@ -302,7 +302,7 @@ func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
 		PanicWindow:          panicWindow,
 		ScaleToZeroThreshold: scaleToZeroThreshold,
 	}
-	return NewAutoscaler(config, &mockReporter{})
+	return New(config, &mockReporter{})
 }
 
 // Record a data point every second, for every pod, for duration of the
