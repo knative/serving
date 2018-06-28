@@ -312,18 +312,7 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
 	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
 	if bc == nil {
-		// TODO(mattmoor): When Build validation is synchronous, get rid
-		// of this special logic and just return.
-		bc = bs.GetCondition(buildv1alpha1.BuildInvalid)
-		if bc == nil {
-			return
-		}
-		bc = &buildv1alpha1.BuildCondition{
-			Type:    buildv1alpha1.BuildSucceeded,
-			Status:  corev1.ConditionFalse,
-			Reason:  bc.Reason,
-			Message: bc.Message,
-		}
+		return
 	}
 	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
 	// If the underlying Build is not ready, then mark the Revision not ready.

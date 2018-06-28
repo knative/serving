@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google, Inc. All rights reserved.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ type BuildV1alpha1Interface interface {
 	BuildTemplatesGetter
 }
 
-// BuildV1alpha1Client is used to interact with features provided by the build.dev group.
+// BuildV1alpha1Client is used to interact with features provided by the build.knative.dev group.
 type BuildV1alpha1Client struct {
 	restClient rest.Interface
 }

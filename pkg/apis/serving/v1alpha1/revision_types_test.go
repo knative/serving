@@ -470,53 +470,6 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	}
 }
 
-func TestTypicalFlowWithBuildInvalid(t *testing.T) {
-	r := &Revision{}
-	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
-	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
-
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:   buildv1alpha1.BuildSucceeded,
-			Status: corev1.ConditionUnknown,
-		}},
-	})
-	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
-
-	wantReason, wantMessage := "this is the reason", "and this the message"
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildInvalid,
-			Status:  corev1.ConditionTrue,
-			Reason:  wantReason,
-			Message: wantMessage,
-		}},
-	})
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil {
-		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
-	} else if got.Reason != wantReason {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
-	} else if got.Message != wantMessage {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
-	}
-	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil {
-		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
-	} else if got.Reason != wantReason {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
-	} else if got.Message != wantMessage {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
-	}
-}
-
 func TestTypicalFlowWithServiceTimeout(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
