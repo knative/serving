@@ -46,6 +46,8 @@ To run component level integration tests:
 go test -v -tags=integration ./...
 ```
 
+_Integration tests are given a build tag of [`integration`](https://golang.org/pkg/go/build/#hdr-Build_Constraints)._
+
 ## Running end to end tests
 
 To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you need to have a running environment that meets
