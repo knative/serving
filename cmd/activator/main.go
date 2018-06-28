@@ -95,7 +95,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: Clear the host to avoid 404's.
-	// https://github.com/elafros/elafros/issues/964
+	// https://github.com/knative/serving/issues/964
 	r.Host = ""
 
 	proxy.ServeHTTP(w, r)
@@ -116,12 +116,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error building new config", zap.Error(err))
 	}
-	elaClient, err := clientset.NewForConfig(clusterConfig)
+	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building ela clientset: %v", zap.Error(err))
+		logger.Fatal("Error building serving clientset: %v", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, elaClient, logger)
+	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 	ah := &activationHandler{a, logger}
 

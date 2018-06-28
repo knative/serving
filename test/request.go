@@ -18,15 +18,18 @@ limitations under the License.
 package test
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io/ioutil"
+	"net/http"
+	"time"
+
+	"go.opencensus.io/trace"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"net/http"
-	"time"
 )
 
 const (
@@ -55,7 +58,7 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 		if resp.StatusCode != 200 {
 			for _, code := range retryableCodes {
 				if resp.StatusCode == code {
-					logger.Infof("Retrying for code %v\n", resp.StatusCode)
+					logger.Infof("Retrying for code %v", resp.StatusCode)
 					return false, nil
 				}
 			}
@@ -70,8 +73,14 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 
 // WaitForEndpointState will poll an endpoint until inState indicates the state is achieved. If resolvableDomain
 // is false, it will use kubeClientset to look up the ingress (named based on routeName) in the namespace namespaceName,
-// and spoof domain in the request heaers, otherwise it will make the request directly to domain.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, namespaceName string, routeName string, inState func(body string) (bool, error)) error {
+// and spoof domain in the request headers, otherwise it will make the request directly to domain.
+// desc will be used to name the metric that is emitted to track how long it took for the domain to get into the state checked by inState.
+// Commas in `desc` must be escaped.
+func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, namespaceName string, routeName string, inState func(body string) (bool, error), desc string) error {
+	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
+	_, span := trace.StartSpan(context.Background(), metricName)
+	defer span.End()
+
 	var endpoint, spoofDomain string
 
 	// If the domain that the Route controller is configured to assign to Route.Status.Domain

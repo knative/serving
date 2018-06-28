@@ -61,7 +61,7 @@ func TestHelloWorld(t *testing.T) {
 		} else {
 			return cond.Status == corev1.ConditionTrue, nil
 		}
-	})
+	}, "RouteIsReady")
 	if err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
@@ -71,7 +71,16 @@ func TestHelloWorld(t *testing.T) {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.Flags.Namespace, names.Route, isHelloWorldExpectedOutput())
+	err = test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		test.Flags.ResolvableDomain,
+		domain,
+		test.Flags.Namespace,
+		names.Route,
+		isHelloWorldExpectedOutput(),
+		"HelloWorldServesText",
+	)
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}

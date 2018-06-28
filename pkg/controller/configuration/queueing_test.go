@@ -89,34 +89,34 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func newTestController(t *testing.T, elaObjects ...runtime.Object) (
+func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
-	elaClient *fakeclientset.Clientset,
+	servingClient *fakeclientset.Clientset,
 	controller *Controller,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	elaInformer informers.SharedInformerFactory) {
+	servingInformer informers.SharedInformerFactory) {
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	// The ability to insert objects here is intended to work around the problem
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
-	elaClient = fakeclientset.NewSimpleClientset(elaObjects...)
+	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	elaInformer = informers.NewSharedInformerFactory(elaClient, 0)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
 		ctrl.Options{
 			KubeClientSet:    kubeClient,
-			ServingClientSet: elaClient,
+			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
 			Logger:           zap.NewNop().Sugar(),
 		},
-		elaInformer.Serving().V1alpha1().Configurations(),
-		elaInformer.Serving().V1alpha1().Revisions(),
+		servingInformer.Serving().V1alpha1().Configurations(),
+		servingInformer.Serving().V1alpha1().Revisions(),
 		&rest.Config{},
 	).(*Controller)
 
@@ -129,12 +129,12 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	_, elaClient, controller, kubeInformer, elaInformer := newTestController(t, config)
+	_, servingClient, controller, kubeInformer, servingInformer := newTestController(t, config)
 
 	h := hooks.NewHooks()
 
 	// Check for revision created as a signal that syncHandler ran
-	h.OnCreate(&elaClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
+	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) hooks.HookResult {
 		rev := obj.(*v1alpha1.Revision)
 		t.Logf("revision created: %q", rev.Name)
 
@@ -144,7 +144,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	kubeInformer.Start(stopCh)
-	elaInformer.Start(stopCh)
+	servingInformer.Start(stopCh)
 
 	go func() {
 		if err := controller.Run(2, stopCh); err != nil {

@@ -67,7 +67,8 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, name
 				domain,
 				test.Flags.Namespace,
 				names.Route,
-				isExpectedOutput())
+				isExpectedOutput(),
+				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
 	}
@@ -143,7 +144,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		names.Route,
 		func(r *v1alpha1.Route) (bool, error) {
 			return r.Status.IsReady(), nil
-		})
+		}, "RouteIsReady")
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
 			 %v`, names.Route, err)
@@ -170,7 +171,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		domain,
 		test.Flags.Namespace,
 		names.Route,
-		isExpectedOutput())
+		isExpectedOutput(),
+		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
@@ -183,7 +185,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentIsScaledUp")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
@@ -198,7 +201,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
-		isDeploymentScaledToZero())
+		isDeploymentScaledToZero(),
+		"DeploymentScaledToZero")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 		           down. %s`, deploymentName, err)
@@ -212,7 +216,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		pc,
 		func(p *v1.PodList) (bool, error) {
 			return len(p.Items) == 0, nil
-		})
+		},
+		"WaitForAvailablePods")
 
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
@@ -221,7 +226,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentScaledUp")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)

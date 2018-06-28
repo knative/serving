@@ -20,7 +20,6 @@ package test
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/user"
 	"path"
@@ -43,6 +42,7 @@ type EnvironmentFlags struct {
 	Namespace        string // K8s namespace (blank by default, to be overwritten by test suite)
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	LogVerbose       bool   // Enable verbose logging
+	EmitMetrics      bool   // Emit metrics
 }
 
 // VerboseLogLevel defines verbose log level as 10
@@ -106,14 +106,15 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.LogVerbose, "logverbose", false,
 		"Set this flag to true if you would like to see verbose logging.")
 
+	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
+		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
+
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")
-	if f.LogVerbose {
-		// Both gLog and "go test" use -v flag. The code below is a work around so that we can still set v value for gLog
-		var logLevel string
-		flag.StringVar(&logLevel, "logLevel", fmt.Sprint(VerboseLogLevel), "verbose log level")
-		flag.Lookup("v").Value.Set(logLevel)
-		glog.Infof("Logging set to verbose mode with logLevel %d", VerboseLogLevel)
+	initializeLogger(f.LogVerbose)
+
+	if f.EmitMetrics {
+		initializeMetricExporter()
 	}
 	return &f
 }

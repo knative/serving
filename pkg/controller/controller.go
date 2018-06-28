@@ -23,7 +23,8 @@ import (
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	elascheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
+	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
+	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -45,9 +46,9 @@ type Interface interface {
 }
 
 func init() {
-	// Add ela types to the default Kubernetes Scheme so Events can be
-	// logged for ela types.
-	elascheme.AddToScheme(scheme.Scheme)
+	// Add serving types to the default Kubernetes Scheme so Events can be
+	// logged for serving types.
+	servingScheme.AddToScheme(scheme.Scheme)
 }
 
 // PassNew makes it simple to create an UpdateFunc for use with
@@ -87,6 +88,9 @@ type Base struct {
 	// BuildClientSet allows us to configure Build objects
 	BuildClientSet buildclientset.Interface
 
+	// ConfigMapWatcher allows us to watch for ConfigMap changes.
+	ConfigMapWatcher configmap.Watcher
+
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
@@ -113,6 +117,7 @@ type Options struct {
 	KubeClientSet    kubernetes.Interface
 	ServingClientSet clientset.Interface
 	BuildClientSet   buildclientset.Interface
+	ConfigMapWatcher configmap.Watcher
 	Logger           *zap.SugaredLogger
 }
 
@@ -135,6 +140,7 @@ func NewBase(opt Options, controllerAgentName, workQueueName string) *Base {
 		KubeClientSet:    opt.KubeClientSet,
 		ServingClientSet: opt.ServingClientSet,
 		BuildClientSet:   opt.BuildClientSet,
+		ConfigMapWatcher: opt.ConfigMapWatcher,
 		Recorder:         recorder,
 		WorkQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		Logger:           logger,
