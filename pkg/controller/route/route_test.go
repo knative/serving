@@ -55,6 +55,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/knative/serving/pkg/controller/route/istio"
 	. "github.com/knative/serving/pkg/controller/testing"
 )
 
@@ -394,6 +395,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			AppendHeaders: map[string]string{
 				ctrl.GetRevisionHeaderName():      "test-rev",
 				ctrl.GetRevisionHeaderNamespace(): testNamespace,
+				istio.EnvoyTimeoutHeader:          istio.DefaultEnvoyTimeoutMs,
 			},
 		}},
 	}
@@ -564,6 +566,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			AppendHeaders: map[string]string{
 				ctrl.GetRevisionHeaderName():      "test-rev",
 				ctrl.GetRevisionHeaderNamespace(): testNamespace,
+				istio.EnvoyTimeoutHeader:          istio.DefaultEnvoyTimeoutMs,
 			},
 		}},
 	}

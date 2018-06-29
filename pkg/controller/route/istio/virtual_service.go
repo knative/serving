@@ -30,8 +30,10 @@ import (
 )
 
 const (
-	PortNumber = 80
-	PortName   = "http"
+	PortNumber            = 80
+	PortName              = "http"
+	EnvoyTimeoutHeader    = "x-envoy-upstream-rq-timeout-ms"
+	DefaultEnvoyTimeoutMs = "60000"
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -159,9 +161,11 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		},
 		Weight: totalInactivePercent,
 	})
-	r.AppendHeaders = make(map[string]string)
-	r.AppendHeaders[controller.GetRevisionHeaderName()] = maxInactiveTarget.RevisionName
-	r.AppendHeaders[controller.GetRevisionHeaderNamespace()] = ns
+	r.AppendHeaders = map[string]string{
+		controller.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
+		controller.GetRevisionHeaderNamespace(): ns,
+		EnvoyTimeoutHeader:                      DefaultEnvoyTimeoutMs,
+	}
 	return r
 }
 
