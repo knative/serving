@@ -30,7 +30,7 @@ import (
 func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetServingK8SServiceName(route),
+			Name:      controller.GetServingK8SServiceNameForRoute(route),
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				// This service is owned by the Route.

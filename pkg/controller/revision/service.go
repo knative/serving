@@ -30,7 +30,7 @@ import (
 var httpServicePortName = "http"
 
 const (
-	ServicePort = 80
+	ServicePort uint32 = 80
 )
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same

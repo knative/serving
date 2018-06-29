@@ -81,7 +81,7 @@ func TestMakeVirtualServiceSpec_CorrectSpec(t *testing.T) {
 
 func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	targets := map[string][]traffic.RevisionTarget{
-		"": []traffic.RevisionTarget{{
+		"": {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v2",
@@ -89,7 +89,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			},
 			Active: true,
 		}},
-		"v1": []traffic.RevisionTarget{{
+		"v1": {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v1",

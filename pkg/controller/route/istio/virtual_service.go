@@ -68,11 +68,11 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 			fmt.Sprintf("*.%s", domain),
 			domain,
 			// Traffic from inside the cluster will use the FQDN of the Route's headless Service.
-			controller.GetServingK8SServiceFullname(u),
+			controller.GetServingK8SServiceFullnameForRoute(u),
 		},
 	}
 	names := []string{}
-	for name, _ := range targets {
+	for name := range targets {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -87,7 +87,7 @@ func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []stri
 	if targetName == "" {
 		// Nameless traffic targets correspond to two domains: the Route.Status.Domain, and also the FQDN
 		// of the Route's headless Service.
-		return []string{domain, controller.GetServingK8SServiceFullname(u)}
+		return []string{domain, controller.GetServingK8SServiceFullnameForRoute(u)}
 	}
 	// Named traffic targets correspond to a subdomain of the Route.Status.Domain.
 	return []string{fmt.Sprintf("%s.%s", targetName, domain)}

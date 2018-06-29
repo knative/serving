@@ -37,12 +37,10 @@ func TestMakeRouteK8SService_ValidSpec(t *testing.T) {
 		},
 	}
 	expectedSpec := corev1.ServiceSpec{
-		Ports: []corev1.ServicePort{
-			{
-				Name: "http",
-				Port: 80,
-			},
-		},
+		Ports: []corev1.ServicePort{{
+			Name: "http",
+			Port: 80,
+		}},
 		ClusterIP: "None",
 	}
 	spec := MakeRouteK8SService(r).Spec

@@ -43,6 +43,7 @@ func GetServingNamespaceName(ns string) string {
 	// TODO(mattmoor): Expose a knob for creating resources in an alternate namespace.
 	return ns
 }
+
 func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
 	return u.Name + "-deployment"
 }
@@ -59,7 +60,7 @@ func GetServingK8SServiceNameForRevision(u *v1alpha1.Revision) string {
 	return u.Name + "-service"
 }
 
-func GetServingK8SServiceName(u *v1alpha1.Route) string {
+func GetServingK8SServiceNameForRoute(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
 
@@ -75,8 +76,8 @@ func GetServingK8SServiceNameForObj(name string) string {
 	return name + "-service"
 }
 
-func GetServingK8SServiceFullname(u *v1alpha1.Route) string {
-	return GetServiceFullname(GetServingK8SServiceName(u), u.Namespace)
+func GetServingK8SServiceFullnameForRoute(u *v1alpha1.Route) string {
+	return GetServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
 }
 
 func GetServiceConfigurationName(u *v1alpha1.Service) string {

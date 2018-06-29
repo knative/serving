@@ -78,7 +78,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
@@ -105,7 +105,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: inactiveConfig.Name,
 					RevisionName:      inactiveRev.Name,
@@ -135,7 +135,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
@@ -172,7 +172,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
@@ -209,7 +209,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
@@ -239,7 +239,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
@@ -276,7 +276,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{{
+			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
@@ -316,7 +316,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 	}}
 	expected := &TrafficConfig{
 		Targets: map[string][]RevisionTarget{
-			"": []RevisionTarget{
+			"": {
 				{
 					TrafficTarget: v1alpha1.TrafficTarget{
 						ConfigurationName: goodConfig.Name,
@@ -339,7 +339,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					},
 					Active: true,
 				}},
-			"beta": []RevisionTarget{{
+			"beta": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					Name:              "beta",
 					ConfigurationName: goodConfig.Name,
@@ -347,7 +347,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					Percent:           100,
 				},
 				Active: true}},
-			"alpha": []RevisionTarget{{
+			"alpha": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
 					Name:              "alpha",
 					ConfigurationName: niceConfig.Name,
