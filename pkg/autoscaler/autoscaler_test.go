@@ -315,14 +315,14 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 				PodName:                   fmt.Sprintf("pod-%v", j),
 				AverageConcurrentRequests: float64(point),
 			}
-			a.Record(TestContextWithLogger(), stat)
+			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
 	return now
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {
-	scale, ok := a.Scale(TestContextWithLogger(), now)
+	scale, ok := a.Scale(TestContextWithLogger(t), now)
 	if ok != expectOk {
 		t.Errorf("Unexpected autoscale decison. Expected %v. Got %v.", expectOk, ok)
 	}

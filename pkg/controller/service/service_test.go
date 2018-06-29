@@ -351,7 +351,7 @@ func TestReconcile(t *testing.T) {
 				Base: controller.NewBase(controller.Options{
 					KubeClientSet:    fakekubeclientset.NewSimpleClientset(),
 					ServingClientSet: client,
-					Logger:           TestLogger(),
+					Logger:           TestLogger(t),
 				}, controllerAgentName, "Services"),
 				serviceLister:       tt.fields.s,
 				configurationLister: tt.fields.c,
@@ -443,7 +443,7 @@ func TestNew(t *testing.T) {
 	c := NewController(controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           TestLogger(),
+		Logger:           TestLogger(t),
 	}, serviceInformer, configurationInformer, routeInformer)
 
 	if c == nil {
