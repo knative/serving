@@ -21,7 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
@@ -142,9 +141,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForRouteState(
 		clients.Routes,
 		names.Route,
-		func(r *v1alpha1.Route) (bool, error) {
-			return r.Status.IsReady(), nil
-		}, "RouteIsReady")
+		test.IsRouteReady(),
+		"RouteIsReady")
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
 			 %v`, names.Route, err)

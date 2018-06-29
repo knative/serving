@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // states contains functions for asserting against the state of Knative Serving
@@ -52,22 +51,22 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 // or being ready. It will also return false if the type of the condition is unexpected.
 func IsRevisionReady() func(r *v1alpha1.Revision) (bool, error) {
 	return func(r *v1alpha1.Revision) (bool, error) {
-		if cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady); cond == nil {
-			return false, nil
-		} else {
-			return cond.Status == corev1.ConditionTrue, nil
-		}
+		return r.Status.IsReady(), nil
 	}
 }
 
 // IsServiceReady will check the status conditions of the service and return true if the service is
 // ready. This means that its configurations and routes have all reported ready.
-func IsServiceReady() func(r *v1alpha1.Service) (bool, error) {
+func IsServiceReady() func(s *v1alpha1.Service) (bool, error) {
 	return func(s *v1alpha1.Service) (bool, error) {
-		if cond := s.Status.GetCondition(v1alpha1.ServiceConditionReady); cond == nil {
-			return false, nil
-		} else {
-			return cond.Status == corev1.ConditionTrue, nil
-		}
+		return s.Status.IsReady(), nil
+	}
+}
+
+// IsRouteReady will check the status conditions of the route and return true if the route is
+// ready.
+func IsRouteReady() func(r *v1alpha1.Route) (bool, error) {
+	return func(r *v1alpha1.Route) (bool, error) {
+		return r.Status.IsReady(), nil
 	}
 }
