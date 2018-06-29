@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/controller"
 
 	. "github.com/knative/serving/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 var (
@@ -351,7 +351,7 @@ func TestReconcile(t *testing.T) {
 				Base: controller.NewBase(controller.Options{
 					KubeClientSet:    fakekubeclientset.NewSimpleClientset(),
 					ServingClientSet: client,
-					Logger:           zap.NewNop().Sugar(),
+					Logger:           TestLogger(),
 				}, controllerAgentName, "Services"),
 				serviceLister:       tt.fields.s,
 				configurationLister: tt.fields.c,
@@ -443,7 +443,7 @@ func TestNew(t *testing.T) {
 	c := NewController(controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           zap.NewNop().Sugar(),
+		Logger:           TestLogger(),
 	}, serviceInformer, configurationInformer, routeInformer)
 
 	if c == nil {
