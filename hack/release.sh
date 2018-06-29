@@ -152,10 +152,11 @@ echo "Building Knative Serving"
 ko resolve ${KO_FLAGS} -f config/ >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 
+# Make a copy for the lite version
+cp ${OUTPUT_YAML} ${LITE_YAML}
+
 if (( ! OMIT_MONITORING )); then
   echo "Building Monitoring & Logging"
-  # Make a copy for the lite version
-  cp ${OUTPUT_YAML} ${LITE_YAML}
   # Use ko to concatenate them all together.
   ko resolve -R -f config/monitoring/100-common \
       -f config/monitoring/150-elasticsearch-prod \
