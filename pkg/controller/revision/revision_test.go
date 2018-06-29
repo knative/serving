@@ -208,7 +208,7 @@ func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
 	return nil
 }
 
-func newTestControllerWithConfig(controllerConfig *ControllerConfig, configs ...*corev1.ConfigMap) (
+func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -270,7 +270,7 @@ func newTestControllerWithConfig(controllerConfig *ControllerConfig, configs ...
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(),
+			Logger:           TestLogger(t),
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
@@ -287,7 +287,7 @@ func newTestControllerWithConfig(controllerConfig *ControllerConfig, configs ...
 	return
 }
 
-func newTestController(servingObjects ...runtime.Object) (
+func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -344,7 +344,7 @@ func newTestController(servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           TestLogger(),
+			Logger:           TestLogger(t),
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
@@ -464,7 +464,7 @@ func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
 
 func TestCreateRevCreatesStuff(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -776,7 +776,7 @@ func (r *errorResolver) Resolve(deploy *appsv1.Deployment) error {
 }
 
 func TestResolutionFailed(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -814,7 +814,7 @@ func TestResolutionFailed(t *testing.T) {
 
 func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig, &corev1.ConfigMap{
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetObservabilityConfigMapName(),
@@ -864,7 +864,7 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 }
 
 func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
@@ -893,7 +893,7 @@ func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
 }
 
 func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	revRef := *newRevisionNonControllerRef(rev)
 	oldRev := getTestRevision()
@@ -928,7 +928,7 @@ func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
 
 func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig, &corev1.ConfigMap{
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetObservabilityConfigMapName(),
@@ -959,7 +959,7 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 func TestCreateRevWithVPA(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.AutoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("", true)
-	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -982,7 +982,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig, &corev1.ConfigMap{
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetObservabilityConfigMapName(),
@@ -1026,7 +1026,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 }
 
 func TestCreateRevPreservesAppLabel(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1083,7 +1083,7 @@ func TestCreateRevPreservesAppLabel(t *testing.T) {
 }
 
 func TestCreateRevWithBuildNameWaits(t *testing.T) {
-	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController()
+	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController(t)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	bld := &buildv1alpha1.Build{
@@ -1137,7 +1137,7 @@ func TestCreateRevWithBuildNameWaits(t *testing.T) {
 }
 
 func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
-	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController()
+	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController(t)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	reason := "Foo"
@@ -1220,7 +1220,7 @@ func TestCreateRevWithFailedBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
-	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController()
+	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController(t)
 
 	h := NewHooks()
 	// Look for the build complete event. Events are delivered asynchronously so
@@ -1302,7 +1302,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 }
 
 func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
-	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController()
+	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController(t)
 
 	reason := "Foo"
 	errMessage := "a long human-readable error message."
@@ -1368,7 +1368,7 @@ func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
 }
 
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -1408,7 +1408,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 // Revision controller.  However, this logic is commented out because in practice it
 // fights with the defaulting logic for a Deployment.
 // func TestDeploymentReconciliation(t *testing.T) {
-// 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+// 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 // 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 // 	rev := getTestRevision()
@@ -1455,7 +1455,7 @@ func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 // }
 
 func TestReconciliation(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -1499,7 +1499,7 @@ func TestReconciliation(t *testing.T) {
 }
 
 func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -1546,7 +1546,7 @@ func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
 }
 
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	h := NewHooks()
@@ -1599,7 +1599,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
@@ -1623,7 +1623,7 @@ func TestDoNotUpdateRevIfRevIsAlreadyReady(t *testing.T) {
 }
 
 func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	rev = createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
@@ -1661,7 +1661,7 @@ func TestMarkRevAsFailedIfEndpointHasNoAddressesAfterSomeDuration(t *testing.T) 
 }
 
 func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
@@ -1682,7 +1682,7 @@ func TestAuxiliaryEndpointDoesNotUpdateRev(t *testing.T) {
 }
 
 func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1703,7 +1703,7 @@ func TestActiveToRetiredRevisionDeletesStuff(t *testing.T) {
 }
 
 func TestActiveToReserveRevisionDeactivateDeployment(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision and verify that the k8s resources are created as
@@ -1743,7 +1743,7 @@ func TestActiveToReserveRevisionDeactivateDeployment(t *testing.T) {
 }
 
 func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision. The k8s resources should not be created.
@@ -1770,7 +1770,7 @@ func TestRetiredToActiveRevisionCreatesStuff(t *testing.T) {
 }
 
 func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController()
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	// Create revision. Two deployments should be created with 0 replicas.
@@ -1811,7 +1811,7 @@ func TestReserveToActiveRevisionCreatesStuff(t *testing.T) {
 func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.AutoscalerImage = ""
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
@@ -1883,7 +1883,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 }
 
 func TestReconcileReplicaCount(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController()
+	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
@@ -1963,7 +1963,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"

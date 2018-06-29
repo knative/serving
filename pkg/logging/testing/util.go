@@ -19,6 +19,7 @@ package testing
 import (
 	"context"
 	"sync"
+	"testing"
 
 	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
@@ -30,7 +31,7 @@ var (
 )
 
 // TestLogger gets a logger to use in unit and end to end tests
-func TestLogger() *zap.SugaredLogger {
+func TestLogger(t *testing.T) *zap.SugaredLogger {
 	testLoggerMux.Lock()
 	defer testLoggerMux.Unlock()
 
@@ -43,10 +44,10 @@ func TestLogger() *zap.SugaredLogger {
 		testLogger = logger.Sugar()
 	}
 
-	return testLogger
+	return testLogger.Named(t.Name())
 }
 
 // TestContextWithLogger returns a context with a logger to be used in tests
-func TestContextWithLogger() context.Context {
-	return logging.WithLogger(context.TODO(), TestLogger())
+func TestContextWithLogger(t *testing.T) context.Context {
+	return logging.WithLogger(context.TODO(), TestLogger(t))
 }

@@ -86,7 +86,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func newTestController(servingObjects ...runtime.Object) (
+func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -110,7 +110,7 @@ func newTestController(servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
-			Logger:           TestLogger(),
+			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
@@ -125,7 +125,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	_, servingClient, controller, kubeInformer, servingInformer := newTestController(config)
+	_, servingClient, controller, kubeInformer, servingInformer := newTestController(t, config)
 
 	h := hooks.NewHooks()
 

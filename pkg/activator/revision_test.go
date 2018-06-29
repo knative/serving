@@ -41,7 +41,7 @@ func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -64,7 +64,7 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -92,7 +92,7 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 			withServingState(v1alpha1.RevisionServingStateRetired).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
@@ -121,7 +121,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 
 	ch := make(chan activationResult)
 	go func() {
@@ -167,7 +167,7 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger())
+	a := NewRevisionActivator(k8s, kna, TestLogger(t))
 	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan activationResult)

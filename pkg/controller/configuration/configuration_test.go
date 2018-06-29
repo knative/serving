@@ -432,7 +432,7 @@ func TestReconcile(t *testing.T) {
 					KubeClientSet:    kubeClient,
 					BuildClientSet:   buildClient,
 					ServingClientSet: client,
-					Logger:           TestLogger(),
+					Logger:           TestLogger(t),
 				}, controllerAgentName, "Configurations"),
 				configurationLister: tt.fields.c,
 				revisionLister:      tt.fields.r,
