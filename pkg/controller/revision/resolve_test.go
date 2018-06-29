@@ -370,3 +370,62 @@ func TestResolveNoAccess(t *testing.T) {
 		t.Fatalf("Resolve() = %v, want error", deploy)
 	}
 }
+
+func TestResolveSkippingRegistry(t *testing.T) {
+	username, password := "foo", "bar"
+	ns, svcacct := "user-project", "user-robot"
+
+	// Set up a fake service account with pull secrets for our fake registry
+	client := fakeclient.NewSimpleClientset(&corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcacct,
+			Namespace: ns,
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{{
+			Name: "secret",
+		}},
+	}, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secret",
+			Namespace: ns,
+		},
+		Type: corev1.SecretTypeDockercfg,
+		Data: map[string][]byte{
+			corev1.DockerConfigKey: []byte(
+				fmt.Sprintf(`{%q: {"username": %q, "password": %q}}`,
+					"localhost:5000", username, password),
+			),
+		},
+	})
+	dr := &digestResolver{
+		client:    client,
+		transport: http.DefaultTransport,
+		registriesToSkip: map[string]struct{}{
+			"localhost:5000": {},
+		},
+	}
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "blah",
+			Namespace: ns,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: svcacct,
+					Containers: []corev1.Container{{
+						Image: "localhost:5000/ubuntu:latest",
+					}},
+				},
+			},
+		},
+	}
+
+	if err := dr.Resolve(deploy); err != nil {
+		t.Fatalf("Resolve() = %v", err)
+	}
+
+	if got, want := deploy.Spec.Template.Spec.Containers[0].Image, "localhost:5000/ubuntu:latest"; got != want {
+		t.Fatalf("Resolve() got %q want of %q", got, want)
+	}
+}

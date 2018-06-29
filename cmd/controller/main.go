@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/knative/serving/pkg"
@@ -53,10 +54,11 @@ const (
 )
 
 var (
-	masterURL         string
-	kubeconfig        string
-	queueSidecarImage string
-	autoscalerImage   string
+	masterURL                      string
+	kubeconfig                     string
+	queueSidecarImage              string
+	autoscalerImage                string
+	registriesSkippingTagResolving string
 
 	autoscaleFlagSet                      = k8sflag.NewFlagSet("/etc/config-autoscaler")
 	autoscaleConcurrencyQuantumOfTime     = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
@@ -146,6 +148,8 @@ func main() {
 		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
 		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
 		LoggingURLTemplate:         loggingURLTemplate.Get(),
+
+		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),
 	}
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())
@@ -250,4 +254,15 @@ func init() {
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
 	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
+	flag.StringVar(&registriesSkippingTagResolving, "registriesSkippingTagResolving", "", "Repositories for which tag to digest resolving should be skipped")
+}
+
+func toStringSet(arg, delimiter string) map[string]struct{} {
+	keys := strings.Split(arg, delimiter)
+
+	set := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		set[key] = struct{}{}
+	}
+	return set
 }

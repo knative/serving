@@ -170,6 +170,9 @@ type ControllerConfig struct {
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
 	LoggingURLTemplate string
+
+	// Repositories for which tag to digest resolving should be skipped
+	RegistriesSkippingTagResolving map[string]struct{}
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -198,7 +201,11 @@ func NewController(
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
+		resolver: &digestResolver{
+			client:           opt.KubeClientSet,
+			transport:        http.DefaultTransport,
+			registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
+		},
 		controllerConfig: controllerConfig,
 	}
 
