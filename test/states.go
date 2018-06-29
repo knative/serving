@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -112,4 +113,19 @@ func IsConfigRevisionCreationFailed(c *v1alpha1.Configuration) (bool, error) {
 		return cond.Status == corev1.ConditionFalse && cond.Reason == "RevisionFailed", nil
 	}
 	return false, nil
+}
+
+// IsRevisionAtExpectedGeneration returns a function that will check if the annotations
+// on the revision include an annotation for the generation and that the annotation is
+// set to the expected value.
+func IsRevisionAtExpectedGeneration(expectedGeneration string) func(r *v1alpha1.Revision) (bool, error) {
+	return func(r *v1alpha1.Revision) (bool, error) {
+		if a, ok := r.Annotations[serving.ConfigurationGenerationAnnotationKey]; ok {
+			if a != expectedGeneration {
+				return true, fmt.Errorf("Expected Revision %s to be annotated with generation %s but was %s instead", r.Name, expectedGeneration, a)
+			}
+			return true, nil
+		}
+		return true, fmt.Errorf("Expected Revision %s to be annotated with generation %s but there was no annotation", r.Name, expectedGeneration)
+	}
 }
