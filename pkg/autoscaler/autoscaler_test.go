@@ -16,19 +16,11 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-
-	"github.com/knative/serving/pkg/logging"
-)
-
-var (
-	testLogger = zap.NewNop().Sugar()
-	testCtx    = logging.WithLogger(context.TODO(), testLogger)
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
@@ -323,14 +315,14 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 				PodName:                   fmt.Sprintf("pod-%v", j),
 				AverageConcurrentRequests: float64(point),
 			}
-			a.Record(testCtx, stat)
+			a.Record(TestContextWithLogger(), stat)
 		}
 	}
 	return now
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {
-	scale, ok := a.Scale(testCtx, now)
+	scale, ok := a.Scale(TestContextWithLogger(), now)
 	if ok != expectOk {
 		t.Errorf("Unexpected autoscale decison. Expected %v. Got %v.", expectOk, ok)
 	}

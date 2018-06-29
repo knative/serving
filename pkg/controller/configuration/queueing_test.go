@@ -26,8 +26,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	hooks "github.com/knative/serving/pkg/controller/testing"
-
-	"go.uber.org/zap"
+	. "github.com/knative/serving/pkg/logging/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,7 +110,7 @@ func newTestController(servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),

@@ -32,8 +32,7 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
-
-	"go.uber.org/zap"
+	. "github.com/knative/serving/pkg/logging/testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -271,7 +270,7 @@ func newTestControllerWithConfig(controllerConfig *ControllerConfig, configs ...
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(),
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
@@ -345,7 +344,7 @@ func newTestController(servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(),
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
