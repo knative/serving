@@ -28,7 +28,18 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Service
+// Service acts as a top-level container that manages a set of Routes and
+// Configurations which implement a network service. Service exists to provide a
+// singular abstraction which can be access controlled, reasoned about, and
+// which encapsulates software lifecycle decisions such as rollout policy and
+// team resource ownership. Service acts only as an orchestrator of the
+// underlying Routes and Configurations (much as a kubernetes Deployment
+// orchestrates ReplicaSets), and its usage is optional but recommended.
+//
+// The Service's controller will track the statuses of its owned Configuration
+// and Route, reflecting their statuses and conditions as its own.
+//
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#service
 type Service struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -39,8 +50,10 @@ type Service struct {
 	Status ServiceStatus `json:"status,omitempty"`
 }
 
-// ServiceSpec represents the configuration for the Service object.
-// Exactly one of its members (other than Generation) must be specified.
+// ServiceSpec represents the configuration for the Service object. Exactly one
+// of its members (other than Generation) must be specified. Services can either
+// track the latest ready revision of a configuration or be pinned to a specific
+// revision.
 type ServiceSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
 	// by the APIserver (https://github.com/kubernetes/kubernetes/issues/58778)
