@@ -20,22 +20,20 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
-
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
+	hooks "github.com/knative/serving/pkg/controller/testing"
+
+	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-
-	hooks "github.com/knative/serving/pkg/controller/testing"
 )
 
 /* TODO tests:
@@ -47,7 +45,7 @@ import (
 */
 
 const (
-	testNamespace string = "test"
+	testNamespace = "test"
 )
 
 func getTestConfiguration() *v1alpha1.Configuration {
@@ -89,7 +87,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func newTestController(t *testing.T, servingObjects ...runtime.Object) (
+func newTestController(servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -117,8 +115,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
-		&rest.Config{},
-	).(*Controller)
+	)
 
 	return
 }
@@ -129,7 +126,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	_, servingClient, controller, kubeInformer, servingInformer := newTestController(t, config)
+	_, servingClient, controller, kubeInformer, servingInformer := newTestController(config)
 
 	h := hooks.NewHooks()
 

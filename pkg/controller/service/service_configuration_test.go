@@ -25,14 +25,14 @@ import (
 )
 
 const (
-	testServiceName            string = "test-service"
-	testServiceNamespace       string = "test-service-namespace"
-	testRevisionName           string = "test-revision-name"
-	testContainerNameRunLatest string = "test-container-run-latest"
-	testContainerNamePinned    string = "test-container-pinned"
-	testLabelKey               string = "test-label-key"
-	testLabelValuePinned       string = "test-label-value-pinned"
-	testLabelValueRunLatest    string = "test-label-value-run-latest"
+	testServiceName            = "test-service"
+	testServiceNamespace       = "test-service-namespace"
+	testRevisionName           = "test-revision-name"
+	testContainerNameRunLatest = "test-container-run-latest"
+	testContainerNamePinned    = "test-container-pinned"
+	testLabelKey               = "test-label-key"
+	testLabelValuePinned       = "test-label-value-pinned"
+	testLabelValueRunLatest    = "test-label-value-run-latest"
 )
 
 func createConfiguration(containerName string) v1alpha1.ConfigurationSpec {

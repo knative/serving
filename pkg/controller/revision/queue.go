@@ -46,7 +46,6 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Co
 		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
 	}
 
-	const servingQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,

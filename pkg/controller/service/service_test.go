@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -441,11 +440,15 @@ func TestNew(t *testing.T) {
 	routeInformer := servingInformer.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
 
-	_ = NewController(controller.Options{
+	c := NewController(controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           zap.NewNop().Sugar(),
-	}, serviceInformer, configurationInformer, routeInformer, &rest.Config{})
+	}, serviceInformer, configurationInformer, routeInformer)
+
+	if c == nil {
+		t.Fatal("Expected NewController to return a non-nil value")
+	}
 }
 
 var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
