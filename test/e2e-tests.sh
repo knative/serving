@@ -292,6 +292,7 @@ set +o pipefail
 
 wait_until_pods_running knative-serving
 wait_until_pods_running istio-system
+wait_until_service_has_external_ip istio-system knative-ingressgateway
 abort_if_failed
 
 # Run the tests
