@@ -159,9 +159,6 @@ func scaleSerializer() {
 
 func scaleTo(podCount int32) {
 	statsReporter.Report(autoscaler.DesiredPodCountM, (float64)(podCount))
-	if currentScale == podCount {
-		return
-	}
 	dc := kubeClient.ExtensionsV1beta1().Deployments(servingNamespace)
 	deployment, err := dc.Get(servingDeployment, metav1.GetOptions{})
 	if err != nil {
@@ -178,21 +175,34 @@ func scaleTo(podCount int32) {
 	}
 
 	logger.Infof("Scaling from %v to %v", currentScale, podCount)
-	if podCount == 0 {
-		revisionClient := servingClient.ServingV1alpha1().Revisions(servingNamespace)
-		revision, err := revisionClient.Get(servingRevision, metav1.GetOptions{})
+	revisionClient := servingClient.ServingV1alpha1().Revisions(servingNamespace)
+	revision, err := revisionClient.Get(servingRevision, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorf("Error getting Revision %q: %s", servingRevision, zap.Error(err))
+	}
 
-		if err != nil {
-			logger.Errorf("Error getting Revision %q: %s", servingRevision, zap.Error(err))
-		}
+	// Revision serving state should be ToReserve
+	if podCount == 0 {
+		logger.Infof("Transitioning Revision to serving state ToReserve from %v.", revision.Spec.ServingState)
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
-		revision, err = revisionClient.Update(revision)
+		_, err = revisionClient.Update(revision)
 		if err != nil {
 			logger.Errorf("Error updating Revision %q: %s", servingRevision, zap.Error(err))
 		}
 		currentScale = 0
 		return
 	}
+
+	// Revision serving state should be Active
+	if revision.Spec.ServingState != v1alpha1.RevisionServingStateActive {
+		logger.Info("Transitioning Revision to serving state Active from %v.", revision.Spec.ServingState)
+		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
+		_, err = revisionClient.Update(revision)
+		if err != nil {
+			logger.Errorf("Error updating Revision %q: %s", servingRevision, zap.Error(err))
+		}
+	}
+
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
@@ -224,6 +234,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			logger.Error("Failed to decode stats", zap.Error(err))
 			continue
 		}
+		logger.Infof("Got stat: %+v", sm.Stat) // TO NOT SUBMIT
 		statChan <- sm.Stat
 	}
 }
