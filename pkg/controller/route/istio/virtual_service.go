@@ -39,25 +39,24 @@ const (
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
 // which Gateways and Hosts that it applies to, as well as the routing rules.
 func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.VirtualService {
-	r := &v1alpha3.VirtualService{
+	return &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetVirtualServiceName(u),
-			Namespace: u.Namespace,
-			Labels:    map[string]string{"route": u.Name},
+			Name:            controller.GetVirtualServiceName(u),
+			Namespace:       u.Namespace,
+			Labels:          map[string]string{"route": u.Name},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewRouteControllerRef(u)},
 		},
 		Spec: makeVirtualServiceSpec(u, tc.Targets),
 	}
-	serviceRef := controller.NewRouteControllerRef(u)
-	r.OwnerReferences = append(r.OwnerReferences, *serviceRef)
-	return r
 }
 
 func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha3.VirtualServiceSpec {
 	domain := u.Status.Domain
 	spec := v1alpha3.VirtualServiceSpec{
-		// We want to connect to two Gateways: the Route's ingress Gateway, and the 'mesh' Gateway.  The former
-		// provides access from outside of the cluster, and the latter provides access for services from inside
-		// the cluster.
+		// We want to connect to two Gateways: the Knative shared
+		// Gateway, and the 'mesh' Gateway.  The former provides
+		// access from outside of the cluster, and the latter provides
+		// access for services from inside the cluster.
 		Gateways: []string{
 			controller.GetServingK8SGatewayFullname(),
 			"mesh",
@@ -74,6 +73,7 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 	for name := range targets {
 		names = append(names, name)
 	}
+	// Sort the names to give things a deterministic ordering.
 	sort.Strings(names)
 	// The routes are matching rule based on domain name to traffic split targets.
 	for _, name := range names {
@@ -105,18 +105,19 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 	active, inactive := groupInactiveTargets(targets)
 	weights := []v1alpha3.DestinationWeight{}
 	for _, t := range active {
-		if t.Percent > 0 {
-			weights = append(weights, v1alpha3.DestinationWeight{
-				Destination: v1alpha3.Destination{
-					Host: controller.GetK8SServiceFullname(
-						controller.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName), ns),
-					Port: v1alpha3.PortSelector{
-						Number: uint32(revision.ServicePort),
-					},
-				},
-				Weight: t.Percent,
-			})
+		if t.Percent == 0 {
+			continue
 		}
+		weights = append(weights, v1alpha3.DestinationWeight{
+			Destination: v1alpha3.Destination{
+				Host: controller.GetK8SServiceFullname(
+					controller.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName), ns),
+				Port: v1alpha3.PortSelector{
+					Number: uint32(revision.ServicePort),
+				},
+			},
+			Weight: t.Percent,
+		})
 	}
 	route := v1alpha3.HTTPRoute{
 		Match: matches,
@@ -172,9 +173,9 @@ func groupInactiveTargets(targets []traffic.RevisionTarget) (active []traffic.Re
 	for _, t := range targets {
 		if t.Active {
 			active = append(active, t)
-			continue
+		} else {
+			inactive = append(inactive, t)
 		}
-		inactive = append(inactive, t)
 	}
 	return active, inactive
 }

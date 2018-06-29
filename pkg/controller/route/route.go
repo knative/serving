@@ -30,7 +30,6 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	clientv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
@@ -188,22 +187,27 @@ func (c *Controller) configureTrafficAndUpdateRouteStatus(ctx context.Context, r
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
 	t, targetErr := traffic.BuildTrafficConfiguration(
-		c.KnativeClients().Configurations(r.Namespace), c.KnativeClients().Revisions(r.Namespace), r)
-	// In all cases we will add annotations to referred targets.
+		c.ServingClientSet.ServingV1alpha1().Configurations(r.Namespace),
+		c.ServingClientSet.ServingV1alpha1().Revisions(r.Namespace),
+		r)
+	// Even if targetErr != n`il, we still need to finish updating the labels so that the updates to
+	// these targets can be propagated back.  In case of error updating the labels, we will return
+	// the error and not targetErr.
 	if err := c.syncLabels(ctx, r, t); err != nil {
 		return r, err
 	}
-	if len(t.Targets) > 0 {
-		logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
-		if err := c.reconcileVirtualService(ctx, r, istio.MakeVirtualService(r, t)); err != nil {
-			return c.updateStatusErr(ctx, r, err)
-		}
-		logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
-		r.Status.Traffic = t.GetTrafficTargets()
-		r.Status.MarkTrafficAssigned()
-		return r, nil
+	// Now, after updating the labels, we can return trafficErr here.
+	if targetErr != nil {
+		return r, targetErr
 	}
-	return r, targetErr
+	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
+	if err := c.reconcileVirtualService(ctx, r, istio.MakeVirtualService(r, t)); err != nil {
+		return r, err
+	}
+	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
+	r.Status.Traffic = t.GetTrafficTargets()
+	r.Status.MarkTrafficAssigned()
+	return r, nil
 }
 
 func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
@@ -250,12 +254,6 @@ func (c *Controller) getDomainConfig() *DomainConfig {
 	return c.domainConfig
 }
 
-func (c *Controller) setDomainConfig(cfg *DomainConfig) {
-	c.domainConfigMutex.Lock()
-	defer c.domainConfigMutex.Unlock()
-	c.domainConfig = cfg
-}
-
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 	domain := c.getDomainConfig().LookupDomainForLabels(route.ObjectMeta.Labels)
 	return fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, domain)
@@ -271,8 +269,4 @@ func (c *Controller) receiveDomainConfig(configMap *corev1.ConfigMap) {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
 	c.domainConfig = newDomainConfig
-}
-
-func (c *Controller) KnativeClients() clientv1alpha1.ServingV1alpha1Interface {
-	return c.ServingClientSet.ServingV1alpha1()
 }

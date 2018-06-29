@@ -554,15 +554,13 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			}, {
 				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
 			}},
-			Route: []v1alpha3.DestinationWeight{
-				{
-					Destination: v1alpha3.Destination{
-						Host: fmt.Sprintf("%s-service.%s.svc.cluster.local", cfgrev.Name, testNamespace),
-						Port: v1alpha3.PortSelector{Number: 80},
-					},
-					Weight: 90,
+			Route: []v1alpha3.DestinationWeight{{
+				Destination: v1alpha3.Destination{
+					Host: fmt.Sprintf("%s-service.%s.svc.cluster.local", cfgrev.Name, testNamespace),
+					Port: v1alpha3.PortSelector{Number: 80},
 				},
-				getActivatorDestinationWeight(10)},
+				Weight: 90,
+			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
 				ctrl.GetRevisionHeaderName():      "test-rev",
 				ctrl.GetRevisionHeaderNamespace(): testNamespace,
