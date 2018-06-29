@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
@@ -31,7 +32,7 @@ import (
 )
 
 // MakeServingQueueContainer creates the container spec for queue sidecar.
-func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, controllerConfig *ControllerConfig) *corev1.Container {
+func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -86,7 +87,7 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Co
 			PeriodSeconds: 1,
 		},
 		Args: []string{
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscalerConfig.ConcurrencyQuantumOfTime),
 			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
 		Env: []corev1.EnvVar{{

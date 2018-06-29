@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/knative/serving/pkg/autoscaler"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -56,8 +57,10 @@ type Controller struct {
 	domainConfig      *DomainConfig
 	domainConfigMutex sync.Mutex
 
-	// Autoscale enable scale to zero experiment flag.
-	enableScaleToZero *k8sflag.BoolFlag
+	// autoscalerConfig could change over time and access to it
+	// must go through autoscalerConfigMutex
+	autoscalerConfig      *autoscaler.Config
+	autoscalerConfigMutex sync.Mutex
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -69,15 +72,13 @@ func NewController(
 	opt controller.Options,
 	routeInformer servinginformers.RouteInformer,
 	configInformer servinginformers.ConfigurationInformer,
-	enableScaleToZero *k8sflag.BoolFlag,
 ) *Controller {
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Controller{
-		Base:              controller.NewBase(opt, controllerAgentName, "Routes"),
-		routeLister:       routeInformer.Lister(),
-		enableScaleToZero: enableScaleToZero,
+		Base:        controller.NewBase(opt, controllerAgentName, "Routes"),
+		routeLister: routeInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
@@ -98,6 +99,7 @@ func NewController(
 		},
 	})
 	opt.ConfigMapWatcher.Watch(controller.GetDomainConfigMapName(), c.receiveDomainConfig)
+	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
 
 	return c
 }
@@ -269,4 +271,26 @@ func (c *Controller) receiveDomainConfig(configMap *corev1.ConfigMap) {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
 	c.domainConfig = newDomainConfig
+}
+
+func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
+	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
+	c.autoscalerConfigMutex.Lock()
+	defer c.autoscalerConfigMutex.Unlock()
+	if err != nil {
+		if c.autoscalerConfig != nil {
+			c.Logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Autoscaler config map is added or updated: %v", configMap)
+	c.autoscalerConfig = newAutoscalerConfig
+}
+
+func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
+	c.autoscalerConfigMutex.Lock()
+	defer c.autoscalerConfigMutex.Unlock()
+	return c.autoscalerConfig
 }

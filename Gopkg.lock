@@ -315,12 +315,6 @@
   revision = "0b12d6b5"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/josephburnett/k8sflag"
-  packages = ["pkg/k8sflag"]
-  revision = "632d8ec6ee68a68bbeef4aeee67f64661c1326c3"
-
-[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
@@ -972,6 +966,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "07c1e4a97a3aec5e38a0e582935ac99619dd3e873e267886cc0cb67e4d600c43"
+  inputs-digest = "c2150d56c6b4d62a741c11bb7972d2837a65a4458f7512452424f77fad56b51b"
   solver-name = "gps-cdcl"
   solver-version = 1
