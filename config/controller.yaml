@@ -50,6 +50,8 @@ spec:
           mountPath: /etc/config-autoscaler
         - name: config-logging
           mountPath: /etc/config-logging
+        - name: config-experiments
+          mountPath: /etc/config-experiments
       volumes:
         - name: config-autoscaler
           configMap:
@@ -57,3 +59,7 @@ spec:
         - name: config-logging
           configMap:
             name: config-logging
+        - name: config-experiments
+          configMap:
+            name: config-experiments
+            optional: true

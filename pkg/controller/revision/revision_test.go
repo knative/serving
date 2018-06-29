@@ -672,13 +672,16 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_CONFIGURATION", config.Name, "")
 			checkEnv(container.Env, "SERVING_REVISION", rev.Name, "")
 			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
-			if got, want := len(container.VolumeMounts), 2; got != want {
+			if got, want := len(container.VolumeMounts), 3; got != want {
 				t.Errorf("Unexpected number of volume mounts: got: %v, want: %v", got, want)
 			} else {
 				if got, want := container.VolumeMounts[0].MountPath, "/etc/config-autoscaler"; got != want {
 					t.Errorf("Unexpected volume mount path: got: %v, want: %v", got, want)
 				}
 				if got, want := container.VolumeMounts[1].MountPath, "/etc/config-logging"; got != want {
+					t.Errorf("Unexpected volume mount path: got: %v, want: %v", got, want)
+				}
+				if got, want := container.VolumeMounts[2].MountPath, "/etc/config-experiments"; got != want {
 					t.Errorf("Unexpected volume mount path: got: %v, want: %v", got, want)
 				}
 			}
