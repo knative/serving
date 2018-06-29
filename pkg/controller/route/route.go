@@ -171,10 +171,8 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 	if _, err := c.configureTrafficAndUpdateRouteStatus(ctx, route); err != nil {
 		return err
 	}
-
 	logger.Info("Route successfully synced")
-	_, err := c.updateStatus(ctx, route)
-	return err
+	return nil
 }
 
 // configureTrafficAndUpdateRouteStatus attempts to configure traffic based on the RouteSpec.  If there are missing
@@ -191,15 +189,9 @@ func (c *Controller) configureTrafficAndUpdateRouteStatus(ctx context.Context, r
 	logger := logging.FromContext(ctx)
 	t, targetErr := traffic.BuildTrafficConfiguration(
 		c.KnativeClients().Configurations(r.Namespace), c.KnativeClients().Revisions(r.Namespace), r)
-	if targetErr != nil {
-		// Some Configuration/Revision isn't routable.  Update the Status to reflect that.
-		if r, err := c.updateStatus(ctx, r); err != nil {
-			return r, err
-		}
-	}
 	// In all cases we will add annotations to referred targets.
 	if err := c.syncLabels(ctx, r, t); err != nil {
-		return c.updateStatusErr(ctx, r, err)
+		return r, err
 	}
 	if len(t.Targets) > 0 {
 		logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
@@ -209,7 +201,7 @@ func (c *Controller) configureTrafficAndUpdateRouteStatus(ctx context.Context, r
 		logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
 		r.Status.Traffic = t.GetTrafficTargets()
 		r.Status.MarkTrafficAssigned()
-		return c.updateStatus(ctx, r)
+		return r, nil
 	}
 	return r, targetErr
 }

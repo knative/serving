@@ -207,8 +207,9 @@ metadata:
     name: knative-ingressgateway
     namespace: istio-system
 spec:
-    maxReplicas: 1
     minReplicas: 1
+    # TODO(1411): Document/fix this.  We are choosing an arbitrary 10 here.
+    maxReplicas: 10
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment

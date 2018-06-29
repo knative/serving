@@ -158,9 +158,11 @@ func TestIsRoutable(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isRoutable, tc.status.IsRoutable(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
+				t.Errorf("IsRoutable() = %v want: %v", got, want)
+			}
+		})
 	}
 }
 

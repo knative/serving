@@ -30,7 +30,7 @@ import (
 var httpServicePortName = "http"
 
 const (
-	ServicePort uint32 = 80
+	ServicePort int32 = 80
 )
 
 // MakeRevisionK8sService creates a Service that targets all pods with the same
@@ -47,7 +47,7 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:       httpServicePortName,
-				Port:       int32(ServicePort),
+				Port:       ServicePort,
 				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: queue.RequestQueuePortName},
 			}},
 			Type: "NodePort",

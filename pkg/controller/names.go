@@ -22,7 +22,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func GetServiceFullname(name string, namespace string) string {
+func GetK8SServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
 }
 func GetDomainConfigMapName() string {
@@ -69,7 +69,7 @@ func GetVirtualServiceName(u *v1alpha1.Route) string {
 }
 
 func GetServingK8SGatewayFullname() string {
-	return GetServiceFullname("knative-shared-gateway", "knative-serving")
+	return GetK8SServiceFullname("knative-shared-gateway", "knative-serving")
 }
 
 func GetServingK8SServiceNameForObj(name string) string {
@@ -77,7 +77,7 @@ func GetServingK8SServiceNameForObj(name string) string {
 }
 
 func GetServingK8SServiceFullnameForRoute(u *v1alpha1.Route) string {
-	return GetServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
+	return GetK8SServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
 }
 
 func GetServiceConfigurationName(u *v1alpha1.Service) string {

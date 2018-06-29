@@ -33,7 +33,7 @@ func Setup(t *testing.T) *test.Clients {
 }
 
 // TearDown will delete created names using clients.
-func TearDown(clients *test.Clients, names test.ResourceNames) {
+func TearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
 	if clients != nil {
 		clients.Delete([]string{names.Route}, []string{names.Config})
 	}
@@ -44,6 +44,7 @@ func TearDown(clients *test.Clients, names test.ResourceNames) {
 	// sidestep the issue.
 	//
 	// TODO(#1376):  Fix this when upstream fix is released.
+	logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
 	time.Sleep(20 * time.Second)
 }
 

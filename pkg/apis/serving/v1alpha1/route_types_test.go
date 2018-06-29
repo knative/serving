@@ -40,6 +40,15 @@ func TestRouteIsReady(t *testing.T) {
 		status:  RouteStatus{},
 		isReady: false,
 	}, {
+		name: "Different condition type should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionAllTrafficAssigned,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isReady: false,
+	}, {
 		name: "False condition status should not be ready",
 		status: RouteStatus{
 			Conditions: []RouteCondition{{
@@ -74,6 +83,30 @@ func TestRouteIsReady(t *testing.T) {
 			}},
 		},
 		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionAllTrafficAssigned,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: RouteStatus{
+			Conditions: []RouteCondition{{
+				Type:   RouteConditionAllTrafficAssigned,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   RouteConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isReady: false,
 	}}
 
 	for _, tc := range cases {

@@ -86,9 +86,8 @@ func newTestVirtualService(r *v1alpha1.Route) *v1alpha3.VirtualService {
 	tc := &traffic.TrafficConfig{Targets: map[string][]traffic.RevisionTarget{
 		"": {{
 			TrafficTarget: v1alpha1.TrafficTarget{
-				ConfigurationName: "config",
-				RevisionName:      "revision",
-				Percent:           100,
+				RevisionName: "revision",
+				Percent:      100,
 			},
 			Active: true,
 		}}}}

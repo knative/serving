@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Author
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,11 +53,17 @@ func BuildTrafficConfiguration(configClient client.ConfigurationInterface, revCl
 	var lastErr error
 	for _, tt := range u.Spec.Traffic {
 		if tt.RevisionName != "" {
+			// We don't fail fast because we want to compile a list of
+			// all referred target even in the case of missing
+			// targets.
 			if err := builder.addRevisionTarget(&tt); err != nil {
 				u.Status.MarkTrafficNotAssigned("Revision", tt.RevisionName)
 				lastErr = err
 			}
 		} else if tt.ConfigurationName != "" {
+			// We don't fail fast because we want to compile a list of
+			// all referred target even in the case of missing
+			// targets.
 			if err := builder.addConfigurationTarget(&tt); err != nil {
 				u.Status.MarkTrafficNotAssigned("Configuration", tt.ConfigurationName)
 				lastErr = err
@@ -67,6 +73,8 @@ func BuildTrafficConfiguration(configClient client.ConfigurationInterface, revCl
 	if lastErr != nil {
 		builder.targets = nil
 	}
+	// We still need to return all the referred targets, even if there
+	// are some missing targets.
 	return builder.build(), lastErr
 }
 
@@ -83,10 +91,12 @@ type trafficConfigBuilder struct {
 	configClient client.ConfigurationInterface
 	revClient    client.RevisionInterface
 
+	// targets is a grouping of traffic targets serving the same origin.
 	targets map[string][]RevisionTarget
-
+	// configurations contains all the referred Configuration, keyed by their name.
 	configurations map[string]*v1alpha1.Configuration
-	revisions      map[string]*v1alpha1.Revision
+	// revisions contains all the referred Revision, keyed by their name.
+	revisions map[string]*v1alpha1.Revision
 }
 
 func newBuilder(configClient client.ConfigurationInterface, revClient client.RevisionInterface) *trafficConfigBuilder {
@@ -129,7 +139,6 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	if err != nil {
 		return err
 	}
-	target := RevisionTarget{TrafficTarget: *tt}
 	if config.Status.LatestReadyRevisionName == "" {
 		return fmt.Errorf("Configuration %q is not ready", config.Name)
 	}
@@ -137,14 +146,16 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	if err != nil {
 		return err
 	}
+	target := RevisionTarget{
+		TrafficTarget: *tt,
+		Active:        !rev.Status.IsActivationRequired(),
+	}
 	target.TrafficTarget.RevisionName = rev.Name
-	target.Active = !rev.Status.IsActivationRequired()
 	t.addTarget(target)
 	return nil
 }
 
 func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
-	target := RevisionTarget{TrafficTarget: *tt}
 	rev, err := t.getRevision(tt.RevisionName)
 	if err != nil {
 		return err
@@ -152,8 +163,11 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 	if !rev.Status.IsRoutable() {
 		return fmt.Errorf("Revision %q is not routable", rev.Name)
 	}
+	target := RevisionTarget{
+		TrafficTarget: *tt,
+		Active:        !rev.Status.IsActivationRequired(),
+	}
 	t.revisions[tt.RevisionName] = rev
-	target.Active = !rev.Status.IsActivationRequired()
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {
 		target.TrafficTarget.ConfigurationName = configName
 		if _, err := t.getConfiguration(configName); err != nil {

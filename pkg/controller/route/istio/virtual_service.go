@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,12 +39,11 @@ const (
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
 // which Gateways and Hosts that it applies to, as well as the routing rules.
 func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.VirtualService {
-	labels := map[string]string{"route": u.Name}
 	r := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetVirtualServiceName(u),
 			Namespace: u.Namespace,
-			Labels:    labels,
+			Labels:    map[string]string{"route": u.Name},
 		},
 		Spec: makeVirtualServiceSpec(u, tc.Targets),
 	}
@@ -109,10 +108,10 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 		if t.Percent > 0 {
 			weights = append(weights, v1alpha3.DestinationWeight{
 				Destination: v1alpha3.Destination{
-					Host: controller.GetServiceFullname(
+					Host: controller.GetK8SServiceFullname(
 						controller.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName), ns),
 					Port: v1alpha3.PortSelector{
-						Number: revision.ServicePort,
+						Number: uint32(revision.ServicePort),
 					},
 				},
 				Weight: t.Percent,
@@ -156,7 +155,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		Destination: v1alpha3.Destination{
 			Host: fmt.Sprintf("%s.%s.svc.cluster.local", controller.GetServingK8SActivatorServiceName(), pkg.GetServingSystemNamespace()),
 			Port: v1alpha3.PortSelector{
-				Number: revision.ServicePort,
+				Number: uint32(revision.ServicePort),
 			},
 		},
 		Weight: totalInactivePercent,

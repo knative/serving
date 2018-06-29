@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/test"
+	"go.uber.org/zap"
 )
 
 const (
@@ -45,7 +46,7 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string) {
+func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
 	// There seems to be an Istio bug where if we delete / create
@@ -54,6 +55,7 @@ func cleanup(yamlFilename string) {
 	// sidestep the issue.
 	//
 	// TODO(#1376):  Fix this when upstream fix is released.
+	logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
 	time.Sleep(20 * time.Second)
 }
 
@@ -71,8 +73,8 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to create temporary manifest: %v", err)
 	}
 	newYamlFilename := newYaml.Name()
-	defer cleanup(newYamlFilename)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) }, logger)
+	defer cleanup(newYamlFilename, logger)
+	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename, logger) }, logger)
 
 	// Populate manifets file with the real path to the container
 	content, err := ioutil.ReadFile(appYaml)

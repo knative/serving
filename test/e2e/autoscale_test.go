@@ -113,9 +113,9 @@ func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
 	return clients
 }
 
-func tearDown(clients *test.Clients, names test.ResourceNames) {
+func tearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
 	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
-	TearDown(clients, names)
+	TearDown(clients, names, logger)
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
@@ -134,8 +134,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names, logger) }, logger)
+	defer tearDown(clients, names, logger)
 
 	logger.Infof(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
