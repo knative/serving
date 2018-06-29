@@ -80,11 +80,11 @@ function delete_gcr_images() {
 # Parameters: $1 - namespace.
 function wait_until_pods_running() {
   echo -n "Waiting until all pods in namespace $1 are up"
-  local ns=$1
+  local ns="$1"
   for i in {1..150}; do  # timeout after 5 minutes
-    local has_pending=$(kubectl get pods -n $ns -o jsonpath='{.items[*].status.phase}' | grep Pending)
+    local has_pending="$(kubectl get pods -n $ns -o jsonpath='{.items[*].status.phase}' | grep Pending)"
     local pods="$(kubectl get pods -n $1 2>/dev/null | grep -v NAME)"
-    if [[ -n "${pods}" && -z ${has_pending} ]]; then
+    if [[ -n "${pods}" && -z "${has_pending}" ]]; then
       echo -e "\nAll pods are up:"
       kubectl get pods -n $1
       return 0
@@ -98,6 +98,8 @@ function wait_until_pods_running() {
 }
 
 # Waits until the given service has an external IP address.
+# Parameters: $1 - namespace.
+# Parameters: $2 - service name.
 function wait_until_service_has_external_ip() {
   local ns=$1
   local svc=$2
