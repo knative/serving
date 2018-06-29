@@ -174,7 +174,7 @@ per request traces captured by Zipkin:
 	kubectl proxy
 	```
 
-1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana). 
+1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana).
 
 1. Navigate to Management -> Index Patterns -> Create Index Pattern.
 
@@ -246,16 +246,18 @@ instrument a sample 'Gauge' type metric using the setup.
 
 ```go
 import (
-	"context"
+	"net/http"
+	"time"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 )
 
 var (
-    desiredPodCountM *stats.Int64Measure
-    namespaceTagKey tag.Key
-    revisionTagKey tag.Key
+	desiredPodCountM *stats.Int64Measure
+	namespaceTagKey  tag.Key
+	revisionTagKey   tag.Key
 )
 
 func main() {
@@ -266,15 +268,15 @@ func main() {
 	view.RegisterExporter(exporter)
 	view.SetReportingPeriod(10 * time.Second)
 
-    // Create a sample gauge
+	// Create a sample gauge
 	var r = &Reporter{}
 	desiredPodCountM = stats.Int64(
 		"desired_pod_count",
 		"Number of pods autoscaler wants to allocate",
 		stats.UnitNone)
 
-    // Tag the statistics with namespace and revision labels
-    var err error
+	// Tag the statistics with namespace and revision labels
+	var err error
 	namespaceTagKey, err = tag.NewKey("namespace")
 	if err != nil {
 		// Error handling
