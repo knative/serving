@@ -29,6 +29,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// MatchesAny is a NOP matcher. This is useful for polling until a 200 is returned.
+func MatchesAny(_ *spoof.Response) (bool, error) {
+	return true, nil
+}
+
 // MatchesBody checks that the *first* response body matches the "expected" body, otherwise failing.
 func MatchesBody(expected string) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
