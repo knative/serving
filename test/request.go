@@ -71,12 +71,12 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 	return err
 }
 
-// WaitForEndpointState will poll an endpoint until inState indicates the state is achieved. If resolvableDomain
-// is false, it will use kubeClientset to look up the ingress (named based on routeName) in the namespace namespaceName,
-// and spoof domain in the request headers, otherwise it will make the request directly to domain.
-// desc will be used to name the metric that is emitted to track how long it took for the domain to get into the state checked by inState.
-// Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, namespaceName string, routeName string, inState func(body string) (bool, error), desc string) error {
+// WaitForEndpointState will poll an endpoint until inState indicates the state is achieved.
+// If resolvableDomain is false, it will use kubeClientset to look up the ingress and spoof
+// the domain in the request headers, otherwise it will make the request directly to domain.
+// desc will be used to name the metric that is emitted to track how long it took for the
+// domain to get into the state checked by inState.  Commas in `desc` must be escaped.
+func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, inState func(body string) (bool, error), desc string) error {
 	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
