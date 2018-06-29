@@ -17,9 +17,14 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
+func GetK8SServiceFullname(name string, namespace string) string {
+	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
+}
 func GetDomainConfigMapName() string {
 	return "config-domain"
 }
@@ -51,23 +56,28 @@ func GetRevisionVPAName(u *v1alpha1.Revision) string {
 	return u.Name + "-vpa"
 }
 
-func GetRouteRuleName(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget) string {
-	if tt != nil {
-		return u.Name + "-" + tt.Name + "-istio"
-	}
-	return u.Name + "-istio"
-}
-
-func GetServingK8SIngressName(u *v1alpha1.Route) string {
-	return u.Name + "-ingress"
-}
-
 func GetServingK8SServiceNameForRevision(u *v1alpha1.Revision) string {
 	return u.Name + "-service"
 }
 
-func GetServingK8SServiceName(u *v1alpha1.Route) string {
+func GetServingK8SServiceNameForRoute(u *v1alpha1.Route) string {
 	return u.Name + "-service"
+}
+
+func GetVirtualServiceName(u *v1alpha1.Route) string {
+	return u.Name + "-istio"
+}
+
+func GetServingK8SGatewayFullname() string {
+	return GetK8SServiceFullname("knative-shared-gateway", "knative-serving")
+}
+
+func GetServingK8SServiceNameForObj(name string) string {
+	return name + "-service"
+}
+
+func GetServingK8SServiceFullnameForRoute(u *v1alpha1.Route) string {
+	return GetK8SServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
 }
 
 func GetServiceConfigurationName(u *v1alpha1.Service) string {

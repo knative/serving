@@ -51,8 +51,8 @@ func TestHelloWorld(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
-	defer TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
+	defer TearDown(clients, names, logger)
 
 	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
 	err = test.WaitForRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {

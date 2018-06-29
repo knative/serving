@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Api versions allow the api contract for a resource to be changed while keeping
-// backward compatibility by support multiple concurrent versions
-// of the same resource
+/*
+This package contains code that translate our TrafficTarget to an
+intermediate format that has less semantic.  In particular it deals
+with flattening the TrafficTarget to the revision level -- it also
+does the grouping of traffic target into their traffic groups.
+*/
 
-// +k8s:deepcopy-gen=package
-// +groupName=config.istio.io
-package v1alpha2
+package traffic

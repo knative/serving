@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package v1alpha2
+package v1alpha3
 
 import (
 	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
@@ -21,8 +21,10 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// RouteRules returns a RouteRuleInformer.
-	RouteRules() RouteRuleInformer
+	// Gateways returns a GatewayInformer.
+	Gateways() GatewayInformer
+	// VirtualServices returns a VirtualServiceInformer.
+	VirtualServices() VirtualServiceInformer
 }
 
 type version struct {
@@ -36,7 +38,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// RouteRules returns a RouteRuleInformer.
-func (v *version) RouteRules() RouteRuleInformer {
-	return &routeRuleInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// Gateways returns a GatewayInformer.
+func (v *version) Gateways() GatewayInformer {
+	return &gatewayInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualServices returns a VirtualServiceInformer.
+func (v *version) VirtualServices() VirtualServiceInformer {
+	return &virtualServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -41,7 +41,7 @@ kubectl apply -f sample/grpc-ping/sample.yaml
 export SERVICE_HOST=`kubectl get route grpc-ping -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-export SERVICE_IP=`kubectl get ingress grpc-ping-knative-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
 ```
 
 1. Use the client to send message streams to the gRPC server

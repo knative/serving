@@ -16,22 +16,26 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha2 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha2"
+	v1alpha3 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha3"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeConfigV1alpha2 struct {
+type FakeNetworkingV1alpha3 struct {
 	*testing.Fake
 }
 
-func (c *FakeConfigV1alpha2) RouteRules(namespace string) v1alpha2.RouteRuleInterface {
-	return &FakeRouteRules{c, namespace}
+func (c *FakeNetworkingV1alpha3) Gateways(namespace string) v1alpha3.GatewayInterface {
+	return &FakeGateways{c, namespace}
+}
+
+func (c *FakeNetworkingV1alpha3) VirtualServices(namespace string) v1alpha3.VirtualServiceInterface {
+	return &FakeVirtualServices{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeConfigV1alpha2) RESTClient() rest.Interface {
+func (c *FakeNetworkingV1alpha3) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
