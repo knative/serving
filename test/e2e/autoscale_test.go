@@ -141,7 +141,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForRouteState(
 		clients.Routes,
 		names.Route,
-		test.IsRouteReady(),
+		test.IsRouteReady,
 		"RouteIsReady")
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:

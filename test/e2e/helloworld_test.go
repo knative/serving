@@ -53,7 +53,7 @@ func TestHelloWorld(t *testing.T) {
 	defer TearDown(clients, names, logger)
 
 	logger.Infof("When the Revision can have traffic routed to it, the Route is marked as Ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady(), "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
 	}
 

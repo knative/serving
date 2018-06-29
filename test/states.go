@@ -49,24 +49,18 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 // IsRevisionReady will check the status conditions of the revision and return true if the revision is
 // ready to serve traffic. It will return false if the status indicates a state other than deploying
 // or being ready. It will also return false if the type of the condition is unexpected.
-func IsRevisionReady() func(r *v1alpha1.Revision) (bool, error) {
-	return func(r *v1alpha1.Revision) (bool, error) {
-		return r.Status.IsReady(), nil
-	}
+func IsRevisionReady(r *v1alpha1.Revision) (bool, error) {
+	return r.Status.IsReady(), nil
 }
 
 // IsServiceReady will check the status conditions of the service and return true if the service is
 // ready. This means that its configurations and routes have all reported ready.
-func IsServiceReady() func(s *v1alpha1.Service) (bool, error) {
-	return func(s *v1alpha1.Service) (bool, error) {
-		return s.Status.IsReady(), nil
-	}
+func IsServiceReady(s *v1alpha1.Service) (bool, error) {
+	return s.Status.IsReady(), nil
 }
 
 // IsRouteReady will check the status conditions of the route and return true if the route is
 // ready.
-func IsRouteReady() func(r *v1alpha1.Route) (bool, error) {
-	return func(r *v1alpha1.Route) (bool, error) {
-		return r.Status.IsReady(), nil
-	}
+func IsRouteReady(r *v1alpha1.Route) (bool, error) {
+	return r.Status.IsReady(), nil
 }

@@ -72,7 +72,7 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, expectedText string) {
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
-	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady(), "RouteIsReady"); err != nil {
+	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
@@ -91,7 +91,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Infof("The Revision will be marked as Ready when it can serve traffic")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady())
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady)
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
