@@ -200,10 +200,6 @@ func getTestControllerConfig() ControllerConfig {
 		AutoscalerImage:                       testAutoscalerImage,
 		AutoscaleConcurrencyQuantumOfTime:     k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
 		AutoscaleEnableVerticalPodAutoscaling: k8sflag.Bool("enable-vertical-pod-autoscaling", false),
-
-		EnableVarLogCollection:     true,
-		FluentdSidecarImage:        testFluentdImage,
-		FluentdSidecarOutputConfig: testFluentdSidecarOutputConfig,
 	}
 }
 
@@ -213,7 +209,7 @@ func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
 	return nil
 }
 
-func newTestControllerWithConfig(controllerConfig *ControllerConfig, servingObjects ...runtime.Object) (
+func newTestControllerWithConfig(controllerConfig *ControllerConfig, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -228,10 +224,11 @@ func newTestControllerWithConfig(controllerConfig *ControllerConfig, servingObje
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	buildClient = fakebuildclientset.NewSimpleClientset()
-	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	servingClient = fakeclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 
-	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
+	var cms []*corev1.ConfigMap
+	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetNetworkConfigMapName(),
@@ -245,7 +242,22 @@ func newTestControllerWithConfig(controllerConfig *ControllerConfig, servingObje
 			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
 			"loglevel.queueproxy": "info",
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+		},
 	})
+	for _, cm := range configs {
+		cms = append(cms, cm)
+	}
+
+	configMapWatcher = configmap.NewFixedWatcher(cms...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -288,7 +300,65 @@ func newTestController(servingObjects ...runtime.Object) (
 	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 	testControllerConfig := getTestControllerConfig()
-	return newTestControllerWithConfig(&testControllerConfig, servingObjects...)
+
+	// Create fake clients
+	kubeClient = fakekubeclientset.NewSimpleClientset()
+	buildClient = fakebuildclientset.NewSimpleClientset()
+	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	vpaClient = fakevpaclientset.NewSimpleClientset()
+
+	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetNetworkConfigMapName(),
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      logging.ConfigName,
+		},
+		Data: map[string]string{
+			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+			"loglevel.queueproxy": "info",
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+		},
+	})
+
+	// Create informer factories with fake clients. The second parameter sets the
+	// resync period to zero, disabling it.
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
+	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
+
+	controller = NewController(
+		ctrl.Options{
+			KubeClientSet:    kubeClient,
+			ServingClientSet: servingClient,
+			ConfigMapWatcher: configMapWatcher,
+			Logger:           zap.NewNop().Sugar(),
+		},
+		vpaClient,
+		servingInformer.Serving().V1alpha1().Revisions(),
+		buildInformer.Build().V1alpha1().Builds(),
+		kubeInformer.Apps().V1().Deployments(),
+		kubeInformer.Core().V1().Services(),
+		kubeInformer.Core().V1().Endpoints(),
+		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
+		&testControllerConfig,
+	)
+
+	controller.resolver = &nopResolver{}
+	return
 }
 
 func createRevision(t *testing.T,
@@ -745,8 +815,16 @@ func TestResolutionFailed(t *testing.T) {
 
 func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.EnableVarLogCollection = false
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection": "false",
+		},
+	})
+
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
@@ -851,8 +929,18 @@ func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
 
 func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.LoggingURLTemplate = "http://logging.test.com?filter=${REVISION_UID}"
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.revision-url-template":         "http://logging.test.com?filter=${REVISION_UID}",
+		},
+	})
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -895,15 +983,36 @@ func TestCreateRevWithVPA(t *testing.T) {
 
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(&controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.revision-url-template":         "http://old-logging.test.com?filter=${REVISION_UID}",
+		},
+	})
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	// Update controllers logging URL
-	controllerConfig.LoggingURLTemplate = "http://new-logging.test.com?filter=${REVISION_UID}"
+	controller.receiveObservabilityConfig(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.revision-url-template":         "http://new-logging.test.com?filter=${REVISION_UID}",
+		},
+	})
 	updateRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})

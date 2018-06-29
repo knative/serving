@@ -78,7 +78,7 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 // MakeServingPodSpec creates a pod spec.
-func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, controllerConfig *ControllerConfig) *corev1.PodSpec {
+func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *ObservabilityConfig, controllerConfig *ControllerConfig) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -145,7 +145,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, c
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
-	if controllerConfig.EnableVarLogCollection {
+	if observabilityConfig.EnableVarLogCollection {
 		fluentdConfigMapVolume := corev1.Volume{
 			Name: fluentdConfigMapVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -159,7 +159,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, c
 
 		fluentdContainer := corev1.Container{
 			Name:  fluentdContainerName,
-			Image: controllerConfig.FluentdSidecarImage,
+			Image: observabilityConfig.FluentdSidecarImage,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
@@ -206,7 +206,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, c
 
 // MakeServingDeployment creates a deployment.
 func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
+	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
 
 	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
@@ -246,7 +246,7 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 					Labels:      MakeServingResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *MakeServingPodSpec(rev, loggingConfig, controllerConfig),
+				Spec: *MakeServingPodSpec(rev, loggingConfig, observabilityConfig, controllerConfig),
 			},
 		},
 	}

@@ -64,12 +64,6 @@ var (
 	autoscaleConcurrencyQuantumOfTime     = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
 	autoscaleEnableScaleToZero            = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
 	autoscaleEnableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
-
-	observabilityFlagSet             = k8sflag.NewFlagSet("/etc/config-observability")
-	loggingEnableVarLogCollection    = observabilityFlagSet.Bool("logging.enable-var-log-collection", false)
-	loggingFluentSidecarImage        = observabilityFlagSet.String("logging.fluentd-sidecar-image", "")
-	loggingFluentSidecarOutputConfig = observabilityFlagSet.String("logging.fluentd-sidecar-output-config", "")
-	loggingURLTemplate               = observabilityFlagSet.String("logging.revision-url-template", "")
 )
 
 func main() {
@@ -80,19 +74,6 @@ func main() {
 	}
 	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
 	defer logger.Sync()
-
-	if loggingEnableVarLogCollection.Get() {
-		if len(loggingFluentSidecarImage.Get()) != 0 {
-			logger.Infof("Using fluentd sidecar image: %s", loggingFluentSidecarImage)
-		} else {
-			logger.Fatal("missing required flag: -fluentdSidecarImage")
-		}
-		logger.Infof("Using fluentd sidecar output config: %s", loggingFluentSidecarOutputConfig)
-	}
-
-	if loggingURLTemplate.Get() != "" {
-		logger.Infof("Using logging url template: %s", loggingURLTemplate)
-	}
 
 	if len(queueSidecarImage) != 0 {
 		logger.Infof("Using queue sidecar image: %s", queueSidecarImage)
@@ -143,13 +124,7 @@ func main() {
 		AutoscaleEnableVerticalPodAutoscaling: autoscaleEnableVerticalPodAutoscaling,
 		AutoscalerImage:                       autoscalerImage,
 		QueueSidecarImage:                     queueSidecarImage,
-
-		EnableVarLogCollection:     loggingEnableVarLogCollection.Get(),
-		FluentdSidecarImage:        loggingFluentSidecarImage.Get(),
-		FluentdSidecarOutputConfig: loggingFluentSidecarOutputConfig.Get(),
-		LoggingURLTemplate:         loggingURLTemplate.Get(),
-
-		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),
+		RegistriesSkippingTagResolving:        toStringSet(registriesSkippingTagResolving, ","),
 	}
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())
