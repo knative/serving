@@ -201,7 +201,12 @@ function report_go_test() {
   done < ${report}
   # If any test failed, show the detailed report.
   # Otherwise, just show the summary.
-  (( failed )) && cat ${report} || cat ${summary}
+  # Exception: when emitting metrics, dump the full report.
+  if (( failed )) || [[ "$@" == *" -emitmetrics"* ]]; then
+    cat ${report}
+  else
+    cat ${summary}
+  fi
   # Always generate the junit summary.
   bazel test ${targets} > /dev/null 2>&1
   return ${failed}
