@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	testDomain       string = "test-domain"
-	emptyInactiveRev string = ""
-	testInactiveRev  string = "test-rev"
+	testDomain       = "test-domain"
+	emptyInactiveRev = ""
+	testInactiveRev  = "test-rev"
 )
 
 func getTestRevisionRoutes() []RevisionRoute {
@@ -58,7 +58,7 @@ func TestMakeIstioRouteSpecRevisionsActive(t *testing.T) {
 				},
 			},
 		},
-		Route: calculateDestinationWeights(route, nil, rr),
+		Route: calculateDestinationWeights(nil, rr),
 	}
 
 	istioRouteSpec := makeIstioRouteSpec(route, nil, testNamespace, rr, testDomain, emptyInactiveRev)
@@ -113,8 +113,6 @@ func TestMakeIstioRouteSpecRevisionInactive(t *testing.T) {
 }
 
 func TestCalculateDestinationWeightsNoTrafficTarget(t *testing.T) {
-	// The parameter traffic target is nil.
-	route := getTestRouteWithTrafficTargets(nil)
 	rr := getTestRevisionRoutes()
 	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{{
 		Destination: istiov1alpha2.IstioService{
@@ -130,7 +128,7 @@ func TestCalculateDestinationWeightsNoTrafficTarget(t *testing.T) {
 		Weight: 2,
 	}}
 
-	destinationWeights := calculateDestinationWeights(route, nil, rr)
+	destinationWeights := calculateDestinationWeights(nil, rr)
 
 	if diff := cmp.Diff(expectedDestinationWeights, destinationWeights); diff != "" {
 		t.Errorf("Unexpected destination weights diff (-want +got): %v", diff)
@@ -142,7 +140,6 @@ func TestCalculateDestinationWeightsWithTrafficTarget(t *testing.T) {
 		RevisionName: "test-rev",
 		Percent:      100,
 	}
-	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{tt})
 	rr := getTestRevisionRoutes()
 	expectedDestinationWeights := []istiov1alpha2.DestinationWeight{{
 		Destination: istiov1alpha2.IstioService{
@@ -152,7 +149,7 @@ func TestCalculateDestinationWeightsWithTrafficTarget(t *testing.T) {
 		Weight: 100,
 	}}
 
-	destinationWeights := calculateDestinationWeights(route, &tt, rr)
+	destinationWeights := calculateDestinationWeights(&tt, rr)
 
 	if diff := cmp.Diff(expectedDestinationWeights, destinationWeights); diff != "" {
 		t.Errorf("Unexpected destination weights diff (-want +got): %v", diff)

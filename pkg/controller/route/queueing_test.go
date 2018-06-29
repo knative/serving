@@ -51,7 +51,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	// because ObjectTracker doesn't fire watches in the 1.9 client. When we
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
-	kubeClient, _, controller, kubeInformer, servingInformer, servingSystemInformer := newTestController(t, rev, route)
+	kubeClient, _, controller, kubeInformer, servingInformer, servingSystemInformer := newTestController(rev, route)
 
 	h := NewHooks()
 

@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -55,7 +54,7 @@ func NewController(
 	opt controller.Options,
 	configurationInformer servinginformers.ConfigurationInformer,
 	revisionInformer servinginformers.RevisionInformer,
-	config *rest.Config) controller.Interface {
+) *Controller {
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Configurations"),

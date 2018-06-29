@@ -57,7 +57,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -68,17 +67,14 @@ import (
 )
 
 const (
-	userContainerName string = "user-container"
-	userPortName      string = "user-port"
-	userPort                 = 8080
+	userContainerName = "user-container"
+	userPortName      = "user-port"
+	userPort          = 8080
 
-	fluentdContainerName string = "fluentd-proxy"
-	queueContainerName   string = "queue-proxy"
-	envoyContainerName   string = "istio-proxy"
+	fluentdContainerName = "fluentd-proxy"
+	queueContainerName   = "queue-proxy"
+	envoyContainerName   = "istio-proxy"
 	// queueSidecarName set by -queueSidecarName flag
-	queueHTTPPortName string = "queue-http-port"
-
-	requestQueueContainerName string = "request-queue"
 
 	controllerAgentName = "revision-controller"
 	autoscalerPort      = 8080
@@ -190,8 +186,8 @@ func NewController(
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
-	config *rest.Config,
-	controllerConfig *ControllerConfig) controller.Interface {
+	controllerConfig *ControllerConfig,
+) *Controller {
 
 	c := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),

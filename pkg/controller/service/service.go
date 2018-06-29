@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -58,7 +57,7 @@ func NewController(
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
 	routeInformer servinginformers.RouteInformer,
-	config *rest.Config) controller.Interface {
+) *Controller {
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services"),
@@ -225,6 +224,7 @@ func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 }
 
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
 	desiredConfig, err := MakeServiceConfiguration(service)
 	if err != nil {

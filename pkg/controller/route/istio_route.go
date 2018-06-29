@@ -30,7 +30,7 @@ const requestTimeoutMs = "60000"
 
 // makeIstioRouteSpec creates an Istio route
 func makeIstioRouteSpec(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, routes []RevisionRoute, domain string, inactiveRev string) istiov1alpha2.RouteRuleSpec {
-	destinationWeights := calculateDestinationWeights(u, tt, routes)
+	destinationWeights := calculateDestinationWeights(tt, routes)
 	if tt != nil {
 		domain = fmt.Sprintf("%s.%s", tt.Name, domain)
 	}
@@ -92,7 +92,7 @@ func MakeIstioRoutes(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, ns string, r
 
 // calculateDestinationWeights returns the destination weights for
 // the istio route rule.
-func calculateDestinationWeights(u *v1alpha1.Route, tt *v1alpha1.TrafficTarget, routes []RevisionRoute) []istiov1alpha2.DestinationWeight {
+func calculateDestinationWeights(tt *v1alpha1.TrafficTarget, routes []RevisionRoute) []istiov1alpha2.DestinationWeight {
 	var istioServiceName string
 	var istioServiceNs string
 

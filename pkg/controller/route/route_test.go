@@ -51,7 +51,6 @@ import (
 	"github.com/knative/serving/pkg/logging"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 	kubetesting "k8s.io/client-go/testing"
 
 	kubeinformers "k8s.io/client-go/informers"
@@ -61,9 +60,9 @@ import (
 )
 
 const (
-	testNamespace       string = "test"
-	defaultDomainSuffix string = "test-domain.dev"
-	prodDomainSuffix    string = "prod-domain.com"
+	testNamespace       = "test"
+	defaultDomainSuffix = "test-domain.dev"
+	prodDomainSuffix    = "prod-domain.com"
 )
 
 var (
@@ -162,7 +161,7 @@ func getActivatorDestinationWeight(w int) v1alpha2.DestinationWeight {
 	}
 }
 
-func newTestController(t *testing.T, servingObjects ...runtime.Object) (
+func newTestController(servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -199,15 +198,14 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
 		kubeInformer.Extensions().V1beta1().Ingresses(),
-		&rest.Config{},
 		k8sflag.Bool("enable-scale-to-zero", false),
-	).(*Controller)
+	)
 
 	return
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -325,7 +323,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	h := NewHooks()
@@ -415,7 +413,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -497,7 +495,7 @@ func TestCreateRouteFromConfigsWithMultipleRevs(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -572,7 +570,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
 
 	// A standalone inactive revision
@@ -652,7 +650,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -757,7 +755,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -892,7 +890,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
-	_, servingClient, controller, _, _, _ := newTestController(t)
+	_, servingClient, controller, _, _, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -957,7 +955,7 @@ func TestCreateRouteDeletesOutdatedRouteRules(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -987,7 +985,7 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 }
 
 func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1029,13 +1027,8 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	}
 }
 
-// Helper to compare RouteConditions
-func sortConditions(a, b v1alpha1.RouteCondition) bool {
-	return a.Type < b.Type
-}
-
 func TestCreateRouteRevisionMissingCondition(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1079,7 +1072,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 }
 
 func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1123,7 +1116,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 }
 
 func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1162,7 +1155,7 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a route label in configuration which is expected to be deleted.
@@ -1204,7 +1197,7 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 	ingressClient := kubeClient.ExtensionsV1beta1().Ingresses(route.Namespace)
@@ -1253,7 +1246,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 }
 
 func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	routeClient := servingClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
@@ -1327,7 +1320,7 @@ func TestUpdateRouteWhenConfigurationChanges(t *testing.T) {
 }
 
 func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestController()
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -1367,7 +1360,7 @@ func TestAddConfigurationEventNotUpdateAnythingIfHasNoLatestReady(t *testing.T) 
 
 // Test route when we do not use activator, and then use activator.
 func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -1427,7 +1420,7 @@ func TestUpdateIngressEventUpdateRouteStatus(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 	ingressClient := kubeClient.Extensions().Ingresses(route.Namespace)

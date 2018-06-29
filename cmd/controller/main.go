@@ -28,6 +28,8 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 
+	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
+	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -44,8 +46,6 @@ import (
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
-	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
-	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 )
 
 const (
@@ -172,13 +172,35 @@ func main() {
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
 	controllers := []controller.Interface{
-		configuration.NewController(opt, configurationInformer, revisionInformer, cfg),
-		revision.NewController(opt, vpaClient, revisionInformer, buildInformer,
-			deploymentInformer, coreServiceInformer, endpointsInformer, vpaInformer,
-			cfg, &revControllerConfig),
-		route.NewController(opt, routeInformer, configurationInformer, ingressInformer,
-			cfg, autoscaleEnableScaleToZero),
-		service.NewController(opt, serviceInformer, configurationInformer, routeInformer, cfg),
+		configuration.NewController(
+			opt,
+			configurationInformer,
+			revisionInformer,
+		),
+		revision.NewController(
+			opt,
+			vpaClient,
+			revisionInformer,
+			buildInformer,
+			deploymentInformer,
+			coreServiceInformer,
+			endpointsInformer,
+			vpaInformer,
+			&revControllerConfig,
+		),
+		route.NewController(
+			opt,
+			routeInformer,
+			configurationInformer,
+			ingressInformer,
+			autoscaleEnableScaleToZero,
+		),
+		service.NewController(
+			opt,
+			serviceInformer,
+			configurationInformer,
+			routeInformer,
+		),
 	}
 
 	// These are non-blocking.
