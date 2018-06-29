@@ -41,7 +41,6 @@ func TestMakeRouteK8SService_ValidSpec(t *testing.T) {
 			Name: "http",
 			Port: 80,
 		}},
-		ClusterIP: "None",
 	}
 	spec := MakeRouteK8SService(r).Spec
 	if diff := cmp.Diff(expectedSpec, spec); diff != "" {

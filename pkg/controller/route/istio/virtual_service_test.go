@@ -74,6 +74,8 @@ func TestMakeVirtualServiceSpec_CorrectSpec(t *testing.T) {
 			"*.domain.com",
 			"domain.com",
 			"test-route-service.test-ns.svc.cluster.local",
+			"test-route-service.test-ns",
+			"test-route-service",
 		},
 	}
 	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec
@@ -114,6 +116,10 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Authority: &v1alpha3.StringMatch{Exact: "domain.com"},
 		}, {
 			Authority: &v1alpha3.StringMatch{Exact: "test-route-service.test-ns.svc.cluster.local"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route-service.test-ns"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route-service"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -153,7 +159,12 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 	}
 	base := "domain.com"
-	expected := []string{base, "test-route-service.test-ns.svc.cluster.local"}
+	expected := []string{
+		base,
+		"test-route-service.test-ns.svc.cluster.local",
+		"test-route-service.test-ns",
+		"test-route-service",
+	}
 	domains := getRouteDomains("", r, base)
 	if diff := cmp.Diff(expected, domains); diff != "" {
 		t.Errorf("Unexpected domains  (-want +got): %v", diff)

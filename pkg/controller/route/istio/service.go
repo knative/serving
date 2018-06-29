@@ -44,7 +44,6 @@ func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
 					Port: PortNumber,
 				},
 			},
-			ClusterIP: "None",
 		},
 	}
 }
