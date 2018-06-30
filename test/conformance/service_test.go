@@ -73,7 +73,7 @@ func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clie
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Info("The Revision will be marked as Ready when it can serve traffic")
-	if err := test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady()); err != nil {
+	if err := test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady); err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 
@@ -155,7 +155,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady(), "ServiceIsReady"); err != nil {
+	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "What a spaceport!")
@@ -173,7 +173,7 @@ func TestRunLatestService(t *testing.T) {
 	names.Revision = revisionName
 
 	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady(), "ServiceIsReady"); err != nil {
+	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "Re-energize yourself with a slice of pepperoni!")
