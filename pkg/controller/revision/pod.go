@@ -17,11 +17,6 @@ limitations under the License.
 package revision
 
 import (
-	"net"
-	"strings"
-
-	"go.uber.org/zap"
-
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
@@ -206,7 +201,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 }
 
 // MakeServingDeployment creates a deployment.
-func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
+func MakeServingDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
 
@@ -223,11 +218,7 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
 	if _, ok := podTemplateAnnotations[istioOutboundIPRangeAnnotation]; !ok {
 		if len(networkConfig.IstioOutboundIPRanges) > 0 {
-			if err := validateOutboundIPRanges(networkConfig.IstioOutboundIPRanges); err != nil {
-				logger.Errorf("Failed to parse IP ranges %v. Not setting the annotation. Error: %v", networkConfig.IstioOutboundIPRanges, err)
-			} else {
-				podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
-			}
+			podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
 		}
 	}
 
@@ -252,18 +243,4 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 			},
 		},
 	}
-}
-
-func validateOutboundIPRanges(s string) error {
-	// * is a valid value
-	if s == "*" {
-		return nil
-	}
-	cidrs := strings.Split(s, ",")
-	for _, cidr := range cidrs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return err
-		}
-	}
-	return nil
 }
