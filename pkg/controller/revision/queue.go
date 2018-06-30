@@ -21,7 +21,9 @@ import (
 	"strconv"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,7 +32,7 @@ import (
 )
 
 // MakeServingQueueContainer creates the container spec for queue sidecar.
-func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
+func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -45,7 +47,6 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
 	}
 
-	const elaQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,
@@ -86,37 +87,37 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			PeriodSeconds: 1,
 		},
 		Args: []string{
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscalerConfig.ConcurrencyQuantumOfTime),
 			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
 		Env: []corev1.EnvVar{{
-			Name:  "ELA_NAMESPACE",
+			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
 		}, {
-			Name:  "ELA_CONFIGURATION",
+			Name:  "SERVING_CONFIGURATION",
 			Value: configName,
 		}, {
-			Name:  "ELA_REVISION",
+			Name:  "SERVING_REVISION",
 			Value: rev.Name,
 		}, {
-			Name:  "ELA_AUTOSCALER",
+			Name:  "SERVING_AUTOSCALER",
 			Value: autoscalerAddress,
 		}, {
-			Name:  "ELA_AUTOSCALER_PORT",
+			Name:  "SERVING_AUTOSCALER_PORT",
 			Value: strconv.Itoa(autoscalerPort),
 		}, {
-			Name: "ELA_POD",
+			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.name",
 				},
 			},
 		}, {
-			Name:  "ELA_LOGGING_CONFIG",
-			Value: controllerConfig.QueueProxyLoggingConfig,
+			Name:  "SERVING_LOGGING_CONFIG",
+			Value: loggingConfig.LoggingConfig,
 		}, {
-			Name:  "ELA_LOGGING_LEVEL",
-			Value: controllerConfig.QueueProxyLoggingLevel,
+			Name:  "SERVING_LOGGING_LEVEL",
+			Value: loggingConfig.LoggingLevel["queueproxy"],
 		}},
 	}
 }

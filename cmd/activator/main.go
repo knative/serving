@@ -16,6 +16,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/controller"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
@@ -95,7 +97,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: Clear the host to avoid 404's.
-	// https://github.com/elafros/elafros/issues/964
+	// https://github.com/knative/serving/issues/964
 	r.Host = ""
 
 	proxy.ServeHTTP(w, r)
@@ -103,7 +105,11 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logger := logging.NewLoggerFromDefaultConfigMap("loglevel.activator").Named("activator")
+	config, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "activator")
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")
@@ -116,12 +122,12 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error building new config", zap.Error(err))
 	}
-	elaClient, err := clientset.NewForConfig(clusterConfig)
+	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building ela clientset: %v", zap.Error(err))
+		logger.Fatal("Error building serving clientset: %v", zap.Error(err))
 	}
 
-	a := activator.NewRevisionActivator(kubeClient, elaClient, logger)
+	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
 	a = activator.NewDedupingActivator(a)
 	ah := &activationHandler{a, logger}
 

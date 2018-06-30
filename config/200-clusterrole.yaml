@@ -23,11 +23,11 @@ rules:
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["build.dev"]
     resources: ["builds"]
-    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]    
-  - apiGroups: ["config.istio.io"]
-    resources: ["routerules"]
-    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]    
----    
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["virtualservices"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -53,7 +53,7 @@ rules:
     verbs: ["get", "list", "update", "patch", "watch"]
   - apiGroups: ["build.dev"]
     resources: ["builds"]
-    verbs: ["get", "list", "update", "patch", "watch"]    
-  - apiGroups: ["config.istio.io"]
-    resources: ["routerules"]
-    verbs: ["get", "list", "update", "patch", "watch"]    
+    verbs: ["get", "list", "update", "patch", "watch"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["virtualservices"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

@@ -20,13 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/knative/serving/pkg"
-
 	"github.com/ghodss/yaml"
-	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
@@ -60,22 +55,11 @@ type DomainConfig struct {
 	Domains map[string]*LabelSelector
 }
 
-// NewDomainConfig creates a DomainConfig by reading the domain configmap from
-// the supplied client.
-func NewDomainConfig(kubeClient kubernetes.Interface) (*DomainConfig, error) {
-	m, err := kubeClient.CoreV1().ConfigMaps(pkg.GetServingSystemNamespace()).Get(controller.GetDomainConfigMapName(), metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return NewDomainConfigFromConfigMap(m)
-}
-
 // NewDomainConfigFromConfigMap creates a DomainConfig from the supplied ConfigMap
 func NewDomainConfigFromConfigMap(configMap *corev1.ConfigMap) (*DomainConfig, error) {
 	c := DomainConfig{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
-		// TODO(josephburnett): migrate domain configuration to k8sflag
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {

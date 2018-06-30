@@ -56,7 +56,7 @@ const (
 	secretServerCert  = "server-cert.pem"
 	secretCACert      = "ca-cert.pem"
 	// TODO: Could these come from somewhere else.
-	elaWebhookDeployment = "webhook"
+	servingWebhookDeployment = "webhook"
 )
 
 var deploymentKind = v1beta1.SchemeGroupVersion.WithKind("Deployment")
@@ -345,7 +345,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment
-	deployment, err := ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Get(elaWebhookDeployment, metav1.GetOptions{})
+	deployment, err := ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Get(servingWebhookDeployment, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}
@@ -380,7 +380,7 @@ func (ac *AdmissionController) register(
 }
 
 // ServeHTTP implements the external admission webhook for mutating
-// ela resources.
+// serving resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := ac.logger
 	logger.Infof("Webhook ServeHTTP request=%#v", r)

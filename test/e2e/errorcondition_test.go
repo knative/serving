@@ -20,13 +20,14 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 const (
@@ -53,8 +54,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	defer TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
+	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
 	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
@@ -71,7 +72,7 @@ func TestContainerErrorMsg(t *testing.T) {
 			return true, errors.New(s)
 		}
 		return false, nil
-	})
+	}, "ContainerImageNotPresent")
 
 	if err != nil {
 		t.Fatalf("Failed to validate configuration state: %s", err)
@@ -93,7 +94,7 @@ func TestContainerErrorMsg(t *testing.T) {
 				revisionName, containerMissing, manifestUnknown, cond.Reason, cond.Message)
 		}
 		return false, nil
-	})
+	}, "ImagePathInvalid")
 
 	if err != nil {
 		t.Fatalf("Failed to validate revision state: %s", err)
@@ -108,7 +109,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
 	logger.Debugf("LogURL: %s", logURL)
 
-	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/elafros/elafros/issues/990 is fixed
+	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/knative/serving/issues/990 is fixed
 }
 
 // Get revision name from configuration.

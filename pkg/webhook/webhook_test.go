@@ -17,18 +17,19 @@ package webhook
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg"
 
-	"go.uber.org/zap"
-
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -36,6 +37,8 @@ import (
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
+
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 func newDefaultOptions() ControllerOptions {
@@ -60,11 +63,6 @@ const (
 	testServiceName       = "test-service-name"
 )
 
-var (
-	testLogger = zap.NewNop().Sugar()
-	testCtx    = logging.WithLogger(context.TODO(), testLogger)
-)
-
 func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) (
 	kubeClient *fakekubeclientset.Clientset,
 	ac *AdmissionController,
@@ -72,7 +70,7 @@ func newRunningTestAdmissionController(t *testing.T, options ControllerOptions) 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 
-	ac, err := NewAdmissionController(kubeClient, options, testLogger)
+	ac, err := NewAdmissionController(kubeClient, options, TestLogger(t))
 	if err != nil {
 		t.Fatalf("Failed to create new admission controller: %s", err)
 	}
@@ -92,7 +90,7 @@ func newNonRunningTestAdmissionController(t *testing.T, options ControllerOption
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 
-	ac, err := NewAdmissionController(kubeClient, options, testLogger)
+	ac, err := NewAdmissionController(kubeClient, options, TestLogger(t))
 	if err != nil {
 		t.Fatalf("Failed to create new admission controller: %s", err)
 	}
@@ -106,7 +104,7 @@ func TestDeleteAllowed(t *testing.T) {
 		Operation: admissionv1beta1.Delete,
 	}
 
-	resp := ac.admit(testCtx, &req)
+	resp := ac.admit(TestContextWithLogger(t), &req)
 	if !resp.Allowed {
 		t.Fatalf("unexpected denial of delete")
 	}
@@ -119,7 +117,7 @@ func TestConnectAllowed(t *testing.T) {
 		Operation: admissionv1beta1.Connect,
 	}
 
-	resp := ac.admit(testCtx, &req)
+	resp := ac.admit(TestContextWithLogger(t), &req)
 	if !resp.Allowed {
 		t.Fatalf("unexpected denial of connect")
 	}
@@ -133,7 +131,7 @@ func TestUnknownKindFails(t *testing.T) {
 		Kind:      metav1.GroupVersionKind{Kind: "Garbage"},
 	}
 
-	expectFailsWith(t, ac.admit(testCtx, &req), "unhandled kind")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), &req), "unhandled kind")
 }
 
 func TestInvalidNewConfigurationNameFails(t *testing.T) {
@@ -149,7 +147,7 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal configuration: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
 	config = createConfiguration(0, invalidName)
@@ -158,12 +156,12 @@ func TestInvalidNewConfigurationNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal configuration: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Invalid resource name")
 }
 
 func TestValidNewConfigurationObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(testCtx, createValidCreateConfiguration())
+	resp := ac.admit(TestContextWithLogger(t), createValidCreateConfiguration())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -173,7 +171,7 @@ func TestValidConfigurationNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createConfiguration(testGeneration, testConfigurationName)
 	new := createConfiguration(testGeneration, testConfigurationName)
-	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
@@ -186,7 +184,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 		Name:  envVarName,
 		Value: "different",
 	}}
-	resp := ac.admit(testCtx, createUpdateConfiguration(&old, &new))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateConfiguration(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
@@ -208,7 +206,7 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal route: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
 	config = createRoute(0, invalidName)
@@ -217,12 +215,12 @@ func TestInvalidNewRouteNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal route: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Invalid resource name")
 }
 
 func TestValidNewRouteObject(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(testCtx, createValidCreateRoute())
+	resp := ac.admit(TestContextWithLogger(t), createValidCreateRoute())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -232,7 +230,7 @@ func TestValidRouteNoChanges(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	old := createRoute(1, testRouteName)
 	new := createRoute(1, testRouteName)
-	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{})
 }
@@ -245,7 +243,7 @@ func TestInvalidOldRoute(t *testing.T) {
 		t.Errorf("Marshal(%v) = %v", new, err)
 	}
 	oldBytes := []byte(`{"bad": "field"}`)
-	resp := ac.admit(testCtx, createUpdateRouteRaw(oldBytes, newBytes))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateRouteRaw(oldBytes, newBytes))
 	expectFailsWith(t, resp, `unknown field "bad"`)
 }
 
@@ -257,7 +255,7 @@ func TestInvalidNewRoute(t *testing.T) {
 		t.Errorf("Marshal(%v) = %v", old, err)
 	}
 	newBytes := []byte(`{"sepc": {}}`)
-	resp := ac.admit(testCtx, createUpdateRouteRaw(oldBytes, newBytes))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateRouteRaw(oldBytes, newBytes))
 	expectFailsWith(t, resp, `unknown field "sepc"`)
 }
 
@@ -269,7 +267,7 @@ func TestValidRouteChanges(t *testing.T) {
 		RevisionName: testRevisionName,
 		Percent:      100,
 	}}
-	resp := ac.admit(testCtx, createUpdateRoute(&old, &new))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateRoute(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
@@ -291,7 +289,7 @@ func TestValidNewRevisionObject(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	resp := ac.admit(testCtx, req)
+	resp := ac.admit(TestContextWithLogger(t), req)
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
@@ -326,7 +324,7 @@ func TestValidRevisionUpdates(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	resp := ac.admit(testCtx, req)
+	resp := ac.admit(TestContextWithLogger(t), req)
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
@@ -358,7 +356,7 @@ func TestInvalidRevisionUpdate(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 
-	expectFailsWith(t, ac.admit(testCtx, req), "Revision spec should not change")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Revision spec should not change")
 }
 
 func TestInvalidNewRevisionNameFails(t *testing.T) {
@@ -375,7 +373,7 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Invalid resource name")
 
 	invalidName = strings.Repeat("a", 64)
 	revision = createRevision(invalidName)
@@ -385,12 +383,12 @@ func TestInvalidNewRevisionNameFails(t *testing.T) {
 		t.Fatalf("Failed to marshal revision: %s", err)
 	}
 	req.Object.Raw = marshaled
-	expectFailsWith(t, ac.admit(testCtx, req), "Invalid resource name")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Invalid resource name")
 }
 
 func TestValidNewServicePinned(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(testCtx, createValidCreateServicePinned())
+	resp := ac.admit(TestContextWithLogger(t), createValidCreateServicePinned())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -398,7 +396,7 @@ func TestValidNewServicePinned(t *testing.T) {
 
 func TestValidNewServiceRunLatest(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
-	resp := ac.admit(testCtx, createValidCreateServiceRunLatest())
+	resp := ac.admit(TestContextWithLogger(t), createValidCreateServiceRunLatest())
 	expectAllowed(t, resp)
 	p := incrementGenerationPatch(0)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{p})
@@ -408,14 +406,14 @@ func TestInvalidNewServiceNoSpecs(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	svc := createServicePinned(0, testServiceName)
 	svc.Spec.Pinned = nil
-	expectFailsWith(t, ac.admit(testCtx, createCreateService(svc)), "exactly one of runLatest or pinned")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), createCreateService(svc)), "exactly one of runLatest or pinned")
 }
 
 func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	svc := createServicePinned(0, testServiceName)
 	svc.Spec.Pinned.RevisionName = ""
-	expectFailsWith(t, ac.admit(testCtx, createCreateService(svc)), "spec.pinned.revisionName")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), createCreateService(svc)), "spec.pinned.revisionName")
 }
 
 func TestValidServiceEnvChanges(t *testing.T) {
@@ -426,7 +424,7 @@ func TestValidServiceEnvChanges(t *testing.T) {
 		Name:  envVarName,
 		Value: "different",
 	}}
-	resp := ac.admit(testCtx, createUpdateService(&old, &new))
+	resp := ac.admit(TestContextWithLogger(t), createUpdateService(&old, &new))
 	expectAllowed(t, resp)
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
@@ -438,7 +436,7 @@ func TestValidServiceEnvChanges(t *testing.T) {
 func TestValidWebhook(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	createDeployment(ac)
-	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	ac.register(TestContextWithLogger(t), ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
 	_, err := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to create webhook: %s", err)
@@ -460,10 +458,122 @@ func TestUpdatingWebhook(t *testing.T) {
 
 	createDeployment(ac)
 	createWebhook(ac, webhook)
-	ac.register(testCtx, ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
+	ac.register(TestContextWithLogger(t), ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(), []byte{})
 	currentWebhook, _ := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(ac.options.WebhookName, metav1.GetOptions{})
 	if reflect.DeepEqual(currentWebhook.Webhooks, webhook.Webhooks) {
 		t.Fatalf("Expected webhook to be updated")
+	}
+}
+
+func TestRegistrationForAlreadyExistingWebhook(t *testing.T) {
+	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
+	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ac.options.WebhookName,
+		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{
+			{
+				Name:         ac.options.WebhookName,
+				Rules:        []admissionregistrationv1beta1.RuleWithOperations{{}},
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
+			},
+		},
+	}
+	createWebhook(ac, webhook)
+
+	ac.options.RegistrationDelay = 1 * time.Millisecond
+	stopCh := make(chan struct{})
+	errCh := make(chan error)
+
+	go func() {
+		errCh <- ac.Run(stopCh)
+	}()
+
+	err := <-errCh
+	if err == nil {
+		t.Fatal("Expected webhook controller to fail")
+	}
+
+	if !strings.Contains(err.Error(), "configmaps") {
+		t.Fatal("Expected error msg to contain configmap key missing error")
+	}
+}
+
+func TestCertConfigurationForAlreadyGeneratedSecret(t *testing.T) {
+	secretName := "test-secret"
+	ns := "test-namespace"
+	opts := newDefaultOptions()
+	opts.SecretName = secretName
+	opts.ServiceNamespace = ns
+	kubeClient, ac := newNonRunningTestAdmissionController(t, opts)
+
+	ctx := context.TODO()
+	newSecret, err := generateSecret(ctx, secretName, ns)
+	if err != nil {
+		t.Fatalf("Failed to generate secret: %v", err)
+	}
+	_, err = kubeClient.CoreV1().Secrets(ns).Create(newSecret)
+	if err != nil {
+		t.Fatalf("Failed to create secret: %v", err)
+	}
+
+	createNamespace(t, ac.client, metav1.NamespaceSystem)
+	createTestConfigMap(t, ac.client)
+
+	tlsConfig, caCert, err := configureCerts(ctx, kubeClient, &ac.options)
+	if err != nil {
+		t.Fatalf("Failed to configure secret: %v", err)
+	}
+	expectedCert, err := tls.X509KeyPair(newSecret.Data[secretServerCert], newSecret.Data[secretServerKey])
+	if err != nil {
+		t.Fatalf("Failed to create cert from x509 key pair: %v", err)
+	}
+
+	if tlsConfig == nil {
+		t.Fatal("Expected TLS config not to be nil")
+	}
+	if len(tlsConfig.Certificates) < 1 {
+		t.Fatalf("Expected TLS Config Cert to be set")
+	}
+
+	if diff := cmp.Diff(expectedCert.Certificate, tlsConfig.Certificates[0].Certificate, cmp.AllowUnexported()); diff != "" {
+		t.Fatalf("Unexpected cert diff (-want, +got) %v", diff)
+	}
+	if diff := cmp.Diff(newSecret.Data[secretCACert], caCert, cmp.AllowUnexported()); diff != "" {
+		t.Fatalf("Unexpected CA cert diff (-want, +got) %v", diff)
+	}
+}
+
+func TestCertConfigurationForGeneratedSecret(t *testing.T) {
+	secretName := "test-secret"
+	ns := "test-namespace"
+	opts := newDefaultOptions()
+	opts.SecretName = secretName
+	opts.ServiceNamespace = ns
+	kubeClient, ac := newNonRunningTestAdmissionController(t, opts)
+
+	ctx := context.TODO()
+	createNamespace(t, ac.client, metav1.NamespaceSystem)
+	createTestConfigMap(t, ac.client)
+
+	tlsConfig, caCert, err := configureCerts(ctx, kubeClient, &ac.options)
+	if err != nil {
+		t.Fatalf("Failed to configure certificates: %v", err)
+	}
+
+	if tlsConfig == nil {
+		t.Fatal("Expected TLS config not to be nil")
+	}
+	if len(tlsConfig.Certificates) < 1 {
+		t.Fatalf("Expected TLS Certfificate to be set on webhook server")
+	}
+
+	p, _ := pem.Decode(caCert)
+	if p == nil {
+		t.Fatalf("Expected PEM encoded CA cert ")
+	}
+	if p.Type != "CERTIFICATE" {
+		t.Fatalf("Expectet type to be CERTIFICATE but got %s", string(p.Type))
 	}
 }
 
@@ -546,7 +656,7 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      elaWebhookDeployment,
+			Name:      servingWebhookDeployment,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 	}

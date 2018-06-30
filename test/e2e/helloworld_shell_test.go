@@ -25,16 +25,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/knative/serving/test"
+	"go.uber.org/zap"
 )
 
 const (
-	helloWorldSampleExpectedOutput = "Hello World: shiniestnewestversion!"
-	sampleYaml = "../../sample/helloworld/sample.yaml"
-	yamlImagePlaceholder = "github.com/knative/serving/sample/helloworld"
-	ingressTimeout = 5 * time.Minute
-	servingTimeout = 2 * time.Minute
-	checkInterval = 2 * time.Second
+	appYaml              = "test_images/helloworld/helloworld.yaml"
+	yamlImagePlaceholder = "github.com/knative/serving/test_images/helloworld"
+	ingressTimeout       = 5 * time.Minute
+	servingTimeout       = 2 * time.Minute
+	checkInterval        = 2 * time.Second
 )
 
 func noStderrShell(name string, arg ...string) string {
@@ -45,18 +46,24 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string) {
+func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
+	// There seems to be an Istio bug where if we delete / create
+	// VirtualServices too quickly we will hit pro-longed "No health
+	// upstream" causing timeouts.  Adding this small sleep to
+	// sidestep the issue.
+	//
+	// TODO(#1376):  Fix this when upstream fix is released.
+	logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
+	time.Sleep(20 * time.Second)
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger
 	logger := test.Logger.Named("TestHelloWorldFromShell")
 
-	// Container is expected to live in <gcr>/sample/helloworld
-	// To regenerate it, see https://github.com/knative/serving/tree/master/sample/helloworld#setup
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "sample", "helloworld"}, "/")
+	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 
 	logger.Infof("Creating manifest")
 
@@ -66,13 +73,13 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to create temporary manifest: %v", err)
 	}
 	newYamlFilename := newYaml.Name()
-	defer cleanup(newYamlFilename)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) },logger)
+	defer cleanup(newYamlFilename, logger)
+	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename, logger) }, logger)
 
 	// Populate manifets file with the real path to the container
-	content, err := ioutil.ReadFile(sampleYaml)
+	content, err := ioutil.ReadFile(appYaml)
 	if err != nil {
-		t.Fatalf("Failed to read file %s: %v", sampleYaml, err)
+		t.Fatalf("Failed to read file %s: %v", appYaml, err)
 	}
 	realContent := strings.Replace(string(content), yamlImagePlaceholder, imagePath, -1)
 	if _, err = newYaml.WriteString(realContent); err != nil {
@@ -98,11 +105,12 @@ func TestHelloWorldFromShell(t *testing.T) {
 	timeout := ingressTimeout
 	for (serviceIP == "" || serviceHost == "") && timeout >= 0 {
 		serviceHost = noStderrShell("kubectl", "get", "route", "route-example", "-o", "jsonpath={.status.domain}")
-		serviceIP = noStderrShell("kubectl", "get", "ingress", "route-example-ingress", "-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
+		serviceIP = noStderrShell("kubectl", "get", "svc", "knative-ingressgateway", "-n", "istio-system",
+			"-o", "jsonpath={.status.loadBalancer.ingress[*]['ip']}")
 		time.Sleep(checkInterval)
 		timeout = timeout - checkInterval
 	}
-	if (serviceIP == "" || serviceHost == "") {
+	if serviceIP == "" || serviceHost == "" {
 		// serviceHost or serviceIP might contain a useful error, dump them.
 		t.Fatalf("Ingress not found (IP='%s', host='%s')", serviceIP, serviceHost)
 	}
@@ -112,8 +120,8 @@ func TestHelloWorldFromShell(t *testing.T) {
 
 	outputString := ""
 	timeout = servingTimeout
-	for (outputString != helloWorldSampleExpectedOutput && timeout >= 0) {
-		output, err := exec.Command("curl", "--header", "Host:" + serviceHost, "http://" + serviceIP).Output()
+	for outputString != helloWorldExpectedOutput && timeout >= 0 {
+		output, err := exec.Command("curl", "--header", "Host:"+serviceHost, "http://"+serviceIP).Output()
 		errorString := "none"
 		time.Sleep(checkInterval)
 		timeout = timeout - checkInterval
@@ -124,7 +132,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
 	}
 
-	if outputString != helloWorldSampleExpectedOutput {
+	if outputString != helloWorldExpectedOutput {
 		t.Fatalf("Timeout waiting for app to start serving")
 	}
 	logger.Info("App is serving")

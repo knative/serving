@@ -35,8 +35,18 @@ To run all unit tests:
 go test ./...
 ```
 
-_By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need
-[`-tags=e2e`](#running-end-to-end-tests) to be enabled._
+_By default `go test` will not run [the e2e tests](#running-end-to-end-tests) and [integration tests](#running-integration-tests), which need [`-tags=e2e`](#running-end-to-end-tests) and  [`-tags=integration`](#running-integration-tests) respectively to be enabled._
+
+
+## Running integration tests
+
+To run component level integration tests:
+
+```bash
+go test -v -tags=integration ./...
+```
+
+_Integration tests are given a build tag of [`integration`](https://golang.org/pkg/go/build/#hdr-Build_Constraints)._
 
 ## Running end to end tests
 
@@ -48,11 +58,27 @@ go test -v -tags=e2e -count=1 ./test/conformance
 go test -v -tags=e2e -count=1 ./test/e2e
 ```
 
+### One test case
+
 To run one e2e test case, e.g. TestAutoscaleUpDownUp, use [the `-run` flag with `go test`](https://golang.org/cmd/go/#hdr-Testing_flags):
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 ```
+
+### Environment requirements
+
+These tests require:
+
+1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
+2. The namespaces `pizzaplanet` and `noodleburg`:
+    ```bash
+    kubectl create namespace pizzaplanet
+    kubectl create namespace noodleburg
+    ```
+3. A docker repo containing [the test images](#test-images)
+
+### Flags
 
 * By default the e2e tests against the current cluster in `~/.kube/config`
   using the environment specified in [your environment variables](/DEVELOPMENT.md#environment-setup).
@@ -78,18 +104,6 @@ go test -v -tags=e2e -count=1 ./test/conformance --resolvabledomain
 go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
 ```
 
-### Environment requirements
-
-These tests require:
-
-1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespaces `pizzaplanet` and `noodleburg`:
-    ```bash
-    kubectl create namespace pizzaplanet
-    kubectl create namespace noodleburg
-    ```
-3. A docker repo containing [the test images](#test-images)
-
 ## Test images
 
 ### Building the test images
@@ -108,10 +122,6 @@ To run the script for all end to end test images:
 ./test/upload-test-images.sh ./test/e2e/test_images
 ./test/upload-test-images.sh ./test/conformance/test_images
 ```
-
-**Note:** the `TestHelloWorldFromShell` end-to-end test is an exception, as it uses the
-[sample "Hello World" app](/sample/helloworld/README.md) test image. Follow the instructions
-in the [setup section](/sample/helloworld/README.md#setup) to build and publish it.
 
 ### Adding new test images
 
@@ -132,7 +142,8 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 * [`--cluster`](#specifying-cluster)
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
-* [`--logverbose`](#output-verbose-log)
+* [`--logverbose`](#output-verbose-logs)
+* [`--emitmetrics`](#emit-metrics)
 
 ### Specifying kubeconfig
 
@@ -166,7 +177,7 @@ The current cluster names can be obtained by running:
 kubectl config get-clusters
 ```
 
-#### Overridding docker repo
+### Overridding docker repo
 
 The `--dockerrepo` argument lets you specify the docker repo from which images used
 by your tests should be pulled. This will default to the value
@@ -178,24 +189,33 @@ go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
 go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
-#### Using a resolvable domain
+### Using a resolvable domain
 
 If you set up your cluster using [the getting started
 docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
-use the domain `demo-domain.com`, unless the route has label `app=prod` in which
+use the domain `example.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
-against the endpoint, the test use the IP assigned to the istio `*-ingress`
-and spoof the `Host` in the header.
+against the endpoint, the test use the IP assigned to the service
+`knative-ingressgateway` in the namespace `istio-system` and spoof the `Host` in
+the header.
 
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests directly against
 `Route.Status.Domain` and does not need to spoof the `Host`.
 
-#### Output verbose log
+### Output verbose logs
 
 The `--logverbose` argument lets you see verbose test logs and k8s logs.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/e2e --logverbose
 ```
+
+### Emit metrics
+
+Running tests with the `--emitmetrics` argument will cause latency metrics to be emitted by
+the tests.
+
+* To add additional metrics to a test, see [emitting metrics](adding_tests.md#emit-metrics).
+* For more info on the format of the metrics, see [metric format](adding_tests.md#metric-format).

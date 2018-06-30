@@ -18,12 +18,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -34,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/controller"
 
 	. "github.com/knative/serving/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 var (
@@ -352,7 +351,7 @@ func TestReconcile(t *testing.T) {
 				Base: controller.NewBase(controller.Options{
 					KubeClientSet:    fakekubeclientset.NewSimpleClientset(),
 					ServingClientSet: client,
-					Logger:           zap.NewNop().Sugar(),
+					Logger:           TestLogger(t),
 				}, controllerAgentName, "Services"),
 				serviceLister:       tt.fields.s,
 				configurationLister: tt.fields.c,
@@ -441,11 +440,15 @@ func TestNew(t *testing.T) {
 	routeInformer := servingInformer.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
 
-	_ = NewController(controller.Options{
+	c := NewController(controller.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		Logger:           zap.NewNop().Sugar(),
-	}, serviceInformer, configurationInformer, routeInformer, &rest.Config{})
+		Logger:           TestLogger(t),
+	}, serviceInformer, configurationInformer, routeInformer)
+
+	if c == nil {
+		t.Fatal("Expected NewController to return a non-nil value")
+	}
 }
 
 var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {

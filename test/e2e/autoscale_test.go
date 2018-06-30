@@ -21,7 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
@@ -55,7 +54,7 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, names test.ResourceNames, num int, domain string) {
+func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
 	logger.Infof("Performing %d concurrent requests.", num)
@@ -65,9 +64,8 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, name
 				logger,
 				test.Flags.ResolvableDomain,
 				domain,
-				NamespaceName,
-				names.Route,
-				isExpectedOutput())
+				isExpectedOutput(),
+				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
 	}
@@ -112,9 +110,9 @@ func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
 	return clients
 }
 
-func tearDown(clients *test.Clients, names test.ResourceNames) {
+func tearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
 	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
-	TearDown(clients, names)
+	TearDown(clients, names, logger)
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
@@ -133,17 +131,16 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
-	defer tearDown(clients, names)
+	test.CleanupOnInterrupt(func() { tearDown(clients, names, logger) }, logger)
+	defer tearDown(clients, names, logger)
 
 	logger.Infof(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
 	err = test.WaitForRouteState(
 		clients.Routes,
 		names.Route,
-		func(r *v1alpha1.Route) (bool, error) {
-			return r.Status.IsReady(), nil
-		})
+		test.IsRouteReady,
+		"RouteIsReady")
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
 			 %v`, names.Route, err)
@@ -168,9 +165,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		logger,
 		test.Flags.ResolvableDomain,
 		domain,
-		NamespaceName,
-		names.Route,
-		isExpectedOutput())
+		isExpectedOutput(),
+		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
@@ -179,11 +175,12 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	generateTrafficBurst(clients, logger, names, 5, domain)
+	generateTrafficBurst(clients, logger, 5, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentIsScaledUp")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
@@ -198,7 +195,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledToZero())
+		isDeploymentScaledToZero(),
+		"DeploymentScaledToZero")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 		           down. %s`, deploymentName, err)
@@ -212,16 +210,18 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		pc,
 		func(p *v1.PodList) (bool, error) {
 			return len(p.Items) == 0, nil
-		})
+		},
+		"WaitForAvailablePods")
 
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
-	generateTrafficBurst(clients, logger, names, 8, domain)
+	generateTrafficBurst(clients, logger, 8, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentScaledUp")
 	if err != nil {
 		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)

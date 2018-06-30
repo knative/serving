@@ -29,8 +29,9 @@ import (
 )
 
 type digestResolver struct {
-	client    kubernetes.Interface
-	transport http.RoundTripper
+	client           kubernetes.Interface
+	transport        http.RoundTripper
+	registriesToSkip map[string]struct{}
 }
 
 // Resolve resolves the image references that use tags to digests.
@@ -55,6 +56,10 @@ func (r *digestResolver) Resolve(deploy *appsv1.Deployment) error {
 		tag, err := name.NewTag(pod.Containers[i].Image, name.WeakValidation)
 		if err != nil {
 			return err
+		}
+
+		if _, ok := r.registriesToSkip[tag.Registry.RegistryStr()]; ok {
+			continue
 		}
 
 		auth, err := kc.Resolve(tag.Registry)

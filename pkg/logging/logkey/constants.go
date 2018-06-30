@@ -61,4 +61,10 @@ const (
 
 	// Pod is the key used to represent a pod's name in logs
 	Pod = "knative.dev/pod"
+
+	// Deployment is the key used to represent a deployment's name in logs
+	Deployment = "knative.dev/deployment"
+
+	// KubernetesService is the key used to represent a Kubernetes service name in logs
+	KubernetesService = "knative.dev/k8sservice"
 )

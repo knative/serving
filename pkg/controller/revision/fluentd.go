@@ -18,7 +18,7 @@ package revision
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // fluentdSidecarPreOutputConfig defines source and filter configurations for
@@ -38,7 +38,7 @@ const fluentdSidecarPreOutputConfig = `
 	@type record_transformer
 	enable_ruby true
 	<record>
-	  kubernetes ${ {"container_name": "#{ENV['ELA_CONTAINER_NAME']}", "namespace_name": "#{ENV['ELA_NAMESPACE']}", "pod_name": "#{ENV['ELA_POD_NAME']}", "labels": {"knative_dev/configuration": "#{ENV['ELA_CONFIGURATION']}", "knative_dev/revision": "#{ENV['ELA_REVISION']}"} } }
+	  kubernetes ${ {"container_name": "#{ENV['SERVING_CONTAINER_NAME']}", "namespace_name": "#{ENV['SERVING_NAMESPACE']}", "pod_name": "#{ENV['SERVING_POD_NAME']}", "labels": {"knative_dev/configuration": "#{ENV['SERVING_CONFIGURATION']}", "knative_dev/revision": "#{ENV['SERVING_REVISION']}"} } }
 		stream varlog
 		# Line breaks may be trimmed when collecting from files. Add them back so that
 		# multi line logs are still in multi line after combined by detect_exceptions.
@@ -67,7 +67,7 @@ const fluentdConfigMapName = "fluentd-varlog-config"
 func MakeFluentdConfigMap(
 	namespace string, fluentdSidecarOutputConfig string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      fluentdConfigMapName,
 			Namespace: namespace,
 		},

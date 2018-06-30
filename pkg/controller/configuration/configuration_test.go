@@ -28,7 +28,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/controller"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	. "github.com/knative/serving/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 var (
@@ -432,7 +432,7 @@ func TestReconcile(t *testing.T) {
 					KubeClientSet:    kubeClient,
 					BuildClientSet:   buildClient,
 					ServingClientSet: client,
-					Logger:           zap.NewNop().Sugar(),
+					Logger:           TestLogger(t),
 				}, controllerAgentName, "Configurations"),
 				configurationLister: tt.fields.c,
 				revisionLister:      tt.fields.r,

@@ -315,12 +315,6 @@
   revision = "0b12d6b5"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/josephburnett/k8sflag"
-  packages = ["pkg/k8sflag"]
-  revision = "632d8ec6ee68a68bbeef4aeee67f64661c1326c3"
-
-[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
@@ -538,9 +532,7 @@
     "http2/hpack",
     "idna",
     "internal/socks",
-    "internal/timeseries",
-    "proxy",
-    "trace"
+    "proxy"
   ]
   revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
@@ -623,44 +615,6 @@
   ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  name = "google.golang.org/genproto"
-  packages = ["googleapis/rpc/status"]
-  revision = "80063a038e333bbe006c878e4c5ce4c74d055498"
-
-[[projects]]
-  name = "google.golang.org/grpc"
-  packages = [
-    ".",
-    "balancer",
-    "balancer/base",
-    "balancer/roundrobin",
-    "codes",
-    "connectivity",
-    "credentials",
-    "encoding",
-    "encoding/proto",
-    "grpclog",
-    "internal",
-    "internal/backoff",
-    "internal/channelz",
-    "internal/grpcrand",
-    "keepalive",
-    "metadata",
-    "naming",
-    "peer",
-    "resolver",
-    "resolver/dns",
-    "resolver/passthrough",
-    "stats",
-    "status",
-    "tap",
-    "transport"
-  ]
-  revision = "168a6198bcb0ef175f7dacec0b8691fc141dc9b8"
-  version = "v1.13.0"
 
 [[projects]]
   name = "gopkg.in/go-playground/webhooks.v3"
@@ -1012,6 +966,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "346690c5dadb1a84a397eaa9aa9c1ab5b70f2dd19924463ca4060cd3d0e2549a"
+  inputs-digest = "c2150d56c6b4d62a741c11bb7972d2837a65a4458f7512452424f77fad56b51b"
   solver-name = "gps-cdcl"
   solver-version = 1

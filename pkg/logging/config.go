@@ -21,9 +21,13 @@ import (
 	"errors"
 
 	"github.com/knative/serving/pkg/logging/logkey"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	ConfigName = "config-logging"
 )
 
 // NewLogger creates a logger with the supplied configuration.
@@ -41,16 +45,14 @@ func NewLogger(configJSON string, levelOverride string) *zap.SugaredLogger {
 		panic(err2)
 	}
 
-	logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
+	logger.Error("Failed to parse the logging config. Falling back to default logger.",
+		zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
 	return logger.Sugar()
 }
 
-// NewLoggerFromDefaultConfigMap creates a logger using the configuration within /etc/config-logging file.
-func NewLoggerFromDefaultConfigMap(logLevelKey string) *zap.SugaredLogger {
-	loggingFlagSet := k8sflag.NewFlagSet("/etc/config-logging")
-	zapCfg := loggingFlagSet.String("zap-logger-config", "")
-	zapLevelOverride := loggingFlagSet.String(logLevelKey, "")
-	return NewLogger(zapCfg.Get(), zapLevelOverride.Get())
+// NewLoggerFromConfig creates a logger using the provided Config
+func NewLoggerFromConfig(config *Config, name string) *zap.SugaredLogger {
+	return NewLogger(config.LoggingConfig, config.LoggingLevel[name]).Named(name)
 }
 
 func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, error) {
@@ -78,4 +80,30 @@ func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, 
 	logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
 	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
 	return logger, nil
+}
+
+// Config contains the configuration defined in the logging ConfigMap.
+type Config struct {
+	LoggingConfig string
+	LoggingLevel  map[string]string
+}
+
+// NewConfigFromMap creates a LoggingConfig from the supplied map
+func NewConfigFromMap(data map[string]string) *Config {
+	lc := &Config{}
+	if zlc, ok := data["zap-logger-config"]; ok {
+		lc.LoggingConfig = zlc
+	}
+	lc.LoggingLevel = make(map[string]string)
+	for _, component := range []string{"queueproxy", "webhook", "activator", "autoscaler"} {
+		if ll, ok := data["loglevel."+component]; ok {
+			lc.LoggingLevel[component] = ll
+		}
+	}
+	return lc
+}
+
+// NewConfigFromConfigMap creates a LoggingConfig from the supplied ConfigMap
+func NewConfigFromConfigMap(configMap *corev1.ConfigMap) *Config {
+	return NewConfigFromMap(configMap.Data)
 }
