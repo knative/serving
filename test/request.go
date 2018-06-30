@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
@@ -52,6 +53,10 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 	err = wait.PollImmediate(requestInterval, requestTimeout, func() (bool, error) {
 		resp, err := h.Do(req)
 		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				logger.Infof("Retrying for TCP timeout %v", err)
+				return false, nil
+			}
 			return true, err
 		}
 
