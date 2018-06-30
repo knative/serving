@@ -28,32 +28,53 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNewConfigNoEntry(t *testing.T) {
-	c := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+func TestNewNetworkConfigNoEntry(t *testing.T) {
+	c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetNetworkConfigMapName(),
 		},
 	})
+	if err != nil {
+		t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+	}
 	if len(c.IstioOutboundIPRanges) > 0 {
 		t.Error("Expected an empty value when config map doesn't have the entry.")
 	}
 }
 
-func TestNewConfig(t *testing.T) {
+func TestNewNetworkConfig(t *testing.T) {
 	want := "10.10.10.10/12"
-	c := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+	c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetNetworkConfigMapName(),
 		},
 		Data: map[string]string{
 			IstioOutboundIPRangesKey: want,
-			"bar.com":                "selector:\n  app: bar\n  version: beta",
 		},
 	})
+	if err != nil {
+		t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+	}
 	if c.IstioOutboundIPRanges != want {
 		t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
+	}
+}
+
+func TestBadNetworkConfig(t *testing.T) {
+	want := "this is not an IP range"
+	c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      controller.GetNetworkConfigMapName(),
+		},
+		Data: map[string]string{
+			IstioOutboundIPRangesKey: want,
+		},
+	})
+	if err == nil {
+		t.Errorf("NewNetworkConfigFromConfigMap() = %v, wanted error", c)
 	}
 }
 
@@ -66,7 +87,7 @@ func TestOurNetworkConfig(t *testing.T) {
 	if err := yaml.Unmarshal(b, &cm); err != nil {
 		t.Errorf("yaml.Unmarshal() = %v", err)
 	}
-	if cfg := NewNetworkConfigFromConfigMap(&cm); cfg == nil {
-		t.Errorf("NewNetworkConfigFromConfigMap() = %v, want non-nil", cfg)
+	if _, err := NewNetworkConfigFromConfigMap(&cm); err != nil {
+		t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
 	}
 }

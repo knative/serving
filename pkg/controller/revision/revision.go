@@ -460,7 +460,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(logger, rev, c.getLoggingConfig(), c.getNetworkConfig(), c.getObservabilityConfig(),
+	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(), c.getObservabilityConfig(),
 		c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
@@ -938,12 +938,18 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 }
 
 func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
-	c.Logger.Infof("Network config map is added or updated: %v", configMap)
-	newNetworkConfig := NewNetworkConfigFromConfigMap(configMap)
-	c.Logger.Infof("IstioOutboundIPRanges: %v", newNetworkConfig.IstioOutboundIPRanges)
-
+	newNetworkConfig, err := NewNetworkConfigFromConfigMap(configMap)
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
+	if err != nil {
+		if c.networkConfig != nil {
+			c.Logger.Errorf("Error updating Network ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Network ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Network config map is added or updated: %v", configMap)
 	c.networkConfig = newNetworkConfig
 }
 
