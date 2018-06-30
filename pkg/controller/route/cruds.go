@@ -71,16 +71,6 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 	return nil
 }
 
-// updateStatusErr updates a Route's Status due to some erroneous conditions.
-func (c *Controller) updateStatusErr(ctx context.Context, route *v1alpha1.Route, reason error) (*v1alpha1.Route, error) {
-	if r, err := c.updateStatus(ctx, route); err != nil {
-		// When we can't update, we want to return that instead of returning the reason of the bad status.
-		return r, err
-	}
-	// Pass through the reason why we updated the Status.
-	return route, reason
-}
-
 func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
 
