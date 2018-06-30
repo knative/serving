@@ -17,8 +17,11 @@ limitations under the License.
 package revision
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -51,5 +54,19 @@ func TestNewConfig(t *testing.T) {
 	})
 	if c.IstioOutboundIPRanges != want {
 		t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
+	}
+}
+
+func TestOurNetworkConfig(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetNetworkConfigMapName()))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if cfg := NewNetworkConfigFromConfigMap(&cm); cfg == nil {
+		t.Errorf("NewNetworkConfigFromConfigMap() = %v, want non-nil", cfg)
 	}
 }

@@ -17,8 +17,11 @@ limitations under the License.
 package logging
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -118,5 +121,19 @@ func TestNewConfig(t *testing.T) {
 	}
 	if got := c.LoggingLevel["queueproxy"]; got != wantLevel {
 		t.Errorf("LoggingLevel[queueproxy] = %v, want %v", got, wantLevel)
+	}
+}
+
+func TestOurConfig(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ConfigName))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if cfg := NewConfigFromConfigMap(&cm); cfg == nil {
+		t.Errorf("NewConfigFromConfigMap() = %v, want non-nil", cfg)
 	}
 }

@@ -17,8 +17,11 @@ limitations under the License.
 package revision
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -85,5 +88,19 @@ func TestNewObservabilityConfig(t *testing.T) {
 	}
 	if got := c.LoggingURLTemplate; got != wantLUT {
 		t.Errorf("LoggingURLTemplate = %v, want %v", got, wantLUT)
+	}
+}
+
+func TestOurObservabilityConfig(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetObservabilityConfigMapName()))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if _, err := NewObservabilityConfigFromConfigMap(&cm); err != nil {
+		t.Errorf("NewObservabilityConfigFromConfigMap() = %v", err)
 	}
 }

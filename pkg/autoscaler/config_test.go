@@ -17,9 +17,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
@@ -263,4 +266,18 @@ func TestNewConfig(t *testing.T) {
 		})
 	}
 
+}
+
+func TestOurConfig(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ConfigName))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if _, err := NewConfigFromConfigMap(&cm); err != nil {
+		t.Errorf("NewConfigFromConfigMap() = %v", err)
+	}
 }
