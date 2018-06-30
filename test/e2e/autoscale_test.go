@@ -54,7 +54,7 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, names test.ResourceNames, num int, domain string) {
+func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
 	logger.Infof("Performing %d concurrent requests.", num)
@@ -64,8 +64,6 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, name
 				logger,
 				test.Flags.ResolvableDomain,
 				domain,
-				NamespaceName,
-				names.Route,
 				isExpectedOutput(),
 				"MakingConcurrentRequests")
 			concurrentRequests <- true
@@ -167,8 +165,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		logger,
 		test.Flags.ResolvableDomain,
 		domain,
-		NamespaceName,
-		names.Route,
 		isExpectedOutput(),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
@@ -179,7 +175,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	generateTrafficBurst(clients, logger, names, 5, domain)
+	generateTrafficBurst(clients, logger, 5, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,
@@ -220,7 +216,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger.Infof("Scaled down.")
 	logger.Infof(`The autoscaler spins up additional replicas once again when
               traffic increases.`)
-	generateTrafficBurst(clients, logger, names, 8, domain)
+	generateTrafficBurst(clients, logger, 8, domain)
 	err = test.WaitForDeploymentState(
 		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
 		deploymentName,

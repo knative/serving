@@ -165,9 +165,9 @@ ready to serve requests right away. To poll a deployed endpoint and wait for it 
 in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 
 ```go
-err = test.WaitForEndpointState(clients.Kube, resolvableDomain, updatedRoute.Status.Domain, namespaceName, routeName, func(body string) (bool, error) {
+err = test.WaitForEndpointState(clients.Kube, resolvableDomain, updatedRoute.Status.Domain, func(body string) (bool, error) {
     return body == expectedText, nil
-})
+}, "SomeDescription")
 if err != nil {
     t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)
 }

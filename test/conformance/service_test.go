@@ -64,7 +64,7 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
-	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, namespaceName, names.Route, func(body string) (bool, error) {
+	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, func(body string) (bool, error) {
 		return body == expectedText, nil
 	}, "WaitForEndpointToServeText")
 	if err != nil {
