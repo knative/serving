@@ -290,8 +290,8 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving
-wait_until_pods_running istio-system
+wait_until_pods_running knative-serving || abort_if_failed
+wait_until_pods_running istio-system || abort_if_failed
 wait_until_service_has_external_ip istio-system knative-ingressgateway
 abort_if_failed
 
