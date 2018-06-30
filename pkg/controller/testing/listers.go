@@ -14,12 +14,20 @@ limitations under the License.
 package testing
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // ServiceLister is a lister.ServiceLister fake for testing.
@@ -166,6 +174,166 @@ func (r *nsRevisionLister) List(selector labels.Selector) ([]*v1alpha1.Revision,
 }
 
 func (r *nsRevisionLister) Get(name string) (*v1alpha1.Revision, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}
+
+// BuildLister is a lister.BuildLister fake for testing.
+type BuildLister struct {
+	Err   error
+	Items []*buildv1alpha1.Build
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ buildlisters.BuildLister = (*BuildLister)(nil)
+
+func (r *BuildLister) List(selector labels.Selector) ([]*buildv1alpha1.Build, error) {
+	return r.Items, r.Err
+}
+
+func (r *BuildLister) Builds(namespace string) buildlisters.BuildNamespaceLister {
+	return &nsBuildLister{r: r, ns: namespace}
+}
+
+type nsBuildLister struct {
+	r  *BuildLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ buildlisters.BuildNamespaceLister = (*nsBuildLister)(nil)
+
+func (r *nsBuildLister) List(selector labels.Selector) ([]*buildv1alpha1.Build, error) {
+	return r.r.Items, r.r.Err
+}
+
+func (r *nsBuildLister) Get(name string) (*buildv1alpha1.Build, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}
+
+// DeploymentLister is a lister.DeploymentLister fake for testing.
+type DeploymentLister struct {
+	Err   error
+	Items []*appsv1.Deployment
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ appsv1listers.DeploymentLister = (*DeploymentLister)(nil)
+
+func (r *DeploymentLister) List(selector labels.Selector) ([]*appsv1.Deployment, error) {
+	return r.Items, r.Err
+}
+
+func (r *DeploymentLister) Deployments(namespace string) appsv1listers.DeploymentNamespaceLister {
+	return &nsDeploymentLister{r: r, ns: namespace}
+}
+
+func (r *DeploymentLister) GetDeploymentsForReplicaSet(rs *appsv1.ReplicaSet) ([]*appsv1.Deployment, error) {
+	return nil, fmt.Errorf("unimplemented GetDeploymentsForReplicaSet(%v)", rs)
+}
+
+type nsDeploymentLister struct {
+	r  *DeploymentLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ appsv1listers.DeploymentNamespaceLister = (*nsDeploymentLister)(nil)
+
+func (r *nsDeploymentLister) List(selector labels.Selector) ([]*appsv1.Deployment, error) {
+	return r.r.Items, r.r.Err
+}
+
+func (r *nsDeploymentLister) Get(name string) (*appsv1.Deployment, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}
+
+// EndpointsLister is a lister.EndpointsLister fake for testing.
+type EndpointsLister struct {
+	Err   error
+	Items []*corev1.Endpoints
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ corev1listers.EndpointsLister = (*EndpointsLister)(nil)
+
+func (r *EndpointsLister) List(selector labels.Selector) ([]*corev1.Endpoints, error) {
+	return r.Items, r.Err
+}
+
+func (r *EndpointsLister) Endpoints(namespace string) corev1listers.EndpointsNamespaceLister {
+	return &nsEndpointsLister{r: r, ns: namespace}
+}
+
+type nsEndpointsLister struct {
+	r  *EndpointsLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ corev1listers.EndpointsNamespaceLister = (*nsEndpointsLister)(nil)
+
+func (r *nsEndpointsLister) List(selector labels.Selector) ([]*corev1.Endpoints, error) {
+	return r.r.Items, r.r.Err
+}
+
+func (r *nsEndpointsLister) Get(name string) (*corev1.Endpoints, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}
+
+// K8sServiceLister is a lister.ServiceLister fake for testing.
+type K8sServiceLister struct {
+	Err   error
+	Items []*corev1.Service
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ corev1listers.ServiceLister = (*K8sServiceLister)(nil)
+
+func (r *K8sServiceLister) List(selector labels.Selector) ([]*corev1.Service, error) {
+	return r.Items, r.Err
+}
+
+func (r *K8sServiceLister) Services(namespace string) corev1listers.ServiceNamespaceLister {
+	return &nsK8sServiceLister{r: r, ns: namespace}
+}
+
+func (r *K8sServiceLister) GetPodServices(p *corev1.Pod) ([]*corev1.Service, error) {
+	return nil, fmt.Errorf("unimplemented GetPodServices(%v)", p)
+}
+
+type nsK8sServiceLister struct {
+	r  *K8sServiceLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ corev1listers.ServiceNamespaceLister = (*nsK8sServiceLister)(nil)
+
+func (r *nsK8sServiceLister) List(selector labels.Selector) ([]*corev1.Service, error) {
+	return r.r.Items, r.r.Err
+}
+
+func (r *nsK8sServiceLister) Get(name string) (*corev1.Service, error) {
 	for _, s := range r.r.Items {
 		if s.Name == name && r.ns == s.Namespace {
 			return s, nil
