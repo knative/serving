@@ -80,6 +80,10 @@ func GetServingK8SServiceFullnameForRoute(u *v1alpha1.Route) string {
 	return GetK8SServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
 }
 
+func GetServingK8SServiceShortnameForRoute(u *v1alpha1.Route) string {
+	return fmt.Sprintf("%s.%s", GetServingK8SServiceNameForRoute(u), u.Namespace)
+}
+
 func GetServiceConfigurationName(u *v1alpha1.Service) string {
 	return u.Name
 }
