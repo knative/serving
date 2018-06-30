@@ -25,7 +25,6 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
 
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 
@@ -59,11 +58,6 @@ var (
 	queueSidecarImage              string
 	autoscalerImage                string
 	registriesSkippingTagResolving string
-
-	autoscaleFlagSet                      = k8sflag.NewFlagSet("/etc/config-autoscaler")
-	autoscaleConcurrencyQuantumOfTime     = autoscaleFlagSet.Duration("concurrency-quantum-of-time", nil, k8sflag.Required)
-	autoscaleEnableScaleToZero            = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
-	autoscaleEnableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
 )
 
 func main() {
@@ -120,11 +114,9 @@ func main() {
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
 	revControllerConfig := revision.ControllerConfig{
-		AutoscaleConcurrencyQuantumOfTime:     autoscaleConcurrencyQuantumOfTime,
-		AutoscaleEnableVerticalPodAutoscaling: autoscaleEnableVerticalPodAutoscaling,
-		AutoscalerImage:                       autoscalerImage,
-		QueueSidecarImage:                     queueSidecarImage,
-		RegistriesSkippingTagResolving:        toStringSet(registriesSkippingTagResolving, ","),
+		AutoscalerImage:                autoscalerImage,
+		QueueSidecarImage:              queueSidecarImage,
+		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),
 	}
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())
@@ -170,7 +162,6 @@ func main() {
 			opt,
 			routeInformer,
 			configurationInformer,
-			autoscaleEnableScaleToZero,
 		),
 		service.NewController(
 			opt,

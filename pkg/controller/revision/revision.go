@@ -33,8 +33,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -140,15 +140,15 @@ type Controller struct {
 	// must go through observabilityConfigMutex
 	observabilityConfig      *ObservabilityConfig
 	observabilityConfigMutex sync.Mutex
+
+	// autoscalerConfig could change over time and access to it
+	// must go through autoscalerConfigMutex
+	autoscalerConfig      *autoscaler.Config
+	autoscalerConfigMutex sync.Mutex
 }
 
 // ControllerConfig includes the configurations for the controller.
 type ControllerConfig struct {
-	// Autoscale part
-
-	// see (config-autoscaler.yaml)
-	AutoscaleConcurrencyQuantumOfTime     *k8sflag.DurationFlag
-	AutoscaleEnableVerticalPodAutoscaling *k8sflag.BoolFlag
 
 	// AutoscalerImage is the name of the image used for the autoscaler pod.
 	AutoscalerImage string
@@ -224,6 +224,7 @@ func NewController(
 	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
 	opt.ConfigMapWatcher.Watch(controller.GetObservabilityConfigMapName(), c.receiveObservabilityConfig)
+	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
 
 	return c
 }
@@ -459,7 +460,8 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(logger, rev, c.getLoggingConfig(), c.getNetworkConfig(), c.getObservabilityConfig(), c.controllerConfig, replicaCount)
+	deployment := MakeServingDeployment(logger, rev, c.getLoggingConfig(), c.getNetworkConfig(), c.getObservabilityConfig(),
+		c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -845,7 +847,7 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
 
 func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if !c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+	if !c.getAutoscalerConfig().EnableVPA {
 		return nil
 	}
 
@@ -904,7 +906,7 @@ func (c *Controller) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vp
 
 func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPodAutoscaler) error {
 	logger := logging.FromContext(ctx)
-	if !c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+	if !c.getAutoscalerConfig().EnableVPA {
 		return nil
 	}
 
@@ -989,4 +991,26 @@ func (c *Controller) getObservabilityConfig() *ObservabilityConfig {
 	c.observabilityConfigMutex.Lock()
 	defer c.observabilityConfigMutex.Unlock()
 	return c.observabilityConfig
+}
+
+func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
+	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
+	c.autoscalerConfigMutex.Lock()
+	defer c.autoscalerConfigMutex.Unlock()
+	if err != nil {
+		if c.autoscalerConfig != nil {
+			c.Logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Autoscaler config map is added or updated: %v", configMap)
+	c.autoscalerConfig = newAutoscalerConfig
+}
+
+func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
+	c.autoscalerConfigMutex.Lock()
+	defer c.autoscalerConfigMutex.Unlock()
+	return c.autoscalerConfig
 }

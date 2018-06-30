@@ -30,13 +30,13 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	. "github.com/knative/serving/pkg/logging/testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
@@ -193,12 +193,9 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 }
 
 func getTestControllerConfig() ControllerConfig {
-	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
 	return ControllerConfig{
-		QueueSidecarImage:                     testQueueImage,
-		AutoscalerImage:                       testAutoscalerImage,
-		AutoscaleConcurrencyQuantumOfTime:     k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
-		AutoscaleEnableVerticalPodAutoscaling: k8sflag.Bool("enable-vertical-pod-autoscaling", false),
+		QueueSidecarImage: testQueueImage,
+		AutoscalerImage:   testAutoscalerImage,
 	}
 }
 
@@ -250,6 +247,20 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 			"logging.enable-var-log-collection":     "true",
 			"logging.fluentd-sidecar-image":         testFluentdImage,
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
 		},
 	})
 	for _, cm := range configs {
@@ -329,6 +340,20 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			"logging.enable-var-log-collection":     "true",
 			"logging.fluentd-sidecar-image":         testFluentdImage,
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
 		},
 	})
 
@@ -546,7 +571,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			}
 
 			expectedArgs := []string{
-				fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+				fmt.Sprintf("-concurrencyQuantumOfTime=%v", controller.getAutoscalerConfig().ConcurrencyQuantumOfTime),
 				fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 			}
 			if diff := cmp.Diff(expectedArgs, container.Args); diff != "" {
@@ -958,10 +983,28 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 
 func TestCreateRevWithVPA(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.AutoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("", true)
-	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"enable-vertical-pod-autoscaling": "true",
+			"max-scale-up-rate":               "1.0",
+			"single-concurrency-target":       "1.0",
+			"multi-concurrency-target":        "1.0",
+			"stable-window":                   "5m",
+			"panic-window":                    "10s",
+			"scale-to-zero-threshold":         "10m",
+			"concurrency-quantum-of-time":     "100ms",
+		},
+	})
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
+
+	if !controller.getAutoscalerConfig().EnableVPA {
+		t.Fatal("EnableVPA = false, want true")
+	}
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 

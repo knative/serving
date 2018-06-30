@@ -46,14 +46,9 @@ spec:
         - name: metrics
           containerPort: 9090
         volumeMounts:
-        - name: config-autoscaler
-          mountPath: /etc/config-autoscaler
         - name: config-logging
           mountPath: /etc/config-logging
       volumes:
-        - name: config-autoscaler
-          configMap:
-            name: config-autoscaler
         - name: config-logging
           configMap:
             name: config-logging

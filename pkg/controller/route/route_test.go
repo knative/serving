@@ -31,16 +31,13 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/configmap"
 
 	"go.uber.org/zap"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -48,6 +45,8 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1 "k8s.io/api/core/v1"
 	kubetesting "k8s.io/client-go/testing"
@@ -166,7 +165,7 @@ func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	}
 }
 
-func newTestController(servingObjects ...runtime.Object) (
+func newTestController(configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -176,7 +175,8 @@ func newTestController(servingObjects ...runtime.Object) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
+	var cms []*corev1.ConfigMap
+	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctrl.GetDomainConfigMapName(),
 			Namespace: pkg.GetServingSystemNamespace(),
@@ -185,8 +185,27 @@ func newTestController(servingObjects ...runtime.Object) (
 			defaultDomainSuffix: "",
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
+		},
 	})
-	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	for _, cm := range configs {
+		cms = append(cms, cm)
+	}
+
+	configMapWatcher = configmap.NewFixedWatcher(cms...)
+	servingClient = fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -202,7 +221,6 @@ func newTestController(servingObjects ...runtime.Object) (
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
-		k8sflag.Bool("enable-scale-to-zero", false),
 	)
 
 	return
@@ -315,8 +333,22 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
-	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"enable-scale-to-zero":        "true",
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
+		},
+	})
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -489,8 +521,22 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
-	controller.enableScaleToZero = k8sflag.Bool("enable-scale-to-zero", true)
+	_, servingClient, controller, _, servingInformer, _ := newTestController(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"enable-scale-to-zero":        "true",
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
+		},
+	})
 
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
