@@ -19,10 +19,11 @@ package service
 import (
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/knative/serving/pkg/controller/service/resources"
 )
 
 // MakeServiceConfiguration creates a Configuration from a Service object.
@@ -34,7 +35,7 @@ func MakeServiceConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuratio
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
 			},
-			Labels: MakeServingResourceLabels(service),
+			Labels: resources.MakeLabels(service),
 		},
 	}
 

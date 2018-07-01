@@ -13,21 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package service
 
-import (
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-)
-
-// MakeServingResourceLabels constructs the labels we will apply to Route and Configuration
-// resources.
-func MakeServingResourceLabels(s *v1alpha1.Service) map[string]string {
-	labels := make(map[string]string, len(s.ObjectMeta.Labels)+1)
-	labels[serving.ServiceLabelKey] = s.Name
-
-	for k, v := range s.ObjectMeta.Labels {
-		labels[k] = v
-	}
-	return labels
-}
+// Package resources holds simple functions for synthesizing child resources
+// from a Service resource and any relevant Service controller configuration.
+package resources

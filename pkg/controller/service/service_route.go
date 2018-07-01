@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/knative/serving/pkg/controller/service/resources"
 )
 
 // MakeServiceRoute creates a Route from a Service object.
@@ -32,7 +33,7 @@ func MakeServiceRoute(service *v1alpha1.Service) *v1alpha1.Route {
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
 			},
-			Labels: MakeServingResourceLabels(service),
+			Labels: resources.MakeLabels(service),
 		},
 	}
 
