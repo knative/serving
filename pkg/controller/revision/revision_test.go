@@ -1883,38 +1883,22 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	var annotations map[string]string
 
-	validList := []string{
-		"10.10.10.0/24",                                // Valid single outbound IP range
-		"10.10.10.0/24,10.240.10.0/14,192.192.10.0/16", // Valid multiple outbound IP ranges
-		"*",
-	}
-	for _, want := range validList {
-		annotations = getPodAnnotationsForConfig(t, want, "")
-		if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
-			t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
-		}
+	// A valid IP range
+	want := "10.10.10.0/24"
+	annotations = getPodAnnotationsForConfig(t, want, "")
+	if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
 	}
 
-	invalidList := []string{
-		"",                       // Empty input should generate no annotation
-		"10.10.10.10/33",         // Invalid outbound IP range
-		"10.10.10.10/12,invalid", // Some valid, some invalid ranges
-		"10.10.10.10/12,-1.1.1.1/10",
-		",",
-		",,",
-		", ,",
-		"*,",
-		"*,*",
-	}
-	for _, invalid := range invalidList {
-		annotations = getPodAnnotationsForConfig(t, invalid, "")
-		if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
-			t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, invalid, got)
-		}
+	// An invalid IP range
+	want = "10.10.10.10/33"
+	annotations = getPodAnnotationsForConfig(t, want, "")
+	if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
+		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// Configuration has an annotation override - its value must be preserved
-	want := "10.240.10.0/14"
+	want = "10.240.10.0/14"
 	annotations = getPodAnnotationsForConfig(t, "", want)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
