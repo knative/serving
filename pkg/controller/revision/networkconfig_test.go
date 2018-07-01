@@ -44,37 +44,56 @@ func TestNewNetworkConfigNoEntry(t *testing.T) {
 }
 
 func TestNewNetworkConfig(t *testing.T) {
-	want := "10.10.10.10/12"
-	c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetNetworkConfigMapName(),
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: want,
-		},
-	})
-	if err != nil {
-		t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+	validList := []string{
+		"10.10.10.0/24",                                // Valid single outbound IP range
+		"10.10.10.0/24,10.240.10.0/14,192.192.10.0/16", // Valid multiple outbound IP ranges
+		"*",
 	}
-	if c.IstioOutboundIPRanges != want {
-		t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
+	for _, want := range validList {
+		c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: pkg.GetServingSystemNamespace(),
+				Name:      controller.GetNetworkConfigMapName(),
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: want,
+			},
+		})
+		if err != nil {
+			t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+		}
+		if c.IstioOutboundIPRanges != want {
+			t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
+		}
 	}
 }
 
 func TestBadNetworkConfig(t *testing.T) {
-	want := "this is not an IP range"
-	c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetNetworkConfigMapName(),
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: want,
-		},
-	})
-	if err == nil {
-		t.Errorf("NewNetworkConfigFromConfigMap() = %v, wanted error", c)
+	invalidList := []string{
+		"",                       // Empty input should generate no annotation
+		"10.10.10.10/33",         // Invalid outbound IP range
+		"10.10.10.10/12,invalid", // Some valid, some invalid ranges
+		"10.10.10.10/12,-1.1.1.1/10",
+		",",
+		",,",
+		", ,",
+		"*,",
+		"*,*",
+		"this is not an IP range",
+	}
+	for _, invalid := range invalidList {
+		c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: pkg.GetServingSystemNamespace(),
+				Name:      controller.GetNetworkConfigMapName(),
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: invalid,
+			},
+		})
+		if err == nil {
+			t.Errorf("NewNetworkConfigFromConfigMap() = %v, wanted error", c)
+		}
 	}
 }
 
