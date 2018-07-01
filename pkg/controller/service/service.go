@@ -217,7 +217,7 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	cfg, err := MakeServiceConfiguration(service)
+	cfg, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
-	desiredConfig, err := MakeServiceConfiguration(service)
+	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package resources
 
 import (
 	"errors"
@@ -23,11 +23,10 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-	"github.com/knative/serving/pkg/controller/service/resources"
 )
 
-// MakeServiceConfiguration creates a Configuration from a Service object.
-func MakeServiceConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+// MakeConfiguration creates a Configuration from a Service object.
+func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetServiceConfigurationName(service),
@@ -35,7 +34,7 @@ func MakeServiceConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuratio
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
 			},
-			Labels: resources.MakeLabels(service),
+			Labels: MakeLabels(service),
 		},
 	}
 
