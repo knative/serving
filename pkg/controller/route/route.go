@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/knative/serving/pkg/autoscaler"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -56,11 +54,6 @@ type Controller struct {
 	// must go through domainConfigMutex
 	domainConfig      *DomainConfig
 	domainConfigMutex sync.Mutex
-
-	// autoscalerConfig could change over time and access to it
-	// must go through autoscalerConfigMutex
-	autoscalerConfig      *autoscaler.Config
-	autoscalerConfigMutex sync.Mutex
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -83,24 +76,16 @@ func NewController(
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.Enqueue,
-		UpdateFunc: func(old, new interface{}) {
-			c.Enqueue(new)
-		},
+		AddFunc:    c.Enqueue,
+		UpdateFunc: controller.PassNew(c.Enqueue),
 		DeleteFunc: c.Enqueue,
 	})
-
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.SyncConfiguration(obj.(*v1alpha1.Configuration))
-		},
-		UpdateFunc: func(old, new interface{}) {
-			c.SyncConfiguration(new.(*v1alpha1.Configuration))
-		},
+		AddFunc:    c.EnqueueReferringRoute,
+		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute),
 	})
+	c.Logger.Info("Setting up ConfigMap receivers")
 	opt.ConfigMapWatcher.Watch(controller.GetDomainConfigMapName(), c.receiveDomainConfig)
-	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
-
 	return c
 }
 
@@ -109,17 +94,17 @@ func NewController(
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
-	return c.RunController(threadiness, stopCh, c.updateRouteEvent, "Route")
+	return c.RunController(threadiness, stopCh, c.Reconcile, "Route")
 }
 
 /////////////////////////////////////////
 //  Event handlers
 /////////////////////////////////////////
 
-// updateRouteEvent compares the actual state with the desired, and attempts to
+// Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
-func (c *Controller) updateRouteEvent(key string) error {
+func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -169,23 +154,23 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 	}
 	// Call configureTrafficAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Gateway creation.
-	if _, err := c.configureTrafficAndUpdateRouteStatus(ctx, route); err != nil {
+	if _, err := c.configureTraffic(ctx, route); err != nil {
 		return err
 	}
 	logger.Info("Route successfully synced")
 	return nil
 }
 
-// configureTrafficAndUpdateRouteStatus attempts to configure traffic based on the RouteSpec.  If there are missing
-// targets (e.g. Configurations without a Ready Revision, or Revision that isn't Ready or Inactive), no traffic will be
-// configured.
+// configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
+// targets (e.g. Configurations without a Ready Revision, or Revision that isn't Ready or Inactive),
+// no traffic will be configured.
 //
-// If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we mark
-// AllTrafficAssigned = False, with a message referring to one of the missing target.
+// If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
+// mark AllTrafficAssigned = False, with a message referring to one of the missing target.
 //
-// In all cases we will add annotations to the referred targets.  This is so that when they become routable we can know
-// (through a listener) and attempt traffic configuration again.
-func (c *Controller) configureTrafficAndUpdateRouteStatus(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
+// In all cases we will add annotations to the referred targets.  This is so that when they become
+// routable we can know (through a listener) and attempt traffic configuration again.
+func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
 	t, targetErr := traffic.BuildTrafficConfiguration(
@@ -212,34 +197,31 @@ func (c *Controller) configureTrafficAndUpdateRouteStatus(ctx context.Context, r
 	return r, nil
 }
 
-func (c *Controller) SyncConfiguration(config *v1alpha1.Configuration) {
-	configName := config.Name
-	ns := config.Namespace
-
+func (c *Controller) EnqueueReferringRoute(obj interface{}) {
+	config, ok := obj.(*v1alpha1.Configuration)
+	if !ok {
+		c.Logger.Infof("Ignoring non-Configuration objects %v", obj)
+		return
+	}
 	if config.Status.LatestReadyRevisionName == "" {
-		c.Logger.Infof("Configuration %s is not ready", configName)
+		fmt.Printf("Configuration %s is not ready\n", config.Name)
+		c.Logger.Infof("Configuration %s is not ready", config.Name)
 		return
 	}
 	// Check whether is configuration is referred by a route.
 	routeName, ok := config.Labels[serving.RouteLabelKey]
 	if !ok {
-		c.Logger.Infof("Configuration %s does not have label %s", configName, serving.RouteLabelKey)
+		c.Logger.Infof("Configuration %s does not have a referrring route", config.Name)
 		return
 	}
 	// Configuration is referred by a Route.  Update such Route.
-	logger := loggerWithRouteInfo(c.Logger, ns, routeName)
-	ctx := logging.WithLogger(context.TODO(), logger)
-	route, err := c.routeLister.Routes(ns).Get(routeName)
+	route, err := c.routeLister.Routes(config.Namespace).Get(routeName)
 	if err != nil {
-		logger.Error("Error fetching route upon configuration becoming ready", zap.Error(err))
+		loggerWithRouteInfo(c.Logger, config.Namespace, routeName).Error(
+			"Error fetching route upon configuration becoming ready", zap.Error(err))
 		return
 	}
-	// Don't modify the informers copy.
-	route = route.DeepCopy()
-	if _, err := c.configureTrafficAndUpdateRouteStatus(ctx, route); err != nil {
-		logger.Error("Error updating route upon configuration becoming ready", zap.Error(err))
-	}
-	c.updateStatus(ctx, route)
+	c.Enqueue(route)
 }
 
 /////////////////////////////////////////
@@ -271,26 +253,4 @@ func (c *Controller) receiveDomainConfig(configMap *corev1.ConfigMap) {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
 	c.domainConfig = newDomainConfig
-}
-
-func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
-	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
-	c.autoscalerConfigMutex.Lock()
-	defer c.autoscalerConfigMutex.Unlock()
-	if err != nil {
-		if c.autoscalerConfig != nil {
-			c.Logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
-		} else {
-			c.Logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
-		}
-		return
-	}
-	c.Logger.Infof("Autoscaler config map is added or updated: %v", configMap)
-	c.autoscalerConfig = newAutoscalerConfig
-}
-
-func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
-	c.autoscalerConfigMutex.Lock()
-	defer c.autoscalerConfigMutex.Unlock()
-	return c.autoscalerConfig
 }

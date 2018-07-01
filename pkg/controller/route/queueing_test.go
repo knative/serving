@@ -22,7 +22,6 @@ import (
 
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/configmap"
@@ -71,20 +70,6 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		Data: map[string]string{
 			defaultDomainSuffix: "",
 			prodDomainSuffix:    "selector:\n  app: prod",
-		},
-	}, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      autoscaler.ConfigName,
-		},
-		Data: map[string]string{
-			"max-scale-up-rate":           "1.0",
-			"single-concurrency-target":   "1.0",
-			"multi-concurrency-target":    "1.0",
-			"stable-window":               "5m",
-			"panic-window":                "10s",
-			"scale-to-zero-threshold":     "10m",
-			"concurrency-quantum-of-time": "100ms",
 		},
 	})
 	servingClient := fakeclientset.NewSimpleClientset(rev, route)
