@@ -1,9 +1,12 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -11,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package resources
 
 import (
 	"testing"
@@ -23,7 +26,7 @@ import (
 func TestRouteRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
 	testConfigName := controller.GetServiceConfigurationName(s)
-	r := MakeServiceRoute(s)
+	r := MakeRoute(s)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
@@ -58,7 +61,7 @@ func TestRouteRunLatest(t *testing.T) {
 
 func TestRoutePinned(t *testing.T) {
 	s := createServiceWithPinned()
-	r := MakeServiceRoute(s)
+	r := MakeRoute(s)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
