@@ -54,22 +54,22 @@ Once the `BuildComplete` status becomes `True` the resources will start getting 
 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
-$ watch kubectl get ing
-NAME                             HOSTS                                        ADDRESS   PORTS   AGE
-buildpack-function-ingress   buildpack-function.default.example.com   0.0.0.0   80      3m
+watch kubectl get svc knative-ingressgateway -n istio-system
+NAME                     TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                      AGE
+knative-ingressgateway   LoadBalancer   10.23.247.74   35.203.155.229   80:32380/TCP,443:32390/TCP,32400:32400/TCP   2d
 ```
 
-Once the `ADDRESS` gets assigned to the cluster, you can run:
+Once the `EXTERNAL-IP` gets assigned to the cluster, you can run:
 
 ```shell
-# Put the Ingress Host name into an environment variable.
+# Put the Host name into an environment variable.
 $ export SERVICE_HOST=`kubectl get route buildpack-function -o jsonpath="{.status.domain}"`
 
-# Put the Ingress IP into an environment variable.
+# Put the ingress IP into an environment variable.
 $ export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
 
 
-# Curl the Ingress IP "as-if" DNS were properly configured.
+# Curl the ingress IP "as-if" DNS were properly configured.
 $ curl http://${SERVICE_IP}/ -H "Host: $SERVICE_HOST" -H "Content-Type: application/json" -d "33"
 [response]
 ```

@@ -47,14 +47,14 @@ kubectl get revisions -o yaml
 ```
 
 To make this service accessible to github, we first need to determine its ingress address
-(might have to wait a little while until 'ADDRESS' gets assigned):
+(might have to wait a little while until `EXTERNAL-IP` gets assigned):
 ```shell
-$ watch kubectl get ingress
-NAME                                 HOSTS                     ADDRESS        PORTS     AGE
-git-webhook-ingress              demostuff.aikas.org       35.202.30.59   80        14s
+watch kubectl get svc knative-ingressgateway -n istio-system
+NAME                     TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                      AGE
+knative-ingressgateway   LoadBalancer   10.23.247.74   35.203.155.229   80:32380/TCP,443:32390/TCP,32400:32400/TCP   2d
 ```
 
-Once the `ADDRESS` gets assigned to the cluster, you need to assign a DNS name for that IP address.
+Once the `EXTERNAL-IP` gets assigned to the cluster, you need to assign a DNS name for that IP address.
 [Using GCP DNS](https://support.google.com/domains/answer/3290350)
 
 So, you'd need to create an A record for demostuff.aikas.org pointing to 35.202.30.59.

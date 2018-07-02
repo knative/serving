@@ -117,7 +117,9 @@ Once `BuildComplete` has a `status: "True"`, the revision will get deployed as i
 To confirm that the app deployed, you can check for the Knative Serving service using `kubectl`. First, is there an ingress service:
 
 ```
-kubectl get ing
+kubectl get svc knative-ingressgateway -n istio-system
+NAME                     TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                      AGE
+knative-ingressgateway   LoadBalancer   10.23.247.74   35.203.155.229   80:32380/TCP,443:32390/TCP,32400:32400/TCP   2d
 ```
 
 Sometimes the newly deployed app may take few seconds to initialize. You can check its status like this
@@ -129,14 +131,15 @@ kubectl -n default get pods
 The Knative Serving ingress service will automatically be assigned an IP so let's capture that IP so we can use it in subsequent `curl` commands
 
 ```
-# Put the Ingress Host name into an environment variable.
+# Put the Host name into an environment variable.
 export SERVICE_HOST=`kubectl get route thumb -o jsonpath="{.status.domain}"`
 
+# Put the ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
-your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
+your services will never get an external IP address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
 
 ```shell
 export SERVICE_IP=$(kubectl get po -l knative=ingressgateway -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc knative-ingressgateway -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
