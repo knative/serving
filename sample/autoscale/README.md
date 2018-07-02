@@ -29,13 +29,13 @@ kubectl apply -f sample/autoscale/sample.yaml
 
 ```
 
-Export your Ingress IP as SERVICE_IP.
+Export your ingress IP as SERVICE_IP.
 
 ```shell
-# Put the Ingress Host name into an environment variable.
+# Put the ingress Host name into an environment variable.
 export SERVICE_HOST=`kubectl get route autoscale-route -o jsonpath="{.status.domain}"`
 
-# Put the Ingress IP into an environment variable.
+# Put the ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
 ```
 

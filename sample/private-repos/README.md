@@ -157,7 +157,7 @@ As with the other demos, you can confirm that things work by capturing the IP
 of the ingress endpoint:
 
 ```
-# Put the Ingress Host name into an environment variable.
+# Put the Host name into an environment variable.
 export SERVICE_HOST=`kubectl get route private-repos \
   -o jsonpath="{.status.domain}"`
 
@@ -165,7 +165,7 @@ export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jso
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
-your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
+your services will never get an external IP address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
 
 ```shell
 export SERVICE_IP=$(kubectl get po -l knative=ingressgateway -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc knative-ingressgateway -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')

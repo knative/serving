@@ -52,21 +52,21 @@ kubectl get revisions -o yaml
 
 To access this service via `curl`, we first need to determine its ingress address:
 ```shell
-watch kubectl get ingress
-NAME                                 HOSTS                     ADDRESS   PORTS     AGE
-telemetrysample-route-ingress   telemetrysample.myhost.net             80        14s
+watch kubectl get svc knative-ingressgateway -n istio-system
+NAME                     TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                      AGE
+knative-ingressgateway   LoadBalancer   10.23.247.74   35.203.155.229   80:32380/TCP,443:32390/TCP,32400:32400/TCP   2d
 ```
 
-Once the `ADDRESS` gets assigned to the cluster, you can run:
+Once the `EXTERNAL-IP` gets assigned to the cluster, you can run:
 
 ```shell
-# Put the Ingress Host name into an environment variable.
+# Put the Host name into an environment variable.
 export SERVICE_HOST=`kubectl get route telemetrysample-route -o jsonpath="{.status.domain}"`
 
-# Put the Ingress IP into an environment variable.
+# Put the ingress IP into an environment variable.
 export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
 
-# Curl the Ingress IP "as-if" DNS were properly configured.
+# Curl the ingress IP "as-if" DNS were properly configured.
 curl --header "Host:$SERVICE_HOST" http://${SERVICE_IP}
 Hello World!
 ```
