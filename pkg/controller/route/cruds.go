@@ -22,7 +22,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller/route/istio"
+	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +56,7 @@ func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
-	service := istio.MakeRouteK8SService(route)
+	service := resources.MakeK8sService(route)
 	if _, err := c.KubeClientSet.CoreV1().Services(route.Namespace).Create(service); err != nil {
 		if apierrs.IsAlreadyExists(err) {
 			// Service already exist.

@@ -32,7 +32,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-	"github.com/knative/serving/pkg/controller/route/istio"
+	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
@@ -188,7 +188,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		return r, targetErr
 	}
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
-	if err := c.reconcileVirtualService(ctx, r, istio.MakeVirtualService(r, t)); err != nil {
+	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
 		return r, err
 	}
 	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")

@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller/route/istio"
+	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -91,5 +91,5 @@ func newTestVirtualService(r *v1alpha1.Route) *v1alpha3.VirtualService {
 			},
 			Active: true,
 		}}}}
-	return istio.MakeVirtualService(r, tc)
+	return resources.MakeVirtualService(r, tc)
 }
