@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -120,11 +121,12 @@ type Controller struct {
 	enableVarLogCollection bool
 
 	// controllerConfig includes the configurations for the controller
-	controllerConfig *ControllerConfig
+	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
+	controllerConfig *config.Controller
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex
-	networkConfig      *NetworkConfig
+	networkConfig      *config.Network
 	networkConfigMutex sync.Mutex
 
 	// loggingConfig could change over time and access to it
@@ -134,27 +136,13 @@ type Controller struct {
 
 	// observabilityConfig could change over time and access to it
 	// must go through observabilityConfigMutex
-	observabilityConfig      *ObservabilityConfig
+	observabilityConfig      *config.Observability
 	observabilityConfigMutex sync.Mutex
 
 	// autoscalerConfig could change over time and access to it
 	// must go through autoscalerConfigMutex
 	autoscalerConfig      *autoscaler.Config
 	autoscalerConfigMutex sync.Mutex
-}
-
-// ControllerConfig includes the configurations for the controller.
-type ControllerConfig struct {
-
-	// AutoscalerImage is the name of the image used for the autoscaler pod.
-	AutoscalerImage string
-
-	// QueueSidecarImage is the name of the image used for the queue sidecar
-	// injected into the revision pod
-	QueueSidecarImage string
-
-	// Repositories for which tag to digest resolving should be skipped
-	RegistriesSkippingTagResolving map[string]struct{}
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -171,7 +159,7 @@ func NewController(
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
-	controllerConfig *ControllerConfig,
+	controllerConfig *config.Controller,
 ) *Controller {
 
 	c := &Controller{
@@ -938,7 +926,7 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 }
 
 func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
-	newNetworkConfig, err := NewNetworkConfigFromConfigMap(configMap)
+	newNetworkConfig, err := config.NewNetworkFromConfigMap(configMap)
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	if err != nil {
@@ -953,7 +941,7 @@ func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
 	c.networkConfig = newNetworkConfig
 }
 
-func (c *Controller) getNetworkConfig() *NetworkConfig {
+func (c *Controller) getNetworkConfig() *config.Network {
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	return c.networkConfig
@@ -978,7 +966,7 @@ func (c *Controller) getLoggingConfig() *logging.Config {
 }
 
 func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
-	newObservabilityConfig, err := NewObservabilityConfigFromConfigMap(configMap)
+	newObservabilityConfig, err := config.NewObservabilityFromConfigMap(configMap)
 	c.observabilityConfigMutex.Lock()
 	defer c.observabilityConfigMutex.Unlock()
 	if err != nil {
@@ -993,7 +981,7 @@ func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
 	c.observabilityConfig = newObservabilityConfig
 }
 
-func (c *Controller) getObservabilityConfig() *ObservabilityConfig {
+func (c *Controller) getObservabilityConfig() *config.Observability {
 	c.observabilityConfigMutex.Lock()
 	defer c.observabilityConfigMutex.Unlock()
 	return c.observabilityConfig

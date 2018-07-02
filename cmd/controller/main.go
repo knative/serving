@@ -43,6 +43,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller/configuration"
 	"github.com/knative/serving/pkg/controller/revision"
+	revisionconfig "github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
@@ -113,7 +114,7 @@ func main() {
 		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
-	revControllerConfig := revision.ControllerConfig{
+	revControllerConfig := revisionconfig.Controller{
 		AutoscalerImage:                autoscalerImage,
 		QueueSidecarImage:              queueSidecarImage,
 		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),

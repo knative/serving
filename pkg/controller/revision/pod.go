@@ -20,6 +20,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
@@ -74,7 +75,7 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 // MakeServingPodSpec creates a pod spec.
-func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *ObservabilityConfig, autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.PodSpec {
+func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -202,8 +203,8 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 
 // MakeServingDeployment creates a deployment.
 func MakeServingDeployment(rev *v1alpha1.Revision,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig, replicaCount int32) *appsv1.Deployment {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
 
 	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"

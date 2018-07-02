@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package config
 
 import (
 	"fmt"
@@ -28,15 +28,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNewObservabilityConfigNoEntry(t *testing.T) {
-	c, err := NewObservabilityConfigFromConfigMap(&corev1.ConfigMap{
+func TestNewObservabilityNoEntry(t *testing.T) {
+	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetObservabilityConfigMapName(),
 		},
 	})
 	if err != nil {
-		t.Fatalf("NewObservabilityConfigFromConfigMap() = %v", err)
+		t.Fatalf("NewObservabilityFromConfigMap() = %v", err)
 	}
 	if got, want := c.EnableVarLogCollection, false; got != want {
 		t.Errorf("EnableVarLogCollection = %v, want %v", got, want)
@@ -46,8 +46,8 @@ func TestNewObservabilityConfigNoEntry(t *testing.T) {
 	}
 }
 
-func TestNewObservabilityConfigNoSidecar(t *testing.T) {
-	c, err := NewObservabilityConfigFromConfigMap(&corev1.ConfigMap{
+func TestNewObservabilityNoSidecar(t *testing.T) {
+	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetObservabilityConfigMapName(),
@@ -57,15 +57,15 @@ func TestNewObservabilityConfigNoSidecar(t *testing.T) {
 		},
 	})
 	if err == nil {
-		t.Fatalf("NewObservabilityConfigFromConfigMap() = %v, want error", c)
+		t.Fatalf("NewObservabilityFromConfigMap() = %v, want error", c)
 	}
 }
 
-func TestNewObservabilityConfig(t *testing.T) {
+func TestNewObservability(t *testing.T) {
 	wantFSI := "gcr.io/log-stuff/fluentd:latest"
 	wantFSOC := "the-config"
 	wantLUT := "https://logging.io"
-	c, err := NewObservabilityConfigFromConfigMap(&corev1.ConfigMap{
+	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetObservabilityConfigMapName(),
@@ -78,7 +78,7 @@ func TestNewObservabilityConfig(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("NewObservabilityConfigFromConfigMap() = %v", err)
+		t.Fatalf("NewObservabilityFromConfigMap() = %v", err)
 	}
 	if got := c.FluentdSidecarImage; got != wantFSI {
 		t.Errorf("FluentdSidecarImage = %v, want %v", got, wantFSI)
@@ -91,7 +91,7 @@ func TestNewObservabilityConfig(t *testing.T) {
 	}
 }
 
-func TestOurObservabilityConfig(t *testing.T) {
+func TestOurObservability(t *testing.T) {
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetObservabilityConfigMapName()))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
@@ -100,7 +100,7 @@ func TestOurObservabilityConfig(t *testing.T) {
 	if err := yaml.Unmarshal(b, &cm); err != nil {
 		t.Errorf("yaml.Unmarshal() = %v", err)
 	}
-	if _, err := NewObservabilityConfigFromConfigMap(&cm); err != nil {
-		t.Errorf("NewObservabilityConfigFromConfigMap() = %v", err)
+	if _, err := NewObservabilityFromConfigMap(&cm); err != nil {
+		t.Errorf("NewObservabilityFromConfigMap() = %v", err)
 	}
 }
