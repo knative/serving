@@ -25,10 +25,6 @@ import (
 	"sync"
 	"time"
 
-	// TODO(mattmoor): Used by the commented checkAndUpdateDeployment logic below.
-	// "github.com/google/go-cmp/cmp/cmpopts"
-	// "k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/knative/serving/pkg"
 
 	"github.com/google/go-cmp/cmp"
@@ -277,9 +273,12 @@ func (c *Controller) Reconcile(key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(rev); err != nil {
-		logger.Warn("Failed to update revision status", zap.Error(err))
-		return err
+	} else {
+		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, rev))
+		if _, err := c.updateStatus(rev); err != nil {
+			logger.Warn("Failed to update revision status", zap.Error(err))
+			return err
+		}
 	}
 	return err
 }
@@ -322,34 +321,35 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	if bc == nil || bc.Status == corev1.ConditionTrue {
 		// There is no build, or the build completed successfully.
 
-		// Set up the user resources
-		if err := c.reconcileDeployment(ctx, rev); err != nil {
-			logger.Error("Failed to create a deployment", zap.Error(err))
-			return err
-		}
-		if err := c.reconcileService(ctx, rev); err != nil {
-			logger.Error("Failed to create k8s service", zap.Error(err))
-			return err
-		}
+		phases := []struct {
+			name string
+			f    func(context.Context, *v1alpha1.Revision) error
+		}{{
+			name: "user deployment",
+			f:    c.reconcileDeployment,
+		}, {
+			name: "user k8s service",
+			f:    c.reconcileService,
+		}, {
+			// Ensures our namespace has the configuration for the fluentd sidecar.
+			name: "fluentd configmap",
+			f:    c.reconcileFluentdConfigMap,
+		}, {
+			name: "autoscaler deployment",
+			f:    c.reconcileAutoscalerDeployment,
+		}, {
+			name: "autoscaler k8s service",
+			f:    c.reconcileAutoscalerService,
+		}, {
+			name: "vertical pod autoscaler",
+			f:    c.reconcileVPA,
+		}}
 
-		// Ensure our namespace has the configuration for the fluentd sidecar.
-		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
-			logger.Error("Failed to create fluent config map", zap.Error(err))
-			return err
-		}
-
-		// Set up resources to autoscale the user resources.
-		if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
-			logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
-			return err
-		}
-		if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
-			logger.Error("Failed to create autoscaler Service", zap.Error(err))
-			return err
-		}
-		if err := c.reconcileVPA(ctx, rev); err != nil {
-			logger.Error("Failed to create the vertical pod autoscaler for Deployment", zap.Error(err))
-			return err
+		for _, phase := range phases {
+			if err := phase.f(ctx, rev); err != nil {
+				logger.Errorf("Failed to reconcile %s", phase.name, zap.Error(err))
+				return err
+			}
 		}
 	}
 
@@ -460,8 +460,8 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(), c.getObservabilityConfig(),
-		c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
+	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
+		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -561,6 +561,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		if apierrs.IsNotFound(err) {
 			// If it isn't found, then we need to wait for the Service controller to
 			// create it.
+			logger.Infof("Endpoints not created yet %q", serviceName)
 			rev.Status.MarkDeploying("Deploying")
 			return nil
 		} else if err != nil {
@@ -921,8 +922,7 @@ func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPod
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace)
-	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
+	newRev, err := c.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -931,7 +931,7 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 		newRev.Status = rev.Status
 
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return prClient.Update(newRev)
+		return c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(newRev)
 		//	return prClient.UpdateStatus(newRev)
 	}
 	return rev, nil

@@ -20,19 +20,191 @@ import (
 	"testing"
 	"time"
 
+	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
+	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	"github.com/knative/serving/pkg/configmap"
+	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	fakevpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/fake"
+	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
+	kubeinformers "k8s.io/client-go/informers"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
 	. "github.com/knative/serving/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
-/* TODO tests:
-- syncHandler returns error (in processNextWorkItem)
-- invalid key in workqueue (in processNextWorkItem)
-- object cannot be converted to key (in enqueueConfiguration)
-- invalid key given to syncHandler
-- resource doesn't exist in lister (from syncHandler)
-*/
+type nopResolver struct{}
+
+func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
+	return nil
+}
+
+const (
+	testAutoscalerImage            = "autoscalerImage"
+	testFluentdImage               = "fluentdImage"
+	testFluentdSidecarOutputConfig = `
+<match **>
+  @type elasticsearch
+</match>
+`
+	testNamespace  = "test"
+	testQueueImage = "queueImage"
+)
+
+func getTestRevision() *v1alpha1.Revision {
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
+			Name:      "test-rev",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				"testLabel1":          "foo",
+				"testLabel2":          "bar",
+				serving.RouteLabelKey: "test-route",
+			},
+			Annotations: map[string]string{
+				"testAnnotation": "test",
+			},
+			UID: "test-rev-uid",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			// corev1.Container has a lot of setting.  We try to pass many
+			// of them here to verify that we pass through the settings to
+			// derived objects.
+			Container: corev1.Container{
+				Image:      "gcr.io/repo/image",
+				Command:    []string{"echo"},
+				Args:       []string{"hello", "world"},
+				WorkingDir: "/tmp",
+				Env: []corev1.EnvVar{{
+					Name:  "EDITOR",
+					Value: "emacs",
+				}},
+				LivenessProbe: &corev1.Probe{
+					TimeoutSeconds: 42,
+				},
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "health",
+						},
+					},
+					TimeoutSeconds: 43,
+				},
+				TerminationMessagePath: "/dev/null",
+			},
+			ServingState:     v1alpha1.RevisionServingStateActive,
+			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
+		},
+	}
+}
+
+func getTestControllerConfig() *ControllerConfig {
+	return &ControllerConfig{
+		QueueSidecarImage: testQueueImage,
+		AutoscalerImage:   testAutoscalerImage,
+	}
+}
+
+func newTestController(t *testing.T, servingObjects ...runtime.Object) (
+	kubeClient *fakekubeclientset.Clientset,
+	buildClient *fakebuildclientset.Clientset,
+	servingClient *fakeclientset.Clientset,
+	vpaClient *fakevpaclientset.Clientset,
+	controller *Controller,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	buildInformer buildinformers.SharedInformerFactory,
+	servingInformer informers.SharedInformerFactory,
+	configMapWatcher configmap.Watcher,
+	vpaInformer vpainformers.SharedInformerFactory) {
+
+	controllerConfig := getTestControllerConfig()
+
+	// Create fake clients
+	kubeClient = fakekubeclientset.NewSimpleClientset()
+	buildClient = fakebuildclientset.NewSimpleClientset()
+	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	vpaClient = fakevpaclientset.NewSimpleClientset()
+
+	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetNetworkConfigMapName(),
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      logging.ConfigName,
+		},
+		Data: map[string]string{
+			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+			"loglevel.queueproxy": "info",
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
+		},
+	})
+
+	// Create informer factories with fake clients. The second parameter sets the
+	// resync period to zero, disabling it.
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	buildInformer = buildinformers.NewSharedInformerFactory(buildClient, 0)
+	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
+	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
+
+	controller = NewController(
+		ctrl.Options{
+			KubeClientSet:    kubeClient,
+			ServingClientSet: servingClient,
+			ConfigMapWatcher: configMapWatcher,
+			Logger:           TestLogger(t),
+		},
+		vpaClient,
+		servingInformer.Serving().V1alpha1().Revisions(),
+		buildInformer.Build().V1alpha1().Builds(),
+		kubeInformer.Apps().V1().Deployments(),
+		kubeInformer.Core().V1().Services(),
+		kubeInformer.Core().V1().Endpoints(),
+		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
+		controllerConfig,
+	)
+
+	controller.resolver = &nopResolver{}
+
+	return
+}
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	rev := getTestRevision()
