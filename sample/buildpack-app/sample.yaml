@@ -18,7 +18,7 @@ spec:
     source:
       git:
         url: https://github.com/cloudfoundry-samples/dotnet-core-hello-world
-        branch: master
+        revision: master
     template:
       name: buildpack
       arguments:
