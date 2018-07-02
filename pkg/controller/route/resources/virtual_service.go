@@ -40,7 +40,7 @@ const (
 	//
 	// HACK: This applies the workaround suggested in
 	//     https://github.com/istio/istio/issues/6230
-	// to allow us setting a longer timeout that 15s.
+	// to allow setting a longer timeout than 15s.
 	//
 	// TODO: Remove hack when Istio 1.0 is out.
 	IstioTimeoutHackHeaderKey   = "x-envoy-upstream-rq-timeout-ms"
