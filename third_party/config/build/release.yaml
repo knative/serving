@@ -17,6 +17,19 @@ rules:
   - secrets
   - events
   - serviceaccounts
+  - configmaps
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - deployments
   verbs:
   - get
   - list
@@ -192,10 +205,10 @@ spec:
         - -stderrthreshold
         - INFO
         - -creds-image
-        - gcr.io/build-crd/github.com/knative/build/cmd/creds-init@sha256:07507471de22e4d1ffb31f56d3437f02e3dc039af49721b1e81bd8c4863bf9dd
+        - gcr.io/build-crd/github.com/knative/build/cmd/creds-init@sha256:cfcc14889abe29b54d17ff6cf414918d9d92ff02bb112525742ec2e30117899f
         - -git-image
-        - gcr.io/build-crd/github.com/knative/build/cmd/git-init@sha256:a400596abdee2f930c2c9cbd6f6585650c2e41236a2249738958f764b8b40b66
-        image: gcr.io/build-crd/github.com/knative/build/cmd/controller@sha256:b924a7c2f5d1b487c5ad38435071d48111f17f78b6e198e676a941e9b11e4b21
+        - gcr.io/build-crd/github.com/knative/build/cmd/git-init@sha256:d52c29a4a1d83712b048bd32dbb5f97b7d2791af9b892f68fe94e162932ac66e
+        image: gcr.io/build-crd/github.com/knative/build/cmd/controller@sha256:9220968c9aae7e6edac97effc7b693fcf5bbb17edf78aa14347de87b15ac8840
         name: build-controller
       serviceAccountName: build-controller
 ---
@@ -219,7 +232,7 @@ spec:
         - -logtostderr
         - -stderrthreshold
         - INFO
-        image: gcr.io/build-crd/github.com/knative/build/cmd/webhook@sha256:b772ebc50030f74b7a71cd2968ea01d7a031bcdbfe612a0802850907f2631497
+        image: gcr.io/build-crd/github.com/knative/build/cmd/webhook@sha256:a7ed8fb8828f71a6aba3f9f9899eff6c867ceb5a8ceeaed903008c2296f919fb
         name: build-webhook
         volumeMounts:
         - mountPath: /etc/config-logging
