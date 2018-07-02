@@ -336,7 +336,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-  revision = "a8406e516faad7929fdad04288f05a824eb65f70"
+  revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -966,6 +966,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d967655f9202b71608ff64a60a6d9effda53c958cf2d9c5d55c077c3bafce50b"
+  inputs-digest = "1f3ec3b3f2abfd23633833a183e9d5cdfb6c0526a29acd9f6788e200fca631f8"
   solver-name = "gps-cdcl"
   solver-version = 1
