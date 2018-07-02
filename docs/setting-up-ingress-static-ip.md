@@ -30,7 +30,7 @@ gateway.
 
 ## Set Up Static IP for Knative Gateway
 
-### Step 1: Update external IP of knative-ingressgateway service
+### Step 1: Update external IP of "knative-ingressgateway" service
 
 Run following command to reset the external IP for the 
 "knative-ingressgateway" service to the static IP you reserved.
