@@ -134,7 +134,7 @@ kubernetes.labels.build\-name: "test-build"
 Replace `test-build` with your build's name. The build name is specified in the `.yaml` file as follows:
 
 ```yaml
-apiVersion: build.dev/v1alpha1
+apiVersion: build.knative.dev/v1alpha1
 kind: Build
 metadata:
   name: test-build
