@@ -21,6 +21,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
@@ -206,7 +207,7 @@ func MakeServingDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
 
-	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
+	podTemplateAnnotations := resources.MakeAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
@@ -227,17 +228,17 @@ func MakeServingDeployment(rev *v1alpha1.Revision,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionDeploymentName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeServingResourceLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Labels:          resources.MakeLabels(rev),
+			Annotations:     resources.MakeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &replicaCount,
-			Selector:                MakeServingResourceSelector(rev),
+			Selector:                resources.MakeSelector(rev),
 			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeServingResourceLabels(rev),
+					Labels:      resources.MakeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
 				Spec: *MakeServingPodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),

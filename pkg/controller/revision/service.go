@@ -20,6 +20,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,8 +41,8 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetServingK8SServiceNameForRevision(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeServingResourceLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Labels:          resources.MakeLabels(rev),
+			Annotations:     resources.MakeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{

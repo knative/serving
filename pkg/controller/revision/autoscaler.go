@@ -24,6 +24,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +41,7 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 		configName = owner.Name
 	}
 
-	annotations := MakeServingResourceAnnotations(rev)
+	annotations := resources.MakeAnnotations(rev)
 	annotations[sidecarIstioInjectAnnotation] = "true"
 
 	const autoscalerConfigName = "config-autoscaler"
@@ -71,13 +72,13 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
-			Labels:          MakeServingResourceLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Labels:          resources.MakeLabels(rev),
+			Annotations:     resources.MakeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicaCount,
-			Selector: MakeServingResourceSelector(rev),
+			Selector: resources.MakeSelector(rev),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeServingAutoScalerLabels(rev),
@@ -139,7 +140,7 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeServingAutoScalerLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Annotations:     resources.MakeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -159,7 +160,7 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // makeServingAutoScalerLabels constructs the labels we will apply to
 // service and deployment specs for autoscaler.
 func makeServingAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
-	labels := MakeServingResourceLabels(rev)
+	labels := resources.MakeLabels(rev)
 	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

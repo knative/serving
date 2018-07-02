@@ -454,7 +454,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{
 			serving.RevisionLabelKey: rev.Name,
 			serving.RevisionUID:      string(rev.UID),
-			appLabelKey:              rev.Name,
+			"app":                    rev.Name,
 		},
 	)
 	expectedAnnotations := rev.Annotations
@@ -913,7 +913,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 func TestCreateRevPreservesAppLabel(t *testing.T) {
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
-	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
+	rev.Labels["app"] = "app-label-that-should-stay-unchanged"
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
