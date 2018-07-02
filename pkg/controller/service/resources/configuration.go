@@ -14,19 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package resources
 
 import (
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// MakeServiceConfiguration creates a Configuration from a Service object.
-func MakeServiceConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+// MakeConfiguration creates a Configuration from a Service object.
+func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetServiceConfigurationName(service),
@@ -34,7 +34,7 @@ func MakeServiceConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuratio
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewServiceControllerRef(service),
 			},
-			Labels: MakeServingResourceLabels(service),
+			Labels: MakeLabels(service),
 		},
 	}
 

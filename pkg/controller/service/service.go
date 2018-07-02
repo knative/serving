@@ -34,6 +34,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/service/resources"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 )
@@ -216,7 +217,7 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	cfg, err := MakeServiceConfiguration(service)
+	cfg, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +227,7 @@ func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
 
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
-	desiredConfig, err := MakeServiceConfiguration(service)
+	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
@@ -246,12 +247,12 @@ func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v
 }
 
 func (c *Controller) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(resources.MakeRoute(service))
 }
 
 func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
-	desiredRoute := MakeServiceRoute(service)
+	desiredRoute := resources.MakeRoute(service)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation
