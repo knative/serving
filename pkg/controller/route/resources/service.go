@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package istio
+package resources
 
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// MakeRouteK8SService creates a Service that targets nothing, owned
+// MakeK8sService creates a Service that targets nothing, owned
 // by the provided v1alpha1.Route.  The purpose of this service is to
 // provide a domain name for Istio routing.
-func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
+func MakeK8sService(route *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      controller.GetServingK8SServiceNameForRoute(route),
@@ -38,12 +38,10 @@ func MakeRouteK8SService(route *v1alpha1.Route) *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name: PortName,
-					Port: PortNumber,
-				},
-			},
+			Ports: []corev1.ServicePort{{
+				Name: PortName,
+				Port: PortNumber,
+			}},
 		},
 	}
 }

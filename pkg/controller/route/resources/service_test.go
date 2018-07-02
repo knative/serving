@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package istio
+package resources
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMakeRouteK8SService_ValidSpec(t *testing.T) {
+func TestMakeK8SService_ValidSpec(t *testing.T) {
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -42,13 +42,13 @@ func TestMakeRouteK8SService_ValidSpec(t *testing.T) {
 			Port: 80,
 		}},
 	}
-	spec := MakeRouteK8SService(r).Spec
+	spec := MakeK8sService(r).Spec
 	if diff := cmp.Diff(expectedSpec, spec); diff != "" {
 		t.Errorf("Unexpected ServiceSpec (-want +got): %v", diff)
 	}
 }
 
-func TestMakeRouteK8SService_ValidMeta(t *testing.T) {
+func TestMakeK8sService_ValidMeta(t *testing.T) {
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -66,7 +66,7 @@ func TestMakeRouteK8SService_ValidMeta(t *testing.T) {
 			*controller.NewRouteControllerRef(r),
 		},
 	}
-	meta := MakeRouteK8SService(r).ObjectMeta
+	meta := MakeK8sService(r).ObjectMeta
 	if diff := cmp.Diff(expectedMeta, meta); diff != "" {
 		t.Errorf("Unexpected Metadata (-want +got): %v", diff)
 	}

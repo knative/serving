@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-This package contains code that builds Istio CRDs to be use by the
-route controller for configuring an Istio mesh for Routes.
-*/
-
-package istio
+// Package resources holds simple functions for synthesizing child resources
+// from a Route resource and any relevant Route controller configuration.
+package resources

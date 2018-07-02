@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package istio
+package resources
 
 import (
 	"fmt"
@@ -197,6 +197,42 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Authority: &v1alpha3.StringMatch{Exact: "a.com"},
 		}, {
 			Authority: &v1alpha3.StringMatch{Exact: "b.org"},
+		}},
+		Route: []v1alpha3.DestinationWeight{{
+			Destination: v1alpha3.Destination{
+				Host: "revision-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 100,
+		}},
+	}
+	if diff := cmp.Diff(&expected, route); diff != "" {
+		t.Errorf("Unexpected route  (-want +got): %v", diff)
+	}
+}
+
+func TestMakeVirtualServiceRoute_ZeroPercentTarget(t *testing.T) {
+	targets := []traffic.RevisionTarget{{
+		TrafficTarget: v1alpha1.TrafficTarget{
+			ConfigurationName: "config",
+			RevisionName:      "revision",
+			Percent:           100,
+		},
+		Active: true,
+	}, {
+		TrafficTarget: v1alpha1.TrafficTarget{
+			ConfigurationName: "new-config",
+			RevisionName:      "new-revision",
+			Percent:           0,
+		},
+		Active: true,
+	}}
+	domains := []string{"test.org"}
+	ns := "test-ns"
+	route := makeVirtualServiceRoute(domains, ns, targets)
+	expected := v1alpha3.HTTPRoute{
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &v1alpha3.StringMatch{Exact: "test.org"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
