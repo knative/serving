@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package configmap exists to facilitate watching particular Kubernetes ConfigMap
-// resources for changes over time and notifying those that depend on that configuration.
+// Package configmap exists to facilitate consuming Kubernetes ConfigMap
+// resources in various ways, including:
+//  - Watching them for changes over time, and
+//  - Loading them from a VolumeMount.
 package configmap

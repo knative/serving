@@ -30,13 +30,13 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/configmap"
-
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/logging"
+	. "github.com/knative/serving/pkg/logging/testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
@@ -55,7 +55,6 @@ import (
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
@@ -63,63 +62,6 @@ import (
 
 	. "github.com/knative/serving/pkg/controller/testing"
 )
-
-const testAutoscalerImage string = "autoscalerImage"
-const testFluentdImage string = "fluentdImage"
-const testFluentdSidecarOutputConfig string = `
-<match **>
-  @type elasticsearch
-</match>
-`
-const testNamespace string = "test"
-const testQueueImage string = "queueImage"
-
-func getTestRevision() *v1alpha1.Revision {
-	return &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
-			Name:      "test-rev",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				"testLabel1": "foo",
-				"testLabel2": "bar",
-			},
-			Annotations: map[string]string{
-				"testAnnotation": "test",
-			},
-			UID: "test-rev-uid",
-		},
-		Spec: v1alpha1.RevisionSpec{
-			// corev1.Container has a lot of setting.  We try to pass many
-			// of them here to verify that we pass through the settings to
-			// derived objects.
-			Container: corev1.Container{
-				Image:      "gcr.io/repo/image",
-				Command:    []string{"echo"},
-				Args:       []string{"hello", "world"},
-				WorkingDir: "/tmp",
-				Env: []corev1.EnvVar{{
-					Name:  "EDITOR",
-					Value: "emacs",
-				}},
-				LivenessProbe: &corev1.Probe{
-					TimeoutSeconds: 42,
-				},
-				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "health",
-						},
-					},
-					TimeoutSeconds: 43,
-				},
-				TerminationMessagePath: "/dev/null",
-			},
-			ServingState:     v1alpha1.RevisionServingStateActive,
-			ConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelMulti,
-		},
-	}
-}
 
 func getTestConfiguration() *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
@@ -191,30 +133,7 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 	return summedMap
 }
 
-func getTestControllerConfig() ControllerConfig {
-	autoscaleConcurrencyQuantumOfTime := 100 * time.Millisecond
-	return ControllerConfig{
-		QueueSidecarImage:                     testQueueImage,
-		AutoscalerImage:                       testAutoscalerImage,
-		AutoscaleConcurrencyQuantumOfTime:     k8sflag.Duration("concurrency-quantum-of-time", &autoscaleConcurrencyQuantumOfTime),
-		AutoscaleEnableVerticalPodAutoscaling: k8sflag.Bool("enable-vertical-pod-autoscaling", false),
-
-		EnableVarLogCollection:     true,
-		FluentdSidecarImage:        testFluentdImage,
-		FluentdSidecarOutputConfig: testFluentdSidecarOutputConfig,
-
-		QueueProxyLoggingConfig: "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
-		QueueProxyLoggingLevel:  "info",
-	}
-}
-
-type nopResolver struct{}
-
-func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
-	return nil
-}
-
-func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, servingObjects ...runtime.Object) (
+func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -229,15 +148,54 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	buildClient = fakebuildclientset.NewSimpleClientset()
-	servingClient = fakeclientset.NewSimpleClientset(servingObjects...)
+	servingClient = fakeclientset.NewSimpleClientset()
 	vpaClient = fakevpaclientset.NewSimpleClientset()
 
-	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
+	var cms []*corev1.ConfigMap
+	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ctrl.GetNetworkConfigMapName(),
 		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      logging.ConfigName,
+		},
+		Data: map[string]string{
+			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+			"loglevel.queueproxy": "info",
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"max-scale-up-rate":           "1.0",
+			"single-concurrency-target":   "1.0",
+			"multi-concurrency-target":    "1.0",
+			"stable-window":               "5m",
+			"panic-window":                "10s",
+			"scale-to-zero-threshold":     "10m",
+			"concurrency-quantum-of-time": "100ms",
+		},
 	})
+	for _, cm := range configs {
+		cms = append(cms, cm)
+	}
+
+	configMapWatcher = configmap.NewFixedWatcher(cms...)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -251,7 +209,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(t),
 		},
 		vpaClient,
 		servingInformer.Serving().V1alpha1().Revisions(),
@@ -260,28 +218,12 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfi
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-		&rest.Config{},
 		controllerConfig,
-	).(*Controller)
+	)
 
 	controller.resolver = &nopResolver{}
 
 	return
-}
-
-func newTestController(t *testing.T, servingObjects ...runtime.Object) (
-	kubeClient *fakekubeclientset.Clientset,
-	buildClient *fakebuildclientset.Clientset,
-	servingClient *fakeclientset.Clientset,
-	vpaClient *fakevpaclientset.Clientset,
-	controller *Controller,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	buildInformer buildinformers.SharedInformerFactory,
-	servingInformer informers.SharedInformerFactory,
-	configMapWatcher configmap.Watcher,
-	vpaInformer vpainformers.SharedInformerFactory) {
-	testControllerConfig := getTestControllerConfig()
-	return newTestControllerWithConfig(t, &testControllerConfig, servingObjects...)
 }
 
 func createRevision(t *testing.T,
@@ -312,7 +254,7 @@ func updateRevision(t *testing.T,
 	}
 }
 
-func makeBackingEndpoints(t *testing.T, kubeClient *fakekubeclientset.Clientset,
+func makeBackingEndpoints(kubeClient *fakekubeclientset.Clientset,
 	kubeInformer kubeinformers.SharedInformerFactory, service *corev1.Service) *corev1.Endpoints {
 	endpoints := &corev1.Endpoints{
 		ObjectMeta: service.ObjectMeta,
@@ -334,8 +276,8 @@ func addResourcesToInformers(t *testing.T,
 	}
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	haveBuild := (rev.Spec.BuildName != "")
-	inActive := (rev.Spec.ServingState != "Active")
+	haveBuild := rev.Spec.BuildName != ""
+	inActive := rev.Spec.ServingState != "Active"
 
 	ns := ctrl.GetServingNamespaceName(rev.Namespace)
 
@@ -388,7 +330,7 @@ func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
 
 func TestCreateRevCreatesStuff(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -463,14 +405,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_POD", "", "metadata.name")
 			checkEnv(container.Env, "SERVING_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
 			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
-			checkEnv(container.Env, "SERVING_LOGGING_CONFIG", controllerConfig.QueueProxyLoggingConfig, "")
-			checkEnv(container.Env, "SERVING_LOGGING_LEVEL", controllerConfig.QueueProxyLoggingLevel, "")
+			checkEnv(container.Env, "SERVING_LOGGING_CONFIG", controller.getLoggingConfig().LoggingConfig, "")
+			checkEnv(container.Env, "SERVING_LOGGING_LEVEL", controller.getLoggingConfig().LoggingLevel["queueproxy"], "")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
 				t.Errorf("Unexpected PreStop diff in container %q (-want +got): %v", container.Name, diff)
 			}
 
 			expectedArgs := []string{
-				fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+				fmt.Sprintf("-concurrencyQuantumOfTime=%v", controller.getAutoscalerConfig().ConcurrencyQuantumOfTime),
 				fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 			}
 			if diff := cmp.Diff(expectedArgs, container.Args); diff != "" {
@@ -738,8 +680,16 @@ func TestResolutionFailed(t *testing.T) {
 
 func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.EnableVarLogCollection = false
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection": "false",
+		},
+	})
+
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
@@ -844,8 +794,18 @@ func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
 
 func TestCreateRevWithWithLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.LoggingURLTemplate = "http://logging.test.com?filter=${REVISION_UID}"
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.revision-url-template":         "http://logging.test.com?filter=${REVISION_UID}",
+		},
+	})
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -864,10 +824,28 @@ func TestCreateRevWithWithLoggingURL(t *testing.T) {
 
 func TestCreateRevWithVPA(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.AutoscaleEnableVerticalPodAutoscaling = k8sflag.Bool("", true)
-	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      autoscaler.ConfigName,
+		},
+		Data: map[string]string{
+			"enable-vertical-pod-autoscaling": "true",
+			"max-scale-up-rate":               "1.0",
+			"single-concurrency-target":       "1.0",
+			"multi-concurrency-target":        "1.0",
+			"stable-window":                   "5m",
+			"panic-window":                    "10s",
+			"scale-to-zero-threshold":         "10m",
+			"concurrency-quantum-of-time":     "100ms",
+		},
+	})
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
+
+	if !controller.getAutoscalerConfig().EnableVPA {
+		t.Fatal("EnableVPA = false, want true")
+	}
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
@@ -888,15 +866,36 @@ func TestCreateRevWithVPA(t *testing.T) {
 
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
-	controllerConfig.LoggingURLTemplate = "http://old-logging.test.com?filter=${REVISION_UID}"
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.revision-url-template":         "http://old-logging.test.com?filter=${REVISION_UID}",
+		},
+	})
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	// Update controllers logging URL
-	controllerConfig.LoggingURLTemplate = "http://new-logging.test.com?filter=${REVISION_UID}"
+	controller.receiveObservabilityConfig(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ctrl.GetObservabilityConfigMapName(),
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         testFluentdImage,
+			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			"logging.revision-url-template":         "http://new-logging.test.com?filter=${REVISION_UID}",
+		},
+	})
 	updateRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	updatedRev, err := revClient.Get(rev.Name, metav1.GetOptions{})
@@ -1186,72 +1185,6 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	}
 }
 
-func TestCreateRevWithInvalidBuildNameFails(t *testing.T) {
-	kubeClient, buildClient, servingClient, _, controller, kubeInformer, buildInformer, servingInformer, _, _ := newTestController(t)
-
-	reason := "Foo"
-	errMessage := "a long human-readable error message."
-
-	bld := &buildv1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      "foo",
-		},
-		Spec: buildv1alpha1.BuildSpec{
-			Steps: []corev1.Container{{
-				Name:    "nop",
-				Image:   "busybox:latest",
-				Command: []string{"/bin/sh"},
-				Args:    []string{"-c", "echo Hello"},
-			}},
-		},
-	}
-
-	buildClient.BuildV1alpha1().Builds(testNamespace).Create(bld)
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
-
-	rev := getTestRevision()
-	// Direct the Revision to wait for this build to complete.
-	rev.Spec.BuildName = bld.Name
-
-	rev = createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	// After the initial update to the revision, we should be
-	// watching for this build to complete, so make it complete, but
-	// with a validation failure.
-	bld.Status = buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildInvalid,
-			Status:  corev1.ConditionTrue,
-			Reason:  reason,
-			Message: errMessage,
-		}},
-	}
-	// Since Reconcile looks in the lister, we need to add it to the informer
-	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
-
-	controller.EnqueueBuildTrackers(bld)
-	controller.Reconcile(KeyOrDie(rev))
-
-	// Make sure that the changes from the Reconcile are reflected in our Informers.
-	failedRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
-
-	for _, ct := range []v1alpha1.RevisionConditionType{"BuildSucceeded", "Ready"} {
-		got := failedRev.Status.GetCondition(ct)
-		want := &v1alpha1.RevisionCondition{
-			Type:               ct,
-			Status:             corev1.ConditionFalse,
-			Reason:             reason,
-			Message:            errMessage,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
-		}
-	}
-}
-
 func TestCreateRevWithProgressDeadlineSecondsStuff(t *testing.T) {
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
@@ -1353,7 +1286,7 @@ func TestReconciliation(t *testing.T) {
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
 	rev, _, service := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
-	makeBackingEndpoints(t, kubeClient, kubeInformer, service)
+	makeBackingEndpoints(kubeClient, kubeInformer, service)
 
 	want := service.DeepCopy()
 	// Make an edit we expect the controller to revert.
@@ -1397,7 +1330,7 @@ func TestCreateRevWithProgressDeadlineExceeded(t *testing.T) {
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
 	rev, deployment, service := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
-	makeBackingEndpoints(t, kubeClient, kubeInformer, service)
+	makeBackingEndpoints(kubeClient, kubeInformer, service)
 
 	if len(deployment.OwnerReferences) != 1 && rev.Name != deployment.OwnerReferences[0].Name {
 		t.Errorf("expected owner references to have 1 ref with name %s", rev.Name)
@@ -1735,7 +1668,7 @@ func TestToReserveRevisionHasIdleCondition(t *testing.T) {
 func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	controllerConfig.AutoscalerImage = ""
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig)
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
@@ -1764,38 +1697,22 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	var annotations map[string]string
 
-	validList := []string{
-		"10.10.10.0/24",                                // Valid single outbound IP range
-		"10.10.10.0/24,10.240.10.0/14,192.192.10.0/16", // Valid multiple outbound IP ranges
-		"*",
-	}
-	for _, want := range validList {
-		annotations = getPodAnnotationsForConfig(t, want, "")
-		if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
-			t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
-		}
+	// A valid IP range
+	want := "10.10.10.0/24"
+	annotations = getPodAnnotationsForConfig(t, want, "")
+	if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
 	}
 
-	invalidList := []string{
-		"",                       // Empty input should generate no annotation
-		"10.10.10.10/33",         // Invalid outbound IP range
-		"10.10.10.10/12,invalid", // Some valid, some invalid ranges
-		"10.10.10.10/12,-1.1.1.1/10",
-		",",
-		",,",
-		", ,",
-		"*,",
-		"*,*",
-	}
-	for _, invalid := range invalidList {
-		annotations = getPodAnnotationsForConfig(t, invalid, "")
-		if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
-			t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, invalid, got)
-		}
+	// An invalid IP range
+	want = "10.10.10.10/33"
+	annotations = getPodAnnotationsForConfig(t, want, "")
+	if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
+		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// Configuration has an annotation override - its value must be preserved
-	want := "10.240.10.0/14"
+	want = "10.240.10.0/14"
 	annotations = getPodAnnotationsForConfig(t, "", want)
 	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
@@ -1887,7 +1804,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestControllerConfig()
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, &controllerConfig)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"

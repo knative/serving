@@ -17,8 +17,11 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/controller"
@@ -156,5 +159,19 @@ func TestLookupDomainForLabels(t *testing.T) {
 		if expected.domain != domain {
 			t.Errorf("Expected domain %q got %q", expected.domain, domain)
 		}
+	}
+}
+
+func TestOurDomainConfig(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetDomainConfigMapName()))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if _, err := NewDomainConfigFromConfigMap(&cm); err != nil {
+		t.Errorf("NewDomainConfigFromConfigMap() = %v", err)
 	}
 }

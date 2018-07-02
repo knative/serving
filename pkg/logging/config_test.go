@@ -17,9 +17,15 @@ limitations under the License.
 package logging
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"github.com/ghodss/yaml"
+	"github.com/knative/serving/pkg"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestNewLogger(t *testing.T) {
@@ -79,5 +85,55 @@ func TestNewLogger(t *testing.T) {
 	}
 	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
 		t.Error("expected to get error logs from the logger configured with error as min threshold")
+	}
+}
+
+func TestNewConfigNoEntry(t *testing.T) {
+	c := NewConfigFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      "config-logging",
+		},
+	})
+	if got, want := c.LoggingConfig, ""; got != want {
+		t.Errorf("LoggingConfig = %v, want %v", got, want)
+	}
+	if got, want := len(c.LoggingLevel), 0; got != want {
+		t.Errorf("len(LoggingLevel) = %v, want %v", got, want)
+	}
+}
+
+func TestNewConfig(t *testing.T) {
+	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
+	wantLevel := "info"
+	c := NewConfigFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      "config-logging",
+		},
+		Data: map[string]string{
+			"zap-logger-config":   wantCfg,
+			"loglevel.queueproxy": wantLevel,
+		},
+	})
+	if got := c.LoggingConfig; got != wantCfg {
+		t.Errorf("LoggingConfig = %v, want %v", got, wantCfg)
+	}
+	if got := c.LoggingLevel["queueproxy"]; got != wantLevel {
+		t.Errorf("LoggingLevel[queueproxy] = %v, want %v", got, wantLevel)
+	}
+}
+
+func TestOurConfig(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ConfigName))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if cfg := NewConfigFromConfigMap(&cm); cfg == nil {
+		t.Errorf("NewConfigFromConfigMap() = %v, want non-nil", cfg)
 	}
 }

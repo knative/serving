@@ -54,8 +54,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	defer TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
+	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
 	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")

@@ -31,7 +31,7 @@ spec:
     source:
       git:
         url: git@github.com:dewitt/knative-build.git
-        branch: master
+        revision: master
     template:
       name: kaniko
       arguments:

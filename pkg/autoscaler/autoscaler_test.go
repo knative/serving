@@ -16,28 +16,22 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
-	"github.com/knative/serving/pkg/logging"
-)
-
-var (
-	testLogger = zap.NewNop().Sugar()
-	testCtx    = logging.WithLogger(context.TODO(), testLogger)
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
 	a.expectScale(t, time.Now(), 0, false)
 }
 
 func TestAutoscaler_StableMode_NoChange(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelMulti, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -51,7 +45,7 @@ func TestAutoscaler_StableMode_NoChange(t *testing.T) {
 }
 
 func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -65,7 +59,7 @@ func TestAutoscaler_StableMode_SlowIncrease(t *testing.T) {
 }
 
 func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelMulti, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -79,7 +73,7 @@ func TestAutoscaler_StableMode_SlowDecrease(t *testing.T) {
 }
 
 func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -93,7 +87,7 @@ func TestAutoscaler_StableModeLowPodCount_NoChange(t *testing.T) {
 }
 
 func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelMulti, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -107,7 +101,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToOne(t *testing.T) {
 }
 
 func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -132,7 +126,7 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 
 }
 func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelMulti, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -158,7 +152,7 @@ func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stablizes.
 func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
-	a := newTestAutoscaler(1.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 1.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -212,7 +206,7 @@ func TestAutoscaler_PanicModeExponential_TrackAndStablize(t *testing.T) {
 }
 
 func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -257,7 +251,7 @@ func TestAutoscaler_PanicThenUnPanic_ScaleDown(t *testing.T) {
 
 // Autoscaler should drop data after 60 seconds.
 func TestAutoscaler_Stats_TrimAfterStableWindow(t *testing.T) {
-	a := newTestAutoscaler(10.0)
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
 	now := a.recordLinearSeries(
 		t,
 		time.Now(),
@@ -291,18 +285,24 @@ func (r *mockReporter) Report(m Measurement, v float64) error {
 	return nil
 }
 
-func newTestAutoscaler(targetConcurrency float64) *Autoscaler {
+func newTestAutoscaler(model v1alpha1.RevisionRequestConcurrencyModelType, targetConcurrency float64) *Autoscaler {
 	stableWindow := 60 * time.Second
 	panicWindow := 6 * time.Second
 	scaleToZeroThreshold := 5 * time.Minute
-	config := Config{
-		TargetConcurrency:    targetConcurrency,
+	config := &Config{
 		MaxScaleUpRate:       10.0,
 		StableWindow:         stableWindow,
 		PanicWindow:          panicWindow,
 		ScaleToZeroThreshold: scaleToZeroThreshold,
 	}
-	return New(config, &mockReporter{})
+
+	switch model {
+	case v1alpha1.RevisionRequestConcurrencyModelSingle:
+		config.SingleTargetConcurrency = targetConcurrency
+	case v1alpha1.RevisionRequestConcurrencyModelMulti:
+		config.MultiTargetConcurrency = targetConcurrency
+	}
+	return New(config, model, &mockReporter{})
 }
 
 // Record a data point every second, for every pod, for duration of the
@@ -323,14 +323,14 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 				PodName:                   fmt.Sprintf("pod-%v", j),
 				AverageConcurrentRequests: float64(point),
 			}
-			a.Record(testCtx, stat)
+			a.Record(TestContextWithLogger(test), stat)
 		}
 	}
 	return now
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {
-	scale, ok := a.Scale(testCtx, now)
+	scale, ok := a.Scale(TestContextWithLogger(t), now)
 	if ok != expectOk {
 		t.Errorf("Unexpected autoscale decison. Expected %v. Got %v.", expectOk, ok)
 	}

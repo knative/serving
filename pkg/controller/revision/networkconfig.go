@@ -17,6 +17,9 @@ limitations under the License.
 package revision
 
 import (
+	"net"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -34,7 +37,29 @@ type NetworkConfig struct {
 	IstioOutboundIPRanges string
 }
 
+func validateOutboundIPRanges(s string) error {
+	// * is a valid value
+	if s == "*" {
+		return nil
+	}
+	cidrs := strings.Split(s, ",")
+	for _, cidr := range cidrs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NewNetworkConfigFromConfigMap creates a NewNetworkConfig from the supplied ConfigMap
-func NewNetworkConfigFromConfigMap(configMap *corev1.ConfigMap) *NetworkConfig {
-	return &NetworkConfig{IstioOutboundIPRanges: configMap.Data[IstioOutboundIPRangesKey]}
+func NewNetworkConfigFromConfigMap(configMap *corev1.ConfigMap) (*NetworkConfig, error) {
+	nc := &NetworkConfig{}
+	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
+		// It is OK for this to be absent, we will elide the annotation.
+	} else if err := validateOutboundIPRanges(ipr); err != nil {
+		return nil, err
+	} else {
+		nc.IstioOutboundIPRanges = ipr
+	}
+	return nc, nil
 }

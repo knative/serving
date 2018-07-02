@@ -132,15 +132,14 @@ The Knative Serving ingress service will automatically be assigned an IP so let'
 # Put the Ingress Host name into an environment variable.
 export SERVICE_HOST=`kubectl get route thumb -o jsonpath="{.status.domain}"`
 
-export SERVICE_IP=`kubectl get ing thumb-ingress \
-  -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
 ```
 
 If your cluster is running outside a cloud provider (for example on Minikube),
 your ingress will never get an address. In that case, use the istio `hostIP` and `nodePort` as the service IP:
 
 ```shell
-export SERVICE_IP=$(kubectl get po -l istio=ingress -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc istio-ingress -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
+export SERVICE_IP=$(kubectl get po -l knative=ingressgateway -n istio-system -o 'jsonpath={.items[0].status.hostIP}'):$(kubectl get svc knative-ingressgateway -n istio-system -o 'jsonpath={.spec.ports[?(@.port==80)].nodePort}')
 ```
 
 > To make the JSON service responses more readable consider installing [jq](https://stedolan.github.io/jq/), makes JSON pretty

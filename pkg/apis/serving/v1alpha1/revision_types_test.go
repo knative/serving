@@ -34,6 +34,138 @@ func TestGeneration(t *testing.T) {
 
 }
 
+func TestIsActivationRequired(t *testing.T) {
+	cases := []struct {
+		name                 string
+		status               RevisionStatus
+		isActivationRequired bool
+	}{{
+		name:                 "empty status should not be inactive",
+		status:               RevisionStatus{},
+		isActivationRequired: false,
+	}, {
+		name: "Ready status should not be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isActivationRequired: false,
+	}, {
+		name: "Inactive status should be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Inactive",
+			}},
+		},
+		isActivationRequired: true,
+	}, {
+		name: "Updating status should be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+				Reason: "Updating",
+			}},
+		},
+		isActivationRequired: true,
+	}, {
+		name: "NotReady status without reason should not be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isActivationRequired: false,
+	}, {
+		name: "Ready/Unknown status without reason should not be inactive",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isActivationRequired: false,
+	}}
+
+	for _, tc := range cases {
+		if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		}
+	}
+}
+
+func TestIsRoutable(t *testing.T) {
+	cases := []struct {
+		name       string
+		status     RevisionStatus
+		isRoutable bool
+	}{{
+		name:       "empty status should not be routable",
+		status:     RevisionStatus{},
+		isRoutable: false,
+	}, {
+		name: "Ready status should be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+		isRoutable: true,
+	}, {
+		name: "Inactive status should be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Inactive",
+			}},
+		},
+		isRoutable: true,
+	}, {
+		name: "Updating status should be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+				Reason: "Updating",
+			}},
+		},
+		isRoutable: true,
+	}, {
+		name: "NotReady status without reason should not be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isRoutable: false,
+	}, {
+		name: "Ready/Unknown status without reason should not be routable",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isRoutable: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
+				t.Errorf("IsRoutable() = %v want: %v", got, want)
+			}
+		})
+	}
+}
+
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -338,53 +470,6 @@ func TestTypicalFlowWithBuildFailure(t *testing.T) {
 	}
 }
 
-func TestTypicalFlowWithBuildInvalid(t *testing.T) {
-	r := &Revision{}
-	r.Status.InitializeConditions()
-	r.Status.InitializeBuildCondition()
-	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
-
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:   buildv1alpha1.BuildSucceeded,
-			Status: corev1.ConditionUnknown,
-		}},
-	})
-	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
-
-	wantReason, wantMessage := "this is the reason", "and this the message"
-	r.Status.PropagateBuildStatus(buildv1alpha1.BuildStatus{
-		Conditions: []buildv1alpha1.BuildCondition{{
-			Type:    buildv1alpha1.BuildInvalid,
-			Status:  corev1.ConditionTrue,
-			Reason:  wantReason,
-			Message: wantMessage,
-		}},
-	})
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionBuildSucceeded, t); got == nil {
-		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
-	} else if got.Reason != wantReason {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
-	} else if got.Message != wantMessage {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
-	}
-	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
-	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil {
-		t.Errorf("MarkBuildFailed = nil, wanted %v", wantReason)
-	} else if got.Reason != wantReason {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantReason)
-	} else if got.Message != wantMessage {
-		t.Errorf("MarkBuildFailed = %v, wanted %v", got.Reason, wantMessage)
-	}
-}
-
 func TestTypicalFlowWithServiceTimeout(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
@@ -461,7 +546,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	}
 
 	// From an Inactive state, start to activate the revision.
-	want := "Activating"
+	want := "Updating"
 	r.Status.MarkDeploying(want)
 	r.Status.MarkDeploying(want)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {

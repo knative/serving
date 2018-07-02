@@ -172,6 +172,22 @@ To use a k8s cluster running in GKE:
        (Note you should be using a cluster with 12 GB of memory, see commands above.)
 
 
+### Enabling Knative to Use Images in Minikube
+
+In order to have Knative access an image in Minikube's Docker daemon you
+should prefix your image name with the `dev.local` registry. This will cause
+Knative to use the cached image. You must not tag your image as `latest` since
+this causes Kubernetes to [always attempt a pull](https://kubernetes.io/docs/concepts/containers/images/#updating-images).
+
+For example:
+
+```shell
+eval $(minikube docker-env)
+docker pull gcr.io/knative-samples/primer:latest
+docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
+```
+
+
 ### Minikube with GCR
 
 You can use Google Container Registry as the registry for a Minikube cluster.
@@ -226,7 +242,7 @@ For example, use these steps to allow Minikube to pull Knative Serving and Build
 from GCR as published in our development flow (`ko apply -f config/`).
 _This is only necessary if you are not using public Knative Serving and Build images._
 
-1.  Create a Kubernetes secret in the `knative-serving` and `build-system` namespace:
+1.  Create a Kubernetes secret in the `knative-serving` and `knative-build` namespace:
 
     ```shell
     export DOCKER_EMAIL=your.email@here.com
@@ -241,7 +257,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
       --docker-username=_json_key \
       --docker-password="$(cat minikube-gcr-key.json)" \
       --docker-email=$DOCKER_EMAIL \
-      -n "build-system"
+      -n "knative-build"
     ```
 
     _The secret must be created in the same namespace as the pod or service
@@ -253,7 +269,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
     ```shell
     kubectl patch serviceaccount "build-controller" \
       -p '{"imagePullSecrets": [{"name": "build-gcr"}]}' \
-      -n "build-system"
+      -n "knative-build"
     kubectl patch serviceaccount "controller" \
       -p '{"imagePullSecrets": [{"name": "knative-serving-gcr"}]}' \
       -n "knative-serving"

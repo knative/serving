@@ -59,31 +59,62 @@ function integration_tests() {
 
   # Make sure environment variables are intact.
   restore_override_vars
-  ./test/e2e-tests.sh
+  local options=""
+  (( EMIT_METRICS )) && options="--emit-metrics"
+  ./test/e2e-tests.sh ${options}
 }
 
 # Script entry point.
 
-# Parse script argument:
+# Parse script arguments:
 # --all-tests or no arguments: run all tests
 # --build-tests: run only the build tests
 # --unit-tests: run only the unit tests
 # --integration-tests: run only the integration tests
+# --emit-metrics: emit metrics when running the E2E tests
 RUN_BUILD_TESTS=0
 RUN_UNIT_TESTS=0
 RUN_INTEGRATION_TESTS=0
-[[ -z "$1" || "$1" == "--all-tests" ]] && RUN_BUILD_TESTS=1 && RUN_UNIT_TESTS=1 && RUN_INTEGRATION_TESTS=1
-[[ "$1" == "--build-tests" ]] && RUN_BUILD_TESTS=1
-[[ "$1" == "--unit-tests" ]] && RUN_UNIT_TESTS=1
-[[ "$1" == "--integration-tests" ]] && RUN_INTEGRATION_TESTS=1
+EMIT_METRICS=0
+
+all_parameters=$@
+[[ -z $1 ]] && all_parameters="--all-tests"
+
+for parameter in ${all_parameters}; do
+  case $parameter in
+    --all-tests)
+      RUN_BUILD_TESTS=1
+      RUN_UNIT_TESTS=1
+      RUN_INTEGRATION_TESTS=1
+      shift
+      ;;
+    --build-tests)
+      RUN_BUILD_TESTS=1
+      shift
+      ;;
+    --unit-tests)
+      RUN_UNIT_TESTS=1
+      shift
+      ;;
+    --integration-tests)
+      RUN_INTEGRATION_TESTS=1
+      shift
+      ;;
+    --emit-metrics)
+      EMIT_METRICS=1
+      shift
+      ;;
+    *)
+      echo "error: unknown option ${parameter}"
+      exit 1
+      ;;
+  esac
+done
+
 readonly RUN_BUILD_TESTS
 readonly RUN_UNIT_TESTS
 readonly RUN_INTEGRATION_TESTS
-
-if ! (( RUN_BUILD_TESTS+RUN_UNIT_TESTS+RUN_INTEGRATION_TESTS )); then
-  echo "error: unknown argument $1";
-  exit 1
-fi
+readonly EMIT_METRICS
 
 cd ${SERVING_ROOT_DIR}
 

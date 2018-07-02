@@ -113,9 +113,7 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady RouteConditionType = "Ready"
-	// RouteConditionIngressReady is set when the route's underlying ingress
-	// resource has been set up.
-	RouteConditionIngressReady RouteConditionType = "IngressReady"
+
 	// RouteConditionAllTrafficAssigned is set to False when the
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
@@ -223,7 +221,6 @@ func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
 func (rs *RouteStatus) InitializeConditions() {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
-		RouteConditionIngressReady,
 		RouteConditionReady,
 	} {
 		if rc := rs.GetCondition(cond); rc == nil {
@@ -257,18 +254,9 @@ func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
 	}
 }
 
-func (rs *RouteStatus) MarkIngressReady() {
-	rs.setCondition(&RouteCondition{
-		Type:   RouteConditionIngressReady,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
-}
-
 func (rs *RouteStatus) checkAndMarkReady() {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
-		RouteConditionIngressReady,
 	} {
 		ata := rs.GetCondition(cond)
 		if ata == nil || ata.Status != corev1.ConditionTrue {

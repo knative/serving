@@ -60,7 +60,6 @@ func NewDomainConfigFromConfigMap(configMap *corev1.ConfigMap) (*DomainConfig, e
 	c := DomainConfig{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
-		// TODO(josephburnett): migrate domain configuration to k8sflag
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {

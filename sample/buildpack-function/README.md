@@ -66,7 +66,8 @@ Once the `ADDRESS` gets assigned to the cluster, you can run:
 $ export SERVICE_HOST=`kubectl get route buildpack-function -o jsonpath="{.status.domain}"`
 
 # Put the Ingress IP into an environment variable.
-$ export SERVICE_IP=`kubectl get ingress buildpack-function-ingress -o jsonpath="{.status.loadBalancer.ingress[*]['ip']}"`
+$ export SERVICE_IP=`kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}"`
+
 
 # Curl the Ingress IP "as-if" DNS were properly configured.
 $ curl http://${SERVICE_IP}/ -H "Host: $SERVICE_HOST" -H "Content-Type: application/json" -d "33"
