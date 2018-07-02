@@ -274,7 +274,7 @@ func (c *Controller) Reconcile(key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else {
-		logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, rev))
+		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, rev))
 		if _, err := c.updateStatus(rev); err != nil {
 			logger.Warn("Failed to update revision status", zap.Error(err))
 			return err
