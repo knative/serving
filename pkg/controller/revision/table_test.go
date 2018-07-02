@@ -44,6 +44,79 @@ import (
 	. "github.com/knative/serving/pkg/controller/testing"
 )
 
+type fields struct {
+	r *RevisionLister
+	b *BuildLister
+	d *DeploymentLister
+	s *K8sServiceLister
+	e *EndpointsLister
+}
+
+func (f *fields) GetRevisionLister() *RevisionLister {
+	if f.r == nil {
+		return &RevisionLister{}
+	}
+	return f.r
+}
+
+func (f *fields) GetBuildLister() *BuildLister {
+	if f.b == nil {
+		return &BuildLister{}
+	}
+	return f.b
+}
+
+func (f *fields) GetDeploymentLister() *DeploymentLister {
+	if f.d == nil {
+		return &DeploymentLister{}
+	}
+	return f.d
+}
+
+func (f *fields) GetK8sServiceLister() *K8sServiceLister {
+	if f.s == nil {
+		return &K8sServiceLister{}
+	}
+	return f.s
+}
+
+func (f *fields) GetEndpointsLister() *EndpointsLister {
+	if f.e == nil {
+		return &EndpointsLister{}
+	}
+	return f.e
+}
+
+func (f *fields) GetKubeObjects() []runtime.Object {
+	var kubeObjs []runtime.Object
+	for _, r := range f.GetDeploymentLister().Items {
+		kubeObjs = append(kubeObjs, r)
+	}
+	for _, r := range f.GetK8sServiceLister().Items {
+		kubeObjs = append(kubeObjs, r)
+	}
+	for _, r := range f.GetEndpointsLister().Items {
+		kubeObjs = append(kubeObjs, r)
+	}
+	return kubeObjs
+}
+
+func (f *fields) GetBuildObjects() []runtime.Object {
+	var buildObjs []runtime.Object
+	for _, r := range f.GetBuildLister().Items {
+		buildObjs = append(buildObjs, r)
+	}
+	return buildObjs
+}
+
+func (f *fields) GetServingObjects() []runtime.Object {
+	var objs []runtime.Object
+	for _, r := range f.GetRevisionLister().Items {
+		objs = append(objs, r)
+	}
+	return objs
+}
+
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
 	networkConfig := &NetworkConfig{IstioOutboundIPRanges: "*"}
@@ -91,13 +164,6 @@ func TestReconcile(t *testing.T) {
 			autoscalerConfig, controllerConfig)
 	}
 
-	type fields struct {
-		r *RevisionLister
-		b *BuildLister
-		d *DeploymentLister
-		s *K8sServiceLister
-		e *EndpointsLister
-	}
 	tests := []struct {
 		name        string
 		fields      fields
@@ -1195,50 +1261,9 @@ func TestReconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Default the FooLister fields to reduce boilerplate
-			rl := tt.fields.r
-			if rl == nil {
-				rl = &RevisionLister{}
-			}
-			bl := tt.fields.b
-			if bl == nil {
-				bl = &BuildLister{}
-			}
-			dl := tt.fields.d
-			if dl == nil {
-				dl = &DeploymentLister{}
-			}
-			sl := tt.fields.s
-			if sl == nil {
-				sl = &K8sServiceLister{}
-			}
-			el := tt.fields.e
-			if el == nil {
-				el = &EndpointsLister{}
-			}
-			// Add all of the items in our lister fakes into our
-			// fake clients.
-			var objs []runtime.Object
-			var buildObjs []runtime.Object
-			var kubeObjs []runtime.Object
-			for _, r := range rl.Items {
-				objs = append(objs, r)
-			}
-			for _, r := range bl.Items {
-				buildObjs = append(buildObjs, r)
-			}
-			for _, r := range dl.Items {
-				kubeObjs = append(kubeObjs, r)
-			}
-			for _, r := range sl.Items {
-				kubeObjs = append(kubeObjs, r)
-			}
-			for _, r := range el.Items {
-				kubeObjs = append(kubeObjs, r)
-			}
-			kubeClient := fakekubeclientset.NewSimpleClientset(kubeObjs...)
-			client := fakeclientset.NewSimpleClientset(objs...)
-			buildClient := fakebuildclientset.NewSimpleClientset(buildObjs...)
+			kubeClient := fakekubeclientset.NewSimpleClientset(tt.fields.GetKubeObjects()...)
+			client := fakeclientset.NewSimpleClientset(tt.fields.GetServingObjects()...)
+			buildClient := fakebuildclientset.NewSimpleClientset(tt.fields.GetBuildObjects()...)
 			// Set up our Controller from the fakes.
 			c := &Controller{
 				Base: controller.NewBase(controller.Options{
@@ -1247,11 +1272,11 @@ func TestReconcile(t *testing.T) {
 					ServingClientSet: client,
 					Logger:           TestLogger(t),
 				}, controllerAgentName, "Revisions"),
-				revisionLister:      rl,
-				buildLister:         bl,
-				deploymentLister:    dl,
-				serviceLister:       sl,
-				endpointsLister:     el,
+				revisionLister:      tt.fields.GetRevisionLister(),
+				buildLister:         tt.fields.GetBuildLister(),
+				deploymentLister:    tt.fields.GetDeploymentLister(),
+				serviceLister:       tt.fields.GetK8sServiceLister(),
+				endpointsLister:     tt.fields.GetEndpointsLister(),
 				controllerConfig:    controllerConfig,
 				networkConfig:       networkConfig,
 				loggingConfig:       loggingConfig,
