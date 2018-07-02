@@ -95,7 +95,7 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 						},
 						Ports: []corev1.ContainerPort{{
 							Name:          "autoscaler-port",
-							ContainerPort: autoscalerPort,
+							ContainerPort: resources.AutoscalerPort,
 						}},
 						Env: []corev1.EnvVar{{
 							Name:  "SERVING_NAMESPACE",
@@ -111,7 +111,7 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 							Value: rev.Name,
 						}, {
 							Name:  "SERVING_AUTOSCALER_PORT",
-							Value: strconv.Itoa(autoscalerPort),
+							Value: strconv.Itoa(resources.AutoscalerPort),
 						}},
 						Args: []string{
 							fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
@@ -146,8 +146,8 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				Name:       "autoscaler-port",
-				Port:       int32(autoscalerPort),
-				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: autoscalerPort},
+				Port:       int32(resources.AutoscalerPort),
+				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: resources.AutoscalerPort},
 			}},
 			Type: "NodePort",
 			Selector: map[string]string{

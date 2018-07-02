@@ -46,6 +46,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/queue"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -405,7 +406,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_REVISION", rev.Name, "")
 			checkEnv(container.Env, "SERVING_POD", "", "metadata.name")
 			checkEnv(container.Env, "SERVING_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
-			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(resources.AutoscalerPort), "")
 			checkEnv(container.Env, "SERVING_LOGGING_CONFIG", controller.getLoggingConfig().LoggingConfig, "")
 			checkEnv(container.Env, "SERVING_LOGGING_LEVEL", controller.getLoggingConfig().LoggingLevel["queueproxy"], "")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
@@ -538,7 +539,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_DEPLOYMENT", expectedDeploymentName, "")
 			checkEnv(container.Env, "SERVING_CONFIGURATION", config.Name, "")
 			checkEnv(container.Env, "SERVING_REVISION", rev.Name, "")
-			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(resources.AutoscalerPort), "")
 			if got, want := len(container.VolumeMounts), 2; got != want {
 				t.Errorf("Unexpected number of volume mounts: got: %v, want: %v", got, want)
 			} else {

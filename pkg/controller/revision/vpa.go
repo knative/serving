@@ -51,11 +51,11 @@ func MakeVPA(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 						corev1.ResourceName("memory"): resource.MustParse(userContainerMaxMemory),
 					},
 				}, {
-					Name: queueContainerName,
+					Name: resources.QueueContainerName,
 					Mode: vpa.ContainerScalingModeOn,
 					MaxAllowed: corev1.ResourceList{
-						corev1.ResourceName("cpu"):    resource.MustParse(queueContainerMaxCPU),
-						corev1.ResourceName("memory"): resource.MustParse(queueContainerMaxMemory),
+						corev1.ResourceName("cpu"):    resources.QueueContainerMaxCPU,
+						corev1.ResourceName("memory"): resources.QueueContainerMaxMemory,
 					},
 				}, {
 					Name: fluentdContainerName,

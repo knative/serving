@@ -69,12 +69,9 @@ const (
 	userPort          = 8080
 
 	fluentdContainerName = "fluentd-proxy"
-	queueContainerName   = "queue-proxy"
 	envoyContainerName   = "istio-proxy"
-	// queueSidecarName set by -queueSidecarName flag
 
 	controllerAgentName = "revision-controller"
-	autoscalerPort      = 8080
 
 	serviceTimeoutDuration       = 5 * time.Minute
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"

@@ -38,19 +38,16 @@ const (
 
 	// Each Knative Serving pod gets 500m cpu initially.
 	userContainerCPU    = "400m"
-	queueContainerCPU   = "25m"
 	fluentdContainerCPU = "25m"
 	envoyContainerCPU   = "50m"
 
 	// Limit CPU recommendation to 2000m
 	userContainerMaxCPU    = "1700m"
-	queueContainerMaxCPU   = "200m"
 	fluentdContainerMaxCPU = "100m"
 	envoyContainerMaxCPU   = "200m"
 
 	// Limit memory recommendation to 4G
 	userContainerMaxMemory    = "3700M"
-	queueContainerMaxMemory   = "100M"
 	fluentdContainerMaxMemory = "100M"
 	envoyContainerMaxMemory   = "100M"
 
@@ -137,7 +134,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	}
 
 	podSpec := &corev1.PodSpec{
-		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig)},
+		Containers:         []corev1.Container{*userContainer, *resources.MakeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
