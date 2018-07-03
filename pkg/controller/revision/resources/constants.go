@@ -21,17 +21,20 @@ import (
 )
 
 const (
+	// TODO(mattmoor): Make this private once we remove revision_test.go
 	UserContainerName    = "user-container"
-	FluentdContainerName = "fluentd-proxy"
-	EnvoyContainerName   = "istio-proxy"
-	QueueContainerName   = "queue-proxy"
+	fluentdContainerName = "fluentd-proxy"
+	envoyContainerName   = "istio-proxy"
+	queueContainerName   = "queue-proxy"
 
-	SidecarIstioInjectAnnotation   = "sidecar.istio.io/inject"
+	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	// TODO(mattmoor): Make this private once we remove revision_test.go
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
 
 	userPortName = "user-port"
 	userPort     = 8080
 
+	// TODO(mattmoor): Make this private once we remove revision_test.go
 	AutoscalerPort       = 8080
 	ServicePort    int32 = 80
 )
@@ -44,20 +47,20 @@ var (
 	// for how CPU and memory values were calculated.
 
 	// Each Knative Serving pod gets 500m cpu initially.
-	UserContainerCPU    = resource.MustParse("400m")
-	FluentdContainerCPU = resource.MustParse("25m")
-	EnvoyContainerCPU   = resource.MustParse("50m")
-	QueueContainerCPU   = resource.MustParse("25m")
+	userContainerCPU    = resource.MustParse("400m")
+	fluentdContainerCPU = resource.MustParse("25m")
+	envoyContainerCPU   = resource.MustParse("50m")
+	queueContainerCPU   = resource.MustParse("25m")
 
 	// Limit CPU recommendation to 2000m
-	UserContainerMaxCPU    = resource.MustParse("1700m")
-	FluentdContainerMaxCPU = resource.MustParse("100m")
-	EnvoyContainerMaxCPU   = resource.MustParse("200m")
-	QueueContainerMaxCPU   = resource.MustParse("200m")
+	userContainerMaxCPU    = resource.MustParse("1700m")
+	fluentdContainerMaxCPU = resource.MustParse("100m")
+	envoyContainerMaxCPU   = resource.MustParse("200m")
+	queueContainerMaxCPU   = resource.MustParse("200m")
 
 	// Limit memory recommendation to 4G
-	UserContainerMaxMemory    = resource.MustParse("3700M")
-	FluentdContainerMaxMemory = resource.MustParse("100M")
-	EnvoyContainerMaxMemory   = resource.MustParse("100M")
-	QueueContainerMaxMemory   = resource.MustParse("100M")
+	userContainerMaxMemory    = resource.MustParse("3700M")
+	fluentdContainerMaxMemory = resource.MustParse("100M")
+	envoyContainerMaxMemory   = resource.MustParse("100M")
+	queueContainerMaxMemory   = resource.MustParse("100M")
 )

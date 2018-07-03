@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func TestMakeLabels(t *testing.T) {
+func TestmakeLabels(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -86,21 +86,21 @@ func TestMakeLabels(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeLabels(test.rev)
+			got := makeLabels(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeLabels (-want, +got) = %v", diff)
+				t.Errorf("makeLabels (-want, +got) = %v", diff)
 			}
 			wantSelector := &metav1.LabelSelector{MatchLabels: test.want}
-			gotSelector := MakeSelector(test.rev)
+			gotSelector := makeSelector(test.rev)
 			if diff := cmp.Diff(wantSelector, gotSelector); diff != "" {
-				t.Errorf("MakeLabels (-want, +got) = %v", diff)
+				t.Errorf("makeLabels (-want, +got) = %v", diff)
 			}
 
 		})
 	}
 }
 
-func TestMakeAnnotations(t *testing.T) {
+func TestmakeAnnotations(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -136,9 +136,9 @@ func TestMakeAnnotations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeAnnotations(test.rev)
+			got := makeAnnotations(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeAnnotations (-want, +got) = %v", diff)
+				t.Errorf("makeAnnotations (-want, +got) = %v", diff)
 			}
 		})
 	}

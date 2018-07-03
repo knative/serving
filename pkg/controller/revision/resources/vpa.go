@@ -34,29 +34,29 @@ var (
 			Name: UserContainerName,
 			Mode: vpa.ContainerScalingModeOn,
 			MaxAllowed: corev1.ResourceList{
-				corev1.ResourceCPU:    UserContainerMaxCPU,
-				corev1.ResourceMemory: UserContainerMaxMemory,
+				corev1.ResourceCPU:    userContainerMaxCPU,
+				corev1.ResourceMemory: userContainerMaxMemory,
 			},
 		}, {
-			Name: QueueContainerName,
+			Name: queueContainerName,
 			Mode: vpa.ContainerScalingModeOn,
 			MaxAllowed: corev1.ResourceList{
-				corev1.ResourceCPU:    QueueContainerMaxCPU,
-				corev1.ResourceMemory: QueueContainerMaxMemory,
+				corev1.ResourceCPU:    queueContainerMaxCPU,
+				corev1.ResourceMemory: queueContainerMaxMemory,
 			},
 		}, {
-			Name: FluentdContainerName,
+			Name: fluentdContainerName,
 			Mode: vpa.ContainerScalingModeOn,
 			MaxAllowed: corev1.ResourceList{
-				corev1.ResourceCPU:    FluentdContainerMaxCPU,
-				corev1.ResourceMemory: FluentdContainerMaxMemory,
+				corev1.ResourceCPU:    fluentdContainerMaxCPU,
+				corev1.ResourceMemory: fluentdContainerMaxMemory,
 			},
 		}, {
-			Name: EnvoyContainerName,
+			Name: envoyContainerName,
 			Mode: vpa.ContainerScalingModeOn,
 			MaxAllowed: corev1.ResourceList{
-				corev1.ResourceCPU:    EnvoyContainerMaxCPU,
-				corev1.ResourceMemory: EnvoyContainerMaxMemory,
+				corev1.ResourceCPU:    envoyContainerMaxCPU,
+				corev1.ResourceMemory: envoyContainerMaxMemory,
 			},
 		}},
 	}
@@ -67,12 +67,12 @@ func MakeVPA(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionVPAName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeLabels(rev),
-			Annotations:     MakeAnnotations(rev),
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: vpa.VerticalPodAutoscalerSpec{
-			Selector:       MakeSelector(rev),
+			Selector:       makeSelector(rev),
 			UpdatePolicy:   vpaUpdatePolicy,
 			ResourcePolicy: vpaResourcePolicy,
 		},

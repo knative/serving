@@ -96,20 +96,20 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 		configName = owner.Name
 	}
 
-	annotations := MakeAnnotations(rev)
-	annotations[SidecarIstioInjectAnnotation] = "true"
+	annotations := makeAnnotations(rev)
+	annotations[sidecarIstioInjectAnnotation] = "true"
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
-			Labels:          MakeLabels(rev),
-			Annotations:     MakeAnnotations(rev),
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicaCount,
-			Selector: MakeSelector(rev),
+			Selector: makeSelector(rev),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      makeAutoScalerLabels(rev),
@@ -158,7 +158,7 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeAutoScalerLabels(rev),
-			Annotations:     MakeAnnotations(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -174,7 +174,7 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // makeAutoScalerLabels constructs the labels we will apply to
 // service and deployment specs for autoscaler.
 func makeAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
-	labels := MakeLabels(rev)
+	labels := makeLabels(rev)
 	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

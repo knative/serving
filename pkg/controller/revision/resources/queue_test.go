@@ -34,7 +34,7 @@ import (
 
 var boolTrue = true
 
-func TestMakeQueueContainer(t *testing.T) {
+func TestMakequeueContainer(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -59,7 +59,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
+			Name:           queueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -113,7 +113,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
+			Name:           queueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -173,7 +173,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
+			Name:           queueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -230,7 +230,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		cc: &config.Controller{},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
+			Name:           queueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -286,7 +286,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:           QueueContainerName,
+			Name:           queueContainerName,
 			Resources:      queueResources,
 			Ports:          queuePorts,
 			Lifecycle:      queueLifecycle,
@@ -325,9 +325,9 @@ func TestMakeQueueContainer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeQueueContainer(test.rev, test.lc, test.ac, test.cc)
+			got := makequeueContainer(test.rev, test.lc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("MakeQueueContainer (-want, +got) = %v", diff)
+				t.Errorf("makequeueContainer (-want, +got) = %v", diff)
 			}
 		})
 	}

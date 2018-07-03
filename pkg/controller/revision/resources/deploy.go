@@ -66,7 +66,7 @@ var (
 
 	userResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: UserContainerCPU,
+			corev1.ResourceCPU: userContainerCPU,
 		},
 	}
 
@@ -87,7 +87,7 @@ var (
 
 	fluentdResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: FluentdContainerCPU,
+			corev1.ResourceCPU: fluentdContainerCPU,
 		},
 	}
 
@@ -135,7 +135,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*MakeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
+			*makequeueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
 		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -145,7 +145,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	if observabilityConfig.EnableVarLogCollection {
 		// TODO(mattmoor): We should have a fluentd.go that serves a similar purpose to queue.go
 		fluentdContainer := corev1.Container{
-			Name:      FluentdContainerName,
+			Name:      fluentdContainerName,
 			Image:     observabilityConfig.FluentdSidecarImage,
 			Resources: fluentdResources,
 			Env: []corev1.EnvVar{{
@@ -185,8 +185,8 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
 
-	podTemplateAnnotations := MakeAnnotations(rev)
-	podTemplateAnnotations[SidecarIstioInjectAnnotation] = "true"
+	podTemplateAnnotations := makeAnnotations(rev)
+	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
 	// We will inject this value only if all of the following are true:
@@ -206,17 +206,17 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionDeploymentName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeLabels(rev),
-			Annotations:     MakeAnnotations(rev),
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &replicaCount,
-			Selector:                MakeSelector(rev),
+			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeLabels(rev),
+					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
 				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),

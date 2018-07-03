@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func TestMakeLabels(t *testing.T) {
+func TestmakeLabels(t *testing.T) {
 	tests := []struct {
 		name string
 		svc  *v1alpha1.Service
@@ -63,9 +63,9 @@ func TestMakeLabels(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeLabels(test.svc)
+			got := makeLabels(test.svc)
 			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("MakeLabels (-want, +got) = %v", diff)
+				t.Errorf("makeLabels (-want, +got) = %v", diff)
 			}
 		})
 	}

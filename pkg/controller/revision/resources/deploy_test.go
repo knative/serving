@@ -72,7 +72,7 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 			}, {
-				Name:           QueueContainerName,
+				Name:           queueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -144,7 +144,7 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 			}, {
-				Name:           QueueContainerName,
+				Name:           queueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -225,7 +225,7 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 			}, {
-				Name:           QueueContainerName,
+				Name:           queueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -304,7 +304,7 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 			}, {
-				Name:           QueueContainerName,
+				Name:           queueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -372,7 +372,7 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 			}, {
-				Name:           QueueContainerName,
+				Name:           queueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -407,7 +407,7 @@ func TestMakePodSpec(t *testing.T) {
 					// No logging level
 				}},
 			}, {
-				Name:      FluentdContainerName,
+				Name:      fluentdContainerName,
 				Image:     "indiana:jones",
 				Resources: fluentdResources,
 				Env: []corev1.EnvVar{{
@@ -483,7 +483,7 @@ func TestMakePodSpec(t *testing.T) {
 				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
 				Lifecycle:    userLifecycle,
 			}, {
-				Name:           QueueContainerName,
+				Name:           queueContainerName,
 				Resources:      queueResources,
 				Ports:          queuePorts,
 				Lifecycle:      queueLifecycle,
@@ -601,7 +601,7 @@ func TestMakeDeployment(t *testing.T) {
 							appLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					// Spec: filled in below by makePodSpec
@@ -673,7 +673,7 @@ func TestMakeDeployment(t *testing.T) {
 							appLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					// Spec: filled in below by makePodSpec
@@ -740,7 +740,7 @@ func TestMakeDeployment(t *testing.T) {
 							appLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation:   "true",
+							sidecarIstioInjectAnnotation:   "true",
 							IstioOutboundIPRangeAnnotation: "*",
 						},
 					},
@@ -813,7 +813,7 @@ func TestMakeDeployment(t *testing.T) {
 							appLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 							// The annotation on the Revision should override our global configuration.
 							IstioOutboundIPRangeAnnotation: "10.4.0.0/14,10.7.240.0/20",
 						},

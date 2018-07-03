@@ -34,7 +34,7 @@ import (
 var (
 	queueResources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): QueueContainerCPU,
+			corev1.ResourceName("cpu"): queueContainerCPU,
 		},
 	}
 	queuePorts = []corev1.ContainerPort{{
@@ -70,9 +70,8 @@ var (
 	}
 )
 
-// MakeQueueContainer creates the container spec for queue sidecar.
-// TODO(mattmoor): Once the migration to this package is complete, this should be private.
-func MakeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
+// makequeueContainer creates the container spec for queue sidecar.
+func makequeueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
 	controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
@@ -89,7 +88,7 @@ func MakeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 	}
 
 	return &corev1.Container{
-		Name:           QueueContainerName,
+		Name:           queueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
 		Resources:      queueResources,
 		Ports:          queuePorts,

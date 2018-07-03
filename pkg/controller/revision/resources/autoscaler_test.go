@@ -183,7 +183,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							appLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					Spec: corev1.PodSpec{
@@ -268,7 +268,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							appLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					Spec: corev1.PodSpec{
@@ -360,7 +360,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							appLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					Spec: corev1.PodSpec{
@@ -451,7 +451,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							appLabelKey:         "bar",
 						},
 						Annotations: map[string]string{
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					Spec: corev1.PodSpec{
@@ -542,7 +542,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 						},
 						Annotations: map[string]string{
 							"ooga": "booga",
-							SidecarIstioInjectAnnotation: "true",
+							sidecarIstioInjectAnnotation: "true",
 						},
 					},
 					Spec: corev1.PodSpec{
