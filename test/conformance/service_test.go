@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	serviceresources "github.com/knative/serving/pkg/controller/service/resources"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
@@ -138,8 +138,8 @@ func TestRunLatestService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	names.Route = controller.GetServiceRouteName(svc)
-	names.Config = controller.GetServiceConfigurationName(svc)
+	names.Route = serviceresources.RouteName(svc)
+	names.Config = serviceresources.ConfigurationName(svc)
 
 	logger.Info("The Service will be updated with the name of the Revision once it is created")
 	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
