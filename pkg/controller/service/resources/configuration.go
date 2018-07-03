@@ -32,7 +32,7 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			Name:      controller.GetServiceConfigurationName(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*controller.NewServiceControllerRef(service),
+				*controller.NewControllerRef(service),
 			},
 			Labels: MakeLabels(service),
 		},

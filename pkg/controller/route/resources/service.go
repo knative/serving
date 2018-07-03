@@ -34,7 +34,7 @@ func MakeK8sService(route *v1alpha1.Route) *corev1.Service {
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				// This service is owned by the Route.
-				*controller.NewRouteControllerRef(route),
+				*controller.NewControllerRef(route),
 			},
 		},
 		Spec: corev1.ServiceSpec{

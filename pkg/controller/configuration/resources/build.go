@@ -32,7 +32,7 @@ func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       config.Namespace,
 			Name:            BuildName(config),
-			OwnerReferences: []metav1.OwnerReference{*controller.NewConfigurationControllerRef(config)},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(config)},
 		},
 		Spec: *config.Spec.Build,
 	}

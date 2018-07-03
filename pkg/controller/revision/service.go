@@ -42,7 +42,7 @@ func MakeRevisionK8sService(rev *v1alpha1.Revision) *corev1.Service {
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
 			Labels:          MakeServingResourceLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{

@@ -229,7 +229,7 @@ func MakeServingDeployment(rev *v1alpha1.Revision,
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
 			Labels:          MakeServingResourceLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &replicaCount,

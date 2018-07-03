@@ -44,7 +44,7 @@ func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.
 			Name:            controller.GetVirtualServiceName(u),
 			Namespace:       u.Namespace,
 			Labels:          map[string]string{"route": u.Name},
-			OwnerReferences: []metav1.OwnerReference{*controller.NewRouteControllerRef(u)},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(u)},
 		},
 		Spec: makeVirtualServiceSpec(u, tc.Targets),
 	}
