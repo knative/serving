@@ -33,24 +33,8 @@ func GetServingNamespaceName(ns string) string {
 	return ns
 }
 
-func GetServingK8SServiceNameForRoute(u *v1alpha1.Route) string {
-	return u.Name + "-service"
-}
-
-func GetVirtualServiceName(u *v1alpha1.Route) string {
-	return u.Name + "-istio"
-}
-
-func GetServingK8SGatewayFullname() string {
-	return GetK8SServiceFullname("knative-shared-gateway", "knative-serving")
-}
-
 func GetServingK8SServiceNameForObj(name string) string {
 	return name + "-service"
-}
-
-func GetServingK8SServiceFullnameForRoute(u *v1alpha1.Route) string {
-	return GetK8SServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
 }
 
 func GetServiceConfigurationName(u *v1alpha1.Service) string {
