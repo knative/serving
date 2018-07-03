@@ -153,7 +153,7 @@ func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	logger := logging.FromContext(ctx)
 	service.Status.InitializeConditions()
 
-	configName := controller.GetServiceConfigurationName(service)
+	configName := resources.ConfigurationName(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if errors.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
@@ -173,7 +173,7 @@ func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// Update our Status based on the state of our underlying Configuration.
 	service.Status.PropagateConfigurationStatus(config.Status)
 
-	routeName := controller.GetServiceRouteName(service)
+	routeName := resources.RouteName(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if errors.IsNotFound(err) {
 		route, err = c.createRoute(service)

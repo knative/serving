@@ -27,7 +27,7 @@ import (
 func MakeRoute(service *v1alpha1.Service) *v1alpha1.Route {
 	c := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetServiceRouteName(service),
+			Name:      RouteName(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewControllerRef(service),
@@ -42,7 +42,7 @@ func MakeRoute(service *v1alpha1.Service) *v1alpha1.Route {
 	// If there's RunLatest, use the configName, otherwise pin to a specific Revision
 	// as specified in the Pinned section of the Service spec.
 	if service.Spec.RunLatest != nil {
-		tt.ConfigurationName = controller.GetServiceConfigurationName(service)
+		tt.ConfigurationName = ConfigurationName(service)
 	} else {
 		tt.RevisionName = service.Spec.Pinned.RevisionName
 	}

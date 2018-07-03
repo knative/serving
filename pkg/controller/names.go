@@ -18,8 +18,6 @@ package controller
 
 import (
 	"fmt"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func GetK8SServiceFullname(name string, namespace string) string {
@@ -35,14 +33,6 @@ func GetServingNamespaceName(ns string) string {
 
 func GetServingK8SServiceNameForObj(name string) string {
 	return name + "-service"
-}
-
-func GetServiceConfigurationName(u *v1alpha1.Service) string {
-	return u.Name
-}
-
-func GetServiceRouteName(u *v1alpha1.Service) string {
-	return u.Name
 }
 
 func GetServingK8SActivatorServiceName() string {
