@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package route
+package config
 
 import (
 	"fmt"
@@ -45,9 +45,9 @@ func (s *LabelSelector) Matches(labels map[string]string) bool {
 	return true
 }
 
-// DomainConfig maps domains to routes by matching the domain's
+// Domain maps domains to routes by matching the domain's
 // label selectors to the route's labels.
-type DomainConfig struct {
+type Domain struct {
 	// Domains map from domain to label selector.  If a route has
 	// labels matching a particular selector, it will use the
 	// corresponding domain.  If multiple selectors match, we choose
@@ -55,9 +55,9 @@ type DomainConfig struct {
 	Domains map[string]*LabelSelector
 }
 
-// NewDomainConfigFromConfigMap creates a DomainConfig from the supplied ConfigMap
-func NewDomainConfigFromConfigMap(configMap *corev1.ConfigMap) (*DomainConfig, error) {
-	c := DomainConfig{Domains: map[string]*LabelSelector{}}
+// NewDomainFromConfigMap creates a Domain from the supplied ConfigMap
+func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
+	c := Domain{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
 		labelSelector := LabelSelector{}
@@ -79,7 +79,7 @@ func NewDomainConfigFromConfigMap(configMap *corev1.ConfigMap) (*DomainConfig, e
 // LookupDomainForLabels returns a domain given a set of labels.
 // Since we reject configuration without a default domain, this should
 // always return a value.
-func (c *DomainConfig) LookupDomainForLabels(labels map[string]string) string {
+func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	domain := ""
 	specificity := -1
 

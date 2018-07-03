@@ -32,6 +32,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/route/config"
 	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	"github.com/knative/serving/pkg/logging"
@@ -52,7 +53,7 @@ type Controller struct {
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
-	domainConfig      *DomainConfig
+	domainConfig      *config.Domain
 	domainConfigMutex sync.Mutex
 }
 
@@ -232,7 +233,7 @@ func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap
 	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Route, name))
 }
 
-func (c *Controller) getDomainConfig() *DomainConfig {
+func (c *Controller) getDomainConfig() *config.Domain {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
 	return c.domainConfig
@@ -244,7 +245,7 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 }
 
 func (c *Controller) receiveDomainConfig(configMap *corev1.ConfigMap) {
-	newDomainConfig, err := NewDomainConfigFromConfigMap(configMap)
+	newDomainConfig, err := config.NewDomainFromConfigMap(configMap)
 	if err != nil {
 		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.",
 			zap.Error(err))

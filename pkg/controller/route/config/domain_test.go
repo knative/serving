@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package route
+package config
 
 import (
 	"fmt"
@@ -60,7 +60,7 @@ func TestSelectorMatches(t *testing.T) {
 }
 
 func TestNewConfigNoEntry(t *testing.T) {
-	_, err := NewDomainConfigFromConfigMap(&corev1.ConfigMap{
+	_, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetDomainConfigMapName(),
@@ -71,8 +71,23 @@ func TestNewConfigNoEntry(t *testing.T) {
 	}
 }
 
+func TestNewConfigBadYaml(t *testing.T) {
+	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      controller.GetDomainConfigMapName(),
+		},
+		Data: map[string]string{
+			"default.com": "bad: yaml: all: day",
+		},
+	})
+	if err == nil {
+		t.Errorf("NewDomainFromConfigMap() = %v, wanted error", c)
+	}
+}
+
 func TestNewConfig(t *testing.T) {
-	expectedConfig := DomainConfig{
+	expectedConfig := Domain{
 		Domains: map[string]*LabelSelector{
 			"test-domain.foo.com": {
 				Selector: map[string]string{
@@ -88,7 +103,7 @@ func TestNewConfig(t *testing.T) {
 			"default.com": {},
 		},
 	}
-	c, err := NewDomainConfigFromConfigMap(&corev1.ConfigMap{
+	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetDomainConfigMapName(),
@@ -108,7 +123,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestLookupDomainForLabels(t *testing.T) {
-	config := DomainConfig{
+	config := Domain{
 		Domains: map[string]*LabelSelector{
 			"test-domain.foo.com": {
 				Selector: map[string]string{
@@ -162,7 +177,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 	}
 }
 
-func TestOurDomainConfig(t *testing.T) {
+func TestOurDomain(t *testing.T) {
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetDomainConfigMapName()))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
@@ -171,7 +186,7 @@ func TestOurDomainConfig(t *testing.T) {
 	if err := yaml.Unmarshal(b, &cm); err != nil {
 		t.Errorf("yaml.Unmarshal() = %v", err)
 	}
-	if _, err := NewDomainConfigFromConfigMap(&cm); err != nil {
-		t.Errorf("NewDomainConfigFromConfigMap() = %v", err)
+	if _, err := NewDomainFromConfigMap(&cm); err != nil {
+		t.Errorf("NewDomainFromConfigMap() = %v", err)
 	}
 }
