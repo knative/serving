@@ -33,6 +33,8 @@ readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 readonly OUTPUT_YAML=release.yaml
 # Local generated lite yaml file.
 readonly LITE_YAML=release-lite.yaml
+# Local generated yaml file without the logging and monitoring components.
+readonly NO_MON_YAML=release-no-mon.yaml
 
 function cleanup() {
   restore_override_vars
@@ -72,7 +74,6 @@ trap cleanup EXIT
 SKIP_TESTS=0
 TAG_RELEASE=0
 DONT_PUBLISH=0
-OMIT_MONITORING=0
 KO_FLAGS=""
 
 for parameter in "$@"; do
@@ -94,10 +95,6 @@ for parameter in "$@"; do
       KO_FLAGS="-L"
       shift
       ;;
-    --omit-monitoring)
-      OMIT_MONITORING=1
-      shift
-      ;;
     *)
       echo "error: unknown option ${parameter}"
       exit 1
@@ -108,7 +105,6 @@ done
 readonly SKIP_TESTS
 readonly TAG_RELEASE
 readonly DONT_PUBLISH
-readonly OMIT_MONITORING
 readonly KO_FLAGS
 
 if (( ! SKIP_TESTS )); then
@@ -154,30 +150,30 @@ echo "---" >> ${OUTPUT_YAML}
 
 # Make a copy for the lite version
 cp ${OUTPUT_YAML} ${LITE_YAML}
+# Make a copy for the no monitoring version
+cp ${OUTPUT_YAML} ${NO_MON_YAML}
 
-if (( ! OMIT_MONITORING )); then
-  echo "Building Monitoring & Logging"
-  # Use ko to concatenate them all together.
-  ko resolve -R -f config/monitoring/100-common \
-      -f config/monitoring/150-elasticsearch-prod \
-      -f third_party/config/monitoring/common \
-      -f third_party/config/monitoring/elasticsearch \
-      -f config/monitoring/200-common \
-      -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
-  # Use ko to do the same for the lite version.
-  ko resolve -R -f config/monitoring/100-common \
-      -f third_party/config/monitoring/common/istio \
-      -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
-      -f third_party/config/monitoring/common/prometheus-operator \
-      -f config/monitoring/200-common/100-fluentd.yaml \
-      -f config/monitoring/200-common/100-grafana-dash-knative-efficiency.yaml \
-      -f config/monitoring/200-common/100-grafana-dash-knative.yaml \
-      -f config/monitoring/200-common/100-grafana.yaml \
-      -f config/monitoring/200-common/100-istio.yaml \
-      -f config/monitoring/200-common/200-prometheus-exporter \
-      -f config/monitoring/200-common/300-prometheus \
-      -f config/monitoring/200-common/100-istio.yaml >> ${LITE_YAML}
-fi
+echo "Building Monitoring & Logging"
+# Use ko to concatenate them all together.
+ko resolve -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml >> ${OUTPUT_YAML}
+# Use ko to do the same for the lite version.
+ko resolve -R -f config/monitoring/100-common \
+    -f third_party/config/monitoring/common/istio \
+    -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
+    -f third_party/config/monitoring/common/prometheus-operator \
+    -f config/monitoring/200-common/100-fluentd.yaml \
+    -f config/monitoring/200-common/100-grafana-dash-knative-efficiency.yaml \
+    -f config/monitoring/200-common/100-grafana-dash-knative.yaml \
+    -f config/monitoring/200-common/100-grafana.yaml \
+    -f config/monitoring/200-common/100-istio.yaml \
+    -f config/monitoring/200-common/200-prometheus-exporter \
+    -f config/monitoring/200-common/300-prometheus \
+    -f config/monitoring/200-common/100-istio.yaml >> ${LITE_YAML}
 
 tag_knative_images ${OUTPUT_YAML} ${TAG}
 
@@ -191,6 +187,9 @@ publish_yaml ${OUTPUT_YAML}
 
 echo "Publishing release-lite.yaml"
 publish_yaml ${LITE_YAML}
+
+echo "Publishing release-no-mon.yaml"
+publish_yaml ${NO_MON_YAML}
 
 echo "Publishing our istio.yaml, so users don't need to use helm."
 publish_yaml ${ISTIO_DIR}/istio.yaml
