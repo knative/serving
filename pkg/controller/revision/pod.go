@@ -17,13 +17,11 @@ limitations under the License.
 package revision
 
 import (
-	"net"
-	"strings"
-
-	"go.uber.org/zap"
-
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -77,7 +75,7 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 // MakeServingPodSpec creates a pod spec.
-func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.PodSpec {
+func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -138,13 +136,13 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 	}
 
 	podSpec := &corev1.PodSpec{
-		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, controllerConfig)},
+		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig)},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
-	if controllerConfig.EnableVarLogCollection {
+	if observabilityConfig.EnableVarLogCollection {
 		fluentdConfigMapVolume := corev1.Volume{
 			Name: fluentdConfigMapVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -158,7 +156,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 
 		fluentdContainer := corev1.Container{
 			Name:  fluentdContainerName,
-			Image: controllerConfig.FluentdSidecarImage,
+			Image: observabilityConfig.FluentdSidecarImage,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
@@ -204,12 +202,9 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, controllerConfig *ControllerConf
 }
 
 // MakeServingDeployment creates a deployment.
-func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
-	networkConfig *NetworkConfig, controllerConfig *ControllerConfig) *appsv1.Deployment {
-	rollingUpdateConfig := appsv1.RollingUpdateDeployment{
-		MaxUnavailable: &servingPodMaxUnavailable,
-		MaxSurge:       &servingPodMaxSurge,
-	}
+func MakeServingDeployment(rev *v1alpha1.Revision,
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
 
 	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
@@ -224,11 +219,7 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
 	if _, ok := podTemplateAnnotations[istioOutboundIPRangeAnnotation]; !ok {
 		if len(networkConfig.IstioOutboundIPRanges) > 0 {
-			if err := validateOutboundIPRanges(networkConfig.IstioOutboundIPRanges); err != nil {
-				logger.Errorf("Failed to parse IP ranges %v. Not setting the annotation. Error: %v", networkConfig.IstioOutboundIPRanges, err)
-			} else {
-				podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
-			}
+			podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
 		}
 	}
 
@@ -241,34 +232,16 @@ func MakeServingDeployment(logger *zap.SugaredLogger, rev *v1alpha1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &servingPodReplicaCount,
-			Selector: MakeServingResourceSelector(rev),
-			Strategy: appsv1.DeploymentStrategy{
-				Type:          "RollingUpdate",
-				RollingUpdate: &rollingUpdateConfig,
-			},
+			Replicas:                &replicaCount,
+			Selector:                MakeServingResourceSelector(rev),
 			ProgressDeadlineSeconds: &progressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      MakeServingResourceLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *MakeServingPodSpec(rev, controllerConfig),
+				Spec: *MakeServingPodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),
 			},
 		},
 	}
-}
-
-func validateOutboundIPRanges(s string) error {
-	// * is a valid value
-	if s == "*" {
-		return nil
-	}
-	cidrs := strings.Split(s, ",")
-	for _, cidr := range cidrs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return err
-		}
-	}
-	return nil
 }

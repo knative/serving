@@ -126,8 +126,6 @@ function dump_stack_info() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-  echo ">>> Ingress:"
-  kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
   kubectl logs $(get_knative_pod controller) -n knative-serving
   echo "***************************************"
@@ -139,7 +137,11 @@ function dump_stack_info() {
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  report_go_test -v -tags=e2e ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
+  kubectl label namespace $2 istio-injection=enabled --overwrite
+  local options=""
+  (( EMIT_METRICS )) && options="-emitmetrics"
+  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3 ${options}
+
   local result=$?
   [[ ${result} -ne 0 ]] && dump_stack_info
   return ${result}
@@ -149,15 +151,31 @@ function run_e2e_tests() {
 
 cd ${SERVING_ROOT_DIR}
 
-# Show help if bad arguments are passed.
-if [[ -n $1 && $1 != "--run-tests" ]]; then
-  echo "usage: $0 [--run-tests]"
-  exit 1
-fi
+RUN_TESTS=0
+EMIT_METRICS=0
+for parameter in $@; do
+  case $parameter in
+    --run-tests)
+      RUN_TESTS=1
+      shift
+      ;;
+    --emit-metrics)
+      EMIT_METRICS=1
+      shift
+      ;;
+    *)
+      echo "error: unknown option ${parameter}"
+      echo "usage: $0 [--run-tests][--emit-metrics]"
+      exit 1
+      ;;
+  esac
+done
+readonly RUN_TESTS
+readonly EMIT_METRICS
 
-# No argument provided, create the test cluster.
+# Create the test cluster if not running tests.
 
-if [[ -z $1 ]]; then
+if (( ! RUN_TESTS )); then
   header "Creating test cluster"
   # Smallest cluster required to run the end-to-end-tests
   CLUSTER_CREATION_ARGS=(
@@ -184,13 +202,15 @@ if [[ -z $1 ]]; then
   export K8S_CLUSTER_OVERRIDE=
   # Assume test failed (see more details at the end of this script).
   echo -n "1"> ${TEST_RESULT_FILE}
+  test_cmd_args="--run-tests"
+  (( EMIT_METRICS )) && test_cmd_args+=" --emit-metrics"
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
     --extract "gke-${SERVING_GKE_VERSION}" \
     --gcp-node-image ${SERVING_GKE_IMAGE} \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
-    --test-cmd-args --run-tests
+    --test-cmd-args "${test_cmd_args}"
   # Delete target pools and health checks that might have leaked.
   # See https://github.com/knative/serving/issues/959 for details.
   # TODO(adrcunha): Remove once the leak issue is resolved.
@@ -217,7 +237,7 @@ if [[ -z $1 ]]; then
   exit $result
 fi
 
-# --run-tests passed as first argument, run the tests.
+# --run-tests passed, run the tests.
 
 # Fail fast during setup.
 set -o errexit
@@ -270,7 +290,9 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving
+wait_until_pods_running knative-serving || abort_if_failed
+wait_until_pods_running istio-system || abort_if_failed
+wait_until_service_has_external_ip istio-system knative-ingressgateway
 abort_if_failed
 
 # Run the tests

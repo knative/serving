@@ -1,0 +1,221 @@
+# We stand up a new Gateway service to receive all external traffic
+# for Knative pods.  These pods are basically standalone Envoy proxy
+# pods to convert all external traffic into cluster traffic.
+#
+#
+# The reason for standing up these pods are because Istio Gateway
+# cannot not share these ingress pods.  Istio provide a default, but
+# we don't want to use it and causing unwanted sharing with users'
+# Gateways if they have some.
+#
+# The YAML is cloned from Istio's.  However, in the future we may want
+# to incorporate more of our logic to tailor to our users' specific
+# needs.
+
+# This is the shared Gateway for all Knative routes to use.
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: knative-shared-gateway
+  namespace: knative-serving
+spec:
+  selector:
+    knative: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "*"
+---
+# This is the Service definition for the ingress pods serving
+# Knative's shared Gateway.
+#
+# Source: istio/charts/ingressgateway/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: knative-ingressgateway
+  namespace: istio-system
+  labels:
+    chart: ingressgateway-0.8.0
+    release: RELEASE-NAME
+    heritage: Tiller
+    knative: ingressgateway
+spec:
+  type: LoadBalancer
+  selector:
+    knative: ingressgateway
+  ports:
+    -
+      name: http
+      nodePort: 32380
+      port: 80
+    -
+      name: https
+      nodePort: 32390
+      port: 443
+    -
+      name: tcp
+      nodePort: 32400
+      port: 32400
+---
+# This is the corresponding Deployment to backed the aforementioned Service.
+#
+# Source: istio/charts/ingressgateway/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: knative-ingressgateway
+  namespace: istio-system
+  labels:
+    app: knative-ingressgateway
+    chart: ingressgateway-0.8.0
+    release: RELEASE-NAME
+    heritage: Tiller
+    knative: ingressgateway
+spec:
+  replicas:
+  template:
+    metadata:
+      labels:
+        knative: ingressgateway
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-ingressgateway-service-account
+      containers:
+        - name: ingressgateway
+          image: "docker.io/istio/proxyv2:0.8.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 32400
+          args:
+          - proxy
+          - router
+          - -v
+          - "2"
+          - --discoveryRefreshDelay
+          - '1s' #discoveryRefreshDelay
+          - --drainDuration
+          - '45s' #drainDuration
+          - --parentShutdownDuration
+          - '1m0s' #parentShutdownDuration
+          - --connectTimeout
+          - '10s' #connectTimeout
+          - --serviceCluster
+          - knative-ingressgateway
+          - --zipkinAddress
+          - zipkin:9411
+          - --statsdUdpAddress
+          - istio-statsd-prom-bridge:9125
+          - --proxyAdminPort
+          - "15000"
+          - --controlPlaneAuthPolicy
+          - NONE
+          - --discoveryAddress
+          - istio-pilot:8080
+          resources:
+            {}
+
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INSTANCE_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: ISTIO_META_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          volumeMounts:
+          - name: istio-certs
+            mountPath: /etc/certs
+            readOnly: true
+          - name: ingressgateway-certs
+            mountPath: "/etc/istio/ingressgateway-certs"
+            readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: "istio.default"
+          optional: true
+      - name: ingressgateway-certs
+        secret:
+          secretName: "istio-ingressgateway-certs"
+          optional: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+---
+# This is the horizontal pod autoscaler to make sure the ingress Pods
+# scale up to meet traffic demand.
+#
+# Source: istio/charts/ingressgateway/templates/autoscale.yaml
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: knative-ingressgateway
+    namespace: istio-system
+spec:
+    minReplicas: 1
+    # TODO(1411): Document/fix this.  We are choosing an arbitrary 10 here.
+    maxReplicas: 10
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: knative-ingressgateway
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 60

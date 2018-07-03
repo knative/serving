@@ -229,6 +229,18 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
+func (rs *RevisionStatus) IsActivationRequired() bool {
+	if c := rs.GetCondition(RevisionConditionReady); c != nil {
+		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
+			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
+	}
+	return false
+}
+
+func (rs *RevisionStatus) IsRoutable() bool {
+	return rs.IsReady() || rs.IsActivationRequired()
+}
+
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
@@ -300,18 +312,7 @@ func (rs *RevisionStatus) InitializeBuildCondition() {
 func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
 	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
 	if bc == nil {
-		// TODO(mattmoor): When Build validation is synchronous, get rid
-		// of this special logic and just return.
-		bc = bs.GetCondition(buildv1alpha1.BuildInvalid)
-		if bc == nil {
-			return
-		}
-		bc = &buildv1alpha1.BuildCondition{
-			Type:    buildv1alpha1.BuildSucceeded,
-			Status:  corev1.ConditionFalse,
-			Reason:  bc.Reason,
-			Message: bc.Message,
-		}
+		return
 	}
 	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
 	// If the underlying Build is not ready, then mark the Revision not ready.

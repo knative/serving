@@ -161,6 +161,7 @@ ko resolve -R -f config/monitoring/100-common \
     -f third_party/config/monitoring/common/istio \
     -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
     -f third_party/config/monitoring/common/prometheus-operator \
+    -f config/monitoring/150-elasticsearch-prod/100-scaling-configmap.yaml \
     -f config/monitoring/200-common/100-fluentd.yaml \
     -f config/monitoring/200-common/100-grafana-dash-knative-efficiency.yaml \
     -f config/monitoring/200-common/100-grafana-dash-knative.yaml \

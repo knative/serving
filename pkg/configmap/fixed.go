@@ -17,6 +17,8 @@ limitations under the License.
 package configmap
 
 import (
+	"log"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -33,6 +35,8 @@ func (di *fixedImpl) Watch(name string, w Observer) {
 	cm, ok := di.cfgs[name]
 	if ok {
 		w(cm)
+	} else {
+		log.Printf("Name %q is not found.", name)
 	}
 }
 

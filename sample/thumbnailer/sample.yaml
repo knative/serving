@@ -32,7 +32,7 @@ spec:
     source:
       git:
         url: https://github.com/mchmarny/rester-tester
-        branch: master
+        revision: master
     template:
       name: kaniko
       arguments:

@@ -35,8 +35,18 @@ To run all unit tests:
 go test ./...
 ```
 
-_By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need
-[`-tags=e2e`](#running-end-to-end-tests) to be enabled._
+_By default `go test` will not run [the e2e tests](#running-end-to-end-tests) and [integration tests](#running-integration-tests), which need [`-tags=e2e`](#running-end-to-end-tests) and  [`-tags=integration`](#running-integration-tests) respectively to be enabled._
+
+
+## Running integration tests
+
+To run component level integration tests:
+
+```bash
+go test -v -tags=integration ./...
+```
+
+_Integration tests are given a build tag of [`integration`](https://golang.org/pkg/go/build/#hdr-Build_Constraints)._
 
 ## Running end to end tests
 
@@ -194,11 +204,12 @@ go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
 
 If you set up your cluster using [the getting started
 docs](/DEVELOPMENT.md#getting-started), Routes created in the test will
-use the domain `demo-domain.com`, unless the route has label `app=prod` in which
+use the domain `example.com`, unless the route has label `app=prod` in which
 case they will use the domain `prod-domain.com`.  Since these domains will not be
 resolvable to deployments in your test cluster, in order to make a request
-against the endpoint, the test use the IP assigned to the istio `*-ingress`
-and spoof the `Host` in the header.
+against the endpoint, the test use the IP assigned to the service
+`knative-ingressgateway` in the namespace `istio-system` and spoof the `Host` in
+the header.
 
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests directly against

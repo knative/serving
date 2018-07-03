@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
@@ -52,6 +53,10 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 	err = wait.PollImmediate(requestInterval, requestTimeout, func() (bool, error) {
 		resp, err := h.Do(req)
 		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				logger.Infof("Retrying for TCP timeout %v", err)
+				return false, nil
+			}
 			return true, err
 		}
 
@@ -71,12 +76,12 @@ func waitForRequestToDomainState(logger *zap.SugaredLogger, address string, spoo
 	return err
 }
 
-// WaitForEndpointState will poll an endpoint until inState indicates the state is achieved. If resolvableDomain
-// is false, it will use kubeClientset to look up the ingress (named based on routeName) in the namespace namespaceName,
-// and spoof domain in the request headers, otherwise it will make the request directly to domain.
-// desc will be used to name the metric that is emitted to track how long it took for the domain to get into the state checked by inState.
-// Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, namespaceName string, routeName string, inState func(body string) (bool, error), desc string) error {
+// WaitForEndpointState will poll an endpoint until inState indicates the state is achieved.
+// If resolvableDomain is false, it will use kubeClientset to look up the ingress and spoof
+// the domain in the request headers, otherwise it will make the request directly to domain.
+// desc will be used to name the metric that is emitted to track how long it took for the
+// domain to get into the state checked by inState.  Commas in `desc` must be escaped.
+func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, inState func(body string) (bool, error), desc string) error {
 	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
@@ -87,8 +92,9 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.Sugar
 	// (the domainSuffix) is not resolvable, we need to retrieve the IP of the endpoint and
 	// spoof the Host in our requests.
 	if !resolvableDomain {
-		ingressName := routeName + "-ingress"
-		ingress, err := kubeClientset.ExtensionsV1beta1().Ingresses(namespaceName).Get(ingressName, metav1.GetOptions{})
+		ingressName := "knative-ingressgateway"
+		ingressNamespace := "istio-system"
+		ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

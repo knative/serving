@@ -166,9 +166,8 @@ kubectl get build $(kubectl get revision <revision-name> -o jsonpath="{.spec.bui
 ```
 
 The `conditions` in `status` provide the reason if there is any failure. To
-access build logs, first execute `kubectl proxy` and then open [Kibana
-UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-
-logging/proxy/app/kibana). Use any of the following filters within Kibana UI to
+access build logs, first execute `kubectl proxy` and then open [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana).
+Use any of the following filters within Kibana UI to
 see build logs. _(See [telemetry guide](../telemetry.md) for more information on
 logging and monitoring features of Knative Serving.)_
 

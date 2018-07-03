@@ -29,7 +29,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -73,14 +72,7 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 
 func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, expectedText string) {
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
-	err := test.WaitForRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {
-		if cond := r.Status.GetCondition(v1alpha1.RouteConditionReady); cond == nil {
-			return false, nil
-		} else {
-			return cond.Status == corev1.ConditionTrue, nil
-		}
-	}, "RouteIsReady")
-	if err != nil {
+	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
 	}
 
@@ -90,7 +82,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, test.Flags.Namespace, names.Route, func(body string) (bool, error) {
+
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, func(body string) (bool, error) {
 		return body == expectedText, nil
 	}, "WaitForEndpointToServeText")
 	if err != nil {
@@ -99,7 +92,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Infof("The Revision will be marked as Ready when it can serve traffic")
-	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady(names.Revision))
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady)
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
@@ -111,7 +104,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		t.Fatalf("The Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
 	}
 	logger.Infof("Updates the Route to route traffic to the Revision")
-	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names.Route, names.Revision))
+	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
@@ -160,6 +153,7 @@ func TestRouteCreation(t *testing.T) {
 	var names test.ResourceNames
 	names.Config = test.AppendRandomString("prod", logger)
 	names.Route = test.AppendRandomString("pizzaplanet", logger)
+	names.TrafficTarget = test.AppendRandomString("pizzaplanet", logger)
 
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 	defer tearDown(clients, names)

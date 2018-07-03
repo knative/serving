@@ -40,23 +40,15 @@ spec:
         # Comment the following lines to disable the single-tenant autoscaler.
         - "-autoscalerImage"
         - github.com/knative/serving/cmd/autoscaler
+        - "-registriesSkippingTagResolving"
+        - "ko.local,dev.local"
         ports:
         - name: metrics
           containerPort: 9090
         volumeMounts:
-        - name: config-autoscaler
-          mountPath: /etc/config-autoscaler
         - name: config-logging
           mountPath: /etc/config-logging
-        - name: config-observability
-          mountPath: /etc/config-observability
       volumes:
-        - name: config-autoscaler
-          configMap:
-            name: config-autoscaler
         - name: config-logging
           configMap:
             name: config-logging
-        - name: config-observability
-          configMap:
-            name: config-observability

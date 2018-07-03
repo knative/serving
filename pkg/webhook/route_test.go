@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	. "github.com/knative/serving/pkg/logging/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,7 +45,7 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != nil {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
 	}
 }
@@ -52,7 +53,7 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
 	route := createRouteWithTraffic(nil)
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != nil {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
 	}
 }
@@ -65,7 +66,7 @@ func TestNoneRouteTypeForOldResourceNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateRoute(testCtx)(nil, &revision, &revision); err != errInvalidRouteInput {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &revision, &revision); err != errInvalidRouteInput {
 		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRouteInput, err)
 	}
 }
@@ -78,7 +79,7 @@ func TestNoneRouteTypeForNewResourceNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateRoute(testCtx)(nil, nil, &revision); err != errInvalidRouteInput {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, nil, &revision); err != errInvalidRouteInput {
 		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRouteInput, err)
 	}
 }
@@ -88,7 +89,7 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		Percent: 100,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errInvalidRevisions {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != errInvalidRevisions {
 		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRevisions, err)
 	}
 }
@@ -100,7 +101,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		Percent:           100,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errInvalidRevisions {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != errInvalidRevisions {
 		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRevisions, err)
 	}
 }
@@ -111,7 +112,7 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 		Percent:      -20,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errNegativeTargetPercent {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != errNegativeTargetPercent {
 		t.Fatalf("Expected: %s. Failed with: %s.", errNegativeTargetPercent, err)
 	}
 }
@@ -124,7 +125,7 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errInvalidTargetPercentSum {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != errInvalidTargetPercentSum {
 		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidTargetPercentSum, err)
 	}
 }
@@ -140,7 +141,7 @@ func TestNotAllowedIfTrafficNamesNotUnique(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errTrafficTargetsNotUnique {
+	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != errTrafficTargetsNotUnique {
 		t.Fatalf("Expected: %s. Failed with: %s.", errTrafficTargetsNotUnique, err)
 	}
 }

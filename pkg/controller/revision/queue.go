@@ -21,7 +21,10 @@ import (
 	"strconv"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,7 +33,7 @@ import (
 )
 
 // MakeServingQueueContainer creates the container spec for queue sidecar.
-func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *ControllerConfig) *corev1.Container {
+func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -45,7 +48,6 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 		autoscalerAddress = controller.GetRevisionAutoscalerName(rev)
 	}
 
-	const servingQueueConfigVolumeName = "queue-config"
 	return &corev1.Container{
 		Name:  queueContainerName,
 		Image: controllerConfig.QueueSidecarImage,
@@ -86,7 +88,7 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			PeriodSeconds: 1,
 		},
 		Args: []string{
-			fmt.Sprintf("-concurrencyQuantumOfTime=%v", controllerConfig.AutoscaleConcurrencyQuantumOfTime.Get()),
+			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscalerConfig.ConcurrencyQuantumOfTime),
 			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 		},
 		Env: []corev1.EnvVar{{
@@ -113,10 +115,10 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, controllerConfig *Control
 			},
 		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
-			Value: controllerConfig.QueueProxyLoggingConfig,
+			Value: loggingConfig.LoggingConfig,
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
-			Value: controllerConfig.QueueProxyLoggingLevel,
+			Value: loggingConfig.LoggingLevel["queueproxy"],
 		}},
 	}
 }

@@ -25,19 +25,18 @@ import (
 	"sync"
 	"time"
 
-	// TODO(mattmoor): Used by the commented checkAndUpdateDeployment logic below.
-	// "github.com/google/go-cmp/cmp/cmpopts"
-	// "k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/knative/serving/pkg"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -50,14 +49,11 @@ import (
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -68,17 +64,14 @@ import (
 )
 
 const (
-	userContainerName string = "user-container"
-	userPortName      string = "user-port"
-	userPort                 = 8080
+	userContainerName = "user-container"
+	userPortName      = "user-port"
+	userPort          = 8080
 
-	fluentdContainerName string = "fluentd-proxy"
-	queueContainerName   string = "queue-proxy"
-	envoyContainerName   string = "istio-proxy"
+	fluentdContainerName = "fluentd-proxy"
+	queueContainerName   = "queue-proxy"
+	envoyContainerName   = "istio-proxy"
 	// queueSidecarName set by -queueSidecarName flag
-	queueHTTPPortName string = "queue-http-port"
-
-	requestQueueContainerName string = "request-queue"
 
 	controllerAgentName = "revision-controller"
 	autoscalerPort      = 8080
@@ -88,11 +81,8 @@ const (
 )
 
 var (
-	servingPodReplicaCount   = int32(1)
-	servingPodMaxUnavailable = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	servingPodMaxSurge       = intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-	foregroundDeletion       = metav1.DeletePropagationForeground
-	fgDeleteOptions          = &metav1.DeleteOptions{
+	foregroundDeletion = metav1.DeletePropagationForeground
+	fgDeleteOptions    = &metav1.DeleteOptions{
 		PropagationPolicy: &foregroundDeletion,
 	}
 )
@@ -131,54 +121,28 @@ type Controller struct {
 	enableVarLogCollection bool
 
 	// controllerConfig includes the configurations for the controller
-	controllerConfig *ControllerConfig
+	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
+	controllerConfig *config.Controller
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex
-	networkConfig      *NetworkConfig
+	networkConfig      *config.Network
 	networkConfigMutex sync.Mutex
-}
 
-// ControllerConfig includes the configurations for the controller.
-type ControllerConfig struct {
-	// Autoscale part
+	// loggingConfig could change over time and access to it
+	// must go through loggingConfigMutex
+	loggingConfig      *logging.Config
+	loggingConfigMutex sync.Mutex
 
-	// see (config-autoscaler.yaml)
-	AutoscaleConcurrencyQuantumOfTime     *k8sflag.DurationFlag
-	AutoscaleEnableSingleConcurrency      *k8sflag.BoolFlag
-	AutoscaleEnableVerticalPodAutoscaling *k8sflag.BoolFlag
+	// observabilityConfig could change over time and access to it
+	// must go through observabilityConfigMutex
+	observabilityConfig      *config.Observability
+	observabilityConfigMutex sync.Mutex
 
-	// AutoscalerImage is the name of the image used for the autoscaler pod.
-	AutoscalerImage string
-
-	// QueueSidecarImage is the name of the image used for the queue sidecar
-	// injected into the revision pod
-	QueueSidecarImage string
-
-	// logging part
-
-	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
-	// collect logs under /var/log/.
-	EnableVarLogCollection bool
-
-	// TODO(#818): Use the fluentd deamon set to collect /var/log.
-	// FluentdSidecarImage is the name of the image used for the fluentd sidecar
-	// injected into the revision pod. It is used only when enableVarLogCollection
-	// is true.
-	FluentdSidecarImage string
-	// FluentdSidecarOutputConfig is the config for fluentd sidecar to specify
-	// logging output destination.
-	FluentdSidecarOutputConfig string
-
-	// LoggingURLTemplate is a string containing the logging url template where
-	// the variable REVISION_UID will be replaced with the created revision's UID.
-	LoggingURLTemplate string
-
-	// QueueProxyLoggingConfig is a string containing the logger configuration for queue proxy.
-	QueueProxyLoggingConfig string
-
-	// QueueProxyLoggingLevel is a string containing the logger level for queue proxy.
-	QueueProxyLoggingLevel string
+	// autoscalerConfig could change over time and access to it
+	// must go through autoscalerConfigMutex
+	autoscalerConfig      *autoscaler.Config
+	autoscalerConfigMutex sync.Mutex
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -195,8 +159,8 @@ func NewController(
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
-	config *rest.Config,
-	controllerConfig *ControllerConfig) controller.Interface {
+	controllerConfig *config.Controller,
+) *Controller {
 
 	c := &Controller{
 		Base:             controller.NewBase(opt, controllerAgentName, "Revisions"),
@@ -207,7 +171,11 @@ func NewController(
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver:         &digestResolver{client: opt.KubeClientSet, transport: http.DefaultTransport},
+		resolver: &digestResolver{
+			client:           opt.KubeClientSet,
+			transport:        http.DefaultTransport,
+			registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
+		},
 		controllerConfig: controllerConfig,
 	}
 
@@ -238,6 +206,9 @@ func NewController(
 	})
 
 	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
+	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
+	opt.ConfigMapWatcher.Watch(controller.GetObservabilityConfigMapName(), c.receiveObservabilityConfig)
+	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
 
 	return c
 }
@@ -273,7 +244,7 @@ func (c *Controller) Reconcile(key string) error {
 	// Get the Revision resource with this namespace/name
 	original, err := c.revisionLister.Revisions(namespace).Get(name)
 	// The resource may no longer exist, in which case we stop processing.
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
 		return nil
 	} else if err != nil {
@@ -290,9 +261,12 @@ func (c *Controller) Reconcile(key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(rev); err != nil {
-		logger.Warn("Failed to update revision status", zap.Error(err))
-		return err
+	} else {
+		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, rev))
+		if _, err := c.updateStatus(rev); err != nil {
+			logger.Warn("Failed to update revision status", zap.Error(err))
+			return err
+		}
 	}
 	return err
 }
@@ -335,34 +309,35 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	if bc == nil || bc.Status == corev1.ConditionTrue {
 		// There is no build, or the build completed successfully.
 
-		// Set up the user resources
-		if err := c.reconcileDeployment(ctx, rev); err != nil {
-			logger.Error("Failed to create a deployment", zap.Error(err))
-			return err
-		}
-		if err := c.reconcileService(ctx, rev); err != nil {
-			logger.Error("Failed to create k8s service", zap.Error(err))
-			return err
-		}
+		phases := []struct {
+			name string
+			f    func(context.Context, *v1alpha1.Revision) error
+		}{{
+			name: "user deployment",
+			f:    c.reconcileDeployment,
+		}, {
+			name: "user k8s service",
+			f:    c.reconcileService,
+		}, {
+			// Ensures our namespace has the configuration for the fluentd sidecar.
+			name: "fluentd configmap",
+			f:    c.reconcileFluentdConfigMap,
+		}, {
+			name: "autoscaler deployment",
+			f:    c.reconcileAutoscalerDeployment,
+		}, {
+			name: "autoscaler k8s service",
+			f:    c.reconcileAutoscalerService,
+		}, {
+			name: "vertical pod autoscaler",
+			f:    c.reconcileVPA,
+		}}
 
-		// Ensure our namespace has the configuration for the fluentd sidecar.
-		if err := c.reconcileFluentdConfigMap(ctx, rev); err != nil {
-			logger.Error("Failed to create fluent config map", zap.Error(err))
-			return err
-		}
-
-		// Set up resources to autoscale the user resources.
-		if err := c.reconcileAutoscalerDeployment(ctx, rev); err != nil {
-			logger.Error("Failed to create autoscaler Deployment", zap.Error(err))
-			return err
-		}
-		if err := c.reconcileAutoscalerService(ctx, rev); err != nil {
-			logger.Error("Failed to create autoscaler Service", zap.Error(err))
-			return err
-		}
-		if err := c.reconcileVPA(ctx, rev); err != nil {
-			logger.Error("Failed to create the vertical pod autoscaler for Deployment", zap.Error(err))
-			return err
+		for _, phase := range phases {
+			if err := phase.f(ctx, rev); err != nil {
+				logger.Errorf("Failed to reconcile %s", phase.name, zap.Error(err))
+				return err
+			}
 		}
 	}
 
@@ -370,7 +345,7 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 }
 
 func (c *Controller) updateRevisionLoggingURL(rev *v1alpha1.Revision) {
-	logURLTmpl := c.controllerConfig.LoggingURLTemplate
+	logURLTmpl := c.getObservabilityConfig().LoggingURLTemplate
 	if logURLTmpl != "" {
 		rev.Status.LogURL = strings.Replace(logURLTmpl, "${REVISION_UID}", string(rev.UID), -1)
 	}
@@ -400,43 +375,40 @@ func (c *Controller) EnqueueEndpointsRevision(obj interface{}) {
 }
 
 func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
 	ns := controller.GetServingNamespaceName(rev.Namespace)
 	deploymentName := controller.GetRevisionDeploymentName(rev)
+	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive:
-		// When Active, the Deployment should exist and have a particular specification.
-		if apierrs.IsNotFound(err) {
-			// If it does not exist, then create it.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When Active or Reserved, deployment should exist and have a particular specification.
+		if apierrs.IsNotFound(getDepErr) {
+			// Deployment does not exist. Create it.
 			rev.Status.MarkDeploying("Deploying")
+			var err error
 			deployment, err = c.createDeployment(ctx, rev)
 			if err != nil {
-				logger.Errorf("Error creating Deployment %q: %v", deploymentName, err)
+				logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
 				return err
 			}
-			logger.Infof("Created Deployment %q", deploymentName)
-		} else if err != nil {
-			logger.Errorf("Error reconciling Active Deployment %q: %v", deploymentName, err)
-			return err
+			logger.Infof("Created deployment %q", deploymentName)
+		} else if getDepErr != nil {
+			logger.Errorf("Error reconciling deployment %q: %v", deploymentName, getDepErr)
+			return getDepErr
 		} else {
-			// TODO(mattmoor): Don't reconcile Deployments until we can avoid fighting with
-			// its defaulter.
-			// // If it exists, then make sure if looks as we expect.
-			// // It may change if a user edits things around our controller, which we
-			// // should not allow, or if our expectations of how the deployment should look
-			// // changes (e.g. we update our controller with new sidecars).
-			// var changed Changed
-			// deployment, changed, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
-			// if err != nil {
-			// 	logger.Errorf("Error updating Deployment %q: %v", deploymentName, err)
-			// 	return err
-			// }
-			// if changed == WasChanged {
-			// 	logger.Infof("Updated Deployment %q", deploymentName)
-			// 	rev.Status.MarkDeploying("Updating")
-			// }
+			// Deployment exist. Update the replica count based on the serving state if necessary
+			var changed Changed
+			var err error
+			deployment, changed, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+			if err != nil {
+				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
+				return err
+			}
+			if changed == WasChanged {
+				logger.Infof("Updated deployment %q", deploymentName)
+				rev.Status.MarkDeploying("Updating")
+			}
 		}
 
 		// Now that we have a Deployment, determine whether there is any relevant
@@ -449,17 +421,17 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		}
 		return nil
 
-	case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the underlying Deployment.
-		if apierrs.IsNotFound(err) {
+	case v1alpha1.RevisionServingStateRetired:
+		// When Retired, we remove the underlying Deployment.
+		if apierrs.IsNotFound(getDepErr) {
 			// If it does not exist, then we have nothing to do.
 			return nil
 		}
 		if err := c.deleteDeployment(ctx, deployment); err != nil {
-			logger.Errorf("Error deleting Deployment %q: %v", deploymentName, err)
+			logger.Errorf("Error deleting deployment %q: %v", deploymentName, err)
 			return err
 		}
-		logger.Infof("Deleted Deployment %q", deploymentName)
+		logger.Infof("Deleted deployment %q", deploymentName)
 		rev.Status.MarkInactive()
 		return nil
 
@@ -471,10 +443,13 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
-	ns := controller.GetServingNamespaceName(rev.Namespace)
 
-	// Create the deployment.
-	deployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
+	var replicaCount int32 = 1
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
+		replicaCount = 0
+	}
+	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
+		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -483,37 +458,37 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
 	}
 
-	return c.KubeClientSet.AppsV1().Deployments(ns).Create(deployment)
+	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-// TODO(mattmoor): See the comment at the commented call site above.
-// func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
-// 	logger := logging.FromContext(ctx)
+// This is a generic function used both for deployment of user code & autoscaler
+func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
+	logger := logging.FromContext(ctx)
 
-// 	desiredDeployment := MakeServingDeployment(logger, rev, c.getNetworkConfig(), c.controllerConfig)
+	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
+	// MakeServingDeployment() would produce.
+	desiredDeployment := deployment.DeepCopy()
+	if desiredDeployment.Spec.Replicas == nil {
+		var one int32 = 1
+		desiredDeployment.Spec.Replicas = &one
+	}
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *desiredDeployment.Spec.Replicas == 0 {
+		*desiredDeployment.Spec.Replicas = 1
+	} else if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve && *desiredDeployment.Spec.Replicas != 0 {
+		*desiredDeployment.Spec.Replicas = 0
+	}
 
-// 	// Copy the userContainerImage digest and the replica count.
-// 	// We don't want autoscaling differences or user updates to the image tag
-// 	// to trigger redeployments.
-// 	desiredDeployment.Spec.Replicas = deployment.Spec.Replicas
-// 	pod := desiredDeployment.Spec.Template.Spec
-// 	for i := range pod.Containers {
-// 		if pod.Containers[i].Name == userContainerName {
-// 			pod.Containers[i].Image = desiredDeployment.Spec.Template.Spec.Containers[i].Image
-// 		}
-// 	}
+	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
+		return deployment, Unchanged, nil
+	}
+	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
+		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
+	deployment.Spec = desiredDeployment.Spec
+	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
+	return d, WasChanged, err
+}
 
-// 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-// 		return deployment, Unchanged, nil
-// 	}
-// 	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
-// 		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
-// 	deployment.Spec = desiredDeployment.Spec
-
-// 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-// 	return d, WasChanged, err
-// }
-
+// This is a generic function used both for deployment of user code & autoscaler
 func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
 	logger := logging.FromContext(ctx)
 
@@ -528,9 +503,9 @@ func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.De
 }
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := logging.FromContext(ctx)
 	ns := controller.GetServingNamespaceName(rev.Namespace)
 	serviceName := controller.GetServingK8SServiceNameForRevision(rev)
+	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
 
@@ -574,6 +549,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		if apierrs.IsNotFound(err) {
 			// If it isn't found, then we need to wait for the Service controller to
 			// create it.
+			logger.Infof("Endpoints not created yet %q", serviceName)
 			rev.Status.MarkDeploying("Deploying")
 			return nil
 		} else if err != nil {
@@ -666,7 +642,7 @@ func (c *Controller) deleteService(ctx context.Context, svc *corev1.Service) err
 
 func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if !c.controllerConfig.EnableVarLogCollection {
+	if !c.getObservabilityConfig().EnableVarLogCollection {
 		return nil
 	}
 	ns := rev.Namespace
@@ -679,7 +655,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	configMap, err := c.KubeClientSet.CoreV1().ConfigMaps(ns).Get(fluentdConfigMapName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
-		configMap = MakeFluentdConfigMap(ns, c.controllerConfig.FluentdSidecarOutputConfig)
+		configMap = MakeFluentdConfigMap(ns, c.getObservabilityConfig().FluentdSidecarOutputConfig)
 		configMap.OwnerReferences = append(configMap.OwnerReferences, *newRevisionNonControllerRef(rev))
 		logger.Infof("Creating configmap: %q", configMap.Name)
 		_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
@@ -692,7 +668,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 	// ConfigMap exists, make sure it has the right content.
 	desiredConfigMap := configMap.DeepCopy()
 	desiredConfigMap.Data = map[string]string{
-		"varlog.conf": makeFullFluentdConfig(c.controllerConfig.FluentdSidecarOutputConfig),
+		"varlog.conf": makeFullFluentdConfig(c.getObservabilityConfig().FluentdSidecarOutputConfig),
 	}
 	addOwnerReference(desiredConfigMap, newRevisionNonControllerRef(rev))
 	if !reflect.DeepEqual(desiredConfigMap, configMap) {
@@ -731,9 +707,9 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		return nil
 	}
 
-	logger := logging.FromContext(ctx)
 	ns := pkg.GetServingSystemNamespace()
 	serviceName := controller.GetRevisionAutoscalerName(rev)
+	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
 	switch rev.Spec.ServingState {
@@ -796,37 +772,43 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 		return nil
 	}
 
-	logger := logging.FromContext(ctx)
 	ns := pkg.GetServingSystemNamespace()
 	deploymentName := controller.GetRevisionAutoscalerName(rev)
+	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive:
-		// When Active, the Autoscaler Deployment should exist and have a particular specification.
-		if apierrs.IsNotFound(err) {
-			// If it does not exist, then create it.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When Active or Reserved, Autoscaler deployment should exist and have a particular specification.
+		if apierrs.IsNotFound(getDepErr) {
+			// Deployment does not exist. Create it.
+			var err error
 			deployment, err = c.createAutoscalerDeployment(ctx, rev)
 			if err != nil {
-				logger.Errorf("Error creating Autoscaler Deployment %q: %v", deploymentName, err)
+				logger.Errorf("Error creating Autoscaler deployment %q: %v", deploymentName, err)
 				return err
 			}
-			logger.Infof("Created Autoscaler Deployment %q", deploymentName)
-		} else if err != nil {
-			logger.Errorf("Error reconciling Active Autoscaler Deployment %q: %v", deploymentName, err)
-			return err
+			logger.Infof("Created Autoscaler deployment %q", deploymentName)
+		} else if getDepErr != nil {
+			logger.Errorf("Error reconciling Autoscaler deployment %q: %v", deploymentName, getDepErr)
+			return getDepErr
 		} else {
-			// TODO(mattmoor): Don't reconcile Deployments until we can avoid
-			// fighting with its defaulter.
+			// Deployment exist. Update the replica count based on the serving state if necessary
+			var err error
+			deployment, _, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+			if err != nil {
+				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
+				return err
+			}
 		}
 
 		// TODO(mattmoor): We don't predicate the Revision's readiness on any readiness
 		// properties of the autoscaler, but perhaps we should.
 		return nil
 
-	case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
+	case v1alpha1.RevisionServingStateRetired:
 		// When Reserve or Retired, we remove the underlying Autoscaler Deployment.
-		if apierrs.IsNotFound(err) {
+		if apierrs.IsNotFound(getDepErr) {
 			// If it does not exist, then we have nothing to do.
 			return nil
 		}
@@ -844,14 +826,17 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 }
 
 func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
-	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage)
-
+	var replicaCount int32 = 1
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
+		replicaCount = 0
+	}
+	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
 func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
 	logger := logging.FromContext(ctx)
-	if !c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+	if !c.getAutoscalerConfig().EnableVPA {
 		return nil
 	}
 
@@ -910,7 +895,7 @@ func (c *Controller) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vp
 
 func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPodAutoscaler) error {
 	logger := logging.FromContext(ctx)
-	if !c.controllerConfig.AutoscaleEnableVerticalPodAutoscaling.Get() {
+	if !c.getAutoscalerConfig().EnableVPA {
 		return nil
 	}
 
@@ -925,8 +910,7 @@ func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPod
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	prClient := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace)
-	newRev, err := prClient.Get(rev.Name, metav1.GetOptions{})
+	newRev, err := c.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -935,24 +919,92 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 		newRev.Status = rev.Status
 
 		// TODO: for CRD there's no updatestatus, so use normal update
-		return prClient.Update(newRev)
+		return c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(newRev)
 		//	return prClient.UpdateStatus(newRev)
 	}
 	return rev, nil
 }
 
 func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
-	c.Logger.Infof("Network config map is added or updated: %v", configMap)
-	newNetworkConfig := NewNetworkConfigFromConfigMap(configMap)
-	c.Logger.Infof("IstioOutboundIPRanges: %v", newNetworkConfig.IstioOutboundIPRanges)
-
+	newNetworkConfig, err := config.NewNetworkFromConfigMap(configMap)
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
+	if err != nil {
+		if c.networkConfig != nil {
+			c.Logger.Errorf("Error updating Network ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Network ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Network config map is added or updated: %v", configMap)
 	c.networkConfig = newNetworkConfig
 }
 
-func (c *Controller) getNetworkConfig() *NetworkConfig {
+func (c *Controller) getNetworkConfig() *config.Network {
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	return c.networkConfig
+}
+
+func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
+	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
+	newLoggingConfig := logging.NewConfigFromConfigMap(configMap)
+
+	c.loggingConfigMutex.Lock()
+	defer c.loggingConfigMutex.Unlock()
+	// TODO(mattmoor): When we support reconciling Deployment differences,
+	// we should consider triggering a global reconciliation here to the
+	// logging configuration changes are rolled out to active revisions.
+	c.loggingConfig = newLoggingConfig
+}
+
+func (c *Controller) getLoggingConfig() *logging.Config {
+	c.loggingConfigMutex.Lock()
+	defer c.loggingConfigMutex.Unlock()
+	return c.loggingConfig
+}
+
+func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
+	newObservabilityConfig, err := config.NewObservabilityFromConfigMap(configMap)
+	c.observabilityConfigMutex.Lock()
+	defer c.observabilityConfigMutex.Unlock()
+	if err != nil {
+		if c.observabilityConfig != nil {
+			c.Logger.Errorf("Error updating Observability ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Observability ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Observability config map is added or updated: %v", configMap)
+	c.observabilityConfig = newObservabilityConfig
+}
+
+func (c *Controller) getObservabilityConfig() *config.Observability {
+	c.observabilityConfigMutex.Lock()
+	defer c.observabilityConfigMutex.Unlock()
+	return c.observabilityConfig
+}
+
+func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
+	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
+	c.autoscalerConfigMutex.Lock()
+	defer c.autoscalerConfigMutex.Unlock()
+	if err != nil {
+		if c.autoscalerConfig != nil {
+			c.Logger.Errorf("Error updating Autoscaler ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Autoscaler ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Autoscaler config map is added or updated: %v", configMap)
+	c.autoscalerConfig = newAutoscalerConfig
+}
+
+func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
+	c.autoscalerConfigMutex.Lock()
+	defer c.autoscalerConfigMutex.Unlock()
+	return c.autoscalerConfig
 }

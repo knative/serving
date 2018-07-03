@@ -18,23 +18,15 @@ package configuration
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/controller"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	. "github.com/knative/serving/pkg/controller/testing"
 )
@@ -57,37 +49,16 @@ var (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	type fields struct {
-		c *ConfigurationLister
-		r *RevisionLister
-	}
-	tests := []struct {
-		name        string
-		fields      fields
-		key         string
-		wantErr     bool
-		wantCreates []metav1.Object
-		wantUpdates []clientgotesting.UpdateActionImpl
-		wantDeletes []clientgotesting.DeleteActionImpl
-		wantQueue   []string
-	}{{
-		name: "bad workqueue key",
-		fields: fields{
-			c: &ConfigurationLister{},
-			r: &RevisionLister{},
-		},
-		key: "too/many/parts",
+	table := TableTest{{
+		Name: "bad workqueue key",
+		Key:  "too/many/parts",
 	}, {
-		name: "key not found",
-		fields: fields{
-			c: &ConfigurationLister{},
-			r: &RevisionLister{},
-		},
-		key: "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 	}, {
-		name: "create revision matching generation",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "create revision matching generation",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "no-revisions-yet"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -98,15 +69,14 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{},
 		},
-		wantCreates: []metav1.Object{
+		WantCreates: []metav1.Object{
 			&v1alpha1.Revision{
 				ObjectMeta: com("foo", "no-revisions-yet", 1234),
 				Spec:       revisionSpec,
 			},
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &v1alpha1.Configuration{
 				ObjectMeta: om("foo", "no-revisions-yet"),
 				Spec: v1alpha1.ConfigurationSpec{
@@ -125,11 +95,11 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}},
-		key: "foo/no-revisions-yet",
+		Key: "foo/no-revisions-yet",
 	}, {
-		name: "create revision matching generation with build",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "create revision matching generation with build",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "need-rev-and-build"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -145,9 +115,8 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{},
 		},
-		wantCreates: []metav1.Object{
+		WantCreates: []metav1.Object{
 			&buildv1alpha1.Build{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:       "foo",
@@ -166,7 +135,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &v1alpha1.Configuration{
 				ObjectMeta: om("foo", "need-rev-and-build"),
 				Spec: v1alpha1.ConfigurationSpec{
@@ -186,11 +155,11 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}},
-		key: "foo/need-rev-and-build",
+		Key: "foo/need-rev-and-build",
 	}, {
-		name: "reconcile revision matching generation (ready: unknown)",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "reconcile revision matching generation (ready: unknown)",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "matching-revision-not-done"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -201,14 +170,14 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{
+			Revision: &RevisionLister{
 				Items: []*v1alpha1.Revision{{
 					ObjectMeta: com("foo", "matching-revision-not-done", 5432),
 					Spec:       revisionSpec,
 				}},
 			},
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &v1alpha1.Configuration{
 				ObjectMeta: om("foo", "matching-revision-not-done"),
 				Spec: v1alpha1.ConfigurationSpec{
@@ -227,11 +196,11 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}},
-		key: "foo/matching-revision-not-done",
+		Key: "foo/matching-revision-not-done",
 	}, {
-		name: "reconcile revision matching generation (ready: true)",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "reconcile revision matching generation (ready: true)",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "matching-revision-done"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -242,7 +211,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{
+			Revision: &RevisionLister{
 				Items: []*v1alpha1.Revision{{
 					ObjectMeta: com("foo", "matching-revision-done", 5555),
 					Spec:       revisionSpec,
@@ -255,7 +224,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			},
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &v1alpha1.Configuration{
 				ObjectMeta: om("foo", "matching-revision-done"),
 				Spec: v1alpha1.ConfigurationSpec{
@@ -275,11 +244,11 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}},
-		key: "foo/matching-revision-done",
+		Key: "foo/matching-revision-done",
 	}, {
-		name: "reconcile revision matching generation (ready: true, idempotent)",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "reconcile revision matching generation (ready: true, idempotent)",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "matching-revision-done-idempotent"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -299,7 +268,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{
+			Revision: &RevisionLister{
 				Items: []*v1alpha1.Revision{{
 					ObjectMeta: com("foo", "matching-revision-done-idempotent", 5566),
 					Spec:       revisionSpec,
@@ -312,11 +281,11 @@ func TestReconcile(t *testing.T) {
 				}},
 			},
 		},
-		key: "foo/matching-revision-done-idempotent",
+		Key: "foo/matching-revision-done-idempotent",
 	}, {
-		name: "reconcile revision matching generation (ready: false)",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "reconcile revision matching generation (ready: false)",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "matching-revision-failed"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -327,7 +296,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{
+			Revision: &RevisionLister{
 				Items: []*v1alpha1.Revision{{
 					ObjectMeta: com("foo", "matching-revision-failed", 5555),
 					Spec:       revisionSpec,
@@ -342,7 +311,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			},
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &v1alpha1.Configuration{
 				ObjectMeta: om("foo", "matching-revision-failed"),
 				Spec: v1alpha1.ConfigurationSpec{
@@ -363,11 +332,11 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}},
-		key: "foo/matching-revision-failed",
+		Key: "foo/matching-revision-failed",
 	}, {
-		name: "reconcile revision matching generation (ready: bad)",
-		fields: fields{
-			c: &ConfigurationLister{
+		Name: "reconcile revision matching generation (ready: bad)",
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
 				Items: []*v1alpha1.Configuration{{
 					ObjectMeta: om("foo", "bad-condition"),
 					Spec: v1alpha1.ConfigurationSpec{
@@ -378,7 +347,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}},
 			},
-			r: &RevisionLister{
+			Revision: &RevisionLister{
 				Items: []*v1alpha1.Revision{{
 					ObjectMeta: com("foo", "bad-condition", 5555),
 					Spec:       revisionSpec,
@@ -391,8 +360,8 @@ func TestReconcile(t *testing.T) {
 				}},
 			},
 		},
-		wantErr: true,
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantErr: true,
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &v1alpha1.Configuration{
 				ObjectMeta: om("foo", "bad-condition"),
 				Spec: v1alpha1.ConfigurationSpec{
@@ -411,128 +380,17 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}},
-		key: "foo/bad-condition",
+		Key: "foo/bad-condition",
 	}}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var objs []runtime.Object
-			for _, c := range tt.fields.c.Items {
-				objs = append(objs, c)
-			}
-			for _, r := range tt.fields.r.Items {
-				objs = append(objs, r)
-			}
-
-			kubeClient := fakekubeclientset.NewSimpleClientset()
-			client := fakeclientset.NewSimpleClientset(objs...)
-			buildClient := fakebuildclientset.NewSimpleClientset()
-			c := &Controller{
-				Base: controller.NewBase(controller.Options{
-					KubeClientSet:    kubeClient,
-					BuildClientSet:   buildClient,
-					ServingClientSet: client,
-					Logger:           zap.NewNop().Sugar(),
-				}, controllerAgentName, "Configurations"),
-				configurationLister: tt.fields.c,
-				revisionLister:      tt.fields.r,
-			}
-
-			if err := c.Reconcile(tt.key); (err != nil) != tt.wantErr {
-				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(tt.key)
-
-			c.WorkQueue.ShutDown()
-			var hasQueue []string
-			for {
-				key, shutdown := c.WorkQueue.Get()
-				if shutdown {
-					break
-				}
-				hasQueue = append(hasQueue, key.(string))
-			}
-			if diff := cmp.Diff(tt.wantQueue, hasQueue); diff != "" {
-				t.Errorf("unexpected queue (-want +got): %s", diff)
-			}
-
-			var createActions []clientgotesting.CreateAction
-			var updateActions []clientgotesting.UpdateAction
-			var deleteActions []clientgotesting.DeleteAction
-
-			type HasActions interface {
-				Actions() []clientgotesting.Action
-			}
-			for _, c := range []HasActions{buildClient, client, kubeClient} {
-				for _, action := range c.Actions() {
-					switch action.GetVerb() {
-					case "create":
-						createActions = append(createActions,
-							action.(clientgotesting.CreateAction))
-					case "update":
-						updateActions = append(updateActions,
-							action.(clientgotesting.UpdateAction))
-					case "delete":
-						deleteActions = append(deleteActions,
-							action.(clientgotesting.DeleteAction))
-					default:
-						t.Errorf("Unexpected verb %v", action.GetVerb())
-					}
-				}
-			}
-
-			for i, want := range tt.wantCreates {
-				if i >= len(createActions) {
-					t.Errorf("Missing create: %v", want)
-					continue
-				}
-				got := createActions[i]
-				if got.GetNamespace() != expectedNamespace {
-					t.Errorf("unexpected action[%d]: %#v", i, got)
-				}
-				obj := got.GetObject()
-				if diff := cmp.Diff(want, obj, ignoreLastTransitionTime); diff != "" {
-					t.Errorf("unexpected create (-want +got): %s", diff)
-				}
-			}
-			if got, want := len(createActions), len(tt.wantCreates); got > want {
-				t.Errorf("Extra creates: %v", createActions[want:])
-			}
-
-			for i, want := range tt.wantUpdates {
-				if i >= len(updateActions) {
-					t.Errorf("Missing update: %v", want)
-					continue
-				}
-				got := updateActions[i]
-				if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime); diff != "" {
-					t.Errorf("unexpected update (-want +got): %s", diff)
-				}
-			}
-			if got, want := len(updateActions), len(tt.wantUpdates); got > want {
-				t.Errorf("Extra updates: %v", updateActions[want:])
-			}
-
-			for i, want := range tt.wantDeletes {
-				if i >= len(deleteActions) {
-					t.Errorf("Missing delete: %v", want)
-					continue
-				}
-				got := deleteActions[i]
-				if got.GetName() != want.Name || got.GetNamespace() != expectedNamespace {
-					t.Errorf("unexpected delete[%d]: %#v", i, got)
-				}
-			}
-			if got, want := len(deleteActions), len(tt.wantDeletes); got > want {
-				t.Errorf("Extra deletes: %v", deleteActions[want:])
-			}
-		})
-	}
+	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
+		return &Controller{
+			Base:                controller.NewBase(opt, controllerAgentName, "Configurations"),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+		}
+	})
 }
-
-var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
-	return strings.HasSuffix(p.String(), "LastTransitionTime.Time")
-}, cmp.Ignore())
 
 // or builds OwnerReferences for a child of a Configuration
 func or(name string) []metav1.OwnerReference {

@@ -18,7 +18,7 @@ package revision
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // fluentdSidecarPreOutputConfig defines source and filter configurations for
@@ -67,7 +67,7 @@ const fluentdConfigMapName = "fluentd-varlog-config"
 func MakeFluentdConfigMap(
 	namespace string, fluentdSidecarOutputConfig string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      fluentdConfigMapName,
 			Namespace: namespace,
 		},
