@@ -535,8 +535,6 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	rev.Status.ServiceName = serviceName
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
-	ss := rev.Spec.ServingState
-	teardown := rev.Status.ReadyToTearDownResources()
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
 		// When the Revision is routable (Active, ToReserve or
@@ -619,7 +617,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			return err
 		}
 		logger.Infof("Deleted Service %q", serviceName)
-		rev.Status.MarkInactive()
+		rev.Status.MarkIdle()
 		return nil
 
 	default:

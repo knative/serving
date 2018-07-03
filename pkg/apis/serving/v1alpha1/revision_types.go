@@ -238,13 +238,6 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-func (rs *RevisionStatus) IsActivationRequired() bool {
-	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
-		return cond.Status == corev1.ConditionTrue
-	}
-	return false
-}
-
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
@@ -426,12 +419,29 @@ func (rs *RevisionStatus) ReadyToTearDownResources() bool {
 	return false
 }
 
-func (rs *RevisionStatus) MarkInactive() {
+func (rs *RevisionStatus) MarkIdle() {
 	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Inactive",
+		Type:    RevisionConditionIdle,
+		Status:  corev1.ConditionTrue,
+		Reason:  "Idle",
+		Message: "Revision has not received traffic recently.",
 	})
+}
+
+func (rs *RevisionStatus) MarkUnIdle() {
+	rs.setCondition(&RevisionCondition{
+		Type:    RevisionConditionIdle,
+		Status:  corev1.ConditionTrue,
+		Reason:  "UnIdle",
+		Message: "Revision has received traffic recently.",
+	})
+}
+
+func (rs *RevisionStatus) IsIdle() bool {
+	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
+		return cond.Status == corev1.ConditionTrue
+	}
+	return false
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
