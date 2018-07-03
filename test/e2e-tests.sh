@@ -140,7 +140,7 @@ function run_e2e_tests() {
   kubectl label namespace $2 istio-injection=enabled --overwrite
   local options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
-  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3 ${options}
+  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$3 ${options}
 
   local result=$?
   [[ ${result} -ne 0 ]] && dump_stack_info
@@ -297,9 +297,9 @@ abort_if_failed
 
 # Run the tests
 
-run_e2e_tests conformance pizzaplanet ela-conformance-test
+run_e2e_tests conformance pizzaplanet conformance
 result=$?
-run_e2e_tests e2e noodleburg ela-e2e-test
+run_e2e_tests e2e noodleburg e2e
 [[ $? -ne 0 || ${result} -ne 0 ]] && exit 1
 
 # kubetest teardown might fail and thus incorrectly report failure of the
