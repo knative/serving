@@ -36,12 +36,6 @@ var (
 	initialScaleToZeroThreshold string
 )
 
-func isExpectedOutput() func(body string) (bool, error) {
-	return func(body string) (bool, error) {
-		return strings.Contains(body, autoscaleExpectedOutput), nil
-	}
-}
-
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
 		return d.Status.ReadyReplicas >= 1, nil
@@ -64,7 +58,7 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num 
 				logger,
 				test.Flags.ResolvableDomain,
 				domain,
-				isExpectedOutput(),
+				test.EventuallyMatchesBody(autoscaleExpectedOutput),
 				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
@@ -165,7 +159,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		logger,
 		test.Flags.ResolvableDomain,
 		domain,
-		isExpectedOutput(),
+		test.EventuallyMatchesBody(autoscaleExpectedOutput),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve

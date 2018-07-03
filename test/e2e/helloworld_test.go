@@ -29,12 +29,6 @@ const (
 	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 )
 
-func isHelloWorldExpectedOutput() func(body string) (bool, error) {
-	return func(body string) (bool, error) {
-		return strings.TrimRight(body, "\n") == helloWorldExpectedOutput, nil
-	}
-}
-
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
@@ -63,7 +57,7 @@ func TestHelloWorld(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, isHelloWorldExpectedOutput(), "HelloWorldServesText")
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
