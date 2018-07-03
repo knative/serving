@@ -30,10 +30,23 @@ import (
 )
 
 const (
-	PortNumber            = 80
-	PortName              = "http"
-	EnvoyTimeoutHeader    = "x-envoy-upstream-rq-timeout-ms"
-	DefaultEnvoyTimeoutMs = "60000"
+	PortNumber = 80
+	PortName   = "http"
+
+	// There is a bug in Istio 0.8 preventing the timeout to
+	// be set more than 15 seconds.  The bug is now fixed at HEAD,
+	// but not yet released.  15 seconds is too short for our 0->1
+	// use case (see https://github.com/knative/serving/issues/1297).
+	//
+	// HACK: This applies the workaround suggested in
+	//     https://github.com/istio/istio/issues/6230
+	// to allow setting a longer timeout than 15s.
+	//
+	// TODO: Remove hack when Istio 1.0 is out.
+	IstioTimeoutHackHeaderKey   = "x-envoy-upstream-rq-timeout-ms"
+	IstioTimeoutHackHeaderValue = "0"
+
+	DefaultActivatorTimeout = "60s"
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -164,8 +177,9 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 	r.AppendHeaders = map[string]string{
 		controller.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
 		controller.GetRevisionHeaderNamespace(): ns,
-		EnvoyTimeoutHeader:                      DefaultEnvoyTimeoutMs,
+		IstioTimeoutHackHeaderKey:               IstioTimeoutHackHeaderValue,
 	}
+	r.Timeout = DefaultActivatorTimeout
 	return r
 }
 

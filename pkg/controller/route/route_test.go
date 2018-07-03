@@ -395,10 +395,11 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():      "test-rev",
-				ctrl.GetRevisionHeaderNamespace(): testNamespace,
-				resources.EnvoyTimeoutHeader:      resources.DefaultEnvoyTimeoutMs,
+				ctrl.GetRevisionHeaderName():        "test-rev",
+				ctrl.GetRevisionHeaderNamespace():   testNamespace,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
+			Timeout: resources.DefaultActivatorTimeout,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -562,10 +563,11 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Weight: 90,
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():      "test-rev",
-				ctrl.GetRevisionHeaderNamespace(): testNamespace,
-				resources.EnvoyTimeoutHeader:      resources.DefaultEnvoyTimeoutMs,
+				ctrl.GetRevisionHeaderName():        "test-rev",
+				ctrl.GetRevisionHeaderNamespace():   testNamespace,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
+			Timeout: resources.DefaultActivatorTimeout,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
