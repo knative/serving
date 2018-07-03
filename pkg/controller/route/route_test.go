@@ -43,6 +43,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/route/config"
 	"github.com/knative/serving/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -177,7 +178,7 @@ func newTestController(configs ...*corev1.ConfigMap) (
 	var cms []*corev1.ConfigMap
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ctrl.GetDomainConfigMapName(),
+			Name:      config.DomainConfigName,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{
@@ -1206,7 +1207,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ctrl.GetDomainConfigMapName(),
+					Name:      config.DomainConfigName,
 					Namespace: pkg.GetServingSystemNamespace(),
 				},
 				Data: map[string]string{
@@ -1221,7 +1222,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ctrl.GetDomainConfigMapName(),
+					Name:      config.DomainConfigName,
 					Namespace: pkg.GetServingSystemNamespace(),
 				},
 				Data: map[string]string{
@@ -1238,7 +1239,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ctrl.GetDomainConfigMapName(),
+					Name:      config.DomainConfigName,
 					Namespace: pkg.GetServingSystemNamespace(),
 				},
 				Data: map[string]string{

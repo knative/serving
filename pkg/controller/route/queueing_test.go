@@ -26,6 +26,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/configmap"
 	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/route/config"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,7 +65,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	configMapWatcher := configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ctrl.GetDomainConfigMapName(),
+			Name:      config.DomainConfigName,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{

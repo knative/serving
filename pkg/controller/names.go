@@ -25,9 +25,6 @@ import (
 func GetK8SServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
 }
-func GetDomainConfigMapName() string {
-	return "config-domain"
-}
 
 func GetNetworkConfigMapName() string {
 	return "config-network"

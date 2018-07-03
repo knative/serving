@@ -24,6 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	DomainConfigName = "config-domain"
+)
+
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
 // map is equivalent to a requirement key == value. The requirements are ANDed.
 type LabelSelector struct {
