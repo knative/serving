@@ -23,7 +23,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg"
-	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -32,7 +31,7 @@ func TestNewObservabilityNoEntry(t *testing.T) {
 	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetObservabilityConfigMapName(),
+			Name:      ObservabilityConfigName,
 		},
 	})
 	if err != nil {
@@ -50,7 +49,7 @@ func TestNewObservabilityNoSidecar(t *testing.T) {
 	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetObservabilityConfigMapName(),
+			Name:      ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection": "true",
@@ -68,7 +67,7 @@ func TestNewObservability(t *testing.T) {
 	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetObservabilityConfigMapName(),
+			Name:      ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -92,7 +91,7 @@ func TestNewObservability(t *testing.T) {
 }
 
 func TestOurObservability(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetObservabilityConfigMapName()))
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ObservabilityConfigName))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
 	}

@@ -86,7 +86,7 @@ func NewController(
 		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute),
 	})
 	c.Logger.Info("Setting up ConfigMap receivers")
-	opt.ConfigMapWatcher.Watch(controller.GetDomainConfigMapName(), c.receiveDomainConfig)
+	opt.ConfigMapWatcher.Watch(config.DomainConfigName, c.receiveDomainConfig)
 	return c
 }
 

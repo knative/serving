@@ -204,7 +204,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            controller.GetRevisionDeploymentName(rev),
+			Name:            DeploymentName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),

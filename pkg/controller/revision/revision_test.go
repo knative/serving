@@ -135,7 +135,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetNetworkConfigMapName(),
+			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -149,7 +149,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -261,7 +261,7 @@ func addResourcesToInformers(t *testing.T,
 
 	ns := ctrl.GetServingNamespaceName(rev.Namespace)
 
-	deploymentName := ctrl.GetRevisionDeploymentName(rev)
+	deploymentName := resources.DeploymentName(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
 		// If we're doing a Build this won't exist yet.
@@ -272,12 +272,12 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add autoscaler deployment if any
-	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(ctrl.GetRevisionAutoscalerName(rev), metav1.GetOptions{})
+	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(resources.AutoscalerName(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(autoscalerDeployment)
 	}
 
-	serviceName := ctrl.GetServingK8SServiceNameForRevision(rev)
+	serviceName := resources.K8sServiceName(rev)
 	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
 		// If we're doing a Build this won't exist yet.
@@ -288,7 +288,7 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add autoscaler service if any
-	autoscalerService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(ctrl.GetRevisionAutoscalerName(rev), metav1.GetOptions{})
+	autoscalerService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(resources.AutoscalerName(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(autoscalerService)
 	}
@@ -443,7 +443,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
-	createdVPA, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(ctrl.GetRevisionVPAName(rev), metav1.GetOptions{})
+	createdVPA, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(resources.VPAName(rev), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get vpa: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -482,7 +482,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controller.receiveObservabilityConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -709,11 +709,11 @@ func TestReconcileReplicaCount(t *testing.T) {
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 	createRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
 	getDeployments := func() (*appsv1.Deployment, *appsv1.Deployment) {
-		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(ctrl.GetRevisionDeploymentName(rev), metav1.GetOptions{})
+		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resources.DeploymentName(rev), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Expected to have a deployment but found none: %v", err)
 		}
-		d2, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(ctrl.GetRevisionAutoscalerName(rev), metav1.GetOptions{})
+		d2, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(resources.AutoscalerName(rev), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Expected to have an autoscaler deployment but found none: %v", err)
 		}
@@ -790,7 +790,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	controller.resolver = &fixedResolver{digest}
 	controller.receiveNetworkConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ctrl.GetNetworkConfigMapName(),
+			Name:      config.NetworkConfigName,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{

@@ -141,7 +141,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetNetworkConfigMapName(),
+			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -155,7 +155,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",

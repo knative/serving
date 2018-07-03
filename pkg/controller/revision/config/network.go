@@ -24,6 +24,8 @@ import (
 )
 
 const (
+	NetworkConfigName = "config-network"
+
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"

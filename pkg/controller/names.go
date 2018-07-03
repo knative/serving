@@ -18,23 +18,10 @@ package controller
 
 import (
 	"fmt"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func GetK8SServiceFullname(name string, namespace string) string {
+func GetK8sServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
-}
-func GetDomainConfigMapName() string {
-	return "config-domain"
-}
-
-func GetNetworkConfigMapName() string {
-	return "config-network"
-}
-
-func GetObservabilityConfigMapName() string {
-	return "config-observability"
 }
 
 // Various functions for naming the resources for consistency
@@ -44,52 +31,8 @@ func GetServingNamespaceName(ns string) string {
 	return ns
 }
 
-func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
-	return u.Name + "-deployment"
-}
-
-func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
-	return u.Name + "-autoscaler"
-}
-
-func GetRevisionVPAName(u *v1alpha1.Revision) string {
-	return u.Name + "-vpa"
-}
-
-func GetServingK8SServiceNameForRevision(u *v1alpha1.Revision) string {
-	return u.Name + "-service"
-}
-
-func GetServingK8SServiceNameForRoute(u *v1alpha1.Route) string {
-	return u.Name + "-service"
-}
-
-func GetVirtualServiceName(u *v1alpha1.Route) string {
-	return u.Name + "-istio"
-}
-
-func GetServingK8SGatewayFullname() string {
-	return GetK8SServiceFullname("knative-shared-gateway", "knative-serving")
-}
-
 func GetServingK8SServiceNameForObj(name string) string {
 	return name + "-service"
-}
-
-func GetServingK8SServiceFullnameForRoute(u *v1alpha1.Route) string {
-	return GetK8SServiceFullname(GetServingK8SServiceNameForRoute(u), u.Namespace)
-}
-
-func GetServiceConfigurationName(u *v1alpha1.Service) string {
-	return u.Name
-}
-
-func GetServiceRouteName(u *v1alpha1.Service) string {
-	return u.Name
-}
-
-func GetServingK8SActivatorServiceName() string {
-	return "activator-service"
 }
 
 func GetRevisionHeaderName() string {

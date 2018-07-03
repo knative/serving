@@ -24,7 +24,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg"
-	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -63,7 +62,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 	_, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetDomainConfigMapName(),
+			Name:      DomainConfigName,
 		},
 	})
 	if err == nil {
@@ -75,7 +74,7 @@ func TestNewConfigBadYaml(t *testing.T) {
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetDomainConfigMapName(),
+			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
 			"default.com": "bad: yaml: all: day",
@@ -106,7 +105,7 @@ func TestNewConfig(t *testing.T) {
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetDomainConfigMapName(),
+			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
 			"test-domain.foo.com": "selector:\n  app: foo",
@@ -178,7 +177,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 }
 
 func TestOurDomain(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetDomainConfigMapName()))
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", DomainConfigName))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
 	}

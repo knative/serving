@@ -29,7 +29,7 @@ import (
 func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetServiceConfigurationName(service),
+			Name:      ConfigurationName(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewControllerRef(service),

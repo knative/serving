@@ -13,30 +13,25 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package activator
 
-const (
-	// The name of the activator service.
-	K8sServiceName = "activator-service"
+package resources
+
+import (
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-// Status is an HTTP status code.
-type Status int
-
-// Activator provides an active endpoint for a revision or an error and
-// status code indicating why it could not.
-type Activator interface {
-	ActiveEndpoint(namespace, name string) (Endpoint, Status, error)
-	Shutdown()
+func DeploymentName(rev *v1alpha1.Revision) string {
+	return rev.Name + "-deployment"
 }
 
-type revisionID struct {
-	namespace string
-	name      string
+func AutoscalerName(rev *v1alpha1.Revision) string {
+	return rev.Name + "-autoscaler"
 }
 
-// Endpoint is a fully-qualified domain name / port pair for an active revision.
-type Endpoint struct {
-	FQDN string
-	Port int32
+func VPAName(rev *v1alpha1.Revision) string {
+	return rev.Name + "-vpa"
+}
+
+func K8sServiceName(rev *v1alpha1.Revision) string {
+	return rev.Name + "-service"
 }

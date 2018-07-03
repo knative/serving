@@ -23,6 +23,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	ObservabilityConfigName = "config-observability"
+)
+
 // Observability contains the configuration defined in the observability ConfigMap.
 type Observability struct {
 	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
