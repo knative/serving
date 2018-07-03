@@ -23,7 +23,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg"
-	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -32,7 +31,7 @@ func TestNewNetworkNoEntry(t *testing.T) {
 	c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      controller.GetNetworkConfigMapName(),
+			Name:      NetworkConfigName,
 		},
 	})
 	if err != nil {
@@ -53,7 +52,7 @@ func TestNewNetwork(t *testing.T) {
 		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: pkg.GetServingSystemNamespace(),
-				Name:      controller.GetNetworkConfigMapName(),
+				Name:      NetworkConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: want,
@@ -85,7 +84,7 @@ func TestBadNetwork(t *testing.T) {
 		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: pkg.GetServingSystemNamespace(),
-				Name:      controller.GetNetworkConfigMapName(),
+				Name:      NetworkConfigName,
 			},
 			Data: map[string]string{
 				IstioOutboundIPRangesKey: invalid,
@@ -98,7 +97,7 @@ func TestBadNetwork(t *testing.T) {
 }
 
 func TestOurNetwork(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetNetworkConfigMapName()))
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", NetworkConfigName))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
 	}

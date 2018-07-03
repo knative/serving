@@ -195,9 +195,9 @@ func NewController(
 		},
 	})
 
-	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
+	opt.ConfigMapWatcher.Watch(config.NetworkConfigName, c.receiveNetworkConfig)
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
-	opt.ConfigMapWatcher.Watch(controller.GetObservabilityConfigMapName(), c.receiveObservabilityConfig)
+	opt.ConfigMapWatcher.Watch(config.ObservabilityConfigName, c.receiveObservabilityConfig)
 	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
 
 	return c

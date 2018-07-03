@@ -26,14 +26,6 @@ func GetK8SServiceFullname(name string, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
 }
 
-func GetNetworkConfigMapName() string {
-	return "config-network"
-}
-
-func GetObservabilityConfigMapName() string {
-	return "config-observability"
-}
-
 // Various functions for naming the resources for consistency
 func GetServingNamespaceName(ns string) string {
 	// We create resources in the same namespace as the Knative Serving resources by default.

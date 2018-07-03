@@ -135,7 +135,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetNetworkConfigMapName(),
+			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -149,7 +149,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -464,7 +464,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -482,7 +482,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controller.receiveObservabilityConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -790,7 +790,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	controller.resolver = &fixedResolver{digest}
 	controller.receiveNetworkConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ctrl.GetNetworkConfigMapName(),
+			Name:      config.NetworkConfigName,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{
