@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	QueueContainerName = "queue-proxy"
-	AutoscalerPort     = 8080
+	QueueContainerName       = "queue-proxy"
+	AutoscalerPort           = 8080
+	ServicePort        int32 = 80
 )
 
 // pseudo-constants

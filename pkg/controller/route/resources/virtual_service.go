@@ -24,7 +24,7 @@ import (
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-	"github.com/knative/serving/pkg/controller/revision"
+	revisionresources "github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -113,7 +113,7 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 				Host: controller.GetK8SServiceFullname(
 					controller.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName), ns),
 				Port: v1alpha3.PortSelector{
-					Number: uint32(revision.ServicePort),
+					Number: uint32(revisionresources.ServicePort),
 				},
 			},
 			Weight: t.Percent,
@@ -156,7 +156,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		Destination: v1alpha3.Destination{
 			Host: fmt.Sprintf("%s.%s.svc.cluster.local", controller.GetServingK8SActivatorServiceName(), pkg.GetServingSystemNamespace()),
 			Port: v1alpha3.PortSelector{
-				Number: uint32(revision.ServicePort),
+				Number: uint32(revisionresources.ServicePort),
 			},
 		},
 		Weight: totalInactivePercent,

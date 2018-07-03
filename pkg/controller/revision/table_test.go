@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1274,7 +1275,7 @@ func getService(namespace, name string, servingState v1alpha1.RevisionServingSta
 
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeRevisionK8sService(rev)
+	return resources.MakeK8sService(rev)
 }
 
 func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
