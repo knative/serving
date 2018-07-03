@@ -1663,26 +1663,26 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	// A valid IP range
 	want := "10.10.10.0/24"
 	annotations = getPodAnnotationsForConfig(t, want, "")
-	if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// An invalid IP range
 	want = "10.10.10.10/33"
 	annotations = getPodAnnotationsForConfig(t, want, "")
-	if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
-		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, want, got)
+	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; ok {
+		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// Configuration has an annotation override - its value must be preserved
 	want = "10.240.10.0/14"
 	annotations = getPodAnnotationsForConfig(t, "", want)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
+		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
+		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 }
 
@@ -1784,7 +1784,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	if len(configAnnotationOverride) > 0 {
-		rev.ObjectMeta.Annotations = map[string]string{istioOutboundIPRangeAnnotation: configAnnotationOverride}
+		rev.ObjectMeta.Annotations = map[string]string{resources.IstioOutboundIPRangeAnnotation: configAnnotationOverride}
 	}
 
 	rev.OwnerReferences = append(

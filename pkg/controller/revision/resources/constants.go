@@ -26,11 +26,17 @@ const (
 	EnvoyContainerName   = "istio-proxy"
 	QueueContainerName   = "queue-proxy"
 
-	SidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	SidecarIstioInjectAnnotation   = "sidecar.istio.io/inject"
+	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
+
+	userPortName = "user-port"
+	userPort     = 8080
 
 	AutoscalerPort       = 8080
 	ServicePort    int32 = 80
 )
+
+var ProgressDeadlineSeconds int32 = 120
 
 // pseudo-constants
 var (

@@ -65,9 +65,6 @@ import (
 )
 
 const (
-	userPortName = "user-port"
-	userPort     = 8080
-
 	controllerAgentName = "revision-controller"
 
 	serviceTimeoutDuration = 5 * time.Minute
@@ -408,7 +405,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// status to surface in the Revision.
 		if cond := getDeploymentProgressCondition(deployment); cond != nil {
 			rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
-				"Unable to create pods for more than %d seconds.", progressDeadlineSeconds))
+				"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 			c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 				"Revision %s not ready due to Deployment timeout", rev.Name)
 		}
@@ -441,7 +438,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
+	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
 		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
@@ -459,7 +456,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
-	// MakeServingDeployment() would produce.
+	// resources.MakeDeployment() would produce.
 	desiredDeployment := deployment.DeepCopy()
 	if desiredDeployment.Spec.Replicas == nil {
 		var one int32 = 1
