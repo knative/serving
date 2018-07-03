@@ -261,7 +261,7 @@ fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/ela-e2e-img
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/knative-e2e-img
 fi
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
