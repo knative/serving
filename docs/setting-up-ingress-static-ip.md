@@ -1,4 +1,4 @@
-# Setting Up Static IP for Kantive Gateway
+# Setting Up Static IP for Knative Gateway
 
 Knative uses a shared Gateway to serve all incoming traffic within Knative 
 service mesh, which is the "knative-shared-gateway" Gateway under 
