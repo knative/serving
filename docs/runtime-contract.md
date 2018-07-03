@@ -316,6 +316,12 @@ connected directly.
 * The linux process specific properties MUST NOT be configurable by the Knative
   developer, and MAY set by the operator or platform provider.
 
+The following environment variables MUST be set:
+
+| Name | Meaning |
+|------|---------|
+| `PORT` | Incress `containerPort` for ingress requests and health checks. See [Inbound network connectivity](#inbound-network-connectivity) for more details.
+
 Platform providers MAY set additional environment variables. Standardization of
 such variables will follow demonstrated usage and utility.
 
