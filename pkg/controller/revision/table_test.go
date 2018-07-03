@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1264,7 +1265,7 @@ func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStat
 	}
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeServingDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
+	return resources.MakeDeployment(rev, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig, replicaCount)
 }
 
@@ -1274,7 +1275,7 @@ func getService(namespace, name string, servingState v1alpha1.RevisionServingSta
 
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeRevisionK8sService(rev)
+	return resources.MakeK8sService(rev)
 }
 
 func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
@@ -1301,7 +1302,7 @@ func getASDeploy(namespace, name string, servingState v1alpha1.RevisionServingSt
 	}
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeServingAutoscalerDeployment(rev, controllerConfig.AutoscalerImage, replicaCount)
+	return resources.MakeAutoscalerDeployment(rev, controllerConfig.AutoscalerImage, replicaCount)
 }
 
 func getASService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
@@ -1310,7 +1311,7 @@ func getASService(namespace, name string, servingState v1alpha1.RevisionServingS
 
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeServingAutoscalerService(rev)
+	return resources.MakeAutoscalerService(rev)
 }
 
 func getASEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,

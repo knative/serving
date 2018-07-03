@@ -34,7 +34,7 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewControllerRef(service),
 			},
-			Labels: MakeLabels(service),
+			Labels: makeLabels(service),
 		},
 	}
 

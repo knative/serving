@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package resources
 
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -26,42 +26,78 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
-	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
-	// for how CPU and memory values were calculated.
-
-	// Each Knative Serving pod gets 500m cpu initially.
-	userContainerCPU    = "400m"
-	queueContainerCPU   = "25m"
-	fluentdContainerCPU = "25m"
-	envoyContainerCPU   = "50m"
-
-	// Limit CPU recommendation to 2000m
-	userContainerMaxCPU    = "1700m"
-	queueContainerMaxCPU   = "200m"
-	fluentdContainerMaxCPU = "100m"
-	envoyContainerMaxCPU   = "200m"
-
-	// Limit memory recommendation to 4G
-	userContainerMaxMemory    = "3700M"
-	queueContainerMaxMemory   = "100M"
-	fluentdContainerMaxMemory = "100M"
-	envoyContainerMaxMemory   = "100M"
-
-	fluentdConfigMapVolumeName     = "configmap"
-	varLogVolumeName               = "varlog"
-	istioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
+	fluentdConfigMapVolumeName = "configmap"
+	varLogVolumeName           = "varlog"
 )
 
 var (
-	// TODO (arvtiwar): this should be a config option.
-	// Must be var for us to take its address.
-	progressDeadlineSeconds int32 = 120
+	varLogVolume = corev1.Volume{
+		Name: varLogVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	varLogVolumeMount = corev1.VolumeMount{
+		Name:      varLogVolumeName,
+		MountPath: "/var/log",
+	}
+
+	fluentdConfigMapVolume = corev1.Volume{
+		Name: fluentdConfigMapVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "fluentd-varlog-config",
+				},
+			},
+		},
+	}
+
+	userPorts = []corev1.ContainerPort{{
+		Name:          userPortName,
+		ContainerPort: int32(userPort),
+	}}
+
+	userResources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: userContainerCPU,
+		},
+	}
+
+	// Add our own PreStop hook here, which should do two things:
+	// - make the container fails the next readinessCheck to avoid
+	//   having more traffic, and
+	// - add a small delay so that the container stays alive a little
+	//   bit longer in case stoppage of traffic is not effective
+	//   immediately.
+	userLifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Path: queue.RequestQueueQuitPath,
+			},
+		},
+	}
+
+	fluentdResources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: fluentdContainerCPU,
+		},
+	}
+
+	fluentdVolumeMounts = []corev1.VolumeMount{{
+		Name:      varLogVolumeName,
+		MountPath: "/var/log/revisions",
+	}, {
+		Name:      fluentdConfigMapVolumeName,
+		MountPath: "/etc/fluent/config.d",
+	}}
 )
 
 func hasHTTPPath(p *corev1.Probe) bool {
@@ -74,100 +110,50 @@ func hasHTTPPath(p *corev1.Probe) bool {
 	return p.Handler.HTTPGet.Path != ""
 }
 
-// MakeServingPodSpec creates a pod spec.
-func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
+func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
 	}
 
-	varLogVolume := corev1.Volume{
-		Name: varLogVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
-	userContainer.Name = userContainerName
-	userContainer.Resources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse(userContainerCPU),
-		},
-	}
-	userContainer.Ports = []corev1.ContainerPort{{
-		Name:          userPortName,
-		ContainerPort: int32(userPort),
-	}}
-	userContainer.VolumeMounts = append(
-		userContainer.VolumeMounts,
-		corev1.VolumeMount{
-			Name:      varLogVolumeName,
-			MountPath: "/var/log",
-		},
-	)
-	// Add our own PreStop hook here, which should do two things:
-	// - make the container fails the next readinessCheck to avoid
-	//   having more traffic, and
-	// - add a small delay so that the container stays alive a little
-	//   bit longer in case stoppage of traffic is not effective
-	//   immediately.
-	//
-	// TODO(tcnghia): Fail validation webhook when users specify their
-	// own lifecycle hook.
-	userContainer.Lifecycle = &corev1.Lifecycle{
-		PreStop: &corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(queue.RequestQueueAdminPort),
-				Path: queue.RequestQueueQuitPath,
-			},
-		},
-	}
+	userContainer.Name = UserContainerName
+	userContainer.Resources = userResources
+	userContainer.Ports = userPorts
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
+	userContainer.Lifecycle = userLifecycle
+
 	// If the client provided a readiness check endpoint, we should
 	// fill in the port for them so that requests also go through
 	// queue proxy for a better health checking logic.
-	//
-	// TODO(tcnghia): Fail validation webhook when users specify their
-	// own port in readiness checks.
 	if hasHTTPPath(userContainer.ReadinessProbe) {
 		userContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
 	}
 
 	podSpec := &corev1.PodSpec{
-		Containers:         []corev1.Container{*userContainer, *MakeServingQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig)},
+		Containers: []corev1.Container{
+			*userContainer,
+			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
+		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
 	if observabilityConfig.EnableVarLogCollection {
-		fluentdConfigMapVolume := corev1.Volume{
-			Name: fluentdConfigMapVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "fluentd-varlog-config",
-					},
-				},
-			},
-		}
-
+		// TODO(mattmoor): We should have a fluentd.go that serves a similar purpose to queue.go
 		fluentdContainer := corev1.Container{
-			Name:  fluentdContainerName,
-			Image: observabilityConfig.FluentdSidecarImage,
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
-				},
-			},
+			Name:      fluentdContainerName,
+			Image:     observabilityConfig.FluentdSidecarImage,
+			Resources: fluentdResources,
 			Env: []corev1.EnvVar{{
 				Name:  "FLUENTD_ARGS",
 				Value: "--no-supervisor -q",
 			}, {
 				Name:  "SERVING_CONTAINER_NAME",
-				Value: userContainerName,
+				Value: UserContainerName,
 			}, {
 				Name:  "SERVING_CONFIGURATION",
 				Value: configName,
@@ -185,13 +171,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 					},
 				},
 			}},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      varLogVolumeName,
-				MountPath: "/var/log/revisions",
-			}, {
-				Name:      fluentdConfigMapVolumeName,
-				MountPath: "/etc/fluent/config.d",
-			}},
+			VolumeMounts: fluentdVolumeMounts,
 		}
 
 		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
@@ -201,12 +181,11 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	return podSpec
 }
 
-// MakeServingDeployment creates a deployment.
-func MakeServingDeployment(rev *v1alpha1.Revision,
+func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
 
-	podTemplateAnnotations := MakeServingResourceAnnotations(rev)
+	podTemplateAnnotations := makeAnnotations(rev)
 	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
@@ -217,9 +196,9 @@ func MakeServingDeployment(rev *v1alpha1.Revision,
 	// If these conditions are not met, this value will be left untouched.
 	// * is a special value that is accepted as a valid.
 	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
-	if _, ok := podTemplateAnnotations[istioOutboundIPRangeAnnotation]; !ok {
+	if _, ok := podTemplateAnnotations[IstioOutboundIPRangeAnnotation]; !ok {
 		if len(networkConfig.IstioOutboundIPRanges) > 0 {
-			podTemplateAnnotations[istioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
+			podTemplateAnnotations[IstioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
 		}
 	}
 
@@ -227,20 +206,20 @@ func MakeServingDeployment(rev *v1alpha1.Revision,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionDeploymentName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
-			Labels:          MakeServingResourceLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &replicaCount,
-			Selector:                MakeServingResourceSelector(rev),
-			ProgressDeadlineSeconds: &progressDeadlineSeconds,
+			Selector:                makeSelector(rev),
+			ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeServingResourceLabels(rev),
+					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *MakeServingPodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),
+				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, controllerConfig),
 			},
 		},
 	}

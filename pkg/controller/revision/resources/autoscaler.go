@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package resources
 
 import (
 	"fmt"
@@ -23,7 +23,9 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/logging"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,70 +34,92 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeServingAutoscalerDeployment creates the deployment of the
-// autoscaler for a particular revision.
-func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, replicaCount int32) *appsv1.Deployment {
+var (
+	loggingConfigVolume = corev1.Volume{
+		Name: logging.ConfigName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: logging.ConfigName,
+				},
+			},
+		},
+	}
+
+	autoscalerConfigVolume = corev1.Volume{
+		Name: autoscaler.ConfigName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: autoscaler.ConfigName,
+				},
+			},
+		},
+	}
+
+	autoscalerVolumes = []corev1.Volume{
+		autoscalerConfigVolume,
+		loggingConfigVolume,
+	}
+
+	autoscalerVolumeMounts = []corev1.VolumeMount{{
+		Name:      autoscaler.ConfigName,
+		MountPath: "/etc/config-autoscaler",
+	}, {
+		Name:      logging.ConfigName,
+		MountPath: "/etc/config-logging",
+	}}
+
+	autoscalerServicePorts = []corev1.ServicePort{{
+		Name:       "autoscaler-port",
+		Port:       int32(AutoscalerPort),
+		TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: AutoscalerPort},
+	}}
+
+	autoscalerResources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("25m"),
+		},
+	}
+
+	autoscalerPorts = []corev1.ContainerPort{{
+		Name:          "autoscaler-port",
+		ContainerPort: AutoscalerPort,
+	}}
+)
+
+// MakeAutoscalerDeployment creates the deployment of the autoscaler for a particular revision.
+func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, replicaCount int32) *appsv1.Deployment {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
 	}
 
-	annotations := MakeServingResourceAnnotations(rev)
+	annotations := makeAnnotations(rev)
 	annotations[sidecarIstioInjectAnnotation] = "true"
-
-	const autoscalerConfigName = "config-autoscaler"
-	autoscalerConfigVolume := corev1.Volume{
-		Name: autoscalerConfigName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: autoscalerConfigName,
-				},
-			},
-		},
-	}
-
-	const loggingConfigName = "config-logging"
-	loggingConfigVolume := corev1.Volume{
-		Name: loggingConfigName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: loggingConfigName,
-				},
-			},
-		},
-	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
-			Labels:          MakeServingResourceLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Labels:          makeLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicaCount,
-			Selector: MakeServingResourceSelector(rev),
+			Selector: makeSelector(rev),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      makeServingAutoScalerLabels(rev),
+					Labels:      makeAutoScalerLabels(rev),
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:  "autoscaler",
-						Image: autoscalerImage,
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceName("cpu"): resource.MustParse("25m"),
-							},
-						},
-						Ports: []corev1.ContainerPort{{
-							Name:          "autoscaler-port",
-							ContainerPort: autoscalerPort,
-						}},
+						Name:      "autoscaler",
+						Image:     autoscalerImage,
+						Resources: autoscalerResources,
+						Ports:     autoscalerPorts,
 						Env: []corev1.EnvVar{{
 							Name:  "SERVING_NAMESPACE",
 							Value: rev.Namespace,
@@ -110,45 +134,34 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 							Value: rev.Name,
 						}, {
 							Name:  "SERVING_AUTOSCALER_PORT",
-							Value: strconv.Itoa(autoscalerPort),
+							Value: strconv.Itoa(AutoscalerPort),
 						}},
 						Args: []string{
 							fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
 						},
-						VolumeMounts: []corev1.VolumeMount{{
-							Name:      autoscalerConfigName,
-							MountPath: "/etc/config-autoscaler",
-						}, {
-							Name:      loggingConfigName,
-							MountPath: "/etc/config-logging",
-						}},
+						VolumeMounts: autoscalerVolumeMounts,
 					}},
 					ServiceAccountName: "autoscaler",
-					Volumes:            []corev1.Volume{autoscalerConfigVolume, loggingConfigVolume},
+					Volumes:            autoscalerVolumes,
 				},
 			},
 		},
 	}
 }
 
-// MakeServingAutoscalerService returns a service for the autoscaler of
-// the given revision.
-func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
+// MakeAutoscalerService returns a service for the autoscaler of the given revision.
+func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            controller.GetRevisionAutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
-			Labels:          makeServingAutoScalerLabels(rev),
-			Annotations:     MakeServingResourceAnnotations(rev),
+			Labels:          makeAutoScalerLabels(rev),
+			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:       "autoscaler-port",
-				Port:       int32(autoscalerPort),
-				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: autoscalerPort},
-			}},
-			Type: "NodePort",
+			Ports: autoscalerServicePorts,
+			Type:  "NodePort",
 			Selector: map[string]string{
 				serving.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
 			},
@@ -156,10 +169,10 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	}
 }
 
-// makeServingAutoScalerLabels constructs the labels we will apply to
+// makeAutoScalerLabels constructs the labels we will apply to
 // service and deployment specs for autoscaler.
-func makeServingAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
-	labels := MakeServingResourceLabels(rev)
+func makeAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
+	labels := makeLabels(rev)
 	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
 	return labels
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -64,20 +65,9 @@ import (
 )
 
 const (
-	userContainerName = "user-container"
-	userPortName      = "user-port"
-	userPort          = 8080
-
-	fluentdContainerName = "fluentd-proxy"
-	queueContainerName   = "queue-proxy"
-	envoyContainerName   = "istio-proxy"
-	// queueSidecarName set by -queueSidecarName flag
-
 	controllerAgentName = "revision-controller"
-	autoscalerPort      = 8080
 
-	serviceTimeoutDuration       = 5 * time.Minute
-	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	serviceTimeoutDuration = 5 * time.Minute
 )
 
 var (
@@ -415,7 +405,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// status to surface in the Revision.
 		if cond := getDeploymentProgressCondition(deployment); cond != nil {
 			rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
-				"Unable to create pods for more than %d seconds.", progressDeadlineSeconds))
+				"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 			c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 				"Revision %s not ready due to Deployment timeout", rev.Name)
 		}
@@ -448,7 +438,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
+	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
 		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
@@ -466,7 +456,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
-	// MakeServingDeployment() would produce.
+	// resources.MakeDeployment() would produce.
 	desiredDeployment := deployment.DeepCopy()
 	if desiredDeployment.Spec.Replicas == nil {
 		var one int32 = 1
@@ -516,7 +506,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
 			rev.Status.MarkDeploying("Deploying")
-			service, err = c.createService(ctx, rev, MakeRevisionK8sService)
+			service, err = c.createService(ctx, rev, resources.MakeK8sService)
 			if err != nil {
 				logger.Errorf("Error creating Service %q: %v", serviceName, err)
 				return err
@@ -531,7 +521,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			// should not allow, or if our expectations of how the service should look
 			// changes (e.g. we update our controller with new sidecars).
 			var changed Changed
-			service, changed, err = c.checkAndUpdateService(ctx, rev, MakeRevisionK8sService, service)
+			service, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
 			if err != nil {
 				logger.Errorf("Error updating Service %q: %v", serviceName, err)
 				return err
@@ -717,7 +707,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		// When Active, the Service should exist and have a particular specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
-			service, err = c.createService(ctx, rev, MakeServingAutoscalerService)
+			service, err = c.createService(ctx, rev, resources.MakeAutoscalerService)
 			if err != nil {
 				logger.Errorf("Error creating Autoscaler Service %q: %v", serviceName, err)
 				return err
@@ -733,7 +723,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 			// changes (e.g. we update our controller with new sidecars).
 			var changed Changed
 			service, changed, err = c.checkAndUpdateService(
-				ctx, rev, MakeServingAutoscalerService, service)
+				ctx, rev, resources.MakeAutoscalerService, service)
 			if err != nil {
 				logger.Errorf("Error updating Autoscaler Service %q: %v", serviceName, err)
 				return err
@@ -830,7 +820,7 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
+	deployment := resources.MakeAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
@@ -888,7 +878,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 }
 
 func (c *Controller) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
-	vpa := MakeVPA(rev)
+	vpa := resources.MakeVPA(rev)
 
 	return c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Create(vpa)
 }

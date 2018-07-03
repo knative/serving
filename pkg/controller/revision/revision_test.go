@@ -46,6 +46,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/queue"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -405,7 +406,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_REVISION", rev.Name, "")
 			checkEnv(container.Env, "SERVING_POD", "", "metadata.name")
 			checkEnv(container.Env, "SERVING_AUTOSCALER", ctrl.GetRevisionAutoscalerName(rev), "")
-			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(resources.AutoscalerPort), "")
 			checkEnv(container.Env, "SERVING_LOGGING_CONFIG", controller.getLoggingConfig().LoggingConfig, "")
 			checkEnv(container.Env, "SERVING_LOGGING_LEVEL", controller.getLoggingConfig().LoggingLevel["queueproxy"], "")
 			if diff := cmp.Diff(expectedPreStop, container.Lifecycle.PreStop); diff != "" {
@@ -420,7 +421,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 				t.Errorf("Unexpected args diff in container %q (-want +got): %v", container.Name, diff)
 			}
 		}
-		if container.Name == userContainerName {
+		if container.Name == resources.UserContainerName {
 			foundServingContainer = true
 			// verify that the ReadinessProbe has our port.
 			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(queue.RequestQueuePort) {
@@ -447,14 +448,14 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Error("Missing fluentd-proxy container")
 	}
 	if !foundServingContainer {
-		t.Errorf("Missing %q container", userContainerName)
+		t.Errorf("Missing %q container", resources.UserContainerName)
 	}
 	expectedLabels := sumMaps(
 		rev.Labels,
 		map[string]string{
 			serving.RevisionLabelKey: rev.Name,
 			serving.RevisionUID:      string(rev.UID),
-			appLabelKey:              rev.Name,
+			resources.AppLabelKey:    rev.Name,
 		},
 	)
 	expectedAnnotations := rev.Annotations
@@ -538,7 +539,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 			checkEnv(container.Env, "SERVING_DEPLOYMENT", expectedDeploymentName, "")
 			checkEnv(container.Env, "SERVING_CONFIGURATION", config.Name, "")
 			checkEnv(container.Env, "SERVING_REVISION", rev.Name, "")
-			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(autoscalerPort), "")
+			checkEnv(container.Env, "SERVING_AUTOSCALER_PORT", strconv.Itoa(resources.AutoscalerPort), "")
 			if got, want := len(container.VolumeMounts), 2; got != want {
 				t.Errorf("Unexpected number of volume mounts: got: %v, want: %v", got, want)
 			} else {
@@ -913,7 +914,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 func TestCreateRevPreservesAppLabel(t *testing.T) {
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
-	rev.Labels[appLabelKey] = "app-label-that-should-stay-unchanged"
+	rev.Labels["app"] = "app-label-that-should-stay-unchanged"
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -1662,26 +1663,26 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	// A valid IP range
 	want := "10.10.10.0/24"
 	annotations = getPodAnnotationsForConfig(t, want, "")
-	if got := annotations[istioOutboundIPRangeAnnotation]; want != got {
-		t.Fatalf("%v annotation expected to be %v, but is %v.", istioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// An invalid IP range
 	want = "10.10.10.10/33"
 	annotations = getPodAnnotationsForConfig(t, want, "")
-	if got, ok := annotations[istioOutboundIPRangeAnnotation]; ok {
-		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", istioOutboundIPRangeAnnotation, want, got)
+	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; ok {
+		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// Configuration has an annotation override - its value must be preserved
 	want = "10.240.10.0/14"
 	annotations = getPodAnnotationsForConfig(t, "", want)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
+		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
-	if got := annotations[istioOutboundIPRangeAnnotation]; got != want {
-		t.Fatalf("%v annotation is expected to have %v but got %v", istioOutboundIPRangeAnnotation, want, got)
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
+		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 }
 
@@ -1783,7 +1784,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	if len(configAnnotationOverride) > 0 {
-		rev.ObjectMeta.Annotations = map[string]string{istioOutboundIPRangeAnnotation: configAnnotationOverride}
+		rev.ObjectMeta.Annotations = map[string]string{resources.IstioOutboundIPRangeAnnotation: configAnnotationOverride}
 	}
 
 	rev.OwnerReferences = append(

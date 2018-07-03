@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package resources
 
 import (
 	"fmt"
@@ -27,13 +27,52 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// MakeServingQueueContainer creates the container spec for queue sidecar.
-func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Container {
+var (
+	queueResources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceName("cpu"): queueContainerCPU,
+		},
+	}
+	queuePorts = []corev1.ContainerPort{{
+		Name:          queue.RequestQueuePortName,
+		ContainerPort: int32(queue.RequestQueuePort),
+	}, {
+		// Provides health checks and lifecycle hooks.
+		Name:          queue.RequestQueueAdminPortName,
+		ContainerPort: int32(queue.RequestQueueAdminPort),
+	}}
+	// This handler (1) marks the service as not ready and (2)
+	// adds a small delay before the container is killed.
+	queueLifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Path: queue.RequestQueueQuitPath,
+			},
+		},
+	}
+	queueReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(queue.RequestQueueAdminPort),
+				Path: queue.RequestQueueHealthPath,
+			},
+		},
+		// We want to mark the service as not ready as soon as the
+		// PreStop handler is called, so we need to check a little
+		// bit more often than the default.  It is a small
+		// sacrifice for a low rate of 503s.
+		PeriodSeconds: 1,
+	}
+)
+
+// makeQueueContainer creates the container spec for queue sidecar.
+func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
+	controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -49,44 +88,12 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Co
 	}
 
 	return &corev1.Container{
-		Name:  queueContainerName,
-		Image: controllerConfig.QueueSidecarImage,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName("cpu"): resource.MustParse(queueContainerCPU),
-			},
-		},
-		Ports: []corev1.ContainerPort{{
-			Name:          queue.RequestQueuePortName,
-			ContainerPort: int32(queue.RequestQueuePort),
-		}, {
-			// Provides health checks and lifecycle hooks.
-			Name:          queue.RequestQueueAdminPortName,
-			ContainerPort: int32(queue.RequestQueueAdminPort),
-		}},
-		// This handler (1) marks the service as not ready and (2)
-		// adds a small delay before the container is killed.
-		Lifecycle: &corev1.Lifecycle{
-			PreStop: &corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(queue.RequestQueueAdminPort),
-					Path: queue.RequestQueueQuitPath,
-				},
-			},
-		},
-		ReadinessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(queue.RequestQueueAdminPort),
-					Path: queue.RequestQueueHealthPath,
-				},
-			},
-			// We want to mark the service as not ready as soon as the
-			// PreStop handler is called, so we need to check a little
-			// bit more often than the default.  It is a small
-			// sacrifice for a low rate of 503s.
-			PeriodSeconds: 1,
-		},
+		Name:           queueContainerName,
+		Image:          controllerConfig.QueueSidecarImage,
+		Resources:      queueResources,
+		Ports:          queuePorts,
+		Lifecycle:      queueLifecycle,
+		ReadinessProbe: queueReadinessProbe,
 		Args: []string{
 			fmt.Sprintf("-concurrencyQuantumOfTime=%v", autoscalerConfig.ConcurrencyQuantumOfTime),
 			fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
@@ -105,7 +112,7 @@ func MakeServingQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Co
 			Value: autoscalerAddress,
 		}, {
 			Name:  "SERVING_AUTOSCALER_PORT",
-			Value: strconv.Itoa(autoscalerPort),
+			Value: strconv.Itoa(AutoscalerPort),
 		}, {
 			Name: "SERVING_POD",
 			ValueFrom: &corev1.EnvVarSource{

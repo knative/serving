@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package resources
 
 import (
 	"github.com/knative/serving/pkg/apis/serving"
@@ -22,35 +22,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const appLabelKey = "app"
+// makeLabels constructs the labels we will apply to K8s resources.
+func makeLabels(revision *v1alpha1.Revision) map[string]string {
+	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+3)
 
-// MakeServingResourceLabels constructs the labels we will apply to K8s resources.
-func MakeServingResourceLabels(revision *v1alpha1.Revision) map[string]string {
-	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+2)
 	labels[serving.RevisionLabelKey] = revision.Name
 	labels[serving.RevisionUID] = string(revision.UID)
 
 	for k, v := range revision.ObjectMeta.Labels {
 		labels[k] = v
 	}
+
 	// If users don't specify an app: label we will automatically
 	// populate it with the revision name to get the benefit of richer
 	// tracing information.
-	if _, ok := labels[appLabelKey]; !ok {
-		labels[appLabelKey] = revision.Name
+	if _, ok := labels[AppLabelKey]; !ok {
+		labels[AppLabelKey] = revision.Name
 	}
 	return labels
 }
 
-// MakeServingResourceSelector constructs the Selector we will apply to K8s resources.
-func MakeServingResourceSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: MakeServingResourceLabels(revision)}
+// makeSelector constructs the Selector we will apply to K8s resources.
+func makeSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
+	return &metav1.LabelSelector{MatchLabels: makeLabels(revision)}
 }
 
-// MakeServingResourceAnnotations creates the annotations we will apply to
+// makeAnnotations creates the annotations we will apply to
 // child resource of the given revision.
-func MakeServingResourceAnnotations(revision *v1alpha1.Revision) map[string]string {
-	annotations := make(map[string]string, len(revision.ObjectMeta.Annotations)+1)
+func makeAnnotations(revision *v1alpha1.Revision) map[string]string {
+	annotations := make(map[string]string, len(revision.ObjectMeta.Annotations))
 	for k, v := range revision.ObjectMeta.Annotations {
 		annotations[k] = v
 	}
