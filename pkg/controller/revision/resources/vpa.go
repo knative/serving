@@ -65,7 +65,7 @@ var (
 func MakeVPA(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 	return &vpa.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            controller.GetRevisionVPAName(rev),
+			Name:            VPAName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),

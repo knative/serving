@@ -100,7 +100,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            controller.GetRevisionAutoscalerName(rev),
+			Name:            AutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
@@ -125,7 +125,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 							Value: rev.Namespace,
 						}, {
 							Name:  "SERVING_DEPLOYMENT",
-							Value: controller.GetRevisionDeploymentName(rev),
+							Value: DeploymentName(rev),
 						}, {
 							Name:  "SERVING_CONFIGURATION",
 							Value: configName,
@@ -153,7 +153,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            controller.GetRevisionAutoscalerName(rev),
+			Name:            AutoscalerName(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeAutoScalerLabels(rev),
 			Annotations:     makeAnnotations(rev),
@@ -163,7 +163,7 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			Ports: autoscalerServicePorts,
 			Type:  "NodePort",
 			Selector: map[string]string{
-				serving.AutoscalerLabelKey: controller.GetRevisionAutoscalerName(rev),
+				serving.AutoscalerLabelKey: AutoscalerName(rev),
 			},
 		},
 	}
@@ -173,6 +173,6 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // service and deployment specs for autoscaler.
 func makeAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
 	labels := makeLabels(rev)
-	labels[serving.AutoscalerLabelKey] = controller.GetRevisionAutoscalerName(rev)
+	labels[serving.AutoscalerLabelKey] = AutoscalerName(rev)
 	return labels
 }

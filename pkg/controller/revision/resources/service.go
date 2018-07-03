@@ -40,7 +40,7 @@ var (
 func MakeK8sService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            controller.GetServingK8SServiceNameForRevision(rev),
+			Name:            K8sServiceName(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),

@@ -33,22 +33,6 @@ func GetServingNamespaceName(ns string) string {
 	return ns
 }
 
-func GetRevisionDeploymentName(u *v1alpha1.Revision) string {
-	return u.Name + "-deployment"
-}
-
-func GetRevisionAutoscalerName(u *v1alpha1.Revision) string {
-	return u.Name + "-autoscaler"
-}
-
-func GetRevisionVPAName(u *v1alpha1.Revision) string {
-	return u.Name + "-vpa"
-}
-
-func GetServingK8SServiceNameForRevision(u *v1alpha1.Revision) string {
-	return u.Name + "-service"
-}
-
 func GetServingK8SServiceNameForRoute(u *v1alpha1.Route) string {
 	return u.Name + "-service"
 }
