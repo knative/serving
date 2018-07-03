@@ -48,7 +48,7 @@ func TestMakeK8sService(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -84,7 +84,7 @@ func TestMakeK8sService(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "baz",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "baz",
+					AppLabelKey:              "baz",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{

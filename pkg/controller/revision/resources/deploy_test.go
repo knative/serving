@@ -571,7 +571,7 @@ func TestMakeDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -589,7 +589,7 @@ func TestMakeDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -598,7 +598,7 @@ func TestMakeDeployment(t *testing.T) {
 						Labels: map[string]string{
 							serving.RevisionLabelKey: "bar",
 							serving.RevisionUID:      "1234",
-							appLabelKey:              "bar",
+							AppLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",
@@ -643,7 +643,7 @@ func TestMakeDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -661,7 +661,7 @@ func TestMakeDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -670,7 +670,7 @@ func TestMakeDeployment(t *testing.T) {
 						Labels: map[string]string{
 							serving.RevisionLabelKey: "bar",
 							serving.RevisionUID:      "1234",
-							appLabelKey:              "bar",
+							AppLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",
@@ -710,7 +710,7 @@ func TestMakeDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -728,7 +728,7 @@ func TestMakeDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -737,7 +737,7 @@ func TestMakeDeployment(t *testing.T) {
 						Labels: map[string]string{
 							serving.RevisionLabelKey: "bar",
 							serving.RevisionUID:      "1234",
-							appLabelKey:              "bar",
+							AppLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation:   "true",
@@ -781,7 +781,7 @@ func TestMakeDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{
 					IstioOutboundIPRangeAnnotation: "10.4.0.0/14,10.7.240.0/20",
@@ -801,7 +801,7 @@ func TestMakeDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				ProgressDeadlineSeconds: &ProgressDeadlineSeconds,
@@ -810,7 +810,7 @@ func TestMakeDeployment(t *testing.T) {
 						Labels: map[string]string{
 							serving.RevisionLabelKey: "bar",
 							serving.RevisionUID:      "1234",
-							appLabelKey:              "bar",
+							AppLabelKey:              "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",

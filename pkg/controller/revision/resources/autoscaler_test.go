@@ -56,7 +56,7 @@ func TestMakeAutoscalerService(t *testing.T) {
 					serving.AutoscalerLabelKey: "bar-autoscaler",
 					serving.RevisionLabelKey:   "bar",
 					serving.RevisionUID:        "1234",
-					appLabelKey:                "bar",
+					AppLabelKey:                "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -93,7 +93,7 @@ func TestMakeAutoscalerService(t *testing.T) {
 					serving.AutoscalerLabelKey: "baz-autoscaler",
 					serving.RevisionLabelKey:   "baz",
 					serving.RevisionUID:        "1234",
-					appLabelKey:                "baz",
+					AppLabelKey:                "baz",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -153,7 +153,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -171,7 +171,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				Template: corev1.PodTemplateSpec{
@@ -180,7 +180,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							serving.AutoscalerLabelKey: "bar-autoscaler",
 							serving.RevisionLabelKey:   "bar",
 							serving.RevisionUID:        "1234",
-							appLabelKey:                "bar",
+							AppLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",
@@ -238,7 +238,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -256,7 +256,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				Template: corev1.PodTemplateSpec{
@@ -265,7 +265,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							serving.AutoscalerLabelKey: "bar-autoscaler",
 							serving.RevisionLabelKey:   "bar",
 							serving.RevisionUID:        "1234",
-							appLabelKey:                "bar",
+							AppLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",
@@ -330,7 +330,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -348,7 +348,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				Template: corev1.PodTemplateSpec{
@@ -357,7 +357,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							serving.AutoscalerLabelKey: "bar-autoscaler",
 							serving.RevisionLabelKey:   "bar",
 							serving.RevisionUID:        "1234",
-							appLabelKey:                "bar",
+							AppLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",
@@ -419,7 +419,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 					"ooga": "booga",
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
@@ -438,7 +438,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
 						"ooga":                   "booga",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				Template: corev1.PodTemplateSpec{
@@ -448,7 +448,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							serving.RevisionLabelKey:   "bar",
 							"ooga":              "booga",
 							serving.RevisionUID: "1234",
-							appLabelKey:         "bar",
+							AppLabelKey:         "bar",
 						},
 						Annotations: map[string]string{
 							sidecarIstioInjectAnnotation: "true",
@@ -509,7 +509,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
-					appLabelKey:              "bar",
+					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{
 					"ooga": "booga",
@@ -529,7 +529,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 					MatchLabels: map[string]string{
 						serving.RevisionLabelKey: "bar",
 						serving.RevisionUID:      "1234",
-						appLabelKey:              "bar",
+						AppLabelKey:              "bar",
 					},
 				},
 				Template: corev1.PodTemplateSpec{
@@ -538,7 +538,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 							serving.AutoscalerLabelKey: "bar-autoscaler",
 							serving.RevisionLabelKey:   "bar",
 							serving.RevisionUID:        "1234",
-							appLabelKey:                "bar",
+							AppLabelKey:                "bar",
 						},
 						Annotations: map[string]string{
 							"ooga": "booga",

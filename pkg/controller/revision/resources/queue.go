@@ -70,8 +70,8 @@ var (
 	}
 )
 
-// makequeueContainer creates the container spec for queue sidecar.
-func makequeueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
+// makeQueueContainer creates the container spec for queue sidecar.
+func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, autoscalerConfig *autoscaler.Config,
 	controllerConfig *config.Controller) *corev1.Container {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {

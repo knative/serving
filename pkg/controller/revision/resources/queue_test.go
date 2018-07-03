@@ -34,7 +34,7 @@ import (
 
 var boolTrue = true
 
-func TestMakequeueContainer(t *testing.T) {
+func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -325,9 +325,9 @@ func TestMakequeueContainer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makequeueContainer(test.rev, test.lc, test.ac, test.cc)
+			got := makeQueueContainer(test.rev, test.lc, test.ac, test.cc)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
-				t.Errorf("makequeueContainer (-want, +got) = %v", diff)
+				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
 		})
 	}

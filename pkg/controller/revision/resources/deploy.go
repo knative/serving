@@ -135,7 +135,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makequeueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
+			*makeQueueContainer(rev, loggingConfig, autoscalerConfig, controllerConfig),
 		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,

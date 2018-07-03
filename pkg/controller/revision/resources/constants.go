@@ -37,6 +37,7 @@ const (
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	AutoscalerPort       = 8080
 	ServicePort    int32 = 80
+	AppLabelKey          = "app"
 )
 
 var ProgressDeadlineSeconds int32 = 120

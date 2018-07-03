@@ -455,7 +455,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		map[string]string{
 			serving.RevisionLabelKey: rev.Name,
 			serving.RevisionUID:      string(rev.UID),
-			"app":                    rev.Name,
+			resources.AppLabelKey:    rev.Name,
 		},
 	)
 	expectedAnnotations := rev.Annotations

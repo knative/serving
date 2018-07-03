@@ -22,8 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const appLabelKey = "app"
-
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1alpha1.Revision) map[string]string {
 	labels := make(map[string]string, len(revision.ObjectMeta.Labels)+3)
@@ -38,8 +36,8 @@ func makeLabels(revision *v1alpha1.Revision) map[string]string {
 	// If users don't specify an app: label we will automatically
 	// populate it with the revision name to get the benefit of richer
 	// tracing information.
-	if _, ok := labels[appLabelKey]; !ok {
-		labels[appLabelKey] = revision.Name
+	if _, ok := labels[AppLabelKey]; !ok {
+		labels[AppLabelKey] = revision.Name
 	}
 	return labels
 }

@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func TestmakeLabels(t *testing.T) {
+func TestMakeLabels(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
@@ -43,7 +43,7 @@ func TestmakeLabels(t *testing.T) {
 		want: map[string]string{
 			serving.RevisionLabelKey: "bar",
 			serving.RevisionUID:      "1234",
-			appLabelKey:              "bar",
+			AppLabelKey:              "bar",
 		},
 	}, {
 		name: "propagate user labels",
@@ -61,7 +61,7 @@ func TestmakeLabels(t *testing.T) {
 		want: map[string]string{
 			serving.RevisionLabelKey: "bar",
 			serving.RevisionUID:      "1234",
-			appLabelKey:              "bar",
+			AppLabelKey:              "bar",
 			"ooga":                   "booga",
 			"unicorn":                "rainbows",
 		},
@@ -73,14 +73,14 @@ func TestmakeLabels(t *testing.T) {
 				Name:      "bar",
 				UID:       "1234",
 				Labels: map[string]string{
-					appLabelKey: "my-app-override",
+					AppLabelKey: "my-app-override",
 				},
 			},
 		},
 		want: map[string]string{
 			serving.RevisionLabelKey: "bar",
 			serving.RevisionUID:      "1234",
-			appLabelKey:              "my-app-override",
+			AppLabelKey:              "my-app-override",
 		},
 	}}
 
@@ -100,7 +100,7 @@ func TestmakeLabels(t *testing.T) {
 	}
 }
 
-func TestmakeAnnotations(t *testing.T) {
+func TestMakeAnnotations(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision

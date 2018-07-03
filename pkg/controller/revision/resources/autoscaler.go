@@ -88,8 +88,7 @@ var (
 	}}
 )
 
-// MakeAutoscalerDeployment creates the deployment of the
-// autoscaler for a particular revision.
+// MakeAutoscalerDeployment creates the deployment of the autoscaler for a particular revision.
 func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, replicaCount int32) *appsv1.Deployment {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
@@ -150,8 +149,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 	}
 }
 
-// MakeAutoscalerService returns a service for the autoscaler of
-// the given revision.
+// MakeAutoscalerService returns a service for the autoscaler of the given revision.
 func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
