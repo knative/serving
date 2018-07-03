@@ -124,7 +124,7 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 		}
 		weights = append(weights, v1alpha3.DestinationWeight{
 			Destination: v1alpha3.Destination{
-				Host: controller.GetK8SServiceFullname(
+				Host: controller.GetK8sServiceFullname(
 					// TODO(mattmoor): This should go through revision's resources package.
 					controller.GetServingK8SServiceNameForObj(t.TrafficTarget.RevisionName), ns),
 				Port: v1alpha3.PortSelector{
@@ -169,7 +169,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 	}
 	r.Route = append(r.Route, v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: controller.GetK8SServiceFullname(
+			Host: controller.GetK8sServiceFullname(
 				activator.K8sServiceName, pkg.GetServingSystemNamespace()),
 			Port: v1alpha3.PortSelector{
 				Number: uint32(revisionresources.ServicePort),

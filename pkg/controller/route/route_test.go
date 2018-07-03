@@ -157,7 +157,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: ctrl.GetK8SServiceFullname(activator.K8sServiceName, pkg.GetServingSystemNamespace()),
+			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, pkg.GetServingSystemNamespace()),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},

@@ -22,7 +22,7 @@ import (
 	"github.com/knative/serving/pkg/controller"
 )
 
-var K8sGatewayFullname = controller.GetK8SServiceFullname(
+var K8sGatewayFullname = controller.GetK8sServiceFullname(
 	"knative-shared-gateway",
 	pkg.GetServingSystemNamespace())
 
@@ -35,5 +35,5 @@ func VirtualServiceName(route *v1alpha1.Route) string {
 }
 
 func K8sServiceFullname(route *v1alpha1.Route) string {
-	return controller.GetK8SServiceFullname(K8sServiceName(route), route.Namespace)
+	return controller.GetK8sServiceFullname(K8sServiceName(route), route.Namespace)
 }
