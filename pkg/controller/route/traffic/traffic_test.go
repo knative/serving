@@ -16,7 +16,6 @@ limitations under the License.
 package traffic
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -27,8 +26,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	clientv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,11 +35,6 @@ const (
 	testNamespace       string = "test"
 	defaultDomainSuffix string = "test-domain.dev"
 	prodDomainSuffix    string = "prod-domain.com"
-)
-
-var (
-	testLogger = zap.NewNop().Sugar()
-	testCtx    = logging.WithLogger(context.Background(), testLogger)
 )
 
 // A simple fixed Configuration/Revision layout for testing.
