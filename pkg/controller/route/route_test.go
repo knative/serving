@@ -24,7 +24,6 @@ package route
 - When a Revision is deleted TODO
 */
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -33,8 +32,6 @@ import (
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/configmap"
-
-	"go.uber.org/zap"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -45,7 +42,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
-	"github.com/knative/serving/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -57,17 +53,13 @@ import (
 
 	"github.com/knative/serving/pkg/controller/route/resources"
 	. "github.com/knative/serving/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 const (
 	testNamespace       = "test"
 	defaultDomainSuffix = "test-domain.dev"
 	prodDomainSuffix    = "prod-domain.com"
-)
-
-var (
-	testLogger = zap.NewNop().Sugar()
-	testCtx    = logging.WithLogger(context.Background(), testLogger)
 )
 
 func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
@@ -166,7 +158,7 @@ func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	}
 }
 
-func newTestController(configs ...*corev1.ConfigMap) (
+func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *Controller,
@@ -204,7 +196,7 @@ func newTestController(configs ...*corev1.ConfigMap) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
@@ -214,7 +206,7 @@ func newTestController(configs ...*corev1.ConfigMap) (
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -320,7 +312,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController()
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -414,7 +406,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -494,7 +486,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
@@ -579,7 +571,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -696,7 +688,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -797,7 +789,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -827,7 +819,7 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 }
 
 func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -870,7 +862,7 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 }
 
 func TestCreateRouteRevisionMissingCondition(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -914,7 +906,7 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 }
 
 func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -958,7 +950,7 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 }
 
 func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	route := getTestRouteWithTrafficTargets(
@@ -997,7 +989,7 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 }
 
 func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	config := getTestConfiguration()
 	// Set a route label in configuration which is expected to be deleted.
@@ -1029,7 +1021,7 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -1065,7 +1057,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 }
 
 func TestEnqueueReferringRoute(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	routeClient := servingClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
@@ -1096,7 +1088,7 @@ func TestEnqueueReferringRoute(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController()
+	_, _, controller, _, _, _ := newTestController(t)
 
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -1122,21 +1114,21 @@ func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
 }
 
 func TestReconcileIgnoresMissingRoute(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController()
+	_, _, controller, _, _, _ := newTestController(t)
 	if controller.Reconcile("nonexisting/route") != nil {
 		t.Error("Expected missing routes to be silently ignored")
 	}
 }
 
 func TestReconcileRejectsInvalidKey(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController()
+	_, _, controller, _, _, _ := newTestController(t)
 	if controller.Reconcile("invalid/key/should/be/silently/ignored") != nil {
 		t.Error("Expected invalid key to be silently ignored")
 	}
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController()
+	_, _, controller, _, _, _ := newTestController(t)
 	config := getTestConfiguration()
 
 	controller.EnqueueReferringRoute(config)
@@ -1149,7 +1141,7 @@ func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController()
+	_, _, controller, _, _, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	fmt.Println(rev.Name)
@@ -1168,7 +1160,7 @@ func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController()
+	_, _, controller, _, _, _ := newTestController(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 
@@ -1185,7 +1177,7 @@ func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController()
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
