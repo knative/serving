@@ -158,8 +158,8 @@ const (
 	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
-	// RevisionConditionIdle is set when the revision has not
-	// received any requests for a while.
+	// RevisionConditionIdle is True when the revision has not
+	// received any requests for a while. False otherwise.
 	RevisionConditionIdle RevisionConditionType = "Idle"
 )
 
@@ -239,15 +239,10 @@ func (rs *RevisionStatus) IsReady() bool {
 }
 
 func (rs *RevisionStatus) IsActivationRequired() bool {
-	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
-			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
+	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
+		return cond.Status == corev1.ConditionTrue
 	}
 	return false
-}
-
-func (rs *RevisionStatus) IsRoutable() bool {
-	return rs.IsReady() || rs.IsActivationRequired()
 }
 
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
@@ -356,32 +351,6 @@ func (rs *RevisionStatus) MarkDeploying(reason string) {
 	}
 }
 
-func (rs *RevisionStatus) MarkAsIdle() {
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "Idle",
-		Message: "Revision is being placed in Reserve state.",
-	})
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionIdle,
-		Status:  corev1.ConditionTrue,
-		Reason:  "Idle",
-		Message: "Revision has not received traffic recently.",
-	})
-}
-
-func (rs *RevisionStatus) UnMarkAsIdle() {
-	rs.RemoveCondition(RevisionConditionIdle)
-}
-
-func (rs *RevisionStatus) IdleTime() *metav1.Time {
-	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
-		return &cond.LastTransitionTime
-	}
-	return nil
-}
-
 func (rs *RevisionStatus) MarkServiceTimeout() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionResourcesAvailable,
@@ -424,6 +393,37 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 		Status: corev1.ConditionTrue,
 	})
 	rs.checkAndMarkReady()
+}
+
+func (rs *RevisionStatus) MarkReserve() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "Reserve",
+			Message: "Revision has been placed into Reserve state.",
+		})
+	}
+}
+
+// ReadyToTearDownResources indicates it is safe to tear down the
+// resources underlying the Revision.
+// TODO: When Istio starts surfacing RouteRule Status, the Route
+// controller will wait until the rules are updated before setting
+// Revision ServingState Reserve. For now, the Route controller sets
+// ServingState Reserve right away and the Revision controller waits at
+// least 10 seconds before tearing down the underlying resources.
+func (rs *RevisionStatus) ReadyToTearDownResources() bool {
+	if cond := rs.GetCondition(RevisionConditionResourcesAvailable); cond != nil {
+		if cond.Status != corev1.ConditionFalse {
+			return false
+		}
+		return time.Now().After(cond.LastTransitionTime.Add(10 * time.Second))
+	}
+	return false
 }
 
 func (rs *RevisionStatus) MarkInactive() {

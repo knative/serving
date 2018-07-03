@@ -353,19 +353,6 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}
 	}
 
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateToReserve {
-		// When the Revision is transitioning to a Reserve state
-		// (ToReserve) it is should be marked unready because it
-		// is being taken out of direct routing.
-		logger.Infof("Marking revision as Idle")
-		rev.Status.MarkAsIdle()
-	}
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive {
-		// When the Revision is Active, remove the Idle condition.
-		logger.Infof("Marking revision as not Idle")
-		rev.Status.UnMarkAsIdle()
-	}
-
 	return nil
 }
 
@@ -405,11 +392,16 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
+
+	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
+		rev.Status.MarkReserve()
+	}
+
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateToReserve:
-		// When the Revision is directly routeable (Active,
-		// ToReserve or Reserve), the Deployment should exist and
-		// have a particular specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routeable (Active, ToReserve or
+		// Reserve), the Deployment should exist and have a
+		// particular specification.
 		if apierrs.IsNotFound(getDepErr) {
 			// Deployment does not exist. Create it.
 			rev.Status.MarkDeploying("Deploying")
@@ -459,7 +451,6 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return err
 		}
 		logger.Infof("Deleted deployment %q", deploymentName)
-		rev.Status.MarkInactive()
 		return nil
 
 	default:
@@ -499,9 +490,16 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 		var one int32 = 1
 		desiredDeployment.Spec.Replicas = &one
 	}
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateActive && *desiredDeployment.Spec.Replicas == 0 {
-		*desiredDeployment.Spec.Replicas = 1
-	} else if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve && *desiredDeployment.Spec.Replicas != 0 {
+
+	// Zero-to-one and one-to-zero transitions.
+	ss := rev.Spec.ServingState
+	teardown := rev.Status.ReadyToTearDownResources()
+	switch {
+	case ss == v1alpha1.RevisionServingStateActive, ss == v1alpha1.RevisionServingStateToReserve, (ss == v1alpha1.RevisionServingStateReserve && !teardown):
+		if *desiredDeployment.Spec.Replicas == 0 {
+			*desiredDeployment.Spec.Replicas = 1
+		}
+	case (ss == v1alpha1.RevisionServingStateReserve && teardown), ss == v1alpha1.RevisionServingStateRetired:
 		*desiredDeployment.Spec.Replicas = 0
 	}
 
@@ -537,10 +535,12 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	rev.Status.ServiceName = serviceName
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
+	ss := rev.Spec.ServingState
+	teardown := rev.Status.ReadyToTearDownResources()
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve:
-		// When the Revision is directly routable (Active or
-		// ToReserve), the Service should exist and have a
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active, ToReserve or
+		// Reserve), the Service should exist and have a
 		// particular specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
@@ -608,7 +608,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		}
 		return nil
 
-	case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
+	case v1alpha1.RevisionServingStateRetired:
 		// When Reserve or Retired, we remove the underlying Service.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
@@ -742,9 +742,9 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve:
-		// When the Revision is directly routable (Active or
-		// ToReserve), the Service should exist and have a
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active, ToReserve or
+		// Reserve), the Service should exist and have a
 		// particular specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
@@ -778,7 +778,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		// properties of the autoscaler, but perhaps we should.
 		return nil
 
-	case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
+	case v1alpha1.RevisionServingStateRetired:
 		// When Reserve or Retired, we remove the autoscaling Service.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
@@ -809,10 +809,10 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateToReserve:
-		// When the Revision is directly routable (Active,
-		// Reserve or ToReserve), the Autoscaler Deployment
-		// should exist and have a particular specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active, Reserve or
+		// ToReserve), the Autoscaler Deployment should exist and
+		// have a particular specification.
 		if apierrs.IsNotFound(getDepErr) {
 			// Deployment does not exist. Create it.
 			var err error
@@ -879,9 +879,9 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// TODO(mattmoor): Switch to informer lister once it can reliably be sunk.
 	vpa, err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Get(vpaName, metav1.GetOptions{})
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve:
-		// When the Revision is directly routable (Active or
-		// ToReserve), the VPA should exist and have a particular
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active, ToReserve or
+		// Reserve), the VPA should exist and have a particular
 		// specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
@@ -903,7 +903,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 		// properties of the autoscaler, but perhaps we should.
 		return nil
 
-	case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
+	case v1alpha1.RevisionServingStateRetired:
 		// When Reserve or Retired, we remove the underlying VPA.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.

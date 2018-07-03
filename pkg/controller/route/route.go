@@ -177,7 +177,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		c.ServingClientSet.ServingV1alpha1().Configurations(r.Namespace),
 		c.ServingClientSet.ServingV1alpha1().Revisions(r.Namespace),
 		r)
-	// Even if targetErr != n`il, we still need to finish updating the labels so that the updates to
+	// Even if targetErr != nil, we still need to finish updating the labels so that the updates to
 	// these targets can be propagated back.  In case of error updating the labels, we will return
 	// the error and not targetErr.
 	if err := c.syncLabels(ctx, r, t); err != nil {
@@ -194,6 +194,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
 	r.Status.Traffic = t.GetTrafficTargets()
 	r.Status.MarkTrafficAssigned()
+
 	return r, nil
 }
 
