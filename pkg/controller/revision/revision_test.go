@@ -421,7 +421,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 				t.Errorf("Unexpected args diff in container %q (-want +got): %v", container.Name, diff)
 			}
 		}
-		if container.Name == userContainerName {
+		if container.Name == resources.UserContainerName {
 			foundServingContainer = true
 			// verify that the ReadinessProbe has our port.
 			if container.ReadinessProbe.Handler.HTTPGet.Port != intstr.FromInt(queue.RequestQueuePort) {
@@ -448,7 +448,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 		t.Error("Missing fluentd-proxy container")
 	}
 	if !foundServingContainer {
-		t.Errorf("Missing %q container", userContainerName)
+		t.Errorf("Missing %q container", resources.UserContainerName)
 	}
 	expectedLabels := sumMaps(
 		rev.Labels,

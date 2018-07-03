@@ -27,30 +27,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
-	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
-	// for how CPU and memory values were calculated.
-
-	// Each Knative Serving pod gets 500m cpu initially.
-	userContainerCPU    = "400m"
-	fluentdContainerCPU = "25m"
-	envoyContainerCPU   = "50m"
-
-	// Limit CPU recommendation to 2000m
-	userContainerMaxCPU    = "1700m"
-	fluentdContainerMaxCPU = "100m"
-	envoyContainerMaxCPU   = "200m"
-
-	// Limit memory recommendation to 4G
-	userContainerMaxMemory    = "3700M"
-	fluentdContainerMaxMemory = "100M"
-	envoyContainerMaxMemory   = "100M"
-
 	fluentdConfigMapVolumeName     = "configmap"
 	varLogVolumeName               = "varlog"
 	istioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
@@ -89,10 +70,10 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
-	userContainer.Name = userContainerName
+	userContainer.Name = resources.UserContainerName
 	userContainer.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceName("cpu"): resource.MustParse(userContainerCPU),
+			corev1.ResourceCPU: resources.UserContainerCPU,
 		},
 	}
 	userContainer.Ports = []corev1.ContainerPort{{
@@ -153,11 +134,11 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 		}
 
 		fluentdContainer := corev1.Container{
-			Name:  fluentdContainerName,
+			Name:  resources.FluentdContainerName,
 			Image: observabilityConfig.FluentdSidecarImage,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceName("cpu"): resource.MustParse(fluentdContainerCPU),
+					corev1.ResourceCPU: resources.FluentdContainerCPU,
 				},
 			},
 			Env: []corev1.EnvVar{{
@@ -165,7 +146,7 @@ func MakeServingPodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, o
 				Value: "--no-supervisor -q",
 			}, {
 				Name:  "SERVING_CONTAINER_NAME",
-				Value: userContainerName,
+				Value: resources.UserContainerName,
 			}, {
 				Name:  "SERVING_CONFIGURATION",
 				Value: configName,

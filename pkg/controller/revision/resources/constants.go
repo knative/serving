@@ -21,14 +21,35 @@ import (
 )
 
 const (
-	QueueContainerName       = "queue-proxy"
-	AutoscalerPort           = 8080
-	ServicePort        int32 = 80
+	UserContainerName    = "user-container"
+	FluentdContainerName = "fluentd-proxy"
+	EnvoyContainerName   = "istio-proxy"
+	QueueContainerName   = "queue-proxy"
+
+	AutoscalerPort       = 8080
+	ServicePort    int32 = 80
 )
 
 // pseudo-constants
 var (
-	QueueContainerCPU       = resource.MustParse("25m")
-	QueueContainerMaxCPU    = resource.MustParse("200m")
-	QueueContainerMaxMemory = resource.MustParse("100M")
+	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
+	// for how CPU and memory values were calculated.
+
+	// Each Knative Serving pod gets 500m cpu initially.
+	UserContainerCPU    = resource.MustParse("400m")
+	FluentdContainerCPU = resource.MustParse("25m")
+	EnvoyContainerCPU   = resource.MustParse("50m")
+	QueueContainerCPU   = resource.MustParse("25m")
+
+	// Limit CPU recommendation to 2000m
+	UserContainerMaxCPU    = resource.MustParse("1700m")
+	FluentdContainerMaxCPU = resource.MustParse("100m")
+	EnvoyContainerMaxCPU   = resource.MustParse("200m")
+	QueueContainerMaxCPU   = resource.MustParse("200m")
+
+	// Limit memory recommendation to 4G
+	UserContainerMaxMemory    = resource.MustParse("3700M")
+	FluentdContainerMaxMemory = resource.MustParse("100M")
+	EnvoyContainerMaxMemory   = resource.MustParse("100M")
+	QueueContainerMaxMemory   = resource.MustParse("100M")
 )

@@ -65,12 +65,8 @@ import (
 )
 
 const (
-	userContainerName = "user-container"
-	userPortName      = "user-port"
-	userPort          = 8080
-
-	fluentdContainerName = "fluentd-proxy"
-	envoyContainerName   = "istio-proxy"
+	userPortName = "user-port"
+	userPort     = 8080
 
 	controllerAgentName = "revision-controller"
 
@@ -886,7 +882,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 }
 
 func (c *Controller) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
-	vpa := MakeVPA(rev)
+	vpa := resources.MakeVPA(rev)
 
 	return c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Create(vpa)
 }
