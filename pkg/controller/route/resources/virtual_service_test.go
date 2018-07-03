@@ -43,7 +43,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 		Namespace: "test-ns",
 		Labels:    map[string]string{"route": "test-route"},
 		OwnerReferences: []metav1.OwnerReference{
-			*controller.NewRouteControllerRef(r),
+			*controller.NewControllerRef(r),
 		},
 	}
 	meta := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).ObjectMeta

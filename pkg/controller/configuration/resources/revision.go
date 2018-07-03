@@ -47,7 +47,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Re
 	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate OwnerReferences so that deletes cascade.
-	rev.OwnerReferences = append(rev.OwnerReferences, *controller.NewConfigurationControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *controller.NewControllerRef(config))
 
 	// Fill in the build name, if specified.
 	rev.Spec.BuildName = buildName

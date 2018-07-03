@@ -682,7 +682,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 func newRevisionNonControllerRef(rev *v1alpha1.Revision) *metav1.OwnerReference {
 	blockOwnerDeletion := false
 	isController := false
-	revRef := controller.NewRevisionControllerRef(rev)
+	revRef := controller.NewControllerRef(rev)
 	revRef.BlockOwnerDeletion = &blockOwnerDeletion
 	revRef.Controller = &isController
 	return revRef

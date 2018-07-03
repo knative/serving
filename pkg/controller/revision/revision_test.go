@@ -341,7 +341,7 @@ func TestCreateRevCreatesStuff(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewConfigurationControllerRef(config),
+		*ctrl.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
@@ -653,7 +653,7 @@ func TestResolutionFailed(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewConfigurationControllerRef(config),
+		*ctrl.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
@@ -695,7 +695,7 @@ func TestCreateRevDoesNotSetUpFluentdSidecarIfVarLogCollectionDisabled(t *testin
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewConfigurationControllerRef(config),
+		*ctrl.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
@@ -1636,7 +1636,7 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewConfigurationControllerRef(config),
+		*ctrl.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
@@ -1788,7 +1788,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewConfigurationControllerRef(config),
+		*ctrl.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)

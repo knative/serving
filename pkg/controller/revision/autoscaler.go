@@ -73,7 +73,7 @@ func MakeServingAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage str
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          MakeServingResourceLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicaCount,
@@ -140,7 +140,7 @@ func MakeServingAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeServingAutoScalerLabels(rev),
 			Annotations:     MakeServingResourceAnnotations(rev),
-			OwnerReferences: []metav1.OwnerReference{*controller.NewRevisionControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
