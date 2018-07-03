@@ -35,10 +35,6 @@ func GetServingK8SServiceNameForObj(name string) string {
 	return name + "-service"
 }
 
-func GetServingK8SActivatorServiceName() string {
-	return "activator-service"
-}
-
 func GetRevisionHeaderName() string {
 	return "Knative-Serving-Revision"
 }

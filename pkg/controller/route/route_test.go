@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/configmap"
 
 	"go.uber.org/zap"
@@ -156,7 +157,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: fmt.Sprintf("%s.%s.svc.cluster.local", ctrl.GetServingK8SActivatorServiceName(), pkg.GetServingSystemNamespace()),
+			Host: ctrl.GetK8SServiceFullname(activator.K8sServiceName, pkg.GetServingSystemNamespace()),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
