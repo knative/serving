@@ -911,7 +911,12 @@ func TestReconcile(t *testing.T) {
 				Items: []*v1alpha1.Revision{addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build")},
 			},
 			Build: &BuildLister{
-				Items: []*buildv1alpha1.Build{build("foo", "the-build")},
+				Items: []*buildv1alpha1.Build{build("foo", "the-build",
+					buildv1alpha1.BuildCondition{
+						Type:   buildv1alpha1.BuildSucceeded,
+						Status: corev1.ConditionUnknown,
+					}),
+				},
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -926,11 +931,13 @@ func TestReconcile(t *testing.T) {
 						Type:   "ContainerHealthy",
 						Status: "Unknown",
 					}, {
-						Type:   "Ready",
-						Status: "Unknown",
-					}, {
 						Type:   "BuildSucceeded",
 						Status: "Unknown",
+						Reason: "Building",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Building",
 					}},
 				}),
 		}},
