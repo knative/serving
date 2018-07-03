@@ -177,7 +177,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		    increases.`)
 	generateTrafficBurst(clients, logger, 5, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp")
@@ -193,7 +193,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		    faster testing.`)
 
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero")
@@ -204,7 +204,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 
 	// Account for the case where scaling up uses all available pods.
 	logger.Infof("Wait until there are pods available to scale into.")
-	pc := clients.Kube.CoreV1().Pods(NamespaceName)
+	pc := clients.Kube.CoreV1().Pods(test.Flags.Namespace)
 
 	err = test.WaitForPodListState(
 		pc,
@@ -218,7 +218,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
               traffic increases.`)
 	generateTrafficBurst(clients, logger, 8, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentScaledUp")

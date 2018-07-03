@@ -134,7 +134,7 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDownService(clients, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := clients.Services.Create(test.LatestService(namespaceName, names, imagePaths[0]))
+	svc, err := clients.Services.Create(test.LatestService(test.Flags.Namespace, names, imagePaths[0]))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
