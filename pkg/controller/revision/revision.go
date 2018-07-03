@@ -70,8 +70,7 @@ const (
 
 	controllerAgentName = "revision-controller"
 
-	serviceTimeoutDuration       = 5 * time.Minute
-	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	serviceTimeoutDuration = 5 * time.Minute
 )
 
 var (
@@ -711,7 +710,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		// When Active, the Service should exist and have a particular specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
-			service, err = c.createService(ctx, rev, MakeServingAutoscalerService)
+			service, err = c.createService(ctx, rev, resources.MakeAutoscalerService)
 			if err != nil {
 				logger.Errorf("Error creating Autoscaler Service %q: %v", serviceName, err)
 				return err
@@ -727,7 +726,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 			// changes (e.g. we update our controller with new sidecars).
 			var changed Changed
 			service, changed, err = c.checkAndUpdateService(
-				ctx, rev, MakeServingAutoscalerService, service)
+				ctx, rev, resources.MakeAutoscalerService, service)
 			if err != nil {
 				logger.Errorf("Error updating Autoscaler Service %q: %v", serviceName, err)
 				return err
@@ -824,7 +823,7 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
+	deployment := resources.MakeAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 

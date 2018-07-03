@@ -186,7 +186,7 @@ func MakeServingDeployment(rev *v1alpha1.Revision,
 	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller, replicaCount int32) *appsv1.Deployment {
 
 	podTemplateAnnotations := resources.MakeAnnotations(rev)
-	podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
+	podTemplateAnnotations[resources.SidecarIstioInjectAnnotation] = "true"
 
 	// Inject the IP ranges for istio sidecar configuration.
 	// We will inject this value only if all of the following are true:

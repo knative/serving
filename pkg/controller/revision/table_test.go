@@ -1302,7 +1302,7 @@ func getASDeploy(namespace, name string, servingState v1alpha1.RevisionServingSt
 	}
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeServingAutoscalerDeployment(rev, controllerConfig.AutoscalerImage, replicaCount)
+	return resources.MakeAutoscalerDeployment(rev, controllerConfig.AutoscalerImage, replicaCount)
 }
 
 func getASService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
@@ -1311,7 +1311,7 @@ func getASService(namespace, name string, servingState v1alpha1.RevisionServingS
 
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
-	return MakeServingAutoscalerService(rev)
+	return resources.MakeAutoscalerService(rev)
 }
 
 func getASEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,

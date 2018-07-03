@@ -26,6 +26,8 @@ const (
 	EnvoyContainerName   = "istio-proxy"
 	QueueContainerName   = "queue-proxy"
 
+	SidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+
 	AutoscalerPort       = 8080
 	ServicePort    int32 = 80
 )
