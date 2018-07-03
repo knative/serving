@@ -2,20 +2,19 @@
 
 ## Abstract
 
-The Knative serverless compute infrastructure extends the [Open Container
-Initiative Runtime
-Specification](https://github.com/opencontainers/runtime-spec/blob/master/spec.md)
+The Knative serverless compute infrastructure extends the
+[Open Container Initiative Runtime Specification](https://github.com/opencontainers/runtime-spec/blob/master/spec.md)
 to describe the functionality and requirements for serverless execution
 workloads. In contrast to general-purpose containers, stateless
 request-triggered (i.e. on-demand) autoscaled containers have the following
 properties:
 
-* Little or no long-term runtime state (especially in cases where code may be
+- Little or no long-term runtime state (especially in cases where code may be
   scaled to zero in the absence of request traffic).
-* Logging and monitoring aggregation (telemetry) is important for understanding
+- Logging and monitoring aggregation (telemetry) is important for understanding
   and debugging the system, as containers may be created or deleted at any time
   in response to autoscaling.
-* Multitenancy is highly desirable to allow cost sharing for bursty applications
+- Multitenancy is highly desirable to allow cost sharing for bursty applications
   on relatively stable underlying hardware resources.
 
 This contract does not define the control surfaces over the runtime environment
@@ -25,22 +24,21 @@ logging aggregation, except to provide a contract for the collection of logging
 data. It is expected that access to the aggregated telemetry will be provided by
 the platform operator.
 
-
 ## Background
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" are to be
 interpreted as described in [RFC 2119](https://tools.ietf.org/html/rfc2119).
 
-The [OCI
-specification](https://github.com/opencontainers/runtime-spec/blob/master/spec.md)
+The
+[OCI specification](https://github.com/opencontainers/runtime-spec/blob/master/spec.md)
 ([v1.0.1](https://github.com/opencontainers/runtime-spec/blob/v1.0.1/spec.md))
 is the basis for this document. When this document and the OCI specification
 conflict, this document is assumed to override the general OCI recommendations.
 Where this document does not specify behavior, developers should assume an OCI
 compliant underlying implementation. Additionally, the core Knative definition
-assumes the [Linux Container
-Configuration](https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md).
+assumes the
+[Linux Container Configuration](https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md).
 
 In particular, the default Knative implementation relies on Kubernetes behavior
 to implement container operation. In some cases, current Kubernetes behavior in
@@ -49,25 +47,25 @@ Knative developers is to push as much of the required functionality into
 Kubernetes and/or Istio as possible, rather than implementing reach-around
 layers.
 
-
 ## Runtime and Lifecycle
 
 Knative aims to minimize the amount of tuning and production configuration
 required to run a service. Some of these production-friendly features include:
 
-1. Stateless computation at request-scale or event-scale granularity.
-1. Automatic scaling between 0 and many instances (the process scale-out model).
-1. Automatic adjustment of resource requirements based on observed behavior,
-   where possible.
+1.  Stateless computation at request-scale or event-scale granularity.
+1.  Automatic scaling between 0 and many instances (the process scale-out
+    model).
+1.  Automatic adjustment of resource requirements based on observed behavior,
+    where possible.
 
-In order to achieve these properties, containers which are operated as part of a serverless platform SHOULD observe the following properties:
+In order to achieve these properties, containers which are operated as part of a
+serverless platform SHOULD observe the following properties:
 
-* Fast startup time (<1s in the presence of container image layer caching),
-* Minimize local state (in support of autoscaling and scale to zero),
-* CPU usage only while requests are active (see [this
-  issue](https://github.com/knative/serving/issues/848) for reasons an operator
-  might want to de-allocate CPU between requests).
-
+- Fast startup time (<1s in the presence of container image layer caching),
+- Minimize local state (in support of autoscaling and scale to zero),
+- CPU usage only while requests are active (see
+  [this issue](https://github.com/knative/serving/issues/848) for reasons an
+  operator might want to de-allocate CPU between requests).
 
 ### State
 
@@ -75,44 +73,44 @@ The general OCI state may not be available for introspection within the
 container, and may only be visible to the system operator or platform provider.
 In a highly-shared environment, containers may experience the following:
 
-* Containers with `status` of `stopped` MAY be immediately reclaimed by the
+- Containers with `status` of `stopped` MAY be immediately reclaimed by the
   system.
-* The container process MAY be started as pid 0, through the use of PID
+- The container process MAY be started as pid 0, through the use of PID
   namespaces or other processes.
 
 ### Lifecycle
 
-* The container MAY be killed when the container is inactive. Serverless
+- The container MAY be killed when the container is inactive. Serverless
   computation relies on inbound requests to determine container activeness.
-* The environment MAY restrict the use of `prestart`, `poststart`, and `poststop`
-  hooks to platform operators rather than developers. All of these hooks are
-  defined in the context of the runtime namespace, rather than the container
-  namespace, and may expose system-level information (and are non-portable).
-* Failures of the developer-specified process MUST be logged to a
-  developer-visible logging system. 
+- The environment MAY restrict the use of `prestart`, `poststart`, and
+  `poststop` hooks to platform operators rather than developers. All of these
+  hooks are defined in the context of the runtime namespace, rather than the
+  container namespace, and may expose system-level information (and are
+  non-portable).
+- Failures of the developer-specified process MUST be logged to a
+  developer-visible logging system.
 
 In addition, some serverless environments may use an execution model other than
-docker in linux (for example, [runv](https://github.com/hyperhq/runv) or [Kata
-Containers](https://katacontainers.io/)). Implementations using an execution
-model beyond docker in linux MAY alter the lifecycle contract beyond the OCI
-specification as long as:
+docker in linux (for example, [runv](https://github.com/hyperhq/runv) or
+[Kata Containers](https://katacontainers.io/)). Implementations using an
+execution model beyond docker in linux MAY alter the lifecycle contract beyond
+the OCI specification as long as:
 
-1. An OCI-compliant lifecycle contract is the default, regardless of how many
-   extensions are provided.
-1. The implementation of an extended execution model or lifecycle MUST provide
-   documentation about the extended model or lifecycle **and** documentation
-   about how to opt in to the extended lifecycle contract.
+1.  An OCI-compliant lifecycle contract is the default, regardless of how many
+    extensions are provided.
+1.  The implementation of an extended execution model or lifecycle MUST provide
+    documentation about the extended model or lifecycle **and** documentation
+    about how to opt in to the extended lifecycle contract.
 
 ### Errors
 
-* Platforms MAY provide mechanisms for post-mortem viewing of filesystem
+- Platforms MAY provide mechanisms for post-mortem viewing of filesystem
   contents from a particular execution. Because containers (particularly failing
   containers) can experience frequent starts, operators or platform providers
   SHOULD limit the total space consumed by these failures.
-* The termination message on container exit should be written to
+- The termination message on container exit should be written to
   `/dev/termination-log` by default, or the last few lines of log output (as
-  [per Kubernetes termination
-  messages](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/#customizing-the-termination-message)).
+  [per Kubernetes termination messages](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/#customizing-the-termination-message)).
 
 ### Warnings
 
@@ -120,13 +118,13 @@ As specified by OCI.
 
 ### Operations
 
-[The OCI
-interface](https://github.com/opencontainers/runtime-spec/blob/v1.0.0-rc3/runtime.md#operations)
+[The OCI interface](https://github.com/opencontainers/runtime-spec/blob/v1.0.0-rc3/runtime.md#operations)
 SHOULD NOT be exposed within the container. The operator or platform provider
 MAY have the ability to directly interact with the OCI interface, but that is
 beyond the scope of this specification.
 
-An OPTIONAL method of invoking the `kill` operation MAY be exposed to developers to provide signalling to the container.
+An OPTIONAL method of invoking the `kill` operation MAY be exposed to developers
+to provide signalling to the container.
 
 ### Hooks
 
@@ -150,7 +148,6 @@ between processes running in the same container.
 
 As specified by OCI.
 
-
 ## Network Environment
 
 For request-response functions, 0->many scaling is enabled by control of the
@@ -166,32 +163,31 @@ for purposes of scaling CPU and removing idle containers.
 #### Protocols and Ports
 
 The container MUST accept HTTP/1.1 requests from the environment. The
-environment [SHOULD offer an HTTP/2.0 upgrade
-option](https://http2.github.io/http2-spec/#discover-http) (`Upgrade: h2c` on
-either the initial request or an `OPTIONS` request) on the same port as
-HTTP/1.1. The developer MAY specify this port at deployment; if the developer
-does not specify a port, the platform provider MUST provide a default. Only one
-inbound `containerPort` SHALL be specified in the
+environment
+[SHOULD offer an HTTP/2.0 upgrade option](https://http2.github.io/http2-spec/#discover-http)
+(`Upgrade: h2c` on either the initial request or an `OPTIONS` request) on the
+same port as HTTP/1.1. The developer MAY specify this port at deployment; if the
+developer does not specify a port, the platform provider MUST provide a default.
+Only one inbound `containerPort` SHALL be specified in the
 `[core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)`
 specification. The `hostPort` parameter SHOULD NOT be set by the developer or
 the platform provider, as it can interfere with ingress autoscaling. Regardless
 of its source, the selected port will be made available in the `PORT`
 environment variable.
 
- It is expected that the serverless platform will provide HTTPS termination and
- protocol transformation e.g. between QUIC or HTTP/2 and HTTP/1.1. Unless
- overridden by setting the
- [`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
- field on the inbound port, the platform will perform automatic detection as
- described above. If the
- [`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
- is set to one of the following values, HTTP negotiation will be disabled and
- the following protocol will be used:
+It is expected that the serverless platform will provide HTTPS termination and
+protocol transformation e.g. between QUIC or HTTP/2 and HTTP/1.1. Unless
+overridden by setting the
+[`name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+field on the inbound port, the platform will perform automatic detection as
+described above. If the
+[`core.v1.Container.ports[0].name`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#containerport-v1-core)
+is set to one of the following values, HTTP negotiation will be disabled and the
+following protocol will be used:
 
-* `http1`: HTTP/1.1 transport and will not attempt to upgrade to h2c..
-* `h2c`: HTTP/2 transport, as described in [section 3.4 of the HTTP2 spec
-  (Starting HTTP/2 with Prior
-  Knowledge)](https://http2.github.io/http2-spec/#known-http)
+- `http1`: HTTP/1.1 transport and will not attempt to upgrade to h2c..
+- `h2c`: HTTP/2 transport, as described in
+  [section 3.4 of the HTTP2 spec (Starting HTTP/2 with Prior Knowledge)](https://http2.github.io/http2-spec/#known-http)
 
 Developers SHOULD prefer to use automatic content negotiation where available,
 and MUST NOT set the `name` field to arbitrary values, as additional transports
@@ -212,18 +208,20 @@ removed by the platform.
 Also, the following proxy-specific request headers MUST be set, in addition to
 the base set of HTTP/1.1 headers (e.g. `Host:`)
 
-* `Forwarded` - As specified by [RFC 7239](https://tools.ietf.org/html/rfc7239).
+- `Forwarded` - As specified by [RFC 7239](https://tools.ietf.org/html/rfc7239).
   Additionally, the following legacy headers SHOULD be set for compatibility
   with client software:
-  * `X-Forwarded-For`
-  * `X-Forwarded-Proto`
+  - `X-Forwarded-For`
+  - `X-Forwarded-Proto`
 
-In addition, the following headers SHOULD be set to enable tracing and observability features:
+In addition, the following headers SHOULD be set to enable tracing and
+observability features:
 
-* Trace headers - Platform providers SHOULD provide and document headers needed
-  to propagate trace contexts, in the absence of w3c standardization. 
+- Trace headers - Platform providers SHOULD provide and document headers needed
+  to propagate trace contexts, in the absence of w3c standardization.
 
-Operators and platform providers MAY provide additional headers to provide environment specific information.
+Operators and platform providers MAY provide additional headers to provide
+environment specific information.
 
 #### Meta Requests
 
@@ -245,9 +243,9 @@ not set by the developer. The probes are intended to be trivially supportable by
 naive conforming containers while preventing interference with developer code.
 These settings apply to both `livenessProbe` and `readinessProbe`:
 
-* `tcpSocket` set to the container's port
-* `initialDelaySeconds` set to 0
-* `periodSeconds` set to platform-specific value
+- `tcpSocket` set to the container's port
+- `initialDelaySeconds` set to 0
+- `periodSeconds` set to platform-specific value
 
 In order to enable scaling in response to load, developers SHOULD NOT set the
 `initialDelaySeconds` to a value greater than 0, and should aim to minimize
@@ -271,8 +269,8 @@ providers.
 #### DNS
 
 Platform providers SHOULD override the DNS related configuration files under
-`/etc` to enable local DNS lookups in the target environment (see [Default
-Filesystems](#default-filesystems)).
+`/etc` to enable local DNS lookups in the target environment (see
+[Default Filesystems](#default-filesystems)).
 
 #### Metadata Services
 
@@ -282,12 +280,11 @@ an HTTP server with an operator- or provider-defined URL schema. If a metadata
 service is provided, the schema MUST be documented. Sample use cases for such
 metadata include:
 
-* Container information or control interfaces.
-* Host information, including maintenance or capability information.
-* Access to external configuration stores (such as the kubernetes ConfigMap
+- Container information or control interfaces.
+- Host information, including maintenance or capability information.
+- Access to external configuration stores (such as the kubernetes ConfigMap
   APIs).
-* Access to secrets or identity tokens, to enable key rotation.
-
+- Access to secrets or identity tokens, to enable key rotation.
 
 ## Configuration
 
@@ -312,15 +309,15 @@ Serverless applications which scale horizontally are expected to be managed in a
 declarative fashion, and individual instances SHOULD NOT be interacted with or
 connected directly.
 
-* The `terminal` property SHOULD NOT be set to `true`.
-* The linux process specific properties MUST NOT be configurable by the Knative
+- The `terminal` property SHOULD NOT be set to `true`.
+- The linux process specific properties MUST NOT be configurable by the Knative
   developer, and MAY set by the operator or platform provider.
 
 The following environment variables MUST be set:
 
-| Name | Meaning |
-|------|---------|
-| `PORT` | Incress `containerPort` for ingress requests and health checks. See [Inbound network connectivity](#inbound-network-connectivity) for more details.
+| Name   | Meaning                                                                                                                                             |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT` | Incress `containerPort` for ingress requests and health checks. See [Inbound network connectivity](#inbound-network-connectivity) for more details. |
 
 Platform providers MAY set additional environment variables. Standardization of
 such variables will follow demonstrated usage and utility.
@@ -340,20 +337,22 @@ when on-disk resources are kept to a minimum. Additionally, developers may not
 have access to the container filesystems (or the containers may be rapidly
 recycled), so log aggregation SHOULD be provided.
 
-In addition to the filesystems recommended in the OCI, the following filesystems MUST be provided:
+In addition to the filesystems recommended in the OCI, the following filesystems
+MUST be provided:
 
-| Mount | Description |
-|-------|------|
-| `/tmp` | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern. |
+| Mount      | Description                                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/tmp`     | MUST be Read-write.<p>SHOULD be backed by tmpfs if disk load is a concern.                                                                                       |
 | `/var/log` | MUST be a directory with write permissions for logs storage. Implementations MAY permit the creation of additional subdirectories and log rotation and renaming. |
-| `/dev/log` | MUST be a writable socket to syslog |
+| `/dev/log` | MUST be a writable socket to syslog                                                                                                                              |
 
-In addition, the following files SHOULD be overridden by the runtime environment to enable DNS resolution:
+In addition, the following files SHOULD be overridden by the runtime environment
+to enable DNS resolution:
 
-| File | Description |
-|------|------|
-| `/etc/hosts` | MAY be overridden to provide host mappings for well-known or provider-specific resources. |
-| `/etc/hostname` | OPTIONAL: some environments may set this to a different value for each container, but other environments may use the same value for all containers. |
+| File               | Description                                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/etc/hosts`       | MAY be overridden to provide host mappings for well-known or provider-specific resources.                                                                            |
+| `/etc/hostname`    | OPTIONAL: some environments may set this to a different value for each container, but other environments may use the same value for all containers.                  |
 | `/etc/resolv.conf` | SHOULD be set to a valid cluster-specific recursive resolver. Providers MAY provide additional default search domains to improve customer experience in the cluster. |
 
 Platform providers MAY provide additional platform-specific mount points
@@ -381,14 +380,14 @@ provider. The cgroup devices SHOULD be mounted as read-only.
 
 The serverless platform MAY automatically adjust the resource limits (e.g. CPU)
 based on observed resource usage. The limits enforced to a container SHOULD be
-exposed in 
+exposed in
 
-* `/sys/fs/cgroup/memory/memory.limit_in_bytes`
-* `/sys/fs/cgroup/cpu/cpu.cfs_period_us`
-* `/sys/fs/cgroup/cpu/cpu.cfs_quota_us`
+- `/sys/fs/cgroup/memory/memory.limit_in_bytes`
+- `/sys/fs/cgroup/cpu/cpu.cfs_period_us`
+- `/sys/fs/cgroup/cpu/cpu.cfs_quota_us`
 
-Additionally, operators [may restrict or prevent CPU scheduling for instances
-when no requests are active](https://github.com/knative/serving/issues/848)).
+Additionally, operators
+[may restrict or prevent CPU scheduling for instances when no requests are active](https://github.com/knative/serving/issues/848)).
 This is not currently feasible on Kubernetes, but is desireable for multitenant
 services with a bill-per-CPU-second model. The Knative developers are currently
 discussing the best options with the kubernetes SIG-Node team.
@@ -414,8 +413,8 @@ environment changes.
 From the OCI spec:
 
 > `rootfsPropagation` (string, OPTIONAL) sets the rootfs's mount propagation.
-> Its value is either slave, private, shared or unbindable. The [Shared
-> Subtrees](https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt)
+> Its value is either slave, private, shared or unbindable. The
+> [Shared Subtrees](https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt)
 > article in the kernel documentation has more information about mount
 > propagation.
 
