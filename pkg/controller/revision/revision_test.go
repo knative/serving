@@ -45,6 +45,7 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/queue"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -133,7 +134,7 @@ func sumMaps(a map[string]string, b map[string]string) map[string]string {
 	return summedMap
 }
 
-func newTestControllerWithConfig(t *testing.T, controllerConfig *ControllerConfig, configs ...*corev1.ConfigMap) (
+func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controller, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
@@ -1776,7 +1777,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{
-			IstioOutboundIPRangesKey: configMapValue,
+			config.IstioOutboundIPRangesKey: configMapValue,
 		}})
 
 	rev := getTestRevision()

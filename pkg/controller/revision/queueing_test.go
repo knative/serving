@@ -30,6 +30,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/configmap"
 	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -110,8 +111,8 @@ func getTestRevision() *v1alpha1.Revision {
 	}
 }
 
-func getTestControllerConfig() *ControllerConfig {
-	return &ControllerConfig{
+func getTestControllerConfig() *config.Controller {
+	return &config.Controller{
 		QueueSidecarImage: testQueueImage,
 		AutoscalerImage:   testAutoscalerImage,
 	}

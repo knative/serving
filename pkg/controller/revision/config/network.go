@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package config
 
 import (
 	"net"
@@ -29,9 +29,9 @@ const (
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 )
 
-// NetworkConfig contains the networking configuration defined in the
+// Network contains the networking configuration defined in the
 // network config map.
-type NetworkConfig struct {
+type Network struct {
 	// IstioOutboundIPRange specifies the IP ranges to intercept
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
@@ -51,9 +51,9 @@ func validateOutboundIPRanges(s string) error {
 	return nil
 }
 
-// NewNetworkConfigFromConfigMap creates a NewNetworkConfig from the supplied ConfigMap
-func NewNetworkConfigFromConfigMap(configMap *corev1.ConfigMap) (*NetworkConfig, error) {
-	nc := &NetworkConfig{}
+// NewNetworkFromConfigMap creates a Network from the supplied ConfigMap
+func NewNetworkFromConfigMap(configMap *corev1.ConfigMap) (*Network, error) {
+	nc := &Network{}
 	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
 		// It is OK for this to be absent, we will elide the annotation.
 	} else if err := validateOutboundIPRanges(ipr); err != nil {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package config
 
 import (
 	"fmt"
@@ -23,8 +23,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// ObservabilityConfig contains the configuration defined in the observability ConfigMap.
-type ObservabilityConfig struct {
+// Observability contains the configuration defined in the observability ConfigMap.
+type Observability struct {
 	// EnableVarLogCollection dedicates whether to set up a fluentd sidecar to
 	// collect logs under /var/log/.
 	EnableVarLogCollection bool
@@ -44,9 +44,9 @@ type ObservabilityConfig struct {
 	LoggingURLTemplate string
 }
 
-// NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
-func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
-	oc := &ObservabilityConfig{}
+// NewObservabilityFromConfigMap creates a Observability from the supplied ConfigMap
+func NewObservabilityFromConfigMap(configMap *corev1.ConfigMap) (*Observability, error) {
+	oc := &Observability{}
 	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
 		oc.EnableVarLogCollection = (strings.ToLower(evlc) == "true")
 	}

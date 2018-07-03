@@ -24,6 +24,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,9 +36,9 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	networkConfig := &NetworkConfig{IstioOutboundIPRanges: "*"}
+	networkConfig := &config.Network{IstioOutboundIPRanges: "*"}
 	loggingConfig := &logging.Config{}
-	observabilityConfig := &ObservabilityConfig{
+	observabilityConfig := &config.Observability{
 		LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 	}
 	autoscalerConfig := &autoscaler.Config{}
@@ -1242,8 +1243,8 @@ func build(namespace, name string, conds ...buildv1alpha1.BuildCondition) *build
 
 // The input signatures of these functions should be kept in sync for readability.
 func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *v1alpha1.Revision {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: om(namespace, name),
 		Spec: v1alpha1.RevisionSpec{
@@ -1254,8 +1255,8 @@ func getRev(namespace, name string, servingState v1alpha1.RevisionServingStateTy
 }
 
 func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *appsv1.Deployment {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	var replicaCount int32 = 1
 	if servingState == v1alpha1.RevisionServingStateReserve {
@@ -1268,8 +1269,8 @@ func getDeploy(namespace, name string, servingState v1alpha1.RevisionServingStat
 }
 
 func getService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.Service {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Service {
 
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
@@ -1277,8 +1278,8 @@ func getService(namespace, name string, servingState v1alpha1.RevisionServingSta
 }
 
 func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.Endpoints {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Endpoints {
 
 	service := getService(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
@@ -1291,8 +1292,8 @@ func getEndpoints(namespace, name string, servingState v1alpha1.RevisionServingS
 }
 
 func getASDeploy(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *appsv1.Deployment {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *appsv1.Deployment {
 
 	var replicaCount int32 = 1
 	if servingState == v1alpha1.RevisionServingStateReserve {
@@ -1304,8 +1305,8 @@ func getASDeploy(namespace, name string, servingState v1alpha1.RevisionServingSt
 }
 
 func getASService(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.Service {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Service {
 
 	rev := getRev(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)
@@ -1313,8 +1314,8 @@ func getASService(namespace, name string, servingState v1alpha1.RevisionServingS
 }
 
 func getASEndpoints(namespace, name string, servingState v1alpha1.RevisionServingStateType, image string,
-	loggingConfig *logging.Config, networkConfig *NetworkConfig, observabilityConfig *ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, controllerConfig *ControllerConfig) *corev1.Endpoints {
+	loggingConfig *logging.Config, networkConfig *config.Network, observabilityConfig *config.Observability,
+	autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.Endpoints {
 
 	service := getASService(namespace, name, servingState, image, loggingConfig, networkConfig, observabilityConfig,
 		autoscalerConfig, controllerConfig)

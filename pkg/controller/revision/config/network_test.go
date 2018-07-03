@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package config
 
 import (
 	"fmt"
@@ -28,29 +28,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNewNetworkConfigNoEntry(t *testing.T) {
-	c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+func TestNewNetworkNoEntry(t *testing.T) {
+	c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      controller.GetNetworkConfigMapName(),
 		},
 	})
 	if err != nil {
-		t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+		t.Errorf("NewNetworkFromConfigMap() = %v", err)
 	}
 	if len(c.IstioOutboundIPRanges) > 0 {
 		t.Error("Expected an empty value when config map doesn't have the entry.")
 	}
 }
 
-func TestNewNetworkConfig(t *testing.T) {
+func TestNewNetwork(t *testing.T) {
 	validList := []string{
 		"10.10.10.0/24",                                // Valid single outbound IP range
 		"10.10.10.0/24,10.240.10.0/14,192.192.10.0/16", // Valid multiple outbound IP ranges
 		"*",
 	}
 	for _, want := range validList {
-		c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: pkg.GetServingSystemNamespace(),
 				Name:      controller.GetNetworkConfigMapName(),
@@ -60,7 +60,7 @@ func TestNewNetworkConfig(t *testing.T) {
 			},
 		})
 		if err != nil {
-			t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+			t.Errorf("NewNetworkFromConfigMap() = %v", err)
 		}
 		if c.IstioOutboundIPRanges != want {
 			t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
@@ -68,7 +68,7 @@ func TestNewNetworkConfig(t *testing.T) {
 	}
 }
 
-func TestBadNetworkConfig(t *testing.T) {
+func TestBadNetwork(t *testing.T) {
 	invalidList := []string{
 		"",                       // Empty input should generate no annotation
 		"10.10.10.10/33",         // Invalid outbound IP range
@@ -82,7 +82,7 @@ func TestBadNetworkConfig(t *testing.T) {
 		"this is not an IP range",
 	}
 	for _, invalid := range invalidList {
-		c, err := NewNetworkConfigFromConfigMap(&corev1.ConfigMap{
+		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: pkg.GetServingSystemNamespace(),
 				Name:      controller.GetNetworkConfigMapName(),
@@ -92,12 +92,12 @@ func TestBadNetworkConfig(t *testing.T) {
 			},
 		})
 		if err == nil {
-			t.Errorf("NewNetworkConfigFromConfigMap() = %v, wanted error", c)
+			t.Errorf("NewNetworkFromConfigMap() = %v, wanted error", c)
 		}
 	}
 }
 
-func TestOurNetworkConfig(t *testing.T) {
+func TestOurNetwork(t *testing.T) {
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", controller.GetNetworkConfigMapName()))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
@@ -106,7 +106,7 @@ func TestOurNetworkConfig(t *testing.T) {
 	if err := yaml.Unmarshal(b, &cm); err != nil {
 		t.Errorf("yaml.Unmarshal() = %v", err)
 	}
-	if _, err := NewNetworkConfigFromConfigMap(&cm); err != nil {
-		t.Errorf("NewNetworkConfigFromConfigMap() = %v", err)
+	if _, err := NewNetworkFromConfigMap(&cm); err != nil {
+		t.Errorf("NewNetworkFromConfigMap() = %v", err)
 	}
 }
