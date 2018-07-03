@@ -296,7 +296,7 @@ metadata include:
 Platform providers MAY set the `readonly` bit on the container to `true` in
 order to reduce the possible disk space provisioning and management of
 serverless workloads. Containers MUST use the provided temporary storage areas
-(see [Default Filesystems](default-filesystems)) for working files and caches.
+(see [Default Filesystems](#default-filesystems)) for working files and caches.
 
 ### Mounts
 
@@ -415,9 +415,9 @@ From the OCI spec:
 
 > `rootfsPropagation` (string, OPTIONAL) sets the rootfs's mount propagation.
 > Its value is either slave, private, shared or unbindable. The [Shared
-> Subtrees](https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt)<span
-> style="color:#24292e;"> article in the kernel documentation has more
-> information about mount propagation.</span>
+> Subtrees](https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt)
+> article in the kernel documentation has more information about mount
+> propagation.
 
 This option should only be set by the operator or platform provider, and MUST
 NOT be configurable by the Knative developer. As mount propagation may be part
