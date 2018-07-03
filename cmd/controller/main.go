@@ -24,10 +24,13 @@ import (
 
 	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 
+	corev1 "k8s.io/api/core/v1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
@@ -67,7 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
+	logger, atomicLevel := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
 	defer logger.Sync()
 
 	if len(queueSidecarImage) != 0 {
@@ -172,6 +175,9 @@ func main() {
 		),
 	}
 
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher.Watch(logging.ConfigName, receiveLoggingConfig(logger, atomicLevel))
+
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
@@ -229,4 +235,22 @@ func toStringSet(arg, delimiter string) map[string]struct{} {
 		set[key] = struct{}{}
 	}
 	return set
+}
+
+func receiveLoggingConfig(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel) func(configMap *corev1.ConfigMap) {
+	return func(configMap *corev1.ConfigMap) {
+		loggingConfig := logging.NewConfigFromConfigMap(configMap)
+		if levelStr, ok := loggingConfig.LoggingLevel["controller"]; ok {
+			var l zapcore.Level
+			if err := l.UnmarshalText([]byte(levelStr)); err != nil {
+				logger.Error("Failed to parse the logging level in config-logging config map. Previous logging level will be used.", zap.Error(err))
+				return
+			}
+
+			if atomicLevel.Level() != l {
+				logger.Infof("Updating logging level to %v from %v.", l, atomicLevel.Level())
+				atomicLevel.SetLevel(l)
+			}
+		}
+	}
 }

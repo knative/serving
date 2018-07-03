@@ -150,7 +150,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "activator")
+	logger, _ := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "activator")
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")

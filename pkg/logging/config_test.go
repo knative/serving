@@ -24,24 +24,33 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/knative/serving/pkg"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestNewLogger(t *testing.T) {
-	logger := NewLogger("", "")
+	logger, _ := NewLogger("", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
 
-	logger = NewLogger("some invalid JSON here", "")
+	logger, _ = NewLogger("some invalid JSON here", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
+	}
+
+	logger, atomicLevel := NewLogger("", "debug")
+	if logger == nil {
+		t.Error("expected a non-nil logger")
+	}
+	if atomicLevel.Level() != zapcore.DebugLevel {
+		t.Error("expected level to be debug")
 	}
 
 	// No good way to test if all the config is applied,
 	// but at the minimum, we can check and see if level is getting applied.
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
+	logger, atomicLevel = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -51,8 +60,11 @@ func TestNewLogger(t *testing.T) {
 	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
 		t.Error("expected to get error logs from the logger configured with error as min threshold")
 	}
+	if atomicLevel.Level() != zapcore.ErrorLevel {
+		t.Errorf("expected atomicLevel.Level() to be ErrorLevel but got %v.", atomicLevel.Level())
+	}
 
-	logger = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
+	logger, atomicLevel = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -62,9 +74,24 @@ func TestNewLogger(t *testing.T) {
 	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
 		t.Error("expected to get info logs from the logger configured with info as min threshold")
 	}
+	if atomicLevel.Level() != zapcore.InfoLevel {
+		t.Errorf("expected atomicLevel.Level() to be InfoLevel but got %v.", atomicLevel.Level())
+	}
+
+	// Let's change the logging level using atomicLevel
+	atomicLevel.SetLevel(zapcore.ErrorLevel)
+	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce != nil {
+		t.Error("not expected to get info logs from the logger configured with error as min threshold")
+	}
+	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
+		t.Error("expected to get error logs from the logger configured with error as min threshold")
+	}
+	if atomicLevel.Level() != zapcore.ErrorLevel {
+		t.Errorf("expected atomicLevel.Level() to be ErrorLevel but got %v.", atomicLevel.Level())
+	}
 
 	// Test logging override
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
+	logger, _ = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -76,7 +103,7 @@ func TestNewLogger(t *testing.T) {
 	}
 
 	// Invalid logging override
-	logger = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
+	logger, _ = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}

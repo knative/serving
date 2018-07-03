@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "webhook")
+	logger, _ := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")
