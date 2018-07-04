@@ -16,6 +16,58 @@ limitations under the License.
 
 package config
 
+import (
+	"errors"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	ControllerConfigName           = "config-controller"
+	queueSidecarImage              = "queueSidecarImage"
+	autoscalerImage                = "autoscalerImage"
+	registriesSkippingTagResolving = "registriesSkippingTagResolving"
+)
+
+// NewNetworkFromConfigMap creates a Network from the supplied ConfigMap
+func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error) {
+	nc := &Controller{}
+
+	if qsideCarImage, ok := configMap[queueSidecarImage]; !ok {
+		return nil, errors.New("Queue sidecar image is missing")
+	} else {
+		nc.QueueSidecarImage = qsideCarImage
+	}
+
+	if ascalerImage, ok := configMap[autoscalerImage]; ok {
+		nc.AutoscalerImage = ascalerImage
+	}
+	// If authoscaler image is not set then Single-tenant autoscaler deployments enabled
+
+	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
+		// It is ok if registries are missing
+		nc.RegistriesSkippingTagResolving = make(map[string]struct{})
+	} else {
+		nc.RegistriesSkippingTagResolving = toStringSet(registries, ",")
+	}
+	return nc, nil
+}
+
+func NewControllerConfigFromConfigMap(config *corev1.ConfigMap) (*Controller, error) {
+	return NewControllerConfigFromMap(config.Data)
+}
+
+func toStringSet(arg, delimiter string) map[string]struct{} {
+	keys := strings.Split(arg, delimiter)
+
+	set := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		set[key] = struct{}{}
+	}
+	return set
+}
+
 // Controller includes the configurations for the controller.
 type Controller struct {
 	// AutoscalerImage is the name of the image used for the autoscaler pod.

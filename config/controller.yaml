@@ -32,23 +32,18 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: github.com/knative/serving/cmd/controller
-        args:
-        - "-queueSidecarImage"
-        # This is the Go import path for the binary that is containerized
-        # and substituted here.
-        - github.com/knative/serving/cmd/queue
-        # Comment the following lines to disable the single-tenant autoscaler.
-        - "-autoscalerImage"
-        - github.com/knative/serving/cmd/autoscaler
-        - "-registriesSkippingTagResolving"
-        - "ko.local,dev.local"
         ports:
         - name: metrics
           containerPort: 9090
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging
+        - name: config-controller
+          mountPath: /etc/config-controller
       volumes:
         - name: config-logging
           configMap:
             name: config-logging
+        - name: config-controller
+          configMap:
+            name: config-controller

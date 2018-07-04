@@ -171,7 +171,9 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
 		},
-	})
+	},
+		getTestControllerConfigMap(),
+	)
 	for _, cm := range configs {
 		cms = append(cms, cm)
 	}
@@ -376,7 +378,8 @@ func TestCreateRevWithVPA(t *testing.T) {
 			"scale-to-zero-threshold":         "10m",
 			"concurrency-quantum-of-time":     "100ms",
 		},
-	})
+	}, getTestControllerConfigMap(),
+	)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -415,7 +418,8 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
 			"logging.revision-url-template":         "http://old-logging.test.com?filter=${REVISION_UID}",
 		},
-	})
+	}, getTestControllerConfigMap(),
+	)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -586,17 +590,24 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 // TODO(mattmoor): Remove once we have table testing with the autoscaler configured so that it doesn't use single-tenant autoscaling.
 func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
-	controllerConfig := getTestControllerConfig()
-	controllerConfig.AutoscalerImage = ""
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig)
-
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
 		*ctrl.NewControllerRef(config),
 	)
-
+	// Update controller config with no autoscaler image
+	controller.receiveControllerConfig(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-controller",
+				Namespace: pkg.GetServingSystemNamespace(),
+			},
+			Data: map[string]string{
+				"queueSidecarImage": testQueueImage,
+			},
+		})
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)

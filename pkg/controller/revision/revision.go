@@ -110,7 +110,8 @@ type Controller struct {
 
 	// controllerConfig includes the configurations for the controller
 	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
-	controllerConfig *config.Controller
+	controllerConfig      *config.Controller
+	controllerConfigMutex sync.Mutex
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex
@@ -166,7 +167,6 @@ func NewController(
 			transport:        http.DefaultTransport,
 			registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
 		},
-		controllerConfig: controllerConfig,
 	}
 
 	// Set up an event handler for when the resource types of interest change
@@ -207,6 +207,7 @@ func NewController(
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
 	opt.ConfigMapWatcher.Watch(config.ObservabilityConfigName, c.receiveObservabilityConfig)
 	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
+	opt.ConfigMapWatcher.Watch(config.ControllerConfigName, c.receiveControllerConfig)
 
 	return c
 }
@@ -446,7 +447,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		replicaCount = 0
 	}
 	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
-		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
+		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig(), replicaCount)
 
 	// Resolve tag image references to digests.
 	if err := c.resolver.Resolve(deployment); err != nil {
@@ -676,7 +677,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	// If an autoscaler image is undefined, then skip the autoscaler reconciliation.
-	if c.controllerConfig.AutoscalerImage == "" {
+	if c.getControllerConfig().AutoscalerImage == "" {
 		return nil
 	}
 
@@ -741,7 +742,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 
 func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	// If an autoscaler image is undefined, then skip the autoscaler reconciliation.
-	if c.controllerConfig.AutoscalerImage == "" {
+	if c.getControllerConfig().AutoscalerImage == "" {
 		return nil
 	}
 
@@ -803,7 +804,7 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := resources.MakeAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
+	deployment := resources.MakeAutoscalerDeployment(rev, c.getControllerConfig().AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
@@ -930,6 +931,32 @@ func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
 	// we should consider triggering a global reconciliation here to the
 	// logging configuration changes are rolled out to active revisions.
 	c.loggingConfig = newLoggingConfig
+}
+
+func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
+	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
+	controllerConfig, err := config.NewControllerConfigFromConfigMap(configMap)
+
+	c.controllerConfigMutex.Lock()
+	defer c.controllerConfigMutex.Unlock()
+
+	if err != nil {
+		if c.controllerConfig != nil {
+			c.Logger.Errorf("Error updating Controller ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Controller ConfigMap: %v", err)
+		}
+		return
+	}
+	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
+
+	c.controllerConfig = controllerConfig
+}
+
+func (c *Controller) getControllerConfig() *config.Controller {
+	c.controllerConfigMutex.Lock()
+	defer c.controllerConfigMutex.Unlock()
+	return c.controllerConfig
 }
 
 func (c *Controller) getLoggingConfig() *logging.Config {
