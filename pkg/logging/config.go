@@ -31,6 +31,8 @@ const (
 )
 
 // NewLogger creates a logger with the supplied configuration.
+// In addition to the logger, it returns AtomicLevel that can
+// be used to change the logging level at runtime.
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.

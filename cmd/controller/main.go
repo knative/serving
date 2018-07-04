@@ -248,7 +248,7 @@ func receiveLoggingConfig(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel
 			}
 
 			if atomicLevel.Level() != l {
-				logger.Infof("Updating logging level to %v from %v.", l, atomicLevel.Level())
+				logger.Infof("Updating logging level from %v to %v.", atomicLevel.Level(), l)
 				atomicLevel.SetLevel(l)
 			}
 		}
