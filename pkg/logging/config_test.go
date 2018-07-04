@@ -131,18 +131,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 }
 
 func TestNewConfig(t *testing.T) {
-	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
-	wantLevel := "info"
-	c := NewConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      "config-logging",
-		},
-		Data: map[string]string{
-			"zap-logger-config":   wantCfg,
-			"loglevel.queueproxy": wantLevel,
-		},
-	})
+	c, wantCfg, wantLevel := getTestConfig()
 	if got := c.LoggingConfig; got != wantCfg {
 		t.Errorf("LoggingConfig = %v, want %v", got, wantCfg)
 	}
@@ -163,4 +152,28 @@ func TestOurConfig(t *testing.T) {
 	if cfg := NewConfigFromConfigMap(&cm); cfg == nil {
 		t.Errorf("NewConfigFromConfigMap() = %v, want non-nil", cfg)
 	}
+}
+
+func TestNewLoggerFromConfig(t *testing.T) {
+	c, _, _ := getTestConfig()
+	_, atomicLevel := NewLoggerFromConfig(c, "queueproxy")
+	if atomicLevel.Level() != zapcore.DebugLevel {
+		t.Errorf("logger level wanted: DebugLevel, got: %v", atomicLevel)
+	}
+}
+
+func getTestConfig() (*Config, string, string) {
+	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
+	wantLevel := "debug"
+	c := NewConfigFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      "config-logging",
+		},
+		Data: map[string]string{
+			"zap-logger-config":   wantCfg,
+			"loglevel.queueproxy": wantLevel,
+		},
+	})
+	return c, wantCfg, wantLevel
 }
