@@ -21,8 +21,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	client "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 // A RevisionTarget adds the Active/Inactive state of a Revision to a flattened TrafficTarget.
@@ -48,8 +47,9 @@ type TrafficConfig struct {
 //
 // In the case that some target is missing, it sets the Route.Status to TrafficNotAssigned with a reference to the
 // missing target, and return one of the error.  However, it still returns a complete list of referred existing targets.
-func BuildTrafficConfiguration(configClient client.ConfigurationInterface, revClient client.RevisionInterface, u *v1alpha1.Route) (*TrafficConfig, error) {
-	builder := newBuilder(configClient, revClient)
+func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
+	u *v1alpha1.Route) (*TrafficConfig, error) {
+	builder := newBuilder(configLister, revLister, u.Namespace)
 	var lastErr error
 	for _, tt := range u.Spec.Traffic {
 		if tt.RevisionName != "" {
@@ -88,8 +88,9 @@ func (t *TrafficConfig) GetTrafficTargets() []v1alpha1.TrafficTarget {
 }
 
 type trafficConfigBuilder struct {
-	configClient client.ConfigurationInterface
-	revClient    client.RevisionInterface
+	configLister listers.ConfigurationLister
+	revLister    listers.RevisionLister
+	namespace    string
 
 	// targets is a grouping of traffic targets serving the same origin.
 	targets map[string][]RevisionTarget
@@ -99,10 +100,11 @@ type trafficConfigBuilder struct {
 	revisions map[string]*v1alpha1.Revision
 }
 
-func newBuilder(configClient client.ConfigurationInterface, revClient client.RevisionInterface) *trafficConfigBuilder {
+func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *trafficConfigBuilder {
 	return &trafficConfigBuilder{
-		configClient: configClient,
-		revClient:    revClient,
+		configLister: configLister,
+		revLister:    revLister,
+		namespace:    namespace,
 		targets:      make(map[string][]RevisionTarget),
 
 		configurations: make(map[string]*v1alpha1.Configuration),
@@ -112,7 +114,7 @@ func newBuilder(configClient client.ConfigurationInterface, revClient client.Rev
 
 func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
 	if _, ok := t.configurations[name]; !ok {
-		config, err := t.configClient.Get(name, metav1.GetOptions{})
+		config, err := t.configLister.Configurations(t.namespace).Get(name)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +125,7 @@ func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configur
 
 func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
 	if _, ok := t.revisions[name]; !ok {
-		rev, err := t.revClient.Get(name, metav1.GetOptions{})
+		rev, err := t.revLister.Revisions(t.namespace).Get(name)
 		if err != nil {
 			return nil, err
 		}

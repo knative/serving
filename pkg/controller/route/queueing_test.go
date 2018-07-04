@@ -89,6 +89,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
+		servingInformer.Serving().V1alpha1().Revisions(),
+		kubeInformer.Core().V1().Services(),
+		servingInformer.Networking().V1alpha3().VirtualServices(),
 	)
 
 	h := NewHooks()
