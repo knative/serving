@@ -222,7 +222,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(logging.NewConfigFromMap(loggingConfig), "autoscaler")
+	logger, _ = logging.NewLoggerFromConfig(logging.NewConfigFromMap(loggingConfig), "autoscaler")
 	defer logger.Sync()
 
 	initEnv()
