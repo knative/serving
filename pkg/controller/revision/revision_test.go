@@ -703,11 +703,11 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 // TODO(mattmoor): Add table testing that varies the replica counts of Deployments.
 func TestReconcileReplicaCount(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	createRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	createRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	getDeployments := func() (*appsv1.Deployment, *appsv1.Deployment) {
 		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resources.DeploymentName(rev), metav1.GetOptions{})
 		if err != nil {
@@ -731,7 +731,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 	kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 0 {
 		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
@@ -742,7 +742,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 	// Activate the revision. Replicas should increase to 1
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 1 {
 		t.Fatalf("Expected deployment to have 1 replicas, got: %v", *d1.Spec.Replicas)
@@ -760,7 +760,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 	kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 30 {
 		t.Fatalf("Expected deployment to have 30 replicas, got: %v", *d1.Spec.Replicas)
@@ -771,7 +771,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 	// Deactivate the revision. Replicas should go back to 0.
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 0 {
 		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)

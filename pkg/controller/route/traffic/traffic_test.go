@@ -70,10 +70,10 @@ func setUp() {
 	inactiveConfig, inactiveRev = getTestInactiveConfig("inactive")
 	goodConfig, goodOldRev, goodNewRev = getTestReadyConfig("good")
 	niceConfig, niceOldRev, niceNewRev = getTestReadyConfig("nice")
-	elaClient := fakeclientset.NewSimpleClientset(
+	servingClient := fakeclientset.NewSimpleClientset(
 		unreadyConfig, unreadyRev, inactiveConfig, inactiveRev, goodConfig, goodOldRev, goodNewRev, niceConfig, niceOldRev, niceNewRev)
-	configClient = elaClient.ServingV1alpha1().Configurations(testNamespace)
-	revClient = elaClient.ServingV1alpha1().Revisions(testNamespace)
+	configClient = servingClient.ServingV1alpha1().Configurations(testNamespace)
+	revClient = servingClient.ServingV1alpha1().Revisions(testNamespace)
 	missingConfig, missingRev = getTestUnreadyConfig("missing")
 }
 

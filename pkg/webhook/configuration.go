@@ -103,8 +103,7 @@ func validateContainer(container corev1.Container) error {
 	}
 	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
-	// the users.  See pkg/controller/revision.MakeElaPodSpec for the list of fields
-	// overridden.
+	// the users.  See pkg/controller/revision/resources/deploy.go#makePodSpec.
 	var ignoredFields []string
 	if container.Name != "" {
 		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.name")
