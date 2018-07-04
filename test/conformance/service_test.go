@@ -118,7 +118,7 @@ func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (stri
 func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
-	//add test case specific name to its own logger
+	// add test case specific name to its own logger
 	logger := test.Logger.Named("TestRunLatestService")
 
 	var imagePaths []string

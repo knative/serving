@@ -141,7 +141,7 @@ func tearDown(clients *test.Clients, names test.ResourceNames) {
 func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
-	//add test case specific name to its own logger
+	// add test case specific name to its own logger
 	logger := test.Logger.Named("TestRouteCreation")
 
 	var imagePaths []string
