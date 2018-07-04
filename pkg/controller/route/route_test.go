@@ -53,6 +53,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/knative/serving/pkg/controller/route/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/route/resources/names"
 	. "github.com/knative/serving/pkg/controller/testing"
 )
 
@@ -281,7 +282,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	}
 
 	// Look for the virtual service.
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resources.VirtualServiceName(route), metav1.GetOptions{})
+	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -310,7 +311,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			resources.K8sGatewayFullname,
+			resourcenames.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{
@@ -377,7 +378,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	controller.Reconcile(KeyOrDie(route))
 
 	// Look for the route rule with activator as the destination.
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resources.VirtualServiceName(route), metav1.GetOptions{})
+	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -406,7 +407,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			resources.K8sGatewayFullname,
+			resourcenames.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{
@@ -472,7 +473,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 	controller.Reconcile(KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resources.VirtualServiceName(route), metav1.GetOptions{})
+	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -485,7 +486,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			resources.K8sGatewayFullname,
+			resourcenames.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{
@@ -559,7 +560,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 
 	controller.Reconcile(KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resources.VirtualServiceName(route), metav1.GetOptions{})
+	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -572,7 +573,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			resources.K8sGatewayFullname,
+			resourcenames.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{
@@ -660,7 +661,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	controller.Reconcile(KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resources.VirtualServiceName(route), metav1.GetOptions{})
+	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting VirtualService: %v", err)
 	}
@@ -673,7 +674,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			resources.K8sGatewayFullname,
+			resourcenames.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{
@@ -764,7 +765,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	controller.Reconcile(KeyOrDie(route))
 
-	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resources.VirtualServiceName(route), metav1.GetOptions{})
+	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("error getting virtualservice: %v", err)
 	}
@@ -776,7 +777,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			resources.K8sGatewayFullname,
+			resourcenames.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{

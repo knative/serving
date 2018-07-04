@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package names
 
 import (
 	"github.com/knative/serving/pkg"
@@ -26,14 +26,14 @@ var K8sGatewayFullname = controller.GetK8sServiceFullname(
 	"knative-shared-gateway",
 	pkg.GetServingSystemNamespace())
 
-func K8sServiceName(route *v1alpha1.Route) string {
+func K8sService(route *v1alpha1.Route) string {
 	return route.Name + "-service"
 }
 
-func VirtualServiceName(route *v1alpha1.Route) string {
+func VirtualService(route *v1alpha1.Route) string {
 	return route.Name + "-istio"
 }
 
 func K8sServiceFullname(route *v1alpha1.Route) string {
-	return controller.GetK8sServiceFullname(K8sServiceName(route), route.Namespace)
+	return controller.GetK8sServiceFullname(K8sService(route), route.Namespace)
 }
