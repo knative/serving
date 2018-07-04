@@ -57,7 +57,8 @@ func TestHelloWorld(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText")
+	expectedEndpointState := test.NewExpectedEndpointstate(domain)
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, expectedEndpointState, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}

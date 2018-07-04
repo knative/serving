@@ -19,6 +19,7 @@ package conformance
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -83,7 +84,12 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
+	expectedEndpointState := test.NewExpectedEndpointstate(updatedRoute.Status.Domain)
+	// TODO(#348): The ingress endpoint occasionally returns 503's and 404's.
+	// Explicitly allow 404's and 503's for a newly created revision.
+	expectedEndpointState.AllowableStatusCodes = []int{http.StatusServiceUnavailable, http.StatusNotFound}
+
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, expectedEndpointState, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, updatedRoute.Status.Domain, expectedText, err)
 	}

@@ -29,6 +29,21 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type ExpectedEndpointState struct {
+	Domain               string
+	AllowableStatusCodes []int
+}
+
+func NewExpectedEndpointstate(domain string) *ExpectedEndpointState {
+	return &ExpectedEndpointState{
+		Domain: domain,
+		// TODO(#348): The ingress endpoint tends to return 503's and 404's.
+		// Since there is currently a workaround for 503's, only allow 404's
+		// as an acceptable status code.
+		AllowableStatusCodes: []int{http.StatusNotFound},
+	}
+}
+
 // MatchesAny is a NOP matcher. This is useful for polling until a 200 is returned.
 func MatchesAny(_ *spoof.Response) (bool, error) {
 	return true, nil
@@ -64,20 +79,19 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, inState spoof.ResponseChecker, desc string) error {
+func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, expectedEndpointState *ExpectedEndpointState, inState spoof.ResponseChecker, desc string) error {
 	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	client, err := spoof.New(kubeClientset, logger, domain, resolvableDomain)
+	client, err := spoof.New(kubeClientset, logger, expectedEndpointState.Domain, resolvableDomain)
 	if err != nil {
 		return err
 	}
 
-	// TODO(#348): The ingress endpoint tends to return 503's and 404's
-	client.RetryCodes = []int{http.StatusServiceUnavailable, http.StatusNotFound}
+	client.RetryCodes = expectedEndpointState.AllowableStatusCodes
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", expectedEndpointState.Domain), nil)
 	if err != nil {
 		return err
 	}

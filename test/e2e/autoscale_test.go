@@ -18,6 +18,7 @@ limitations under the License.
 package e2e
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -50,6 +51,7 @@ func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 
 func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
+	expectedEndpointState := test.NewExpectedEndpointstate(domain)
 
 	logger.Infof("Performing %d concurrent requests.", num)
 	for i := 0; i < num; i++ {
@@ -57,7 +59,7 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num 
 			test.WaitForEndpointState(clients.Kube,
 				logger,
 				test.Flags.ResolvableDomain,
-				domain,
+				expectedEndpointState,
 				test.EventuallyMatchesBody(autoscaleExpectedOutput),
 				"MakingConcurrentRequests")
 			concurrentRequests <- true
@@ -154,11 +156,16 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
+	expectedEndpointState := test.NewExpectedEndpointstate(domain)
+	// TODO(#348): The ingress endpoint occasionally returns 503's and 404's.
+	// Explicitly allow 404's and 503's for a newly created revision.
+	expectedEndpointState.AllowableStatusCodes = []int{http.StatusServiceUnavailable, http.StatusNotFound}
+
 	err = test.WaitForEndpointState(
 		clients.Kube,
 		logger,
 		test.Flags.ResolvableDomain,
-		domain,
+		expectedEndpointState,
 		test.EventuallyMatchesBody(autoscaleExpectedOutput),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
