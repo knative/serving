@@ -41,11 +41,13 @@ func KeyOrDie(obj interface{}) string {
 // matching the given regular expression. For this expectation to be effective
 // the test must also call Hooks.WaitForHooks().
 func ExpectNormalEventDelivery(t *testing.T, messageRegexp string) CreateHookFunc {
+	t.Helper()
 	wantRegexp, err := regexp.Compile(messageRegexp)
 	if err != nil {
 		t.Fatalf("Invalid regular expression: %v", err)
 	}
 	return func(obj runtime.Object) HookResult {
+		t.Helper()
 		event := obj.(*corev1.Event)
 		if !wantRegexp.MatchString(event.Message) {
 			return HookIncomplete
@@ -63,11 +65,13 @@ func ExpectNormalEventDelivery(t *testing.T, messageRegexp string) CreateHookFun
 // matching the given regular expression. For this expectation to be effective
 // the test must also call Hooks.WaitForHooks().
 func ExpectWarningEventDelivery(t *testing.T, messageRegexp string) CreateHookFunc {
+	t.Helper()
 	wantRegexp, err := regexp.Compile(messageRegexp)
 	if err != nil {
 		t.Fatalf("Invalid regular expression: %v", err)
 	}
 	return func(obj runtime.Object) HookResult {
+		t.Helper()
 		event := obj.(*corev1.Event)
 		if !wantRegexp.MatchString(event.Message) {
 			return HookIncomplete

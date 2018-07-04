@@ -200,9 +200,40 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
+		servingInformer.Serving().V1alpha1().Revisions(),
+		kubeInformer.Core().V1().Services(),
+		servingInformer.Networking().V1alpha3().VirtualServices(),
 	)
 
 	return
+}
+
+func addResourcesToInformers(
+	t *testing.T, kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
+	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory, route *v1alpha1.Route) {
+	t.Helper()
+
+	ns := route.Namespace
+
+	route, err := servingClient.ServingV1alpha1().Routes(ns).Get(route.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Route.Get(%v) = %v", route.Name, err)
+	}
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	vsName := resources.VirtualServiceName(route)
+	virtualService, err := servingClient.NetworkingV1alpha3().VirtualServices(ns).Get(vsName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("VirtualService.Get(%v) = %v", vsName, err)
+	}
+	servingInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(virtualService)
+
+	ksName := resources.K8sServiceName(route)
+	service, err := kubeClient.CoreV1().Services(ns).Get(ksName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Services.Get(%v) = %v", ksName, err)
+	}
+	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(service)
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
@@ -218,6 +249,7 @@ func TestCreateRouteCreatesStuff(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
@@ -329,6 +361,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
@@ -410,6 +443,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -420,6 +454,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
@@ -495,6 +530,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -505,6 +541,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision
 	route := getTestRouteWithTrafficTargets(
@@ -576,6 +613,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -586,6 +624,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
 
 	// A route with duplicate targets. These will be deduped.
 	route := getTestRouteWithTrafficTargets(
@@ -692,6 +731,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
 	// created by the configuration controller.
@@ -702,6 +742,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision with named
 	// targets
@@ -800,7 +841,9 @@ func TestSetLabelToConfigurationDirectlyConfigured(t *testing.T) {
 	)
 
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
@@ -832,7 +875,9 @@ func TestCreateRouteWithInvalidConfigurationShouldReturnError(t *testing.T) {
 	config.Labels = map[string]string{serving.RouteLabelKey: "another-route"}
 
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
@@ -875,12 +920,14 @@ func TestCreateRouteRevisionMissingCondition(t *testing.T) {
 	)
 
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	expectedErrMsg := `revisions.serving.knative.dev "does-not-exist" not found`
+	expectedErrMsg := `revision.serving.knative.dev "does-not-exist" not found`
 	// Should return error.
 	err := controller.Reconcile(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
@@ -919,12 +966,14 @@ func TestCreateRouteConfigurationMissingCondition(t *testing.T) {
 	)
 
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	expectedErrMsg := `configurations.serving.knative.dev "does-not-exist" not found`
+	expectedErrMsg := `configuration.serving.knative.dev "does-not-exist" not found`
 	// Should return error.
 	err := controller.Reconcile(route.Namespace + "/" + route.Name)
 	if wanted, got := expectedErrMsg, err.Error(); wanted != got {
@@ -964,7 +1013,9 @@ func TestSetLabelNotChangeConfigurationLabelIfLabelExists(t *testing.T) {
 	config.Labels = map[string]string{serving.RouteLabelKey: route.Name}
 
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
@@ -997,7 +1048,9 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 	rev := getTestRevisionForConfig(config)
 
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
+	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -1021,7 +1074,7 @@ func TestDeleteLabelOfConfigurationWhenUnconfigured(t *testing.T) {
 }
 
 func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, kubeInformer, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -1029,6 +1082,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
 	controller.Reconcile(KeyOrDie(route))
+	addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 	// Confirms that by default the route get the defaultDomainSuffix.
 	expectations := []struct {
@@ -1046,6 +1100,7 @@ func TestUpdateRouteDomainWhenRouteLabelChanges(t *testing.T) {
 		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
 		controller.Reconcile(KeyOrDie(route))
+		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 		// Confirms that the new route get the correct domain.
 		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
@@ -1177,7 +1232,7 @@ func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, kubeInformer, servingInformer, _ := newTestController(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
@@ -1185,6 +1240,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
 	controller.Reconcile(KeyOrDie(route))
+	addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
 
@@ -1248,6 +1304,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
 		controller.Reconcile(KeyOrDie(route))
+		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
 		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
