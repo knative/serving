@@ -36,7 +36,7 @@ Once deployed, you can inspect the created resources with `kubectl` commands:
 
 ```shell
 # This will show the service that we created:
-kubectl get service.knative.dev -oyaml
+kubectl get services.serving.knative.dev -o yaml
 ```
 
 ```shell
