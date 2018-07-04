@@ -26,7 +26,7 @@ import (
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	"github.com/knative/serving/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func (c *Controller) syncLabels(ctx context.Context, r *v1alpha1.Route, tc *traffic.TrafficConfig) error {
@@ -78,13 +78,13 @@ func (c *Controller) setLabelForGivenConfigurations(
 func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context, route *v1alpha1.Route, configMap map[string]*v1alpha1.Configuration) error {
 	logger := logging.FromContext(ctx)
-	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
+	ns := route.Namespace
 	// Get Configurations set as traffic target before this sync.
-	oldConfigsList, err := configClient.List(
-		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name),
-		},
-	)
+	selector, err := labels.Parse(fmt.Sprintf("%s=%s", serving.RouteLabelKey, route.Name))
+	if err != nil {
+		return err
+	}
+	oldConfigsList, err := c.configurationLister.Configurations(ns).List(selector)
 	if err != nil {
 		logger.Errorf("Failed to fetch configurations with label '%s=%s': %s",
 			serving.RouteLabelKey, route.Name, err)
@@ -92,10 +92,10 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	}
 
 	// Delete label for newly removed configurations as traffic target.
-	for _, config := range oldConfigsList.Items {
+	for _, config := range oldConfigsList {
 		if _, ok := configMap[config.Name]; !ok {
 			delete(config.Labels, serving.RouteLabelKey)
-			if _, err := configClient.Update(&config); err != nil {
+			if _, err := c.ServingClientSet.ServingV1alpha1().Configurations(ns).Update(config); err != nil {
 				logger.Errorf("Failed to update Configuration %s: %s", config.Name, err)
 				return err
 			}
