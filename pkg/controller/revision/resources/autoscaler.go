@@ -25,6 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -100,7 +101,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            AutoscalerName(rev),
+			Name:            names.Autoscaler(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
@@ -125,7 +126,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 							Value: rev.Namespace,
 						}, {
 							Name:  "SERVING_DEPLOYMENT",
-							Value: DeploymentName(rev),
+							Value: names.Deployment(rev),
 						}, {
 							Name:  "SERVING_CONFIGURATION",
 							Value: configName,
@@ -153,7 +154,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            AutoscalerName(rev),
+			Name:            names.Autoscaler(rev),
 			Namespace:       pkg.GetServingSystemNamespace(),
 			Labels:          makeAutoScalerLabels(rev),
 			Annotations:     makeAnnotations(rev),
@@ -163,7 +164,7 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 			Ports: autoscalerServicePorts,
 			Type:  "NodePort",
 			Selector: map[string]string{
-				serving.AutoscalerLabelKey: AutoscalerName(rev),
+				serving.AutoscalerLabelKey: names.Autoscaler(rev),
 			},
 		},
 	}
@@ -173,6 +174,6 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 // service and deployment specs for autoscaler.
 func makeAutoScalerLabels(rev *v1alpha1.Revision) map[string]string {
 	labels := makeLabels(rev)
-	labels[serving.AutoscalerLabelKey] = AutoscalerName(rev)
+	labels[serving.AutoscalerLabelKey] = names.Autoscaler(rev)
 	return labels
 }

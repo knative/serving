@@ -14,24 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
-
-import (
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-)
-
-func DeploymentName(rev *v1alpha1.Revision) string {
-	return rev.Name + "-deployment"
-}
-
-func AutoscalerName(rev *v1alpha1.Revision) string {
-	return rev.Name + "-autoscaler"
-}
-
-func VPAName(rev *v1alpha1.Revision) string {
-	return rev.Name + "-vpa"
-}
-
-func K8sServiceName(rev *v1alpha1.Revision) string {
-	return rev.Name + "-service"
-}
+// Package names holds simple functions for synthesizing resource names.
+package names

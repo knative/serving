@@ -21,6 +21,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
@@ -204,7 +205,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            DeploymentName(rev),
+			Name:            names.Deployment(rev),
 			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
