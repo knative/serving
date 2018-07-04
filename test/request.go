@@ -48,7 +48,7 @@ func MatchesBody(expected string) spoof.ResponseChecker {
 
 // EventuallγMatchesBody checks that the response body *eventually* matches the expected body.
 // TODO(#1178): Delete me. We don't want to need this; we should be waiting for an appropriate Status instead.
-// NOTE: Eventually this is spelled with a gamma instead of a y to discourage its future use.
+// NOTE: Eventually is spelled with a gamma instead of a y to discourage its future use :^)
 func EventuallγMatchesBody(expected string) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		if !strings.Contains(string(resp.Body), expected) {

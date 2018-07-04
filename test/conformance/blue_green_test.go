@@ -47,7 +47,7 @@ const (
 	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
 )
 
-// sendRequests sends "num" requests to "domain", returning the a string for each spoof.Response.Body.
+// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
 func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {
@@ -55,7 +55,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 	}
 
 	// Poll until we get a successful response. This ensures the domain is
-	// routeable before we send it a bunch of traffic.
+	// routable before we send it a bunch of traffic.
 	if _, err := client.Poll(req, test.MatchesAny); err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
 func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedResponses []string, actualResponses []string) error {
-	// counts maps the response body to the number of matching requests we saw.
+	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 
 	// counts := eval(
@@ -147,7 +147,7 @@ func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain 
 func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
-	//add test case specific name to its own logger
+	// add test case specific name to its own logger
 	logger := test.Logger.Named("TestBlueGreenRoute")
 
 	var imagePaths []string
@@ -223,6 +223,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	greenDomain := fmt.Sprintf("%s.%s", green.TrafficTarget, route.Status.Domain)
 	tealDomain := route.Status.Domain
 
+	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(concurrentRequests * minDirectPercentage)
