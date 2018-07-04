@@ -33,6 +33,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -366,7 +367,7 @@ func (c *Controller) EnqueueEndpointsRevision(obj interface{}) {
 
 func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := controller.GetServingNamespaceName(rev.Namespace)
-	deploymentName := resources.DeploymentName(rev)
+	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
@@ -494,7 +495,7 @@ func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.De
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := controller.GetServingNamespaceName(rev.Namespace)
-	serviceName := resources.K8sServiceName(rev)
+	serviceName := resourcenames.K8sService(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
@@ -698,7 +699,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 	}
 
 	ns := pkg.GetServingSystemNamespace()
-	serviceName := resources.AutoscalerName(rev)
+	serviceName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
@@ -763,7 +764,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	}
 
 	ns := pkg.GetServingSystemNamespace()
-	deploymentName := resources.AutoscalerName(rev)
+	deploymentName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
@@ -831,7 +832,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 	}
 
 	ns := controller.GetServingNamespaceName(rev.Namespace)
-	vpaName := resources.VPAName(rev)
+	vpaName := resourcenames.VPA(rev)
 
 	// TODO(mattmoor): Switch to informer lister once it can reliably be sunk.
 	vpa, err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Get(vpaName, metav1.GetOptions{})

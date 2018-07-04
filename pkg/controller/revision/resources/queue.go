@@ -23,6 +23,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 	corev1 "k8s.io/api/core/v1"
@@ -83,7 +84,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 	if controllerConfig.AutoscalerImage == "" {
 		autoscalerAddress = "autoscaler"
 	} else {
-		autoscalerAddress = AutoscalerName(rev)
+		autoscalerAddress = names.Autoscaler(rev)
 	}
 
 	return &corev1.Container{
