@@ -65,15 +65,13 @@ func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
-
-	// TODO(mattmoor): Creating the service eagerly is a mistake.
-	desiredService := resources.MakeK8sService(route)
-	ns := desiredService.Namespace
-	name := desiredService.Name
+	ns := route.Namespace
+	name := resources.K8sServiceName(route)
 
 	service, err := c.serviceLister.Services(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// Doesn't exist, create it.
+		desiredService := resources.MakeK8sService(route)
 		service, err = c.KubeClientSet.CoreV1().Services(route.Namespace).Create(desiredService)
 		if err != nil {
 			logger.Error("Failed to create service", zap.Error(err))
@@ -85,11 +83,17 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", name)
 	} else if err != nil {
 		return err
-	} else if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
-		service.Spec = desiredService.Spec
-		service, err = c.KubeClientSet.CoreV1().Services(ns).Update(service)
-		if err != nil {
-			return err
+	} else {
+		// Make sure that the service has the proper specification
+		desiredService := resources.MakeK8sService(route)
+		// Preserve the ClusterIP field in the Service's Spec, if it has been set.
+		desiredService.Spec.ClusterIP = service.Spec.ClusterIP
+		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
+			service.Spec = desiredService.Spec
+			service, err = c.KubeClientSet.CoreV1().Services(ns).Update(service)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

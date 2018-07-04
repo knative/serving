@@ -234,7 +234,6 @@ func addResourcesToInformers(
 		t.Errorf("Services.Get(%v) = %v", ksName, err)
 	}
 	kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(service)
-
 }
 
 func TestCreateRouteCreatesStuff(t *testing.T) {
