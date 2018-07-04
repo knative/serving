@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package names
 
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func ConfigurationName(service *v1alpha1.Service) string {
+func Configuration(service *v1alpha1.Service) string {
 	return service.Name
 }
 
-func RouteName(service *v1alpha1.Service) string {
+func Route(service *v1alpha1.Service) string {
 	return service.Name
 }
