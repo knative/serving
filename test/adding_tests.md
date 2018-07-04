@@ -170,7 +170,7 @@ err = test.WaitForEndpointState(
 		logger,
 		test.Flags.ResolvableDomain,
 		updatedRoute.Status.Domain,
-		test.EventuallyMatchesBody(expectedText),
+		test.EventuallγMatchesBody(expectedText),
 		"SomeDescription")
 if err != nil {
     t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)

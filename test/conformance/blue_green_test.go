@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/knative/serving/test"
@@ -39,87 +38,112 @@ const (
 	concurrentRequests = 100
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
-	minDirectPercentage = 1.0
+	minDirectPercentage = 1
 	// We expect to see at least 25% of either response since we're routing 50/50.
 	// This might be a bad assumption.
 	minSplitPercentage = 0.25
+
+	expectedBlue  = "What a spaceport!"
+	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
 )
 
-type recordingChecker struct {
-	match spoof.ResponseChecker
-	// Minimum number of times we expect to match checker.
-	min int32
-	// Actual number of times we match checker.
-	count int32
-}
-
-func makeRequests(logger *zap.SugaredLogger, clients *test.Clients, num int, domain string, checks ...*recordingChecker) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
-	if err != nil {
-		return err
-	}
-
-	// TODO(#348): The ingress endpoint tends to return 503's and 404's
-	client.RetryCodes = []int{http.StatusServiceUnavailable, http.StatusNotFound}
-
+// sendRequests sends "num" requests to "domain", returning the a string for each spoof.Response.Body.
+func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// Poll until we get a successful response.
-	logger.Infof("Polling %s until we get a 200", domain)
+	// Poll until we get a successful response. This ensures the domain is
+	// routeable before we send it a bunch of traffic.
 	if _, err := client.Poll(req, test.MatchesAny); err != nil {
-		return err
+		return nil, err
 	}
 
-	logger.Infof("Performing %d concurrent requests to %s", num, domain)
+	responses := make([]string, num)
+
+	// Launch "num" requests, recording the responses we get in "responses".
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < num; i++ {
+		i := i // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 			if err != nil {
 				return err
 			}
 
-			// TODO(tcnghia): I still get 404 sometimes. Why do I still have to poll here? :( I want this:
+			// TODO(tcnghia): The ingress endpoint tends to return 404. Ideally we can instead do:
 			// resp, err := client.Do(req)
 			resp, err := client.Poll(req, test.MatchesAny)
 			if err != nil {
 				return err
 			}
 
-			for _, check := range checks {
-				if ok, err := check.match(resp); err != nil {
-					// For multiple matching checks, we don't want an error to be fatal.
-					if len(checks) == 1 {
-						logger.Infof("Bad response:\n%#v", resp)
-						return err
-					}
-				} else if ok {
-					atomic.AddInt32(&check.count, 1)
-				}
-			}
-
+			responses[i] = string(resp.Body)
 			return nil
 		})
 	}
 
-	if err := g.Wait(); err != nil {
-		return err
-	}
+	return responses, g.Wait()
+}
 
-	for i, check := range checks {
-		if check.count < check.min {
-			return fmt.Errorf("check[%d] for domain %s failed: want min %d, got %d", i, domain, check.min, check.count)
-		} else {
-			logger.Infof("wanted at least %d, got %d requests for %s", check.min, check.count, domain)
+// checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
+func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedResponses []string, actualResponses []string) error {
+	// counts maps the response body to the number of matching requests we saw.
+	counts := make(map[string]int)
+
+	// counts := eval(
+	//   SELECT body, count(*) AS total
+	//   FROM $actualResponses
+	//   WHERE body IN $expectedResponses
+	//   GROUP BY body
+	// )
+	for _, ar := range actualResponses {
+		for _, er := range expectedResponses {
+			if strings.Contains(string(ar), er) {
+				counts[er]++
+			}
 		}
 	}
 
+	// Verify that we saw each entry in "expectedResponses" at least "min" times.
+	// check(SELECT body FROM $counts WHERE total < $min)
+	for _, er := range expectedResponses {
+		count := counts[er]
+		if count < min {
+			return fmt.Errorf("domain %s failed: want min %d, got %d for response %q", domain, min, count, er)
+		} else {
+			logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
+		}
+	}
+
+	// If we made it here, the implementation conforms. Congratulations!
 	return nil
 }
 
+// checkDistribution sends "num" requests to "domain", then validates that
+// we see each body in "expectedResponses" at least "min" times.
+func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
+	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+	// TODO(tcnghia): The ingress endpoint tends to return 404.
+	client.RetryCodes = []int{http.StatusNotFound}
+
+	logger.Infof("Performing %d concurrent requests to %s", num, domain)
+	actualResponses, err := sendRequests(client, domain, num)
+	if err != nil {
+		return err
+	}
+
+	return checkResponses(logger, min, domain, expectedResponses, actualResponses)
+}
+
+// TestBlueGreenRoute verifies that a route configured with a 50/50 traffic split
+// between two revisions will (approximately) route traffic evenly between them.
+// Also, traffic that targets revisions *directly* will be routed to the correct
+// revision 100% of the time.
 func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
@@ -201,27 +225,16 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
-		return makeRequests(logger, clients, concurrentRequests, blueDomain, &recordingChecker{
-			match: test.MatchesBody("What a spaceport!"),
-			min:   int32(concurrentRequests * minDirectPercentage),
-		})
+		min := int(concurrentRequests * minDirectPercentage)
+		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
-		return makeRequests(logger, clients, concurrentRequests, greenDomain, &recordingChecker{
-			match: test.MatchesBody("Re-energize yourself with a slice of pepperoni!"),
-			min:   int32(concurrentRequests * minDirectPercentage),
-		})
+		min := int(concurrentRequests * minDirectPercentage)
+		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
 	})
 	g.Go(func() error {
-		return makeRequests(logger, clients, concurrentRequests, tealDomain,
-			&recordingChecker{
-				match: test.MatchesBody("What a spaceport!"),
-				min:   int32(concurrentRequests * minSplitPercentage),
-			},
-			&recordingChecker{
-				match: test.MatchesBody("Re-energize yourself with a slice of pepperoni!"),
-				min:   int32(concurrentRequests * minSplitPercentage),
-			})
+		min := int(concurrentRequests * minSplitPercentage)
+		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Error sending requests: %v", err)

@@ -58,7 +58,7 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num 
 				logger,
 				test.Flags.ResolvableDomain,
 				domain,
-				test.EventuallyMatchesBody(autoscaleExpectedOutput),
+				test.EventuallγMatchesBody(autoscaleExpectedOutput),
 				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
@@ -159,7 +159,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		logger,
 		test.Flags.ResolvableDomain,
 		domain,
-		test.EventuallyMatchesBody(autoscaleExpectedOutput),
+		test.EventuallγMatchesBody(autoscaleExpectedOutput),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
