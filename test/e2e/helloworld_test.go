@@ -32,7 +32,7 @@ const (
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := test.Logger.Named("TestHelloWorld")
 
 	var imagePath string
