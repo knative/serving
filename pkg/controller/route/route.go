@@ -228,7 +228,7 @@ func (c *Controller) EnqueueReferringRoute(obj interface{}) {
 	// Check whether is configuration is referred by a route.
 	routeName, ok := config.Labels[serving.RouteLabelKey]
 	if !ok {
-		c.Logger.Infof("Configuration %s does not have a referrring route", config.Name)
+		c.Logger.Infof("Configuration %s does not have a referring route", config.Name)
 		return
 	}
 	// Configuration is referred by a Route.  Update such Route.

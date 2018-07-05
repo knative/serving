@@ -45,6 +45,8 @@ type Listers struct {
 	Configuration *ConfigurationLister
 	Revision      *RevisionLister
 
+	VirtualService *VirtualServiceLister
+
 	Build *BuildLister
 
 	Deployment *DeploymentLister
@@ -58,6 +60,13 @@ func (f *Listers) GetServiceLister() *ServiceLister {
 		return &ServiceLister{}
 	}
 	return f.Service
+}
+
+func (f *Listers) GetVirtualServiceLister() *VirtualServiceLister {
+	if f.VirtualService == nil {
+		return &VirtualServiceLister{}
+	}
+	return f.VirtualService
 }
 
 func (f *Listers) GetRouteLister() *RouteLister {
@@ -155,6 +164,9 @@ func (f *Listers) GetServingObjects() []runtime.Object {
 	for _, r := range f.GetRevisionLister().Items {
 		objs = append(objs, r)
 	}
+	for _, r := range f.GetVirtualServiceLister().Items {
+		objs = append(objs, r)
+	}
 	return objs
 }
 
@@ -225,7 +237,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
 		obj := got.GetObject()
-		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff); diff != "" {
+		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("unexpected create (-want +got): %s", diff)
 		}
 	}
@@ -241,7 +253,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := updateActions[i]
-		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff); diff != "" {
+		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("unexpected update (-want +got): %s", diff)
 		}
 	}
