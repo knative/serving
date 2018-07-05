@@ -31,7 +31,7 @@ const (
 	registriesSkippingTagResolving = "registriesSkippingTagResolving"
 )
 
-// NewNetworkFromConfigMap creates a Network from the supplied ConfigMap
+// NewControllerConfigFromMap creates a Controller from the supplied Map
 func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error) {
 	nc := &Controller{}
 
@@ -55,6 +55,7 @@ func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error
 	return nc, nil
 }
 
+// NewControllerConfigFromConfigMap creates a Controller from the supplied configMap
 func NewControllerConfigFromConfigMap(config *corev1.ConfigMap) (*Controller, error) {
 	return NewControllerConfigFromMap(config.Data)
 }
