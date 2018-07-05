@@ -112,6 +112,7 @@ type Controller struct {
 	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
 	controllerConfig      *config.Controller
 	controllerConfigMutex sync.Mutex
+	resolverMutex         sync.Mutex
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex
@@ -450,7 +451,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig(), replicaCount)
 
 	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment); err != nil {
+	if err := c.getResolver().Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
 		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
@@ -938,7 +939,11 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 	controllerConfig, err := config.NewControllerConfigFromConfigMap(configMap)
 
 	c.controllerConfigMutex.Lock()
-	defer c.controllerConfigMutex.Unlock()
+	c.resolverMutex.Lock()
+	defer func() {
+		c.controllerConfigMutex.Unlock()
+		c.resolverMutex.Unlock()
+	}()
 
 	if err != nil {
 		if c.controllerConfig != nil {
@@ -956,6 +961,12 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 		transport:        http.DefaultTransport,
 		registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
 	}
+}
+
+func (c *Controller) getResolver() resolver {
+	c.resolverMutex.Lock()
+	defer c.resolverMutex.Unlock()
+	return c.resolver
 }
 
 func (c *Controller) getControllerConfig() *config.Controller {
