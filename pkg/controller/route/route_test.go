@@ -222,14 +222,14 @@ func addResourcesToInformers(
 	}
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	vsName := resources.VirtualServiceName(route)
+	vsName := resourcenames.VirtualService(route)
 	virtualService, err := servingClient.NetworkingV1alpha3().VirtualServices(ns).Get(vsName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("VirtualService.Get(%v) = %v", vsName, err)
 	}
 	servingInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(virtualService)
 
-	ksName := resources.K8sServiceName(route)
+	ksName := resourcenames.K8sService(route)
 	service, err := kubeClient.CoreV1().Services(ns).Get(ksName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Services.Get(%v) = %v", ksName, err)
