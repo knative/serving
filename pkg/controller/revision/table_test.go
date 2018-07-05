@@ -1183,6 +1183,204 @@ func TestReconcile(t *testing.T) {
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			endpointsLister:     listers.GetEndpointsLister(),
+			configMapLister:     listers.GetConfigMapLister(),
+			controllerConfig:    controllerConfig,
+			networkConfig:       networkConfig,
+			loggingConfig:       loggingConfig,
+			observabilityConfig: observabilityConfig,
+			autoscalerConfig:    autoscalerConfig,
+			resolver:            &nopResolver{},
+			buildtracker:        &buildTracker{builds: map[key]set{}},
+		}
+	})
+}
+
+func TestReconcileWithVarLogEnabled(t *testing.T) {
+	networkConfig := &config.Network{IstioOutboundIPRanges: "*"}
+	loggingConfig := &logging.Config{}
+	observabilityConfig := &config.Observability{
+		LoggingURLTemplate:     "http://logger.io/${REVISION_UID}",
+		EnableVarLogCollection: true,
+	}
+	autoscalerConfig := &autoscaler.Config{}
+	controllerConfig := getTestControllerConfig()
+
+	// Create short-hand aliases that pass through the above config and Active to getRev and friends.
+	rev := func(namespace, name, servingState, image string) *v1alpha1.Revision {
+		return getRev(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
+	deploy := func(namespace, name, servingState, image string) *appsv1.Deployment {
+		return getDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
+	svc := func(namespace, name, servingState, image string) *corev1.Service {
+		return getService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
+	deployAS := func(namespace, name, servingState, image string) *appsv1.Deployment {
+		return getASDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
+	svcAS := func(namespace, name, servingState, image string) *corev1.Service {
+		return getASService(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
+
+	table := TableTest{{
+		Name: "first revision reconciliation (with /var/log enabled)",
+		// Test a successful reconciliation flow with /var/log enabled.
+		// We feed in a well formed Revision where none of its sub-resources exist,
+		// and we exect it to create them and initialize the Revision's status.
+		// This is similar to "first-reconcile", but should also create a fluentd configmap.
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "first-reconcile-var-log", "Active", "busybox")},
+			},
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deploy("foo", "first-reconcile-var-log", "Active", "busybox"),
+			svc("foo", "first-reconcile-var-log", "Active", "busybox"),
+			resources.MakeFluentdConfigMap(rev("foo", "first-reconcile-var-log", "Active", "busybox"), observabilityConfig),
+			deployAS("foo", "first-reconcile-var-log", "Active", "busybox"),
+			svcAS("foo", "first-reconcile-var-log", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "first-reconcile-var-log", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "first-reconcile-var-log", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/first-reconcile-var-log",
+	}, {
+		Name: "steady state after initial creation",
+		// Verify that after creating the things from an initial reconcile that we're stable.
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					rev("foo", "steady-state", "Active", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "steady-state", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					})},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					deploy("foo", "steady-state", "Active", "busybox"),
+					deployAS("foo", "steady-state", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					svc("foo", "steady-state", "Active", "busybox"),
+					svcAS("foo", "steady-state", "Active", "busybox"),
+				},
+			},
+			ConfigMap: &ConfigMapLister{
+				Items: []*corev1.ConfigMap{
+					resources.MakeFluentdConfigMap(rev("foo", "steady-state", "Active", "busybox"), observabilityConfig),
+				},
+			},
+		},
+		Key: "foo/steady-state",
+	}, {
+		Name: "update a bad fluentd configmap",
+		// Verify that after creating the things from an initial reconcile that we're stable.
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					rev("foo", "update-fluentd-config", "Active", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "update-fluentd-config", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					})},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					deploy("foo", "update-fluentd-config", "Active", "busybox"),
+					deployAS("foo", "update-fluentd-config", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					svc("foo", "update-fluentd-config", "Active", "busybox"),
+					svcAS("foo", "update-fluentd-config", "Active", "busybox"),
+				},
+			},
+			ConfigMap: &ConfigMapLister{
+				Items: []*corev1.ConfigMap{{
+					// Use the ObjectMeta, but discard the rest.
+					ObjectMeta: resources.MakeFluentdConfigMap(rev("foo", "update-fluentd-config", "Active", "busybox"), observabilityConfig).ObjectMeta,
+					Data: map[string]string{
+						"bad key": "bad value",
+					},
+				}},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// We should see a single update to the configmap we expect.
+			Object: resources.MakeFluentdConfigMap(rev("foo", "update-fluentd-config", "Active", "busybox"), observabilityConfig),
+		}},
+		Key: "foo/update-fluentd-config",
+	}}
+
+	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
+		return &Controller{
+			Base:                controller.NewBase(opt, controllerAgentName, "Revisions"),
+			revisionLister:      listers.GetRevisionLister(),
+			buildLister:         listers.GetBuildLister(),
+			deploymentLister:    listers.GetDeploymentLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			endpointsLister:     listers.GetEndpointsLister(),
+			configMapLister:     listers.GetConfigMapLister(),
 			controllerConfig:    controllerConfig,
 			networkConfig:       networkConfig,
 			loggingConfig:       loggingConfig,

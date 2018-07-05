@@ -198,6 +198,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 		controllerConfig,
 	)
@@ -294,6 +295,12 @@ func addResourcesToInformers(t *testing.T,
 		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(autoscalerService)
 	}
 
+	// Add fluentd configmap if any
+	fluentdConfigMap, err := kubeClient.CoreV1().ConfigMaps(rev.Namespace).Get(resourcenames.FluentdConfigMap(rev), metav1.GetOptions{})
+	if err == nil {
+		kubeInformer.Core().V1().ConfigMaps().Informer().GetIndexer().Add(fluentdConfigMap)
+	}
+
 	return rev, deployment, service
 }
 
@@ -348,71 +355,6 @@ func TestResolutionFailed(t *testing.T) {
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
 		}
-	}
-}
-
-// TODO(mattmoor): Add fluentd table testing.
-func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-
-	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
-	existingConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fluentdConfigMapName,
-			Namespace: testNamespace,
-		},
-		Data: map[string]string{
-			"varlog.conf": "test-config",
-		},
-	}
-	kubeClient.CoreV1().ConfigMaps(testNamespace).Create(existingConfigMap)
-
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	// Look for the config map.
-	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config map: %v", err)
-	}
-	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
-		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
-			want, got)
-	}
-}
-
-// TODO(mattmoor): Add fluentd table testing.
-func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-	revRef := *newRevisionNonControllerRef(rev)
-	oldRev := getTestRevision()
-	oldRev.Name = "old" + oldRev.Name
-	oldRevRef := *newRevisionNonControllerRef(oldRev)
-
-	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
-	existingConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            fluentdConfigMapName,
-			Namespace:       testNamespace,
-			OwnerReferences: []metav1.OwnerReference{oldRevRef},
-		},
-		Data: map[string]string{
-			"varlog.conf": fluentdConfigSource,
-		},
-	}
-	kubeClient.CoreV1().ConfigMaps(testNamespace).Create(existingConfigMap)
-
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	// Look for the config map.
-	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config map: %v", err)
-	}
-	expectedRefs := []metav1.OwnerReference{oldRevRef, revRef}
-	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences); diff != "" {
-		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
 	}
 }
 

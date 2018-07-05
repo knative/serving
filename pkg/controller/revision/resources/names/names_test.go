@@ -66,6 +66,15 @@ func TestNamer(t *testing.T) {
 		},
 		f:    K8sService,
 		want: "blah-service",
+	}, {
+		name: "FluentdConfigMap",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "bazinga",
+			},
+		},
+		f:    FluentdConfigMap,
+		want: "bazinga-fluentd",
 	}}
 
 	for _, test := range tests {

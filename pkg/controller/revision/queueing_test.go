@@ -198,6 +198,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 		controllerConfig,
 	)
