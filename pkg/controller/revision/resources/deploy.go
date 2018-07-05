@@ -206,7 +206,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.Deployment(rev),
-			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
+			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},

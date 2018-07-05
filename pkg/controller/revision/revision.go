@@ -366,7 +366,7 @@ func (c *Controller) EnqueueEndpointsRevision(obj interface{}) {
 }
 
 func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
-	ns := controller.GetServingNamespaceName(rev.Namespace)
+	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
@@ -494,7 +494,7 @@ func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.De
 }
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
-	ns := controller.GetServingNamespaceName(rev.Namespace)
+	ns := rev.Namespace
 	serviceName := resourcenames.K8sService(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
@@ -831,7 +831,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return nil
 	}
 
-	ns := controller.GetServingNamespaceName(rev.Namespace)
+	ns := rev.Namespace
 	vpaName := resourcenames.VPA(rev)
 
 	// TODO(mattmoor): Switch to informer lister once it can reliably be sunk.
