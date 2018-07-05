@@ -951,6 +951,11 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
 
 	c.controllerConfig = controllerConfig
+	c.resolver = &digestResolver{
+		client:           c.KubeClientSet,
+		transport:        http.DefaultTransport,
+		registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
+	}
 }
 
 func (c *Controller) getControllerConfig() *config.Controller {

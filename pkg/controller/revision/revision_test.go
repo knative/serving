@@ -625,6 +625,32 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	}
 }
 
+func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewControllerRef(config),
+	)
+	// Update controller config with no side car image
+	controller.receiveControllerConfig(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-controller",
+				Namespace: pkg.GetServingSystemNamespace(),
+			},
+			Data: map[string]string{},
+		})
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+
+	// Look for the revision deployment.
+	_, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(rev.Name, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
+	}
+}
+
 // This covers *error* paths in receiveNetworkConfig, since "" is not a valid value.
 func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	var annotations map[string]string
