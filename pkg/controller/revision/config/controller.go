@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	ControllerConfigName           = "config-controller"
-	queueSidecarImage              = "queueSidecarImage"
-	autoscalerImage                = "autoscalerImage"
+	ControllerConfigName = "controller"
+
+	queueSidecarImageKey           = "queueSidecarImage"
+	autoscalerImageKey             = "autoscalerImage"
 	registriesSkippingTagResolving = "registriesSkippingTagResolving"
 )
 
@@ -34,16 +35,16 @@ const (
 func NewControllerConfigFromMap(configMap map[string]string) (*Controller, error) {
 	nc := &Controller{}
 
-	if qsideCarImage, ok := configMap[queueSidecarImage]; !ok {
+	if qsideCarImage, ok := configMap[queueSidecarImageKey]; !ok {
 		return nil, errors.New("Queue sidecar image is missing")
 	} else {
 		nc.QueueSidecarImage = qsideCarImage
 	}
 
-	if ascalerImage, ok := configMap[autoscalerImage]; ok {
-		nc.AutoscalerImage = ascalerImage
+	if autoScalerImage, ok := configMap[autoscalerImageKey]; ok {
+		nc.AutoscalerImage = autoScalerImage
 	}
-	// If authoscaler image is not set then Single-tenant autoscaler deployments enabled
+	// If autoscaler image is not set then Single-tenant autoscaler deployments enabled
 
 	if registries, ok := configMap[registriesSkippingTagResolving]; !ok {
 		// It is ok if registries are missing

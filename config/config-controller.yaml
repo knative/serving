@@ -18,9 +18,14 @@ metadata:
   name: config-controller
   namespace: knative-serving
 data:
+  # CONTROLLER CONFIGURATION
+
   # This is the Go import path for the binary that is containerized
   # and substituted here.
   queueSidecarImage: github.com/knative/serving/cmd/queue
-# Comment the following lines to disable the single-tenant autoscaler.
+
+  # Comment the following lines to disable the single-tenant autoscaler.
   autoscalerImage: github.com/knative/serving/cmd/autoscaler
+
+  # List of repositories for which tag to digest resolving should be skipped
   registriesSkippingTagResolving: "ko.local,dev.local"

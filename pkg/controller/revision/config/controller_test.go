@@ -17,27 +17,31 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg"
+	yaml "gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNewControllerConfigwithoutQSideCarImage(t *testing.T) {
-	_, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
+func TestNewControllerConfigwithoutQueueSideCarImage(t *testing.T) {
+	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
 			Name:      ControllerConfigName,
 		},
 	})
+
 	if err == nil {
-		t.Error("want `Queue sidecar image is missing` but got nil")
+		t.Errorf("NewControllerConfigFromConfigMap() = %v, wanted error", c)
 	}
 }
 
-func TestNewControllerConfigwithoutautoscalerImage(t *testing.T) {
+func TestNewControllerConfigWithoutAutoscalerImage(t *testing.T) {
 	var want = "some-image"
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -45,7 +49,7 @@ func TestNewControllerConfigwithoutautoscalerImage(t *testing.T) {
 			Name:      NetworkConfigName,
 		},
 		Data: map[string]string{
-			queueSidecarImage: want,
+			queueSidecarImageKey: want,
 		},
 	})
 
@@ -58,8 +62,31 @@ func TestNewControllerConfigwithoutautoscalerImage(t *testing.T) {
 	}
 }
 
+func TestNewControllerConfigWithAutoscalerImage(t *testing.T) {
+	var want = "some-autoscale-image"
+
+	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pkg.GetServingSystemNamespace(),
+			Name:      ControllerConfigName,
+		},
+		Data: map[string]string{
+			queueSidecarImageKey: "some-image",
+			autoscalerImageKey:   want,
+		},
+	})
+
+	if err != nil {
+		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
+	}
+
+	if c.AutoscalerImage != want {
+		t.Errorf("want %q, but got %q", want, c.AutoscalerImage)
+	}
+}
+
 func TestNewControllerConfigwWithRegisteries(t *testing.T) {
-	want := map[string]struct{}{
+	wantRegistry := map[string]struct{}{
 		"ko.local": struct{}{},
 		"ko.dev":   struct{}{},
 	}
@@ -67,10 +94,10 @@ func TestNewControllerConfigwWithRegisteries(t *testing.T) {
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      NetworkConfigName,
+			Name:      ControllerConfigName,
 		},
 		Data: map[string]string{
-			queueSidecarImage:              "some-image",
+			queueSidecarImageKey:           "some-image",
 			registriesSkippingTagResolving: "ko.local,ko.dev",
 		},
 	})
@@ -79,8 +106,8 @@ func TestNewControllerConfigwWithRegisteries(t *testing.T) {
 		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
 	}
 
-	if diff := cmp.Diff(c.RegistriesSkippingTagResolving, want); diff != "" {
-		t.Errorf("want %q, but got %q", want, c.RegistriesSkippingTagResolving)
+	if diff := cmp.Diff(c.RegistriesSkippingTagResolving, wantRegistry); diff != "" {
+		t.Errorf("want %q, but got %q", wantRegistry, c.RegistriesSkippingTagResolving)
 	}
 }
 
@@ -93,10 +120,10 @@ func TestNewControllerConfigwWithBadRegisteries(t *testing.T) {
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      NetworkConfigName,
+			Name:      ControllerConfigName,
 		},
 		Data: map[string]string{
-			queueSidecarImage:              "some-image",
+			queueSidecarImageKey:           "some-image",
 			registriesSkippingTagResolving: "ko.local,,",
 		},
 	})
@@ -107,5 +134,19 @@ func TestNewControllerConfigwWithBadRegisteries(t *testing.T) {
 
 	if diff := cmp.Diff(c.RegistriesSkippingTagResolving, want); diff != "" {
 		t.Errorf("want %q, but got %q", want, c.RegistriesSkippingTagResolving)
+	}
+}
+
+func TestControllerConfiguration(t *testing.T) {
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/config-%s.yaml", ControllerConfigName))
+	if err != nil {
+		t.Errorf("ReadFile() = %v", err)
+	}
+	var cm corev1.ConfigMap
+	if err := yaml.Unmarshal(b, &cm); err != nil {
+		t.Errorf("yaml.Unmarshal() = %v", err)
+	}
+	if _, err := NewControllerConfigFromConfigMap(&cm); err != nil {
+		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
 	}
 }
