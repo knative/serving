@@ -23,13 +23,14 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/service/resources/names"
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
 func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	c := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConfigurationName(service),
+			Name:      names.Configuration(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*controller.NewControllerRef(service),

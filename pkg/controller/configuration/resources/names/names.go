@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package names
 
 import (
 	"fmt"
@@ -22,13 +22,13 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-func RevisionName(config *v1alpha1.Configuration) string {
+func Revision(config *v1alpha1.Configuration) string {
 	return fmt.Sprintf("%s-%05d", config.Name, config.Spec.Generation)
 }
 
-func BuildName(config *v1alpha1.Configuration) string {
+func Build(config *v1alpha1.Configuration) string {
 	if config.Spec.Build == nil {
 		return ""
 	}
-	return RevisionName(config)
+	return Revision(config)
 }

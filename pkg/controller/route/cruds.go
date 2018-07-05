@@ -23,6 +23,7 @@ import (
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller/route/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/route/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +67,7 @@ func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
-	name := resources.K8sServiceName(route)
+	name := resourcenames.K8sService(route)
 
 	service, err := c.serviceLister.Services(ns).Get(name)
 	if apierrs.IsNotFound(err) {

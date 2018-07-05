@@ -26,6 +26,7 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/configuration/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/configuration/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -137,7 +138,7 @@ func (c *Controller) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation
-	revName := resources.RevisionName(config)
+	revName := resourcenames.Revision(config)
 	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
 	if errors.IsNotFound(err) {
 		latestCreatedRevision, err = c.createRevision(config, revName)
