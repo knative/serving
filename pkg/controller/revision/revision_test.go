@@ -260,7 +260,7 @@ func addResourcesToInformers(t *testing.T,
 	haveBuild := rev.Spec.BuildName != ""
 	inActive := rev.Spec.ServingState != "Active"
 
-	ns := ctrl.GetServingNamespaceName(rev.Namespace)
+	ns := rev.Namespace
 
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
