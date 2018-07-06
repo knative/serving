@@ -22,7 +22,9 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
+	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -372,6 +374,48 @@ func (r *nsConfigMapLister) List(selector labels.Selector) ([]*corev1.ConfigMap,
 }
 
 func (r *nsConfigMapLister) Get(name string) (*corev1.ConfigMap, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}
+
+// VirtualServiceLister is a istiolisters.VirtualServiceLister fake for testing.
+type VirtualServiceLister struct {
+	Err   error
+	Items []*istiov1alpha3.VirtualService
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ istiolisters.VirtualServiceLister = (*VirtualServiceLister)(nil)
+
+func (r *VirtualServiceLister) List(selector labels.Selector) ([]*istiov1alpha3.VirtualService, error) {
+	return r.Items, r.Err
+}
+
+func (r *VirtualServiceLister) VirtualServices(namespace string) istiolisters.VirtualServiceNamespaceLister {
+	return &nsVirtualServiceLister{r: r, ns: namespace}
+}
+
+func (r *VirtualServiceLister) GetPodServices(p *corev1.Pod) ([]*istiov1alpha3.VirtualService, error) {
+	return nil, fmt.Errorf("unimplemented GetPodServices(%v)", p)
+}
+
+type nsVirtualServiceLister struct {
+	r  *VirtualServiceLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ istiolisters.VirtualServiceNamespaceLister = (*nsVirtualServiceLister)(nil)
+
+func (r *nsVirtualServiceLister) List(selector labels.Selector) ([]*istiov1alpha3.VirtualService, error) {
+	return r.r.Items, r.r.Err
+}
+
+func (r *nsVirtualServiceLister) Get(name string) (*istiov1alpha3.VirtualService, error) {
 	for _, s := range r.r.Items {
 		if s.Name == name && r.ns == s.Namespace {
 			return s, nil
