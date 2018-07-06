@@ -78,10 +78,9 @@ func NewController(
 	return c
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// Run starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh, c.Reconcile, "Configuration")
 }
