@@ -246,7 +246,7 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-func (rs *RevisionStatus) isRoutable() bool {
+func (rs *RevisionStatus) IsRoutable() bool {
 	return rs.IsReady() || rs.IsIdle()
 }
 

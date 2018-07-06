@@ -15,8 +15,10 @@ package v1alpha1
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
@@ -34,67 +36,81 @@ func TestGeneration(t *testing.T) {
 
 }
 
-func TestIsActivationRequired(t *testing.T) {
+func TestIsIdle(t *testing.T) {
 	cases := []struct {
-		name                 string
-		status               RevisionStatus
-		isActivationRequired bool
+		name   string
+		status RevisionStatus
+		isIdle bool
 	}{{
-		name:                 "empty status should not be inactive",
-		status:               RevisionStatus{},
-		isActivationRequired: false,
+		name: "No Idle status should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{}},
+		},
+		isIdle: false,
 	}, {
-		name: "Ready status should not be inactive",
+		name: "Idle False should be false",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
+				Type:   RevisionConditionIdle,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isIdle: false,
+	}, {
+		name: "Idle True should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionIdle,
 				Status: corev1.ConditionTrue,
 			}},
 		},
-		isActivationRequired: false,
-	}, {
-		name: "Inactive status should be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
-			}},
-		},
-		isActivationRequired: true,
-	}, {
-		name: "Updating status should be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}},
-		},
-		isActivationRequired: true,
-	}, {
-		name: "NotReady status without reason should not be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isActivationRequired: false,
-	}, {
-		name: "Ready/Unknown status without reason should not be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-		isActivationRequired: false,
+		isIdle: true,
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		if e, i := tc.isIdle, tc.status.IsIdle(); e != i {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, i)
+		}
+	}
+}
+
+func TestReadyToTearDownResources(t *testing.T) {
+	tZero := metav1.NewTime(time.Now())
+	cases := []struct {
+		name                     string
+		status                   RevisionStatus
+		readyToTearDownResources bool
+	}{{
+		name: "No Reserve status should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{}},
+		},
+		readyToTearDownResources: false,
+	}, {
+		name: "Reserve status now should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionReserve,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: tZero,
+			}},
+		},
+		readyToTearDownResources: false,
+	}, {
+		name: "Reserve status +11 seconds should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionReserve,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(tZero.Add(11 * time.Second)),
+			}},
+		},
+		readyToTearDownResources: false,
+	}}
+
+	for _, tc := range cases {
+		if e, r := tc.readyToTearDownResources, tc.status.ReadyToTearDownResources(); e != r {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, r)
 		}
 	}
 }
@@ -118,27 +134,19 @@ func TestIsRoutable(t *testing.T) {
 		},
 		isRoutable: true,
 	}, {
-		name: "Inactive status should be routable",
+		name: "Idle status should be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
+			}, {
+				Type:   RevisionConditionIdle,
+				Status: corev1.ConditionTrue,
 			}},
 		},
 		isRoutable: true,
 	}, {
-		name: "Updating status should be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "NotReady status without reason should not be routable",
+		name: "NotReady status without Idle condition should not be routeable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
@@ -147,7 +155,7 @@ func TestIsRoutable(t *testing.T) {
 		},
 		isRoutable: false,
 	}, {
-		name: "Ready/Unknown status without reason should not be routable",
+		name: "Ready/Unknown status without Idle condition should not be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
@@ -160,7 +168,7 @@ func TestIsRoutable(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("IsRoutable() = %v want: %v", got, want)
+				t.Errorf("%q expect: %v got: %v", tc.name, want, got)
 			}
 		})
 	}
@@ -537,15 +545,17 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
-	// From a Ready state, make the revision inactive to simulate scale to zero.
-	r.Status.MarkInactive()
+	// From a Ready state, make the revision Idle to simulate scale to zero.
+	r.Status.MarkIdle()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Inactive" {
-		t.Errorf("MarkInactive = %v, want Inactive", got)
-	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionIdle, t)
 
-	// From an Inactive state, start to activate the revision.
+	// Once Idle, the route rules will point to the Activator, and the revision will be marked Reserve
+	r.Status.MarkReserve()
+	checkConditionSucceededRevision(r.Status, RevisionConditionReserve, t)
+
+	// From a Reserve state, start to activate the revision.
 	want := "Updating"
 	r.Status.MarkDeploying(want)
 	r.Status.MarkDeploying(want)
