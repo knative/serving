@@ -1,0 +1,267 @@
+/*
+Copyright 2018 Google Inc. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package activator
+
+import (
+	"context"
+	"errors"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+)
+
+// Measurement represents the type of the autoscaler metric to be reported
+type Measurement int
+
+const (
+	// // RequestCountReserveM is the requests count that are routed to the activator when
+	// // the revision is Reserve
+	// RequestCountReserveM Measurement = iota
+	// // RequestCountActiveM is the requests count that are routed to the activator when
+	// // the revision is Active
+	// RequestCountActiveM
+	// // RequestCountRetiredM is the requests count that are routed to the activator when
+	// // the revision is Retired
+	// RequestCountRetiredM
+	// // RequestCountUnknownM is the requests count that are routed to the activator when
+	// // the revision is not Active, Reserve, and Retired
+	// RequestCountUnknownM
+
+	// RequestCountM is the requests count that are routed to the activator
+	RequestCountM Measurement = iota
+
+	//ResponseCountM is the response count when activator proxy the request
+	ResponseCountM
+	// ResponseCodeM is the response code when activator proxy the request
+	// ResponseCodeM
+
+	// NumTriesM is the number of tries to get the response code
+	NumTriesM
+	// ResponseTimeInSecM is the response time in seconds
+	ResponseTimeInSecM
+)
+
+var (
+	measurements = []*stats.Float64Measure{
+		// RequestCountReserveM: stats.Float64(
+		// 	"request_count_reserve",
+		// 	"The number of requests that are routed to the activator when the revision is Reserve",
+		// 	stats.UnitNone),
+		// RequestCountActiveM: stats.Float64(
+		// 	"request_count_active",
+		// 	"The number of requests that are routed to the activator when the revision is Active",
+		// 	stats.UnitNone),
+		// RequestCountRetiredM: stats.Float64(
+		// 	"request_count_retired",
+		// 	"The number of requests that are routed to the activator when the revision is Retired",
+		// 	stats.UnitNone),
+		// RequestCountUnknownM: stats.Float64(
+		// 	"request_count_unknown",
+		// 	"The number of requests that are routed to the activator when the revision is not Active, Reserve, and Retired",
+		// 	stats.UnitNone),
+		RequestCountM: stats.Float64(
+			"revision_request_count",
+			"The number of requests that are routed to the activator",
+			stats.UnitNone),
+		ResponseCountM: stats.Float64(
+			"response_count",
+			"The response count when activator proxy the request",
+			stats.UnitNone),
+		// ResponseCodeM: stats.Float64(
+		// 	"response_code",
+		// 	"The response code when activator proxy the request",
+		// 	stats.UnitNone),
+		NumTriesM: stats.Float64(
+			"num_tries",
+			"The number of tries to get the response",
+			stats.UnitNone),
+		ResponseTimeInSecM: stats.Float64(
+			"response_time_seconds",
+			"The response time in seconds",
+			stats.UnitNone),
+	}
+)
+
+// StatsReporter defines the interface for sending activator metrics
+type StatsReporter interface {
+	Report(ns string, config string, rev string, m Measurement, v float64) error
+	ReportRequest(ns, config, rev, servingState string, m Measurement, v float64) error
+	ReportResponse(ns, config, rev, responseCode string, m Measurement, v float64) error
+}
+
+// Reporter holds cached metric objects to report autoscaler metrics
+type Reporter struct {
+	initialized     bool
+	namespaceTagKey tag.Key
+	configTagKey    tag.Key
+	revisionTagKey  tag.Key
+	servingStateKey tag.Key
+	responseCodeKey tag.Key
+}
+
+// NewStatsReporter creates a reporter that collects and reports activator metrics
+func NewStatsReporter() (*Reporter, error) {
+
+	var r = &Reporter{}
+
+	// Create the tag keys that will be used to add tags to our measurements.
+	nsTag, err := tag.NewKey("destination_namespace")
+	if err != nil {
+		return nil, err
+	}
+	r.namespaceTagKey = nsTag
+	configTag, err := tag.NewKey("destination_configuration")
+	if err != nil {
+		return nil, err
+	}
+	r.configTagKey = configTag
+	revTag, err := tag.NewKey("destination_revision")
+	if err != nil {
+		return nil, err
+	}
+	r.revisionTagKey = revTag
+	servingStateTag, err := tag.NewKey("servingState")
+	if err != nil {
+		return nil, err
+	}
+	r.servingStateKey = servingStateTag
+	responseCodeTag, err := tag.NewKey("responseCode")
+	if err != nil {
+		return nil, err
+	}
+	r.responseCodeKey = responseCodeTag
+	// Create view to see our measurements.
+	err = view.Register(
+		// &view.View{
+		// 	Description: "The number of requests that are routed to the activator when the revision is Reserve",
+		// 	Measure:     measurements[RequestCountReserveM],
+		// 	Aggregation: view.Count(),
+		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+		// },
+		// &view.View{
+		// 	Description: "The number of requests that are routed to the activator when the revision is Active",
+		// 	Measure:     measurements[RequestCountActiveM],
+		// 	Aggregation: view.Count(),
+		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+		// },
+		// &view.View{
+		// 	Description: "The number of requests that are routed to the activator when the revision is Retired",
+		// 	Measure:     measurements[RequestCountRetiredM],
+		// 	Aggregation: view.Count(),
+		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+		// },
+		// &view.View{
+		// 	Description: "The number of requests that are routed to the activator when the revision is not Active, Reserve, and Retired",
+		// 	Measure:     measurements[RequestCountUnknownM],
+		// 	Aggregation: view.Count(),
+		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+		// },
+		&view.View{
+			Description: "The number of requests that are routed to the activator",
+			Measure:     measurements[RequestCountM],
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
+		},
+		&view.View{
+			Description: "The response count when activator proxy the request",
+			Measure:     measurements[ResponseCountM],
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
+		},
+		// &view.View{
+		// 	Description: "The response code when activator proxy the request",
+		// 	Measure:     measurements[ResponseCodeM],
+		// 	Aggregation: view.Distribution(),
+		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
+		// },
+		&view.View{
+			Description: "The number of tries to get the response",
+			Measure:     measurements[NumTriesM],
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+		},
+		&view.View{
+			Description: "The response time in seconds",
+			Measure:     measurements[ResponseTimeInSecM],
+			Aggregation: view.Distribution(),
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	r.initialized = true
+	return r, nil
+}
+
+// Report captures value v for measurement m. The revision rev is in namespace ns and its owner is config
+func (r *Reporter) Report(ns string, config string, rev string, m Measurement, v float64) error {
+	if !r.initialized {
+		return errors.New("StatsReporter is not initialized yet")
+	}
+
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, rev))
+	if err != nil {
+		return err
+	}
+
+	stats.Record(ctx, measurements[m].M(v))
+	return nil
+}
+
+// reportRequest captures value v for measurement m.
+func (r *Reporter) ReportRequest(ns, config, rev, servingState string, m Measurement, v float64) error {
+	if !r.initialized {
+		return errors.New("StatsReporter is not initialized yet")
+	}
+
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, rev),
+		tag.Insert(r.servingStateKey, servingState))
+	if err != nil {
+		return err
+	}
+
+	stats.Record(ctx, measurements[m].M(v))
+	return nil
+}
+
+// ReportResponse captures value v for measurement m.
+func (r *Reporter) ReportResponse(ns, config, rev, responseCode string, m Measurement, v float64) error {
+	if !r.initialized {
+		return errors.New("StatsReporter is not initialized yet")
+	}
+
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, rev),
+		tag.Insert(r.responseCodeKey, responseCode))
+	if err != nil {
+		return err
+	}
+
+	stats.Record(ctx, measurements[m].M(v))
+	return nil
+}

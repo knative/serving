@@ -96,6 +96,10 @@ func GetRevisionHeaderName() string {
 	return "Knative-Serving-Revision"
 }
 
+func GetConfigurationHeader() string {
+	return "Knative-Serving-Configuration"
+}
+
 func GetRevisionHeaderNamespace() string {
 	return "Knative-Serving-Namespace"
 }

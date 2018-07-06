@@ -21,13 +21,14 @@ type Status int
 // Activator provides an active endpoint for a revision or an error and
 // status code indicating why it could not.
 type Activator interface {
-	ActiveEndpoint(namespace, name string) (Endpoint, Status, error)
+	ActiveEndpoint(namespace, configuration, name string) (Endpoint, Status, error)
 	Shutdown()
 }
 
 type revisionID struct {
-	namespace string
-	name      string
+	namespace     string
+	configuration string
+	name          string
 }
 
 // Endpoint is a fully-qualified domain name / port pair for an active revision.

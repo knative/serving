@@ -281,9 +281,10 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			Weight: 100,
 		}},
 		AppendHeaders: map[string]string{
-			"Knative-Serving-Revision":  "revision",
-			"Knative-Serving-Namespace": "test-ns",
-			EnvoyTimeoutHeader:          DefaultEnvoyTimeoutMs,
+			"Knative-Serving-Revision":      "revision",
+			"Knative-Serving-Configuration": "config",
+			"Knative-Serving-Namespace":     "test-ns",
+			EnvoyTimeoutHeader:              DefaultEnvoyTimeoutMs,
 		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
@@ -323,9 +324,10 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			Weight: 100,
 		}},
 		AppendHeaders: map[string]string{
-			"Knative-Serving-Revision":  "revision",
-			"Knative-Serving-Namespace": "test-ns",
-			EnvoyTimeoutHeader:          DefaultEnvoyTimeoutMs,
+			"Knative-Serving-Revision":      "revision",
+			"Knative-Serving-Configuration": "config",
+			"Knative-Serving-Namespace":     "test-ns",
+			EnvoyTimeoutHeader:              DefaultEnvoyTimeoutMs,
 		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
