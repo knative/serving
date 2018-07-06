@@ -19,6 +19,7 @@ package resources
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/route/resources/names"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,11 +31,11 @@ import (
 func MakeK8sService(route *v1alpha1.Route) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetServingK8SServiceNameForRoute(route),
+			Name:      names.K8sService(route),
 			Namespace: route.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				// This service is owned by the Route.
-				*controller.NewRouteControllerRef(route),
+				*controller.NewControllerRef(route),
 			},
 		},
 		Spec: corev1.ServiceSpec{

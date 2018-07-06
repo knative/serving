@@ -31,6 +31,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
+	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -63,20 +66,9 @@ import (
 )
 
 const (
-	userContainerName = "user-container"
-	userPortName      = "user-port"
-	userPort          = 8080
-
-	fluentdContainerName = "fluentd-proxy"
-	queueContainerName   = "queue-proxy"
-	envoyContainerName   = "istio-proxy"
-	// queueSidecarName set by -queueSidecarName flag
-
 	controllerAgentName = "revision-controller"
-	autoscalerPort      = 8080
 
-	serviceTimeoutDuration       = 5 * time.Minute
-	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	serviceTimeoutDuration = 5 * time.Minute
 )
 
 var (
@@ -110,6 +102,7 @@ type Controller struct {
 	deploymentLister appsv1listers.DeploymentLister
 	serviceLister    corev1listers.ServiceLister
 	endpointsLister  corev1listers.EndpointsLister
+	configMapLister  corev1listers.ConfigMapLister
 
 	buildtracker *buildTracker
 
@@ -120,11 +113,12 @@ type Controller struct {
 	enableVarLogCollection bool
 
 	// controllerConfig includes the configurations for the controller
-	controllerConfig *ControllerConfig
+	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
+	controllerConfig *config.Controller
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex
-	networkConfig      *NetworkConfig
+	networkConfig      *config.Network
 	networkConfigMutex sync.Mutex
 
 	// loggingConfig could change over time and access to it
@@ -134,27 +128,13 @@ type Controller struct {
 
 	// observabilityConfig could change over time and access to it
 	// must go through observabilityConfigMutex
-	observabilityConfig      *ObservabilityConfig
+	observabilityConfig      *config.Observability
 	observabilityConfigMutex sync.Mutex
 
 	// autoscalerConfig could change over time and access to it
 	// must go through autoscalerConfigMutex
 	autoscalerConfig      *autoscaler.Config
 	autoscalerConfigMutex sync.Mutex
-}
-
-// ControllerConfig includes the configurations for the controller.
-type ControllerConfig struct {
-
-	// AutoscalerImage is the name of the image used for the autoscaler pod.
-	AutoscalerImage string
-
-	// QueueSidecarImage is the name of the image used for the queue sidecar
-	// injected into the revision pod
-	QueueSidecarImage string
-
-	// Repositories for which tag to digest resolving should be skipped
-	RegistriesSkippingTagResolving map[string]struct{}
 }
 
 // NewController initializes the controller and is called by the generated code
@@ -170,8 +150,9 @@ func NewController(
 	deploymentInformer appsv1informers.DeploymentInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	endpointsInformer corev1informers.EndpointsInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
-	controllerConfig *ControllerConfig,
+	controllerConfig *config.Controller,
 ) *Controller {
 
 	c := &Controller{
@@ -182,6 +163,7 @@ func NewController(
 		deploymentLister: deploymentInformer.Lister(),
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
+		configMapLister:  configMapInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver: &digestResolver{
 			client:           opt.KubeClientSet,
@@ -217,18 +199,25 @@ func NewController(
 		},
 	})
 
-	opt.ConfigMapWatcher.Watch(controller.GetNetworkConfigMapName(), c.receiveNetworkConfig)
+	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.Filter("Revision"),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    c.EnqueueControllerOf,
+			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
+		},
+	})
+
+	opt.ConfigMapWatcher.Watch(config.NetworkConfigName, c.receiveNetworkConfig)
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
-	opt.ConfigMapWatcher.Watch(controller.GetObservabilityConfigMapName(), c.receiveObservabilityConfig)
+	opt.ConfigMapWatcher.Watch(config.ObservabilityConfigName, c.receiveObservabilityConfig)
 	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
 
 	return c
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// Run starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh, c.Reconcile, "Revision")
 }
@@ -387,8 +376,8 @@ func (c *Controller) EnqueueEndpointsRevision(obj interface{}) {
 }
 
 func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
-	ns := controller.GetServingNamespaceName(rev.Namespace)
-	deploymentName := controller.GetRevisionDeploymentName(rev)
+	ns := rev.Namespace
+	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
@@ -434,7 +423,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// status to surface in the Revision.
 		if cond := getDeploymentProgressCondition(deployment); cond != nil {
 			rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
-				"Unable to create pods for more than %d seconds.", progressDeadlineSeconds))
+				"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 			c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
 				"Revision %s not ready due to Deployment timeout", rev.Name)
 		}
@@ -466,7 +455,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
+	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
 		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
 
 	// Resolve tag image references to digests.
@@ -484,7 +473,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
-	// MakeServingDeployment() would produce.
+	// resources.MakeDeployment() would produce.
 	desiredDeployment := deployment.DeepCopy()
 	if desiredDeployment.Spec.Replicas == nil {
 		var one int32 = 1
@@ -528,8 +517,8 @@ func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.De
 }
 
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
-	ns := controller.GetServingNamespaceName(rev.Namespace)
-	serviceName := controller.GetServingK8SServiceNameForRevision(rev)
+	ns := rev.Namespace
+	serviceName := resourcenames.K8sService(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
@@ -543,7 +532,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
 			rev.Status.MarkDeploying("Deploying")
-			service, err = c.createService(ctx, rev, MakeRevisionK8sService)
+			service, err = c.createService(ctx, rev, resources.MakeK8sService)
 			if err != nil {
 				logger.Errorf("Error creating Service %q: %v", serviceName, err)
 				return err
@@ -558,7 +547,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			// should not allow, or if our expectations of how the service should look
 			// changes (e.g. we update our controller with new sidecars).
 			var changed Changed
-			service, changed, err = c.checkAndUpdateService(ctx, rev, MakeRevisionK8sService, service)
+			service, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
 			if err != nil {
 				logger.Errorf("Error updating Service %q: %v", serviceName, err)
 				return err
@@ -673,59 +662,35 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		return nil
 	}
 	ns := rev.Namespace
+	name := resourcenames.FluentdConfigMap(rev)
 
-	// One ConfigMap for Fluentd sidecar per namespace. It has multiple owner
-	// references. Cannot set BlockOwnerDeletion nor Controller to true.
-
-	// Our informer is restricted to our controller's namespace, so we don't
-	// go through its ConfigMapLister.
-	configMap, err := c.KubeClientSet.CoreV1().ConfigMaps(ns).Get(fluentdConfigMapName, metav1.GetOptions{})
+	configMap, err := c.configMapLister.ConfigMaps(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// ConfigMap doesn't exist, going to create it
-		configMap = MakeFluentdConfigMap(ns, c.getObservabilityConfig().FluentdSidecarOutputConfig)
-		configMap.OwnerReferences = append(configMap.OwnerReferences, *newRevisionNonControllerRef(rev))
-		logger.Infof("Creating configmap: %q", configMap.Name)
-		_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(configMap)
-		return err
+		desiredConfigMap := resources.MakeFluentdConfigMap(rev, c.getObservabilityConfig())
+		configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Create(desiredConfigMap)
+		if err != nil {
+			logger.Error("Error creating fluentd configmap", zap.Error(err))
+			return err
+		}
+		logger.Infof("Created fluentd configmap: %q", name)
 	} else if err != nil {
-		logger.Errorf("configmaps.Get for %q failed: %s", fluentdConfigMapName, err)
+		logger.Errorf("configmaps.Get for %q failed: %s", name, err)
 		return err
-	}
-
-	// ConfigMap exists, make sure it has the right content.
-	desiredConfigMap := configMap.DeepCopy()
-	desiredConfigMap.Data = map[string]string{
-		"varlog.conf": makeFullFluentdConfig(c.getObservabilityConfig().FluentdSidecarOutputConfig),
-	}
-	addOwnerReference(desiredConfigMap, newRevisionNonControllerRef(rev))
-	if !reflect.DeepEqual(desiredConfigMap, configMap) {
-		logger.Infof("Updating configmap: %q", desiredConfigMap.Name)
-		_, err := c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(desiredConfigMap)
-		return err
-	}
-	return nil
-}
-
-func newRevisionNonControllerRef(rev *v1alpha1.Revision) *metav1.OwnerReference {
-	blockOwnerDeletion := false
-	isController := false
-	revRef := controller.NewRevisionControllerRef(rev)
-	revRef.BlockOwnerDeletion = &blockOwnerDeletion
-	revRef.Controller = &isController
-	return revRef
-}
-
-func addOwnerReference(configMap *corev1.ConfigMap, ownerReference *metav1.OwnerReference) {
-	isOwner := false
-	for _, existingOwner := range configMap.OwnerReferences {
-		if ownerReference.Name == existingOwner.Name {
-			isOwner = true
-			break
+	} else {
+		desiredConfigMap := resources.MakeFluentdConfigMap(rev, c.getObservabilityConfig())
+		if !equality.Semantic.DeepEqual(configMap.Data, desiredConfigMap.Data) {
+			logger.Infof("Reconciling fluentd configmap diff (-desired, +observed): %v",
+				cmp.Diff(desiredConfigMap.Data, configMap.Data))
+			configMap.Data = desiredConfigMap.Data
+			configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(desiredConfigMap)
+			if err != nil {
+				logger.Error("Error updating fluentd configmap", zap.Error(err))
+				return err
+			}
 		}
 	}
-	if !isOwner {
-		configMap.OwnerReferences = append(configMap.OwnerReferences, *ownerReference)
-	}
+	return nil
 }
 
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -735,7 +700,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 	}
 
 	ns := pkg.GetServingSystemNamespace()
-	serviceName := controller.GetRevisionAutoscalerName(rev)
+	serviceName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
@@ -746,7 +711,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		// particular specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
-			service, err = c.createService(ctx, rev, MakeServingAutoscalerService)
+			service, err = c.createService(ctx, rev, resources.MakeAutoscalerService)
 			if err != nil {
 				logger.Errorf("Error creating Autoscaler Service %q: %v", serviceName, err)
 				return err
@@ -762,7 +727,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 			// changes (e.g. we update our controller with new sidecars).
 			var changed Changed
 			service, changed, err = c.checkAndUpdateService(
-				ctx, rev, MakeServingAutoscalerService, service)
+				ctx, rev, resources.MakeAutoscalerService, service)
 			if err != nil {
 				logger.Errorf("Error updating Autoscaler Service %q: %v", serviceName, err)
 				return err
@@ -802,7 +767,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 	}
 
 	ns := pkg.GetServingSystemNamespace()
-	deploymentName := controller.GetRevisionAutoscalerName(rev)
+	deploymentName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
@@ -861,7 +826,7 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := MakeServingAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
+	deployment := resources.MakeAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
@@ -871,8 +836,8 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return nil
 	}
 
-	ns := controller.GetServingNamespaceName(rev.Namespace)
-	vpaName := controller.GetRevisionVPAName(rev)
+	ns := rev.Namespace
+	vpaName := resourcenames.VPA(rev)
 
 	// TODO(mattmoor): Switch to informer lister once it can reliably be sunk.
 	vpa, err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Get(vpaName, metav1.GetOptions{})
@@ -921,7 +886,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 }
 
 func (c *Controller) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
-	vpa := MakeVPA(rev)
+	vpa := resources.MakeVPA(rev)
 
 	return c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Create(vpa)
 }
@@ -959,7 +924,7 @@ func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, e
 }
 
 func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
-	newNetworkConfig, err := NewNetworkConfigFromConfigMap(configMap)
+	newNetworkConfig, err := config.NewNetworkFromConfigMap(configMap)
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	if err != nil {
@@ -974,7 +939,7 @@ func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
 	c.networkConfig = newNetworkConfig
 }
 
-func (c *Controller) getNetworkConfig() *NetworkConfig {
+func (c *Controller) getNetworkConfig() *config.Network {
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
 	return c.networkConfig
@@ -999,7 +964,7 @@ func (c *Controller) getLoggingConfig() *logging.Config {
 }
 
 func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
-	newObservabilityConfig, err := NewObservabilityConfigFromConfigMap(configMap)
+	newObservabilityConfig, err := config.NewObservabilityFromConfigMap(configMap)
 	c.observabilityConfigMutex.Lock()
 	defer c.observabilityConfigMutex.Unlock()
 	if err != nil {
@@ -1014,7 +979,7 @@ func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
 	c.observabilityConfig = newObservabilityConfig
 }
 
-func (c *Controller) getObservabilityConfig() *ObservabilityConfig {
+func (c *Controller) getObservabilityConfig() *config.Observability {
 	c.observabilityConfigMutex.Lock()
 	defer c.observabilityConfigMutex.Unlock()
 	return c.observabilityConfig

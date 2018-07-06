@@ -24,11 +24,12 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
+	. "github.com/knative/serving/pkg/logging/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestReconcileVirtualService_Insert(t *testing.T) {
-	_, elaClient, c, _, _, _ := newTestController()
+	_, servingClient, c, _, _, _ := newTestController(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -40,10 +41,10 @@ func TestReconcileVirtualService_Insert(t *testing.T) {
 		Status: v1alpha1.RouteStatus{Domain: "foo.com"},
 	}
 	vs := newTestVirtualService(r)
-	if err := c.reconcileVirtualService(testCtx, r, vs); err != nil {
+	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if created, err := elaClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
+	if created, err := servingClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	} else if diff := cmp.Diff(vs, created); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
@@ -51,7 +52,7 @@ func TestReconcileVirtualService_Insert(t *testing.T) {
 }
 
 func TestReconcileVirtualService_Update(t *testing.T) {
-	_, elaClient, c, _, _, _ := newTestController()
+	_, servingClient, c, _, servingInformer, _ := newTestController(t)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
@@ -61,16 +62,24 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 			},
 		},
 	}
+
 	vs := newTestVirtualService(r)
-	if err := c.reconcileVirtualService(testCtx, r, vs); err != nil {
+	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
+	if updated, err := servingClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	} else {
+		servingInformer.Networking().V1alpha3().VirtualServices().Informer().GetIndexer().Add(updated)
+	}
+
 	r.Status.Domain = "bar.com"
 	vs2 := newTestVirtualService(r)
-	if err := c.reconcileVirtualService(testCtx, r, vs2); err != nil {
+	if err := c.reconcileVirtualService(TestContextWithLogger(t), r, vs2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if updated, err := elaClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
+
+	if updated, err := servingClient.NetworkingV1alpha3().VirtualServices(vs.Namespace).Get(vs.Name, metav1.GetOptions{}); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	} else {
 		if diff := cmp.Diff(vs2, updated); diff != "" {

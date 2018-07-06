@@ -21,18 +21,19 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/service/resources/names"
 )
 
 // MakeRoute creates a Route from a Service object.
 func MakeRoute(service *v1alpha1.Service) *v1alpha1.Route {
 	c := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      controller.GetServiceRouteName(service),
+			Name:      names.Route(service),
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*controller.NewServiceControllerRef(service),
+				*controller.NewControllerRef(service),
 			},
-			Labels: MakeLabels(service),
+			Labels: makeLabels(service),
 		},
 	}
 
@@ -42,7 +43,7 @@ func MakeRoute(service *v1alpha1.Service) *v1alpha1.Route {
 	// If there's RunLatest, use the configName, otherwise pin to a specific Revision
 	// as specified in the Pinned section of the Service spec.
 	if service.Spec.RunLatest != nil {
-		tt.ConfigurationName = controller.GetServiceConfigurationName(service)
+		tt.ConfigurationName = names.Configuration(service)
 	} else {
 		tt.RevisionName = service.Spec.Pinned.RevisionName
 	}

@@ -63,7 +63,7 @@ func TestMakeK8sService_ValidMeta(t *testing.T) {
 		Namespace: "test-ns",
 		OwnerReferences: []metav1.OwnerReference{
 			// This service is owned by the Route.
-			*controller.NewRouteControllerRef(r),
+			*controller.NewControllerRef(r),
 		},
 	}
 	meta := MakeK8sService(r).ObjectMeta

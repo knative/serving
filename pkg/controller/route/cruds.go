@@ -23,51 +23,83 @@ import (
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller/route/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/route/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-/////////////////////////////////////////
-// Helper functions for CREATE/UPDATE operations of various resources.
-/////////////////////////////////////////
-func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha1.Route, vs *v1alpha3.VirtualService) error {
+func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha1.Route,
+	desiredVirtualService *v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
-	vsClient := c.ServingClientSet.NetworkingV1alpha3().VirtualServices(vs.Namespace)
-	existing, err := vsClient.Get(vs.Name, metav1.GetOptions{})
-	if err == nil && !reflect.DeepEqual(existing.Spec, vs.Spec) {
-		existing.Spec = vs.Spec
-		_, err = vsClient.Update(existing)
-		logger.Error("Failed to update VirtualService", zap.Error(err))
-		return err
-	} else if apierrs.IsNotFound(err) {
-		_, err = vsClient.Create(vs)
+	ns := desiredVirtualService.Namespace
+	name := desiredVirtualService.Name
+
+	virtualService, err := c.virtualServiceLister.VirtualServices(ns).Get(name)
+	if apierrs.IsNotFound(err) {
+		virtualService, err = c.ServingClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desiredVirtualService)
 		if err != nil {
 			logger.Error("Failed to create VirtualService", zap.Error(err))
-		} else {
-			c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created VirtualService %q", vs.Name)
+			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create VirtualService %q: %v", name, err)
+			return err
 		}
+		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created",
+			"Created VirtualService %q", desiredVirtualService.Name)
+	} else if err != nil {
 		return err
+	} else if !equality.Semantic.DeepEqual(virtualService.Spec, desiredVirtualService.Spec) {
+		virtualService.Spec = desiredVirtualService.Spec
+		virtualService, err = c.ServingClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(virtualService)
+		if err != nil {
+			logger.Error("Failed to update VirtualService", zap.Error(err))
+			return err
+		}
 	}
+
+	// TODO(mattmoor): This is where we'd look at the state of the VirtualService and
+	// reflect any necessary state into the Route.
 	return err
 }
 
 func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
-	service := resources.MakeK8sService(route)
-	if _, err := c.KubeClientSet.CoreV1().Services(route.Namespace).Create(service); err != nil {
-		if apierrs.IsAlreadyExists(err) {
-			// Service already exist.
-			return nil
+	ns := route.Namespace
+	name := resourcenames.K8sService(route)
+
+	service, err := c.serviceLister.Services(ns).Get(name)
+	if apierrs.IsNotFound(err) {
+		// Doesn't exist, create it.
+		desiredService := resources.MakeK8sService(route)
+		service, err = c.KubeClientSet.CoreV1().Services(route.Namespace).Create(desiredService)
+		if err != nil {
+			logger.Error("Failed to create service", zap.Error(err))
+			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create service %q: %v", name, err)
+			return err
 		}
-		logger.Error("Failed to create service", zap.Error(err))
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed", "Failed to create service %q: %v", service.Name, err)
+		logger.Infof("Created service %s", name)
+		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", name)
+	} else if err != nil {
 		return err
+	} else {
+		// Make sure that the service has the proper specification
+		desiredService := resources.MakeK8sService(route)
+		// Preserve the ClusterIP field in the Service's Spec, if it has been set.
+		desiredService.Spec.ClusterIP = service.Spec.ClusterIP
+		if !equality.Semantic.DeepEqual(service.Spec, desiredService.Spec) {
+			service.Spec = desiredService.Spec
+			service, err = c.KubeClientSet.CoreV1().Services(ns).Update(service)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	logger.Infof("Created service %s", service.Name)
-	c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", service.Name)
+
+	// TODO(mattmoor): This is where we'd look at the state of the Service and
+	// reflect any necessary state into the Route.
 	return nil
 }
 
@@ -76,8 +108,7 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := logging.FromContext(ctx)
 
-	routeClient := c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace)
-	existing, err := routeClient.Get(route.Name, metav1.GetOptions{})
+	existing, err := c.routeLister.Routes(route.Namespace).Get(route.Name)
 	if err != nil {
 		logger.Warn("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to get current status for route %q: %v", route.Name, err)
@@ -89,7 +120,7 @@ func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*
 	}
 	existing.Status = route.Status
 	// TODO: for CRD there's no updatestatus, so use normal update.
-	updated, err := routeClient.Update(existing)
+	updated, err := c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Update(existing)
 	if err != nil {
 		logger.Warn("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)

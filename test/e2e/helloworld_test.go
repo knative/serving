@@ -29,16 +29,10 @@ const (
 	helloWorldExpectedOutput = "Hello World! How about some tasty noodles?"
 )
 
-func isHelloWorldExpectedOutput() func(body string) (bool, error) {
-	return func(body string) (bool, error) {
-		return strings.TrimRight(body, "\n") == helloWorldExpectedOutput, nil
-	}
-}
-
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := test.Logger.Named("TestHelloWorld")
 
 	var imagePath string
@@ -62,7 +56,8 @@ func TestHelloWorld(t *testing.T) {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, isHelloWorldExpectedOutput(), "HelloWorldServesText")
+
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}

@@ -43,7 +43,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 		Namespace: "test-ns",
 		Labels:    map[string]string{"route": "test-route"},
 		OwnerReferences: []metav1.OwnerReference{
-			*controller.NewRouteControllerRef(r),
+			*controller.NewControllerRef(r),
 		},
 	}
 	meta := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).ObjectMeta
@@ -319,8 +319,9 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 		AppendHeaders: map[string]string{
 			"Knative-Serving-Revision":  "revision",
 			"Knative-Serving-Namespace": "test-ns",
-			EnvoyTimeoutHeader:          DefaultEnvoyTimeoutMs,
+			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
+		Timeout: DefaultActivatorTimeout,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -361,8 +362,9 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 		AppendHeaders: map[string]string{
 			"Knative-Serving-Revision":  "revision",
 			"Knative-Serving-Namespace": "test-ns",
-			EnvoyTimeoutHeader:          DefaultEnvoyTimeoutMs,
+			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
+		Timeout: DefaultActivatorTimeout,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)

@@ -22,6 +22,7 @@ import (
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/configuration/resources/names"
 )
 
 func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
@@ -31,8 +32,8 @@ func MakeBuild(config *v1alpha1.Configuration) *buildv1alpha1.Build {
 	return &buildv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       config.Namespace,
-			Name:            BuildName(config),
-			OwnerReferences: []metav1.OwnerReference{*controller.NewConfigurationControllerRef(config)},
+			Name:            names.Build(config),
+			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(config)},
 		},
 		Spec: *config.Spec.Build,
 	}

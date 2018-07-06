@@ -20,12 +20,12 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/service/resources/names"
 )
 
 func TestRouteRunLatest(t *testing.T) {
 	s := createServiceWithRunLatest()
-	testConfigName := controller.GetServiceConfigurationName(s)
+	testConfigName := names.Configuration(s)
 	r := MakeRoute(s)
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)

@@ -22,6 +22,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/configuration/resources/names"
 )
 
 func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Revision {
@@ -32,7 +33,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Re
 	}
 	// Populate the Namespace and Nme
 	rev.Namespace = config.Namespace
-	rev.Name = RevisionName(config)
+	rev.Name = names.Revision(config)
 
 	// Populate the Configuration label.
 	if rev.Labels == nil {
@@ -47,7 +48,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Re
 	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
 
 	// Populate OwnerReferences so that deletes cascade.
-	rev.OwnerReferences = append(rev.OwnerReferences, *controller.NewConfigurationControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *controller.NewControllerRef(config))
 
 	// Fill in the build name, if specified.
 	rev.Spec.BuildName = buildName

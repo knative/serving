@@ -25,13 +25,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	istioinformers "github.com/knative/serving/pkg/client/informers/externalversions/istio/v1alpha3"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/route/config"
 	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	"github.com/knative/serving/pkg/logging"
@@ -47,12 +52,16 @@ const (
 type Controller struct {
 	*controller.Base
 
-	// lister indexes properties about Route
-	routeLister listers.RouteLister
+	// Listers index properties about resources
+	routeLister          listers.RouteLister
+	configurationLister  listers.ConfigurationLister
+	revisionLister       listers.RevisionLister
+	serviceLister        corev1listers.ServiceLister
+	virtualServiceLister istiolisters.VirtualServiceLister
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
-	domainConfig      *DomainConfig
+	domainConfig      *config.Domain
 	domainConfigMutex sync.Mutex
 }
 
@@ -65,13 +74,20 @@ func NewController(
 	opt controller.Options,
 	routeInformer servinginformers.RouteInformer,
 	configInformer servinginformers.ConfigurationInformer,
+	revisionInformer servinginformers.RevisionInformer,
+	serviceInformer corev1informers.ServiceInformer,
+	virtualServiceInformer istioinformers.VirtualServiceInformer,
 ) *Controller {
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Controller{
-		Base:        controller.NewBase(opt, controllerAgentName, "Routes"),
-		routeLister: routeInformer.Lister(),
+		Base:                 controller.NewBase(opt, controllerAgentName, "Routes"),
+		routeLister:          routeInformer.Lister(),
+		configurationLister:  configInformer.Lister(),
+		revisionLister:       revisionInformer.Lister(),
+		serviceLister:        serviceInformer.Lister(),
+		virtualServiceLister: virtualServiceInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
@@ -80,19 +96,23 @@ func NewController(
 		UpdateFunc: controller.PassNew(c.Enqueue),
 		DeleteFunc: c.Enqueue,
 	})
+
 	configInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.EnqueueReferringRoute,
 		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute),
 	})
+
+	// TODO(mattmoor): We should Reconcile Routes when controlled Services
+	// and VirtualServices change.
+
 	c.Logger.Info("Setting up ConfigMap receivers")
-	opt.ConfigMapWatcher.Watch(controller.GetDomainConfigMapName(), c.receiveDomainConfig)
+	opt.ConfigMapWatcher.Watch(config.DomainConfigName, c.receiveDomainConfig)
 	return c
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// Run starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh, c.Reconcile, "Route")
 }
@@ -117,13 +137,11 @@ func (c *Controller) Reconcile(key string) error {
 
 	// Get the Route resource with this namespace/name
 	original, err := c.routeLister.Routes(namespace).Get(name)
-	if err != nil {
-		// The resource may no longer exist, in which case we stop
-		// processing.
-		if apierrs.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("route %q in work queue no longer exists", key))
-			return nil
-		}
+	if apierrs.IsNotFound(err) {
+		// The resource may no longer exist, in which case we stop processing.
+		runtime.HandleError(fmt.Errorf("route %q in work queue no longer exists", key))
+		return nil
+	} else if err != nil {
 		return err
 	}
 	// Don't modify the informers copy
@@ -152,6 +170,7 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 	if err := c.reconcilePlaceholderService(ctx, route); err != nil {
 		return err
 	}
+
 	// Call configureTrafficAndUpdateRouteStatus, which also updates the Route.Status
 	// to contain the domain we will use for Gateway creation.
 	if _, err := c.configureTraffic(ctx, route); err != nil {
@@ -173,10 +192,7 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
-	t, targetErr := traffic.BuildTrafficConfiguration(
-		c.ServingClientSet.ServingV1alpha1().Configurations(r.Namespace),
-		c.ServingClientSet.ServingV1alpha1().Revisions(r.Namespace),
-		r)
+	t, targetErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 	// Even if targetErr != nil, we still need to finish updating the labels so that the updates to
 	// these targets can be propagated back.  In case of error updating the labels, we will return
 	// the error and not targetErr.
@@ -232,7 +248,7 @@ func (c *Controller) EnqueueReferringRoute(obj interface{}) {
 	// Check whether is configuration is referred by a route.
 	routeName, ok := config.Labels[serving.RouteLabelKey]
 	if !ok {
-		c.Logger.Infof("Configuration %s does not have a referrring route", config.Name)
+		c.Logger.Infof("Configuration %s does not have a referring route", config.Name)
 		return
 	}
 	// Configuration is referred by a Route.  Update such Route.
@@ -253,7 +269,7 @@ func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap
 	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Route, name))
 }
 
-func (c *Controller) getDomainConfig() *DomainConfig {
+func (c *Controller) getDomainConfig() *config.Domain {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
 	return c.domainConfig
@@ -265,7 +281,7 @@ func (c *Controller) routeDomain(route *v1alpha1.Route) string {
 }
 
 func (c *Controller) receiveDomainConfig(configMap *corev1.ConfigMap) {
-	newDomainConfig, err := NewDomainConfigFromConfigMap(configMap)
+	newDomainConfig, err := config.NewDomainFromConfigMap(configMap)
 	if err != nil {
 		c.Logger.Error("Failed to parse the new config map. Previous config map will be used.",
 			zap.Error(err))

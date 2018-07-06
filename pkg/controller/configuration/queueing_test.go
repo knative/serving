@@ -55,7 +55,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			//TODO(grantr): This is a workaround for generation initialization
+			// TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
