@@ -163,11 +163,6 @@ func NewController(
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver: &digestResolver{
-			client:           opt.KubeClientSet,
-			transport:        http.DefaultTransport,
-			registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
-		},
 	}
 
 	// Set up an event handler for when the resource types of interest change
@@ -936,10 +931,16 @@ func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
 
 func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
+
 	controllerConfig, err := config.NewControllerConfigFromConfigMap(configMap)
+	resolver := &digestResolver{
+		client:    c.KubeClientSet,
+		transport: http.DefaultTransport,
+	}
 
 	c.controllerConfigMutex.Lock()
 	c.resolverMutex.Lock()
+
 	defer func() {
 		c.controllerConfigMutex.Unlock()
 		c.resolverMutex.Unlock()
@@ -953,14 +954,10 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 		}
 		return
 	}
-	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
 
 	c.controllerConfig = controllerConfig
-	c.resolver = &digestResolver{
-		client:           c.KubeClientSet,
-		transport:        http.DefaultTransport,
-		registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
-	}
+	resolver.registriesToSkip = controllerConfig.RegistriesSkippingTagResolving
+	c.resolver = resolver
 }
 
 func (c *Controller) getResolver() resolver {
