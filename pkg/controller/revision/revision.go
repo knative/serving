@@ -108,10 +108,6 @@ type Controller struct {
 
 	resolver resolver
 
-	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
-	// collect logs under /var/log/.
-	enableVarLogCollection bool
-
 	// controllerConfig includes the configurations for the controller
 	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
 	controllerConfig *config.Controller
