@@ -196,6 +196,10 @@ type TableRow struct {
 
 	// WantQueue is the set of keys we expect to be in the workqueue following reconciliation.
 	WantQueue []string
+
+	// WithReactors is a set of functions that are installed as Reactors for the execution
+	// of this row of the table-driven-test.
+	WithReactors []clientgotesting.ReactionFunc
 }
 
 type Ctor func(*Listers, controller.Options) controller.Interface
@@ -211,6 +215,12 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		ServingClientSet: client,
 		Logger:           TestLogger(t),
 	})
+
+	for _, reactor := range r.WithReactors {
+		kubeClient.PrependReactor("*", "*", reactor)
+		client.PrependReactor("*", "*", reactor)
+		buildClient.PrependReactor("*", "*", reactor)
+	}
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(r.Key); (err != nil) != r.WantErr {
