@@ -440,12 +440,7 @@ func (rs *RevisionStatus) MarkIdle() {
 }
 
 func (rs *RevisionStatus) MarkUnIdle() {
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionIdle,
-		Status:  corev1.ConditionFalse,
-		Reason:  "UnIdle",
-		Message: "Revision has received traffic recently.",
-	})
+	rs.RemoveCondition(RevisionConditionIdle)
 }
 
 func (rs *RevisionStatus) IsIdle() bool {

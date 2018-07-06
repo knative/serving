@@ -231,15 +231,25 @@ func TestReconcile(t *testing.T) {
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
-						Reason: "Updating",
+						Reason: "Deploying",
 					}, {
 						Type:   "ContainerHealthy",
 						Status: "Unknown",
-						Reason: "Updating",
+						Reason: "Deploying",
 					}, {
 						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:    "Reserve",
+						Status:  "True",
+						Reason:  "Reserve",
+						Message: "Revision has been placed into Reserve state.",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
 					}},
 				}),
 		}, {

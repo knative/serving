@@ -551,7 +551,7 @@ func getTestInactiveConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revi
 	config := getTestConfig(name + "-config")
 	rev := getTestRevForConfig(config, name+"-revision")
 	config.Status.SetLatestReadyRevisionName(rev.Name)
-	rev.Status.MarkInactive()
+	rev.Status.MarkIdle()
 	return config, rev
 }
 
