@@ -131,6 +131,230 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/first-reconcile",
 	}, {
+		Name: "failure updating revision status",
+		// This starts from the first reconciliation case above and induces a failure
+		// updating the revision status.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "revisions"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "update-status-failure", "Active", "busybox")},
+			},
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deploy("foo", "update-status-failure", "Active", "busybox"),
+			svc("foo", "update-status-failure", "Active", "busybox"),
+			deployAS("foo", "update-status-failure", "Active", "busybox"),
+			svcAS("foo", "update-status-failure", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "update-status-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-status-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/update-status-failure",
+	}, {
+		Name: "failure creating user deployment",
+		// This starts from the first reconciliation case above and induces a failure
+		// creating the user's deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "deployments"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "create-user-deploy-failure", "Active", "busybox")},
+			},
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deploy("foo", "create-user-deploy-failure", "Active", "busybox"),
+			// The user service and autoscaler resources are not created.
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-user-deploy-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-user-deploy-failure",
+	}, {
+		Name: "failure creating user service",
+		// This starts from the first reconciliation case above and induces a failure
+		// creating the user's service.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "services"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "create-user-service-failure", "Active", "busybox")},
+			},
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deploy("foo", "create-user-service-failure", "Active", "busybox"),
+			svc("foo", "create-user-service-failure", "Active", "busybox"),
+			// No autoscaler resources created.
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-user-service-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "create-user-service-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-user-service-failure",
+	}, {
+		Name: "failure creating autoscaler deployment",
+		// This starts from the first reconciliation case above and induces a failure
+		// creating the autoscaler's deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "deployments"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "create-as-deploy-failure", "Active", "busybox")},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{deploy("foo", "create-as-deploy-failure", "Active", "busybox")},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					svc("foo", "create-as-deploy-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deployAS("foo", "create-as-deploy-failure", "Active", "busybox"),
+			// The user service and autoscaler resources are not created.
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-as-deploy-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					LogURL:      "http://logger.io/test-uid",
+					ServiceName: svc("foo", "create-as-deploy-failure", "Active", "busybox").Name,
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-as-deploy-failure",
+	}, {
+		Name: "failure creating autoscaler service",
+		// This starts from the first reconciliation case above and induces a failure
+		// creating the autoscaler's service
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "services"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "create-as-svc-failure", "Active", "busybox")},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					deploy("foo", "create-as-svc-failure", "Active", "busybox"),
+					deployAS("foo", "create-as-svc-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					svc("foo", "create-as-svc-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantCreates: []metav1.Object{
+			svcAS("foo", "create-as-svc-failure", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-as-svc-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					LogURL:      "http://logger.io/test-uid",
+					ServiceName: svc("foo", "create-as-svc-failure", "Active", "busybox").Name,
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-as-svc-failure",
+	}, {
 		Name: "stable revision reconciliation",
 		// Test a simple stable reconciliation of an Active Revision.
 		// We feed in a Revision and the resources it controls in a steady
@@ -255,6 +479,136 @@ func TestReconcile(t *testing.T) {
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/deactivate",
 	}, {
+		Name: "failure updating user deployment",
+		// Induce a failure updating the user deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "deployments"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					// The revision has been set to Deactivated, but all of the objects
+					// reflect being Active.
+					rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					// The Deployments match what we'd expect of an Active revision.
+					deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
+					deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					// The Services match what we'd expect of an Active revision.
+					svc("foo", "update-user-deploy-failure", "Active", "busybox"),
+					svcAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+			// We don't get to updating the autoscaler deployment or deleting services.
+		}},
+		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
+		Key: "foo/update-user-deploy-failure",
+	}, {
+		Name: "failure updating autoscaler deployment",
+		// Induce a failure updating the autoscaler deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "deployments"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					// The revision has been set to Deactivated, but all of the objects
+					// reflect being Active.
+					rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					// The Deployments match what we'd expect of an Active revision.
+					deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+					deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					// The Services match what we'd expect of an Active revision.
+					svc("foo", "update-user-deploy-failure", "Active", "busybox"),
+					svcAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+				// After reconciliation, the status will change to reflect that this is being Deactivated.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-user-deploy-failure", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "False",
+						Reason: "Inactive",
+					}},
+				}),
+		}, {
+			Object: deployAS("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+		}},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: svc("foo", "update-user-deploy-failure", "Reserve", "busybox").Name,
+			// We don't reach deleting the autoscaler service.
+		}},
+		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
+		Key: "foo/update-user-deploy-failure",
+	}, {
 		Name: "deactivated revision is stable",
 		// Test a simple stable reconciliation of a Reserve Revision.
 		// We feed in a Revision and the resources it controls in a steady
@@ -372,6 +726,207 @@ func TestReconcile(t *testing.T) {
 		}},
 		// We delete a bunch of stuff when we retire.
 		Key: "foo/retire",
+	}, {
+		Name: "failure deleting user deployment",
+		// Induce a failure deleting the user's deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "deployments"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					// The revision has been set to Retired, but all of the objects
+					// reflect being Active.
+					rev("foo", "delete-user-deploy-failure", "Retired", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					// The Deployments match what we'd expect of an Active revision.
+					deploy("foo", "delete-user-deploy-failure", "Active", "busybox"),
+					deployAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					// The Services match what we'd expect of an Active revision.
+					svc("foo", "delete-user-deploy-failure", "Active", "busybox"),
+					svcAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: deploy("foo", "delete-user-deploy-failure", "Retired", "busybox").Name,
+			// We don't get to deleting anything else.
+		}},
+		// We delete a bunch of stuff when we retire.
+		Key: "foo/delete-user-deploy-failure",
+	}, {
+		Name: "failure deleting user service",
+		// Induce a failure deleting the user's service
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "services"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					// The revision has been set to Retired, but all of the objects
+					// reflect being Active.
+					rev("foo", "delete-user-svc-failure", "Retired", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					// The Deployments match what we'd expect of an Active revision.
+					deployAS("foo", "delete-user-svc-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					// The Services match what we'd expect of an Active revision.
+					svc("foo", "delete-user-svc-failure", "Active", "busybox"),
+					svcAS("foo", "delete-user-svc-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
+			// We don't get to deleting anything else.
+		}},
+		// We delete a bunch of stuff when we retire.
+		Key: "foo/delete-user-svc-failure",
+	}, {
+		Name: "failure deleting autoscaler deployment",
+		// Induce a failure deleting the autoscaler deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "deployments"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					// The revision has been set to Retired, but all of the objects
+					// reflect being Active.
+					rev("foo", "delete-as-deploy-failure", "Retired", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "delete-as-deploy-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					// The Deployments match what we'd expect of an Active revision.
+					deployAS("foo", "delete-as-deploy-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					// The Services match what we'd expect of an Active revision.
+					svcAS("foo", "delete-as-deploy-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: deployAS("foo", "delete-as-deploy-failure", "Active", "busybox").Name,
+			// We don't get to deleting anything else.
+		}},
+		// We delete a bunch of stuff when we retire.
+		Key: "foo/delete-as-deploy-failure",
+	}, {
+		Name: "failure deleting autoscaler service",
+		// Induce a failure deleting the autoscaler service
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "services"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					// The revision has been set to Retired, but all of the objects
+					// reflect being Active.
+					rev("foo", "delete-as-svc-failure", "Retired", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "delete-as-svc-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					}),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					// The Services match what we'd expect of an Active revision.
+					svcAS("foo", "delete-as-svc-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: deployAS("foo", "delete-as-svc-failure", "Active", "busybox").Name,
+			// We don't get to deleting anything else.
+		}},
+		// We delete a bunch of stuff when we retire.
+		Key: "foo/delete-as-svc-failure",
 	}, {
 		Name: "retired revision is stable",
 		// Test a simple stable reconciliation of a Retired Revision.
@@ -791,6 +1346,116 @@ func TestReconcile(t *testing.T) {
 			Object: svcAS("foo", "fix-mutated-service", "Active", "busybox"),
 		}},
 		Key: "foo/fix-mutated-service",
+	}, {
+		Name: "failure updating user service",
+		// Induce a failure updating the user service.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					rev("foo", "update-user-svc-failure", "Active", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+							// We set the LTT so that we don't give up on the Endpoints yet.
+							LastTransitionTime: metav1.NewTime(time.Now()),
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					deploy("foo", "update-user-svc-failure", "Active", "busybox"),
+					deployAS("foo", "update-user-svc-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					changeService(svc("foo", "update-user-svc-failure", "Active", "busybox")),
+					svcAS("foo", "update-user-svc-failure", "Active", "busybox"),
+				},
+			},
+			Endpoints: &EndpointsLister{
+				Items: []*corev1.Endpoints{
+					endpoints("foo", "update-user-svc-failure", "Active", "busybox"),
+					endpointsAS("foo", "update-user-svc-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("foo", "update-user-svc-failure", "Active", "busybox"),
+		}},
+		Key: "foo/update-user-svc-failure",
+	}, {
+		Name: "failure updating autoscaler service",
+		// Induce a failure updating the autoscaler service.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					rev("foo", "update-as-svc-failure", "Active", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "update-as-svc-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+							// We set the LTT so that we don't give up on the Endpoints yet.
+							LastTransitionTime: metav1.NewTime(time.Now()),
+						}},
+					}),
+				},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					deploy("foo", "update-as-svc-failure", "Active", "busybox"),
+					deployAS("foo", "update-as-svc-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					svc("foo", "update-as-svc-failure", "Active", "busybox"),
+					changeService(svcAS("foo", "update-as-svc-failure", "Active", "busybox")),
+				},
+			},
+			Endpoints: &EndpointsLister{
+				Items: []*corev1.Endpoints{
+					endpoints("foo", "update-as-svc-failure", "Active", "busybox"),
+					endpointsAS("foo", "update-as-svc-failure", "Active", "busybox"),
+				},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcAS("foo", "update-as-svc-failure", "Active", "busybox"),
+		}},
+		Key: "foo/update-as-svc-failure",
 	}, {
 		Name: "surface deployment timeout",
 		// Test the propagation of ProgressDeadlineExceeded from Deployment.
@@ -1275,6 +1940,48 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		}},
 		Key: "foo/first-reconcile-var-log",
 	}, {
+		Name: "failure creating fluentd configmap",
+		// Induce a failure creating the fluentd configmap.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "configmaps"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{rev("foo", "create-configmap-failure", "Active", "busybox")},
+			},
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deploy("foo", "create-configmap-failure", "Active", "busybox"),
+			svc("foo", "create-configmap-failure", "Active", "busybox"),
+			resources.MakeFluentdConfigMap(rev("foo", "create-configmap-failure", "Active", "busybox"), observabilityConfig),
+			// We don't create the autoscaler resources if we fail to create the fluentd configmap
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-configmap-failure", "Active", "busybox"),
+				// After the first reconciliation of a Revision the status looks like this.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "create-configmap-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-configmap-failure",
+	}, {
 		Name: "steady state after initial creation",
 		// Verify that after creating the things from an initial reconcile that we're stable.
 		Listers: Listers{
@@ -1370,6 +2077,62 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 			Object: resources.MakeFluentdConfigMap(rev("foo", "update-fluentd-config", "Active", "busybox"), observabilityConfig),
 		}},
 		Key: "foo/update-fluentd-config",
+	}, {
+		Name: "failure updating fluentd configmap",
+		// Induce a failure trying to update the fluentd configmap
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "configmaps"),
+		},
+		Listers: Listers{
+			Revision: &RevisionLister{
+				Items: []*v1alpha1.Revision{makeStatus(
+					rev("foo", "update-configmap-failure", "Active", "busybox"),
+					v1alpha1.RevisionStatus{
+						ServiceName: svc("foo", "update-configmap-failure", "Active", "busybox").Name,
+						LogURL:      "http://logger.io/test-uid",
+						Conditions: []v1alpha1.RevisionCondition{{
+							Type:   "ResourcesAvailable",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "ContainerHealthy",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}, {
+							Type:   "Ready",
+							Status: "Unknown",
+							Reason: "Deploying",
+						}},
+					})},
+			},
+			Deployment: &DeploymentLister{
+				Items: []*appsv1.Deployment{
+					deploy("foo", "update-configmap-failure", "Active", "busybox"),
+					deployAS("foo", "update-configmap-failure", "Active", "busybox"),
+				},
+			},
+			K8sService: &K8sServiceLister{
+				Items: []*corev1.Service{
+					svc("foo", "update-configmap-failure", "Active", "busybox"),
+					svcAS("foo", "update-configmap-failure", "Active", "busybox"),
+				},
+			},
+			ConfigMap: &ConfigMapLister{
+				Items: []*corev1.ConfigMap{{
+					// Use the ObjectMeta, but discard the rest.
+					ObjectMeta: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), observabilityConfig).ObjectMeta,
+					Data: map[string]string{
+						"bad key": "bad value",
+					},
+				}},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// We should see a single update to the configmap we expect.
+			Object: resources.MakeFluentdConfigMap(rev("foo", "update-configmap-failure", "Active", "busybox"), observabilityConfig),
+		}},
+		Key: "foo/update-configmap-failure",
 	}}
 
 	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
