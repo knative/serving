@@ -161,6 +161,14 @@ const (
 	// RevisionConditionIdle is True when the revision has not
 	// received any requests for a while. False otherwise.
 	RevisionConditionIdle RevisionConditionType = "Idle"
+	// RevisionConditionReserve is True when the revision has been
+	// placed into a Reserve state and traffic is not being routed
+	// directly to the service.
+	// TODO: When Istio RouteRule Status is populated, this status
+	// can be removed.  It is only here to record when the Revision
+	// transitioned to Reserve so we can wait for the network
+	// configuration to propagate before actually scaling to zero.
+	RevisionConditionReserve RevisionConditionType = "Reserve"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -389,17 +397,16 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 }
 
 func (rs *RevisionStatus) MarkReserve() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "Reserve",
-			Message: "Revision has been placed into Reserve state.",
-		})
-	}
+	rs.setCondition(&RevisionCondition{
+		Type:    RevisionConditionReserve,
+		Status:  corev1.ConditionTrue,
+		Reason:  "Reserve",
+		Message: "Revision has been placed into Reserve state.",
+	})
+}
+
+func (rs *RevisionStatus) MarkUnReserve() {
+	rs.RemoveCondition(RevisionConditionReserve)
 }
 
 // ReadyToTearDownResources indicates it is safe to tear down the
@@ -410,8 +417,8 @@ func (rs *RevisionStatus) MarkReserve() {
 // ServingState Reserve right away and the Revision controller waits at
 // least 10 seconds before tearing down the underlying resources.
 func (rs *RevisionStatus) ReadyToTearDownResources() bool {
-	if cond := rs.GetCondition(RevisionConditionResourcesAvailable); cond != nil {
-		if cond.Status != corev1.ConditionFalse {
+	if cond := rs.GetCondition(RevisionConditionReserve); cond != nil {
+		if cond.Status != corev1.ConditionTrue {
 			return false
 		}
 		return time.Now().After(cond.LastTransitionTime.Add(10 * time.Second))
@@ -431,7 +438,7 @@ func (rs *RevisionStatus) MarkIdle() {
 func (rs *RevisionStatus) MarkUnIdle() {
 	rs.setCondition(&RevisionCondition{
 		Type:    RevisionConditionIdle,
-		Status:  corev1.ConditionTrue,
+		Status:  corev1.ConditionFalse,
 		Reason:  "UnIdle",
 		Message: "Revision has received traffic recently.",
 	})

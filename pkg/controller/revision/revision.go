@@ -382,10 +382,28 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
+	// Set Status Conditions related to scale-to-zero.
+	switch rev.Spec.ServingState {
+	case v1alpha1.RevisionServingStateReserve:
+		// When the Revision is in Reserve state, the Status
+		// should be marked as Reserve with a timestamp.  As a
+		// workaround for missing Istio RouteRule Status, this
+		// timestamp is used to wait 10 seconds before scaling to
+		// zero.
 		rev.Status.MarkReserve()
+		// When the Revision is in Reserve or ToReserve states it
+		// should be marked as Idle.
+		rev.Status.MarkIdle()
+	case v1alpha1.RevisionServingStateToReserve:
+		rev.Status.MarkIdle()
+	case v1alpha1.RevisionServingStateActive:
+		// When a Revision is in Active state it should not be
+		// marked as Reserve or Idle.
+		rev.Status.MarkUnReserve()
+		rev.Status.MarkUnIdle()
 	}
 
+	// Reconcile the Deployment.
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
 		// When the Revision is routeable (Active, ToReserve or
@@ -486,9 +504,11 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	switch {
 	case ss == v1alpha1.RevisionServingStateActive, ss == v1alpha1.RevisionServingStateToReserve, (ss == v1alpha1.RevisionServingStateReserve && !teardown):
 		if *desiredDeployment.Spec.Replicas == 0 {
+			logger.Infof("Scaling Deployment to 1")
 			*desiredDeployment.Spec.Replicas = 1
 		}
 	case (ss == v1alpha1.RevisionServingStateReserve && teardown), ss == v1alpha1.RevisionServingStateRetired:
+		logger.Infof("Scaling Deployment to 0")
 		*desiredDeployment.Spec.Replicas = 0
 	}
 
