@@ -50,6 +50,7 @@ type Listers struct {
 	Deployment *DeploymentLister
 	K8sService *K8sServiceLister
 	Endpoints  *EndpointsLister
+	ConfigMap  *ConfigMapLister
 }
 
 func (f *Listers) GetServiceLister() *ServiceLister {
@@ -108,6 +109,13 @@ func (f *Listers) GetEndpointsLister() *EndpointsLister {
 	return f.Endpoints
 }
 
+func (f *Listers) GetConfigMapLister() *ConfigMapLister {
+	if f.ConfigMap == nil {
+		return &ConfigMapLister{}
+	}
+	return f.ConfigMap
+}
+
 func (f *Listers) GetKubeObjects() []runtime.Object {
 	var kubeObjs []runtime.Object
 	for _, r := range f.GetDeploymentLister().Items {
@@ -117,6 +125,9 @@ func (f *Listers) GetKubeObjects() []runtime.Object {
 		kubeObjs = append(kubeObjs, r)
 	}
 	for _, r := range f.GetEndpointsLister().Items {
+		kubeObjs = append(kubeObjs, r)
+	}
+	for _, r := range f.GetConfigMapLister().Items {
 		kubeObjs = append(kubeObjs, r)
 	}
 	return kubeObjs

@@ -341,3 +341,41 @@ func (r *nsK8sServiceLister) Get(name string) (*corev1.Service, error) {
 	}
 	return nil, errors.NewNotFound(schema.GroupResource{}, name)
 }
+
+// ConfigMapLister is a lister.ConfigMapLister fake for testing.
+type ConfigMapLister struct {
+	Err   error
+	Items []*corev1.ConfigMap
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ corev1listers.ConfigMapLister = (*ConfigMapLister)(nil)
+
+func (r *ConfigMapLister) List(selector labels.Selector) ([]*corev1.ConfigMap, error) {
+	return r.Items, r.Err
+}
+
+func (r *ConfigMapLister) ConfigMaps(namespace string) corev1listers.ConfigMapNamespaceLister {
+	return &nsConfigMapLister{r: r, ns: namespace}
+}
+
+type nsConfigMapLister struct {
+	r  *ConfigMapLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ corev1listers.ConfigMapNamespaceLister = (*nsConfigMapLister)(nil)
+
+func (r *nsConfigMapLister) List(selector labels.Selector) ([]*corev1.ConfigMap, error) {
+	return r.r.Items, r.r.Err
+}
+
+func (r *nsConfigMapLister) Get(name string) (*corev1.ConfigMap, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}

@@ -136,8 +136,9 @@ func main() {
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := servingInformerFactory.Networking().V1alpha3().VirtualServices()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
@@ -157,6 +158,7 @@ func main() {
 			deploymentInformer,
 			coreServiceInformer,
 			endpointsInformer,
+			configMapInformer,
 			vpaInformer,
 			&revControllerConfig,
 		),
@@ -196,8 +198,9 @@ func main() {
 		buildInformer.Informer().HasSynced,
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,
-		virtualServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
+		configMapInformer.Informer().HasSynced,
+		virtualServiceInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)
