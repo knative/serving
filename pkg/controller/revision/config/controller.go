@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ControllerConfigName = "controller"
+	ControllerConfigName = "config-controller"
 
 	queueSidecarImageKey           = "queueSidecarImage"
 	autoscalerImageKey             = "autoscalerImage"

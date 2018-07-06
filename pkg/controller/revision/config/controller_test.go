@@ -138,7 +138,7 @@ func TestNewControllerConfigwWithBadRegisteries(t *testing.T) {
 }
 
 func TestControllerConfiguration(t *testing.T) {
-	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/config-%s.yaml", ControllerConfigName))
+	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ControllerConfigName))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
 	}

@@ -106,13 +106,13 @@ type Controller struct {
 
 	buildtracker *buildTracker
 
-	resolver resolver
+	resolver      resolver
+	resolverMutex sync.Mutex
 
-	// controllerConfig includes the configurations for the controller
-	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
+	// controllerConfig could change over time and access to it
+	// must go through controllerConfigMutex
 	controllerConfig      *config.Controller
 	controllerConfigMutex sync.Mutex
-	resolverMutex         sync.Mutex
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex

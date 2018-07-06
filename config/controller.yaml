@@ -38,12 +38,10 @@ spec:
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging
-        - name: config-controller
-          mountPath: /etc/config-controller
       volumes:
         - name: config-logging
           configMap:
             name: config-logging
         - name: config-controller
           configMap:
-            name: controller
+            name: config-controller
