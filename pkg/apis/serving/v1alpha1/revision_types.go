@@ -246,6 +246,10 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
+func (rs *RevisionStatus) isRoutable() bool {
+	return rs.IsReady() || rs.IsIdle()
+}
+
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
 	for _, cond := range rs.Conditions {
 		if cond.Type == t {
