@@ -57,6 +57,28 @@ func Route(namespace string, names ResourceNames) *v1alpha1.Route {
 	}
 }
 
+// BlueGreenRoute returns a Route object in namespace using the route and configuration
+// names in names. Traffic is split evenly between blue and green.
+func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha1.Route {
+	return &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      names.Route,
+		},
+		Spec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{{
+				Name:         blue.TrafficTarget,
+				RevisionName: blue.Revision,
+				Percent:      50,
+			}, {
+				Name:         green.TrafficTarget,
+				RevisionName: green.Revision,
+				Percent:      50,
+			}},
+		},
+	}
+}
+
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specifed by imagePath.
 func Configuration(namespace string, names ResourceNames, imagePath string) *v1alpha1.Configuration {

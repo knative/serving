@@ -103,7 +103,7 @@ func connectStatSink() {
 		servingAutoscaler, pkg.GetServingSystemNamespace(), servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
-		//TODO use exponential backoff here
+		// TODO: use exponential backoff here
 		time.Sleep(time.Second)
 
 		dialer := &websocket.Dialer{

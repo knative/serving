@@ -13,19 +13,21 @@ import (
 )
 
 const (
-	// NamespaceName is the namespace used for the e2e tests.
-	NamespaceName = "noodleburg"
-
-	configName = "prod"
-	routeName  = "noodleburg"
+	configName           = "prod"
+	routeName            = "noodleburg"
+	defaultNamespaceName = "noodleburg"
 )
 
 // Setup creates the client objects needed in the e2e tests.
 func Setup(t *testing.T) *test.Clients {
+	if test.Flags.Namespace == "" {
+		test.Flags.Namespace = defaultNamespaceName
+	}
+
 	clients, err := test.NewClients(
 		test.Flags.Kubeconfig,
 		test.Flags.Cluster,
-		NamespaceName)
+		test.Flags.Namespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}
@@ -56,11 +58,11 @@ func CreateRouteAndConfig(clients *test.Clients, logger *zap.SugaredLogger, imag
 	names.Route = test.AppendRandomString(routeName, logger)
 
 	_, err := clients.Configs.Create(
-		test.Configuration(NamespaceName, names, imagePath))
+		test.Configuration(test.Flags.Namespace, names, imagePath))
 	if err != nil {
 		return test.ResourceNames{}, err
 	}
 	_, err = clients.Routes.Create(
-		test.Route(NamespaceName, names))
+		test.Route(test.Flags.Namespace, names))
 	return names, err
 }

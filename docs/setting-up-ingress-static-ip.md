@@ -1,9 +1,12 @@
-# Setting Up Static IP for Cluster Ingresses
+# Setting Up Static IP for Knative Gateway
 
-All Ingresses in Istio service mesh share the same IP address, which is the 
-external IP address of the "istio-ingress" service under the "istio-system" 
-namespace. So to set static IP for Ingresses, you just need to set the 
-external IP address of the "istio-ingress" service to the static IP you need.
+Knative uses a shared Gateway to serve all incoming traffic within Knative 
+service mesh, which is the "knative-shared-gateway" Gateway under 
+"knative-serving" namespace. The IP address to access the gateway is the 
+external IP address of the "knative-ingressgateway" service under the 
+"istio-system" namespace. So in order to set static IP for the Knative shared 
+gateway, you just need to set the external IP address of the 
+"knative-ingressgateway" service to the static IP you need.
 
 ## Prerequisites
 
@@ -17,33 +20,34 @@ IP address. The region of the IP address should be the region your Knative
 
 TODO: add documentation on reserving static IP in other cloud platforms.
 
-### Prerequisite 2: Deploy Istio
+### Prerequisite 2: Deploy Istio And Knative Serving
 
-Follow the [instructions](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#deploy-istio) 
-to deploy Istio into your cluster.
+Follow the [instructions](https://github.com/knative/serving/blob/master/DEVELOPMENT.md) 
+to deploy Istio and Knative Serving into your cluster.
 
-Once you reach this point, you can start to set up static IP for Ingresses.
+Once you reach this point, you can start to set up static IP for Knative 
+gateway.
 
-## Set Up Static IP for Ingresses
+## Set Up Static IP for Knative Gateway
 
-### Step 1: Update external IP of istio-ingress service
+### Step 1: Update external IP of "knative-ingressgateway" service
 
-Run following command to reset the external IP for the "istio-ingress" service 
-to the static IP you reserved.
+Run following command to reset the external IP for the 
+"knative-ingressgateway" service to the static IP you reserved.
 ```shell
-kubectl patch svc istio-ingress -n istio-system --patch '{"spec": { "loadBalancerIP": "<your-reserved-static-ip>" }}'
+kubectl patch svc knative-ingressgateway -n istio-system --patch '{"spec": { "loadBalancerIP": "<your-reserved-static-ip>" }}'
 ```
 
-### Step 2: Verify static IP address of Ingresses
+### Step 2: Verify static IP address of knative-ingressgateway service
 
-You can check the external IP of the "istio-ingress" service with:
+You can check the external IP of the "knative-ingressgateway" service with:
 ```shell
-kubectl get svc istio-ingress -n istio-system
+kubectl get svc knative-ingressgateway -n istio-system
 ```
 The result should be something like
 ```
-NAME            TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)                      AGE
-istio-ingress   LoadBalancer   10.59.251.183   35.231.181.148   80:32000/TCP,443:31270/TCP   9h
+NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)                                      AGE
+knative-ingressgateway   LoadBalancer   10.50.250.120   35.210.48.100   80:32380/TCP,443:32390/TCP,32400:32400/TCP   5h
 ```
 The external IP will be eventually set to the static IP. This process could 
 take several minutes.

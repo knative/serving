@@ -21,19 +21,18 @@ import (
 	"fmt"
 	"reflect"
 
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/configuration/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/configuration/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
@@ -79,10 +78,9 @@ func NewController(
 	return c
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// Run starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh, c.Reconcile, "Configuration")
 }
@@ -139,7 +137,7 @@ func (c *Controller) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	config.Status.InitializeConditions()
 
 	// First, fetch the revision that should exist for the current generation
-	revName := generateRevisionName(config)
+	revName := resourcenames.Revision(config)
 	latestCreatedRevision, err := c.revisionLister.Revisions(config.Namespace).Get(revName)
 	if errors.IsNotFound(err) {
 		latestCreatedRevision, err = c.createRevision(config, revName)
@@ -199,46 +197,21 @@ func (c *Controller) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 func (c *Controller) createRevision(config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
 	logger := loggerWithConfigInfo(c.Logger, config.Namespace, config.Name)
-	spec := config.Spec.RevisionTemplate.Spec
-	controllerRef := controller.NewConfigurationControllerRef(config)
 
+	buildName := ""
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
-		build := &buildv1alpha1.Build{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace:       config.Namespace,
-				Name:            revName,
-				OwnerReferences: []metav1.OwnerReference{*controllerRef},
-			},
-			Spec: *config.Spec.Build,
-		}
+		build := resources.MakeBuild(config)
 		created, err := c.BuildClientSet.BuildV1alpha1().Builds(build.Namespace).Create(build)
 		if err != nil {
 			return nil, err
 		}
 		logger.Infof("Created Build:\n%+v", created.Name)
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
-		spec.BuildName = created.Name
+		buildName = created.Name
 	}
 
-	rev := &v1alpha1.Revision{
-		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
-		Spec:       spec,
-	}
-	rev.Namespace = config.Namespace
-	rev.Name = revName
-	if rev.Labels == nil {
-		rev.Labels = make(map[string]string)
-	}
-	rev.Labels[serving.ConfigurationLabelKey] = config.Name
-	if rev.Annotations == nil {
-		rev.Annotations = make(map[string]string)
-	}
-	rev.Annotations[serving.ConfigurationGenerationAnnotationKey] = fmt.Sprintf("%v", config.Spec.Generation)
-
-	// Delete revisions when the parent Configuration is deleted.
-	rev.OwnerReferences = append(rev.OwnerReferences, *controllerRef)
-
+	rev := resources.MakeRevision(config, buildName)
 	created, err := c.ServingClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err
@@ -247,10 +220,6 @@ func (c *Controller) createRevision(config *v1alpha1.Configuration, revName stri
 	logger.Infof("Created Revision:\n%+v", created)
 
 	return created, nil
-}
-
-func generateRevisionName(u *v1alpha1.Configuration) string {
-	return fmt.Sprintf("%s-%05d", u.Name, u.Spec.Generation)
 }
 
 func (c *Controller) updateStatus(u *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {

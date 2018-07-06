@@ -30,6 +30,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/configmap"
 	ctrl "github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -110,8 +111,8 @@ func getTestRevision() *v1alpha1.Revision {
 	}
 }
 
-func getTestControllerConfig() *ControllerConfig {
-	return &ControllerConfig{
+func getTestControllerConfig() *config.Controller {
+	return &config.Controller{
 		QueueSidecarImage: testQueueImage,
 		AutoscalerImage:   testAutoscalerImage,
 	}
@@ -140,7 +141,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetNetworkConfigMapName(),
+			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -154,7 +155,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pkg.GetServingSystemNamespace(),
-			Name:      ctrl.GetObservabilityConfigMapName(),
+			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection":     "true",
@@ -197,6 +198,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 		controllerConfig,
 	)

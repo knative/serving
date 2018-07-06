@@ -26,7 +26,8 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/configmap"
 	ctrl "github.com/knative/serving/pkg/controller"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/controller/route/config"
+	. "github.com/knative/serving/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,7 +65,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
 	configMapWatcher := configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ctrl.GetDomainConfigMapName(),
+			Name:      config.DomainConfigName,
 			Namespace: pkg.GetServingSystemNamespace(),
 		},
 		Data: map[string]string{
@@ -84,10 +85,13 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Routes(),
 		servingInformer.Serving().V1alpha1().Configurations(),
+		servingInformer.Serving().V1alpha1().Revisions(),
+		kubeInformer.Core().V1().Services(),
+		servingInformer.Networking().V1alpha3().VirtualServices(),
 	)
 
 	h := NewHooks()

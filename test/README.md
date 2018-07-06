@@ -140,6 +140,7 @@ Tests importing [`github.com/knative/serving/test`](adding_tests.md#test-library
 
 * [`--kubeconfig`](#specifying-kubeconfig)
 * [`--cluster`](#specifying-cluster)
+* [`--namespace`](#specifying-namespace)
 * [`--dockerrepo`](#overriding-docker-repo)
 * [`--resolvabledomain`](#using-a-resolvable-domain)
 * [`--logverbose`](#output-verbose-logs)
@@ -175,6 +176,16 @@ The current cluster names can be obtained by running:
 
 ```bash
 kubectl config get-clusters
+```
+
+### Specifying namespace
+
+The `--namespace` argument lets you specify the namespace to use for the
+tests. By default, `conformance` will use `noodleburg` and `e2e` will use `pizzaplanet`.
+
+```bash
+go test -v -tags=e2e -count=1 ./test/conformance --namespace your-namespace-name
+go test -v -tags=e2e -count=1 ./test/e2e --namespace your-namespace-name
 ```
 
 ### Overridding docker repo

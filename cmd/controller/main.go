@@ -43,6 +43,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller/configuration"
 	"github.com/knative/serving/pkg/controller/revision"
+	revisionconfig "github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
@@ -113,7 +114,7 @@ func main() {
 		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
-	revControllerConfig := revision.ControllerConfig{
+	revControllerConfig := revisionconfig.Controller{
 		AutoscalerImage:                autoscalerImage,
 		QueueSidecarImage:              queueSidecarImage,
 		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),
@@ -135,8 +136,10 @@ func main() {
 	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
 	buildInformer := buildInformerFactory.Build().V1alpha1().Builds()
 	deploymentInformer := kubeInformerFactory.Apps().V1().Deployments()
-	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
+	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
+	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
+	virtualServiceInformer := servingInformerFactory.Networking().V1alpha3().VirtualServices()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -155,6 +158,7 @@ func main() {
 			deploymentInformer,
 			coreServiceInformer,
 			endpointsInformer,
+			configMapInformer,
 			vpaInformer,
 			&revControllerConfig,
 		),
@@ -162,6 +166,9 @@ func main() {
 			opt,
 			routeInformer,
 			configurationInformer,
+			revisionInformer,
+			coreServiceInformer,
+			virtualServiceInformer,
 		),
 		service.NewController(
 			opt,
@@ -192,6 +199,8 @@ func main() {
 		deploymentInformer.Informer().HasSynced,
 		coreServiceInformer.Informer().HasSynced,
 		endpointsInformer.Informer().HasSynced,
+		configMapInformer.Informer().HasSynced,
+		virtualServiceInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)

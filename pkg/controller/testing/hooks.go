@@ -84,7 +84,7 @@ type Hooks struct {
 
 // NewHooks returns a Hooks struct that can be used to attach hooks to one or
 // more fake clients and wait for all hooks to complete.
-//TODO(grantr): Allow validating that a hook never fires
+// TODO(grantr): Allow validating that a hook never fires
 func NewHooks() *Hooks {
 	return &Hooks{
 		completionCh:    make(chan int32, 100),
