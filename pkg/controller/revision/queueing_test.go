@@ -142,8 +142,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 
-	controllerConfig := getTestControllerConfig()
-
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	buildClient = fakebuildclientset.NewSimpleClientset()
@@ -213,7 +211,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-		controllerConfig,
 	)
 
 	controller.resolver = &nopResolver{}

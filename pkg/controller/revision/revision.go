@@ -150,7 +150,6 @@ func NewController(
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
-	controllerConfig *config.Controller,
 ) *Controller {
 
 	c := &Controller{
@@ -930,21 +929,13 @@ func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
 }
 
 func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
-	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
-
 	controllerConfig, err := config.NewControllerConfigFromConfigMap(configMap)
-	resolver := &digestResolver{
-		client:    c.KubeClientSet,
-		transport: http.DefaultTransport,
-	}
 
 	c.controllerConfigMutex.Lock()
-	c.resolverMutex.Lock()
+	defer c.controllerConfigMutex.Unlock()
 
-	defer func() {
-		c.controllerConfigMutex.Unlock()
-		c.resolverMutex.Unlock()
-	}()
+	c.resolverMutex.Lock()
+	defer c.resolverMutex.Unlock()
 
 	if err != nil {
 		if c.controllerConfig != nil {
@@ -955,9 +946,15 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 		return
 	}
 
+	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
+
 	c.controllerConfig = controllerConfig
-	resolver.registriesToSkip = controllerConfig.RegistriesSkippingTagResolving
-	c.resolver = resolver
+	c.resolver = &digestResolver{
+		client:           c.KubeClientSet,
+		transport:        http.DefaultTransport,
+		registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
+	}
+
 }
 
 func (c *Controller) getResolver() resolver {

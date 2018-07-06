@@ -25,7 +25,6 @@ import (
 	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/controller"
-	revisionconfig "github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
@@ -64,16 +63,6 @@ func main() {
 	}
 	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
 	defer logger.Sync()
-
-	controllerConfigMap, err := configmap.Load("/etc/config-controller")
-	if err != nil {
-		log.Fatalf("Error loading controller configuration: %v", err)
-	}
-
-	revControllerConfig, err := revisionconfig.NewControllerConfigFromMap(controllerConfigMap)
-	if err != nil {
-		log.Fatalf("Error building controller configuration: %v", err)
-	}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -149,7 +138,6 @@ func main() {
 			endpointsInformer,
 			configMapInformer,
 			vpaInformer,
-			revControllerConfig,
 		),
 		route.NewController(
 			opt,

@@ -202,7 +202,6 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-		controllerConfig,
 	)
 
 	controller.resolver = &nopResolver{}
