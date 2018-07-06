@@ -381,6 +381,170 @@ func TestReconcile(t *testing.T) {
 			},
 		}},
 		Key: "foo/bad-condition",
+	}, {
+		Name: "failure creating build",
+		// We induce a failure creating a build
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "builds"),
+		},
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "create-build-failure"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 99998,
+						Build:      &buildSpec,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: v1alpha1.RevisionSpec{
+								Container: corev1.Container{
+									Image: "busybox",
+								},
+							},
+						},
+					},
+				}},
+			},
+		},
+		WantCreates: []metav1.Object{
+			&buildv1alpha1.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       "foo",
+					Name:            "create-build-failure-99998",
+					OwnerReferences: or("create-build-failure"),
+				},
+				Spec: buildSpec,
+			},
+			// No Revision gets created.
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "create-build-failure"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 99998,
+					Build:      &buildSpec,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		}},
+		Key: "foo/create-build-failure",
+	}, {
+		Name: "failure creating revision",
+		// We induce a failure creating a revision
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "revisions"),
+		},
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "create-revision-failure"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 99998,
+						Build:      &buildSpec,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: v1alpha1.RevisionSpec{
+								Container: corev1.Container{
+									Image: "busybox",
+								},
+							},
+						},
+					},
+				}},
+			},
+		},
+		WantCreates: []metav1.Object{
+			&buildv1alpha1.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:       "foo",
+					Name:            "create-revision-failure-99998",
+					OwnerReferences: or("create-revision-failure"),
+				},
+				Spec: buildSpec,
+			},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "create-revision-failure", 99998),
+				Spec: v1alpha1.RevisionSpec{
+					BuildName: "create-revision-failure-99998",
+					Container: corev1.Container{
+						Image: "busybox",
+					},
+				},
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "create-revision-failure"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 99998,
+					Build:      &buildSpec,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		}},
+		Key: "foo/create-revision-failure",
+	}, {
+		Name: "failure updating configuration status",
+		// Induce a failure updating the status of the configuration.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "configurations"),
+		},
+		Listers: Listers{
+			Configuration: &ConfigurationLister{
+				Items: []*v1alpha1.Configuration{{
+					ObjectMeta: om("foo", "update-config-failure"),
+					Spec: v1alpha1.ConfigurationSpec{
+						Generation: 1234,
+						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+							Spec: revisionSpec,
+						},
+					},
+				}},
+			},
+		},
+		WantCreates: []metav1.Object{
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "update-config-failure", 1234),
+				Spec:       revisionSpec,
+			},
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: &v1alpha1.Configuration{
+				ObjectMeta: om("foo", "update-config-failure"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 1234,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
+					},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "update-config-failure-01234",
+					ObservedGeneration:        1234,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			},
+		}},
+		Key: "foo/update-config-failure",
 	}}
 
 	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
