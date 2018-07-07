@@ -17,9 +17,9 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -67,33 +67,40 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 // SetRevisionDefaults set defaults on an revisions.
 func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		revision, err := unmarshalRevision(crd)
+		rawOriginal, err := json.Marshal(crd)
 		if err != nil {
 			return err
 		}
 
-		return setRevisionSpecDefaults(patches, "/spec", revision.Spec)
+		revision, err := unmarshalRevision(crd)
+		if err != nil {
+			return err
+		}
+		setRevisionSpecDefaults(&revision.Spec)
+
+		// Marshal the before and after.
+		rawRevision, err := json.Marshal(revision)
+		if err != nil {
+			return err
+		}
+
+		patch, err := jsonpatch.CreatePatch(rawOriginal, rawRevision)
+		if err != nil {
+			return err
+		}
+		*patches = append(*patches, patch...)
+		return nil
 	}
 }
 
-func setRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.RevisionSpec) error {
+func setRevisionSpecDefaults(spec *v1alpha1.RevisionSpec) {
 	if spec.ServingState == "" {
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      path.Join(patchBase, "servingState"),
-			Value:     v1alpha1.RevisionServingStateActive,
-		})
+		spec.ServingState = v1alpha1.RevisionServingStateActive
 	}
 
 	if spec.ConcurrencyModel == "" {
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      path.Join(patchBase, "concurrencyModel"),
-			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-		})
+		spec.ConcurrencyModel = v1alpha1.RevisionRequestConcurrencyModelMulti
 	}
-
-	return nil
 }
 
 // TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent

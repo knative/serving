@@ -17,8 +17,8 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"path"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
@@ -50,24 +50,36 @@ func ValidateConfiguration(ctx context.Context) ResourceCallback {
 // SetConfigurationDefaults set defaults on an configurations.
 func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		config, err := unmarshalConfiguration(crd)
+		rawOriginal, err := json.Marshal(crd)
 		if err != nil {
 			return err
 		}
 
-		return setConfigurationSpecDefaults(patches, "/spec", config.Spec)
+		config, err := unmarshalConfiguration(crd)
+		if err != nil {
+			return err
+		}
+		setConfigurationSpecDefaults(&config.Spec)
+
+		// Marshal the before and after.
+		rawConfiguration, err := json.Marshal(config)
+		if err != nil {
+			return err
+		}
+
+		patch, err := jsonpatch.CreatePatch(rawOriginal, rawConfiguration)
+		if err != nil {
+			return err
+		}
+		*patches = append(*patches, patch...)
+		return nil
 	}
 }
 
-func setConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase string, spec v1alpha1.ConfigurationSpec) error {
+func setConfigurationSpecDefaults(spec *v1alpha1.ConfigurationSpec) {
 	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
-		*patches = append(*patches, jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      path.Join(patchBase, "revisionTemplate/spec/concurrencyModel"),
-			Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-		})
+		spec.RevisionTemplate.Spec.ConcurrencyModel = v1alpha1.RevisionRequestConcurrencyModelMulti
 	}
-	return nil
 }
 
 // TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent

@@ -17,10 +17,10 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -53,30 +53,37 @@ func ValidateService(ctx context.Context) ResourceCallback {
 // SetConfigurationSpecDefaults to accomplish this.
 func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		logger := logging.FromContext(ctx)
-		service, err := unmarshalService(crd)
+		rawOriginal, err := json.Marshal(crd)
 		if err != nil {
 			return err
 		}
 
-		var (
-			configSpec v1alpha1.ConfigurationSpec
-			patchBase  string
-		)
+		service, err := unmarshalService(crd)
+		if err != nil {
+			return err
+		}
+		setServiceSpecDefaults(&service.Spec)
 
-		if service.Spec.RunLatest != nil {
-			configSpec = service.Spec.RunLatest.Configuration
-			patchBase = "/spec/runLatest/configuration"
-		} else if service.Spec.Pinned != nil {
-			configSpec = service.Spec.Pinned.Configuration
-			patchBase = "/spec/pinned/configuration"
-		} else {
-			// We could error here, but validateSpec should catch this.
-			logger.Info("could not find config in SetServiceDefaults")
-			return nil
+		// Marshal the before and after.
+		rawService, err := json.Marshal(service)
+		if err != nil {
+			return err
 		}
 
-		return setConfigurationSpecDefaults(patches, patchBase, configSpec)
+		patch, err := jsonpatch.CreatePatch(rawOriginal, rawService)
+		if err != nil {
+			return err
+		}
+		*patches = append(*patches, patch...)
+		return nil
+	}
+}
+
+func setServiceSpecDefaults(spec *v1alpha1.ServiceSpec) {
+	if spec.RunLatest != nil {
+		setConfigurationSpecDefaults(&spec.RunLatest.Configuration)
+	} else if spec.Pinned != nil {
+		setConfigurationSpecDefaults(&spec.Pinned.Configuration)
 	}
 }
 
