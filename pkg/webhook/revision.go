@@ -50,6 +50,10 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 			}
 		}
 
+		// Can't just `return newRevision.Validate()` because it doesn't properly nil-check.
+		if err := n.Validate(); err != nil {
+			return err
+		}
 		return nil
 	}
 }

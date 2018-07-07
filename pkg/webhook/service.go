@@ -18,8 +18,6 @@ package webhook
 import (
 	"context"
 	"errors"
-	"fmt"
-	"reflect"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
@@ -27,18 +25,8 @@ import (
 )
 
 var (
-	errInvalidRollouts     = errors.New("the service must have exactly one of runLatest or pinned in spec field")
-	errMissingRevisionName = errors.New("the PinnedType must have revision specified")
 	errInvalidServiceInput = errors.New("failed to convert input into Service")
 )
-
-func errServiceMissingField(fieldPath string) error {
-	return fmt.Errorf("Service is missing %q", fieldPath)
-}
-
-func errServiceDisallowedFields(fieldPaths string) error {
-	return fmt.Errorf("The service spec must not set the field(s): %s", fieldPaths)
-}
 
 // ValidateService is Service resource specific validation and mutation handler
 func ValidateService(ctx context.Context) ResourceCallback {
@@ -49,30 +37,12 @@ func ValidateService(ctx context.Context) ResourceCallback {
 			return err
 		}
 
-		return validateSpec(newService)
-	}
-}
-
-func validateSpec(s *v1alpha1.Service) error {
-	if s.Spec.RunLatest != nil && s.Spec.Pinned != nil ||
-		s.Spec.RunLatest == nil && s.Spec.Pinned == nil {
-		return errInvalidRollouts
-	}
-	if s.Spec.Pinned != nil {
-		pinned := s.Spec.Pinned
-		if len(pinned.RevisionName) == 0 {
-			return errServiceMissingField("spec.pinned.revisionName")
+		// Can't just `return newService.Validate()` because it doesn't properly nil-check.
+		if err := newService.Validate(); err != nil {
+			return err
 		}
-		if reflect.DeepEqual(pinned.Configuration, v1alpha1.ConfigurationSpec{}) {
-			return errServiceMissingField("spec.pinned.configuration")
-		}
-		return validateConfigurationSpec(&pinned.Configuration)
+		return nil
 	}
-	runLatest := s.Spec.RunLatest
-	if reflect.DeepEqual(runLatest.Configuration, v1alpha1.ConfigurationSpec{}) {
-		return errServiceMissingField("spec.runLatest.configuration")
-	}
-	return validateConfigurationSpec(&runLatest.Configuration)
 }
 
 func unmarshalServices(

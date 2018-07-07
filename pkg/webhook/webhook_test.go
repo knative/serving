@@ -406,7 +406,7 @@ func TestInvalidNewServiceNoSpecs(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	svc := createServicePinned(0, testServiceName)
 	svc.Spec.Pinned = nil
-	expectFailsWith(t, ac.admit(TestContextWithLogger(t), createCreateService(svc)), "exactly one of runLatest or pinned")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), createCreateService(svc)), "Expected exactly one, got neither: spec.runLatest, spec.pinned")
 }
 
 func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
@@ -715,12 +715,14 @@ func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta
 }
 
 func expectAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
+	t.Helper()
 	if !resp.Allowed {
 		t.Errorf("Expected allowed, but failed with %+v", resp.Result)
 	}
 }
 
 func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
+	t.Helper()
 	if resp.Allowed {
 		t.Errorf("expected denial, got allowed")
 		return
@@ -731,6 +733,7 @@ func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, con
 }
 
 func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
+	t.Helper()
 	var actual []jsonpatch.JsonPatchOperation
 	// Keep track of the patches we've found
 	foundExpected := make([]bool, len(e))

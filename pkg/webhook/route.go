@@ -25,11 +25,7 @@ import (
 )
 
 var (
-	errInvalidRevisions        = errors.New("the route must have exactly one of revisionName or configurationName in traffic field")
-	errInvalidRouteInput       = errors.New("failed to convert input into Route")
-	errInvalidTargetPercentSum = errors.New("the route must have traffic percent sum equal to 100")
-	errNegativeTargetPercent   = errors.New("the route cannot have a negative traffic percent")
-	errTrafficTargetsNotUnique = errors.New("the traffic targets must be unique")
+	errInvalidRouteInput = errors.New("failed to convert input into Route")
 )
 
 // ValidateRoute is Route resource specific validation and mutation handler
@@ -39,71 +35,13 @@ func ValidateRoute(ctx context.Context) ResourceCallback {
 		if err != nil {
 			return err
 		}
-		if err := validateTrafficTarget(newRoute); err != nil {
+
+		// Can't just `return newRoute.Validate()` because it doesn't properly nil-check.
+		if err := newRoute.Validate(); err != nil {
 			return err
 		}
-		if err := validateUniqueTrafficTarget(newRoute); err != nil {
-			return err
-		}
-
 		return nil
 	}
-}
-
-func validateTrafficTarget(route *v1alpha1.Route) error {
-	// A service as a placeholder that's not backed by anything is allowed.
-	if route.Spec.Traffic == nil {
-		return nil
-	}
-
-	percentSum := 0
-	for _, trafficTarget := range route.Spec.Traffic {
-		revisionLen := len(trafficTarget.RevisionName)
-		configurationLen := len(trafficTarget.ConfigurationName)
-		if (revisionLen == 0 && configurationLen == 0) ||
-			(revisionLen != 0 && configurationLen != 0) {
-			return errInvalidRevisions
-		}
-
-		if trafficTarget.Percent < 0 {
-			return errNegativeTargetPercent
-		}
-		percentSum += trafficTarget.Percent
-	}
-
-	if percentSum != 100 {
-		return errInvalidTargetPercentSum
-	}
-	return nil
-}
-
-func validateUniqueTrafficTarget(route *v1alpha1.Route) error {
-	if route.Spec.Traffic == nil {
-		return nil
-	}
-
-	type tt struct {
-		revision      string
-		configuration string
-	}
-	trafficMap := make(map[string]tt)
-	for _, trafficTarget := range route.Spec.Traffic {
-		if trafficTarget.Name == "" {
-			continue
-		}
-
-		traffic := tt{
-			revision:      trafficTarget.RevisionName,
-			configuration: trafficTarget.ConfigurationName,
-		}
-
-		if _, ok := trafficMap[trafficTarget.Name]; !ok {
-			trafficMap[trafficTarget.Name] = traffic
-		} else if trafficMap[trafficTarget.Name] != traffic {
-			return errTrafficTargetsNotUnique
-		}
-	}
-	return nil
 }
 
 func unmarshalRoutes(
