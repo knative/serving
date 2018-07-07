@@ -17,7 +17,6 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -41,9 +40,6 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 		if err != nil {
 			return err
 		}
-		if new == nil {
-			return errInvalidRevisionInput
-		}
 		n, err := unmarshalRevision(new)
 		if err != nil {
 			return err
@@ -60,30 +56,6 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 		if err := new.Validate(); err != nil {
 			return err
 		}
-		return nil
-	}
-}
-
-// SetRevisionDefaults set defaults on an revisions.
-func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
-	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		rawOriginal, err := json.Marshal(crd)
-		if err != nil {
-			return err
-		}
-		crd.SetDefaults()
-
-		// Marshal the before and after.
-		rawRevision, err := json.Marshal(crd)
-		if err != nil {
-			return err
-		}
-
-		patch, err := jsonpatch.CreatePatch(rawOriginal, rawRevision)
-		if err != nil {
-			return err
-		}
-		*patches = append(*patches, patch...)
 		return nil
 	}
 }
