@@ -27,6 +27,7 @@ const currentField = ""
 // FieldError is used to propagate the context of errors pertaining to
 // specific fields in a manner suitable for use in a recursive walk, so
 // that errors container the appropriate field context.
+// +k8s:deepcopy-gen=false
 type FieldError struct {
 	Message string
 	Paths   []string
@@ -54,7 +55,7 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 	}
 	var newPaths []string
 	for _, oldPath := range fe.Paths {
-		if oldPath == "" {
+		if oldPath == currentField {
 			newPaths = append(newPaths, strings.Join(prefix, "."))
 		} else {
 			newPaths = append(newPaths,
