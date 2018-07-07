@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -31,31 +30,15 @@ var (
 func ValidateRoute(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 		if new == nil {
+			// TODO(mattmoor): This is a strange error to return here.  We can probably
+			// just hoist the null handling into the caller?
 			return errInvalidRouteInput
-		}
-		newRoute, err := unmarshalRoute(new)
-		if err != nil {
-			return err
 		}
 
 		// Can't just `return newRoute.Validate()` because it doesn't properly nil-check.
-		if err := newRoute.Validate(); err != nil {
+		if err := new.Validate(); err != nil {
 			return err
 		}
 		return nil
 	}
-}
-
-// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
-// in GenericCRD we should be able to eliminate the need for this cast function.
-func unmarshalRoute(crd GenericCRD) (rt *v1alpha1.Route, err error) {
-	if crd == nil {
-		return
-	}
-	if asRt, ok := crd.(*v1alpha1.Route); !ok {
-		err = errInvalidRouteInput
-	} else {
-		rt = asRt
-	}
-	return
 }

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -32,15 +31,13 @@ var (
 func ValidateConfiguration(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 		if new == nil {
+			// TODO(mattmoor): This is a strange error to return here.  We can probably
+			// just hoist the null handling into the caller?
 			return errInvalidConfigurationInput
 		}
-		newConfiguration, err := unmarshalConfiguration(new)
-		if err != nil {
-			return err
-		}
 
-		// Can't just `return newConfiguration.Validate()` because it doesn't properly nil-check.
-		if err := newConfiguration.Validate(); err != nil {
+		// Can't just `return new.Validate()` because it doesn't properly nil-check.
+		if err := new.Validate(); err != nil {
 			return err
 		}
 		return nil
@@ -55,14 +52,10 @@ func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
 			return err
 		}
 
-		config, err := unmarshalConfiguration(crd)
-		if err != nil {
-			return err
-		}
-		config.SetDefaults()
+		crd.SetDefaults()
 
 		// Marshal the before and after.
-		rawConfiguration, err := json.Marshal(config)
+		rawConfiguration, err := json.Marshal(crd)
 		if err != nil {
 			return err
 		}
@@ -74,18 +67,4 @@ func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
 		*patches = append(*patches, patch...)
 		return nil
 	}
-}
-
-// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
-// in GenericCRD we should be able to eliminate the need for this cast function.
-func unmarshalConfiguration(crd GenericCRD) (cfg *v1alpha1.Configuration, err error) {
-	if crd == nil {
-		return
-	}
-	if asCfg, ok := crd.(*v1alpha1.Configuration); !ok {
-		err = errInvalidConfigurationInput
-	} else {
-		cfg = asCfg
-	}
-	return
 }

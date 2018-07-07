@@ -50,45 +50,6 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Why would we allow this?
-// func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
-// 	route := createRouteWithTraffic(nil)
-
-// 	if err := ValidateRoute(TestContextWithLogger(t))(nil, &route, &route); err != nil {
-// 		t.Fatalf("Expected allowed, but failed with: %s.", err)
-// 	}
-// }
-
-func TestNoneRouteTypeForOldResourceNotAllowed(t *testing.T) {
-	revision := v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevisionName,
-		},
-	}
-
-	got := ValidateRoute(TestContextWithLogger(t))(nil, &revision, &revision)
-	want := errInvalidRouteInput
-	if got.Error() != want.Error() {
-		t.Errorf("ValidateRoute() = %v, wanted %v", got, want)
-	}
-}
-
-func TestNoneRouteTypeForNewResourceNotAllowed(t *testing.T) {
-	revision := v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevisionName,
-		},
-	}
-
-	got := ValidateRoute(TestContextWithLogger(t))(nil, nil, &revision)
-	want := errInvalidRouteInput
-	if got.Error() != want.Error() {
-		t.Errorf("ValidateRoute() = %v, wanted %v", got, want)
-	}
-}
-
 func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 	route := createRouteWithTraffic([]v1alpha1.TrafficTarget{{
 		Percent: 100,

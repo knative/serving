@@ -56,8 +56,8 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 			}
 		}
 
-		// Can't just `return newRevision.Validate()` because it doesn't properly nil-check.
-		if err := n.Validate(); err != nil {
+		// Can't just `return new.Validate()` because it doesn't properly nil-check.
+		if err := new.Validate(); err != nil {
 			return err
 		}
 		return nil
@@ -71,15 +71,10 @@ func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
 		if err != nil {
 			return err
 		}
-
-		revision, err := unmarshalRevision(crd)
-		if err != nil {
-			return err
-		}
-		revision.SetDefaults()
+		crd.SetDefaults()
 
 		// Marshal the before and after.
-		rawRevision, err := json.Marshal(revision)
+		rawRevision, err := json.Marshal(crd)
 		if err != nil {
 			return err
 		}

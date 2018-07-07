@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -32,15 +31,13 @@ var (
 func ValidateService(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 		if new == nil {
-			return errInvalidRouteInput
-		}
-		newService, err := unmarshalService(new)
-		if err != nil {
-			return err
+			// TODO(mattmoor): This is a strange error to return here.  We can probably
+			// just hoist the null handling into the caller?
+			return errInvalidServiceInput
 		}
 
-		// Can't just `return newService.Validate()` because it doesn't properly nil-check.
-		if err := newService.Validate(); err != nil {
+		// Can't just `return new.Validate()` because it doesn't properly nil-check.
+		if err := new.Validate(); err != nil {
 			return err
 		}
 		return nil
@@ -57,15 +54,10 @@ func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 		if err != nil {
 			return err
 		}
-
-		service, err := unmarshalService(crd)
-		if err != nil {
-			return err
-		}
-		service.SetDefaults()
+		crd.SetDefaults()
 
 		// Marshal the before and after.
-		rawService, err := json.Marshal(service)
+		rawService, err := json.Marshal(crd)
 		if err != nil {
 			return err
 		}
@@ -77,18 +69,4 @@ func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 		*patches = append(*patches, patch...)
 		return nil
 	}
-}
-
-// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
-// in GenericCRD we should be able to eliminate the need for this cast function.
-func unmarshalService(crd GenericCRD) (svc *v1alpha1.Service, err error) {
-	if crd == nil {
-		return
-	}
-	if asSvc, ok := crd.(*v1alpha1.Service); !ok {
-		err = errInvalidServiceInput
-	} else {
-		svc = asSvc
-	}
-	return
 }

@@ -121,6 +121,9 @@ type AdmissionController struct {
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
 type GenericCRD interface {
+	v1alpha1.Defaultable
+	v1alpha1.Validatable
+
 	// GetObjectMeta return the object metadata
 	GetObjectMeta() metav1.Object
 	// GetGeneration returns the current Generation of the object
