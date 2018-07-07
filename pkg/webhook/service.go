@@ -31,8 +31,10 @@ var (
 // ValidateService is Service resource specific validation and mutation handler
 func ValidateService(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		// We only care about the new one, old one gets flagged as an error in unmarshal.
-		_, newService, err := unmarshalServices(ctx, old, new, "ValidateService")
+		if new == nil {
+			return errInvalidRouteInput
+		}
+		newService, err := unmarshalService(new)
 		if err != nil {
 			return err
 		}
@@ -45,28 +47,6 @@ func ValidateService(ctx context.Context) ResourceCallback {
 	}
 }
 
-func unmarshalServices(
-	ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Service, *v1alpha1.Service, error) {
-	logger := logging.FromContext(ctx)
-	var oldService *v1alpha1.Service
-	if old != nil {
-		var ok bool
-		oldService, ok = old.(*v1alpha1.Service)
-		if !ok {
-			return nil, nil, errInvalidServiceInput
-		}
-	}
-	logger.Infof("%s: OLD Service is\n%+v", fnName, oldService)
-
-	newService, ok := new.(*v1alpha1.Service)
-	if !ok {
-		return nil, nil, errInvalidServiceInput
-	}
-	logger.Infof("%s: NEW Service is\n%+v", fnName, newService)
-
-	return oldService, newService, nil
-}
-
 // SetServiceDefaults set defaults on an services.
 // Service does not have any defaults, per-se, but because it holds a Configuration,
 // we need to set the Configuration's defaults. SetServiceDefaults dispatches to
@@ -74,7 +54,7 @@ func unmarshalServices(
 func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
 		logger := logging.FromContext(ctx)
-		_, service, err := unmarshalServices(ctx, nil, crd, "SetServiceDefaults")
+		service, err := unmarshalService(crd)
 		if err != nil {
 			return err
 		}
@@ -98,4 +78,18 @@ func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 
 		return setConfigurationSpecDefaults(patches, patchBase, configSpec)
 	}
+}
+
+// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
+// in GenericCRD we should be able to eliminate the need for this cast function.
+func unmarshalService(crd GenericCRD) (svc *v1alpha1.Service, err error) {
+	if crd == nil {
+		return
+	}
+	if asSvc, ok := crd.(*v1alpha1.Service); !ok {
+		err = errInvalidServiceInput
+	} else {
+		svc = asSvc
+	}
+	return
 }

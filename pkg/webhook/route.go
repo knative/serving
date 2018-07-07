@@ -20,7 +20,6 @@ import (
 	"errors"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -31,7 +30,10 @@ var (
 // ValidateRoute is Route resource specific validation and mutation handler
 func ValidateRoute(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		_, newRoute, err := unmarshalRoutes(ctx, old, new, "ValidateRoute")
+		if new == nil {
+			return errInvalidRouteInput
+		}
+		newRoute, err := unmarshalRoute(new)
 		if err != nil {
 			return err
 		}
@@ -44,24 +46,16 @@ func ValidateRoute(ctx context.Context) ResourceCallback {
 	}
 }
 
-func unmarshalRoutes(
-	ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Route, *v1alpha1.Route, error) {
-	logger := logging.FromContext(ctx)
-	var oldRoute *v1alpha1.Route
-	if old != nil {
-		var ok bool
-		oldRoute, ok = old.(*v1alpha1.Route)
-		if !ok {
-			return nil, nil, errInvalidRouteInput
-		}
+// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
+// in GenericCRD we should be able to eliminate the need for this cast function.
+func unmarshalRoute(crd GenericCRD) (rt *v1alpha1.Route, err error) {
+	if crd == nil {
+		return
 	}
-	logger.Infof("%s: OLD Route is\n%+v", fnName, oldRoute)
-
-	newRoute, ok := new.(*v1alpha1.Route)
-	if !ok {
-		return nil, nil, errInvalidRouteInput
+	if asRt, ok := crd.(*v1alpha1.Route); !ok {
+		err = errInvalidRouteInput
+	} else {
+		rt = asRt
 	}
-	logger.Infof("%s: NEW Route is\n%+v", fnName, newRoute)
-
-	return oldRoute, newRoute, nil
+	return
 }

@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -34,7 +33,14 @@ var (
 // ValidateRevision is Revision resource specific validation and mutation handler
 func ValidateRevision(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		o, n, err := unmarshalRevisions(ctx, old, new, "ValidateRevision")
+		o, err := unmarshalRevision(old)
+		if err != nil {
+			return err
+		}
+		if new == nil {
+			return errInvalidRevisionInput
+		}
+		n, err := unmarshalRevision(new)
 		if err != nil {
 			return err
 		}
@@ -61,7 +67,7 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 // SetRevisionDefaults set defaults on an revisions.
 func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		_, revision, err := unmarshalRevisions(ctx, nil, crd, "SetRevisionDefaults")
+		revision, err := unmarshalRevision(crd)
 		if err != nil {
 			return err
 		}
@@ -90,23 +96,16 @@ func setRevisionSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patchBase 
 	return nil
 }
 
-func unmarshalRevisions(ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Revision, *v1alpha1.Revision, error) {
-	logger := logging.FromContext(ctx)
-	var oldRevision *v1alpha1.Revision
-	if old != nil {
-		var ok bool
-		oldRevision, ok = old.(*v1alpha1.Revision)
-		if !ok {
-			return nil, nil, errInvalidRevisionInput
-		}
+// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
+// in GenericCRD we should be able to eliminate the need for this cast function.
+func unmarshalRevision(crd GenericCRD) (rev *v1alpha1.Revision, err error) {
+	if crd == nil {
+		return
 	}
-	logger.Infof("%s: OLD Revision is\n%+v", fnName, oldRevision)
-
-	newRevision, ok := new.(*v1alpha1.Revision)
-	if !ok {
-		return nil, nil, errInvalidRevisionInput
+	if asRev, ok := crd.(*v1alpha1.Revision); !ok {
+		err = errInvalidRevisionInput
+	} else {
+		rev = asRev
 	}
-	logger.Infof("%s: NEW Revision is\n%+v", fnName, newRevision)
-
-	return oldRevision, newRevision, nil
+	return
 }

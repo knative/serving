@@ -21,7 +21,6 @@ import (
 	"path"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -32,7 +31,10 @@ var (
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
 func ValidateConfiguration(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		_, newConfiguration, err := unmarshalConfigurations(ctx, old, new, "ValidateConfiguration")
+		if new == nil {
+			return errInvalidConfigurationInput
+		}
+		newConfiguration, err := unmarshalConfiguration(new)
 		if err != nil {
 			return err
 		}
@@ -48,7 +50,7 @@ func ValidateConfiguration(ctx context.Context) ResourceCallback {
 // SetConfigurationDefaults set defaults on an configurations.
 func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
-		_, config, err := unmarshalConfigurations(ctx, nil, crd, "SetConfigurationDefaults")
+		config, err := unmarshalConfiguration(crd)
 		if err != nil {
 			return err
 		}
@@ -68,24 +70,16 @@ func setConfigurationSpecDefaults(patches *[]jsonpatch.JsonPatchOperation, patch
 	return nil
 }
 
-func unmarshalConfigurations(
-	ctx context.Context, old GenericCRD, new GenericCRD, fnName string) (*v1alpha1.Configuration, *v1alpha1.Configuration, error) {
-	logger := logging.FromContext(ctx)
-	var oldConfiguration *v1alpha1.Configuration
-	if old != nil {
-		var ok bool
-		oldConfiguration, ok = old.(*v1alpha1.Configuration)
-		if !ok {
-			return nil, nil, errInvalidConfigurationInput
-		}
+// TODO(mattmoor): Once we can put v1alpha1.Validatable and some Defaultable equivalent
+// in GenericCRD we should be able to eliminate the need for this cast function.
+func unmarshalConfiguration(crd GenericCRD) (cfg *v1alpha1.Configuration, err error) {
+	if crd == nil {
+		return
 	}
-	logger.Infof("%s: OLD Configuration is\n%+v", fnName, oldConfiguration)
-
-	newConfiguration, ok := new.(*v1alpha1.Configuration)
-	if !ok {
-		return nil, nil, errInvalidConfigurationInput
+	if asCfg, ok := crd.(*v1alpha1.Configuration); !ok {
+		err = errInvalidConfigurationInput
+	} else {
+		cfg = asCfg
 	}
-	logger.Infof("%s: NEW Configuration is\n%+v", fnName, newConfiguration)
-
-	return oldConfiguration, newConfiguration, nil
+	return
 }
