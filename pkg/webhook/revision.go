@@ -22,12 +22,16 @@ import (
 	"path"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
 )
 
 var (
 	errInvalidRevisionInput = errors.New("failed to convert input into Revision")
+
+	// The autoscaler is allowed to change these fields, so clear them.
+	ignoreServingState = cmpopts.IgnoreFields(v1alpha1.RevisionSpec{}, "ServingState")
 )
 
 // ValidateRevision is Revision resource specific validation and mutation handler
@@ -47,11 +51,7 @@ func ValidateRevision(ctx context.Context) ResourceCallback {
 
 		// When we have an "old" object, check for changes.
 		if o != nil {
-			// The autoscaler is allowed to change these fields, so clear them.
-			o.Spec.ServingState = ""
-			n.Spec.ServingState = ""
-
-			if diff := cmp.Diff(o.Spec, n.Spec); diff != "" {
+			if diff := cmp.Diff(o.Spec, n.Spec, ignoreServingState); diff != "" {
 				return fmt.Errorf("Revision spec should not change (-old +new): %s", diff)
 			}
 		}
