@@ -39,6 +39,9 @@ type Service struct {
 	Status ServiceStatus `json:"status,omitempty"`
 }
 
+// Check that Route may be validated.
+var _ Validatable = (*Service)(nil)
+
 // ServiceSpec represents the configuration for the Service object.
 // Exactly one of its members (other than Generation) must be specified.
 type ServiceSpec struct {
