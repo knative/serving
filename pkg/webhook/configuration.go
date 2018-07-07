@@ -59,7 +59,7 @@ func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
 		if err != nil {
 			return err
 		}
-		setConfigurationSpecDefaults(&config.Spec)
+		config.SetDefaults()
 
 		// Marshal the before and after.
 		rawConfiguration, err := json.Marshal(config)
@@ -73,12 +73,6 @@ func SetConfigurationDefaults(ctx context.Context) ResourceDefaulter {
 		}
 		*patches = append(*patches, patch...)
 		return nil
-	}
-}
-
-func setConfigurationSpecDefaults(spec *v1alpha1.ConfigurationSpec) {
-	if spec.RevisionTemplate.Spec.ConcurrencyModel == "" {
-		spec.RevisionTemplate.Spec.ConcurrencyModel = v1alpha1.RevisionRequestConcurrencyModelMulti
 	}
 }
 

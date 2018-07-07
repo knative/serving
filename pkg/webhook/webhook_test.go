@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/serving/pkg"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -189,7 +190,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/generation",
-		Value:     2,
+		Value:     2.0,
 	}})
 }
 
@@ -272,7 +273,7 @@ func TestValidRouteChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/generation",
-		Value:     2,
+		Value:     2.0,
 	}})
 }
 
@@ -294,11 +295,11 @@ func TestValidNewRevisionObject(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
 		Path:      "/spec/generation",
-		Value:     1,
+		Value:     1.0,
 	}, {
 		Operation: "add",
 		Path:      "/spec/servingState",
-		Value:     v1alpha1.RevisionServingStateActive,
+		Value:     "Active",
 	}})
 }
 
@@ -329,7 +330,7 @@ func TestValidRevisionUpdates(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
 		Path:      "/spec/generation",
-		Value:     1,
+		Value:     1.0,
 	}})
 }
 
@@ -429,7 +430,7 @@ func TestValidServiceEnvChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/generation",
-		Value:     2,
+		Value:     2.0,
 	}})
 }
 
@@ -734,37 +735,16 @@ func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, con
 
 func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
 	t.Helper()
-	var actual []jsonpatch.JsonPatchOperation
-	// Keep track of the patches we've found
-	foundExpected := make([]bool, len(e))
-	foundActual := make([]bool, len(e))
+	var got []jsonpatch.JsonPatchOperation
 
-	err := json.Unmarshal(a, &actual)
+	err := json.Unmarshal(a, &got)
 	if err != nil {
 		t.Errorf("failed to unmarshal patches: %s", err)
 		return
 	}
-	if len(actual) != len(e) {
-		t.Errorf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
-	}
-	// Make sure all the expected patches are found
-	for i, expectedPatch := range e {
-		for j, actualPatch := range actual {
-			if actualPatch.Json() == expectedPatch.Json() {
-				foundExpected[i] = true
-				foundActual[j] = true
-			}
-		}
-	}
-	for i, f := range foundExpected {
-		if !f {
-			t.Errorf("did not find %+v in actual patches: %q", e[i], actual)
-		}
-	}
-	for i, f := range foundActual {
-		if !f {
-			t.Errorf("Extra patch found %+v in expected patches: %q", a[i], e)
-		}
+
+	if diff := cmp.Diff(e, got, cmpopts.EquateEmpty()); diff != "" {
+		t.Errorf("expectPatches (-want, +got) = %v", diff)
 	}
 }
 
@@ -855,10 +835,10 @@ func createServiceRunLatest(generation int64, serviceName string) v1alpha1.Servi
 	}
 }
 
-func incrementGenerationPatch(old int64) jsonpatch.JsonPatchOperation {
+func incrementGenerationPatch(old float64) jsonpatch.JsonPatchOperation {
 	return jsonpatch.JsonPatchOperation{
 		Operation: "add",
 		Path:      "/spec/generation",
-		Value:     old + 1,
+		Value:     old + 1.0,
 	}
 }

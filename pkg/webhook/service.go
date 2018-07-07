@@ -62,7 +62,7 @@ func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 		if err != nil {
 			return err
 		}
-		setServiceSpecDefaults(&service.Spec)
+		service.SetDefaults()
 
 		// Marshal the before and after.
 		rawService, err := json.Marshal(service)
@@ -76,14 +76,6 @@ func SetServiceDefaults(ctx context.Context) ResourceDefaulter {
 		}
 		*patches = append(*patches, patch...)
 		return nil
-	}
-}
-
-func setServiceSpecDefaults(spec *v1alpha1.ServiceSpec) {
-	if spec.RunLatest != nil {
-		setConfigurationSpecDefaults(&spec.RunLatest.Configuration)
-	} else if spec.Pinned != nil {
-		setConfigurationSpecDefaults(&spec.Pinned.Configuration)
 	}
 }
 

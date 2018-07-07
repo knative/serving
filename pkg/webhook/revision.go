@@ -76,7 +76,7 @@ func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
 		if err != nil {
 			return err
 		}
-		setRevisionSpecDefaults(&revision.Spec)
+		revision.SetDefaults()
 
 		// Marshal the before and after.
 		rawRevision, err := json.Marshal(revision)
@@ -90,16 +90,6 @@ func SetRevisionDefaults(ctx context.Context) ResourceDefaulter {
 		}
 		*patches = append(*patches, patch...)
 		return nil
-	}
-}
-
-func setRevisionSpecDefaults(spec *v1alpha1.RevisionSpec) {
-	if spec.ServingState == "" {
-		spec.ServingState = v1alpha1.RevisionServingStateActive
-	}
-
-	if spec.ConcurrencyModel == "" {
-		spec.ConcurrencyModel = v1alpha1.RevisionRequestConcurrencyModelMulti
 	}
 }
 
