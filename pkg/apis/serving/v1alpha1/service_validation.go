@@ -20,7 +20,9 @@ func (s *Service) Validate() *FieldError {
 }
 
 func (ss *ServiceSpec) Validate() *FieldError {
-	// The error message for the oneof is better.
+	// We would do this semantic DeepEqual, but the spec is comprised
+	// entirely of a oneof, the validation for which produces a clearer
+	// error message.
 	// if equality.Semantic.DeepEqual(ss, &ServiceSpec{}) {
 	// 	return errMissingField(currentField)
 	// }

@@ -39,7 +39,7 @@ type Service struct {
 	Status ServiceStatus `json:"status,omitempty"`
 }
 
-// Check that Route may be validated.
+// Check that Service may be validated.
 var _ Validatable = (*Service)(nil)
 
 // ServiceSpec represents the configuration for the Service object.

@@ -26,7 +26,7 @@ const currentField = ""
 
 // FieldError is used to propagate the context of errors pertaining to
 // specific fields in a manner suitable for use in a recursive walk, so
-// that errors container the appropriate field context.
+// that errors contain the appropriate field context.
 // +k8s:deepcopy-gen=false
 type FieldError struct {
 	Message string
