@@ -18,6 +18,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (rt *Revision) Validate() *FieldError {
@@ -90,6 +91,31 @@ func validateContainer(container corev1.Container) *FieldError {
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
 		return errDisallowedFields(ignoredFields...)
+	}
+	// Validate our probes
+	if err := validateProbe(container.ReadinessProbe); err != nil {
+		return err.ViaField("readinessProbe")
+	}
+	if err := validateProbe(container.LivenessProbe); err != nil {
+		return err.ViaField("livenessProbe")
+	}
+	return nil
+}
+
+func validateProbe(p *corev1.Probe) *FieldError {
+	if p == nil {
+		return nil
+	}
+	emptyPort := intstr.IntOrString{}
+	switch {
+	case p.Handler.HTTPGet != nil:
+		if p.Handler.HTTPGet.Port != emptyPort {
+			return errDisallowedFields("httpGet.port")
+		}
+	case p.Handler.TCPSocket != nil:
+		if p.Handler.TCPSocket.Port != emptyPort {
+			return errDisallowedFields("tcpSocket.port")
+		}
 	}
 	return nil
 }
