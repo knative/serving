@@ -29,8 +29,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
+	istioinformers "github.com/knative/serving/pkg/client/informers/externalversions/istio/v1alpha3"
+	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
@@ -104,6 +107,8 @@ type Controller struct {
 	endpointsLister  corev1listers.EndpointsLister
 	configMapLister  corev1listers.ConfigMapLister
 
+	destinationRuleLister istiolisters.DestinationRuleLister
+
 	buildtracker *buildTracker
 
 	resolver resolver
@@ -152,6 +157,7 @@ func NewController(
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
+	destinationRuleInformer istioinformers.DestinationRuleInformer,
 	controllerConfig *config.Controller,
 ) *Controller {
 
@@ -164,6 +170,7 @@ func NewController(
 		serviceLister:    serviceInformer.Lister(),
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
+		destinationRuleLister: destinationRuleInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver: &digestResolver{
 			client:           opt.KubeClientSet,
@@ -320,6 +327,9 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			name: "user k8s service",
 			f:    c.reconcileService,
 		}, {
+			name: "user destion rule",
+			f:    c.reconcileDestinationRule,
+		},{
 			// Ensures our namespace has the configuration for the fluentd sidecar.
 			name: "fluentd configmap",
 			f:    c.reconcileFluentdConfigMap,
@@ -636,6 +646,68 @@ func (c *Controller) deleteService(ctx context.Context, svc *corev1.Service) err
 		return nil
 	} else if err != nil {
 		logger.Errorf("service.Delete for %q failed: %s", svc.Name, err)
+		return err
+	}
+	return nil
+}
+
+
+func (c *Controller) reconcileDestinationRule(ctx context.Context, rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	destinationRuleName := resourcenames.DestinationRule(rev)
+	logger := logging.FromContext(ctx)
+
+	destinationRule, err := c.destinationRuleLister.DestinationRules(ns).Get(destinationRuleName)
+	switch rev.Spec.ServingState {
+		case v1alpha1.RevisionServingStateActive:
+			// When Active, the Service should exist and have a particular specification.
+			if apierrs.IsNotFound(err) {
+				rev.Status.MarkDeploying("Deploying")
+				destinationRule, err = c.createDestinationRule(rev)
+				if err != nil {
+					logger.Errorf("Error creating DestinationRule %q: %v", destinationRuleName, err)
+					return err
+				}
+				logger.Infof("Created DestinationRule %q", destinationRuleName)
+				return nil
+			} else if err != nil {
+				logger.Errorf("Error reconciling Active DestinationRule %q: %v", destinationRuleName, err)
+				return err
+			} else {
+				// TODO(zhiminx): not sure if we allow user to modify it
+				return nil
+			}
+		case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
+			// When Reserve or Retired, we remove the underlying DestinationRule.
+			if apierrs.IsNotFound(err) {
+				// If it does not exist, then we have nothing to do.
+				return nil
+			}
+			if err := c.deleteDestinationRule(ctx, destinationRule); err != nil {
+				logger.Errorf("Error deleting DestinationRule %q: %v", destinationRuleName, err)
+				return err
+			}
+			logger.Infof("Deleted DestinationRule %q", destinationRuleName)
+			return nil
+		default:
+			logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
+			return nil
+	}
+}
+
+func (c *Controller) createDestinationRule(rev *v1alpha1.Revision) (*v1alpha3.DestinationRule, error) {
+	desiredDestinationRule := resources.MakeDestinationRule(rev)
+	ns := rev.Namespace
+	return c.ServingClientSet.NetworkingV1alpha3().DestinationRules(ns).Create(desiredDestinationRule)
+}
+
+func (c *Controller) deleteDestinationRule(ctx context.Context, destinationRule *v1alpha3.DestinationRule) error {
+	logger := logging.FromContext(ctx)
+	err := c.ServingClientSet.NetworkingV1alpha3().DestinationRules(destinationRule.Namespace).Delete(destinationRule.Name, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		logger.Errorf("destinationRule.Delete for %q failed: %s", destinationRule.Name, err)
 		return err
 	}
 	return nil

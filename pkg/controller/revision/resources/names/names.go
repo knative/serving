@@ -18,6 +18,7 @@ package names
 
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+        "github.com/knative/serving/pkg/controller"
 )
 
 func Deployment(rev *v1alpha1.Revision) string {
@@ -36,6 +37,14 @@ func K8sService(rev *v1alpha1.Revision) string {
 	return rev.Name + "-service"
 }
 
+func K8sServiceFullName(rev *v1alpha1.Revision) string {
+        return controller.GetK8sServiceFullname(K8sService(rev), rev.Namespace)
+}
+
 func FluentdConfigMap(rev *v1alpha1.Revision) string {
 	return rev.Name + "-fluentd"
+}
+
+func DestinationRule(rev *v1alpha1.Revision) string {
+        return rev.Name + "-destination-rule"
 }

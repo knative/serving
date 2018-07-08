@@ -25,7 +25,7 @@ rules:
     resources: ["builds"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices"]
+    resources: ["virtualservices", "destinationrules"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
 ---
 kind: ClusterRole
@@ -55,5 +55,5 @@ rules:
     resources: ["builds"]
     verbs: ["get", "list", "update", "patch", "watch"]
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices"]
+    resources: ["virtualservices", "destinationrules"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

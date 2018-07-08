@@ -542,3 +542,13 @@ const (
         // used, all other fields in `TLSSettings` should be empty.
         TLSmodeIstioMutual TLSmode = "ISTIO_MUTUAL"
 )
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// DestinationRuleList is a list of DestinationRule resources
+type DestinationRuleList struct {
+    metav1.TypeMeta `json:",inline"`
+    metav1.ListMeta `json:"metadata"`
+
+    Items []DestinationRule `json:"items"`
+}
