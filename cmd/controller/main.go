@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
@@ -111,7 +111,7 @@ func main() {
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
-		time.Minute*5, pkg.GetServingSystemNamespace(), nil)
+		time.Minute*5, system.Namespace, nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
 
 	revControllerConfig := revisionconfig.Controller{
@@ -120,7 +120,7 @@ func main() {
 		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),
 	}
 
-	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, pkg.GetServingSystemNamespace())
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
 
 	opt := controller.Options{
 		KubeClientSet:    kubeClient,

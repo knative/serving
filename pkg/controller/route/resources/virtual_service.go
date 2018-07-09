@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -28,6 +27,7 @@ import (
 	revisionresources "github.com/knative/serving/pkg/controller/revision/resources"
 	"github.com/knative/serving/pkg/controller/route/resources/names"
 	"github.com/knative/serving/pkg/controller/route/traffic"
+	"github.com/knative/serving/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -171,7 +171,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 	r.Route = append(r.Route, v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
 			Host: controller.GetK8sServiceFullname(
-				activator.K8sServiceName, pkg.GetServingSystemNamespace()),
+				activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: uint32(revisionresources.ServicePort),
 			},

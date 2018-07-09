@@ -22,7 +22,6 @@ import (
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -32,6 +31,7 @@ import (
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -140,12 +140,12 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 
 	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -154,7 +154,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -164,7 +164,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{

@@ -28,11 +28,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	. "github.com/knative/serving/pkg/logging/testing"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -135,12 +135,12 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	var cms []*corev1.ConfigMap
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -149,7 +149,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -159,7 +159,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -274,7 +274,7 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add autoscaler deployment if any
-	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
+	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(autoscalerDeployment)
 	}
@@ -290,7 +290,7 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add autoscaler service if any
-	autoscalerService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
+	autoscalerService, err := kubeClient.CoreV1().Services(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(autoscalerService)
 	}
@@ -363,7 +363,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -406,7 +406,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -424,7 +424,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	// Update controllers logging URL
 	controller.receiveObservabilityConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -602,13 +602,13 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 
 	// Look for the autoscaler deployment.
-	_, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected autoscaler deployment %s to not exist.", expectedAutoscalerName)
 	}
 
 	// Look for the autoscaler service.
-	_, err = kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
+	_, err = kubeClient.CoreV1().Services(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected autoscaler service %s to not exist.", expectedAutoscalerName)
 	}
@@ -656,7 +656,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected to have a deployment but found none: %v", err)
 		}
-		d2, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
+		d2, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Expected to have an autoscaler deployment but found none: %v", err)
 		}
@@ -671,7 +671,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 	d2.Spec.Replicas = new(int32)
 	*d2.Spec.Replicas = 20
 	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Update(d2)
+	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
 	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
@@ -700,7 +700,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 	d2.Spec.Replicas = new(int32)
 	*d2.Spec.Replicas = 40
 	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Update(d2)
+	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
 	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
@@ -734,7 +734,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	controller.receiveNetworkConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NetworkConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			config.IstioOutboundIPRangesKey: configMapValue,

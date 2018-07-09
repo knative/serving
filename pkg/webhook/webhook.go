@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/logging/logkey"
 
@@ -397,7 +397,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment
-	deployment, err := ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Get(servingWebhookDeployment, metav1.GetOptions{})
+	deployment, err := ac.client.ExtensionsV1beta1().Deployments(system.Namespace).Get(servingWebhookDeployment, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}

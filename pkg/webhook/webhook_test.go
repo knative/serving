@@ -28,7 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
@@ -45,7 +45,7 @@ import (
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: pkg.GetServingSystemNamespace(),
+		ServiceNamespace: system.Namespace,
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
@@ -658,10 +658,10 @@ func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      servingWebhookDeployment,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 	}
-	ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Create(deployment)
+	ac.client.ExtensionsV1beta1().Deployments(system.Namespace).Create(deployment)
 }
 
 func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {
