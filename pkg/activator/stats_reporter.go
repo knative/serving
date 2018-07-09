@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -27,52 +28,18 @@ import (
 type Measurement int
 
 const (
-	// // RequestCountReserveM is the requests count that are routed to the activator when
-	// // the revision is Reserve
-	// RequestCountReserveM Measurement = iota
-	// // RequestCountActiveM is the requests count that are routed to the activator when
-	// // the revision is Active
-	// RequestCountActiveM
-	// // RequestCountRetiredM is the requests count that are routed to the activator when
-	// // the revision is Retired
-	// RequestCountRetiredM
-	// // RequestCountUnknownM is the requests count that are routed to the activator when
-	// // the revision is not Active, Reserve, and Retired
-	// RequestCountUnknownM
-
 	// RequestCountM is the requests count that are routed to the activator
 	RequestCountM Measurement = iota
 
 	//ResponseCountM is the response count when activator proxy the request
 	ResponseCountM
-	// ResponseCodeM is the response code when activator proxy the request
-	// ResponseCodeM
 
-	// // NumTriesM is the number of tries to get the response code
-	// NumTriesM
-
-	// ResponseTimeInSecM is the response time in seconds
-	ResponseTimeInSecM
+	// ResponseTimeInMsecM is the response time in millisecond
+	ResponseTimeInMsecM
 )
 
 var (
 	measurements = []*stats.Float64Measure{
-		// RequestCountReserveM: stats.Float64(
-		// 	"request_count_reserve",
-		// 	"The number of requests that are routed to the activator when the revision is Reserve",
-		// 	stats.UnitNone),
-		// RequestCountActiveM: stats.Float64(
-		// 	"request_count_active",
-		// 	"The number of requests that are routed to the activator when the revision is Active",
-		// 	stats.UnitNone),
-		// RequestCountRetiredM: stats.Float64(
-		// 	"request_count_retired",
-		// 	"The number of requests that are routed to the activator when the revision is Retired",
-		// 	stats.UnitNone),
-		// RequestCountUnknownM: stats.Float64(
-		// 	"request_count_unknown",
-		// 	"The number of requests that are routed to the activator when the revision is not Active, Reserve, and Retired",
-		// 	stats.UnitNone),
 		RequestCountM: stats.Float64(
 			"revision_request_count",
 			"The number of requests that are routed to the activator",
@@ -81,17 +48,9 @@ var (
 			"revision_response_count",
 			"The response count when activator proxy the request",
 			stats.UnitNone),
-		// ResponseCodeM: stats.Float64(
-		// 	"response_code",
-		// 	"The response code when activator proxy the request",
-		// 	stats.UnitNone),
-		// NumTriesM: stats.Float64(
-		// 	"num_tries",
-		// 	"The number of tries to get the response",
-		// 	stats.UnitNone),
-		ResponseTimeInSecM: stats.Float64(
-			"response_time_seconds",
-			"The response time in seconds",
+		ResponseTimeInMsecM: stats.Float64(
+			"response_time_msec",
+			"The response time in millisecond",
 			stats.UnitNone),
 	}
 )
@@ -100,7 +59,8 @@ var (
 type StatsReporter interface {
 	//Report(ns string, config string, rev string, m Measurement, v float64) error
 	ReportRequest(ns, config, rev, servingState string, m Measurement, v float64) error
-	ReportResponse(ns, config, rev string, responseCode, numTries int, v float64) error
+	ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error
+	ReportResponseTime(ns, config, rev string, d time.Duration) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
@@ -156,8 +116,7 @@ func NewStatsReporter() (*Reporter, error) {
 			Description: "The number of requests that are routed to the activator",
 			Measure:     measurements[RequestCountM],
 			Aggregation: view.Sum(),
-			//Aggregation: view.Count(),
-			TagKeys: []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
 		},
 		&view.View{
 			Description: "The response count when activator proxy the request",
@@ -165,16 +124,10 @@ func NewStatsReporter() (*Reporter, error) {
 			Aggregation: view.Sum(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
 		},
-		// &view.View{
-		// 	Description: "The response code when activator proxy the request",
-		// 	Measure:     measurements[ResponseCodeM],
-		// 	Aggregation: view.Distribution(),
-		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
-		// },
 		&view.View{
-			Description: "The response time in seconds",
-			Measure:     measurements[ResponseTimeInSecM],
-			Aggregation: view.Distribution(),
+			Description: "The response time in millisecond",
+			Measure:     measurements[ResponseTimeInMsecM],
+			Aggregation: view.Distribution(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
 		},
 	)
@@ -225,8 +178,8 @@ func (r *Reporter) ReportRequest(ns, config, rev, servingState string, m Measure
 	return nil
 }
 
-// ReportResponse captures value v for measurement m.
-func (r *Reporter) ReportResponse(ns, config, rev string, responseCode, numTries int, v float64) error {
+// ReportResponseCount captures ResponseCountM metric with value v.
+func (r *Reporter) ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -243,5 +196,24 @@ func (r *Reporter) ReportResponse(ns, config, rev string, responseCode, numTries
 	}
 
 	stats.Record(ctx, measurements[ResponseCountM].M(v))
+	return nil
+}
+
+func (r *Reporter) ReportResponseTime(ns, config, rev string, d time.Duration) error {
+	if !r.initialized {
+		return errors.New("StatsReporter is not initialized yet")
+	}
+
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, rev))
+	if err != nil {
+		return err
+	}
+
+	// convert time.Duration in nanoseconds to milliseconds
+	stats.Record(ctx, measurements[ResponseTimeInMsecM].M(float64(d/time.Millisecond)))
 	return nil
 }

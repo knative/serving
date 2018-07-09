@@ -115,26 +115,30 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
 		name := r.Header.Get(controller.GetRevisionHeaderName())
 		config := r.Header.Get(controller.GetConfigurationHeader())
-		rrt.reporter.ReportResponse(namespace, config, name, resp.StatusCode, i, 1.0)
+		rrt.reporter.ReportResponseCount(namespace, config, name, resp.StatusCode, i, 1.0)
 	}
 	return resp, nil
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
-	if r.ContentLength > maxUploadBytes {
-		w.WriteHeader(http.StatusRequestEntityTooLarge)
-		return
-	}
-
 	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
 	name := r.Header.Get(controller.GetRevisionHeaderName())
 	config := r.Header.Get(controller.GetConfigurationHeader())
+	start := time.Now()
+
+	if r.ContentLength > maxUploadBytes {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		a.reporter.ReportResponseTime(namespace, config, name, time.Now().Sub(start))
+		return
+	}
+
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, config, name)
 	if err != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
 		http.Error(w, msg, int(status))
 		a.logger.Errorf(msg)
-		a.reporter.ReportResponse(namespace, config, name, int(status), 1, 1.0)
+		a.reporter.ReportResponseCount(namespace, config, name, int(status), 1, 1.0)
+		a.reporter.ReportResponseTime(namespace, config, name, time.Now().Sub(start))
 		return
 	}
 	target := &url.URL{
@@ -152,6 +156,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	r.Host = ""
 
 	proxy.ServeHTTP(w, r)
+	a.reporter.ReportResponseTime(namespace, config, name, time.Now().Sub(start))
 }
 
 func main() {
