@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -109,6 +111,148 @@ func TestMakeFluentdConfigMap(t *testing.T) {
 			got := MakeFluentdConfigMap(test.rev, test.oc)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestMakeFluentdContainer(t *testing.T) {
+	tests := []struct {
+		name string
+		rev  *v1alpha1.Revision
+		oc   *config.Observability
+		want *corev1.Container
+	}{{
+		name: "no owner no observability config",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+		},
+		oc: &config.Observability{},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:      fluentdContainerName,
+			Resources: fluentdResources,
+			Image:     "",
+			// These changed based on the Revision and configs passed in.
+			Env: []corev1.EnvVar{{
+				Name:  "FLUENTD_ARGS",
+				Value: "--no-supervisor -q",
+			}, {
+				Name:  "SERVING_CONTAINER_NAME",
+				Value: UserContainerName, // matches name
+			}, {
+				Name:  "SERVING_CONFIGURATION",
+				Value: "", // No OwnerReference
+			}, {
+				Name:  "SERVING_REVISION",
+				Value: "bar",
+			}, {
+				Name:  "SERVING_NAMESPACE",
+				Value: "foo", // matches namespace
+			}, {
+				Name:      "SERVING_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+			},
+			},
+			VolumeMounts: fluentdVolumeMounts,
+		},
+	}, {
+		name: "owner no obdervability",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "the-parent-config-name",
+					Controller:         &boolTrue,
+					BlockOwnerDeletion: &boolTrue,
+				}},
+			},
+		},
+		oc: &config.Observability{},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:      fluentdContainerName,
+			Resources: fluentdResources,
+			Image:     "",
+			// These changed based on the Revision and configs passed in.
+			Env: []corev1.EnvVar{{
+				Name:  "FLUENTD_ARGS",
+				Value: "--no-supervisor -q",
+			}, {
+				Name:  "SERVING_CONTAINER_NAME",
+				Value: UserContainerName, // matches name
+			}, {
+				Name:  "SERVING_CONFIGURATION",
+				Value: "the-parent-config-name", // With OwnerReference
+			}, {
+				Name:  "SERVING_REVISION",
+				Value: "bar",
+			}, {
+				Name:  "SERVING_NAMESPACE",
+				Value: "foo", // matches namespace
+			}, {
+				Name:      "SERVING_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+			},
+			},
+			VolumeMounts: fluentdVolumeMounts,
+		},
+	}, {
+		name: "no owner with obdervability options",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+		},
+		oc: &config.Observability{
+			FluentdSidecarImage: "some-test-image",
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:      fluentdContainerName,
+			Resources: fluentdResources,
+			Image:     "some-test-image",
+			// These changed based on the Revision and configs passed in.
+			Env: []corev1.EnvVar{{
+				Name:  "FLUENTD_ARGS",
+				Value: "--no-supervisor -q",
+			}, {
+				Name:  "SERVING_CONTAINER_NAME",
+				Value: UserContainerName, // matches name
+			}, {
+				Name:  "SERVING_CONFIGURATION",
+				Value: "", // no OwnerReference
+			}, {
+				Name:  "SERVING_REVISION",
+				Value: "bar",
+			}, {
+				Name:  "SERVING_NAMESPACE",
+				Value: "foo", // matches namespace
+			}, {
+				Name:      "SERVING_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
+			},
+			},
+			VolumeMounts: fluentdVolumeMounts,
+		},
+	},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := makeFluentdContainer(test.rev, test.oc)
+			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+				t.Errorf("makeFluentdContainer (-want, +got) = %v", diff)
 			}
 		})
 	}

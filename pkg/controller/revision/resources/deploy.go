@@ -85,20 +85,6 @@ var (
 			},
 		},
 	}
-
-	fluentdResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: fluentdContainerCPU,
-		},
-	}
-
-	fluentdVolumeMounts = []corev1.VolumeMount{{
-		Name:      varLogVolumeName,
-		MountPath: "/var/log/revisions",
-	}, {
-		Name:      fluentdConfigMapVolumeName,
-		MountPath: "/etc/fluent/config.d",
-	}}
 )
 
 func hasHTTPPath(p *corev1.Probe) bool {
@@ -112,11 +98,6 @@ func hasHTTPPath(p *corev1.Probe) bool {
 }
 
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
-	configName := ""
-	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
-		configName = owner.Name
-	}
-
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
@@ -144,38 +125,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
 	if observabilityConfig.EnableVarLogCollection {
-		// TODO(mattmoor): We should have a fluentd.go that serves a similar purpose to queue.go
-		fluentdContainer := corev1.Container{
-			Name:      fluentdContainerName,
-			Image:     observabilityConfig.FluentdSidecarImage,
-			Resources: fluentdResources,
-			Env: []corev1.EnvVar{{
-				Name:  "FLUENTD_ARGS",
-				Value: "--no-supervisor -q",
-			}, {
-				Name:  "SERVING_CONTAINER_NAME",
-				Value: UserContainerName,
-			}, {
-				Name:  "SERVING_CONFIGURATION",
-				Value: configName,
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: rev.Name,
-			}, {
-				Name:  "SERVING_NAMESPACE",
-				Value: rev.Namespace,
-			}, {
-				Name: "SERVING_POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
-				},
-			}},
-			VolumeMounts: fluentdVolumeMounts,
-		}
-
-		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
+		podSpec.Containers = append(podSpec.Containers, *makeFluentdContainer(rev, observabilityConfig))
 		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
 	}
 
