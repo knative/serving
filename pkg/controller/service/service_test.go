@@ -291,11 +291,13 @@ func mustMakeConfig(t *testing.T, svc *v1alpha1.Service) *v1alpha1.Configuration
 	return cfg
 }
 
+// mutateConfig mutates the specification of the Configuration to simulate someone editing it around our controller.
 func mutateConfig(cfg *v1alpha1.Configuration) *v1alpha1.Configuration {
 	cfg.Spec = v1alpha1.ConfigurationSpec{}
 	return cfg
 }
 
+// mutateRoute mutates the specification of the Route to simulate someone editing it around our controller.
 func mutateRoute(rt *v1alpha1.Route) *v1alpha1.Route {
 	rt.Spec = v1alpha1.RouteSpec{}
 	return rt
