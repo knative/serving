@@ -44,11 +44,13 @@ readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 # Helper functions.
 
 function create_istio() {
+  echo ">> Bringing up Istio"
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
 }
 
 
 function create_monitoring() {
+  echo ">> Bringing up monitoring"
   kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
     -f third_party/config/monitoring/common \
@@ -59,17 +61,20 @@ function create_monitoring() {
 
 function create_everything() {
   create_istio
+  echo ">> Binging up Serving "
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
   create_monitoring
 }
 
 function delete_istio() {
+  echo ">> Bringing down Istio"
   kubectl delete -f ${ISTIO_DIR}/istio.yaml
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
 function delete_monitoring() {
+  echo ">> Bringing down monitoring"
   kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
     -f third_party/config/monitoring/common \
@@ -79,6 +84,7 @@ function delete_monitoring() {
 
 function delete_everything() {
   delete_monitoring
+  echo ">> Bringing down Serving"
   ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
   delete_istio
@@ -105,6 +111,7 @@ function teardown() {
 
 function abort_if_failed() {
   [[ $? -eq 0 ]] && return 0
+  [[ -n $1 ]] && echo "ERROR: $1"
   dump_stack_info
   exit 1
 }
@@ -290,10 +297,10 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving || abort_if_failed
-wait_until_pods_running istio-system || abort_if_failed
+wait_until_pods_running knative-serving || abort_if_failed "Knative Serving is not up"
+wait_until_pods_running istio-system || abort_if_failed "Istio system is not up"
 wait_until_service_has_external_ip istio-system knative-ingressgateway
-abort_if_failed
+abort_if_failed "Ingress has no external IP"
 
 # Run the tests
 
