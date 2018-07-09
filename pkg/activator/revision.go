@@ -76,10 +76,10 @@ func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string
 
 	switch revision.Spec.ServingState {
 	default:
-		r.reporter.ReportRequest(namespace, configuration, name, "Unknown", RequestCountM, 1.0)
+		r.reporter.ReportRequest(namespace, configuration, name, "Unknown", 1.0)
 		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
 	case v1alpha1.RevisionServingStateRetired:
-		r.reporter.ReportRequest(namespace, configuration, name, "Retired", RequestCountM, 1.0)
+		r.reporter.ReportRequest(namespace, configuration, name, string(v1alpha1.RevisionServingStateRetired), 1.0)
 		return internalError("Disregarding activation request for retired revision ")
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do

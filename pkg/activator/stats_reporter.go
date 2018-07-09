@@ -57,8 +57,7 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
-	//Report(ns string, config string, rev string, m Measurement, v float64) error
-	ReportRequest(ns, config, rev, servingState string, m Measurement, v float64) error
+	ReportRequest(ns, config, rev, servingState string, v float64) error
 	ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error
 	ReportResponseTime(ns, config, rev string, d time.Duration) error
 }
@@ -159,7 +158,7 @@ func (r *Reporter) Report(ns string, config string, rev string, m Measurement, v
 }
 
 // reportRequest captures value v for measurement m.
-func (r *Reporter) ReportRequest(ns, config, rev, servingState string, m Measurement, v float64) error {
+func (r *Reporter) ReportRequest(ns, config, rev, servingState string, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -174,7 +173,7 @@ func (r *Reporter) ReportRequest(ns, config, rev, servingState string, m Measure
 		return err
 	}
 
-	stats.Record(ctx, measurements[m].M(v))
+	stats.Record(ctx, measurements[RequestCountM].M(v))
 	return nil
 }
 

@@ -127,7 +127,7 @@ func (a *dedupingActivator) reportRequests(id revisionID, count int) error {
 	if err != nil {
 		return fmt.Errorf("Unable to get revision %s for namespace: %s", id.name, id.namespace)
 	}
-	a.reporter.ReportRequest(id.namespace, id.configuration, id.name, string(revision.Spec.ServingState), RequestCountM, float64(count))
+	a.reporter.ReportRequest(id.namespace, id.configuration, id.name, string(revision.Spec.ServingState), float64(count))
 	logger.Infof("Wrote request_count metric for revision %s for namespace %s with value %d", id.name, id.namespace, count)
 	return nil
 }
