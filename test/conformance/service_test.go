@@ -20,6 +20,7 @@ package conformance
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -61,7 +62,12 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
-	err := test.WaitForEndpointState(clients.Kube, logger, routeDomain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
+	err := test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		routeDomain,
+		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusNotFound),
+		"WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}

@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -58,7 +59,7 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num 
 			test.WaitForEndpointState(clients.Kube,
 				logger,
 				domain,
-				test.EventuallyMatchesBody(autoscaleExpectedOutput),
+				test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
 				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
@@ -158,7 +159,9 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		clients.Kube,
 		logger,
 		domain,
-		test.EventuallyMatchesBody(autoscaleExpectedOutput),
+		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
+		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
+		test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve

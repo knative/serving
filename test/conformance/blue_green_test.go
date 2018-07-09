@@ -60,8 +60,7 @@ func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string
 		return err
 	}
 	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	client.RetryCodes = []int{http.StatusNotFound, http.StatusServiceUnavailable}
-	_, err = client.Poll(req, test.MatchesAny)
+	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
 	return err
 }
 
