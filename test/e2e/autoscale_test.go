@@ -57,7 +57,6 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num 
 		go func() {
 			test.WaitForEndpointState(clients.Kube,
 				logger,
-				test.Flags.ResolvableDomain,
 				domain,
 				test.EventuallyMatchesBody(autoscaleExpectedOutput),
 				"MakingConcurrentRequests")
@@ -158,7 +157,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForEndpointState(
 		clients.Kube,
 		logger,
-		test.Flags.ResolvableDomain,
 		domain,
 		test.EventuallyMatchesBody(autoscaleExpectedOutput),
 		"CheckingEndpointAfterUpdating")
