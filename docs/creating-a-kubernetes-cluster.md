@@ -165,7 +165,7 @@ To use a k8s cluster running in GKE:
            [to setup access to GCR](#minikube-with-gcr).
         1. Deploy the rest of Knative:
            ```bash
-           ko apply -f config/
+           ko apply -L -f config/
            ```
 
     1. [Enable log and metric collection](../DEVELOPMENT.md#enable-log-and-metric-collection)
@@ -187,6 +187,21 @@ docker pull gcr.io/knative-samples/primer:latest
 docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
 ```
 
+### Minikube locally with `ko`
+
+You can instruct `ko` to sideload images into your Docker daemon instead of
+publishing them to a registry via the `-L` (local) flag:
+
+```shell
+ko apply -L -f config/
+```
+
+Alternatively (if you don't like flags), set `KO_DOCKER_REPO` to `ko.local`:
+
+```shell
+export KO_DOCKER_REPO="ko.local"
+ko apply -f config/
+```
 
 ### Minikube with GCR
 
