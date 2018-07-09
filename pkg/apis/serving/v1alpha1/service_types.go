@@ -39,8 +39,9 @@ type Service struct {
 	Status ServiceStatus `json:"status,omitempty"`
 }
 
-// Check that Service may be validated.
+// Check that Service may be validated and defaulted.
 var _ Validatable = (*Service)(nil)
+var _ Defaultable = (*Service)(nil)
 
 // ServiceSpec represents the configuration for the Service object.
 // Exactly one of its members (other than Generation) must be specified.

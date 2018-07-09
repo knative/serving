@@ -59,7 +59,10 @@ const (
 	servingWebhookDeployment = "webhook"
 )
 
-var deploymentKind = v1beta1.SchemeGroupVersion.WithKind("Deployment")
+var (
+	deploymentKind      = v1beta1.SchemeGroupVersion.WithKind("Deployment")
+	errMissingNewObject = errors.New("the new object may not be nil")
+)
 
 // ControllerOptions contains the configuration for the webhook
 type ControllerOptions struct {
@@ -121,6 +124,9 @@ type AdmissionController struct {
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
 type GenericCRD interface {
+	v1alpha1.Defaultable
+	v1alpha1.Validatable
+
 	// GetObjectMeta return the object metadata
 	GetObjectMeta() metav1.Object
 	// GetGeneration returns the current Generation of the object
@@ -214,26 +220,62 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 		handlers: map[string]GenericCRDHandler{
 			"Revision": {
 				Factory:   &v1alpha1.Revision{},
-				Defaulter: SetRevisionDefaults(ctx),
+				Defaulter: SetDefaults(ctx),
 				Validator: ValidateRevision(ctx),
 			},
 			"Configuration": {
 				Factory:   &v1alpha1.Configuration{},
-				Defaulter: SetConfigurationDefaults(ctx),
-				Validator: ValidateConfiguration(ctx),
+				Defaulter: SetDefaults(ctx),
+				Validator: ValidateNew(ctx),
 			},
 			"Route": {
 				Factory:   &v1alpha1.Route{},
-				Validator: ValidateRoute(ctx),
+				Defaulter: SetDefaults(ctx),
+				Validator: ValidateNew(ctx),
 			},
 			"Service": {
 				Factory:   &v1alpha1.Service{},
-				Defaulter: SetServiceDefaults(ctx),
-				Validator: ValidateService(ctx),
+				Defaulter: SetDefaults(ctx),
+				Validator: ValidateNew(ctx),
 			},
 		},
 		logger: logger,
 	}, nil
+}
+
+// ValidateNew simply delegates validation to v1alpha1.Validatable on "new"
+func ValidateNew(ctx context.Context) ResourceCallback {
+	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+		// Can't just `return new.Validate()` because it doesn't properly nil-check.
+		if err := new.Validate(); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+// SetDefaults simply leverages v1alpha1.Defaultable to set defaults.
+func SetDefaults(ctx context.Context) ResourceDefaulter {
+	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
+		rawOriginal, err := json.Marshal(crd)
+		if err != nil {
+			return err
+		}
+		crd.SetDefaults()
+
+		// Marshal the before and after.
+		rawAfter, err := json.Marshal(crd)
+		if err != nil {
+			return err
+		}
+
+		patch, err := jsonpatch.CreatePatch(rawOriginal, rawAfter)
+		if err != nil {
+			return err
+		}
+		*patches = append(*patches, patch...)
+		return nil
+	}
 }
 
 func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
@@ -506,6 +548,10 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 		}
 	}
 
+	// None of the validators will accept a nil value for newObj.
+	if newObj == nil {
+		return nil, errMissingNewObject
+	}
 	if err := handler.Validator(&patches, oldObj, newObj); err != nil {
 		logger.Error("Failed the resource specific validation", zap.Error(err))
 		// Return the error message as-is to give the validation callback
