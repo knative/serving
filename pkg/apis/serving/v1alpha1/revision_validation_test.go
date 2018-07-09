@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestContainerValidation(t *testing.T) {
@@ -78,6 +79,51 @@ func TestContainerValidation(t *testing.T) {
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: errDisallowedFields("lifecycle"),
+	}, {
+		name: "valid with probes (no port)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid readiness http probe (has port)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(8080),
+					},
+				},
+			},
+		},
+		want: errDisallowedFields("readinessProbe.httpGet.port"),
+	}, {
+		name: "invalid liveness tcp probe (has port)",
+		c: corev1.Container{
+			Image: "foo",
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromString("http"),
+					},
+				},
+			},
+		},
+		want: errDisallowedFields("livenessProbe.tcpSocket.port"),
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{

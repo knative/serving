@@ -101,14 +101,18 @@ var (
 	}}
 )
 
-func hasHTTPPath(p *corev1.Probe) bool {
+func rewriteUserProbe(p *corev1.Probe) {
 	if p == nil {
-		return false
+		return
 	}
-	if p.Handler.HTTPGet == nil {
-		return false
+	switch {
+	case p.HTTPGet != nil:
+		// For HTTP probes, we route them through the queue container
+		// so that we know the queue proxy is ready/live as well.
+		p.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
+	case p.TCPSocket != nil:
+		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
-	return p.Handler.HTTPGet.Path != ""
 }
 
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
@@ -126,12 +130,9 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 
-	// If the client provided a readiness check endpoint, we should
-	// fill in the port for them so that requests also go through
-	// queue proxy for a better health checking logic.
-	if hasHTTPPath(userContainer.ReadinessProbe) {
-		userContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
-	}
+	// If the client provides probes, we should fill in the port for them.
+	rewriteUserProbe(userContainer.ReadinessProbe)
+	rewriteUserProbe(userContainer.LivenessProbe)
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
