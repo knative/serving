@@ -27,11 +27,11 @@ var K8sGatewayFullname = controller.GetK8sServiceFullname(
 	pkg.GetServingSystemNamespace())
 
 func K8sService(route *v1alpha1.Route) string {
-	return route.Name + "-service"
+	return route.Name
 }
 
 func VirtualService(route *v1alpha1.Route) string {
-	return route.Name + "-istio"
+	return route.Name
 }
 
 func K8sServiceFullname(route *v1alpha1.Route) string {
