@@ -28,7 +28,7 @@ func TestEmptySpec(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{},
 	}
-	got := ValidateNew(TestContextWithLogger(t))(nil, &s, &s)
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
 	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -37,7 +37,7 @@ func TestEmptySpec(t *testing.T) {
 		Paths:   []string{"spec.runLatest", "spec.pinned"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestRunLatest(t *testing.T) {
 			},
 		},
 	}
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &s, &s); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &s, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 }
@@ -60,7 +60,7 @@ func TestRunLatestWithMissingConfiguration(t *testing.T) {
 			RunLatest: &v1alpha1.RunLatestType{},
 		},
 	}
-	got := ValidateNew(TestContextWithLogger(t))(nil, &s, &s)
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
 	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -69,7 +69,7 @@ func TestRunLatestWithMissingConfiguration(t *testing.T) {
 		Paths:   []string{"spec.runLatest.configuration"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -83,7 +83,7 @@ func TestPinned(t *testing.T) {
 		},
 	}
 
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &s, &s); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &s, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 }
@@ -96,7 +96,7 @@ func TestPinnedFailsWithNoRevisionName(t *testing.T) {
 			},
 		},
 	}
-	got := ValidateNew(TestContextWithLogger(t))(nil, &s, &s)
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
 	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -106,7 +106,7 @@ func TestPinnedFailsWithNoRevisionName(t *testing.T) {
 		Paths:   []string{"spec.pinned.revisionName"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -118,7 +118,7 @@ func TestPinnedFailsWithNoConfiguration(t *testing.T) {
 			},
 		},
 	}
-	got := ValidateNew(TestContextWithLogger(t))(nil, &s, &s)
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
 	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
@@ -128,7 +128,7 @@ func TestPinnedFailsWithNoConfiguration(t *testing.T) {
 		Paths:   []string{"spec.pinned.configuration"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
