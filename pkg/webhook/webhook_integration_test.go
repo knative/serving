@@ -319,7 +319,10 @@ func TestInvalidResponseForConfiguration(t *testing.T) {
 		t.Errorf("Response status = %v, wanted %v", got, want)
 	}
 
-	if !strings.Contains(reviewResponse.Response.Result.Message, "Unrecognized value for concurrencyModel") {
+	if !strings.Contains(reviewResponse.Response.Result.Message, "invalid value") {
+		t.Errorf("Received unexpected response status message %s", reviewResponse.Response.Result.Message)
+	}
+	if !strings.Contains(reviewResponse.Response.Result.Message, "spec.revisionTemplate.spec.concurrencyModel") {
 		t.Errorf("Received unexpected response status message %s", reviewResponse.Response.Result.Message)
 	}
 }
