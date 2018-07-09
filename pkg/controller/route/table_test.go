@@ -982,10 +982,6 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "missing-revision-direct", "config", nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// TODO(#1496): Even without adding the label we see an update because of #1496
-			// (we remove the non-existent label).
-			Object: simpleReadyConfig("default", "config"),
-		}, {
 			Object: simplePinned("default", "missing-revision-direct", "not-found", &v1alpha1.RouteStatus{
 				Domain: "missing-revision-direct.default.example.com",
 				Conditions: []v1alpha1.RouteCondition{{
@@ -1071,17 +1067,14 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// TODO(#1496): Even without adding the label we see an update because of #1496
-			// (we remove the non-existent label).
-			Object: simpleReadyConfig("default", "config"),
 			// TODO(#1495): The parent configuration isn't labeled because it's established through
 			// labels instead of owner references.
-			// addConfigLabel(
+			// Object: addConfigLabel(
 			// 	simpleReadyConfig("default", "config"),
 			// 	// The Route controller attaches our label to this Configuration.
 			// 	"serving.knative.dev/route", "pinned-becomes-ready",
 			// ),
-		}, {
+			// }, {
 			Object: simplePinned("default", "pinned-becomes-ready",
 				// Use the config's revision name.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName, &v1alpha1.RouteStatus{
@@ -1412,7 +1405,11 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "addlabel-config-failure", "blue", nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyConfig("default", "blue"),
+			Object: addConfigLabel(
+				simpleReadyConfig("default", "green"),
+				// The Route controller attaches our label to this Configuration.
+				"serving.knative.dev/route", "addlabel-config-failure",
+			),
 		}},
 		Key: "default/addlabel-config-failure",
 	}}
