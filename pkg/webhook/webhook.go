@@ -243,7 +243,8 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 	}, nil
 }
 
-// Validate simply delegates validation to v1alpha1.Validatable on "new"
+// Validate checks whether "new" and "old" implement HasImmutableFields and checks them,
+// it then delegates validation to v1alpha1.Validatable on "new".
 func Validate(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
 		if hifNew, ok := new.(v1alpha1.HasImmutableFields); ok && old != nil {

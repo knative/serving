@@ -46,7 +46,7 @@ type Revision struct {
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
-// Check that Revision may be validated, defaulted, and has immutable fields.
+// Check that Revision can be validated, can be defaulted, and has immutable fields.
 var _ Validatable = (*Revision)(nil)
 var _ Defaultable = (*Revision)(nil)
 var _ HasImmutableFields = (*Revision)(nil)

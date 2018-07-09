@@ -49,11 +49,11 @@ func TestFieldError(t *testing.T) {
 		prefixes: [][]string{{"baz", "ugh"}},
 		want:     "invalid field(s): baz.ugh.foo, baz.ugh.bar",
 	}, {
-		name: "multiple propagation with Body",
+		name: "multiple propagation with details",
 		err: &FieldError{
 			Message: "invalid field(s)",
 			Paths:   []string{"foo", "bar"},
-			Body: `I am a long
+			Details: `I am a long
 long
 loooong
 Body.`,

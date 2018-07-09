@@ -31,8 +31,8 @@ const currentField = ""
 type FieldError struct {
 	Message string
 	Paths   []string
-	// Body contains an optional longer payload.
-	Body string
+	// Details contains an optional longer payload.
+	Details string
 }
 
 // FieldError implements error
@@ -78,10 +78,10 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 
 // Error implements error
 func (fe *FieldError) Error() string {
-	if fe.Body == "" {
+	if fe.Details == "" {
 		return fmt.Sprintf("%v: %v", fe.Message, strings.Join(fe.Paths, ", "))
 	}
-	return fmt.Sprintf("%v: %v\n%v", fe.Message, strings.Join(fe.Paths, ", "), fe.Body)
+	return fmt.Sprintf("%v: %v\n%v", fe.Message, strings.Join(fe.Paths, ", "), fe.Details)
 }
 
 func errMissingField(fieldPaths ...string) *FieldError {

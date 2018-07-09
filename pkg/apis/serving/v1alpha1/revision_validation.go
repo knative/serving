@@ -108,7 +108,7 @@ func (current *Revision) CheckImmutableFields(og HasImmutableFields) *FieldError
 		return &FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Body:    diff,
+			Details: diff,
 		}
 	}
 	return nil
