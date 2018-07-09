@@ -75,7 +75,7 @@ func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
 	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
 }
 
-func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.DeploymentCondition {
+func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
 	for _, cond := range deployment.Status.Conditions {
 		// Look for Deployment with status False
@@ -85,8 +85,8 @@ func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.Deplo
 		// with Type Progressing and Reason Timeout
 		// TODO(arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
 		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
-			return &cond
+			return true
 		}
 	}
-	return nil
+	return false
 }

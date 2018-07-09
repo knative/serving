@@ -410,7 +410,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 		// Now that we have a Deployment, determine whether there is any relevant
 		// status to surface in the Revision.
-		if cond := getDeploymentProgressCondition(deployment); cond != nil {
+		if hasDeploymentTimedOut(deployment) {
 			rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
 				"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 			c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
