@@ -16,6 +16,7 @@ package activator
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -47,8 +48,9 @@ const (
 	// ResponseCodeM is the response code when activator proxy the request
 	// ResponseCodeM
 
-	// NumTriesM is the number of tries to get the response code
-	NumTriesM
+	// // NumTriesM is the number of tries to get the response code
+	// NumTriesM
+
 	// ResponseTimeInSecM is the response time in seconds
 	ResponseTimeInSecM
 )
@@ -76,17 +78,17 @@ var (
 			"The number of requests that are routed to the activator",
 			stats.UnitNone),
 		ResponseCountM: stats.Float64(
-			"response_count",
+			"revision_response_count",
 			"The response count when activator proxy the request",
 			stats.UnitNone),
 		// ResponseCodeM: stats.Float64(
 		// 	"response_code",
 		// 	"The response code when activator proxy the request",
 		// 	stats.UnitNone),
-		NumTriesM: stats.Float64(
-			"num_tries",
-			"The number of tries to get the response",
-			stats.UnitNone),
+		// NumTriesM: stats.Float64(
+		// 	"num_tries",
+		// 	"The number of tries to get the response",
+		// 	stats.UnitNone),
 		ResponseTimeInSecM: stats.Float64(
 			"response_time_seconds",
 			"The response time in seconds",
@@ -96,9 +98,9 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
-	Report(ns string, config string, rev string, m Measurement, v float64) error
+	//Report(ns string, config string, rev string, m Measurement, v float64) error
 	ReportRequest(ns, config, rev, servingState string, m Measurement, v float64) error
-	ReportResponse(ns, config, rev, responseCode string, m Measurement, v float64) error
+	ReportResponse(ns, config, rev string, responseCode, numTries int, v float64) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
@@ -109,6 +111,7 @@ type Reporter struct {
 	revisionTagKey  tag.Key
 	servingStateKey tag.Key
 	responseCodeKey tag.Key
+	numTriesKey     tag.Key
 }
 
 // NewStatsReporter creates a reporter that collects and reports activator metrics
@@ -132,53 +135,35 @@ func NewStatsReporter() (*Reporter, error) {
 		return nil, err
 	}
 	r.revisionTagKey = revTag
-	servingStateTag, err := tag.NewKey("servingState")
+	servingStateTag, err := tag.NewKey("serving_state")
 	if err != nil {
 		return nil, err
 	}
 	r.servingStateKey = servingStateTag
-	responseCodeTag, err := tag.NewKey("responseCode")
+	responseCodeTag, err := tag.NewKey("response_code")
 	if err != nil {
 		return nil, err
 	}
 	r.responseCodeKey = responseCodeTag
+	numTriesTag, err := tag.NewKey("num_tries")
+	if err != nil {
+		return nil, err
+	}
+	r.numTriesKey = numTriesTag
 	// Create view to see our measurements.
 	err = view.Register(
-		// &view.View{
-		// 	Description: "The number of requests that are routed to the activator when the revision is Reserve",
-		// 	Measure:     measurements[RequestCountReserveM],
-		// 	Aggregation: view.Count(),
-		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
-		// },
-		// &view.View{
-		// 	Description: "The number of requests that are routed to the activator when the revision is Active",
-		// 	Measure:     measurements[RequestCountActiveM],
-		// 	Aggregation: view.Count(),
-		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
-		// },
-		// &view.View{
-		// 	Description: "The number of requests that are routed to the activator when the revision is Retired",
-		// 	Measure:     measurements[RequestCountRetiredM],
-		// 	Aggregation: view.Count(),
-		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
-		// },
-		// &view.View{
-		// 	Description: "The number of requests that are routed to the activator when the revision is not Active, Reserve, and Retired",
-		// 	Measure:     measurements[RequestCountUnknownM],
-		// 	Aggregation: view.Count(),
-		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
-		// },
 		&view.View{
 			Description: "The number of requests that are routed to the activator",
 			Measure:     measurements[RequestCountM],
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
+			Aggregation: view.Sum(),
+			//Aggregation: view.Count(),
+			TagKeys: []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.servingStateKey},
 		},
 		&view.View{
 			Description: "The response count when activator proxy the request",
 			Measure:     measurements[ResponseCountM],
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
+			Aggregation: view.Sum(),
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.numTriesKey},
 		},
 		// &view.View{
 		// 	Description: "The response code when activator proxy the request",
@@ -186,12 +171,6 @@ func NewStatsReporter() (*Reporter, error) {
 		// 	Aggregation: view.Distribution(),
 		// 	TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
 		// },
-		&view.View{
-			Description: "The number of tries to get the response",
-			Measure:     measurements[NumTriesM],
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
-		},
 		&view.View{
 			Description: "The response time in seconds",
 			Measure:     measurements[ResponseTimeInSecM],
@@ -247,7 +226,7 @@ func (r *Reporter) ReportRequest(ns, config, rev, servingState string, m Measure
 }
 
 // ReportResponse captures value v for measurement m.
-func (r *Reporter) ReportResponse(ns, config, rev, responseCode string, m Measurement, v float64) error {
+func (r *Reporter) ReportResponse(ns, config, rev string, responseCode, numTries int, v float64) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -257,11 +236,12 @@ func (r *Reporter) ReportResponse(ns, config, rev, responseCode string, m Measur
 		tag.Insert(r.namespaceTagKey, ns),
 		tag.Insert(r.configTagKey, config),
 		tag.Insert(r.revisionTagKey, rev),
-		tag.Insert(r.responseCodeKey, responseCode))
+		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
+		tag.Insert(r.numTriesKey, strconv.Itoa(numTries)))
 	if err != nil {
 		return err
 	}
 
-	stats.Record(ctx, measurements[m].M(v))
+	stats.Record(ctx, measurements[ResponseCountM].M(v))
 	return nil
 }

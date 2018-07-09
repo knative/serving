@@ -76,20 +76,16 @@ func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string
 
 	switch revision.Spec.ServingState {
 	default:
-		//r.reporter.Report(namespace, configuration, name, RequestCountUnknownM, 1.0)
 		r.reporter.ReportRequest(namespace, configuration, name, "Unknown", RequestCountM, 1.0)
 		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
 	case v1alpha1.RevisionServingStateRetired:
-		//r.reporter.Report(namespace, configuration, name, RequestCountRetiredM, 1.0)
 		r.reporter.ReportRequest(namespace, configuration, name, "Retired", RequestCountM, 1.0)
 		return internalError("Disregarding activation request for retired revision ")
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do
-		//r.reporter.Report(namespace, configuration, name, RequestCountActiveM, 1.0)
-		r.reporter.ReportRequest(namespace, configuration, name, "Active", RequestCountM, 1.0)
+		//r.reporter.ReportRequest(namespace, configuration, name, "Active", RequestCountM, 1.0)
 	case v1alpha1.RevisionServingStateReserve:
-		//r.reporter.Report(namespace, configuration, name, RequestCountReserveM, 1.0)
-		r.reporter.ReportRequest(namespace, configuration, name, "Reserve", RequestCountM, 1.0)
+		//r.reporter.ReportRequest(namespace, configuration, name, "Reserve", RequestCountM, 1.0)
 		// Activate the revision
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		if _, err := revisionClient.Update(revision); err != nil {

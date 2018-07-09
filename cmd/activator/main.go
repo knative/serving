@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/knative/serving/pkg/activator"
@@ -110,10 +109,13 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 
 		resp, err = transport.RoundTrip(r)
 	}
-	// TODO: add metrics for number of tries and the response code.
+
 	if resp != nil {
 		rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
-		rrt.reporter.ReportResponse("default", "configuration-example", "configuration-example-00001", strconv.Itoa(resp.StatusCode), activator.ResponseCountM, 1.0)
+		namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
+		name := r.Header.Get(controller.GetRevisionHeaderName())
+		config := r.Header.Get(controller.GetConfigurationHeader())
+		rrt.reporter.ReportResponse(namespace, config, name, resp.StatusCode, i, 1.0)
 	}
 	return resp, nil
 }
@@ -127,12 +129,12 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
 	name := r.Header.Get(controller.GetRevisionHeaderName())
 	config := r.Header.Get(controller.GetConfigurationHeader())
-	a.logger.Info("config: ", config)
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, config, name)
 	if err != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-		a.logger.Errorf(msg)
 		http.Error(w, msg, int(status))
+		a.logger.Errorf(msg)
+		a.reporter.ReportResponse(namespace, config, name, int(status), 1, 1.0)
 		return
 	}
 	target := &url.URL{
@@ -190,7 +192,7 @@ func main() {
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
-	a = activator.NewDedupingActivator(a)
+	a = activator.NewDedupingActivator(a, servingClient, logger, reporter)
 	ah := &activationHandler{a, logger, reporter}
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -199,9 +201,6 @@ func main() {
 		<-stopCh
 		a.Shutdown()
 	}()
-
-	// http.HandleFunc("/", ah.handler)
-	// h2c.ListenAndServe(":8080", nil)
 
 	// Start the endpoint for Prometheus scraping
 	mux := http.NewServeMux()
