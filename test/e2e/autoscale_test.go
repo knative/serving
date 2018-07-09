@@ -159,6 +159,8 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		clients.Kube,
 		logger,
 		domain,
+		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
+		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
 		test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
