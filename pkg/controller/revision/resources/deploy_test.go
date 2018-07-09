@@ -263,7 +263,7 @@ func TestMakePodSpec(t *testing.T) {
 			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
-		name: "simple concurrency=multi shell readiness probe (shell)",
+		name: "concurrency=multi, readinessprobe=shell",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -342,7 +342,7 @@ func TestMakePodSpec(t *testing.T) {
 			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
-		name: "simple concurrency=multi shell readiness probe (http)",
+		name: "concurrency=multi, readinessprobe=http",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -423,7 +423,7 @@ func TestMakePodSpec(t *testing.T) {
 			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
-		name: "simple concurrency=multi shell liveness probe (tcp)",
+		name: "concurrency=multi, livenessprobe=tcp",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
