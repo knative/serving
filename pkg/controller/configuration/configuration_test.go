@@ -26,6 +26,7 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/serving/pkg/controller/testing"
@@ -57,17 +58,15 @@ func TestReconcile(t *testing.T) {
 		Key:  "foo/not-found",
 	}, {
 		Name: "create revision matching generation",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "no-revisions-yet"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 1234,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "no-revisions-yet"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 1234,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-				}},
+				},
 			},
 		},
 		WantCreates: []metav1.Object{
@@ -98,22 +97,20 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/no-revisions-yet",
 	}, {
 		Name: "create revision matching generation with build",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "need-rev-and-build"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 99998,
-						Build:      &buildSpec,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: v1alpha1.RevisionSpec{
-								Container: corev1.Container{
-									Image: "busybox",
-								},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "need-rev-and-build"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 99998,
+					Build:      &buildSpec,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: v1alpha1.RevisionSpec{
+							Container: corev1.Container{
+								Image: "busybox",
 							},
 						},
 					},
-				}},
+				},
 			},
 		},
 		WantCreates: []metav1.Object{
@@ -158,23 +155,19 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/need-rev-and-build",
 	}, {
 		Name: "reconcile revision matching generation (ready: unknown)",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-not-done"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5432,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-not-done"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5432,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-				}},
+				},
 			},
-			Revision: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-not-done", 5432),
-					Spec:       revisionSpec,
-				}},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "matching-revision-not-done", 5432),
+				Spec:       revisionSpec,
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -199,29 +192,25 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-not-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true)",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-done"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5555,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-done"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5555,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-				}},
+				},
 			},
-			Revision: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-done", 5555),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:   v1alpha1.RevisionConditionReady,
-							Status: corev1.ConditionTrue,
-						}},
-					},
-				}},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "matching-revision-done", 5555),
+				Spec:       revisionSpec,
+				Status: v1alpha1.RevisionStatus{
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -247,68 +236,60 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-done",
 	}, {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-done-idempotent"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5566,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-done-idempotent"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5566,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-					Status: v1alpha1.ConfigurationStatus{
-						LatestCreatedRevisionName: "matching-revision-done-idempotent-05566",
-						LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
-						ObservedGeneration:        5566,
-						Conditions: []v1alpha1.ConfigurationCondition{{
-							Type:   v1alpha1.ConfigurationConditionReady,
-							Status: corev1.ConditionTrue,
-						}},
-					},
-				}},
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "matching-revision-done-idempotent-05566",
+					LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
+					ObservedGeneration:        5566,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 			},
-			Revision: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-done-idempotent", 5566),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:   v1alpha1.RevisionConditionReady,
-							Status: corev1.ConditionTrue,
-						}},
-					},
-				}},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "matching-revision-done-idempotent", 5566),
+				Spec:       revisionSpec,
+				Status: v1alpha1.RevisionStatus{
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 			},
 		},
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-failed"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5555,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "matching-revision-failed"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5555,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-				}},
+				},
 			},
-			Revision: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-failed", 5555),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:    v1alpha1.RevisionConditionReady,
-							Status:  corev1.ConditionFalse,
-							Reason:  "Armageddon",
-							Message: "It's the end of the world as we know it.",
-						}},
-					},
-				}},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "matching-revision-failed", 5555),
+				Spec:       revisionSpec,
+				Status: v1alpha1.RevisionStatus{
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    v1alpha1.RevisionConditionReady,
+						Status:  corev1.ConditionFalse,
+						Reason:  "Armageddon",
+						Message: "It's the end of the world as we know it.",
+					}},
+				},
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -335,29 +316,25 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/matching-revision-failed",
 	}, {
 		Name: "reconcile revision matching generation (ready: bad)",
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "bad-condition"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5555,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "bad-condition"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 5555,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-				}},
+				},
 			},
-			Revision: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "bad-condition", 5555),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:   v1alpha1.RevisionConditionReady,
-							Status: "Bad",
-						}},
-					},
-				}},
+			&v1alpha1.Revision{
+				ObjectMeta: com("foo", "bad-condition", 5555),
+				Spec:       revisionSpec,
+				Status: v1alpha1.RevisionStatus{
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: "Bad",
+					}},
+				},
 			},
 		},
 		WantErr: true,
@@ -388,22 +365,20 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "builds"),
 		},
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "create-build-failure"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 99998,
-						Build:      &buildSpec,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: v1alpha1.RevisionSpec{
-								Container: corev1.Container{
-									Image: "busybox",
-								},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "create-build-failure"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 99998,
+					Build:      &buildSpec,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: v1alpha1.RevisionSpec{
+							Container: corev1.Container{
+								Image: "busybox",
 							},
 						},
 					},
-				}},
+				},
 			},
 		},
 		WantCreates: []metav1.Object{
@@ -443,22 +418,20 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "revisions"),
 		},
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "create-revision-failure"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 99998,
-						Build:      &buildSpec,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: v1alpha1.RevisionSpec{
-								Container: corev1.Container{
-									Image: "busybox",
-								},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "create-revision-failure"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 99998,
+					Build:      &buildSpec,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: v1alpha1.RevisionSpec{
+							Container: corev1.Container{
+								Image: "busybox",
 							},
 						},
 					},
-				}},
+				},
 			},
 		},
 		WantCreates: []metav1.Object{
@@ -506,17 +479,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "configurations"),
 		},
-		Listers: Listers{
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "update-config-failure"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 1234,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
+		Objects: []runtime.Object{
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "update-config-failure"),
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 1234,
+					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+						Spec: revisionSpec,
 					},
-				}},
+				},
 			},
 		},
 		WantCreates: []metav1.Object{
