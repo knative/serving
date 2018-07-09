@@ -371,3 +371,169 @@ func TestRevisionValidation(t *testing.T) {
 		})
 	}
 }
+
+type notARevision struct{}
+
+func (nar *notARevision) CheckImmutableFields(HasImmutableFields) *FieldError {
+	return nil
+}
+
+func TestImmutableFields(t *testing.T) {
+	tests := []struct {
+		name string
+		new  HasImmutableFields
+		old  HasImmutableFields
+		want *FieldError
+	}{{
+		name: "good (no change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: nil,
+	}, {
+		name: "good (serving state change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Reserve",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: nil,
+	}, {
+		name: "bad (type mismatch)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old:  &notARevision{},
+		want: &FieldError{Message: "The provided original was not a Revision"},
+	}, {
+		name: "bad (container image change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.Container.Image:
+	-: "busybox"
+	+: "helloworld"
+`,
+		},
+	}, {
+		name: "bad (concurrency model change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Single",
+			},
+		},
+		want: &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.ConcurrencyModel:
+	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
+	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+`,
+		},
+	}, {
+		name: "bad (multiple changes)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Reserve",
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+				ConcurrencyModel: "Single",
+			},
+		},
+		want: &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.ConcurrencyModel:
+	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
+	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+{v1alpha1.RevisionSpec}.Container.Image:
+	-: "busybox"
+	+: "helloworld"
+`,
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.new.CheckImmutableFields(test.old)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}

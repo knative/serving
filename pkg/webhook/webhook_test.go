@@ -357,7 +357,7 @@ func TestInvalidRevisionUpdate(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 
-	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Revision spec should not change")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Immutable fields changed")
 }
 
 func TestInvalidNewRevisionNameFails(t *testing.T) {

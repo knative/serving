@@ -16,6 +16,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -115,6 +117,24 @@ func validateProbe(p *corev1.Probe) *FieldError {
 	case p.Handler.TCPSocket != nil:
 		if p.Handler.TCPSocket.Port != emptyPort {
 			return errDisallowedFields("tcpSocket.port")
+		}
+	}
+	return nil
+}
+
+func (current *Revision) CheckImmutableFields(og HasImmutableFields) *FieldError {
+	original, ok := og.(*Revision)
+	if !ok {
+		return &FieldError{Message: "The provided original was not a Revision"}
+	}
+
+	// The autoscaler is allowed to change ServingState, but consider the rest.
+	ignoreServingState := cmpopts.IgnoreFields(RevisionSpec{}, "ServingState")
+	if diff := cmp.Diff(original.Spec, current.Spec, ignoreServingState); diff != "" {
+		return &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: diff,
 		}
 	}
 	return nil
