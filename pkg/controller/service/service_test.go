@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -57,45 +58,41 @@ func TestReconcile(t *testing.T) {
 		Key:  "foo/not-found",
 	}, {
 		Name: "incomplete service",
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "incomplete",
-						Namespace: "foo",
-					},
-					// There is no spec.{runLatest,pinned} in this
-					// Service to trigger the error condition.
-					Status: v1alpha1.ServiceStatus{
-						Conditions: []v1alpha1.ServiceCondition{{
-							Type:   v1alpha1.ServiceConditionReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationsReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionRoutesReady,
-							Status: corev1.ConditionUnknown,
-						}},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "incomplete",
+					Namespace: "foo",
+				},
+				// There is no spec.{runLatest,pinned} in this
+				// Service to trigger the error condition.
+				Status: v1alpha1.ServiceStatus{
+					Conditions: []v1alpha1.ServiceCondition{{
+						Type:   v1alpha1.ServiceConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionRoutesReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
 			},
 		},
 		Key:     "foo/incomplete",
 		WantErr: true,
 	}, {
 		Name: "runLatest - create route and service",
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "run-latest",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "run-latest",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
 			},
 		},
 		Key: "foo/run-latest",
@@ -134,17 +131,15 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "pinned - create route and service",
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "pinned",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pinned",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
+				},
 			},
 		},
 		Key: "foo/pinned",
@@ -183,77 +178,65 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "runLatest - no updates",
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "no-updates",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-					Status: v1alpha1.ServiceStatus{
-						Conditions: []v1alpha1.ServiceCondition{{
-							Type:   v1alpha1.ServiceConditionReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationsReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionRoutesReady,
-							Status: corev1.ConditionUnknown,
-						}},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-updates",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
+				Status: v1alpha1.ServiceStatus{
+					Conditions: []v1alpha1.ServiceCondition{{
+						Type:   v1alpha1.ServiceConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionRoutesReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
 			},
-			Route: &RouteLister{
-				Items: []*v1alpha1.Route{{
-					ObjectMeta: om("foo", "no-updates"),
-					Spec:       runLatestSpec("no-updates"),
-				}},
+			&v1alpha1.Route{
+				ObjectMeta: om("foo", "no-updates"),
+				Spec:       runLatestSpec("no-updates"),
 			},
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "no-updates"),
-					Spec:       configSpec,
-				}},
+			&v1alpha1.Configuration{
+				ObjectMeta: om("foo", "no-updates"),
+				Spec:       configSpec,
 			},
 		},
 		Key: "foo/no-updates",
 	}, {
 		Name: "runLatest - update route and service",
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "update-route-and-config",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-					Status: v1alpha1.ServiceStatus{
-						Conditions: []v1alpha1.ServiceCondition{{
-							Type:   v1alpha1.ServiceConditionReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationsReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionRoutesReady,
-							Status: corev1.ConditionUnknown,
-						}},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "update-route-and-config",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
+				Status: v1alpha1.ServiceStatus{
+					Conditions: []v1alpha1.ServiceCondition{{
+						Type:   v1alpha1.ServiceConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionRoutesReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
 			},
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			Route: &RouteLister{
-				Items: []*v1alpha1.Route{{ObjectMeta: om("foo", "update-route-and-config")}},
-			},
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{ObjectMeta: om("foo", "update-route-and-config")}},
-			},
+			&v1alpha1.Route{ObjectMeta: om("foo", "update-route-and-config")},
+			&v1alpha1.Configuration{ObjectMeta: om("foo", "update-route-and-config")},
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -269,34 +252,28 @@ func TestReconcile(t *testing.T) {
 		}},
 	}, {
 		Name: "runLatest - bad config update",
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "bad-config-update",
-						Namespace: "foo",
-					},
-					Status: v1alpha1.ServiceStatus{
-						Conditions: []v1alpha1.ServiceCondition{{
-							Type:   v1alpha1.ServiceConditionReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationsReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionRoutesReady,
-							Status: corev1.ConditionUnknown,
-						}},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bad-config-update",
+					Namespace: "foo",
+				},
+				Status: v1alpha1.ServiceStatus{
+					Conditions: []v1alpha1.ServiceCondition{{
+						Type:   v1alpha1.ServiceConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionRoutesReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
 			},
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			Route: &RouteLister{
-				Items: []*v1alpha1.Route{{ObjectMeta: om("foo", "bad-config-update")}},
-			},
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{ObjectMeta: om("foo", "bad-config-update")}},
-			},
+			&v1alpha1.Route{ObjectMeta: om("foo", "bad-config-update")},
+			&v1alpha1.Configuration{ObjectMeta: om("foo", "bad-config-update")},
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
@@ -307,17 +284,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "routes"),
 		},
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "create-route-failure",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "create-route-failure",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
 			},
 		},
 		Key: "foo/create-route-failure",
@@ -361,17 +336,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "configurations"),
 		},
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "create-config-failure",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "create-config-failure",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
 			},
 		},
 		Key: "foo/create-config-failure",
@@ -412,37 +385,31 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "routes"),
 		},
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "update-route-failure",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-					Status: v1alpha1.ServiceStatus{
-						Conditions: []v1alpha1.ServiceCondition{{
-							Type:   v1alpha1.ServiceConditionReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationsReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionRoutesReady,
-							Status: corev1.ConditionUnknown,
-						}},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "update-route-failure",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
+				Status: v1alpha1.ServiceStatus{
+					Conditions: []v1alpha1.ServiceCondition{{
+						Type:   v1alpha1.ServiceConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionRoutesReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
 			},
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			Route: &RouteLister{
-				Items: []*v1alpha1.Route{{ObjectMeta: om("foo", "update-route-failure")}},
-			},
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{ObjectMeta: om("foo", "update-route-failure")}},
-			},
+			&v1alpha1.Route{ObjectMeta: om("foo", "update-route-failure")},
+			&v1alpha1.Configuration{ObjectMeta: om("foo", "update-route-failure")},
 		},
 		Key: "foo/update-route-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -463,37 +430,31 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "configurations"),
 		},
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "update-config-failure",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-					Status: v1alpha1.ServiceStatus{
-						Conditions: []v1alpha1.ServiceCondition{{
-							Type:   v1alpha1.ServiceConditionReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionConfigurationsReady,
-							Status: corev1.ConditionUnknown,
-						}, {
-							Type:   v1alpha1.ServiceConditionRoutesReady,
-							Status: corev1.ConditionUnknown,
-						}},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "update-config-failure",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
+				Status: v1alpha1.ServiceStatus{
+					Conditions: []v1alpha1.ServiceCondition{{
+						Type:   v1alpha1.ServiceConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionConfigurationsReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   v1alpha1.ServiceConditionRoutesReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
 			},
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			Route: &RouteLister{
-				Items: []*v1alpha1.Route{{ObjectMeta: om("foo", "update-config-failure")}},
-			},
-			Configuration: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{ObjectMeta: om("foo", "update-config-failure")}},
-			},
+			&v1alpha1.Route{ObjectMeta: om("foo", "update-config-failure")},
+			&v1alpha1.Configuration{ObjectMeta: om("foo", "update-config-failure")},
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -510,17 +471,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "services"),
 		},
-		Listers: Listers{
-			Service: &ServiceLister{
-				Items: []*v1alpha1.Service{{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "run-latest",
-						Namespace: "foo",
-					},
-					Spec: v1alpha1.ServiceSpec{
-						RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-					},
-				}},
+		Objects: []runtime.Object{
+			&v1alpha1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "run-latest",
+					Namespace: "foo",
+				},
+				Spec: v1alpha1.ServiceSpec{
+					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+				},
 			},
 		},
 		Key: "foo/run-latest",
