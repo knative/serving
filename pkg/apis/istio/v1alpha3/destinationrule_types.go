@@ -257,7 +257,7 @@ type LoadBalancerSettings struct {
         // It is requred to specify exactly one of the fields:
         // Simple or ConsistentHash
 
-        Simple *SimpleLB `json:"simple,omitempty"`
+        Simple SimpleLB `json:"simple,omitempty"`
 
         ConsistentHash *ConsistentHashLB `json:"consistentHash,omitempty"`   
 }

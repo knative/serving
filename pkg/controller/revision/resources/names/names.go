@@ -48,3 +48,7 @@ func FluentdConfigMap(rev *v1alpha1.Revision) string {
 func DestinationRule(rev *v1alpha1.Revision) string {
         return rev.Name + "-destination-rule"
 }
+
+func AuthenticationPolicy(rev *v1alpha1.Revision) string {
+        return rev.Name + "-auth-policy"
+}

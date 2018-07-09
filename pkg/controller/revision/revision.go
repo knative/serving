@@ -29,10 +29,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	authv1alpha1 "github.com/knative/serving/pkg/apis/istio/authentication/v1alpha1"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	istioinformers "github.com/knative/serving/pkg/client/informers/externalversions/istio/v1alpha3"
+	istioauthinformers "github.com/knative/serving/pkg/client/informers/externalversions/authentication/v1alpha1"
+	istioauthlisters "github.com/knative/serving/pkg/client/listers/authentication/v1alpha1"
 	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources"
@@ -108,6 +111,7 @@ type Controller struct {
 	configMapLister  corev1listers.ConfigMapLister
 
 	destinationRuleLister istiolisters.DestinationRuleLister
+	authenticationPolicyLister istioauthlisters.PolicyLister
 
 	buildtracker *buildTracker
 
@@ -158,6 +162,7 @@ func NewController(
 	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
 	destinationRuleInformer istioinformers.DestinationRuleInformer,
+	authenticationPolicyInformer istioauthinformers.PolicyInformer,
 	controllerConfig *config.Controller,
 ) *Controller {
 
@@ -171,6 +176,7 @@ func NewController(
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
 		destinationRuleLister: destinationRuleInformer.Lister(),
+		authenticationPolicyLister: authenticationPolicyInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
 		resolver: &digestResolver{
 			client:           opt.KubeClientSet,
@@ -329,7 +335,10 @@ func (c *Controller) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 		}, {
 			name: "user destion rule",
 			f:    c.reconcileDestinationRule,
-		},{
+		}, {
+			name: "user authentication policy",
+			f:    c.reconcileAuthenticationPolicy,
+		}, {
 			// Ensures our namespace has the configuration for the fluentd sidecar.
 			name: "fluentd configmap",
 			f:    c.reconcileFluentdConfigMap,
@@ -708,6 +717,67 @@ func (c *Controller) deleteDestinationRule(ctx context.Context, destinationRule 
 		return nil
 	} else if err != nil {
 		logger.Errorf("destinationRule.Delete for %q failed: %s", destinationRule.Name, err)
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) reconcileAuthenticationPolicy(ctx context.Context, rev *v1alpha1.Revision) error {
+	ns := rev.Namespace
+	authenticationPolicyName := resourcenames.AuthenticationPolicy(rev)
+	logger := logging.FromContext(ctx)
+
+	authenticationPolicy, err := c.authenticationPolicyLister.Policies(ns).Get(authenticationPolicyName)
+	switch rev.Spec.ServingState {
+		case v1alpha1.RevisionServingStateActive:
+			// When Active, the Service should exist and have a particular specification.
+			if apierrs.IsNotFound(err) {
+				rev.Status.MarkDeploying("Deploying")
+				authenticationPolicy, err = c.createAuthenticationPolicy(rev)
+				if err != nil {
+					logger.Errorf("Error creating Authentication Policy %q: %v", authenticationPolicyName, err)
+					return err
+				}
+				logger.Infof("Created Authentication Policy %q", authenticationPolicyName)
+				return nil
+			} else if err != nil {
+				logger.Errorf("Error reconciling Active Authentication Policy %q: %v", authenticationPolicyName, err)
+				return err
+			} else {
+				// TODO(zhiminx): not sure if we allow user to modify it
+				return nil
+			}
+		case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
+			// When Reserve or Retired, we remove the underlying DestinationRule.
+			if apierrs.IsNotFound(err) {
+				// If it does not exist, then we have nothing to do.
+				return nil
+			}
+			if err := c.deleteAuthenticationPolicy(ctx, authenticationPolicy); err != nil {
+				logger.Errorf("Error deleting Authentication Policy %q: %v", authenticationPolicy, err)
+				return err
+			}
+			logger.Infof("Deleted Authentication Policy %q", authenticationPolicy)
+			return nil
+		default:
+			logger.Errorf("Unknown serving state: %v", rev.Spec.ServingState)
+			return nil
+	}
+}
+
+func (c *Controller) createAuthenticationPolicy(rev *v1alpha1.Revision) (*authv1alpha1.Policy, error) {
+	desiredAuthenticationPolicy := resources.MakeAuthenticationPolicy(rev)
+	ns := rev.Namespace
+	return c.ServingClientSet.AuthenticationV1alpha1().Policies(ns).Create(desiredAuthenticationPolicy)
+}
+
+func (c *Controller) deleteAuthenticationPolicy(ctx context.Context, authenticationPolicy *authv1alpha1.Policy) error {
+	logger := logging.FromContext(ctx)
+	err := c.ServingClientSet.AuthenticationV1alpha1().Policies(authenticationPolicy.Namespace).Delete(authenticationPolicy.Name, fgDeleteOptions)
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		logger.Errorf("policy.Delete for %q failed: %s", authenticationPolicy.Name, err)
 		return err
 	}
 	return nil

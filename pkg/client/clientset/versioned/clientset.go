@@ -17,6 +17,7 @@ package versioned
 
 import (
 	glog "github.com/golang/glog"
+	authenticationv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/authentication/v1alpha1"
 	networkingv1alpha3 "github.com/knative/serving/pkg/client/clientset/versioned/typed/istio/v1alpha3"
 	servingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
@@ -26,6 +27,9 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	AuthenticationV1alpha1() authenticationv1alpha1.AuthenticationV1alpha1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Authentication() authenticationv1alpha1.AuthenticationV1alpha1Interface
 	NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Networking() networkingv1alpha3.NetworkingV1alpha3Interface
@@ -38,8 +42,20 @@ type Interface interface {
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	networkingV1alpha3 *networkingv1alpha3.NetworkingV1alpha3Client
-	servingV1alpha1    *servingv1alpha1.ServingV1alpha1Client
+	authenticationV1alpha1 *authenticationv1alpha1.AuthenticationV1alpha1Client
+	networkingV1alpha3     *networkingv1alpha3.NetworkingV1alpha3Client
+	servingV1alpha1        *servingv1alpha1.ServingV1alpha1Client
+}
+
+// AuthenticationV1alpha1 retrieves the AuthenticationV1alpha1Client
+func (c *Clientset) AuthenticationV1alpha1() authenticationv1alpha1.AuthenticationV1alpha1Interface {
+	return c.authenticationV1alpha1
+}
+
+// Deprecated: Authentication retrieves the default version of AuthenticationClient.
+// Please explicitly pick a version.
+func (c *Clientset) Authentication() authenticationv1alpha1.AuthenticationV1alpha1Interface {
+	return c.authenticationV1alpha1
 }
 
 // NetworkingV1alpha3 retrieves the NetworkingV1alpha3Client
@@ -80,6 +96,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
+	cs.authenticationV1alpha1, err = authenticationv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.networkingV1alpha3, err = networkingv1alpha3.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -101,6 +121,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
+	cs.authenticationV1alpha1 = authenticationv1alpha1.NewForConfigOrDie(c)
 	cs.networkingV1alpha3 = networkingv1alpha3.NewForConfigOrDie(c)
 	cs.servingV1alpha1 = servingv1alpha1.NewForConfigOrDie(c)
 
@@ -111,6 +132,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.authenticationV1alpha1 = authenticationv1alpha1.New(c)
 	cs.networkingV1alpha3 = networkingv1alpha3.New(c)
 	cs.servingV1alpha1 = servingv1alpha1.New(c)
 
