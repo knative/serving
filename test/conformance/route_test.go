@@ -19,6 +19,7 @@ limitations under the License.
 package conformance
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -80,7 +81,12 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 
-	err = test.WaitForEndpointState(clients.Kube, logger, updatedRoute.Status.Domain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
+	err = test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		updatedRoute.Status.Domain,
+		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusServiceUnavailable, http.StatusNotFound),
+		"WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, updatedRoute.Status.Domain, expectedText, err)
 	}

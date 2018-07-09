@@ -68,8 +68,6 @@ type SpoofingClient struct {
 	RequestInterval time.Duration
 	RequestTimeout  time.Duration
 
-	RetryCodes []int
-
 	endpoint string
 	domain   string
 
@@ -168,17 +166,6 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 				return false, nil
 			}
 			return true, err
-		}
-
-		// TODO(jonjohnson): This could just be pulled out into a retrying ResponseChecker middleware thing.
-		if resp.StatusCode != http.StatusOK {
-			for _, code := range sc.RetryCodes {
-				if resp.StatusCode == code {
-					sc.logger.Infof("Retrying for code %v", resp.StatusCode)
-					return false, nil
-				}
-			}
-			return true, fmt.Errorf("Status code %d was not a retriable code (%v)", resp.StatusCode, sc.RetryCodes)
 		}
 
 		return inState(resp)

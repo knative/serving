@@ -72,9 +72,11 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 		return nil, err
 	}
 
+	retrying := test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable)
+
 	// Poll until we get a successful response. This ensures the domain is
 	// routable before we send it a bunch of traffic.
-	if _, err := client.Poll(req, test.MatchesAny); err != nil {
+	if _, err := client.Poll(req, retrying); err != nil {
 		return nil, err
 	}
 

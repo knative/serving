@@ -35,6 +35,22 @@ func MatchesAny(_ *spoof.Response) (bool, error) {
 	return true, nil
 }
 
+// Retrying modifies a ResponseChecker to retry certain response codes.
+func Retrying(rc spoof.ResponseChecker, codes ...int) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		for _, code := range codes {
+			if resp.StatusCode == code {
+				// Returning (false, nil) causes SpoofingClient.Poll to retry.
+				// sc.logger.Infof("Retrying for code %v", resp.StatusCode)
+				return false, nil
+			}
+		}
+
+		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
+		return rc(resp)
+	}
+}
+
 // MatchesBody checks that the *first* response body matches the "expected" body, otherwise failing.
 func MatchesBody(expected string) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
@@ -74,9 +90,6 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.Sugar
 	if err != nil {
 		return err
 	}
-
-	// TODO(#348): The ingress endpoint tends to return 503's and 404's
-	client.RetryCodes = []int{http.StatusServiceUnavailable, http.StatusNotFound}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {
