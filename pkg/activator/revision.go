@@ -83,9 +83,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string
 		return internalError("Disregarding activation request for retired revision ")
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do
-		//r.reporter.ReportRequest(namespace, configuration, name, "Active", RequestCountM, 1.0)
 	case v1alpha1.RevisionServingStateReserve:
-		//r.reporter.ReportRequest(namespace, configuration, name, "Reserve", RequestCountM, 1.0)
 		// Activate the revision
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		if _, err := revisionClient.Update(revision); err != nil {

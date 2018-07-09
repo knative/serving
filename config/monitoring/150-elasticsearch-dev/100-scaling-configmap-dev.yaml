@@ -74,402 +74,7 @@ data:
          ],
          "panels":[  
             {  
-               "collapsed":true,
-               "gridPos":{  
-                  "h":1,
-                  "w":24,
-                  "x":0,
-                  "y":0
-               },
-               "id":20,
-               "panels":[  
-                           {  
-                              "aliasColors":{  
 
-                              },
-                              "bars":false,
-                              "dashLength":10,
-                              "dashes":false,
-                              "datasource":"prometheus",
-                              "fill":1,
-                              "gridPos":{  
-                                 "h":11,
-                                 "w":24,
-                                 "x":0,
-                                 "y":1
-                              },
-                              "id":22,
-                              "legend":{  
-                                 "avg":false,
-                                 "current":false,
-                                 "max":false,
-                                 "min":false,
-                                 "show":true,
-                                 "total":false,
-                                 "values":false
-                              },
-                              "lines":true,
-                              "linewidth":1,
-                              "links":[  
-
-                              ],
-                              "nullPointMode":"null",
-                              "percentage":false,
-                              "pointradius":5,
-                              "points":false,
-                              "renderer":"flot",
-                              "seriesOverrides":[  
-
-                              ],
-                              "spaceLength":10,
-                              "stack":false,
-                              "steppedLine":false,
-                              "targets":[  
-                                 {  
-                                    "expr":"label_replace(sum(increase(activator_revision_request_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
-                                    "format":"time_series",
-                                    "interval":"",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{destination_revision}}",
-                                    "refId":"A"
-                                 }
-                              ],
-                              "thresholds":[  
-
-                              ],
-                              "timeFrom":null,
-                              "timeShift":null,
-                              "title":"Request Count in last minute by Revision",
-                              "tooltip":{  
-                                 "shared":true,
-                                 "sort":0,
-                                 "value_type":"individual"
-                              },
-                              "type":"graph",
-                              "xaxis":{  
-                                 "buckets":null,
-                                 "mode":"time",
-                                 "name":null,
-                                 "show":true,
-                                 "values":[  
-
-                                 ]
-                              },
-                              "yaxes":[  
-                                 {  
-                                    "format":"none",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":"0",
-                                    "show":true
-                                 },
-                                 {  
-                                    "format":"short",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":null,
-                                    "show":true
-                                 }
-                              ]
-                           },
-                           {  
-                              "aliasColors":{  
-
-                              },
-                              "bars":false,
-                              "dashLength":10,
-                              "dashes":false,
-                              "datasource":"prometheus",
-                              "fill":1,
-                              "gridPos":{  
-                                 "h":10,
-                                 "w":24,
-                                 "x":0,
-                                 "y":12
-                              },
-                              "id":24,
-                              "legend":{  
-                                 "avg":false,
-                                 "current":false,
-                                 "max":false,
-                                 "min":false,
-                                 "show":true,
-                                 "total":false,
-                                 "values":false
-                              },
-                              "lines":true,
-                              "linewidth":1,
-                              "links":[  
-
-                              ],
-                              "nullPointMode":"null",
-                              "percentage":false,
-                              "pointradius":5,
-                              "points":false,
-                              "renderer":"flot",
-                              "seriesOverrides":[  
-
-                              ],
-                              "spaceLength":10,
-                              "stack":false,
-                              "steppedLine":false,
-                              "targets":[  
-                                 {  
-                                    "expr":"round(sum(increase(activator_revision_response_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (response_code))",
-                                    "format":"time_series",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{ response_code }}",
-                                    "refId":"A"
-                                 }
-                              ],
-                              "thresholds":[  
-
-                              ],
-                              "timeFrom":null,
-                              "timeShift":null,
-                              "title":"Response Count in last minute by Response Code",
-                              "tooltip":{  
-                                 "shared":true,
-                                 "sort":0,
-                                 "value_type":"individual"
-                              },
-                              "type":"graph",
-                              "xaxis":{  
-                                 "buckets":null,
-                                 "mode":"time",
-                                 "name":null,
-                                 "show":true,
-                                 "values":[  
-
-                                 ]
-                              },
-                              "yaxes":[  
-                                 {  
-                                    "format":"none",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":"0",
-                                    "show":true
-                                 },
-                                 {  
-                                    "format":"short",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":null,
-                                    "show":true
-                                 }
-                              ]
-                           },
-                           {  
-                              "aliasColors":{  
-
-                              },
-                              "bars":false,
-                              "dashLength":10,
-                              "dashes":false,
-                              "datasource":"prometheus",
-                              "fill":1,
-                              "gridPos":{  
-                                 "h":10,
-                                 "w":24,
-                                 "x":0,
-                                 "y":22
-                              },
-                              "id":26,
-                              "legend":{  
-                                 "avg":false,
-                                 "current":false,
-                                 "max":false,
-                                 "min":false,
-                                 "show":true,
-                                 "total":false,
-                                 "values":false
-                              },
-                              "lines":true,
-                              "linewidth":1,
-                              "links":[  
-
-                              ],
-                              "nullPointMode":"null",
-                              "percentage":false,
-                              "pointradius":5,
-                              "points":false,
-                              "renderer":"flot",
-                              "seriesOverrides":[  
-
-                              ],
-                              "spaceLength":10,
-                              "stack":false,
-                              "steppedLine":false,
-                              "targets":[  
-                                 {  
-                                    "expr":"sum(increase(activator_revision_response_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m]))",
-                                    "format":"time_series",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{num_tries}}",
-                                    "refId":"A"
-                                 }
-                              ],
-                              "thresholds":[  
-
-                              ],
-                              "timeFrom":null,
-                              "timeShift":null,
-                              "title":"Response Count in last minute by number of tries",
-                              "tooltip":{  
-                                 "shared":true,
-                                 "sort":0,
-                                 "value_type":"individual"
-                              },
-                              "type":"graph",
-                              "xaxis":{  
-                                 "buckets":null,
-                                 "mode":"time",
-                                 "name":null,
-                                 "show":true,
-                                 "values":[  
-
-                                 ]
-                              },
-                              "yaxes":[  
-                                 {  
-                                    "format":"short",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":"0",
-                                    "show":true
-                                 },
-                                 {  
-                                    "format":"short",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":null,
-                                    "show":true
-                                 }
-                              ]
-                           },
-                           {  
-                              "aliasColors":{  
-
-                              },
-                              "bars":false,
-                              "dashLength":10,
-                              "dashes":false,
-                              "datasource":"prometheus",
-                              "fill":1,
-                              "gridPos":{  
-                                 "h":10,
-                                 "w":24,
-                                 "x":0,
-                                 "y":32
-                              },
-                              "id":28,
-                              "legend":{  
-                                 "avg":true,
-                                 "current":false,
-                                 "max":false,
-                                 "min":false,
-                                 "show":true,
-                                 "total":false,
-                                 "values":true
-                              },
-                              "lines":true,
-                              "linewidth":1,
-                              "links":[  
-
-                              ],
-                              "nullPointMode":"null",
-                              "percentage":false,
-                              "pointradius":5,
-                              "points":false,
-                              "renderer":"flot",
-                              "seriesOverrides":[  
-
-                              ],
-                              "spaceLength":10,
-                              "stack":false,
-                              "steppedLine":false,
-                              "targets":[  
-                                 {  
-                                    "expr":"label_replace(histogram_quantile(0.50, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
-                                    "format":"time_series",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{ destination_revision }} (p50)",
-                                    "refId":"A"
-                                 },
-                                 {  
-                                    "expr":"label_replace(histogram_quantile(0.90, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
-                                    "format":"time_series",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{ destination_revision }} (p90)",
-                                    "refId":"B"
-                                 },
-                                 {  
-                                    "expr":"label_replace(histogram_quantile(0.95, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
-                                    "format":"time_series",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{ destination_revision }} (p95)",
-                                    "refId":"C"
-                                 },
-                                 {  
-                                    "expr":"label_replace(histogram_quantile(0.99, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
-                                    "format":"time_series",
-                                    "intervalFactor":1,
-                                    "legendFormat":"{{ destination_revision }} (p99)",
-                                    "refId":"D"
-                                 }
-                              ],
-                              "thresholds":[  
-
-                              ],
-                              "timeFrom":null,
-                              "timeShift":null,
-                              "title":"Response Time in last minute",
-                              "tooltip":{  
-                                 "shared":true,
-                                 "sort":0,
-                                 "value_type":"individual"
-                              },
-                              "type":"graph",
-                              "xaxis":{  
-                                 "buckets":null,
-                                 "mode":"time",
-                                 "name":null,
-                                 "show":true,
-                                 "values":[  
-
-                                 ]
-                              },
-                              "yaxes":[  
-                                 {  
-                                    "format":"ms",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":null,
-                                    "show":true
-                                 },
-                                 {  
-                                    "format":"short",
-                                    "label":null,
-                                    "logBase":1,
-                                    "max":null,
-                                    "min":null,
-                                    "show":true
-                                 }
-                               ]
-                             }     
-               ],
-               "title":"Activator Metrics",
-               "type":"row"
-            },
-            {  
                "collapsed":true,
                "gridPos":{  
                   "h":1,
@@ -1133,7 +738,313 @@ data:
                      ]
                   }
                ],
-               "title":"Debugging Metrics",
+               "title":"Autoscaler Metrics",
+               "type":"row"
+            },
+            {  
+               "collapsed":true,
+               "gridPos":{  
+                  "h":1,
+                  "w":24,
+                  "x":0,
+                  "y":3
+               },
+               "id":20,
+               "panels":[  
+                           {  
+                              "aliasColors":{  
+
+                              },
+                              "bars":false,
+                              "dashLength":10,
+                              "dashes":false,
+                              "datasource":"prometheus",
+                              "fill":1,
+                              "gridPos":{  
+                                 "h":11,
+                                 "w":24,
+                                 "x":0,
+                                 "y":1
+                              },
+                              "id":22,
+                              "legend":{  
+                                 "avg":false,
+                                 "current":false,
+                                 "max":false,
+                                 "min":false,
+                                 "show":true,
+                                 "total":false,
+                                 "values":false
+                              },
+                              "lines":true,
+                              "linewidth":1,
+                              "links":[  
+
+                              ],
+                              "nullPointMode":"null",
+                              "percentage":false,
+                              "pointradius":5,
+                              "points":false,
+                              "renderer":"flot",
+                              "seriesOverrides":[  
+
+                              ],
+                              "spaceLength":10,
+                              "stack":false,
+                              "steppedLine":false,
+                              "targets":[  
+                                 {  
+                                    "expr":"label_replace(sum(increase(activator_revision_request_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "interval":"",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{destination_revision}}",
+                                    "refId":"A"
+                                 }
+                              ],
+                              "thresholds":[  
+
+                              ],
+                              "timeFrom":null,
+                              "timeShift":null,
+                              "title":"Request Count in last minute by Revision",
+                              "tooltip":{  
+                                 "shared":true,
+                                 "sort":0,
+                                 "value_type":"individual"
+                              },
+                              "type":"graph",
+                              "xaxis":{  
+                                 "buckets":null,
+                                 "mode":"time",
+                                 "name":null,
+                                 "show":true,
+                                 "values":[  
+
+                                 ]
+                              },
+                              "yaxes":[  
+                                 {  
+                                    "format":"none",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":"0",
+                                    "show":true
+                                 },
+                                 {  
+                                    "format":"short",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 }
+                              ]
+                           },
+                           {  
+                              "aliasColors":{  
+
+                              },
+                              "bars":false,
+                              "dashLength":10,
+                              "dashes":false,
+                              "datasource":"prometheus",
+                              "fill":1,
+                              "gridPos":{  
+                                 "h":10,
+                                 "w":24,
+                                 "x":0,
+                                 "y":12
+                              },
+                              "id":24,
+                              "legend":{  
+                                 "avg":false,
+                                 "current":false,
+                                 "max":false,
+                                 "min":false,
+                                 "show":true,
+                                 "total":false,
+                                 "values":false
+                              },
+                              "lines":true,
+                              "linewidth":1,
+                              "links":[  
+
+                              ],
+                              "nullPointMode":"null",
+                              "percentage":false,
+                              "pointradius":5,
+                              "points":false,
+                              "renderer":"flot",
+                              "seriesOverrides":[  
+
+                              ],
+                              "spaceLength":10,
+                              "stack":false,
+                              "steppedLine":false,
+                              "targets":[  
+                                 {  
+                                    "expr":"round(sum(increase(activator_revision_response_count{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (response_code))",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ response_code }}",
+                                    "refId":"A"
+                                 }
+                              ],
+                              "thresholds":[  
+
+                              ],
+                              "timeFrom":null,
+                              "timeShift":null,
+                              "title":"Response Count in last minute by Response Code",
+                              "tooltip":{  
+                                 "shared":true,
+                                 "sort":0,
+                                 "value_type":"individual"
+                              },
+                              "type":"graph",
+                              "xaxis":{  
+                                 "buckets":null,
+                                 "mode":"time",
+                                 "name":null,
+                                 "show":true,
+                                 "values":[  
+
+                                 ]
+                              },
+                              "yaxes":[  
+                                 {  
+                                    "format":"none",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":"0",
+                                    "show":true
+                                 },
+                                 {  
+                                    "format":"short",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 }
+                              ]
+                           },
+                           {  
+                              "aliasColors":{  
+
+                              },
+                              "bars":false,
+                              "dashLength":10,
+                              "dashes":false,
+                              "datasource":"prometheus",
+                              "fill":1,
+                              "gridPos":{  
+                                 "h":10,
+                                 "w":24,
+                                 "x":0,
+                                 "y":32
+                              },
+                              "id":28,
+                              "legend":{  
+                                 "avg":true,
+                                 "current":false,
+                                 "max":false,
+                                 "min":false,
+                                 "show":true,
+                                 "total":false,
+                                 "values":true
+                              },
+                              "lines":true,
+                              "linewidth":1,
+                              "links":[  
+
+                              ],
+                              "nullPointMode":"null",
+                              "percentage":false,
+                              "pointradius":5,
+                              "points":false,
+                              "renderer":"flot",
+                              "seriesOverrides":[  
+
+                              ],
+                              "spaceLength":10,
+                              "stack":false,
+                              "steppedLine":false,
+                              "targets":[  
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.50, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ destination_revision }} (p50)",
+                                    "refId":"A"
+                                 },
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.90, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ destination_revision }} (p90)",
+                                    "refId":"B"
+                                 },
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.95, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ destination_revision }} (p95)",
+                                    "refId":"C"
+                                 },
+                                 {  
+                                    "expr":"label_replace(histogram_quantile(0.99, sum(rate(activator_response_time_msec_bucket{destination_namespace=\"$namespace\", destination_configuration=~\"$configuration\",destination_revision=~\"$revision\"}[1m])) by (destination_revision, le)), \"destination_revision\", \"$2\", \"destination_revision\", \"$configuration(-+)(.*)\")",
+                                    "format":"time_series",
+                                    "intervalFactor":1,
+                                    "legendFormat":"{{ destination_revision }} (p99)",
+                                    "refId":"D"
+                                 }
+                              ],
+                              "thresholds":[  
+
+                              ],
+                              "timeFrom":null,
+                              "timeShift":null,
+                              "title":"Response Time in last minute",
+                              "tooltip":{  
+                                 "shared":true,
+                                 "sort":0,
+                                 "value_type":"individual"
+                              },
+                              "type":"graph",
+                              "xaxis":{  
+                                 "buckets":null,
+                                 "mode":"time",
+                                 "name":null,
+                                 "show":true,
+                                 "values":[  
+
+                                 ]
+                              },
+                              "yaxes":[  
+                                 {  
+                                    "format":"ms",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 },
+                                 {  
+                                    "format":"short",
+                                    "label":null,
+                                    "logBase":1,
+                                    "max":null,
+                                    "min":null,
+                                    "show":true
+                                 }
+                               ]
+                             }     
+               ],
+               "title":"Activator Metrics",
                "type":"row"
             }
          ],
