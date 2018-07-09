@@ -25,11 +25,11 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/service/resources"
 
 	. "github.com/knative/serving/pkg/controller/testing"
 	. "github.com/knative/serving/pkg/logging/testing"
@@ -46,6 +46,17 @@ var (
 			},
 		},
 	}
+
+	initialConditions = []v1alpha1.ServiceCondition{{
+		Type:   v1alpha1.ServiceConditionReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:   v1alpha1.ServiceConditionConfigurationsReady,
+		Status: corev1.ConditionUnknown,
+	}, {
+		Type:   v1alpha1.ServiceConditionRoutesReady,
+		Status: corev1.ConditionUnknown,
+	}}
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -59,221 +70,68 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "incomplete service",
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "incomplete",
-					Namespace: "foo",
-				},
-				// There is no spec.{runLatest,pinned} in this
-				// Service to trigger the error condition.
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			// There is no spec.{runLatest,pinned} in this Service to trigger the error condition.
+			svc("incomplete", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
 		},
 		Key:     "foo/incomplete",
 		WantErr: true,
 	}, {
 		Name: "runLatest - create route and service",
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "run-latest",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-			},
+			svcRL("run-latest", "foo"),
 		},
 		Key: "foo/run-latest",
 		WantCreates: []metav1.Object{
-			&v1alpha1.Configuration{
-				ObjectMeta: com("foo", "run-latest", or("run-latest")),
-				Spec:       configSpec,
-			},
-			&v1alpha1.Route{
-				ObjectMeta: com("foo", "run-latest", or("run-latest")),
-				Spec:       runLatestSpec("run-latest"),
-			},
+			mustMakeConfig(t, svcRL("run-latest", "foo")),
+			resources.MakeRoute(svcRL("run-latest", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "run-latest",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			Object: svcRL("run-latest", "foo", initialConditions...),
 		}},
 	}, {
 		Name: "pinned - create route and service",
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pinned",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
-				},
-			},
+			svcPin("pinned", "foo"),
 		},
 		Key: "foo/pinned",
 		WantCreates: []metav1.Object{
-			&v1alpha1.Configuration{
-				ObjectMeta: com("foo", "pinned", or("pinned")),
-				Spec:       configSpec,
-			},
-			&v1alpha1.Route{
-				ObjectMeta: com("foo", "pinned", or("pinned")),
-				Spec:       pinnedSpec("pinned-0001"),
-			},
+			mustMakeConfig(t, svcPin("pinned", "foo")),
+			resources.MakeRoute(svcPin("pinned", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pinned",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			Object: svcPin("pinned", "foo", initialConditions...),
 		}},
 	}, {
 		Name: "runLatest - no updates",
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "no-updates",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
-			&v1alpha1.Route{
-				ObjectMeta: om("foo", "no-updates"),
-				Spec:       runLatestSpec("no-updates"),
-			},
-			&v1alpha1.Configuration{
-				ObjectMeta: om("foo", "no-updates"),
-				Spec:       configSpec,
-			},
+			svcRL("no-updates", "foo", initialConditions...),
+			resources.MakeRoute(svcRL("no-updates", "foo", initialConditions...)),
+			mustMakeConfig(t, svcRL("no-updates", "foo", initialConditions...)),
 		},
 		Key: "foo/no-updates",
 	}, {
 		Name: "runLatest - update route and service",
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "update-route-and-config",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			svcRL("update-route-and-config", "foo", initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			&v1alpha1.Route{ObjectMeta: om("foo", "update-route-and-config")},
-			&v1alpha1.Configuration{ObjectMeta: om("foo", "update-route-and-config")},
+			mutateConfig(mustMakeConfig(t, svcRL("update-route-and-config", "foo", initialConditions...))),
+			mutateRoute(resources.MakeRoute(svcRL("update-route-and-config", "foo", initialConditions...))),
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "update-route-and-config"),
-				Spec:       configSpec,
-			},
+			Object: mustMakeConfig(t, svcRL("update-route-and-config", "foo", initialConditions...)),
 		}, {
-			Object: &v1alpha1.Route{
-				ObjectMeta: om("foo", "update-route-and-config"),
-				Spec:       runLatestSpec("update-route-and-config"),
-			},
+			Object: resources.MakeRoute(svcRL("update-route-and-config", "foo", initialConditions...)),
 		}},
 	}, {
 		Name: "runLatest - bad config update",
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bad-config-update",
-					Namespace: "foo",
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			// There is no spec.{runLatest,pinned} in this Service, which triggers the error
+			// path updating Configuration.
+			svc("bad-config-update", "foo", v1alpha1.ServiceSpec{}, initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			&v1alpha1.Route{ObjectMeta: om("foo", "bad-config-update")},
-			&v1alpha1.Configuration{ObjectMeta: om("foo", "bad-config-update")},
+			mutateConfig(mustMakeConfig(t, svcRL("bad-config-update", "foo", initialConditions...))),
+			mutateRoute(resources.MakeRoute(svcRL("bad-config-update", "foo", initialConditions...))),
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
@@ -285,49 +143,15 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "routes"),
 		},
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "create-route-failure",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-			},
+			svcRL("create-route-failure", "foo"),
 		},
 		Key: "foo/create-route-failure",
 		WantCreates: []metav1.Object{
-			&v1alpha1.Configuration{
-				ObjectMeta: com("foo", "create-route-failure", or("create-route-failure")),
-				Spec:       configSpec,
-			},
-			&v1alpha1.Route{
-				ObjectMeta: com("foo", "create-route-failure", or("create-route-failure")),
-				Spec:       runLatestSpec("create-route-failure"),
-			},
+			mustMakeConfig(t, svcRL("create-route-failure", "foo")),
+			resources.MakeRoute(svcRL("create-route-failure", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "create-route-failure",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			Object: svcRL("create-route-failure", "foo", initialConditions...),
 		}},
 	}, {
 		Name: "runLatest - configuration creation failure",
@@ -337,46 +161,15 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "configurations"),
 		},
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "create-config-failure",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-			},
+			svcRL("create-config-failure", "foo"),
 		},
 		Key: "foo/create-config-failure",
 		WantCreates: []metav1.Object{
-			&v1alpha1.Configuration{
-				ObjectMeta: com("foo", "create-config-failure", or("create-config-failure")),
-				Spec:       configSpec,
-			},
+			mustMakeConfig(t, svcRL("create-config-failure", "foo")),
 			// We don't get to creating the Route.
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "create-config-failure",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			Object: svcRL("create-config-failure", "foo", initialConditions...),
 		}},
 	}, {
 		Name: "runLatest - update route failure",
@@ -386,42 +179,16 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "routes"),
 		},
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "update-route-failure",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			svcRL("update-route-failure", "foo", initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			&v1alpha1.Route{ObjectMeta: om("foo", "update-route-failure")},
-			&v1alpha1.Configuration{ObjectMeta: om("foo", "update-route-failure")},
+			mutateRoute(resources.MakeRoute(svcRL("update-route-failure", "foo", initialConditions...))),
+			mutateConfig(mustMakeConfig(t, svcRL("update-route-failure", "foo", initialConditions...))),
 		},
 		Key: "foo/update-route-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "update-route-failure"),
-				Spec:       configSpec,
-			},
+			Object: mustMakeConfig(t, svcRL("update-route-failure", "foo", initialConditions...)),
 		}, {
-			Object: &v1alpha1.Route{
-				ObjectMeta: om("foo", "update-route-failure"),
-				Spec:       runLatestSpec("update-route-failure"),
-			},
+			Object: resources.MakeRoute(svcRL("update-route-failure", "foo", initialConditions...)),
 		}},
 	}, {
 		Name: "runLatest - update config failure",
@@ -431,37 +198,14 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "configurations"),
 		},
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "update-config-failure",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			svcRL("update-config-failure", "foo", initialConditions...),
 			// Update the skeletal Config/Route to have the appropriate {Config,Route}Specs
-			&v1alpha1.Route{ObjectMeta: om("foo", "update-config-failure")},
-			&v1alpha1.Configuration{ObjectMeta: om("foo", "update-config-failure")},
+			mutateRoute(resources.MakeRoute(svcRL("update-config-failure", "foo", initialConditions...))),
+			mutateConfig(mustMakeConfig(t, svcRL("update-config-failure", "foo", initialConditions...))),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "update-config-failure"),
-				Spec:       configSpec,
-			},
+			Object: mustMakeConfig(t, svcRL("update-config-failure", "foo", initialConditions...)),
 			// We don't get to updating the Route.
 		}},
 	}, {
@@ -472,49 +216,15 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "services"),
 		},
 		Objects: []runtime.Object{
-			&v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "run-latest",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-			},
+			svcRL("run-latest", "foo"),
 		},
 		Key: "foo/run-latest",
 		WantCreates: []metav1.Object{
-			&v1alpha1.Configuration{
-				ObjectMeta: com("foo", "run-latest", or("run-latest")),
-				Spec:       configSpec,
-			},
-			&v1alpha1.Route{
-				ObjectMeta: com("foo", "run-latest", or("run-latest")),
-				Spec:       runLatestSpec("run-latest"),
-			},
+			mustMakeConfig(t, svcRL("run-latest", "foo")),
+			resources.MakeRoute(svcRL("run-latest", "foo")),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "run-latest",
-					Namespace: "foo",
-				},
-				Spec: v1alpha1.ServiceSpec{
-					RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
-				},
-				Status: v1alpha1.ServiceStatus{
-					Conditions: []v1alpha1.ServiceCondition{{
-						Type:   v1alpha1.ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionConfigurationsReady,
-						Status: corev1.ConditionUnknown,
-					}, {
-						Type:   v1alpha1.ServiceConditionRoutesReady,
-						Status: corev1.ConditionUnknown,
-					}},
-				},
-			},
+			Object: svcRL("run-latest", "foo", initialConditions...),
 		}},
 	}}
 
@@ -548,49 +258,47 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func runLatestSpec(name string) v1alpha1.RouteSpec {
-	return v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{{
-			ConfigurationName: name,
-			Percent:           100,
-		}},
+func svc(name, namespace string, spec v1alpha1.ServiceSpec, conditions ...v1alpha1.ServiceCondition) *v1alpha1.Service {
+	return &v1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: spec,
+		Status: v1alpha1.ServiceStatus{
+			Conditions: conditions,
+		},
 	}
 }
 
-func pinnedSpec(name string) v1alpha1.RouteSpec {
-	return v1alpha1.RouteSpec{
-		Traffic: []v1alpha1.TrafficTarget{{
-			RevisionName: name,
-			Percent:      100,
-		}},
-	}
+func svcRL(name, namespace string, conditions ...v1alpha1.ServiceCondition) *v1alpha1.Service {
+	return svc(name, namespace, v1alpha1.ServiceSpec{
+		RunLatest: &v1alpha1.RunLatestType{Configuration: configSpec},
+	}, conditions...)
 }
 
-// or builds OwnerReferences for a child of a Service
-func or(name string) []metav1.OwnerReference {
-	return []metav1.OwnerReference{{
-		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-		Kind:               "Service",
-		Name:               name,
-		Controller:         &boolTrue,
-		BlockOwnerDeletion: &boolTrue,
-	}}
+func svcPin(name, namespace string, conditions ...v1alpha1.ServiceCondition) *v1alpha1.Service {
+	return svc(name, namespace, v1alpha1.ServiceSpec{
+		Pinned: &v1alpha1.PinnedType{RevisionName: "pinned-0001", Configuration: configSpec},
+	}, conditions...)
 }
 
-// om builds ObjectMeta for a Service
-func om(namespace, name string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:      name,
-		Namespace: namespace,
+func mustMakeConfig(t *testing.T, svc *v1alpha1.Service) *v1alpha1.Configuration {
+	cfg, err := resources.MakeConfiguration(svc)
+	if err != nil {
+		t.Fatalf("MakeConfiguration() = %v", err)
 	}
+	return cfg
 }
 
-// com builds the ObjectMeta for a Child of a Service
-func com(namespace, name string, or []metav1.OwnerReference) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:            name,
-		Namespace:       namespace,
-		Labels:          map[string]string{serving.ServiceLabelKey: name},
-		OwnerReferences: or,
-	}
+// mutateConfig mutates the specification of the Configuration to simulate someone editing it around our controller.
+func mutateConfig(cfg *v1alpha1.Configuration) *v1alpha1.Configuration {
+	cfg.Spec = v1alpha1.ConfigurationSpec{}
+	return cfg
+}
+
+// mutateRoute mutates the specification of the Route to simulate someone editing it around our controller.
+func mutateRoute(rt *v1alpha1.Route) *v1alpha1.Route {
+	rt.Spec = v1alpha1.RouteSpec{}
+	return rt
 }
