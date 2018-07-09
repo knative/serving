@@ -18,30 +18,15 @@ package webhook
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path"
-	"reflect"
-	"strings"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
-	corev1 "k8s.io/api/core/v1"
 )
 
-func errMissingField(fieldPath string) error {
-	return fmt.Errorf("Configuration is missing %q", fieldPath)
-}
-
-func errDisallowedFields(fieldPaths string) error {
-	return fmt.Errorf("The configuration spec must not set the field(s): %s", fieldPaths)
-}
-
 var (
-	errEmptySpecInConfiguration         = errMissingField("spec")
-	errEmptyRevisionTemplateInSpec      = errMissingField("spec.revisionTemplate")
-	errEmptyContainerInRevisionTemplate = errMissingField("spec.revisionTemplate.spec.container")
-	errInvalidConfigurationInput        = errors.New("failed to convert input into Configuration")
+	errInvalidConfigurationInput = errors.New("failed to convert input into Configuration")
 )
 
 // ValidateConfiguration is Configuration resource specific validation and mutation handler
@@ -51,80 +36,13 @@ func ValidateConfiguration(ctx context.Context) ResourceCallback {
 		if err != nil {
 			return err
 		}
-		if err := validateConfiguration(newConfiguration); err != nil {
+
+		// Can't just `return newConfiguration.Validate()` because it doesn't properly nil-check.
+		if err := newConfiguration.Validate(); err != nil {
 			return err
 		}
 		return nil
 	}
-}
-
-func validateConfiguration(configuration *v1alpha1.Configuration) error {
-	if reflect.DeepEqual(configuration.Spec, v1alpha1.ConfigurationSpec{}) {
-		return errEmptySpecInConfiguration
-	}
-	if err := validateConfigurationSpec(&configuration.Spec); err != nil {
-		return err
-	}
-	return validateConcurrencyModel(configuration.Spec.RevisionTemplate.Spec.ConcurrencyModel)
-}
-
-func validateConfigurationSpec(configurationSpec *v1alpha1.ConfigurationSpec) error {
-	if err := validateTemplate(&configurationSpec.RevisionTemplate); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateTemplate(template *v1alpha1.RevisionTemplateSpec) error {
-	if reflect.DeepEqual(*template, v1alpha1.RevisionTemplateSpec{}) {
-		return errEmptyRevisionTemplateInSpec
-	}
-	if template.Spec.ServingState != "" {
-		return errDisallowedFields("revisionTemplate.spec.servingState")
-	}
-	if err := validateContainer(template.Spec.Container); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateConcurrencyModel(value v1alpha1.RevisionRequestConcurrencyModelType) error {
-	switch value {
-	case v1alpha1.RevisionRequestConcurrencyModelType(""), v1alpha1.RevisionRequestConcurrencyModelMulti, v1alpha1.RevisionRequestConcurrencyModelSingle:
-		return nil
-	default:
-		return fmt.Errorf("Unrecognized value for concurrencyModel: %q", value)
-	}
-}
-
-func validateContainer(container corev1.Container) error {
-	if reflect.DeepEqual(container, corev1.Container{}) {
-		return errEmptyContainerInRevisionTemplate
-	}
-	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
-	// here to avoid silently overwriting these fields and causing confusions for
-	// the users.  See pkg/controller/revision/resources/deploy.go#makePodSpec.
-	var ignoredFields []string
-	if container.Name != "" {
-		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.name")
-	}
-	if !reflect.DeepEqual(container.Resources, corev1.ResourceRequirements{}) {
-		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.resources")
-	}
-	if len(container.Ports) > 0 {
-		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.ports")
-	}
-	if len(container.VolumeMounts) > 0 {
-		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.volumeMounts")
-	}
-	if container.Lifecycle != nil {
-		ignoredFields = append(ignoredFields, "revisionTemplate.spec.container.lifecycle")
-	}
-	if len(ignoredFields) > 0 {
-		// Complain about all ignored fields so that user can remove them all at once.
-		return errDisallowedFields(strings.Join(ignoredFields, ", "))
-	}
-	return nil
 }
 
 // SetConfigurationDefaults set defaults on an configurations.

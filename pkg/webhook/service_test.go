@@ -27,12 +27,16 @@ func TestEmptySpec(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	if e, a := errInvalidRollouts, err; e != a {
-		t.Errorf("Expected %s got %s", e, a)
+	want := &v1alpha1.FieldError{
+		Message: "Expected exactly one, got neither",
+		Paths:   []string{"spec.runLatest", "spec.pinned"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("ValidateService() = %v, wanted %v", got, want)
 	}
 }
 
@@ -55,13 +59,16 @@ func TestRunLatestWithMissingConfiguration(t *testing.T) {
 			RunLatest: &v1alpha1.RunLatestType{},
 		},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-
-	if e, a := errServiceMissingField("spec.runLatest.configuration").Error(), err.Error(); e != a {
-		t.Errorf("Expected %s got %s", e, a)
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.runLatest.configuration"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("ValidateService() = %v, wanted %v", got, want)
 	}
 }
 
@@ -88,12 +95,17 @@ func TestPinnedFailsWithNoRevisionName(t *testing.T) {
 			},
 		},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	if e, a := errServiceMissingField("spec.pinned.revisionName").Error(), err.Error(); e != a {
-		t.Errorf("Expected %s got %s", e, a)
+
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.pinned.revisionName"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("ValidateService() = %v, wanted %v", got, want)
 	}
 }
 
@@ -105,12 +117,17 @@ func TestPinnedFailsWithNoConfiguration(t *testing.T) {
 			},
 		},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	if e, a := errServiceMissingField("spec.pinned.configuration").Error(), err.Error(); e != a {
-		t.Errorf("Expected %s got %s", e, a)
+
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.pinned.configuration"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("ValidateService() = %v, wanted %v", got, want)
 	}
 }
 
