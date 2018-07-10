@@ -325,6 +325,16 @@ func TestFailingSecondRevision(t *testing.T) {
 	}
 }
 
+func TestMarkLatestReadyDeleted(t *testing.T) {
+	r := &Configuration{}
+	r.Status.InitializeConditions()
+	r.Status.MarkLatestReadyDeleted()
+	want := "was deleted"
+	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
+		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", c.Message, want)
+	}
+}
+
 func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, t *testing.T) *ConfigurationCondition {
 	t.Helper()
 	return checkConditionConfiguration(rs, rct, corev1.ConditionTrue, t)
