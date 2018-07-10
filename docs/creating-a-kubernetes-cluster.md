@@ -165,9 +165,13 @@ To use a k8s cluster running in GKE:
            [to setup access to GCR](#minikube-with-gcr).
         1. Deploy the rest of Knative:
            ```bash
+           # Use the minikube docker daemon (among other things)
            eval $(minikube docker-env)
+
+           # Switch the current kubectl context to minikube
            kubectl config use-context minikube
 
+           # Deploy to minikube w/o registry.
            ko apply -L -f config/
            ```
 
@@ -196,20 +200,29 @@ You can instruct `ko` to sideload images into your Docker daemon instead of
 publishing them to a registry via the `-L` (local) flag:
 
 ```shell
+# Use the minikube docker daemon (among other things)
 eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
 kubectl config use-context minikube
 
+# Deploy to minikube w/o registry.
 ko apply -L -f config/
 ```
 
 Alternatively (if you don't like flags), set `KO_DOCKER_REPO` to `ko.local`:
 
 ```shell
+# Use the minikube docker daemon (among other things)
 eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
 kubectl config use-context minikube
 
+# Set KO_DOCKER_REPO to a sentinel value for ko to sideload into the daemon.
 export KO_DOCKER_REPO="ko.local"
 
+# Deploy to minikube w/o registry.
 ko apply -f config/
 ```
 
