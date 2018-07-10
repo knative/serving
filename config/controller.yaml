@@ -42,6 +42,3 @@ spec:
         - name: config-logging
           configMap:
             name: config-logging
-        - name: config-controller
-          configMap:
-            name: config-controller
