@@ -279,6 +279,10 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		buildClient.PrependReactor("*", "*", reactor)
 	}
 
+	// Validate all Create operations through the serving client.
+	client.PrependReactor("create", "*", ValidateCreates)
+	client.PrependReactor("update", "*", ValidateUpdates)
+
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
