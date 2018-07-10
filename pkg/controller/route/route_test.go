@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -148,7 +148,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, pkg.GetServingSystemNamespace()),
+			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -171,7 +171,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
@@ -242,8 +242,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created VirtualService "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created VirtualService "test-route"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
 
 	// An inactive revision
@@ -293,7 +293,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -373,7 +373,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -461,7 +461,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -562,7 +562,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -665,7 +665,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		t.Fatalf("error getting virtualservice: %v", err)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -857,7 +857,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -872,7 +872,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					"newdefault.net":   "",
@@ -889,7 +889,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					"mytestdomain.com": "selector:\n  app: prod",

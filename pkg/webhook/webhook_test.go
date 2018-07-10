@@ -27,7 +27,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
@@ -44,7 +45,7 @@ import (
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: pkg.GetServingSystemNamespace(),
+		ServiceNamespace: system.Namespace,
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
@@ -189,7 +190,7 @@ func TestValidConfigurationEnvChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/generation",
-		Value:     2,
+		Value:     2.0,
 	}})
 }
 
@@ -272,7 +273,7 @@ func TestValidRouteChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/generation",
-		Value:     2,
+		Value:     2.0,
 	}})
 }
 
@@ -294,11 +295,11 @@ func TestValidNewRevisionObject(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
 		Path:      "/spec/generation",
-		Value:     1,
+		Value:     1.0,
 	}, {
 		Operation: "add",
 		Path:      "/spec/servingState",
-		Value:     v1alpha1.RevisionServingStateActive,
+		Value:     "Active",
 	}})
 }
 
@@ -329,7 +330,7 @@ func TestValidRevisionUpdates(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
 		Path:      "/spec/generation",
-		Value:     1,
+		Value:     1.0,
 	}})
 }
 
@@ -356,7 +357,7 @@ func TestInvalidRevisionUpdate(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 
-	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Revision spec should not change")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Immutable fields changed")
 }
 
 func TestInvalidNewRevisionNameFails(t *testing.T) {
@@ -406,7 +407,7 @@ func TestInvalidNewServiceNoSpecs(t *testing.T) {
 	_, ac := newNonRunningTestAdmissionController(t, newDefaultOptions())
 	svc := createServicePinned(0, testServiceName)
 	svc.Spec.Pinned = nil
-	expectFailsWith(t, ac.admit(TestContextWithLogger(t), createCreateService(svc)), "exactly one of runLatest or pinned")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), createCreateService(svc)), "Expected exactly one, got neither: spec.runLatest, spec.pinned")
 }
 
 func TestInvalidNewServiceNoRevisionNameInPinned(t *testing.T) {
@@ -429,7 +430,7 @@ func TestValidServiceEnvChanges(t *testing.T) {
 	expectPatches(t, resp.Patch, []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/generation",
-		Value:     2,
+		Value:     2.0,
 	}})
 }
 
@@ -657,10 +658,10 @@ func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      servingWebhookDeployment,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 	}
-	ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Create(deployment)
+	ac.client.ExtensionsV1beta1().Deployments(system.Namespace).Create(deployment)
 }
 
 func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {
@@ -715,12 +716,14 @@ func createWebhook(ac *AdmissionController, webhook *admissionregistrationv1beta
 }
 
 func expectAllowed(t *testing.T, resp *admissionv1beta1.AdmissionResponse) {
+	t.Helper()
 	if !resp.Allowed {
 		t.Errorf("Expected allowed, but failed with %+v", resp.Result)
 	}
 }
 
 func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, contains string) {
+	t.Helper()
 	if resp.Allowed {
 		t.Errorf("expected denial, got allowed")
 		return
@@ -731,37 +734,17 @@ func expectFailsWith(t *testing.T, resp *admissionv1beta1.AdmissionResponse, con
 }
 
 func expectPatches(t *testing.T, a []byte, e []jsonpatch.JsonPatchOperation) {
-	var actual []jsonpatch.JsonPatchOperation
-	// Keep track of the patches we've found
-	foundExpected := make([]bool, len(e))
-	foundActual := make([]bool, len(e))
+	t.Helper()
+	var got []jsonpatch.JsonPatchOperation
 
-	err := json.Unmarshal(a, &actual)
+	err := json.Unmarshal(a, &got)
 	if err != nil {
 		t.Errorf("failed to unmarshal patches: %s", err)
 		return
 	}
-	if len(actual) != len(e) {
-		t.Errorf("unexpected number of patches %d expected %d\n%+v\n%+v", len(actual), len(e), actual, e)
-	}
-	// Make sure all the expected patches are found
-	for i, expectedPatch := range e {
-		for j, actualPatch := range actual {
-			if actualPatch.Json() == expectedPatch.Json() {
-				foundExpected[i] = true
-				foundActual[j] = true
-			}
-		}
-	}
-	for i, f := range foundExpected {
-		if !f {
-			t.Errorf("did not find %+v in actual patches: %q", e[i], actual)
-		}
-	}
-	for i, f := range foundActual {
-		if !f {
-			t.Errorf("Extra patch found %+v in expected patches: %q", a[i], e)
-		}
+
+	if diff := cmp.Diff(e, got, cmpopts.EquateEmpty()); diff != "" {
+		t.Errorf("expectPatches (-want, +got) = %v", diff)
 	}
 }
 
@@ -852,10 +835,10 @@ func createServiceRunLatest(generation int64, serviceName string) v1alpha1.Servi
 	}
 }
 
-func incrementGenerationPatch(old int64) jsonpatch.JsonPatchOperation {
+func incrementGenerationPatch(old float64) jsonpatch.JsonPatchOperation {
 	return jsonpatch.JsonPatchOperation{
 		Operation: "add",
 		Path:      "/spec/generation",
-		Value:     old + 1,
+		Value:     old + 1.0,
 	}
 }

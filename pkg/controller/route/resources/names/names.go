@@ -17,21 +17,21 @@ limitations under the License.
 package names
 
 import (
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/system"
 )
 
 var K8sGatewayFullname = controller.GetK8sServiceFullname(
 	"knative-shared-gateway",
-	pkg.GetServingSystemNamespace())
+	system.Namespace)
 
 func K8sService(route *v1alpha1.Route) string {
-	return route.Name + "-service"
+	return route.Name
 }
 
 func VirtualService(route *v1alpha1.Route) string {
-	return route.Name + "-istio"
+	return route.Name
 }
 
 func K8sServiceFullname(route *v1alpha1.Route) string {

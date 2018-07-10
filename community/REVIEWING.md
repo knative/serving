@@ -116,7 +116,7 @@ Google group, you can see the test logs by following these instructions:
 
 1. Wait for prow to finish the test execution. Note down the PR number.
 
-2. Open the URL http://gcsweb.k8s.io/gcs/ela-prow/pr-logs/pull/knative_serving/###/pull-knative-serving-@@@-tests/
+2. Open the URL http://gcsweb.k8s.io/gcs/knative-prow/pr-logs/pull/knative_serving/###/pull-knative-serving-@@@-tests/
 where ### is the PR number and @@@ the test type (_build_, _unit_ or _integration_).
 
 3. You'll see one or more numbered directories, the highest number is the latest
