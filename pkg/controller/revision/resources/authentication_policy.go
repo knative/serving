@@ -35,7 +35,8 @@ func MakeAuthenticationPolicy(rev *v1alpha1.Revision) *authv1alpha1.Policy {
                 Spec: authv1alpha1.PolicySpec{
                         Targets: []authv1alpha1.TargetSelector{
                                 authv1alpha1.TargetSelector{
-                                        Name: names.K8sServiceFullName(rev),
+                                        // this should be full name?
+                                        Name: names.K8sService(rev),
                                 },
                         },
                         Peers: []authv1alpha1.PeerAuthenticationMethod{

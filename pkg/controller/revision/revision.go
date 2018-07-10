@@ -731,6 +731,7 @@ func (c *Controller) reconcileAuthenticationPolicy(ctx context.Context, rev *v1a
 	switch rev.Spec.ServingState {
 		case v1alpha1.RevisionServingStateActive:
 			// When Active, the Service should exist and have a particular specification.
+			
 			if apierrs.IsNotFound(err) {
 				rev.Status.MarkDeploying("Deploying")
 				authenticationPolicy, err = c.createAuthenticationPolicy(rev)
