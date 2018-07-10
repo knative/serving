@@ -35,7 +35,7 @@ To run all unit tests:
 go test ./...
 ```
 
-_By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
+_By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which needs [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
 
 ## Running end to end tests
