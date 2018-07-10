@@ -130,9 +130,6 @@ if (( TAG_RELEASE )); then
 fi
 readonly TAG
 
-# If this is a prow job, authenticate against GCR.
-(( IS_PROW )) && gcr_auth
-
 if (( ! DONT_PUBLISH )); then
   echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
   echo "- Destination GCS: ${SERVING_RELEASE_GCS}"

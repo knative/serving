@@ -278,9 +278,6 @@ if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Knative Serving instance"
   delete_everything
 fi
-if (( IS_PROW )); then
-  gcr_auth
-fi
 
 create_everything
 

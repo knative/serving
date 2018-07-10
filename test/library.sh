@@ -34,12 +34,6 @@ readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
 readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
 readonly OG_KO_DOCKER_REPO="${KO_DOCKER_REPO}"
 
-# Returns a UUID
-function uuid() {
-  # uuidgen is not available in kubekins images
-  cat /proc/sys/kernel/random/uuid
-}
-
 # Simple header for logging purposes.
 function header() {
   echo "================================================="
@@ -137,13 +131,6 @@ function acquire_cluster_admin_role() {
       create clusterrolebinding cluster-admin-binding \
       --clusterrole=cluster-admin \
       --user=$1
-}
-
-# Authenticates the current user to GCR in the current project.
-function gcr_auth() {
-  echo "Authenticating to GCR"
-  docker-credential-gcr configure-docker
-  echo "Successfully authenticated"
 }
 
 # Runs a go test and generate a junit summary through bazel.
