@@ -78,6 +78,26 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/no-revisions-yet",
 	}, {
+		Name: "webhook validation failure",
+		// If we attempt to create a Revision with a bad ConcurrencyModel set, we fail.
+		WantErr: true,
+		Objects: []runtime.Object{
+			setConcurrencyModel(cfg("validation-failure", "foo", 1234), "Bogus"),
+		},
+		WantCreates: []metav1.Object{
+			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234), noBuildName), "Bogus"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				}), "Bogus"),
+		}},
+		Key: "foo/validation-failure",
+	}, {
 		Name: "create revision matching generation with build",
 		Objects: []runtime.Object{
 			cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
@@ -317,6 +337,16 @@ func cfgWithBuild(name, namespace string, generation int64, build *buildv1alpha1
 
 func cfg(name, namespace string, generation int64) *v1alpha1.Configuration {
 	return cfgWithStatus(name, namespace, generation, v1alpha1.ConfigurationStatus{})
+}
+
+func setConcurrencyModel(cfg *v1alpha1.Configuration, ss v1alpha1.RevisionRequestConcurrencyModelType) *v1alpha1.Configuration {
+	cfg.Spec.RevisionTemplate.Spec.ConcurrencyModel = ss
+	return cfg
+}
+
+func setRevConcurrencyModel(rev *v1alpha1.Revision, ss v1alpha1.RevisionRequestConcurrencyModelType) *v1alpha1.Revision {
+	rev.Spec.ConcurrencyModel = ss
+	return rev
 }
 
 func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {

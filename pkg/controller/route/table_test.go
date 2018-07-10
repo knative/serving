@@ -1496,6 +1496,16 @@ func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 			Namespace: namespace,
 			Name:      name,
 		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: 1,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: corev1.Container{
+						Image: "busybox",
+					},
+				},
+			},
+		},
 	}
 	cfg.Status.InitializeConditions()
 	cfg.Status.SetLatestCreatedRevisionName(name + "-00001")
