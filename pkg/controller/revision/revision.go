@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -680,7 +680,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		return nil
 	}
 
-	ns := pkg.GetServingSystemNamespace()
+	ns := system.Namespace
 	serviceName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
@@ -745,7 +745,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 		return nil
 	}
 
-	ns := pkg.GetServingSystemNamespace()
+	ns := system.Namespace
 	deploymentName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 

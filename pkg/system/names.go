@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pkg
+package system
 
-// GetServingSystemNamespace returns the namespace where
-// serving controllers are deployed to.
-func GetServingSystemNamespace() string {
-	return "knative-serving"
-}
+const (
+	// Namespace holds the K8s namespace where our serving system
+	// components run.
+	Namespace = "knative-serving"
+)

@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/system"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -102,7 +102,7 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.Autoscaler(rev),
-			Namespace:       pkg.GetServingSystemNamespace(),
+			Namespace:       system.Namespace,
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
@@ -155,7 +155,7 @@ func MakeAutoscalerService(rev *v1alpha1.Revision) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.Autoscaler(rev),
-			Namespace:       pkg.GetServingSystemNamespace(),
+			Namespace:       system.Namespace,
 			Labels:          makeAutoScalerLabels(rev),
 			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},

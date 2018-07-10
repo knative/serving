@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,7 +30,7 @@ import (
 func TestNewObservabilityNoEntry(t *testing.T) {
 	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ObservabilityConfigName,
 		},
 	})
@@ -48,7 +48,7 @@ func TestNewObservabilityNoEntry(t *testing.T) {
 func TestNewObservabilityNoSidecar(t *testing.T) {
 	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -66,7 +66,7 @@ func TestNewObservability(t *testing.T) {
 	wantLUT := "https://logging.io"
 	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ObservabilityConfigName,
 		},
 		Data: map[string]string{

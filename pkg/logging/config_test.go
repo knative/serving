@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,7 +91,7 @@ func TestNewLogger(t *testing.T) {
 func TestNewConfigNoEntry(t *testing.T) {
 	c := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      "config-logging",
 		},
 	})
@@ -108,7 +108,7 @@ func TestNewConfig(t *testing.T) {
 	wantLevel := "info"
 	c := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      "config-logging",
 		},
 		Data: map[string]string{

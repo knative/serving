@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -148,7 +148,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, pkg.GetServingSystemNamespace()),
+			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -171,7 +171,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
@@ -853,7 +853,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -868,7 +868,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					"newdefault.net":   "",
@@ -885,7 +885,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					"mytestdomain.com": "selector:\n  app: prod",
