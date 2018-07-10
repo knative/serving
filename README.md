@@ -39,7 +39,7 @@ We expect this list to grow as more areas are identified.
 
 You can choose to install individual Knative components following the
 instructions in each repo, or install a pre-built suite of components
-by following the instructions at https://github.com/knative/install.
+by following the instructions at https://github.com/knative/docs/tree/master/install.
 
 
 # Who is Knative for?
