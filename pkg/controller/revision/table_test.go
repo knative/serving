@@ -18,6 +18,7 @@ package revision
 
 import (
 	"testing"
+	"time"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -61,11 +62,11 @@ func TestReconcile(t *testing.T) {
 			loggingConfig, networkConfig, observabilityConfig,
 			autoscalerConfig, controllerConfig)
 	}
-	// endpoints := func(namespace, name, servingState, image string) *corev1.Endpoints {
-	// 	return getEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-	// 		loggingConfig, networkConfig, observabilityConfig,
-	// 		autoscalerConfig, controllerConfig)
-	// }
+	endpoints := func(namespace, name, servingState, image string) *corev1.Endpoints {
+		return getEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
 	deployAS := func(namespace, name, servingState, image string) *appsv1.Deployment {
 		return getASDeploy(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
 			loggingConfig, networkConfig, observabilityConfig,
@@ -76,11 +77,11 @@ func TestReconcile(t *testing.T) {
 			loggingConfig, networkConfig, observabilityConfig,
 			autoscalerConfig, controllerConfig)
 	}
-	// endpointsAS := func(namespace, name, servingState, image string) *corev1.Endpoints {
-	// 	return getASEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
-	// 		loggingConfig, networkConfig, observabilityConfig,
-	// 		autoscalerConfig, controllerConfig)
-	// }
+	endpointsAS := func(namespace, name, servingState, image string) *corev1.Endpoints {
+		return getASEndpoints(namespace, name, v1alpha1.RevisionServingStateType(servingState), image,
+			loggingConfig, networkConfig, observabilityConfig,
+			autoscalerConfig, controllerConfig)
+	}
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -381,16 +382,13 @@ func TestReconcile(t *testing.T) {
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}},
 				}),
 			// The Deployments match what we'd expect of an Active revision.
@@ -399,6 +397,9 @@ func TestReconcile(t *testing.T) {
 			// The Services match what we'd expect of an Active revision.
 			svc("foo", "deactivate", "Active", "busybox"),
 			svcAS("foo", "deactivate", "Active", "busybox"),
+			// The Endpoints match what we'd expect of an Active revision.
+			endpoints("foo", "deactivate", "Active", "busybox"),
+			endpointsAS("foo", "deactivate", "Active", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: makeStatus(
@@ -409,16 +410,13 @@ func TestReconcile(t *testing.T) {
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:    "Reserve",
 						Status:  "True",
@@ -433,49 +431,59 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		Key: "foo/deactivate",
-		// }, {
-		// TODO: FIXME
-		// 	Name: "failure updating user deployment",
-		// 	// Induce a failure updating the user deployment
-		// 	WantErr: true,
-		// 	WithReactors: []clientgotesting.ReactionFunc{
-		// 		InduceFailure("update", "deployments"),
-		// 	},
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			// The revision has been set to Deactivated, but all of the objects
-		// 			// reflect being Active.
-		// 			rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 		// The Deployments match what we'd expect of an Active revision.
-		// 		deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
-		// 		deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
-		// 		// The Services match what we'd expect of an Active revision.
-		// 		svc("foo", "update-user-deploy-failure", "Active", "busybox"),
-		// 		svcAS("foo", "update-user-deploy-failure", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
-		// 		// We don't get to updating the autoscaler deployment or deleting services.
-		// 	}},
-		// 	// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
-		// 	Key: "foo/update-user-deploy-failure",
+	}, {
+		Name: "failure updating user deployment",
+		// Induce a failure updating the user deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "deployments"),
+		},
+		Objects: []runtime.Object{
+			makeStatus(
+				// The revision has been set to Deactivated, but all of the objects
+				// reflect being Active.
+				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:               "Reserve",
+						Status:             "True",
+						Reason:             "Reserve",
+						Message:            "Revision has been placed into Reserve state.",
+						LastTransitionTime: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					}},
+				}),
+			// The Deployments match what we'd expect of an Active revision.
+			deploy("foo", "update-user-deploy-failure", "Active", "busybox"),
+			deployAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+			// The Services match what we'd expect of an Active revision.
+			svc("foo", "update-user-deploy-failure", "Active", "busybox"),
+			svcAS("foo", "update-user-deploy-failure", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: deploy("foo", "update-user-deploy-failure", "Reserve", "busybox"),
+			// We won't get around to updating the autoscaler Deployment.
+		}},
+		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
+		Key: "foo/update-user-deploy-failure",
 		// }, {
 		// 	Name: "failure updating autoscaler deployment",
 		// 	// Induce a failure updating the autoscaler deployment
