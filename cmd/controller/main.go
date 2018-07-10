@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/knative/serving/pkg/configmap"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
-
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
@@ -43,7 +41,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller/configuration"
 	"github.com/knative/serving/pkg/controller/revision"
-	revisionconfig "github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/route"
 	"github.com/knative/serving/pkg/controller/service"
 	"github.com/knative/serving/pkg/signals"
@@ -54,11 +51,8 @@ const (
 )
 
 var (
-	masterURL                      string
-	kubeconfig                     string
-	queueSidecarImage              string
-	autoscalerImage                string
-	registriesSkippingTagResolving string
+	masterURL  string
+	kubeconfig string
 )
 
 func main() {
@@ -70,16 +64,6 @@ func main() {
 	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
 	defer logger.Sync()
 
-	if len(queueSidecarImage) != 0 {
-		logger.Infof("Using queue sidecar image: %s", queueSidecarImage)
-	} else {
-		logger.Fatal("missing required flag: -queueSidecarImage")
-	}
-
-	if len(autoscalerImage) != 0 {
-		logger.Infof("Using autoscaler image: %s", autoscalerImage)
-		logger.Info("Single-tenant autoscaler deployments enabled.")
-	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
@@ -113,12 +97,6 @@ func main() {
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
 		time.Minute*5, system.Namespace, nil)
 	vpaInformerFactory := vpainformers.NewSharedInformerFactory(vpaClient, time.Second*30)
-
-	revControllerConfig := revisionconfig.Controller{
-		AutoscalerImage:                autoscalerImage,
-		QueueSidecarImage:              queueSidecarImage,
-		RegistriesSkippingTagResolving: toStringSet(registriesSkippingTagResolving, ","),
-	}
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
 
@@ -160,7 +138,6 @@ func main() {
 			endpointsInformer,
 			configMapInformer,
 			vpaInformer,
-			&revControllerConfig,
 		),
 		route.NewController(
 			opt,
@@ -224,17 +201,4 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&queueSidecarImage, "queueSidecarImage", "", "The digest of the queue sidecar image.")
-	flag.StringVar(&autoscalerImage, "autoscalerImage", "", "The digest of the autoscaler image.")
-	flag.StringVar(&registriesSkippingTagResolving, "registriesSkippingTagResolving", "", "Repositories for which tag to digest resolving should be skipped")
-}
-
-func toStringSet(arg, delimiter string) map[string]struct{} {
-	keys := strings.Split(arg, delimiter)
-
-	set := make(map[string]struct{}, len(keys))
-	for _, key := range keys {
-		set[key] = struct{}{}
-	}
-	return set
 }

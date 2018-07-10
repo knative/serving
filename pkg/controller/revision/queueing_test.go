@@ -112,9 +112,21 @@ func getTestRevision() *v1alpha1.Revision {
 }
 
 func getTestControllerConfig() *config.Controller {
-	return &config.Controller{
-		QueueSidecarImage: testQueueImage,
-		AutoscalerImage:   testAutoscalerImage,
+	c, _ := config.NewControllerConfigFromConfigMap(getTestControllerConfigMap())
+	// ignoring error as test controller is generated
+	return c
+}
+
+func getTestControllerConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.ControllerConfigName,
+			Namespace: system.Namespace,
+		},
+		Data: map[string]string{
+			"queueSidecarImage": testQueueImage,
+			"autoscalerImage":   testAutoscalerImage,
+		},
 	}
 }
 
@@ -129,8 +141,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
-
-	controllerConfig := getTestControllerConfig()
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
@@ -176,7 +186,8 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
 		},
-	})
+	}, getTestControllerConfigMap(),
+	)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -200,7 +211,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		kubeInformer.Core().V1().Endpoints(),
 		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-		controllerConfig,
 	)
 
 	controller.resolver = &nopResolver{}
