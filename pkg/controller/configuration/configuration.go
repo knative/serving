@@ -144,6 +144,13 @@ func (c *Controller) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		if err != nil {
 			logger.Errorf("Failed to create Revision %q: %v", revName, err)
 			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision %q: %v", revName, err)
+
+			// Mark the Configuration as not-Ready since creating
+			// its latest revision failed.
+			// NB: The latest attempted-created revision was not
+			// created, so any name would be invalid.
+			config.Status.MarkLatestCreatedFailed("", err.Error())
+
 			return err
 		}
 	} else if err != nil {
