@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 	yaml "gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +31,7 @@ import (
 func TestNewControllerConfigwithoutQueueSideCarImage(t *testing.T) {
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ControllerConfigName,
 		},
 	})
@@ -45,7 +45,7 @@ func TestNewControllerConfigWithoutAutoscalerImage(t *testing.T) {
 	var want = "some-image"
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      NetworkConfigName,
 		},
 		Data: map[string]string{
@@ -67,7 +67,7 @@ func TestNewControllerConfigWithAutoscalerImage(t *testing.T) {
 
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ControllerConfigName,
 		},
 		Data: map[string]string{
@@ -93,7 +93,7 @@ func TestNewControllerConfigwWithRegisteries(t *testing.T) {
 
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ControllerConfigName,
 		},
 		Data: map[string]string{
@@ -119,7 +119,7 @@ func TestNewControllerConfigwWithBadRegisteries(t *testing.T) {
 
 	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      ControllerConfigName,
 		},
 		Data: map[string]string{

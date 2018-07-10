@@ -121,7 +121,7 @@ func getTestControllerConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.ControllerConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			"queueSidecarImage": testQueueImage,

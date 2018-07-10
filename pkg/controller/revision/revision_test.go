@@ -601,7 +601,7 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "config-controller",
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 			},
 			Data: map[string]string{
 				"queueSidecarImage": testQueueImage,
@@ -637,14 +637,14 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "config-controller",
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 			},
 			Data: map[string]string{},
 		})
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	// Look for the revision deployment.
-	_, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(rev.Name, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(rev.Name, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
