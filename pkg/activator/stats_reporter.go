@@ -59,7 +59,7 @@ var (
 type StatsReporter interface {
 	ReportRequest(ns, config, rev, servingState string, v float64) error
 	ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error
-	ReportResponseTime(ns, config, rev string, d time.Duration) error
+	ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
@@ -127,7 +127,7 @@ func NewStatsReporter() (*Reporter, error) {
 			Description: "The response time in millisecond",
 			Measure:     measurements[ResponseTimeInMsecM],
 			Aggregation: view.Distribution(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey},
 		},
 	)
 	if err != nil {
@@ -198,7 +198,7 @@ func (r *Reporter) ReportResponseCount(ns, config, rev string, responseCode, num
 	return nil
 }
 
-func (r *Reporter) ReportResponseTime(ns, config, rev string, d time.Duration) error {
+func (r *Reporter) ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -207,7 +207,8 @@ func (r *Reporter) ReportResponseTime(ns, config, rev string, d time.Duration) e
 		context.Background(),
 		tag.Insert(r.namespaceTagKey, ns),
 		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev))
+		tag.Insert(r.revisionTagKey, rev),
+		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)))
 	if err != nil {
 		return err
 	}

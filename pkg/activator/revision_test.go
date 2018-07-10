@@ -40,7 +40,15 @@ const (
 
 type mockReporter struct{}
 
-func (r *mockReporter) Report(ns string, config string, rev string, m Measurement, v float64) error {
+func (r *mockReporter) ReportRequest(ns, config, rev, servingState string, v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error {
 	return nil
 }
 
@@ -248,6 +256,11 @@ func newRevisionBuilder() *revisionBuilder {
 
 func (b *revisionBuilder) build() *v1alpha1.Revision {
 	return b.revision
+}
+
+func (b *revisionBuilder) withRevisionName(name string) *revisionBuilder {
+	b.revision.ObjectMeta.Name = name
+	return b
 }
 
 func (b *revisionBuilder) withServingState(servingState v1alpha1.RevisionServingStateType) *revisionBuilder {

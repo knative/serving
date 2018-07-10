@@ -15,61 +15,126 @@ package activator
 
 import (
 	"testing"
+	"time"
 
 	"go.opencensus.io/stats/view"
 )
 
-// var expectedType = map[string]struct{}{
-// 	"LastValueData": view.LastValueData,
-// 	"CountData":     view.CountData,
-// }
-
-func TestActivatorReporter_Report(t *testing.T) {
+func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.Report("testNs", "testConfig", "testRev", RequestCountReserveM, 1); err == nil {
-		t.Error("Reporter.Report() expected an error for Report call before init. Got success.")
+	if err := r.ReportRequest("testns", "testconfig", "testrev", "Reserved", 1); err == nil {
+		t.Error("Reporter expected an error for Report call before init. Got success.")
+	}
+	if err := r.ReportResponseCount("testns", "testconfig", "testrev", 200, 1, 1); err == nil {
+		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 
-	r, _ = NewStatsReporter()
-	wantTags := map[string]string{
-		"configuration_namespace": "testns",
-		"configuration":           "testconfig",
-		"revision":                "testrev",
+	var err error
+	if r, err = NewStatsReporter(); err != nil {
+		t.Error("Failed to create a new reporter.")
 	}
-	expectSuccess(t, func() error { return r.Report("testns", "testconfig", "testrev", RequestCountReserveM, 1) })
-	expectSuccess(t, func() error { return r.Report("testns", "testconfig", "testrev", RequestCountReserveM, 1) })
-	checkData(t, "request_count_reserve", wantTags, 2)
+
+	// test ReportRequest
+	wantTags1 := map[string]string{
+		"destination_namespace":     "testns",
+		"destination_configuration": "testconfig",
+		"destination_revision":      "testrev",
+		"serving_state":             "Reserved",
+	}
+	expectSuccess(t, func() error { return r.ReportRequest("testns", "testconfig", "testrev", "Reserved", 1) })
+	expectSuccess(t, func() error { return r.ReportRequest("testns", "testconfig", "testrev", "Reserved", 2.0) })
+	checkSumData(t, "revision_request_count", wantTags1, 3)
+
+	// test ReportResponseCount
+	wantTags2 := map[string]string{
+		"destination_namespace":     "testns",
+		"destination_configuration": "testconfig",
+		"destination_revision":      "testrev",
+		"response_code":             "200",
+		"num_tries":                 "6",
+	}
+	expectSuccess(t, func() error { return r.ReportResponseCount("testns", "testconfig", "testrev", 200, 6, 1) })
+	expectSuccess(t, func() error { return r.ReportResponseCount("testns", "testconfig", "testrev", 200, 6, 3) })
+	checkSumData(t, "revision_response_count", wantTags2, 4)
+
+	// test ReportResponseTime
+	wantTags3 := map[string]string{
+		"destination_namespace":     "testns",
+		"destination_configuration": "testconfig",
+		"destination_revision":      "testrev",
+		"response_code":             "200",
+	}
+	expectSuccess(t, func() error {
+		return r.ReportResponseTime("testns", "testconfig", "testrev", 200, 1100*time.Millisecond)
+	})
+	expectSuccess(t, func() error {
+		return r.ReportResponseTime("testns", "testconfig", "testrev", 200, 9100*time.Millisecond)
+	})
+	checkDistributionData(t, "response_time_msec", wantTags3, 2, 1100, 9100)
 }
 
 func expectSuccess(t *testing.T, f func() error) {
 	if err := f(); err != nil {
-		t.Errorf("Reporter.Report() expected success but got error %v", err)
+		t.Errorf("Reporter expected success but got error %v", err)
 	}
 }
 
-func checkData(t *testing.T, name string, wantTags map[string]string, wantValue int) {
+func checkSumData(t *testing.T, name string, wantTags map[string]string, wantValue int) {
 	if d, err := view.RetrieveData(name); err != nil {
-		t.Errorf("Reporter.Report() error = %v, wantErr %v", err, false)
+		t.Errorf("Reporter error = %v, wantErr %v", err, false)
 	} else {
 		if len(d) != 1 {
-			t.Errorf("Reporter.Report() len(d) %v, want %v", len(d), 1)
+			t.Errorf("Reporter len(d) %v, want %v", len(d), 1)
 		}
 		for _, got := range d[0].Tags {
 			if want, ok := wantTags[got.Key.Name()]; !ok {
-				t.Errorf("Reporter.Report() got an extra tag %v: %v", got.Key.Name(), got.Value)
+				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
 			} else {
 				if got.Value != want {
-					t.Errorf("Reporter.Report() expected a different tag value. key:%v, got: %v, want: %v", got.Key.Name(), got.Value, want)
+					t.Errorf("Reporter expected a different tag value. key:%v, got: %v, want: %v", got.Key.Name(), got.Value, want)
 				}
 			}
 		}
 
-		if s, ok := d[0].Data.(*view.CountData); !ok {
-			t.Error("Reporter.Report() expected a CountData type")
+		if s, ok := d[0].Data.(*view.SumData); !ok {
+			t.Error("Reporter expected a SumData type")
 		} else {
-			if s.Value != (int64)(wantValue) {
-				t.Errorf("Reporter.Report() expected %v got %v. metric: %v", (int64)(wantValue), s.Value, name)
+			if s.Value != (float64)(wantValue) {
+				t.Errorf("Reporter expected %v got %v. metric: %v", (int64)(wantValue), s.Value, name)
+			}
+		}
+	}
+}
+
+func checkDistributionData(t *testing.T, name string, wantTags map[string]string, expectedCount int, expectedMin float64, expectedMax float64) {
+	if d, err := view.RetrieveData(name); err != nil {
+		t.Errorf("Reporter error = %v, wantErr %v", err, false)
+	} else {
+		if len(d) != 1 {
+			t.Errorf("Reporter len(d) %v, want %v", len(d), 1)
+		}
+		for _, got := range d[0].Tags {
+			if want, ok := wantTags[got.Key.Name()]; !ok {
+				t.Errorf("Reporter got an extra tag %v: %v", got.Key.Name(), got.Value)
+			} else {
+				if got.Value != want {
+					t.Errorf("Reporter expected a different tag value. key:%v, got: %v, want: %v", got.Key.Name(), got.Value, want)
+				}
+			}
+		}
+
+		if s, ok := d[0].Data.(*view.DistributionData); !ok {
+			t.Error("Reporter expected a DistributionData type")
+		} else {
+			if s.Count != int64(expectedCount) {
+				t.Errorf("Reporter expected count %v got %v. metric: %v", (int64)(expectedCount), s.Count, name)
+			}
+			if s.Min != float64(expectedMin) {
+				t.Errorf("Reporter expected min %v got %v. metric: %v", expectedMin, s.Min, name)
+			}
+			if s.Max != float64(expectedMax) {
+				t.Errorf("Reporter expected max %v got %v. metric: %v", expectedMax, s.Max, name)
 			}
 		}
 	}

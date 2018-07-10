@@ -99,20 +99,31 @@ func (a *dedupingActivator) dedupe(id revisionID, ch chan activationResult) {
 
 func (a *dedupingActivator) activate(id revisionID) {
 	logger := loggerWithRevisionInfo(a.logger, id.namespace, id.name)
+	revisionClient := a.knaClient.ServingV1alpha1().Revisions(id.namespace)
+	revision, err := revisionClient.Get(id.name, metav1.GetOptions{})
+	// default serving state is unknown
+	state := "Unknown"
+	if err != nil {
+		logger.Errorf("Failed to get revision %s for namespace: %s", id.name, id.namespace)
+	}
+	state = string(revision.Spec.ServingState)
+
+	// if reqs, ok := a.pendingRequests[id]; ok {
+	// 	if err := a.reportRequests(id, len(reqs)); err != nil {
+	// 		logger.Errorf("Failed to report request count metrics for revision %s for namespace %s", id.name, id.namespace)
+	// 	}
+	// }
+	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.configuration, id.name)
 	a.mux.Lock()
 	defer a.mux.Unlock()
-	if reqs, ok := a.pendingRequests[id]; ok {
-		if err := a.reportRequests(id, len(reqs)); err != nil {
-			logger.Errorf("Failed to report request count metrics for revision %s for namespace %s", id.name, id.namespace)
-		}
-	}
-	endpoint, status, err := a.activator.ActiveEndpoint(id.namespace, id.configuration, id.name)
 	result := activationResult{
 		endpoint: endpoint,
 		status:   status,
 		err:      err,
 	}
 	if reqs, ok := a.pendingRequests[id]; ok {
+		a.reporter.ReportRequest(id.namespace, id.configuration, id.name, state, float64(len(reqs)))
+		logger.Infof("Wrote request_count metric for revision %s for namespace %s with value %d", id.name, id.namespace, len(reqs))
 		delete(a.pendingRequests, id)
 		for _, ch := range reqs {
 			ch <- result
@@ -120,14 +131,14 @@ func (a *dedupingActivator) activate(id revisionID) {
 	}
 }
 
-func (a *dedupingActivator) reportRequests(id revisionID, count int) error {
-	logger := loggerWithRevisionInfo(a.logger, id.namespace, id.name)
-	revisionClient := a.knaClient.ServingV1alpha1().Revisions(id.namespace)
-	revision, err := revisionClient.Get(id.name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("Unable to get revision %s for namespace: %s", id.name, id.namespace)
-	}
-	a.reporter.ReportRequest(id.namespace, id.configuration, id.name, string(revision.Spec.ServingState), float64(count))
-	logger.Infof("Wrote request_count metric for revision %s for namespace %s with value %d", id.name, id.namespace, count)
-	return nil
-}
+// func (a *dedupingActivator) reportRequests(id revisionID, count int) error {
+// 	logger := loggerWithRevisionInfo(a.logger, id.namespace, id.name)
+// 	revisionClient := a.knaClient.ServingV1alpha1().Revisions(id.namespace)
+// 	revision, err := revisionClient.Get(id.name, metav1.GetOptions{})
+// 	if err != nil {
+// 		return fmt.Errorf("Unable to get revision %s for namespace: %s", id.name, id.namespace)
+// 	}
+// 	a.reporter.ReportRequest(id.namespace, id.configuration, id.name, string(revision.Spec.ServingState), float64(count))
+// 	logger.Infof("Wrote request_count metric for revision %s for namespace %s with value %d", id.name, id.namespace, count)
+// 	return nil
+// }

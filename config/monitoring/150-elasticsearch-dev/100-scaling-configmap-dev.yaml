@@ -581,7 +581,7 @@ data:
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
-                           "legendFormat":"Stable Concurrency",
+                           "legendFormat":"60 Second Average Concurrency",
                            "refId":"A"
                         },
                         {  
@@ -589,14 +589,14 @@ data:
                            "format":"time_series",
                            "interval":"1s",
                            "intervalFactor":1,
-                           "legendFormat":"Panic Concurrency",
+                           "legendFormat":"6 Second Average Panic Concurrency",
                            "refId":"B"
                         },
                         {  
                            "expr":"sum(autoscaler_target_concurrency_per_pod{configuration_namespace=\"$namespace\", configuration=\"$configuration\", revision=\"$revision\"})",
                            "format":"time_series",
                            "intervalFactor":1,
-                           "legendFormat":"Target Concurrency Per Pod",
+                           "legendFormat":"60 Second Target Concurrency",
                            "refId":"C"
                         }
                      ],

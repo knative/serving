@@ -57,6 +57,7 @@ type activationHandler struct {
 type retryRoundTripper struct {
 	logger   *zap.SugaredLogger
 	reporter activator.StatsReporter
+	start    time.Time
 }
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -116,6 +117,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		name := r.Header.Get(controller.GetRevisionHeaderName())
 		config := r.Header.Get(controller.GetConfigurationHeader())
 		rrt.reporter.ReportResponseCount(namespace, config, name, resp.StatusCode, i, 1.0)
+		rrt.reporter.ReportResponseTime(namespace, config, name, resp.StatusCode, time.Now().Sub(rrt.start))
 	}
 	return resp, nil
 }
@@ -128,7 +130,8 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 	if r.ContentLength > maxUploadBytes {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
-		a.reporter.ReportResponseTime(namespace, config, name, time.Now().Sub(start))
+		a.reporter.ReportResponseCount(namespace, config, name, http.StatusRequestEntityTooLarge, 1, 1.0)
+		a.reporter.ReportResponseTime(namespace, config, name, http.StatusRequestEntityTooLarge, time.Now().Sub(start))
 		return
 	}
 
@@ -138,7 +141,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, int(status))
 		a.logger.Errorf(msg)
 		a.reporter.ReportResponseCount(namespace, config, name, int(status), 1, 1.0)
-		a.reporter.ReportResponseTime(namespace, config, name, time.Now().Sub(start))
+		a.reporter.ReportResponseTime(namespace, config, name, int(status), time.Now().Sub(start))
 		return
 	}
 	target := &url.URL{
@@ -149,6 +152,7 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	proxy.Transport = retryRoundTripper{
 		logger:   a.logger,
 		reporter: a.reporter,
+		start:    start,
 	}
 
 	// TODO: Clear the host to avoid 404's.
@@ -156,7 +160,6 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 	r.Host = ""
 
 	proxy.ServeHTTP(w, r)
-	a.reporter.ReportResponseTime(namespace, config, name, time.Now().Sub(start))
 }
 
 func main() {
