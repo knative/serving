@@ -22,7 +22,6 @@ import (
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -32,6 +31,7 @@ import (
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,9 +112,21 @@ func getTestRevision() *v1alpha1.Revision {
 }
 
 func getTestControllerConfig() *config.Controller {
-	return &config.Controller{
-		QueueSidecarImage: testQueueImage,
-		AutoscalerImage:   testAutoscalerImage,
+	c, _ := config.NewControllerConfigFromConfigMap(getTestControllerConfigMap())
+	// ignoring error as test controller is generated
+	return c
+}
+
+func getTestControllerConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.ControllerConfigName,
+			Namespace: system.Namespace,
+		},
+		Data: map[string]string{
+			"queueSidecarImage": testQueueImage,
+			"autoscalerImage":   testAutoscalerImage,
+		},
 	}
 }
 
@@ -130,8 +142,6 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	configMapWatcher configmap.Watcher,
 	vpaInformer vpainformers.SharedInformerFactory) {
 
-	controllerConfig := getTestControllerConfig()
-
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
 	buildClient = fakebuildclientset.NewSimpleClientset()
@@ -140,12 +150,12 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 
 	configMapWatcher = configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -154,7 +164,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -164,7 +174,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -176,7 +186,8 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
 		},
-	})
+	}, getTestControllerConfigMap(),
+	)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -198,8 +209,8 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-		controllerConfig,
 	)
 
 	controller.resolver = &nopResolver{}

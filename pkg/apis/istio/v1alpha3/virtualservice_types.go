@@ -180,7 +180,7 @@ type HTTPRoute struct {
 	// Retry policy for HTTP requests.
 	Retries *HTTPRetry `json:"retries,omitempty"`
 
-	//Fault injection policy to apply on HTTP traffic.
+	// Fault injection policy to apply on HTTP traffic.
 	Fault *HTTPFaultInjection `json:"fault,omitempty"`
 
 	// Mirror HTTP traffic to a another destination in addition to forwarding

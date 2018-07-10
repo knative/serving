@@ -19,8 +19,8 @@ package main
 import (
 	"testing"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ func TestReceiveLoggingConfigMap(t *testing.T) {
 	receiveFunc := receiveLoggingConfig(logger, atomicLevel)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      "config-logging",
 		},
 		Data: map[string]string{

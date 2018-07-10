@@ -49,6 +49,10 @@ type Route struct {
 	Status RouteStatus `json:"status,omitempty"`
 }
 
+// Check that Route may be validated and defaulted.
+var _ Validatable = (*Route)(nil)
+var _ Defaultable = (*Route)(nil)
+
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this

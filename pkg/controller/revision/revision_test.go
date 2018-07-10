@@ -28,11 +28,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	. "github.com/knative/serving/pkg/logging/testing"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
@@ -45,6 +45,7 @@ import (
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,12 +135,12 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	var cms []*corev1.ConfigMap
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -148,7 +149,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -158,7 +159,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -170,7 +171,9 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
 		},
-	})
+	},
+		getTestControllerConfigMap(),
+	)
 	for _, cm := range configs {
 		cms = append(cms, cm)
 	}
@@ -197,8 +200,8 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		kubeInformer.Apps().V1().Deployments(),
 		kubeInformer.Core().V1().Services(),
 		kubeInformer.Core().V1().Endpoints(),
+		kubeInformer.Core().V1().ConfigMaps(),
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
-		controllerConfig,
 	)
 
 	controller.resolver = &nopResolver{}
@@ -259,9 +262,9 @@ func addResourcesToInformers(t *testing.T,
 	haveBuild := rev.Spec.BuildName != ""
 	inActive := rev.Spec.ServingState != "Active"
 
-	ns := ctrl.GetServingNamespaceName(rev.Namespace)
+	ns := rev.Namespace
 
-	deploymentName := resources.DeploymentName(rev)
+	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
 		// If we're doing a Build this won't exist yet.
@@ -272,12 +275,12 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add autoscaler deployment if any
-	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(resources.AutoscalerName(rev), metav1.GetOptions{})
+	autoscalerDeployment, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Add(autoscalerDeployment)
 	}
 
-	serviceName := resources.K8sServiceName(rev)
+	serviceName := resourcenames.K8sService(rev)
 	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
 		// If we're doing a Build this won't exist yet.
@@ -288,9 +291,15 @@ func addResourcesToInformers(t *testing.T,
 	}
 
 	// Add autoscaler service if any
-	autoscalerService, err := kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(resources.AutoscalerName(rev), metav1.GetOptions{})
+	autoscalerService, err := kubeClient.CoreV1().Services(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
 	if err == nil {
 		kubeInformer.Core().V1().Services().Informer().GetIndexer().Add(autoscalerService)
+	}
+
+	// Add fluentd configmap if any
+	fluentdConfigMap, err := kubeClient.CoreV1().ConfigMaps(rev.Namespace).Get(resourcenames.FluentdConfigMap(rev), metav1.GetOptions{})
+	if err == nil {
+		kubeInformer.Core().V1().ConfigMaps().Informer().GetIndexer().Add(fluentdConfigMap)
 	}
 
 	return rev, deployment, service
@@ -350,77 +359,12 @@ func TestResolutionFailed(t *testing.T) {
 	}
 }
 
-// TODO(mattmoor): Add fluentd table testing.
-func TestCreateRevUpdateConfigMap_NewData(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-
-	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
-	existingConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fluentdConfigMapName,
-			Namespace: testNamespace,
-		},
-		Data: map[string]string{
-			"varlog.conf": "test-config",
-		},
-	}
-	kubeClient.CoreV1().ConfigMaps(testNamespace).Create(existingConfigMap)
-
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	// Look for the config map.
-	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config map: %v", err)
-	}
-	if got, want := configMap.Data["varlog.conf"], fluentdConfigSource; got != want {
-		t.Errorf("Fluent config file not set correctly config map: expected %v got %v.",
-			want, got)
-	}
-}
-
-// TODO(mattmoor): Add fluentd table testing.
-func TestCreateRevUpdateConfigMap_NewRevOwnerReference(t *testing.T) {
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
-	rev := getTestRevision()
-	revRef := *newRevisionNonControllerRef(rev)
-	oldRev := getTestRevision()
-	oldRev.Name = "old" + oldRev.Name
-	oldRevRef := *newRevisionNonControllerRef(oldRev)
-
-	fluentdConfigSource := makeFullFluentdConfig(testFluentdSidecarOutputConfig)
-	existingConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            fluentdConfigMapName,
-			Namespace:       testNamespace,
-			OwnerReferences: []metav1.OwnerReference{oldRevRef},
-		},
-		Data: map[string]string{
-			"varlog.conf": fluentdConfigSource,
-		},
-	}
-	kubeClient.CoreV1().ConfigMaps(testNamespace).Create(existingConfigMap)
-
-	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
-
-	// Look for the config map.
-	configMap, err := kubeClient.CoreV1().ConfigMaps(testNamespace).Get(fluentdConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Couldn't get config map: %v", err)
-	}
-	expectedRefs := []metav1.OwnerReference{oldRevRef, revRef}
-	if diff := cmp.Diff(expectedRefs, configMap.OwnerReferences); diff != "" {
-		t.Errorf("Unexpected config map owner refs diff (-want +got): %v", diff)
-	}
-}
-
 // TODO(mattmoor): Add VPA table testing
 func TestCreateRevWithVPA(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, _, servingClient, vpaClient, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -433,7 +377,8 @@ func TestCreateRevWithVPA(t *testing.T) {
 			"scale-to-zero-threshold":         "10m",
 			"concurrency-quantum-of-time":     "100ms",
 		},
-	})
+	}, getTestControllerConfigMap(),
+	)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
@@ -443,7 +388,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
-	createdVPA, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(resources.VPAName(rev), metav1.GetOptions{})
+	createdVPA, err := vpaClient.PocV1alpha1().VerticalPodAutoscalers(testNamespace).Get(resourcenames.VPA(rev), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get vpa: %v", err)
 	}
@@ -463,7 +408,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	controllerConfig := getTestControllerConfig()
 	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -472,7 +417,8 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
 			"logging.revision-url-template":         "http://old-logging.test.com?filter=${REVISION_UID}",
 		},
-	})
+	}, getTestControllerConfigMap(),
+	)
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 
 	rev := getTestRevision()
@@ -481,7 +427,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	// Update controllers logging URL
 	controller.receiveObservabilityConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -643,31 +589,64 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 // TODO(mattmoor): Remove once we have table testing with the autoscaler configured so that it doesn't use single-tenant autoscaling.
 func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
-	controllerConfig := getTestControllerConfig()
-	controllerConfig.AutoscalerImage = ""
-	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestControllerWithConfig(t, controllerConfig)
-
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
 		*ctrl.NewControllerRef(config),
 	)
-
+	// Update controller config with no autoscaler image
+	controller.receiveControllerConfig(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-controller",
+				Namespace: system.Namespace,
+			},
+			Data: map[string]string{
+				"queueSidecarImage": testQueueImage,
+			},
+		})
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	expectedAutoscalerName := fmt.Sprintf("%s-autoscaler", rev.Name)
 
 	// Look for the autoscaler deployment.
-	_, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected autoscaler deployment %s to not exist.", expectedAutoscalerName)
 	}
 
 	// Look for the autoscaler service.
-	_, err = kubeClient.CoreV1().Services(pkg.GetServingSystemNamespace()).Get(expectedAutoscalerName, metav1.GetOptions{})
+	_, err = kubeClient.CoreV1().Services(system.Namespace).Get(expectedAutoscalerName, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected autoscaler service %s to not exist.", expectedAutoscalerName)
+	}
+}
+
+func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, servingInformer, _, _ := newTestController(t)
+	rev := getTestRevision()
+	config := getTestConfiguration()
+	rev.OwnerReferences = append(
+		rev.OwnerReferences,
+		*ctrl.NewControllerRef(config),
+	)
+	// Update controller config with no side car image
+	controller.receiveControllerConfig(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-controller",
+				Namespace: system.Namespace,
+			},
+			Data: map[string]string{},
+		})
+	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
+
+	// Look for the revision deployment.
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(rev.Name, metav1.GetOptions{})
+	if !apierrs.IsNotFound(err) {
+		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
 }
 
@@ -703,17 +682,17 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 // TODO(mattmoor): Add table testing that varies the replica counts of Deployments.
 func TestReconcileReplicaCount(t *testing.T) {
-	kubeClient, _, elaClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
+	kubeClient, _, servingClient, _, controller, kubeInformer, _, elaInformer, _, _ := newTestController(t)
 	rev := getTestRevision()
 
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	createRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	createRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	getDeployments := func() (*appsv1.Deployment, *appsv1.Deployment) {
-		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resources.DeploymentName(rev), metav1.GetOptions{})
+		d1, err := kubeClient.AppsV1().Deployments(testNamespace).Get(resourcenames.Deployment(rev), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Expected to have a deployment but found none: %v", err)
 		}
-		d2, err := kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Get(resources.AutoscalerName(rev), metav1.GetOptions{})
+		d2, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(resourcenames.Autoscaler(rev), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Expected to have an autoscaler deployment but found none: %v", err)
 		}
@@ -728,10 +707,10 @@ func TestReconcileReplicaCount(t *testing.T) {
 	d2.Spec.Replicas = new(int32)
 	*d2.Spec.Replicas = 20
 	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Update(d2)
+	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 0 {
 		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
@@ -742,7 +721,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 	// Activate the revision. Replicas should increase to 1
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateActive
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 1 {
 		t.Fatalf("Expected deployment to have 1 replicas, got: %v", *d1.Spec.Replicas)
@@ -757,10 +736,10 @@ func TestReconcileReplicaCount(t *testing.T) {
 	d2.Spec.Replicas = new(int32)
 	*d2.Spec.Replicas = 40
 	kubeClient.AppsV1().Deployments(testNamespace).Update(d1)
-	kubeClient.AppsV1().Deployments(pkg.GetServingSystemNamespace()).Update(d2)
+	kubeClient.AppsV1().Deployments(system.Namespace).Update(d2)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d1)
 	kubeInformer.Apps().V1().Deployments().Informer().GetIndexer().Update(d2)
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 30 {
 		t.Fatalf("Expected deployment to have 30 replicas, got: %v", *d1.Spec.Replicas)
@@ -771,7 +750,7 @@ func TestReconcileReplicaCount(t *testing.T) {
 
 	// Deactivate the revision. Replicas should go back to 0.
 	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-	updateRevision(t, kubeClient, kubeInformer, elaClient, elaInformer, controller, rev)
+	updateRevision(t, kubeClient, kubeInformer, servingClient, elaInformer, controller, rev)
 	d1, d2 = getDeployments()
 	if *d1.Spec.Replicas != 0 {
 		t.Fatalf("Expected deployment to have 0 replicas, got: %v", *d1.Spec.Replicas)
@@ -791,7 +770,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	controller.receiveNetworkConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NetworkConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			config.IstioOutboundIPRangesKey: configMapValue,

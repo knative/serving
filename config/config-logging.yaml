@@ -23,10 +23,6 @@ data:
     {
       "level": "info",
       "development": false,
-      "sampling": {
-        "initial": 100,
-        "thereafter": 100
-      },
       "outputPaths": ["stdout"],
       "errorOutputPaths": ["stderr"],
       "encoding": "json",

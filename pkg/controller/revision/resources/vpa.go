@@ -19,6 +19,7 @@ package resources
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/revision/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
@@ -65,8 +66,8 @@ var (
 func MakeVPA(rev *v1alpha1.Revision) *vpa.VerticalPodAutoscaler {
 	return &vpa.VerticalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            VPAName(rev),
-			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
+			Name:            names.VPA(rev),
+			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},

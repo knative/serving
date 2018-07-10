@@ -21,10 +21,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
+	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/webhook"
 
 	"k8s.io/client-go/kubernetes"
@@ -57,7 +57,7 @@ func main() {
 
 	options := webhook.ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: pkg.GetServingSystemNamespace(),
+		ServiceNamespace: system.Namespace,
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",

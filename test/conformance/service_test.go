@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresources "github.com/knative/serving/pkg/controller/service/resources"
+	serviceresourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
@@ -64,9 +64,7 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
-	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, func(body string) (bool, error) {
-		return body == expectedText, nil
-	}, "WaitForEndpointToServeText")
+	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}
@@ -120,7 +118,7 @@ func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (stri
 func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := test.Logger.Named("TestRunLatestService")
 
 	var imagePaths []string
@@ -138,8 +136,8 @@ func TestRunLatestService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	names.Route = serviceresources.RouteName(svc)
-	names.Config = serviceresources.ConfigurationName(svc)
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
 
 	logger.Info("The Service will be updated with the name of the Revision once it is created")
 	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)

@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -118,7 +118,7 @@ func TestNewLogger(t *testing.T) {
 func TestNewConfigNoEntry(t *testing.T) {
 	c := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      "config-logging",
 		},
 	})
@@ -131,7 +131,18 @@ func TestNewConfigNoEntry(t *testing.T) {
 }
 
 func TestNewConfig(t *testing.T) {
-	c, wantCfg, wantLevel := getTestConfig()
+	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
+	wantLevel := "info"
+	c := NewConfigFromConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      "config-logging",
+		},
+		Data: map[string]string{
+			"zap-logger-config":   wantCfg,
+			"loglevel.queueproxy": wantLevel,
+		},
+	})
 	if got := c.LoggingConfig; got != wantCfg {
 		t.Errorf("LoggingConfig = %v, want %v", got, wantCfg)
 	}
@@ -167,7 +178,7 @@ func getTestConfig() (*Config, string, string) {
 	wantLevel := "debug"
 	c := NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      "config-logging",
 		},
 		Data: map[string]string{

@@ -21,6 +21,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
+	"github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
@@ -84,38 +85,23 @@ var (
 			},
 		},
 	}
-
-	fluentdResources = corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: fluentdContainerCPU,
-		},
-	}
-
-	fluentdVolumeMounts = []corev1.VolumeMount{{
-		Name:      varLogVolumeName,
-		MountPath: "/var/log/revisions",
-	}, {
-		Name:      fluentdConfigMapVolumeName,
-		MountPath: "/etc/fluent/config.d",
-	}}
 )
 
-func hasHTTPPath(p *corev1.Probe) bool {
+func rewriteUserProbe(p *corev1.Probe) {
 	if p == nil {
-		return false
+		return
 	}
-	if p.Handler.HTTPGet == nil {
-		return false
+	switch {
+	case p.HTTPGet != nil:
+		// For HTTP probes, we route them through the queue container
+		// so that we know the queue proxy is ready/live as well.
+		p.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
+	case p.TCPSocket != nil:
+		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
-	return p.Handler.HTTPGet.Path != ""
 }
 
 func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *config.Observability, autoscalerConfig *autoscaler.Config, controllerConfig *config.Controller) *corev1.PodSpec {
-	configName := ""
-	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
-		configName = owner.Name
-	}
-
 	userContainer := rev.Spec.Container.DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the validations in pkg/webhook.validateContainer.
@@ -125,12 +111,9 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
 	userContainer.Lifecycle = userLifecycle
 
-	// If the client provided a readiness check endpoint, we should
-	// fill in the port for them so that requests also go through
-	// queue proxy for a better health checking logic.
-	if hasHTTPPath(userContainer.ReadinessProbe) {
-		userContainer.ReadinessProbe.Handler.HTTPGet.Port = intstr.FromInt(queue.RequestQueuePort)
-	}
+	// If the client provides probes, we should fill in the port for them.
+	rewriteUserProbe(userContainer.ReadinessProbe)
+	rewriteUserProbe(userContainer.LivenessProbe)
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
@@ -143,38 +126,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
 	if observabilityConfig.EnableVarLogCollection {
-		// TODO(mattmoor): We should have a fluentd.go that serves a similar purpose to queue.go
-		fluentdContainer := corev1.Container{
-			Name:      fluentdContainerName,
-			Image:     observabilityConfig.FluentdSidecarImage,
-			Resources: fluentdResources,
-			Env: []corev1.EnvVar{{
-				Name:  "FLUENTD_ARGS",
-				Value: "--no-supervisor -q",
-			}, {
-				Name:  "SERVING_CONTAINER_NAME",
-				Value: UserContainerName,
-			}, {
-				Name:  "SERVING_CONFIGURATION",
-				Value: configName,
-			}, {
-				Name:  "SERVING_REVISION",
-				Value: rev.Name,
-			}, {
-				Name:  "SERVING_NAMESPACE",
-				Value: rev.Namespace,
-			}, {
-				Name: "SERVING_POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
-					},
-				},
-			}},
-			VolumeMounts: fluentdVolumeMounts,
-		}
-
-		podSpec.Containers = append(podSpec.Containers, fluentdContainer)
+		podSpec.Containers = append(podSpec.Containers, *makeFluentdContainer(rev, observabilityConfig))
 		podSpec.Volumes = append(podSpec.Volumes, fluentdConfigMapVolume)
 	}
 
@@ -204,8 +156,8 @@ func MakeDeployment(rev *v1alpha1.Revision,
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            DeploymentName(rev),
-			Namespace:       controller.GetServingNamespaceName(rev.Namespace),
+			Name:            names.Deployment(rev),
+			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
 			Annotations:     makeAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},

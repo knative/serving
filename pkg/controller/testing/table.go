@@ -17,14 +17,17 @@ limitations under the License.
 package testing
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/system"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +36,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	. "github.com/knative/serving/pkg/logging/testing"
 )
@@ -45,11 +51,14 @@ type Listers struct {
 	Configuration *ConfigurationLister
 	Revision      *RevisionLister
 
+	VirtualService *VirtualServiceLister
+
 	Build *BuildLister
 
 	Deployment *DeploymentLister
 	K8sService *K8sServiceLister
 	Endpoints  *EndpointsLister
+	ConfigMap  *ConfigMapLister
 }
 
 func (f *Listers) GetServiceLister() *ServiceLister {
@@ -57,6 +66,13 @@ func (f *Listers) GetServiceLister() *ServiceLister {
 		return &ServiceLister{}
 	}
 	return f.Service
+}
+
+func (f *Listers) GetVirtualServiceLister() *VirtualServiceLister {
+	if f.VirtualService == nil {
+		return &VirtualServiceLister{}
+	}
+	return f.VirtualService
 }
 
 func (f *Listers) GetRouteLister() *RouteLister {
@@ -108,6 +124,13 @@ func (f *Listers) GetEndpointsLister() *EndpointsLister {
 	return f.Endpoints
 }
 
+func (f *Listers) GetConfigMapLister() *ConfigMapLister {
+	if f.ConfigMap == nil {
+		return &ConfigMapLister{}
+	}
+	return f.ConfigMap
+}
+
 func (f *Listers) GetKubeObjects() []runtime.Object {
 	var kubeObjs []runtime.Object
 	for _, r := range f.GetDeploymentLister().Items {
@@ -117,6 +140,9 @@ func (f *Listers) GetKubeObjects() []runtime.Object {
 		kubeObjs = append(kubeObjs, r)
 	}
 	for _, r := range f.GetEndpointsLister().Items {
+		kubeObjs = append(kubeObjs, r)
+	}
+	for _, r := range f.GetConfigMapLister().Items {
 		kubeObjs = append(kubeObjs, r)
 	}
 	return kubeObjs
@@ -144,7 +170,59 @@ func (f *Listers) GetServingObjects() []runtime.Object {
 	for _, r := range f.GetRevisionLister().Items {
 		objs = append(objs, r)
 	}
+	for _, r := range f.GetVirtualServiceLister().Items {
+		objs = append(objs, r)
+	}
 	return objs
+}
+
+func NewListers(objs []runtime.Object) Listers {
+	ls := Listers{
+		Service:       &ServiceLister{},
+		Route:         &RouteLister{},
+		Configuration: &ConfigurationLister{},
+		Revision:      &RevisionLister{},
+
+		VirtualService: &VirtualServiceLister{},
+
+		Build: &BuildLister{},
+
+		Deployment: &DeploymentLister{},
+		K8sService: &K8sServiceLister{},
+		Endpoints:  &EndpointsLister{},
+		ConfigMap:  &ConfigMapLister{},
+	}
+	for _, obj := range objs {
+		switch o := obj.(type) {
+		case *v1alpha1.Service:
+			ls.Service.Items = append(ls.Service.Items, o)
+		case *v1alpha1.Route:
+			ls.Route.Items = append(ls.Route.Items, o)
+		case *v1alpha1.Configuration:
+			ls.Configuration.Items = append(ls.Configuration.Items, o)
+		case *v1alpha1.Revision:
+			ls.Revision.Items = append(ls.Revision.Items, o)
+
+		case *istiov1alpha3.VirtualService:
+			ls.VirtualService.Items = append(ls.VirtualService.Items, o)
+
+		case *buildv1alpha1.Build:
+			ls.Build.Items = append(ls.Build.Items, o)
+
+		case *appsv1.Deployment:
+			ls.Deployment.Items = append(ls.Deployment.Items, o)
+		case *corev1.Service:
+			ls.K8sService.Items = append(ls.K8sService.Items, o)
+		case *corev1.Endpoints:
+			ls.Endpoints.Items = append(ls.Endpoints.Items, o)
+		case *corev1.ConfigMap:
+			ls.ConfigMap.Items = append(ls.ConfigMap.Items, o)
+
+		default:
+			panic(fmt.Sprintf("Unsupported type in TableTest %T", obj))
+		}
+	}
+	return ls
 }
 
 // TableRow holds a single row of our table test.
@@ -152,8 +230,8 @@ type TableRow struct {
 	// Name is a descriptive name for this test suitable as a first argument to t.Run()
 	Name string
 
-	// Listers holds the state of the world at the onset of reconciliation.
-	Listers Listers
+	// Objects holds the state of the world at the onset of reconciliation.
+	Objects []runtime.Object
 
 	// Key is the parameter to reconciliation.
 	// This has the form "namespace/name".
@@ -173,21 +251,37 @@ type TableRow struct {
 
 	// WantQueue is the set of keys we expect to be in the workqueue following reconciliation.
 	WantQueue []string
+
+	// WithReactors is a set of functions that are installed as Reactors for the execution
+	// of this row of the table-driven-test.
+	WithReactors []clientgotesting.ReactionFunc
 }
 
 type Ctor func(*Listers, controller.Options) controller.Interface
 
 func (r *TableRow) Test(t *testing.T, ctor Ctor) {
-	kubeClient := fakekubeclientset.NewSimpleClientset(r.Listers.GetKubeObjects()...)
-	client := fakeclientset.NewSimpleClientset(r.Listers.GetServingObjects()...)
-	buildClient := fakebuildclientset.NewSimpleClientset(r.Listers.GetBuildObjects()...)
+	ls := NewListers(r.Objects)
+
+	kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
+	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
+	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
 	// Set up our Controller from the fakes.
-	c := ctor(&r.Listers, controller.Options{
+	c := ctor(&ls, controller.Options{
 		KubeClientSet:    kubeClient,
 		BuildClientSet:   buildClient,
 		ServingClientSet: client,
 		Logger:           TestLogger(t),
 	})
+
+	for _, reactor := range r.WithReactors {
+		kubeClient.PrependReactor("*", "*", reactor)
+		client.PrependReactor("*", "*", reactor)
+		buildClient.PrependReactor("*", "*", reactor)
+	}
+
+	// Validate all Create operations through the serving client.
+	client.PrependReactor("create", "*", ValidateCreates)
+	client.PrependReactor("update", "*", ValidateUpdates)
 
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(r.Key); (err != nil) != r.WantErr {
@@ -210,11 +304,11 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := createActions[i]
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != pkg.GetServingSystemNamespace() {
+		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
 		obj := got.GetObject()
-		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff); diff != "" {
+		if diff := cmp.Diff(want, obj, ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("unexpected create (-want +got): %s", diff)
 		}
 	}
@@ -230,7 +324,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := updateActions[i]
-		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff); diff != "" {
+		if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime, safeDeployDiff, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("unexpected update (-want +got): %s", diff)
 		}
 	}
@@ -249,7 +343,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		if got.GetName() != want.Name {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != pkg.GetServingSystemNamespace() {
+		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 	}

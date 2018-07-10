@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	revisionresources "github.com/knative/serving/pkg/controller/revision/resources"
+	"github.com/knative/serving/pkg/controller/route/resources/names"
 	"github.com/knative/serving/pkg/controller/route/traffic"
+	"github.com/knative/serving/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,7 +56,7 @@ const (
 func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.VirtualService {
 	return &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            VirtualServiceName(u),
+			Name:            names.VirtualService(u),
 			Namespace:       u.Namespace,
 			Labels:          map[string]string{"route": u.Name},
 			OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(u)},
@@ -72,7 +73,7 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 		// access from outside of the cluster, and the latter provides
 		// access for services from inside the cluster.
 		Gateways: []string{
-			K8sGatewayFullname,
+			names.K8sGatewayFullname,
 			"mesh",
 		},
 		Hosts: []string{
@@ -80,7 +81,7 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 			fmt.Sprintf("*.%s", domain),
 			domain,
 			// Traffic from inside the cluster will use the FQDN of the Route's headless Service.
-			K8sServiceFullname(u),
+			names.K8sServiceFullname(u),
 		},
 	}
 	names := []string{}
@@ -100,7 +101,7 @@ func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []stri
 	if targetName == "" {
 		// Nameless traffic targets correspond to two domains: the Route.Status.Domain, and also the FQDN
 		// of the Route's headless Service.
-		return []string{domain, K8sServiceFullname(u)}
+		return []string{domain, names.K8sServiceFullname(u)}
 	}
 	// Named traffic targets correspond to a subdomain of the Route.Status.Domain.
 	return []string{fmt.Sprintf("%s.%s", targetName, domain)}
@@ -170,7 +171,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 	r.Route = append(r.Route, v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
 			Host: controller.GetK8sServiceFullname(
-				activator.K8sServiceName, pkg.GetServingSystemNamespace()),
+				activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: uint32(revisionresources.ServicePort),
 			},

@@ -83,9 +83,7 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, func(body string) (bool, error) {
-		return body == expectedText, nil
-	}, "WaitForEndpointToServeText")
+	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, updatedRoute.Status.Domain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, updatedRoute.Status.Domain, expectedText, err)
 	}
@@ -143,7 +141,7 @@ func tearDown(clients *test.Clients, names test.ResourceNames) {
 func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := test.Logger.Named("TestRouteCreation")
 
 	var imagePaths []string

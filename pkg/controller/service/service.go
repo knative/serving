@@ -35,6 +35,7 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/service/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 )
@@ -93,10 +94,9 @@ func NewController(
 	return c
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// Run starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh, c.Reconcile, "Service")
 }
@@ -153,7 +153,7 @@ func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	logger := logging.FromContext(ctx)
 	service.Status.InitializeConditions()
 
-	configName := resources.ConfigurationName(service)
+	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if errors.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
@@ -173,7 +173,7 @@ func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// Update our Status based on the state of our underlying Configuration.
 	service.Status.PropagateConfigurationStatus(config.Status)
 
-	routeName := resources.RouteName(service)
+	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if errors.IsNotFound(err) {
 		route, err = c.createRoute(service)

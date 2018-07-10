@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,7 +30,7 @@ import (
 func TestNewNetworkNoEntry(t *testing.T) {
 	c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      NetworkConfigName,
 		},
 	})
@@ -51,7 +51,7 @@ func TestNewNetwork(t *testing.T) {
 	for _, want := range validList {
 		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      NetworkConfigName,
 			},
 			Data: map[string]string{
@@ -83,7 +83,7 @@ func TestBadNetwork(t *testing.T) {
 	for _, invalid := range invalidList {
 		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      NetworkConfigName,
 			},
 			Data: map[string]string{
