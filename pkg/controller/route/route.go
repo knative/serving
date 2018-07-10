@@ -183,6 +183,11 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 	return nil
 }
 
+func markTrafficTargetError(r *v1alpha1.Route, targetErr traffic.TrafficTargetErr) (*v1alpha1.Route, error) {
+	targetErr.MarkBadTrafficTarget(&r.Status)
+	return r, targetErr
+}
+
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
 // targets (e.g. Configurations without a Ready Revision, or Revision that isn't Ready or Inactive),
 // no traffic will be configured.
@@ -195,16 +200,21 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
-	t, targetErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
-	// Even if targetErr != nil, we still need to finish updating the labels so that the updates to
-	// these targets can be propagated back.  In case of error updating the labels, we will return
-	// the error and not targetErr.
+	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	badTarget, isTargetError := err.(traffic.TrafficTargetErr)
+	if err != nil && !isTargetError {
+		// An error that's not due to missing traffic target should
+		// make us fail fast.
+		r.Status.MarkUnknownTrafficError(err.Error())
+	}
+	// If the only errors are missing traffic target, we need to
+	// update the labels first, so that when these targets recover we
+	// receive an update.
 	if err := c.syncLabels(ctx, r, t); err != nil {
 		return r, err
 	}
-	// Now, after updating the labels, we can return trafficErr here.
-	if targetErr != nil {
-		return r, targetErr
+	if badTarget != nil {
+		return markTrafficTargetError(r, badTarget)
 	}
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {

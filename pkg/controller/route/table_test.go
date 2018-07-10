@@ -65,17 +65,16 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Domain: "first-reconcile.default.example.com",
-				// TODO(#1494): We currently report bad status for this case.
 				Conditions: []v1alpha1.RouteCondition{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "not-ready" not found`,
+					Reason:  "RevisionMissing",
+					Message: `Revision "not-ready-00001" referenced in traffic not found.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
 					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "not-ready" not found`,
+					Reason:  "RevisionMissing",
+					Message: `Revision "not-ready-00001" referenced in traffic not found.`,
 				}},
 			}),
 		}},
@@ -107,17 +106,16 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Domain: "first-reconcile.default.example.com",
-				// TODO(#1494): We currently report bad status for this case.
 				Conditions: []v1alpha1.RouteCondition{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "not-ready" not found`,
+					Reason:  "RevisionMissing",
+					Message: `Revision "not-ready-00001" referenced in traffic not found.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
 					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "not-ready" not found`,
+					Reason:  "RevisionMissing",
+					Message: `Revision "not-ready-00001" referenced in traffic not found.`,
 				}},
 			}),
 		}},
@@ -961,12 +959,12 @@ func TestReconcile(t *testing.T) {
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
 					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "not-found" not found`,
+					Message: `Configuration "not-found" referenced in traffic not found.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
 					Status:  corev1.ConditionFalse,
 					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "not-found" not found`,
+					Message: `Configuration "not-found" referenced in traffic not found.`,
 				}},
 			}),
 		}},
@@ -988,12 +986,12 @@ func TestReconcile(t *testing.T) {
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
 					Reason:  "RevisionMissing",
-					Message: `Referenced Revision "not-found" not found`,
+					Message: `Revision "not-found" referenced in traffic not found.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
 					Status:  corev1.ConditionFalse,
 					Reason:  "RevisionMissing",
-					Message: `Referenced Revision "not-found" not found`,
+					Message: `Revision "not-found" referenced in traffic not found.`,
 				}},
 			}),
 		}},
@@ -1017,17 +1015,16 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
 				Domain: "missing-revision-indirect.default.example.com",
-				// TODO(#1494): We currently report bad status for this case.
 				Conditions: []v1alpha1.RouteCondition{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
 					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "config" not found`,
+					Reason:  "RevisionMissing",
+					Message: `Revision "config-00001" referenced in traffic not found.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
 					Status:  corev1.ConditionFalse,
-					Reason:  "ConfigurationMissing",
-					Message: `Referenced Configuration "config" not found`,
+					Reason:  "RevisionMissing",
+					Message: `Revision "config-00001" referenced in traffic not found.`,
 				}},
 			}),
 		}},

@@ -194,7 +194,7 @@ func TestTrafficNotAssignedFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkTrafficNotAssigned("Revision", "does-not-exist")
+	r.Status.MarkMissingTrafficTarget("Revision", "does-not-exist")
 	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
