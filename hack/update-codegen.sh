@@ -27,7 +27,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SERVING_ROOT}; ls -d -1 ./vendor/k8s.io/code-g
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/knative/serving/pkg/client github.com/knative/serving/pkg/apis \
-  "serving:v1alpha1 istio:v1alpha3" \
+  "serving:v1alpha1 istio:v1alpha3 istio/authentication:v1alpha1" \
   --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Update code to change Gatewaies -> Gateways to workaround cleverness of codegen pluralizer.
