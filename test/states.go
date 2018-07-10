@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,25 +18,27 @@ package test
 import (
 	"fmt"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
-// states contains functions for asserting against the state of Elafros
+// states contains functions for asserting against the state of Knative Serving
 // crds to see if they have achieved the states specified in the spec
-// (https://github.com/elafros/elafros/blob/master/docs/spec/spec.md).
+// (https://github.com/knative/serving/blob/master/docs/spec/spec.md).
 
-// AllRouteTrafficeAtRevision will check the revision that routeName is routing
+// AllRouteTrafficAtRevision will check the revision that route r is routing
 // traffic to and return true if 100% of the traffic is routing to revisionName.
-func AllRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1alpha1.Route) (bool, error) {
+func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (bool, error) {
 	return func(r *v1alpha1.Route) (bool, error) {
 		for _, tt := range r.Status.Traffic {
-			if tt.RevisionName == revisionName {
-				if r.Status.Traffic[0].Percent == 100 {
-					if r.Status.Traffic[0].Name != routeName {
-						return true, fmt.Errorf("Expected traffic name to be %s but actually is %s", revisionName, r.Status.Traffic[0].Name)
-					}
+			if tt.Percent == 100 {
+				if tt.RevisionName != names.Revision {
+					return true, fmt.Errorf("Expected traffic revision name to be %s but actually is %s", names.Revision, tt.RevisionName)
 				}
+
+				if tt.Name != names.TrafficTarget {
+					return true, fmt.Errorf("Expected traffic target name to be %s but actually is %s", names.TrafficTarget, tt.Name)
+				}
+
 				return true, nil
 			}
 		}
@@ -44,29 +46,21 @@ func AllRouteTrafficAtRevision(routeName string, revisionName string) func(r *v1
 	}
 }
 
-// IsRevisionReady will check the status conditions of revision revisionName and return true if the revision is
+// IsRevisionReady will check the status conditions of the revision and return true if the revision is
 // ready to serve traffic. It will return false if the status indicates a state other than deploying
 // or being ready. It will also return false if the type of the condition is unexpected.
-func IsRevisionReady(revisionName string) func(r *v1alpha1.Revision) (bool, error) {
-	return func(r *v1alpha1.Revision) (bool, error) {
-		if len(r.Status.Conditions) > 0 {
-			if r.Status.Conditions[0].Type != v1alpha1.RevisionConditionType("Ready") {
-				return true, fmt.Errorf("Expected Revision to have a \"Ready\" status but only had %s", r.Status.Conditions[0].Type)
-			}
-			if r.Status.Conditions[0].Status == corev1.ConditionStatus("Unknown") {
-				if r.Status.Conditions[0].Reason != "Deploying" {
-					return true, fmt.Errorf("If the Revision isn't ready the reason should be to be \"Deploying\" but was %s", r.Status.Conditions[0].Reason)
-				}
-			} else {
-				if r.Status.Conditions[0].Status != corev1.ConditionStatus("True") {
-					return true, fmt.Errorf("Expected Revision Status Condition Status to be True or Unknown but was %s", r.Status.Conditions[0].Status)
-				}
-				if r.Status.Conditions[0].Reason != "ServiceReady" {
-					return true, fmt.Errorf("If the Revision is ready the Reason should be \"ServiceReady\" but was %s", r.Status.Conditions[0].Status)
-				}
-				return true, nil
-			}
-		}
-		return false, nil
-	}
+func IsRevisionReady(r *v1alpha1.Revision) (bool, error) {
+	return r.Status.IsReady(), nil
+}
+
+// IsServiceReady will check the status conditions of the service and return true if the service is
+// ready. This means that its configurations and routes have all reported ready.
+func IsServiceReady(s *v1alpha1.Service) (bool, error) {
+	return s.Status.IsReady(), nil
+}
+
+// IsRouteReady will check the status conditions of the route and return true if the route is
+// ready.
+func IsRouteReady(r *v1alpha1.Route) (bool, error) {
+	return r.Status.IsReady(), nil
 }

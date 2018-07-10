@@ -1,4 +1,4 @@
-# Creating a Kubernetes Cluster for Elafros
+# Creating a Kubernetes Cluster for Knative Serving
 
 Two options:
 
@@ -26,22 +26,22 @@ To use a k8s cluster running in GKE:
     gcloud --project=$PROJECT_ID services enable container.googleapis.com
     ```
 
-1.  Create a k8s cluster (version 1.9 or greater):
+1.  Create a k8s cluster (version 1.10 or greater):
 
     ```shell
     gcloud --project=$PROJECT_ID container clusters create \
-      --cluster-version=1.9.6-gke.1 \
+      --cluster-version=latest \
       --zone=us-east1-d \
       --scopes=cloud-platform \
       --machine-type=n1-standard-4 \
       --enable-autoscaling --min-nodes=1 --max-nodes=3 \
-      elafros-demo
+      knative-demo
     ```
 
-    *   Version 1.9+ is required
+    *   Version 1.10+ is required
     *   Change this to whichever zone you choose
     *   cloud-platform scope is required to access GCB
-    *   Elafros currently requires 4-cpu nodes to run conformance tests.
+    *   Knative Serving currently requires 4-cpu nodes to run conformance tests.
         Changing the machine type from the default may cause failures.
     *   Autoscale from 1 to 3 nodes. Adjust this for your use case
     *   Change this to your preferred cluster name
@@ -52,6 +52,14 @@ To use a k8s cluster running in GKE:
     ```shell
     # Get the list of valid versions in us-east1-d
     gcloud container get-server-config --zone us-east1-d
+    ```
+
+1.  **Alternately**, if you wish to re-use an already-created cluster,
+    you can fetch the credentials to your local machine with:
+
+    ```shell
+    # Load credentials for the new cluster in us-east1-d
+    gcloud container clusters get-credentials --zone us-east1-d knative-demo
     ```
 
 1.  If you haven't installed `kubectl` yet, you can install it now with
@@ -75,42 +83,147 @@ To use a k8s cluster running in GKE:
     Linux or `hyperkit` on macOS.
 
 1.  [Create a cluster](https://github.com/kubernetes/minikube#quickstart) with
-    version 1.9 or greater and your chosen VM driver:
+    version 1.10 or greater and your chosen VM driver.
 
-    _Until minikube [enables it by
-    default](https://github.com/kubernetes/minikube/pull/2547),the
-    MutatingAdmissionWebhook plugin must be manually enabled._
+    The following commands will setup a cluster with `8192 MB` of memory and `4`
+    CPUs. If you want to [enable metric and log collection](./DEVELOPMENT.md#enable-log-and-metric-collection),
+    bump the memory to `12288 MB`.
+
+    _Providing any admission control pluins overrides the default set provided
+    by minikube so we must explicitly list all plugins we want enabled._
 
     _Until minikube [makes this the
     default](https://github.com/kubernetes/minikube/issues/1647), the
     certificate controller must be told where to find the cluster CA certs on
     the VM._
 
-    _Starting with v0.26.0 minikube defaults to the `kubeadm` bootstrapper, so 
-      we need to explicitly set the bootstrapper to be `localkube` for our extra-config
-      settings to work._
+    For Linux use:
 
-For Linux use:
+    ```shell
+    minikube start --memory=8192 --cpus=4 \
+    --kubernetes-version=v1.10.4 \
+    --vm-driver=kvm2 \
+    --bootstrapper=kubeadm \
+    --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
+    --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
+    --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    ```
+    For macOS use:
+
+    ```shell
+    minikube start --memory=8192 --cpus=4 \
+    --kubernetes-version=v1.10.4 \
+    --vm-driver=hyperkit \
+    --bootstrapper=kubeadm \
+    --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
+    --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
+    --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    ```
+1.  [Configure your shell environment](../DEVELOPMENT.md#environment-setup)
+    to use your minikube cluster:
+
+    ```shell
+    export K8S_CLUSTER_OVERRIDE='minikube'
+    # When using Minikube, the K8s user is your local user.
+    export K8S_USER_OVERRIDE=$USER
+    ```
+
+1.  [Start Knative Serving](../DEVELOPMENT.md#starting-knative-serving):
+
+    You need to deploy Knative itself a bit differently if you would like to have
+    routeable `Route` endpoints, and if you would like to setup secrets for
+    accessing an image registry from within your cluster, e.g.
+    [GCR](#minikube-with-gcr):
+
+    1. [Deploy istio](../DEVELOPMENT.md#deploy-istio):
+
+       By default istio uses a `LoadBalancer` which is not available for Minikube
+       but is required for Knative to function properly (`Route` endpoints MUST
+       be available via a routable IP before they will be marked as ready)
+       so deploy istio with `LoadBalancer` replaced by `NodePort`:
+
+       ```bash
+       sed 's/LoadBalancer/NodePort/' third_party/istio-0.8.0/istio.yaml | kubectl apply -f -
+       ```
+
+       (Then optionally [enable istio injection](../DEVELOPMENT.md#deploy-istio).)
+
+    1. [Deploy build](../DEVELOPMENT.md#deploy-build):
+        
+        ```shell
+        kubectl apply -f ./third_party/config/build/release.yaml
+        ```
+
+    1. [Deploy Knative Serving](../DEVELOPMENT.md#deploy-knative-serving):
+
+        1. Create the namespaces and service accounts you'll be modifying:
+           ```bash
+           ko apply -f config/100-namespace.yaml
+           ko apply -f config/200-serviceaccount.yaml
+           ```
+        1. Create the secrets you need and patch the service accounts to use them, e.g.
+           [to setup access to GCR](#minikube-with-gcr).
+        1. Deploy the rest of Knative:
+           ```bash
+           # Use the minikube docker daemon (among other things)
+           eval $(minikube docker-env)
+
+           # Switch the current kubectl context to minikube
+           kubectl config use-context minikube
+
+           # Deploy to minikube w/o registry.
+           ko apply -L -f config/
+           ```
+
+    1. [Enable log and metric collection](../DEVELOPMENT.md#enable-log-and-metric-collection)
+       (Note you should be using a cluster with 12 GB of memory, see commands above.)
+
+
+### Enabling Knative to Use Images in Minikube
+
+In order to have Knative access an image in Minikube's Docker daemon you
+should prefix your image name with the `dev.local` registry. This will cause
+Knative to use the cached image. You must not tag your image as `latest` since
+this causes Kubernetes to [always attempt a pull](https://kubernetes.io/docs/concepts/containers/images/#updating-images).
+
+For example:
 
 ```shell
-minikube start \
-  --kubernetes-version=v1.9.4 \
-  --vm-driver=kvm2 \
-  --bootstrapper=localkube \
-  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
-  --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
-  --extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key"
+eval $(minikube docker-env)
+docker pull gcr.io/knative-samples/primer:latest
+docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
 ```
-For macOS use:
+
+### Minikube locally with `ko`
+
+You can instruct `ko` to sideload images into your Docker daemon instead of
+publishing them to a registry via the `-L` (local) flag:
 
 ```shell
-minikube start \
-  --kubernetes-version=v1.9.4 \
-  --vm-driver=hyperkit \
-  --bootstrapper=localkube \
-  --extra-config=apiserver.Admission.PluginNames=DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook \
-  --extra-config=controller-manager.ClusterSigningCertFile="/var/lib/localkube/certs/ca.crt" \
-  --extra-config=controller-manager.ClusterSigningKeyFile="/var/lib/localkube/certs/ca.key"
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
+
+# Deploy to minikube w/o registry.
+ko apply -L -f config/
+```
+
+Alternatively (if you don't like flags), set `KO_DOCKER_REPO` to `ko.local`:
+
+```shell
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
+
+# Set KO_DOCKER_REPO to a sentinel value for ko to sideload into the daemon.
+export KO_DOCKER_REPO="ko.local"
+
+# Deploy to minikube w/o registry.
+ko apply -f config/
 ```
 
 ### Minikube with GCR
@@ -123,7 +236,7 @@ You can use Google Container Registry as the registry for a Minikube cluster.
     region-specific variant like `us.gcr.io`.
 
     ```shell
-    export PROJECT_ID=elafros-demo-project
+    export PROJECT_ID=knative-demo-project
     export GCR_DOMAIN=gcr.io
     ```
 
@@ -163,43 +276,42 @@ Now you can use the `minikube-gcr-key.json` file to create image pull secrets
 and link them to Kubernetes service accounts. _A secret must be created and
 linked to a service account in each namespace that will pull images from GCR._
 
-For example, use these steps to allow Minikube to pull Elafros and Build images
+For example, use these steps to allow Minikube to pull Knative Serving and Build images
 from GCR as published in our development flow (`ko apply -f config/`).
-_This is only necessary if you are not using public Elafros and Build images._
+_This is only necessary if you are not using public Knative Serving and Build images._
 
-1.  Create a Kubernetes secret in the `ela-system` and `build-system` namespace:
+1.  Create a Kubernetes secret in the `knative-serving` and `knative-build` namespace:
 
     ```shell
-    for prefix in ela build; do
-      kubectl create secret docker-registry "gcr" \
-        --docker-server=$GCR_DOMAIN \
-        --docker-username=_json_key \
-        --docker-password="$(cat minikube-gcr-key.json)" \
-        --docker-email=your.email@here.com \
-        -n "${prefix}-system"
-    done
+    export DOCKER_EMAIL=your.email@here.com
+    kubectl create secret docker-registry "knative-serving-gcr" \
+      --docker-server=$GCR_DOMAIN \
+      --docker-username=_json_key \
+      --docker-password="$(cat minikube-gcr-key.json)" \
+      --docker-email=$DOCKER_EMAIL \
+      -n "knative-serving"
+    kubectl create secret docker-registry "build-gcr" \
+      --docker-server=$GCR_DOMAIN \
+      --docker-username=_json_key \
+      --docker-password="$(cat minikube-gcr-key.json)" \
+      --docker-email=$DOCKER_EMAIL \
+      -n "knative-build"
     ```
 
     _The secret must be created in the same namespace as the pod or service
     account._
 
-1.  Add the secret as an imagePullSecret to the `ela-controller` and
+1.  Add the secret as an imagePullSecret to the `controller` and
     `build-controller` service accounts:
 
     ```shell
-    for prefix in ela build; do
-      kubectl patch serviceaccount "${prefix}-controller" \
-        -p '{"imagePullSecrets": [{"name": "gcr"}]}' \
-        -n "${prefix}-system"
-    done
+    kubectl patch serviceaccount "build-controller" \
+      -p '{"imagePullSecrets": [{"name": "build-gcr"}]}' \
+      -n "knative-build"
+    kubectl patch serviceaccount "controller" \
+      -p '{"imagePullSecrets": [{"name": "knative-serving-gcr"}]}' \
+      -n "knative-serving"
     ```
-
-1.  Add to your .bashrc:
-    ```shell
-    # When using Minikube, the K8s user is your local user.
-    export K8S_USER_OVERRIDE=$USER
-    ```
-
 Use the same procedure to add imagePullSecrets to service accounts in any
 namespace. Use the `default` service account for pods that do not specify a
 service account.

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,70 +14,106 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Elafros built from source.
+# This script runs the end-to-end tests against Knative Serving built from source.
 # It is started by prow for each PR.
 # For convenience, it can also be executed manually.
 
 # If you already have the *_OVERRIDE environment variables set, call
-# this script with the --run-tests arguments and it will start elafros in
+# this script with the --run-tests arguments and it will start knative in
 # the cluster and run the tests.
 
 # Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start elafros in it, run the tests and delete the
+# project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster. $DOCKER_REPO_OVERRIDE must point to a valid writable docker repo.
 
 source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Test cluster parameters and location of generated test images
-readonly E2E_CLUSTER_NAME=ela-e2e-cluster${BUILD_NUMBER}
-readonly E2E_NETWORK_NAME=ela-e2e-net${BUILD_NUMBER}
+readonly E2E_CLUSTER_NAME=knative-e2e-cluster${BUILD_NUMBER}
+readonly E2E_NETWORK_NAME=knative-e2e-net${BUILD_NUMBER}
 readonly E2E_CLUSTER_ZONE=us-central1-a
 readonly E2E_CLUSTER_NODES=3
 readonly E2E_CLUSTER_MACHINE=n1-standard-4
-readonly TEST_RESULT_FILE=/tmp/ela-e2e-result
+readonly TEST_RESULT_FILE=/tmp/knative-e2e-result
+readonly ISTIO_VERSION=0.8.0
+readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 
 # This script.
 readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
-readonly OUTPUT_GOBIN="${ELAFROS_ROOT_DIR}/_output/bin"
-
 # Helper functions.
+
+function create_istio() {
+  kubectl apply -f ${ISTIO_DIR}/istio.yaml
+}
+
+
+function create_monitoring() {
+  kubectl apply -R -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common \
+    -f config/monitoring/200-common/100-istio.yaml
+}
+
+function create_everything() {
+  create_istio
+  kubectl apply -f third_party/config/build/release.yaml
+  ko apply -f config/
+  create_monitoring
+}
+
+function delete_istio() {
+  kubectl delete -f ${ISTIO_DIR}/istio.yaml
+  kubectl delete clusterrolebinding cluster-admin-binding
+}
+
+function delete_monitoring() {
+  kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
+    -f config/monitoring/150-elasticsearch-prod \
+    -f third_party/config/monitoring/common \
+    -f third_party/config/monitoring/elasticsearch \
+    -f config/monitoring/200-common
+}
+
+function delete_everything() {
+  delete_monitoring
+  ko delete --ignore-not-found=true -f config/
+  kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
+  delete_istio
+}
 
 function teardown() {
   header "Tearing down test environment"
   # Free resources in GCP project.
   if (( ! USING_EXISTING_CLUSTER )); then
-    bazel run //:everything.delete
+    delete_everything
   fi
 
-  # Delete Elafros images when using prow.
+  # Delete Knative Serving images when using prow.
   if (( IS_PROW )); then
-    delete_elafros_images
+    echo "Images in ${DOCKER_REPO_OVERRIDE}:"
+    gcloud container images list --repository=${DOCKER_REPO_OVERRIDE}
+    delete_gcr_images ${DOCKER_REPO_OVERRIDE}
   else
+    # Delete the kubernetes source downloaded by kubetest
+    rm -fr kubernetes kubernetes.tar.gz
     restore_override_vars
-    # --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-    bazel clean --expunge
   fi
 }
 
-function delete_elafros_images() {
-  local all_images=""
-  for image in build-controller creds-image ela-autoscaler ela-controller ela-queue ela-webhook git-image ; do
-    all_images="${all_images} ${ELA_DOCKER_REPO}/${image}"
-  done
-  gcloud -q container images delete ${all_images}
+function abort_if_failed() {
+  [[ $? -eq 0 ]] && return 0
+  dump_stack_info
+  exit 1
 }
 
-function exit_if_failed() {
-  [[ $? -eq 0 ]] && return 0
+function dump_stack_info() {
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***    Start of information dump    ***"
   echo "***************************************"
-  if (( IS_PROW )) || [[ $PROJECT_ID != "" ]]; then
-    echo ">>> Project info:"
-    gcloud compute project-info describe
-  fi
   echo ">>> All resources:"
   kubectl get all --all-namespaces
   echo ">>> Services:"
@@ -90,37 +126,56 @@ function exit_if_failed() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-  echo ">>> Ingress:"
-  kubectl get ingress --all-namespaces
-  echo ">>> Elafros controller log:"
-  kubectl logs $(get_ela_pod ela-controller) -n ela-system
+  echo ">>> Knative Serving controller log:"
+  kubectl logs $(get_knative_pod controller) -n knative-serving
   echo "***************************************"
   echo "***           TEST FAILED           ***"
   echo "***     End of information dump     ***"
   echo "***************************************"
-  exit 1
 }
 
-function run_tests() {
+function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
-  go test -v ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3
-  exit_if_failed
+  kubectl label namespace $2 istio-injection=enabled --overwrite
+  local options=""
+  (( EMIT_METRICS )) && options="-emitmetrics"
+  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$3 ${options}
+
+  local result=$?
+  [[ ${result} -ne 0 ]] && dump_stack_info
+  return ${result}
 }
 
 # Script entry point.
 
-cd ${ELAFROS_ROOT_DIR}
+cd ${SERVING_ROOT_DIR}
 
-# Show help if bad arguments are passed.
-if [[ -n $1 && $1 != "--run-tests" ]]; then
-  echo "usage: $0 [--run-tests]"
-  exit 1
-fi
+RUN_TESTS=0
+EMIT_METRICS=0
+for parameter in $@; do
+  case $parameter in
+    --run-tests)
+      RUN_TESTS=1
+      shift
+      ;;
+    --emit-metrics)
+      EMIT_METRICS=1
+      shift
+      ;;
+    *)
+      echo "error: unknown option ${parameter}"
+      echo "usage: $0 [--run-tests][--emit-metrics]"
+      exit 1
+      ;;
+  esac
+done
+readonly RUN_TESTS
+readonly EMIT_METRICS
 
-# No argument provided, create the test cluster.
+# Create the test cluster if not running tests.
 
-if [[ -z $1 ]]; then
+if (( ! RUN_TESTS )); then
   header "Creating test cluster"
   # Smallest cluster required to run the end-to-end-tests
   CLUSTER_CREATION_ARGS=(
@@ -128,7 +183,6 @@ if [[ -z $1 ]]; then
     --gke-shape={\"default\":{\"Nodes\":${E2E_CLUSTER_NODES}\,\"MachineType\":\"${E2E_CLUSTER_MACHINE}\"}}
     --provider=gke
     --deployment=gke
-    --gcp-node-image=cos
     --cluster="${E2E_CLUSTER_NAME}"
     --gcp-zone="${E2E_CLUSTER_ZONE}"
     --gcp-network="${E2E_NETWORK_NAME}"
@@ -136,11 +190,11 @@ if [[ -z $1 ]]; then
   )
   if (( ! IS_PROW )); then
     CLUSTER_CREATION_ARGS+=(--gcp-project=${PROJECT_ID:?"PROJECT_ID must be set to the GCP project where the tests are run."})
-  else
-    # On prow, set bogus SSH keys for kubetest, we're not using them.
-    touch $HOME/.ssh/google_compute_engine.pub
-    touch $HOME/.ssh/google_compute_engine
   fi
+  # SSH keys are not used, but kubetest checks for their existence.
+  # Touch them so if they don't exist, empty files are create to satisfy the check.
+  touch $HOME/.ssh/google_compute_engine.pub
+  touch $HOME/.ssh/google_compute_engine
   # Clear user and cluster variables, so they'll be set to the test cluster.
   # DOCKER_REPO_OVERRIDE is not touched because when running locally it must
   # be a writeable docker repo.
@@ -148,18 +202,46 @@ if [[ -z $1 ]]; then
   export K8S_CLUSTER_OVERRIDE=
   # Assume test failed (see more details at the end of this script).
   echo -n "1"> ${TEST_RESULT_FILE}
+  test_cmd_args="--run-tests"
+  (( EMIT_METRICS )) && test_cmd_args+=" --emit-metrics"
   kubetest "${CLUSTER_CREATION_ARGS[@]}" \
     --up \
     --down \
-    --extract "v${ELAFROS_GKE_VERSION}" \
+    --extract "gke-${SERVING_GKE_VERSION}" \
+    --gcp-node-image ${SERVING_GKE_IMAGE} \
     --test-cmd "${SCRIPT_CANONICAL_PATH}" \
-    --test-cmd-args --run-tests
+    --test-cmd-args "${test_cmd_args}"
+  # Delete target pools and health checks that might have leaked.
+  # See https://github.com/knative/serving/issues/959 for details.
+  # TODO(adrcunha): Remove once the leak issue is resolved.
+  gcp_project=${PROJECT_ID}
+  [[ -z ${gcp_project} ]] && gcp_project=$(gcloud config get-value project)
+  http_health_checks="$(gcloud compute target-pools list \
+    --project=${gcp_project} --format='value(healthChecks)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    grep httpHealthChecks | tr '\n' ' ')"
+  target_pools="$(gcloud compute target-pools list \
+    --project=${gcp_project} --format='value(name)' --filter="instances~-${E2E_CLUSTER_NAME}-" | \
+    tr '\n' ' ')"
+  region="$(gcloud compute zones list --filter=name=${E2E_CLUSTER_ZONE} --format='value(region)')"
+  if [[ -n "${target_pools}" ]]; then
+    echo "Found leaked target pools, deleting"
+    gcloud compute forwarding-rules delete -q --project=${gcp_project} --region=${region} ${target_pools}
+    gcloud compute target-pools delete -q --project=${gcp_project} --region=${region} ${target_pools}
+  fi
+  if [[ -n "${http_health_checks}" ]]; then
+    echo "Found leaked health checks, deleting"
+    gcloud compute http-health-checks delete -q --project=${gcp_project} ${http_health_checks}
+  fi
   result="$(cat ${TEST_RESULT_FILE})"
   echo "Test result code is $result"
   exit $result
 fi
 
-# --run-tests passed as first argument, run the tests.
+# --run-tests passed, run the tests.
+
+# Fail fast during setup.
+set -o errexit
+set -o pipefail
 
 # Set the required variables if necessary.
 
@@ -179,43 +261,46 @@ fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/knative-e2e-img
 fi
-readonly ELA_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
-# Build and start Elafros.
+# Build and start Knative Serving.
 
 echo "- Cluster is ${K8S_CLUSTER_OVERRIDE}"
 echo "- User is ${K8S_USER_OVERRIDE}"
 echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 
-header "Building and starting Elafros"
+header "Building and starting Knative Serving"
 trap teardown EXIT
 
-GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
+install_ko
 
-# --expunge is a workaround for https://github.com/elafros/elafros/issues/366
-bazel clean --expunge
 if (( USING_EXISTING_CLUSTER )); then
-  echo "Deleting any previous Elafros instance"
-  bazel run //:everything.delete  # ignore if not running
+  echo "Deleting any previous Knative Serving instance"
+  delete_everything
 fi
 if (( IS_PROW )); then
   gcr_auth
 fi
 
-bazel run //:everything.apply
-wait_until_pods_running ela-system
-exit_if_failed
+create_everything
 
-# Enable Istio sidecar injection
-bazel run //third_party/istio-0.6.0/install/kubernetes:webhook-create-signed-cert
-kubectl label namespace default istio-injection=enabled
+# Handle failures ourselves, so we can dump useful info.
+set +o errexit
+set +o pipefail
+
+wait_until_pods_running knative-serving || abort_if_failed
+wait_until_pods_running istio-system || abort_if_failed
+wait_until_service_has_external_ip istio-system knative-ingressgateway
+abort_if_failed
 
 # Run the tests
 
-run_tests conformance pizzaplanet ela-conformance-test
-run_tests e2e noodleburg ela-e2e-test
+run_e2e_tests conformance pizzaplanet conformance
+result=$?
+run_e2e_tests e2e noodleburg e2e
+[[ $? -ne 0 || ${result} -ne 0 ]] && exit 1
 
 # kubetest teardown might fail and thus incorrectly report failure of the
 # script, even if the tests pass.

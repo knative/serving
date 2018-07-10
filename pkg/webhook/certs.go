@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,6 +16,7 @@ limitations under the License.
 package webhook
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -25,7 +26,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/knative/serving/pkg/system"
+
+	"go.uber.org/zap"
+
+	"github.com/knative/serving/pkg/logging"
 )
 
 const (
@@ -42,7 +47,7 @@ func createCertTemplate() (*x509.Certificate, error) {
 		return nil, errors.New("failed to generate serial number: " + err.Error())
 	}
 
-	serviceName := elaWebhookDeployment + "." + elaSystemNamespace
+	serviceName := servingWebhookDeployment + "." + system.Namespace
 	serviceNames := []string{serviceName, serviceName + ".svc", serviceName + ".svc.cluster.local"}
 
 	tmpl := x509.Certificate{
@@ -98,22 +103,23 @@ func createCert(template, parent *x509.Certificate, pub interface{}, parentPriv 
 	return
 }
 
-func createCA() (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
+func createCA(ctx context.Context) (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
+	logger := logging.FromContext(ctx)
 	rootKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		glog.Warningf("error generating random key: %s", err)
+		logger.Error("error generating random key", zap.Error(err))
 		return nil, nil, nil, err
 	}
 
 	rootCertTmpl, err := createCACertTemplate()
 	if err != nil {
-		glog.Warningf("error generating CA cert: %s", err)
+		logger.Error("error generating CA cert", zap.Error(err))
 		return nil, nil, nil, err
 	}
 
 	rootCert, rootCertPEM, err := createCert(rootCertTmpl, rootCertTmpl, &rootKey.PublicKey, rootKey)
 	if err != nil {
-		glog.Warningf("error signing the CA cert: %s", err)
+		logger.Error("error signing the CA cert", zap.Error(err))
 		return nil, nil, nil, err
 	}
 	return rootKey, rootCert, rootCertPEM, nil
@@ -123,9 +129,10 @@ func createCA() (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
 // key for the server. serverKey and serverCert are used by the server
 // to establish trust for clients, CA certificate is used by the
 // client to verify the server authentication chain.
-func CreateCerts() (serverKey, serverCert, caCert []byte, err error) {
+func CreateCerts(ctx context.Context) (serverKey, serverCert, caCert []byte, err error) {
+	logger := logging.FromContext(ctx)
 	// First create a CA certificate and private key
-	caKey, caCertificate, caCertificatePEM, err := createCA()
+	caKey, caCertificate, caCertificatePEM, err := createCA(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -133,19 +140,19 @@ func CreateCerts() (serverKey, serverCert, caCert []byte, err error) {
 	// Then create the private key for the serving cert
 	servKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		glog.Warningf("error generating random key: %s", err)
+		logger.Error("error generating random key", zap.Error(err))
 		return nil, nil, nil, err
 	}
 	servCertTemplate, err := createServerCertTemplate()
 	if err != nil {
-		glog.Warningf("failed to create the server certificate template: %s", err)
+		logger.Error("failed to create the server certificate template", zap.Error(err))
 		return nil, nil, nil, err
 	}
 
 	// create a certificate which wraps the server's public key, sign it with the CA private key
 	_, servCertPEM, err := createCert(servCertTemplate, caCertificate, &servKey.PublicKey, caKey)
 	if err != nil {
-		glog.Warningf("error signing server certificate template: %s", err)
+		logger.Error("error signing server certificate template", zap.Error(err))
 		return nil, nil, nil, err
 	}
 	servKeyPEM := pem.EncodeToMemory(&pem.Block{

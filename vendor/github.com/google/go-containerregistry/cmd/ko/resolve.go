@@ -27,16 +27,18 @@ import (
 	"github.com/google/go-containerregistry/ko/publish"
 	"github.com/google/go-containerregistry/ko/resolve"
 	"github.com/google/go-containerregistry/name"
+	"github.com/google/go-containerregistry/v1/daemon"
 	"github.com/google/go-containerregistry/v1/remote"
 )
 
 func gobuildOptions() build.Options {
 	return build.Options{
-		GetBase: GetBaseImage,
+		GetBase:         getBaseImage,
+		GetCreationTime: getCreationTime,
 	}
 }
 
-func resolveFilesToWriter(fo *FilenameOptions, out io.Writer) {
+func resolveFilesToWriter(fo *FilenameOptions, lo *LocalOptions, out io.Writer) {
 	fs, err := enumerateFiles(fo)
 	if err != nil {
 		log.Fatalf("error enumerating files: %v", err)
@@ -50,7 +52,7 @@ func resolveFilesToWriter(fo *FilenameOptions, out io.Writer) {
 		go func(f string) {
 			defer wg.Done()
 
-			b, err := resolveFile(f, opt)
+			b, err := resolveFile(f, lo, opt)
 			if err != nil {
 				log.Fatalf("error processing import paths in %q: %v", f, err)
 			}
@@ -74,11 +76,20 @@ func resolveFilesToWriter(fo *FilenameOptions, out io.Writer) {
 	}
 }
 
-func resolveFile(f string, opt build.Options) ([]byte, error) {
-	repoName := os.Getenv("KO_DOCKER_REPO")
-	repo, err := name.NewRepository(repoName, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("the environment variable KO_DOCKER_REPO must be set to a valid docker repository, got %v", err)
+func resolveFile(f string, lo *LocalOptions, opt build.Options) ([]byte, error) {
+	var pub publish.Interface
+	if lo.Local {
+		pub = publish.NewDaemon(daemon.WriteOptions{})
+	} else {
+		repoName := os.Getenv("KO_DOCKER_REPO")
+		repo, err := name.NewRepository(repoName, name.WeakValidation)
+		if err != nil {
+			return nil, fmt.Errorf("the environment variable KO_DOCKER_REPO must be set to a valid docker repository, got %v", err)
+		}
+
+		pub = publish.NewDefault(repo, http.DefaultTransport, remote.WriteOptions{
+			MountPaths: getMountPaths(),
+		})
 	}
 
 	b, err := ioutil.ReadFile(f)
@@ -86,15 +97,10 @@ func resolveFile(f string, opt build.Options) ([]byte, error) {
 		return nil, err
 	}
 
-	publisher := publish.NewDefault(repo, http.DefaultTransport, remote.WriteOptions{
-		MountPaths: GetMountPaths(),
-	})
 	builder, err := build.NewGo(opt)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(mattmoor): To better approximate Bazel, we should collect the importpath references
-	// in advance, trigger builds, and then do a second pass to finalize each of the configs.
-	return resolve.ImageReferences(b, builder, publisher)
+	return resolve.ImageReferences(b, builder, pub)
 }

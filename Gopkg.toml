@@ -19,7 +19,6 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-# Required for Bazel
 required = [
   "k8s.io/apimachinery/pkg/util/sets/types",
   "k8s.io/apimachinery/pkg/apimachinery/registered",
@@ -29,6 +28,10 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "github.com/google/go-containerregistry/cmd/ko",
+]
+
+ignored = [
+  "github.com/knative/serving/sample/grpc-ping*",
 ]
 
 
@@ -45,15 +48,19 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "v2.2.1"
 
-
 [[constraint]]
   branch = "master"
   name = "github.com/golang/glog"
 
 [[constraint]]
-  name = "github.com/elafros/build"
-  # HEAD as of 2018-05-08
-  revision = "066aa5dfe3fa057adc747fd74d5079759606c173"
+  name = "github.com/knative/build"
+  # HEAD as of 2018-06-29
+  revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
+
+[[constraint]]
+  name = "github.com/google/go-containerregistry"
+  # HEAD as of 2018-05-28
+  revision = "8bdfdfc3bd4146f40b7709f6b1b7d979a3385da8"
 
 [[constraint]]
   name = "k8s.io/api"
@@ -70,3 +77,13 @@ required = [
 [[constraint]]
   name = "k8s.io/client-go"
   version = "kubernetes-1.10.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true
+  non-go = true
+
+[[prune.project]]
+  name = "k8s.io/code-generator"
+  unused-packages = false
+  non-go = false

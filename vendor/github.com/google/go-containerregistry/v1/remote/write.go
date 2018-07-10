@@ -39,7 +39,13 @@ type WriteOptions struct {
 // Write pushes the provided img to the specified image reference.
 func Write(ref name.Reference, img v1.Image, auth authn.Authenticator, t http.RoundTripper,
 	wo WriteOptions) error {
-	tr, err := transport.New(ref, auth, t, transport.PushScope)
+
+	scopes := []string{ref.Scope(transport.PushScope)}
+	for _, mp := range wo.MountPaths {
+		scopes = append(scopes, mp.Scope(transport.PullScope))
+	}
+
+	tr, err := transport.New(ref.Context().Registry, auth, t, scopes)
 	if err != nil {
 		return err
 	}
@@ -280,7 +286,7 @@ func (w *writer) commitImage() error {
 	}
 
 	// The image was successfully pushed!
-	fmt.Printf("%v: digest: %v size: %d\n", w.ref, digest, len(raw))
+	log.Printf("%v: digest: %v size: %d\n", w.ref, digest, len(raw))
 	return nil
 }
 

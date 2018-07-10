@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,25 +18,16 @@ package revision
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
-	buildv1alpha1 "github.com/elafros/build/pkg/apis/build/v1alpha1"
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 type key string
 
 func getKey(namespace, name string) key {
 	return key(fmt.Sprintf("%s/%s", namespace, name))
-}
-
-func splitKey(k key) (string, string) {
-	parts := strings.Split(string(k), "/")
-	if len(parts) != 2 {
-		panic("key type invariant violated.")
-	}
-	return parts[0], parts[1]
 }
 
 type set map[key]struct{}
@@ -91,10 +82,10 @@ func (bt *buildTracker) Untrack(u *v1alpha1.Revision) {
 	bk := getKey(u.Namespace, u.Spec.BuildName)
 	entry, ok := bt.builds[bk]
 	if ok {
+		entry.remove(getKey(u.Namespace, u.Name))
 		if len(entry) == 0 {
 			delete(bt.builds, bk)
 		} else {
-			entry.remove(getKey(u.Namespace, u.Name))
 			bt.builds[bk] = entry
 		}
 	}

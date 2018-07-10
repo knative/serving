@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	v1alpha2 "github.com/elafros/elafros/pkg/apis/istio/v1alpha2"
+	v1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
+	v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -50,19 +50,21 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=config.istio.io, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithResource("routerules"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Config().V1alpha2().RouteRules().Informer()}, nil
+	// Group=networking.istio.io, Version=v1alpha3
+	case v1alpha3.SchemeGroupVersion.WithResource("gateways"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().Gateways().Informer()}, nil
+	case v1alpha3.SchemeGroupVersion.WithResource("virtualservices"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha3().VirtualServices().Informer()}, nil
 
-		// Group=elafros.dev, Version=v1alpha1
+		// Group=serving.knative.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("configurations"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Configurations().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Configurations().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("revisions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Revisions().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Revisions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("routes"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Routes().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Routes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("services"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Elafros().V1alpha1().Services().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().Services().Informer()}, nil
 
 	}
 

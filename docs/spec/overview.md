@@ -1,6 +1,6 @@
 # Resource Types
 
-The primary resources in the Elafros API are Routes, Revisions,
+The primary resources in the Knative Serving API are Routes, Revisions,
 Configurations, and Services:
 
 * A **Route** provides a named endpoint and a mechanism for routing traffic to
@@ -52,7 +52,7 @@ A **Configuration** describes the desired latest Revision state, and
 creates and tracks the status of Revisions as the desired state is
 updated. A configuration might include instructions on how to transform
 a source package (either git repo or archive) into a container by
-referencing a [Build](https://github.com/elafros/build), or might
+referencing a [Build](https://github.com/knative/build), or might
 simply reference a container image and associated execution metadata
 needed by the Revision. On updates to a Configuration, a new build
 and/or deployment (creating a Revision) may be performed; the
@@ -71,11 +71,18 @@ orchestrator of the underlying Routes and Configurations (much as a
 kubernetes Deployment orchestrates ReplicaSets), and its usage is
 optional but recommended.
 
+The Service's controller will track the statuses of its owned Configuration
+and Route, reflecting their statuses and conditions as its own.
+
+The owned Configurations' Ready conditions are surfaced as the Service's
+ConfigurationsReady condition. The owned Routes' Ready conditions are
+surfaced as the Service's RoutesReady condition.
+
 
 # Orchestration
 
 The system will be configured to disallow users from creating
-([NYI](https://github.com/elafros/elafros/issues/664)) or changing
+([NYI](https://github.com/knative/serving/issues/664)) or changing
 Revisions. Instead, Revisions are created indirectly when a Configuration
 is created or updated. This provides:
 

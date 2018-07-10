@@ -1,5 +1,7 @@
+// +build e2e
+
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,12 +18,11 @@ limitations under the License.
 package e2e
 
 import (
-	"log"
 	"strings"
 	"testing"
 
-	"github.com/elafros/elafros/pkg/apis/ela/v1alpha1"
-	"github.com/elafros/elafros/test"
+	"github.com/knative/serving/test"
+	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,151 +32,192 @@ const (
 	autoscaleExpectedOutput = "39999983"
 )
 
-func isExpectedOutput() func(body string) (bool, error) {
-	return func(body string) (bool, error) {
-		return strings.Contains(body, autoscaleExpectedOutput), nil
-	}
-}
+var (
+	initialScaleToZeroThreshold string
+)
 
 func isDeploymentScaledUp() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas > 1, nil
+		return d.Status.ReadyReplicas >= 1, nil
 	}
 }
 
-func isDeploymentScaledDown() func(d *v1beta1.Deployment) (bool, error) {
+func isDeploymentScaledToZero() func(d *v1beta1.Deployment) (bool, error) {
 	return func(d *v1beta1.Deployment) (bool, error) {
-		return d.Status.ReadyReplicas <= 1, nil
+		return d.Status.ReadyReplicas == 0, nil
 	}
 }
 
-func generateTrafficBurst(clients *test.Clients, num int, domain string) {
+func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num int, domain string) {
 	concurrentRequests := make(chan bool, num)
 
-	log.Printf("Performing %d concurrent requests.", num)
+	logger.Infof("Performing %d concurrent requests.", num)
 	for i := 0; i < num; i++ {
 		go func() {
 			test.WaitForEndpointState(clients.Kube,
+				logger,
 				test.Flags.ResolvableDomain,
 				domain,
-				NamespaceName,
-				RouteName,
-				isExpectedOutput())
+				test.EventuallyMatchesBody(autoscaleExpectedOutput),
+				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
 	}
 
-	log.Println("Waiting for all requests to complete.")
+	logger.Infof("Waiting for all requests to complete.")
 	for i := 0; i < num; i++ {
 		<-concurrentRequests
 	}
 }
 
-func TestAutoscaleUpDownUp(t *testing.T) {
-	clients := Setup(t)
-	defer TearDown(clients)
+func getAutoscalerConfigMap(clients *test.Clients) (*v1.ConfigMap, error) {
+	return clients.Kube.CoreV1().ConfigMaps("knative-serving").Get("config-autoscaler", metav1.GetOptions{})
+}
 
+func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
+	configMap, err := getAutoscalerConfigMap(clients)
+	if err != nil {
+		return err
+	}
+	configMap.Data["scale-to-zero-threshold"] = threshold
+	_, err = clients.Kube.CoreV1().ConfigMaps("knative-serving").Update(configMap)
+	return err
+}
+
+func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
+	clients := Setup(t)
+
+	configMap, err := getAutoscalerConfigMap(clients)
+	if err != nil {
+		logger.Infof("Unable to retrieve the autoscale configMap. Assuming a ScaleToZero value of '5m'. %v", err)
+		initialScaleToZeroThreshold = "5m"
+	} else {
+		initialScaleToZeroThreshold = configMap.Data["scale-to-zero-threshold"]
+	}
+
+	err = setScaleToZeroThreshold(clients, "1m")
+	if err != nil {
+		t.Fatalf(`Unable to set ScaleToZeroThreshold to '1m'. This will
+		          cause the test to time out. Failing fast instead. %v`, err)
+	}
+
+	return clients
+}
+
+func tearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
+	setScaleToZeroThreshold(clients, initialScaleToZeroThreshold)
+	TearDown(clients, names, logger)
+}
+
+func TestAutoscaleUpDownUp(t *testing.T) {
+	// Add test case specific name to its own logger.
+	logger := test.Logger.Named("TestAutoscaleUpDownUp")
+
+	clients := setup(t, logger)
 	imagePath := strings.Join(
 		[]string{
 			test.Flags.DockerRepo,
-			NamespaceName + "-autoscale"},
+			"autoscale"},
 		"/")
 
-	log.Println("Creating a new Route and Configuration")
-	err := CreateRouteAndConfig(clients, imagePath)
+	logger.Infof("Creating a new Route and Configuration")
+	names, err := CreateRouteAndConfig(clients, logger, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
+	test.CleanupOnInterrupt(func() { tearDown(clients, names, logger) }, logger)
+	defer tearDown(clients, names, logger)
 
-	log.Println(`When the Revision can have traffic routed to it,
+	logger.Infof(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
 	err = test.WaitForRouteState(
 		clients.Routes,
-		RouteName,
-		func(r *v1alpha1.Route) (bool, error) {
-			return r.Status.IsReady(), nil
-		})
+		names.Route,
+		test.IsRouteReady,
+		"RouteIsReady")
 	if err != nil {
 		t.Fatalf(`The Route %s was not marked as Ready to serve traffic:
-			 %v`, RouteName, err)
+			 %v`, names.Route, err)
 	}
 
-	log.Println("Serves the expected data at the endpoint")
-	config, err := clients.Configs.Get(ConfigName, metav1.GetOptions{})
+	logger.Infof("Serves the expected data at the endpoint")
+	config, err := clients.Configs.Get(names.Config, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf(`Configuration %s was not updated with the new
-		         revision: %v`, ConfigName, err)
+		         revision: %v`, names.Config, err)
 	}
 	deploymentName :=
 		config.Status.LatestCreatedRevisionName + "-deployment"
-	route, err := clients.Routes.Get(RouteName, metav1.GetOptions{})
+	route, err := clients.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", RouteName, err)
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
 	domain := route.Status.Domain
 
 	err = test.WaitForEndpointState(
 		clients.Kube,
+		logger,
 		test.Flags.ResolvableDomain,
 		domain,
-		NamespaceName,
-		RouteName,
-		isExpectedOutput())
+		test.EventuallyMatchesBody(autoscaleExpectedOutput),
+		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve
 			 the expected text \"%v\": %v`,
-			RouteName, domain, autoscaleExpectedOutput, err)
+			names.Route, domain, autoscaleExpectedOutput, err)
 	}
 
-	log.Println(`The autoscaler spins up additional replicas when traffic
+	logger.Infof(`The autoscaler spins up additional replicas when traffic
 		    increases.`)
-	generateTrafficBurst(clients, 5, domain)
+	generateTrafficBurst(clients, logger, 5, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentIsScaledUp")
 	if err != nil {
-		log.Fatalf(`Unable to observe the Deployment named %s scaling
+		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
 	}
 
-	log.Println(`The autoscaler successfully scales down when devoid of
+	logger.Infof(`The autoscaler successfully scales down when devoid of
 		    traffic.`)
+
+	logger.Infof(`Manually setting ScaleToZeroThreshold to '1m' to facilitate
+		    faster testing.`)
+
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
-		isDeploymentScaledDown())
+		isDeploymentScaledToZero(),
+		"DeploymentScaledToZero")
 	if err != nil {
-		log.Fatalf(`Unable to observe the Deployment named %s scaling
+		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 		           down. %s`, deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
-	log.Println("Wait until there are pods available to scale into.")
-	pc := clients.Kube.CoreV1().Pods(NamespaceName)
-	pods, err := pc.List(metav1.ListOptions{})
-	podCount := 0
-	if err != nil {
-		log.Printf("Unable to get pod count. Defaulting to 1.")
-		podCount = 1
-	} else {
-		podCount = len(pods.Items)
-	}
+	logger.Infof("Wait until there are pods available to scale into.")
+	pc := clients.Kube.CoreV1().Pods(test.Flags.Namespace)
+
 	err = test.WaitForPodListState(
 		pc,
 		func(p *v1.PodList) (bool, error) {
-			return len(p.Items) < podCount, nil
-		})
+			return len(p.Items) == 0, nil
+		},
+		"WaitForAvailablePods")
 
-	log.Println(`The autoscaler spins up additional replicas once again when
-	            traffic increases.`)
-	generateTrafficBurst(clients, 8, domain)
+	logger.Infof("Scaled down.")
+	logger.Infof(`The autoscaler spins up additional replicas once again when
+              traffic increases.`)
+	generateTrafficBurst(clients, logger, 8, domain)
 	err = test.WaitForDeploymentState(
-		clients.Kube.ExtensionsV1beta1().Deployments(NamespaceName),
+		clients.Kube.ExtensionsV1beta1().Deployments(test.Flags.Namespace),
 		deploymentName,
-		isDeploymentScaledUp())
+		isDeploymentScaledUp(),
+		"DeploymentScaledUp")
 	if err != nil {
-		log.Fatalf(`Unable to observe the Deployment named %s scaling
+		logger.Fatalf(`Unable to observe the Deployment named %s scaling
 			   up. %s`, deploymentName, err)
 	}
 }

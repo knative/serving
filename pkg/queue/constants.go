@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,11 +16,6 @@ limitations under the License.
 package queue
 
 const (
-	// AutoscalerNamespace needs to match the service account, which needs to
-	// be a single, known namespace. This ensures that projects created in
-	// non-default namespaces continue to work with autoscaling.
-	AutoscalerNamespace = "ela-system"
-
 	// RequestQueuePortName specifies the port name to use for http requests
 	// in queue-proxy container.
 	RequestQueuePortName string = "queue-port"

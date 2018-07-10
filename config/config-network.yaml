@@ -1,0 +1,52 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+data:
+  # Specifies the IP ranges that Istio sidecar will intercept.
+  # Replace this with the IP ranges of your cluster (see below for some examples).
+  # Separate multiple entries with a comma.
+  # Example: "10.4.0.0/14,10.7.240.0/20"
+  # 
+  # If set to "*" Istio will intercept all traffic within
+  # the cluster as well as traffic that is going outside the cluster.
+  # Traffic going outside the cluster will be blocked unless
+  # necessary egress rules are created. 
+  #
+  # If omitted or set to "", value of global.proxy.includeIPRanges
+  # provided at Istio deployment time is used. In default Knative serving
+  # deployment, global.proxy.includeIPRanges value is set to "*".
+  # 
+  # If an invalid value is used, "" is used.
+  # 
+  # If valid set of IP address ranges are put into this value,
+  # Istio will no longer intercept traffic going to IP addresses
+  # outside the provided ranges and there is no need to specify
+  # egress rules.
+  # 
+  # To determine the IP ranges of your cluster:
+  #   IBM Cloud Private: cat cluster/config.yaml | grep service_cluster_ip_range
+  #   IBM Cloud Kubernetes Service: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
+  #   Google Container Engine (GKE): gcloud container clusters describe XXXXXXX --zone=XXXXXX | grep -e clusterIpv4Cidr -e servicesIpv4Cidr
+  #   Azure Container Service(ACS): "10.244.0.0/16,10.240.0.0/16"
+  #   Minikube: "10.0.0.1/24"
+  # 
+  # For more information, visit
+  # https://istio.io/docs/tasks/traffic-management/egress/
+  #
+  istio.sidecar.includeOutboundIPRanges: "*"

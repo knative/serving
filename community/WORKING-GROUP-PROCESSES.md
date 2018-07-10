@@ -1,6 +1,6 @@
-# Elafros Working Group Processes
+# Knative Working Group Processes
 
-This document describes the processes we use to manage the Elafros working
+This document describes the processes we use to manage the Knative working
 groups. This includes how they are formed, how leads are established, how they
 are run, etc.
 
@@ -16,16 +16,16 @@ are run, etc.
 
 ## Why working groups?
 
-Elafros working groups are organizations responsible for the design and
-implementation of large architectural aspects of the overall Elafros project.
+Knative working groups are organizations responsible for the design and
+implementation of large architectural aspects of the overall Knative project.
 Working groups operate with a fair amount of autonomy within the broader scope
 of the project. They tend to be long-lived, representing major initiatives over
-Elafros’s lifetime.
+Knative’s lifetime.
 
 Some working groups focus on specific technologies. Other working groups are
 cross-cutting in nature.
 
-The technical oversight committee is responsible for the Elafros project as a
+The technical oversight committee is responsible for the Knative project as a
 whole. It sets the overall direction of the project, helps make crosscutting
 architectural decisions, helps establish and dissolve working groups, and helps
 ensure all working groups are generally rowing in the same direction
@@ -58,7 +58,7 @@ new working group. To do so, you need to:
 
 *   **Send an Email**. Write up an email with your charter, nominated leads, and
     roadmap, and send it to
-    [elafros-tech-oversight@](mailto:elafros-tech-oversight@googlegroups.com).
+    [knative-tech-oversight@](mailto:knative-tech-oversight@googlegroups.com).
     The technical oversight committee will evaluate the request and decide
     whether the working group should be formed, whether it should be merely a
     subgroup of an existing working group, or whether it should be subsumed by
@@ -83,11 +83,11 @@ working group:
     document.
 
 *   **Create a Wiki**. Create a wiki page on
-    [GitHub](https://github.com/elafros/elafros) titled "GROUP_NAME Design
+    [GitHub](https://github.com/knative/serving) titled "GROUP_NAME Design
     Decisions". This page will be used to track important design decisions made
     by the working group.
 
-*   **Create a Public Google Group**. Call the group "elafros-*group_name*" (all
+*   **Create a Public Google Group**. Call the group "knative-*group_name*" (all
     in lowercase, dashes for spaces). This mailing list must be open to all.
 
 *   **Schedule a Recurring Meeting**. Create a recurring meeting (weekly or
@@ -97,13 +97,13 @@ working group:
     Google group to the meeting.
 
 *   **Register the Working Group**. Go to
-    [WORKING-GROUPS.md](https://github.com/elafros/elafros/blob/master/community/WORKING-GROUPS.md)
+    [WORKING-GROUPS.md](https://github.com/knative/serving/blob/master/community/WORKING-GROUPS.md)
     and add your working group name, the names of the leads, the working group
     charter, and a link to the meeting you created.
 
 *   **Announce your Working Group**. Send a note to
-    [elafros-dev@](mailto:elafros-dev@googlegroups.com) and
-    [elafros-tech-oversight@](mailto:elafros-tech-oversight@googlegroups.com) to
+    [knative-dev@](mailto:knative-dev@googlegroups.com) and
+    [knative-tech-oversight@](mailto:knative-tech-oversight@googlegroups.com) to
     announce your new working group. Include your charter in the email and
     provide links to the meeting invitation.
 
@@ -114,7 +114,7 @@ Congratulations, you now have a fully formed working group!
 Some working groups are ephemeral or naturally reach the end of their useful
 life. Working group leads can petition to dissolve their working groups by
 emailing
-[elafros-tech-oversight@googlegroups.com](mailto:elafros-tech-oversight@googlegroups.com).
+[knative-tech-oversight@googlegroups.com](mailto:knative-tech-oversight@googlegroups.com).
 The technical oversight committee takes ownership of any artifacts created or
 owned by the dissolved working group. The technical oversight committee also
 reserves the right to dissolve or recharter working groups over time as
@@ -126,7 +126,7 @@ and open community discussion.
 Each working group should have at least 2 leads, ideally 3, though young working
 groups may have only 1 lead initially. Working groups should strive to include
 representatives from multiple organizations as both leads and members. Working
-group leads must be Members of the Elafros project (that is, have made multiple
+group leads must be Members of the Knative project (that is, have made multiple
 contributions to the project in the form of code, design, or documentation).
 
 Please see the [Community Roles](ROLES.md) document for a description of a
@@ -187,5 +187,5 @@ agreeable conclusion.
 
 In all cases, remaining blocking issues can be raised to the [technical
 oversight committee](TECH-OVERSIGHT-COMMITTEE.md) to help resolve the situation.
-To trigger an escalation, create an issue in the `elafros/elafros` repo and
-assign it to the **@elafros/tech-oversight-committee** team.
+To trigger an escalation, create an issue in the `knative/serving` repo and
+assign it to the **@knative/tech-oversight-committee** team.

@@ -1,6 +1,6 @@
-# Elafros Technical Oversight Committee
+# Knative Technical Oversight Committee
 
-The Elafros Technical Oversight Committee (TOC) is responsible for cross-cutting
+The Knative Technical Oversight Committee (TOC) is responsible for cross-cutting
 product and design decisions.
 
 *   [Charter](#charter)
@@ -20,7 +20,7 @@ product and design decisions.
     *   Set the priorities of individual releases to ensure coherency and proper
         sequencing.
 
-    *   Approve declaring a new long-term supported (LTS) Elafros release.
+    *   Approve declaring a new long-term supported (LTS) Knative release.
 
     *   Approve the creation and dissolution of working groups and approve
         leadership changes of working groups.
@@ -36,7 +36,7 @@ product and design decisions.
     *   Establish and maintain the overall technical governance guidelines for
         the project.
 
-    *   Decide which sub-projects are part of the Elafros project, including
+    *   Decide which sub-projects are part of the Knative project, including
         accepting new sub-projects and pruning existing sub-projects to maintain
         community focus
 
@@ -72,7 +72,7 @@ during the community feedback period at the end of each meeting.
 
 Artifact                   | Link
 -------------------------- | ----
-Google Group               | [elafros-tech-oversight@googlegroups.com](https://groups.google.com/forum/#!forum/elafros-tech-oversight)
+Google Group               | [knative-tech-oversight@googlegroups.com](https://groups.google.com/forum/#!forum/knative-tech-oversight)
 Community Meeting VC       | [TODO](TODO)
 Community Meeting Calendar | [Calendar Invitation](TODO)
 Meeting Notes              | [Notes](TODO)

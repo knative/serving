@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -25,16 +25,18 @@ import (
 	"path"
 )
 
-// Flags will include the k8s cluster (defaults to $K8S_CLUSTER_OVERRIDE), kubeconfig (defaults to ./kube/config)
-// (for connecting to an existing cluster), dockerRepo (defaults to $DOCKER_REPO_OVERRIDE) and how to connect to deployed endpoints.
+// Flags holds the command line flags or defaults for settings in the user's environment.
+// See EnvironmentFlags for a list of supported fields.
 var Flags = initializeFlags()
 
-// EnvironmentFlags holds the command line flags or defaults for settings in the user's environment.
 type EnvironmentFlags struct {
-	Cluster          string
-	DockerRepo       string
-	Kubeconfig       string
-	ResolvableDomain bool
+	Cluster          string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
+	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Kubeconfig       string // Path to kubeconfig (defaults to ./kube/config)
+	Namespace        string // K8s namespace (blank by default, to be overwritten by test suite)
+	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
+	LogVerbose       bool   // Enable verbose logging
+	EmitMetrics      bool   // Emit metrics
 }
 
 func initializeFlags() *EnvironmentFlags {
@@ -53,8 +55,24 @@ func initializeFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
 
+	flag.StringVar(&f.Namespace, "namespace", "",
+		"Provide the namespace you would like to use for these tests.")
+
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
+	flag.BoolVar(&f.LogVerbose, "logverbose", false,
+		"Set this flag to true if you would like to see verbose logging.")
+
+	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
+		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
+
+	flag.Parse()
+	flag.Set("alsologtostderr", "true")
+	initializeLogger(f.LogVerbose)
+
+	if f.EmitMetrics {
+		initializeMetricExporter()
+	}
 	return &f
 }

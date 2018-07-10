@@ -1,55 +1,244 @@
+---
 apiVersion: v1
 kind: Namespace
-metadata: {name: build-system}
-
+metadata:
+  name: knative-build
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: knative-build-admin
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  - secrets
+  - events
+  - serviceaccounts
+  - configmaps
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
+- apiGroups:
+  - build.knative.dev
+  resources:
+  - builds
+  - buildtemplates
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
+  - watch
 ---
 apiVersion: v1
 kind: ServiceAccount
-metadata: {name: build-controller, namespace: build-system}
-
+metadata:
+  name: build-controller
+  namespace: knative-build
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
-metadata: {name: build-controller-admin}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cluster-admin}
+metadata:
+  name: build-controller-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: knative-build-admin
 subjects:
-- {kind: ServiceAccount, name: build-controller, namespace: build-system}
-
+- kind: ServiceAccount
+  name: build-controller
+  namespace: knative-build
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
-metadata: {name: builds.build.dev}
+metadata:
+  name: builds.build.knative.dev
 spec:
-  group: build.dev
-  names: {kind: Build, plural: builds}
+  group: build.knative.dev
+  names:
+    kind: Build
+    plural: builds
   scope: Namespaced
   version: v1alpha1
-
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
-metadata: {name: buildtemplates.build.dev}
+metadata:
+  name: buildtemplates.build.knative.dev
 spec:
-  group: build.dev
-  names: {kind: BuildTemplate, plural: buildtemplates}
+  group: build.knative.dev
+  names:
+    kind: BuildTemplate
+    plural: buildtemplates
   scope: Namespaced
   version: v1alpha1
-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: build-controller
+  name: build-controller
+  namespace: knative-build
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: build-controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: build-webhook
+  name: build-webhook
+  namespace: knative-build
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    role: build-webhook
+---
+apiVersion: v1
+data:
+  loglevel.autoscaler: info
+  loglevel.controller: info
+  loglevel.queueproxy: info
+  loglevel.webhook: info
+  zap-logger-config: |
+    {
+      "level": "info",
+      "development": false,
+      "sampling": {
+        "initial": 100,
+        "thereafter": 100
+      },
+      "outputPaths": ["stdout"],
+      "errorOutputPaths": ["stderr"],
+      "encoding": "json",
+      "encoderConfig": {
+        "timeKey": "",
+        "levelKey": "level",
+        "nameKey": "logger",
+        "callerKey": "caller",
+        "messageKey": "msg",
+        "stacktraceKey": "stacktrace",
+        "lineEnding": "",
+        "levelEncoder": "",
+        "timeEncoder": "",
+        "durationEncoder": "",
+        "callerEncoder": ""
+      }
+    }
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: knative-build
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
-metadata: {name: build-controller, namespace: build-system}
+metadata:
+  name: build-controller
+  namespace: knative-build
 spec:
   replicas: 1
   template:
     metadata:
-      labels: {app: build-controller}
+      labels:
+        app: build-controller
     spec:
       containers:
-      - args: [-builder, cluster, -logtostderr, -stderrthreshold, INFO, -creds-image,
-          'gcr.io/build-crd/github.com/elafros/build/cmd/creds-init@sha256:768ed8f4daa96194b65c161b073d80150b81ce10fd39d8be9a1fdf63a4ea6f1d',
-          -git-image, 'gcr.io/build-crd/github.com/elafros/build/cmd/git-init@sha256:8b63aecf0b9d492baf4b689a9699044518dcdc0879d77e8509dd505c1cf4cb5f']
-        image: gcr.io/build-crd/github.com/elafros/build/cmd/controller@sha256:009022eef0b6759932ecf502959a88fb2eefafe4da7445394dad2ccbe143494a
+      - args:
+        - -builder
+        - cluster
+        - -logtostderr
+        - -stderrthreshold
+        - INFO
+        - -creds-image
+        - gcr.io/build-crd/github.com/knative/build/cmd/creds-init@sha256:cfcc14889abe29b54d17ff6cf414918d9d92ff02bb112525742ec2e30117899f
+        - -git-image
+        - gcr.io/build-crd/github.com/knative/build/cmd/git-init@sha256:d52c29a4a1d83712b048bd32dbb5f97b7d2791af9b892f68fe94e162932ac66e
+        image: gcr.io/build-crd/github.com/knative/build/cmd/controller@sha256:9220968c9aae7e6edac97effc7b693fcf5bbb17edf78aa14347de87b15ac8840
         name: build-controller
       serviceAccountName: build-controller
-
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: build-webhook
+  namespace: knative-build
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: build-webhook
+        role: build-webhook
+    spec:
+      containers:
+      - args:
+        - -builder
+        - cluster
+        - -logtostderr
+        - -stderrthreshold
+        - INFO
+        image: gcr.io/build-crd/github.com/knative/build/cmd/webhook@sha256:a7ed8fb8828f71a6aba3f9f9899eff6c867ceb5a8ceeaed903008c2296f919fb
+        name: build-webhook
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: build-controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging

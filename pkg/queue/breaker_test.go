@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -22,6 +22,7 @@ import (
 )
 
 func TestBreakerOverload(t *testing.T) {
+	t.Skip("Skipping until #1308 is addressed")
 	b := NewBreaker(1, 1)             // Breaker capacity = 2
 	want := []bool{true, true, false} // Only first two requests will be processed
 
@@ -80,6 +81,7 @@ func TestBreakerRecover(t *testing.T) {
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
+	t.Skip("Re-enable once #1514 is fixed.")
 	b := NewBreaker(5, 45)    // Breaker capacity = 50
 	want := make([]bool, 150) // Process 150 requests
 	for i := 0; i < 50; i++ {

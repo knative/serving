@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ set -o pipefail
 COVERAGE_FILE_NAME="coverage_profile.txt"
 HEAD_FILE_NAME="head.txt"
 HIST_HEADS_FILE_NAME="historical_heads.txt"
-ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
 
 if [[ -v PULL_PULL_SHA ]]; then 
   echo "Process pull build..."
@@ -58,12 +58,12 @@ case $pr in
   *) folder="pulls/$pr";;
 esac
 
-gcs_pr_dir="gs://gke-prow/pr-logs/coverage/elafros-elafros/${folder}/"
+gcs_pr_dir="gs://gke-prow/pr-logs/coverage/knative-serving/${folder}/"
 gcs_profile_dir=${gcs_pr_dir}profiles/
 gcs_profile_path=${gcs_profile_dir}${object_file_name}
 
 
-cd ${ELAFROS_ROOT}/pkg
+cd ${SERVING_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
 go test ./... -covermode=count -coverprofile $COVERAGE_FILE_NAME

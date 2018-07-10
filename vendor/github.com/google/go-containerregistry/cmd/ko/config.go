@@ -15,8 +15,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -31,16 +35,33 @@ var (
 	baseImageOverrides map[string]name.Reference
 )
 
-func GetBaseImage(s string) (v1.Image, error) {
+func getBaseImage(s string) (v1.Image, error) {
 	ref, ok := baseImageOverrides[s]
 	if !ok {
 		ref = defaultBaseImage
 	}
 	log.Printf("Using base %s for %s", ref, s)
-	return remote.Image(ref, authn.Anonymous, http.DefaultTransport)
+	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+	if err != nil {
+		return nil, err
+	}
+	return remote.Image(ref, auth, http.DefaultTransport)
 }
 
-func GetMountPaths() []name.Repository {
+func getCreationTime() (*v1.Time, error) {
+	epoch := os.Getenv("SOURCE_DATE_EPOCH")
+	if epoch == "" {
+		return nil, nil
+	}
+
+	seconds, err := strconv.ParseInt(epoch, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("the environment variable SOURCE_DATE_EPOCH is invalid. It's must be a number of seconds since January 1st 1970, 00:00 UTC, got %v", err)
+	}
+	return &v1.Time{time.Unix(seconds, 0)}, nil
+}
+
+func getMountPaths() []name.Repository {
 	repos := make([]name.Repository, 0, len(baseImageOverrides)+1)
 	repos = append(repos, defaultBaseImage.Context())
 	for _, v := range baseImageOverrides {

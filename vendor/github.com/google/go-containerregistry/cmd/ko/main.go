@@ -25,7 +25,6 @@ func main() {
 	cmds := &cobra.Command{
 		Use:   "ko",
 		Short: "Rapidly iterate with Go, Containers, and Kubernetes.",
-		Long:  "Long Desc", // K8s has a helper here?
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},

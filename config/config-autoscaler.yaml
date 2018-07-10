@@ -1,0 +1,68 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-autoscaler
+  namespace: knative-serving
+data:
+  # Static parameters:
+
+  # Target concurrency is the desired number of concurrent requests for
+  # each pod. This is the primary knob for fast autoscaling which will
+  # try achieve an concurrency per pod of the target
+  # concurrency. Single-concurrency must target a value close to 1.0.
+  multi-concurrency-target: "1.0"
+  single-concurrency-target: "0.9"
+
+  # When operating in a stable mode, the autoscaler operates on the
+  # average concurrency over the stable window.
+  stable-window: "60s"
+
+  # When observed average concurrency during the panic window reaches 2x
+  # the target concurrency, the autoscaler enters panic mode. When
+  # operating in panic mode, the autoscaler operates on the average
+  # concurrency over the panic window.
+  panic-window: "6s"
+
+  # Max scale up rate limits the rate at which the autoscaler will
+  # increase pod count. It is the maximum ratio of desired pods versus
+  # observed pods.
+  max-scale-up-rate: "10"
+
+  # Concurrency quantum of time is the minimum time is the quantum in
+  # which concurrency will be measured by the queue-proxy.
+  # The maximum concurrency in each of the "buckets" (of the duration
+  # defined here) is taken and the average over all buckets is
+  # reported.
+  concurrency-quantum-of-time: "100ms"
+
+  # Scale to zero feature flag
+  enable-scale-to-zero: "true"
+
+  # Experimental: enable vertical pod autoscaling.
+  # Requires a VPA installation (e.g. ./third_party/vpa/install-vpa.sh)
+  enable-vertical-pod-autoscaling: "false"
+  #
+  # This will be the multi-concurrency-target when
+  # enable-vertical-pod-autoscaling is true. And it will be the new
+  # default when the experiment is launched and removed.
+  vpa-multi-concurrency-target: "10.0"
+  
+  # Dynamic parameters (take effect when config map is updated):
+
+  # Scale to zero threshold is the time a revision must be idle before
+  # it is scaled to zero.
+  scale-to-zero-threshold: "5m"

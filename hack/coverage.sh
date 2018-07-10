@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Google, Inc. All rights reserved.
+# Copyright 2018 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ else
   OBJECT_FILE_NAME=$1
 fi
 
-ELAFROS_ROOT=$(dirname ${BASH_SOURCE})/..
+SERVING_ROOT=$(dirname ${BASH_SOURCE})/..
 
-cd ${ELAFROS_ROOT}/pkg
+cd ${SERVING_ROOT}/pkg
 
 # Generate the coverage profile for all tests, and store it in the GCS bucket.
 go test ./... -coverprofile coverage_profile.txt
-gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/elafros-coverage/profiles/$OBJECT_FILE_NAME
+gsutil cp -a public-read coverage_profile.txt gs://gke-prow/pr-logs/directory/knative-coverage/profiles/$OBJECT_FILE_NAME

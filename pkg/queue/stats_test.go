@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google Inc. All Rights Reserved.
+Copyright 2018 The Knative Authors
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elafros/elafros/pkg/autoscaler"
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/serving/pkg/autoscaler"
 )
 
 const (
@@ -114,6 +114,8 @@ func TestManyRequestsOneBucket(t *testing.T) {
 	s := newTestStats()
 	now := time.Now()
 
+	// Since none of these requests interleave, the reported
+	// concurrency should be 1.0
 	for i := 0; i < 10; i++ {
 		s.requestStart()
 		s.requestEnd()
@@ -124,8 +126,59 @@ func TestManyRequestsOneBucket(t *testing.T) {
 	want := &autoscaler.Stat{
 		Time:                      &now,
 		PodName:                   podName,
-		AverageConcurrentRequests: 10.0,
+		AverageConcurrentRequests: 1.0,
 		RequestCount:              10,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestManyRequestsOneBucketInterleaved(t *testing.T) {
+	s := newTestStats()
+	now := time.Now()
+
+	s.requestStart() // concurrency == 1
+	s.requestStart() // concurrency == 2
+	s.requestStart() // concurrency == 3
+	s.requestEnd()   // concurrency == 2
+	s.requestStart() // concurrency == 3
+	s.requestStart() // concurrency == 4
+	s.requestEnd()   // concurrency == 3
+	s.requestEnd()   // concurrency == 2
+	s.requestEnd()   // concurrency == 1
+	s.requestEnd()   // concurrency == 0
+	s.quantize(now)
+	got := s.report(now)
+
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 4.0,
+		RequestCount:              5,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func TestOneRequestTwoBuckets(t *testing.T) {
+	s := newTestStats()
+	now := time.Now()
+
+	s.requestStart()
+	s.quantize(now)
+
+	now = now.Add(100 * time.Millisecond)
+	s.requestEnd()
+	s.quantize(now)
+	got := s.report(now)
+
+	want := &autoscaler.Stat{
+		Time:                      &now,
+		PodName:                   podName,
+		AverageConcurrentRequests: 1.0,
+		RequestCount:              1,
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)
@@ -143,8 +196,7 @@ func newTestStats() *testStats {
 	quanitzationBiChan := make(chan time.Time)
 	reportBiChan := make(chan time.Time)
 	ch := Channels{
-		ReqInChan:        make(chan Poke),
-		ReqOutChan:       make(chan Poke, 100), // Buffer because ReqOutChan isn't drained until quantization.
+		ReqChan:          make(chan ReqEvent),
 		QuantizationChan: (<-chan time.Time)(quanitzationBiChan),
 		ReportChan:       (<-chan time.Time)(reportBiChan),
 		StatChan:         make(chan *autoscaler.Stat),
@@ -159,11 +211,11 @@ func newTestStats() *testStats {
 }
 
 func (s *testStats) requestStart() {
-	s.ch.ReqInChan <- Poke{}
+	s.ch.ReqChan <- ReqIn
 }
 
 func (s *testStats) requestEnd() {
-	s.ch.ReqOutChan <- Poke{}
+	s.ch.ReqChan <- ReqOut
 }
 
 func (s *testStats) quantize(now time.Time) {
