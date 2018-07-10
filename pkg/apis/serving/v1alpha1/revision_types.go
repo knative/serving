@@ -46,6 +46,11 @@ type Revision struct {
 	Status RevisionStatus `json:"status,omitempty"`
 }
 
+// Check that Revision can be validated, can be defaulted, and has immutable fields.
+var _ Validatable = (*Revision)(nil)
+var _ Defaultable = (*Revision)(nil)
+var _ HasImmutableFields = (*Revision)(nil)
+
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
 type RevisionTemplateSpec struct {

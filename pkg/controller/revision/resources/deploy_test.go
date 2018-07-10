@@ -263,7 +263,7 @@ func TestMakePodSpec(t *testing.T) {
 			Volumes: []corev1.Volume{varLogVolume},
 		},
 	}, {
-		name: "simple concurrency=multi shell readiness probe",
+		name: "concurrency=multi, readinessprobe=shell",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -296,6 +296,164 @@ func TestMakePodSpec(t *testing.T) {
 					Handler: corev1.Handler{
 						Exec: &corev1.ExecAction{
 							Command: []string{"echo", "hello"},
+						},
+					},
+				},
+				Resources:    userResources,
+				Ports:        userPorts,
+				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:    userLifecycle,
+			}, {
+				Name:           queueContainerName,
+				Resources:      queueResources,
+				Ports:          queuePorts,
+				Lifecycle:      queueLifecycle,
+				ReadinessProbe: queueReadinessProbe,
+				// These changed based on the Revision and configs passed in.
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+				Env: []corev1.EnvVar{{
+					Name:  "SERVING_NAMESPACE",
+					Value: "foo", // matches namespace
+				}, {
+					Name: "SERVING_CONFIGURATION",
+					// No OwnerReference
+				}, {
+					Name:  "SERVING_REVISION",
+					Value: "bar", // matches name
+				}, {
+					Name:  "SERVING_AUTOSCALER",
+					Value: "autoscaler", // no autoscaler configured.
+				}, {
+					Name:  "SERVING_AUTOSCALER_PORT",
+					Value: "8080",
+				}, {
+					Name: "SERVING_POD",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
+				}, {
+					Name: "SERVING_LOGGING_CONFIG",
+					// No logging configuration
+				}, {
+					Name: "SERVING_LOGGING_LEVEL",
+					// No logging level
+				}},
+			}},
+			Volumes: []corev1.Volume{varLogVolume},
+		},
+	}, {
+		name: "concurrency=multi, readinessprobe=http",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ConcurrencyModel: "Multi",
+				Container: corev1.Container{
+					Image: "busybox",
+					ReadinessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/",
+							},
+						},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		want: &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  UserContainerName,
+				Image: "busybox",
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							// HTTP probes route through the queue
+							Port: intstr.FromInt(queue.RequestQueuePort),
+						},
+					},
+				},
+				Resources:    userResources,
+				Ports:        userPorts,
+				VolumeMounts: []corev1.VolumeMount{varLogVolumeMount},
+				Lifecycle:    userLifecycle,
+			}, {
+				Name:           queueContainerName,
+				Resources:      queueResources,
+				Ports:          queuePorts,
+				Lifecycle:      queueLifecycle,
+				ReadinessProbe: queueReadinessProbe,
+				// These changed based on the Revision and configs passed in.
+				Args: []string{"-concurrencyQuantumOfTime=0s", "-concurrencyModel=Multi"},
+				Env: []corev1.EnvVar{{
+					Name:  "SERVING_NAMESPACE",
+					Value: "foo", // matches namespace
+				}, {
+					Name: "SERVING_CONFIGURATION",
+					// No OwnerReference
+				}, {
+					Name:  "SERVING_REVISION",
+					Value: "bar", // matches name
+				}, {
+					Name:  "SERVING_AUTOSCALER",
+					Value: "autoscaler", // no autoscaler configured.
+				}, {
+					Name:  "SERVING_AUTOSCALER_PORT",
+					Value: "8080",
+				}, {
+					Name: "SERVING_POD",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+					},
+				}, {
+					Name: "SERVING_LOGGING_CONFIG",
+					// No logging configuration
+				}, {
+					Name: "SERVING_LOGGING_LEVEL",
+					// No logging level
+				}},
+			}},
+			Volumes: []corev1.Volume{varLogVolume},
+		},
+	}, {
+		name: "concurrency=multi, livenessprobe=tcp",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+			Spec: v1alpha1.RevisionSpec{
+				ConcurrencyModel: "Multi",
+				Container: corev1.Container{
+					Image: "busybox",
+					LivenessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							TCPSocket: &corev1.TCPSocketAction{},
+						},
+					},
+				},
+			},
+		},
+		lc: &logging.Config{},
+		oc: &config.Observability{},
+		ac: &autoscaler.Config{},
+		cc: &config.Controller{},
+		want: &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  UserContainerName,
+				Image: "busybox",
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(userPort),
 						},
 					},
 				},

@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -28,6 +27,7 @@ import (
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
 	. "github.com/knative/serving/pkg/logging/testing"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,7 +66,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	configMapWatcher := configmap.NewFixedWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
