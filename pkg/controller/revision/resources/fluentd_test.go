@@ -156,8 +156,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 			}, {
 				Name:      "SERVING_POD_NAME",
 				ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-			},
-			},
+			}},
 			VolumeMounts: fluentdVolumeMounts,
 		},
 	}, {
@@ -201,8 +200,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 			}, {
 				Name:      "SERVING_POD_NAME",
 				ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-			},
-			},
+			}},
 			VolumeMounts: fluentdVolumeMounts,
 		},
 	}, {
@@ -241,8 +239,7 @@ func TestMakeFluentdContainer(t *testing.T) {
 			}, {
 				Name:      "SERVING_POD_NAME",
 				ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}},
-			},
-			},
+			}},
 			VolumeMounts: fluentdVolumeMounts,
 		},
 	},
