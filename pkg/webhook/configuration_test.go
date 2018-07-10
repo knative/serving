@@ -17,6 +17,7 @@ package webhook
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -183,5 +184,43 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 	expected = want.Error()
 	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
+	}
+}
+
+func TestConcurrencySettings(t *testing.T) {
+	configuration := v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testConfigurationName,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: testGeneration,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: corev1.Container{
+						Image: "test",
+					},
+					InstanceConcurrency: 1,
+					ConcurrencyModel:    v1alpha1.RevisionRequestConcurrencyModelSingle,
+				},
+			},
+		},
+	}
+
+	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err != nil {
+		t.Errorf("Unexpected error %v from %v", err, configuration)
+	}
+
+	configuration.Spec.RevisionTemplate.Spec.InstanceConcurrency = 5
+	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil {
+		t.Errorf("Expected mismatch between single and parallelism=5 on %v", configuration)
+	} else {
+		if !strings.Contains(err.Error(), "does not support concurrency greater than 1") {
+			t.Errorf("Unexpected error %v from config, expected mismatch between single and parallelism=5: %v", err, configuration)
+		}
+	}
+	configuration.Spec.RevisionTemplate.Spec.ConcurrencyModel = v1alpha1.RevisionRequestConcurrencyModelMulti
+	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err != nil {
+		t.Errorf("Unexpected error %v from %v", err, configuration)
 	}
 }

@@ -46,6 +46,7 @@ type Config struct {
 	PanicWindow              time.Duration
 	ScaleToZeroThreshold     time.Duration
 	ConcurrencyQuantumOfTime time.Duration
+	MaxConcurrency           int64
 }
 
 func (c *Config) TargetConcurrency(model v1alpha1.RevisionRequestConcurrencyModelType) float64 {
@@ -82,6 +83,32 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 			*b.field = false
 		} else {
 			*b.field = (strings.ToLower(raw) == "true")
+		}
+	}
+
+	// Process Int64 fields
+	for _, i64 := range []struct {
+		key      string
+		field    *int64
+		optional bool
+		// specified exactyl when optional
+		defaultValue int64
+	}{{
+		key:          "max-concurrency",
+		field:        &lc.MaxConcurrency,
+		optional:     true,
+		defaultValue: 0,
+	}} {
+		if raw, ok := data[i64.key]; !ok {
+			if i64.optional {
+				*i64.field = i64.defaultValue
+				continue
+			}
+			return nil, fmt.Errorf("Autoscaling configmap is missing %q", i64.key)
+		} else if val, err := strconv.ParseInt(raw, 0, 64); err != nil {
+			return nil, err
+		} else {
+			*i64.field = val
 		}
 	}
 
