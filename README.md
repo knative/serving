@@ -1,7 +1,7 @@
 # Welcome, Knative
 
 Knative (pronounced /ˈnā-tiv/) extends Kubernetes to provide the
-missing middleware that developers need to create modern,
+missing building blocks that developers need to create modern,
 source-centric, container-based, cloud-native applications.
 
 Each of the components under the Knative project attempt to identify
@@ -15,8 +15,8 @@ real-world Kubernetes-based frameworks and applications, such as:
 
 Knative focuses on the "boring but difficult" parts that everyone
 needs, but no one benefits from doing over again on their own. This in
-turn frees application developers to spend more time writing
-interesting code, not worrying about how they are going to build,
+turn frees developers to spend more time writing application
+code, not worrying about how they are going to build,
 deploy, monitor, and debug it.
 
 
