@@ -274,8 +274,6 @@ echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 header "Building and starting Knative Serving"
 trap teardown EXIT
 
-install_ko
-
 if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Knative Serving instance"
   delete_everything

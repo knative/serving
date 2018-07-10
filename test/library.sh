@@ -142,31 +142,8 @@ function acquire_cluster_admin_role() {
 # Authenticates the current user to GCR in the current project.
 function gcr_auth() {
   echo "Authenticating to GCR"
-  # kubekins-e2e images lack docker-credential-gcr, install it manually.
-  # TODO(adrcunha): Remove this step once docker-credential-gcr is available.
-  gcloud components install docker-credential-gcr
   docker-credential-gcr configure-docker
   echo "Successfully authenticated"
-}
-
-# Installs ko in $OUTPUT_GOBIN
-function install_ko() {
-  GOBIN="${OUTPUT_GOBIN}" go install ./vendor/github.com/google/go-containerregistry/cmd/ko
-}
-
-# Runs ko; prefers using the one installed by install_ko().
-# Parameters: $1..$n - arguments to ko
-function ko() {
-  if [[ -e "${OUTPUT_GOBIN}/ko" ]]; then
-    "${OUTPUT_GOBIN}/ko" $@
-  else
-    local local_ko="$(which ko)"
-    if [[ -z "${local_ko}" ]]; then
-      echo "error: ko not installed, either in the system or explicitly"
-      return 1
-    fi
-    $local_ko $@
-  fi
 }
 
 # Runs a go test and generate a junit summary through bazel.

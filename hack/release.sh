@@ -113,8 +113,6 @@ if (( ! SKIP_TESTS )); then
   ./test/presubmit-tests.sh
 fi
 
-install_ko
-
 banner "    BUILDING THE RELEASE   "
 
 # Set the repository
