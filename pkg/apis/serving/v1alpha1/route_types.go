@@ -274,7 +274,7 @@ func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 
 func (rs *RouteStatus) MarkUnreadyConfigurationTarget(configName string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("The Configuration %q does not have a LatestReadyRevision.", configName)
+	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", configName)
 	rs.markTrafficNotAssigned(reason, msg)
 }
 

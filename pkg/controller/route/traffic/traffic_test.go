@@ -418,7 +418,7 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev},
 	}
-	expectedErr := MissingConfigurationErr(missingConfig.Name)
+	expectedErr := errMissingConfiguration(missingConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -440,7 +440,7 @@ func TestBuildTrafficConfiguration_DeletedRevision(t *testing.T) {
 			revDeletedConfig.Name: revDeletedConfig},
 		Revisions: map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := DeletedRevisionErr(revDeletedConfig.Name)
+	expectedErr := errDeletedRevision(revDeletedConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -461,7 +461,7 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{},
 		Revisions:      map[string]*v1alpha1.Revision{unreadyRev.Name: unreadyRev},
 	}
-	expectedErr := NotRoutableRevisionErr(unreadyRev.Name)
+	expectedErr := errNotRoutableRevision(unreadyRev.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -482,7 +482,7 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{unreadyConfig.Name: unreadyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := NotRoutableRevisionErr(unreadyRev.Name)
+	expectedErr := errNotRoutableRevision(unreadyRev.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -503,7 +503,7 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{emptyConfig.Name: emptyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := EmptyConfigurationErr(emptyConfig.Name)
+	expectedErr := errEmptyConfiguration(emptyConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -527,7 +527,7 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
 	}
-	expectedErr := MissingRevisionErr(missingRev.Name)
+	expectedErr := errMissingRevision(missingRev.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -567,75 +567,6 @@ func TestRoundTripping(t *testing.T) {
 	} else if diff := cmp.Diff(expected, tc.GetTrafficTargets()); diff != "" {
 		fmt.Printf("%+v\n", tc.GetTrafficTargets())
 		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
-	}
-}
-
-func TestMarkBadTrafficTarget_Missing(t *testing.T) {
-	err := MissingRevisionErr("missing-rev")
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-
-	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []v1alpha1.RouteConditionType{
-		v1alpha1.RouteConditionAllTrafficAssigned,
-		v1alpha1.RouteConditionReady,
-	} {
-		cond := r.Status.GetCondition(condType)
-		cond.LastTransitionTime = metav1.Time{}
-		expectedCond := &v1alpha1.RouteCondition{
-			Type:    condType,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionMissing",
-			Message: `Revision "missing-rev" referenced in traffic not found.`,
-		}
-		if diff := cmp.Diff(expectedCond, cond); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
-		}
-	}
-}
-
-func TestMarkBadTrafficTarget_Deleted(t *testing.T) {
-	err := DeletedRevisionErr("my-latest-rev-was-deleted")
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-
-	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []v1alpha1.RouteConditionType{
-		v1alpha1.RouteConditionAllTrafficAssigned,
-		v1alpha1.RouteConditionReady,
-	} {
-		cond := r.Status.GetCondition(condType)
-		cond.LastTransitionTime = metav1.Time{}
-		expectedCond := &v1alpha1.RouteCondition{
-			Type:    condType,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionMissing",
-			Message: `Latest Revision of Configuration "my-latest-rev-was-deleted" is deleted.`,
-		}
-		if diff := cmp.Diff(expectedCond, cond); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
-		}
-	}
-}
-
-func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
-	err := EmptyConfigurationErr("i-was-never-ready")
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-
-	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []v1alpha1.RouteConditionType{
-		v1alpha1.RouteConditionAllTrafficAssigned,
-		v1alpha1.RouteConditionReady,
-	} {
-		cond := r.Status.GetCondition(condType)
-		cond.LastTransitionTime = metav1.Time{}
-		expectedCond := &v1alpha1.RouteCondition{
-			Type:    condType,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionMissing",
-			Message: `The Configuration "i-was-never-ready" does not have a LatestReadyRevision.`,
-		}
-		if diff := cmp.Diff(expectedCond, cond); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
-		}
 	}
 }
 

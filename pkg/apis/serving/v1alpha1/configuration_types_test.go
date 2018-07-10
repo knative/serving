@@ -325,14 +325,30 @@ func TestFailingSecondRevision(t *testing.T) {
 	}
 }
 
-func TestMarkLatestReadyDeleted(t *testing.T) {
+func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	r := &Configuration{}
 	r.Status.InitializeConditions()
-	r.Status.MarkLatestReadyDeleted()
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestCreatedRevisionName("foo")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("foo")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	// When the latest revision is deleted, the Configuration became Failed.
 	want := "was deleted"
+	r.Status.MarkLatestCreatedFailed("bar", want)
 	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
-		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", c.Message, want)
+		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
 	}
+
+	// But creating new revision 'bar' and making it Ready will fix things.
+	r.Status.SetLatestCreatedRevisionName("bar")
+	checkConditionOngoingConfiguration(r.Status, ConfigurationConditionReady, t)
+
+	r.Status.SetLatestReadyRevisionName("bar")
+	checkConditionSucceededConfiguration(r.Status, ConfigurationConditionReady, t)
 }
 
 func checkConditionSucceededConfiguration(rs ConfigurationStatus, rct ConfigurationConditionType, t *testing.T) *ConfigurationCondition {

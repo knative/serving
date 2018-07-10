@@ -203,6 +203,27 @@ func TestLatestRevisionDeletedFlow(t *testing.T) {
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
+func TestLatestRevisionDeletedThenFixedFlow(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkTrafficAssigned()
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
+
+	// LatestReadyRevision is deleted.
+	r.Status.MarkDeletedLatestRevisionTarget("my-latest-ready-was-deleted")
+	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+
+	// But a new LatestReadyRevision is added back.
+	r.Status.MarkTrafficAssigned()
+	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
+}
+
 func TestTrafficNotAssignedFlow(t *testing.T) {
 	r := &Route{}
 	r.Status.InitializeConditions()

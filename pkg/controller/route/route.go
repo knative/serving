@@ -183,7 +183,7 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 	return nil
 }
 
-func markTrafficTargetError(r *v1alpha1.Route, targetErr traffic.TrafficTargetErr) (*v1alpha1.Route, error) {
+func markTrafficTargetError(r *v1alpha1.Route, targetErr traffic.TargetError) (*v1alpha1.Route, error) {
 	targetErr.MarkBadTrafficTarget(&r.Status)
 	return r, targetErr
 }
@@ -201,7 +201,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
-	badTarget, isTargetError := err.(traffic.TrafficTargetErr)
+	badTarget, isTargetError := err.(traffic.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
