@@ -138,25 +138,6 @@ func NewStatsReporter() (*Reporter, error) {
 	return r, nil
 }
 
-// Report captures value v for measurement m. The revision rev is in namespace ns and its owner is config
-func (r *Reporter) Report(ns string, config string, rev string, m Measurement, v float64) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
-	ctx, err := tag.New(
-		context.Background(),
-		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev))
-	if err != nil {
-		return err
-	}
-
-	stats.Record(ctx, measurements[m].M(v))
-	return nil
-}
-
 // reportRequest captures value v for measurement m.
 func (r *Reporter) ReportRequest(ns, config, rev, servingState string, v float64) error {
 	if !r.initialized {

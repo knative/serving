@@ -119,7 +119,7 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		rrt.reporter.ReportResponseCount(namespace, config, name, resp.StatusCode, i, 1.0)
 		rrt.reporter.ReportResponseTime(namespace, config, name, resp.StatusCode, time.Now().Sub(rrt.start))
 	}
-	return resp, nil
+	return resp, err
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
