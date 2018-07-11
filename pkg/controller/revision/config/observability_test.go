@@ -22,73 +22,11 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestNewObservabilityNoEntry(t *testing.T) {
-	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ObservabilityConfigName,
-		},
-	})
-	if err != nil {
-		t.Fatalf("NewObservabilityFromConfigMap() = %v", err)
-	}
-	if got, want := c.EnableVarLogCollection, false; got != want {
-		t.Errorf("EnableVarLogCollection = %v, want %v", got, want)
-	}
-	if got, want := c.LoggingURLTemplate, ""; got != want {
-		t.Errorf("LoggingURLTemplate = %v, want %v", got, want)
-	}
-}
-
-func TestNewObservabilityNoSidecar(t *testing.T) {
-	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ObservabilityConfigName,
-		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection": "true",
-		},
-	})
-	if err == nil {
-		t.Fatalf("NewObservabilityFromConfigMap() = %v, want error", c)
-	}
-}
-
-func TestNewObservability(t *testing.T) {
-	wantFSI := "gcr.io/log-stuff/fluentd:latest"
-	wantFSOC := "the-config"
-	wantLUT := "https://logging.io"
-	c, err := NewObservabilityFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ObservabilityConfigName,
-		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         wantFSI,
-			"logging.fluentd-sidecar-output-config": wantFSOC,
-			"logging.revision-url-template":         wantLUT,
-		},
-	})
-	if err != nil {
-		t.Fatalf("NewObservabilityFromConfigMap() = %v", err)
-	}
-	if got := c.FluentdSidecarImage; got != wantFSI {
-		t.Errorf("FluentdSidecarImage = %v, want %v", got, wantFSI)
-	}
-	if got := c.FluentdSidecarOutputConfig; got != wantFSOC {
-		t.Errorf("FluentdSidecarOutputConfig = %v, want %v", got, wantFSOC)
-	}
-	if got := c.LoggingURLTemplate; got != wantLUT {
-		t.Errorf("LoggingURLTemplate = %v, want %v", got, wantLUT)
-	}
-}
 
 func TestOurObservability(t *testing.T) {
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ObservabilityConfigName))
@@ -101,5 +39,73 @@ func TestOurObservability(t *testing.T) {
 	}
 	if _, err := NewObservabilityFromConfigMap(&cm); err != nil {
 		t.Errorf("NewObservabilityFromConfigMap() = %v", err)
+	}
+}
+
+var observabilityConfigTests = []struct {
+	name           string
+	wantErr        bool
+	wantController interface{}
+	config         *corev1.ConfigMap
+}{{
+	"observability configuration with all inputs",
+	false,
+	&Observability{
+		LoggingURLTemplate:         "https://logging.io",
+		FluentdSidecarOutputConfig: "the-config",
+		FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
+		EnableVarLogCollection:     true,
+	},
+	&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      ObservabilityConfigName,
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection":     "true",
+			"logging.fluentd-sidecar-image":         "gcr.io/log-stuff/fluentd:latest",
+			"logging.fluentd-sidecar-output-config": "the-config",
+			"logging.revision-url-template":         "https://logging.io",
+		},
+	},
+}, {
+	"observability config with no map",
+	false,
+	&Observability{
+		EnableVarLogCollection: false,
+		LoggingURLTemplate:     "",
+	},
+	&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      ObservabilityConfigName,
+		},
+	},
+}, {
+	"observability configuration with no side car image",
+	true,
+	(*Observability)(nil),
+	&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      ObservabilityConfigName,
+		},
+		Data: map[string]string{
+			"logging.enable-var-log-collection": "true",
+		},
+	},
+}}
+
+func TestObservabilityConfig(t *testing.T) {
+	for _, tt := range observabilityConfigTests {
+		actualController, err := NewObservabilityFromConfigMap(tt.config)
+
+		if (err != nil) != tt.wantErr {
+			t.Fatalf("Test: %q; NewObservabilityFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+		}
+
+		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
+			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
+		}
 	}
 }
