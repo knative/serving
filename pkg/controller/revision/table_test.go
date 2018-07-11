@@ -672,75 +672,80 @@ func TestReconcile(t *testing.T) {
 			endpointsAS("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
 		},
 		Key: "foo/stable-deactivation",
-		// }, {
-		// 	Name: "retire a revision",
-		// 	// Test the transition that's made when Retired is set.
-		// 	// We initialize the world to a stable Active state, but make the
-		// 	// Revision's ServingState Retired.  We then looks for the expected
-		// 	// mutations, which should include the deletion of all Kubernetes
-		// 	// resources.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			// The revision has been set to Retired, but all of the objects
-		// 			// reflect being Active.
-		// 			rev("foo", "retire", "Retired", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "retire", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 		// The Deployments match what we'd expect of an Active revision.
-		// 		deploy("foo", "retire", "Active", "busybox"),
-		// 		deployAS("foo", "retire", "Active", "busybox"),
-		// 		// The Services match what we'd expect of an Active revision.
-		// 		svc("foo", "retire", "Active", "busybox"),
-		// 		svcAS("foo", "retire", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			rev("foo", "retire", "Retired", "busybox"),
-		// 			// After reconciliation, the status will change to reflect that this is being Retired.
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "retire", "Retired", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "False",
-		// 					Reason: "Inactive",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	WantDeletes: []clientgotesting.DeleteActionImpl{{
-		// 		Name: deploy("foo", "retire", "Retired", "busybox").Name,
-		// 	}, {
-		// 		Name: svc("foo", "retire", "Retired", "busybox").Name,
-		// 	}, {
-		// 		Name: deployAS("foo", "retire", "Retired", "busybox").Name,
-		// 	}, {
-		// 		Name: svcAS("foo", "retire", "Retired", "busybox").Name,
-		// 	}},
-		// 	// We delete a bunch of stuff when we retire.
-		// 	Key: "foo/retire",
+	}, {
+		Name: "retire a revision",
+		// Test the transition that's made when Retired is set.
+		// We initialize the world to a stable Active state, but make the
+		// Revision's ServingState Retired.  We then looks for the expected
+		// mutations, which should include the deletion of all Kubernetes
+		// resources.
+		Objects: []runtime.Object{
+			makeStatus(
+				// The revision has been set to Retired, but all of the objects
+				// reflect being Active.
+				rev("foo", "retire", "Retired", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "retire", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+			// The Deployments match what we'd expect of an Active revision.
+			deploy("foo", "retire", "Active", "busybox"),
+			deployAS("foo", "retire", "Active", "busybox"),
+			// The Services match what we'd expect of an Active revision.
+			svc("foo", "retire", "Active", "busybox"),
+			svcAS("foo", "retire", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "retire", "Retired", "busybox"),
+				// After reconciliation, the status will change to reflect that this is being Retired.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "retire", "Retired", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Retired",
+					}},
+				}),
+		}},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: deploy("foo", "retire", "Retired", "busybox").Name,
+		}, {
+			Name: svc("foo", "retire", "Retired", "busybox").Name,
+		}, {
+			Name: deployAS("foo", "retire", "Retired", "busybox").Name,
+		}, {
+			Name: svcAS("foo", "retire", "Retired", "busybox").Name,
+		}},
+		// We delete a bunch of stuff when we retire.
+		Key: "foo/retire",
 		// }, {
 		// 	Name: "failure deleting user deployment",
 		// 	// Induce a failure deleting the user's deployment

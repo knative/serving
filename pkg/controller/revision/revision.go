@@ -382,11 +382,12 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// workaround for missing Istio RouteRule Status, this
 		// timestamp is used to wait 10 seconds before scaling to
 		// zero.
+		// TODO: Remove the Reserve condition entirely.
 		rev.Status.MarkReserve()
-		// When the Revision is in Reserve or ToReserve states it
-		// should be marked as Idle.
+		// When the Revision is in Retired, Reserve or ToReserve
+		// states it should be marked as Idle.
 		rev.Status.MarkIdle()
-	case v1alpha1.RevisionServingStateToReserve:
+	case v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateRetired:
 		rev.Status.MarkIdle()
 	case v1alpha1.RevisionServingStateActive:
 		// When a Revision is in Active state it should not be
@@ -425,11 +426,10 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			}
 			if changed == WasChanged {
 				logger.Infof("Updated deployment %q", deploymentName)
-				if *deployment.Spec.Replicas == 0 {
-					rev.Status.MarkDeploying("Reserve")
-				} else {
-					rev.Status.MarkDeploying("Updating")
-				}
+				rev.Status.MarkDeploying("Updating")
+			}
+			if *deployment.Spec.Replicas == 0 {
+				rev.Status.MarkDeploying("Reserve")
 			}
 		}
 
@@ -454,6 +454,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return err
 		}
 		logger.Infof("Deleted deployment %q", deploymentName)
+		rev.Status.MarkDeploying("Retired")
 		return nil
 
 	default:
@@ -504,8 +505,10 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 			*desiredDeployment.Spec.Replicas = 1
 		}
 	case (ss == v1alpha1.RevisionServingStateReserve && teardown), ss == v1alpha1.RevisionServingStateRetired:
-		logger.Infof("Scaling Deployment to 0")
-		*desiredDeployment.Spec.Replicas = 0
+		if *desiredDeployment.Spec.Replicas != 0 {
+			logger.Infof("Scaling Deployment to 0")
+			*desiredDeployment.Spec.Replicas = 0
+		}
 	}
 
 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
