@@ -121,6 +121,10 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 	weights := []v1alpha3.DestinationWeight{}
 	for _, t := range active {
 		if t.Percent == 0 {
+			// Istio doesn't like 0% targets https://github.com/istio/old_issues_repo/issues/352.
+			// This is fixed in 1.0 but not yet fixed in 0.8.
+			//
+			// However, we shouldn't need to include 0% route anyway.
 			continue
 		}
 		weights = append(weights, v1alpha3.DestinationWeight{
@@ -167,6 +171,13 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		if t.Percent >= maxInactiveTarget.Percent {
 			maxInactiveTarget = t
 		}
+	}
+	if totalInactivePercent == 0 {
+		// Istio doesn't like 0% targets https://github.com/istio/old_issues_repo/issues/352.
+		// This is fixed in 1.0 but not yet fixed in 0.8.
+		//
+		// However, we shouldn't need to include 0% route anyway.
+		return r
 	}
 	r.Route = append(r.Route, v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
