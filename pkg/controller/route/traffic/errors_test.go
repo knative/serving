@@ -21,7 +21,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMarkBadTrafficTarget_Missing(t *testing.T) {
@@ -33,15 +32,15 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
-		cond := r.Status.GetCondition(condType)
-		cond.LastTransitionTime = metav1.Time{}
-		expectedCond := &v1alpha1.RouteCondition{
-			Type:    condType,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionMissing",
-			Message: `Revision "missing-rev" referenced in traffic not found.`,
+		got := r.Status.GetCondition(condType)
+		want := &v1alpha1.RouteCondition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionMissing",
+			Message:            `Revision "missing-rev" referenced in traffic not found.`,
+			LastTransitionTime: got.LastTransitionTime,
 		}
-		if diff := cmp.Diff(expectedCond, cond); diff != "" {
+		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 		}
 	}
@@ -56,15 +55,15 @@ func TestMarkBadTrafficTarget_Deleted(t *testing.T) {
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
-		cond := r.Status.GetCondition(condType)
-		cond.LastTransitionTime = metav1.Time{}
-		expectedCond := &v1alpha1.RouteCondition{
-			Type:    condType,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionMissing",
-			Message: `Latest Revision of Configuration "my-latest-rev-was-deleted" is deleted.`,
+		got := r.Status.GetCondition(condType)
+		want := &v1alpha1.RouteCondition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionMissing",
+			Message:            `Latest Revision of Configuration "my-latest-rev-was-deleted" is deleted.`,
+			LastTransitionTime: got.LastTransitionTime,
 		}
-		if diff := cmp.Diff(expectedCond, cond); diff != "" {
+		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 		}
 	}
@@ -79,15 +78,15 @@ func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
 		v1alpha1.RouteConditionAllTrafficAssigned,
 		v1alpha1.RouteConditionReady,
 	} {
-		cond := r.Status.GetCondition(condType)
-		cond.LastTransitionTime = metav1.Time{}
-		expectedCond := &v1alpha1.RouteCondition{
-			Type:    condType,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionMissing",
-			Message: `Configuration "i-was-never-ready" does not have a LatestReadyRevision.`,
+		got := r.Status.GetCondition(condType)
+		want := &v1alpha1.RouteCondition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionMissing",
+			Message:            `Configuration "i-was-never-ready" does not have a LatestReadyRevision.`,
+			LastTransitionTime: got.LastTransitionTime,
 		}
-		if diff := cmp.Diff(expectedCond, cond); diff != "" {
+		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 		}
 	}

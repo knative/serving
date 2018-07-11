@@ -183,11 +183,6 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 	return nil
 }
 
-func markTrafficTargetError(r *v1alpha1.Route, targetErr traffic.TargetError) (*v1alpha1.Route, error) {
-	targetErr.MarkBadTrafficTarget(&r.Status)
-	return r, targetErr
-}
-
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
 // targets (e.g. Configurations without a Ready Revision, or Revision that isn't Ready or Inactive),
 // no traffic will be configured.
@@ -206,6 +201,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
 		r.Status.MarkUnknownTrafficError(err.Error())
+		return r, err
 	}
 	// If the only errors are missing traffic target, we need to
 	// update the labels first, so that when these targets recover we
@@ -213,8 +209,9 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	if err := c.syncLabels(ctx, r, t); err != nil {
 		return r, err
 	}
-	if badTarget != nil {
-		return markTrafficTargetError(r, badTarget)
+	if badTarget != nil && isTargetError {
+		badTarget.MarkBadTrafficTarget(&r.Status)
+		return r, badTarget
 	}
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {

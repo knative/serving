@@ -244,20 +244,6 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-		RouteConditionReady,
-	} {
-		rs.setCondition(&RouteCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "Unknown",
-			Message: msg,
-		})
-	}
-}
-
 func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
@@ -270,6 +256,10 @@ func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 			Message: msg,
 		})
 	}
+}
+
+func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
+	rs.markTrafficNotAssigned("Unknown", msg)
 }
 
 func (rs *RouteStatus) MarkUnreadyConfigurationTarget(configName string) {

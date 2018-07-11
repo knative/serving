@@ -255,7 +255,7 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
 			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("revision %q failed with message: %s", name, message),
+			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
 		})
 	}
 }
@@ -267,7 +267,7 @@ func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
 			Reason:  "RevisionDeleted",
-			Message: fmt.Sprintf("revision %q was deleted", cs.LatestReadyRevisionName),
+			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
 		})
 	}
 	cs.LatestReadyRevisionName = ""

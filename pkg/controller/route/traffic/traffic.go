@@ -78,8 +78,8 @@ type trafficConfigBuilder struct {
 	// revisions contains all the referred Revision, keyed by their name.
 	revisions map[string]*v1alpha1.Revision
 
-	// tolerated error.
-	lastErr error
+	// TargetError are deferred until we got a complete list of all refered targets.
+	deferredTargetErr TargetError
 }
 
 func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *trafficConfigBuilder {
@@ -127,10 +127,10 @@ func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) erro
 	} else if tt.ConfigurationName != "" {
 		err = t.addConfigurationTarget(tt)
 	}
-	if _, ok := err.(TargetError); err != nil && ok {
-		// Tolerate target errors, as we still want to compile a list
+	if targetErr, ok := err.(TargetError); err != nil && ok {
+		// Defer target errors, as we still want to compile a list
 		// of all referred targets, including missing ones.
-		t.lastErr = err
+		t.deferredTargetErr = targetErr
 		return nil
 	}
 	return err
@@ -143,7 +143,7 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	if err != nil {
 		return err
 	}
-	if err = CheckConfigurationErr(config); err != nil {
+	if err = checkConfiguration(config); err != nil {
 		return err
 	}
 	rev, err := t.getRevision(config.Status.LatestReadyRevisionName)
@@ -223,12 +223,12 @@ func consolidateAll(targets map[string][]RevisionTarget) map[string][]RevisionTa
 }
 
 func (t *trafficConfigBuilder) build() (*TrafficConfig, error) {
-	if t.lastErr != nil {
+	if t.deferredTargetErr != nil {
 		t.targets = nil
 	}
 	return &TrafficConfig{
 		Targets:        consolidateAll(t.targets),
 		Configurations: t.configurations,
 		Revisions:      t.revisions,
-	}, t.lastErr
+	}, t.deferredTargetErr
 }

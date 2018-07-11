@@ -338,9 +338,9 @@ func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 
 	// When the latest revision is deleted, the Configuration became Failed.
 	want := "was deleted"
-	r.Status.MarkLatestCreatedFailed("bar", want)
+	r.Status.MarkLatestReadyDeleted()
 	if c := checkConditionFailedConfiguration(r.Status, ConfigurationConditionReady, t); !strings.Contains(c.Message, want) {
-		t.Errorf("MarkLatestCreatedFailed = %v, want substring %v", c.Message, want)
+		t.Errorf("MarkLatestReadyDeleted = %v, want substring %v", c.Message, want)
 	}
 
 	// But creating new revision 'bar' and making it Ready will fix things.

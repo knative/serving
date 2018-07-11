@@ -117,7 +117,7 @@ func errDeletedRevision(configName string) TargetError {
 	return &latestRevisionDeletedErr{name: configName}
 }
 
-func CheckConfigurationErr(c *v1alpha1.Configuration) TargetError {
+func checkConfiguration(c *v1alpha1.Configuration) TargetError {
 	cs := c.Status
 	if cs.LatestCreatedRevisionName == "" {
 		// Configuration has not any Revision.
