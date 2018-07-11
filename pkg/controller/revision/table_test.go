@@ -623,37 +623,55 @@ func TestReconcile(t *testing.T) {
 		}},
 		// We update the Deployments to have zero replicas and delete the K8s Services when we deactivate.
 		Key: "foo/update-autoscaler-deploy-failure",
-		// }, {
-		// 	Name: "deactivated revision is stable",
-		// 	// Test a simple stable reconciliation of a Reserve Revision.
-		// 	// We feed in a Revision and the resources it controls in a steady
-		// 	// state (port-Reserve), and verify that no changes are necessary.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "stable-deactivation", "Reserve", "busybox"),
-		// 			// The Revision status matches that of a properly deactivated Revision.
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "stable-deactivation", "Reserve", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "False",
-		// 					Reason: "Inactive",
-		// 				}},
-		// 			}),
-		// 		// The Deployments match what we'd expect of an Reserve revision.
-		// 		deploy("foo", "stable-deactivation", "Reserve", "busybox"),
-		// 		deployAS("foo", "stable-deactivation", "Reserve", "busybox"),
-		// 	},
-		// 	Key: "foo/stable-deactivation",
+	}, {
+		Name: "deactivated revision is stable",
+		// Test a simple stable reconciliation of a Reserve Revision.
+		// We feed in a Revision and the resources it controls in a steady
+		// state (port-Reserve), and verify that no changes are necessary.
+		Objects: []runtime.Object{
+			makeStatus(
+				// The revision has been set to Deactivated, but all of the objects
+				// reflect being Active.
+				rev("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:               "Reserve",
+						Status:             "True",
+						Reason:             "Reserve",
+						Message:            "Revision has been placed into Reserve state.",
+						LastTransitionTime: metav1.NewTime(time.Now().Add(-11 * time.Second)),
+					}},
+				}),
+			// The Deployments match what we'd expect of a Reserve revision.
+			deploy("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+			deployAS("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+			// The Services match what we'd expect of a Reserve revision.
+			svc("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+			svcAS("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+			// The Endpoints match what we'd expect of an Reserve revision.
+			endpoints("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+			endpointsAS("foo", "update-autoscaler-deploy-failure", "Reserve", "busybox"),
+		},
+		Key: "foo/stable-deactivation",
 		// }, {
 		// 	Name: "retire a revision",
 		// 	// Test the transition that's made when Retired is set.
