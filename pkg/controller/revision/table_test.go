@@ -1082,631 +1082,631 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		Key: "foo/create-in-reserve",
-		// }, {
-		// 	Name: "endpoint is created (not ready)",
-		// 	// Test the transition when a Revision's Endpoints are created (but not yet ready)
-		// 	// This initializes the state of the world to the steady-state after a Revision's
-		// 	// first reconciliation*.  It then introduces an Endpoints resource that's not yet
-		// 	// ready.  This should result in no change, since there isn't really any new
-		// 	// information.
-		// 	//
-		// 	// * - One caveat is that we have to explicitly set LastTransitionTime to keep us
-		// 	// from thinking we've been waiting for this Endpoint since the beginning of time
-		// 	// and declaring a timeout (this is the main difference from that test below).
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "endpoint-created-not-ready", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 					// We set the LTT so that we don't give up on the Endpoints yet.
-		// 					LastTransitionTime: metav1.NewTime(time.Now()),
-		// 				}},
-		// 			}),
-		// 		deploy("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 		deployAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 		svc("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 		svcAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 		endpoints("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 		endpointsAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
-		// 	},
-		// 	// No updates, since the endpoint didn't have meaningful status.
-		// 	Key: "foo/endpoint-created-not-ready",
-		// }, {
-		// 	Name: "endpoint is created (timed out)",
-		// 	// Test the transition when a Revision's Endpoints aren't ready after a long period.
-		// 	// This examines the effects of Reconcile when the Endpoints exist, but we think that
-		// 	// we've been waiting since the dawn of time because we omit LastTransitionTime from
-		// 	// our Conditions.  We should see an update to put us into a ServiceTimeout state.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 					// The LTT defaults and is long enough ago that we expire waiting
-		// 					// on the Endpoints to become ready.
-		// 				}},
-		// 			}),
-		// 		deploy("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 		deployAS("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 		svc("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 		svcAS("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 		endpoints("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 		endpointsAS("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			rev("foo", "endpoint-created-timeout", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:    "ResourcesAvailable",
-		// 					Status:  "False",
-		// 					Reason:  "ServiceTimeout",
-		// 					Message: "Timed out waiting for a service endpoint to become ready",
-		// 				}, {
-		// 					Type:    "Ready",
-		// 					Status:  "False",
-		// 					Reason:  "ServiceTimeout",
-		// 					Message: "Timed out waiting for a service endpoint to become ready",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	// We update the Revision to timeout waiting on Endpoints.
-		// 	Key: "foo/endpoint-created-timeout",
-		// }, {
-		// 	Name: "endpoint is ready",
-		// 	// Test the transition that Reconcile makes when Endpoints become ready.
-		// 	// This puts the world into the stable post-reconcile state for an Active
-		// 	// Revision.  It then creates an Endpoints resource with active subsets.
-		// 	// This signal should make our Reconcile mark the Revision as Ready.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "endpoint-ready", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 		deploy("foo", "endpoint-ready", "Active", "busybox"),
-		// 		deployAS("foo", "endpoint-ready", "Active", "busybox"),
-		// 		svc("foo", "endpoint-ready", "Active", "busybox"),
-		// 		svcAS("foo", "endpoint-ready", "Active", "busybox"),
-		// 		addEndpoint(endpoints("foo", "endpoint-ready", "Active", "busybox")),
-		// 		addEndpoint(endpointsAS("foo", "endpoint-ready", "Active", "busybox")),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			rev("foo", "endpoint-ready", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "True",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "True",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "True",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	// We update the Revision to timeout waiting on Endpoints.
-		// 	Key: "foo/endpoint-ready",
-		// }, {
-		// 	Name: "mutated service gets fixed",
-		// 	// Test that we correct mutations to our K8s Service resources.
-		// 	// This initializes the world to the stable post-create reconcile, and
-		// 	// adds in mutations to the K8s services that we control.  We then
-		// 	// verify that Reconcile posts the appropriate updates to correct the
-		// 	// services back to our desired specification.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "fix-mutated-service", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 					// We set the LTT so that we don't give up on the Endpoints yet.
-		// 					LastTransitionTime: metav1.NewTime(time.Now()),
-		// 				}},
-		// 			}),
-		// 		deploy("foo", "fix-mutated-service", "Active", "busybox"),
-		// 		deployAS("foo", "fix-mutated-service", "Active", "busybox"),
-		// 		changeService(svc("foo", "fix-mutated-service", "Active", "busybox")),
-		// 		changeService(svcAS("foo", "fix-mutated-service", "Active", "busybox")),
-		// 		endpoints("foo", "fix-mutated-service", "Active", "busybox"),
-		// 		endpointsAS("foo", "fix-mutated-service", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		// Reason changes from Deploying to Updating.
-		// 		Object: makeStatus(
-		// 			rev("foo", "fix-mutated-service", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}},
-		// 			}),
-		// 	}, {
-		// 		Object: svc("foo", "fix-mutated-service", "Active", "busybox"),
-		// 	}, {
-		// 		Object: svcAS("foo", "fix-mutated-service", "Active", "busybox"),
-		// 	}},
-		// 	Key: "foo/fix-mutated-service",
-		// }, {
-		// 	Name: "failure updating user service",
-		// 	// Induce a failure updating the user service.
-		// 	WantErr: true,
-		// 	WithReactors: []clientgotesting.ReactionFunc{
-		// 		InduceFailure("update", "services"),
-		// 	},
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 					// We set the LTT so that we don't give up on the Endpoints yet.
-		// 					LastTransitionTime: metav1.NewTime(time.Now()),
-		// 				}},
-		// 			}),
-		// 		deploy("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 		deployAS("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 		changeService(svc("foo", "update-user-svc-failure", "Active", "busybox")),
-		// 		svcAS("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 		endpoints("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 		endpointsAS("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: svc("foo", "update-user-svc-failure", "Active", "busybox"),
-		// 	}},
-		// 	Key: "foo/update-user-svc-failure",
-		// }, {
-		// 	Name: "failure updating autoscaler service",
-		// 	// Induce a failure updating the autoscaler service.
-		// 	WantErr: true,
-		// 	WithReactors: []clientgotesting.ReactionFunc{
-		// 		InduceFailure("update", "services"),
-		// 	},
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "update-as-svc-failure", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 					// We set the LTT so that we don't give up on the Endpoints yet.
-		// 					LastTransitionTime: metav1.NewTime(time.Now()),
-		// 				}},
-		// 			}),
-		// 		deploy("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 		deployAS("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 		svc("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 		changeService(svcAS("foo", "update-as-svc-failure", "Active", "busybox")),
-		// 		endpoints("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 		endpointsAS("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: svcAS("foo", "update-as-svc-failure", "Active", "busybox"),
-		// 	}},
-		// 	Key: "foo/update-as-svc-failure",
-		// }, {
-		// 	Name: "surface deployment timeout",
-		// 	// Test the propagation of ProgressDeadlineExceeded from Deployment.
-		// 	// This initializes the world to the stable state after its first reconcile,
-		// 	// but changes the user deployment to have a ProgressDeadlineExceeded
-		// 	// condition.  It then verifies that Reconcile propagates this into the
-		// 	// status of the Revision.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "deploy-timeout", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 					// We set the LTT so that we don't give up on the Endpoints yet.
-		// 					LastTransitionTime: metav1.NewTime(time.Now()),
-		// 				}},
-		// 			}),
-		// 		timeoutDeploy(deploy("foo", "deploy-timeout", "Active", "busybox")),
-		// 		deployAS("foo", "deploy-timeout", "Active", "busybox"),
-		// 		svc("foo", "deploy-timeout", "Active", "busybox"),
-		// 		svcAS("foo", "deploy-timeout", "Active", "busybox"),
-		// 		endpoints("foo", "deploy-timeout", "Active", "busybox"),
-		// 		endpointsAS("foo", "deploy-timeout", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			rev("foo", "deploy-timeout", "Active", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:    "ResourcesAvailable",
-		// 					Status:  "False",
-		// 					Reason:  "ProgressDeadlineExceeded",
-		// 					Message: "Unable to create pods for more than 120 seconds.",
-		// 				}, {
-		// 					Type:    "Ready",
-		// 					Status:  "False",
-		// 					Reason:  "ProgressDeadlineExceeded",
-		// 					Message: "Unable to create pods for more than 120 seconds.",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	Key: "foo/deploy-timeout",
-		// }, {
-		// 	Name: "build missing",
-		// 	// Test a Reconcile of a Revision with a Build that is not found.
-		// 	// We seed the world with a freshly created Revision that has a BuildName.
-		// 	// We then verify that a Reconcile does effectively nothing but initialize
-		// 	// the conditions of this Revision.  It is notable that unlike the tests
-		// 	// above, this will include a BuildSucceeded condition.
-		// 	Objects: []runtime.Object{
-		// 		addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
-		// 	},
-		// 	WantErr: true,
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				LogURL: "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "BuildSucceeded",
-		// 					Status: "Unknown",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	Key: "foo/missing-build",
-		// }, {
-		// 	Name: "build running",
-		// 	// Test a Reconcile of a Revision with a Build that is not done.
-		// 	// We seed the world with a freshly created Revision that has a BuildName.
-		// 	// We then verify that a Reconcile does effectively nothing but initialize
-		// 	// the conditions of this Revision.  It is notable that unlike the tests
-		// 	// above, this will include a BuildSucceeded condition.
-		// 	Objects: []runtime.Object{
-		// 		addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
-		// 		build("foo", "the-build",
-		// 			buildv1alpha1.BuildCondition{
-		// 				Type:   buildv1alpha1.BuildSucceeded,
-		// 				Status: corev1.ConditionUnknown,
-		// 			}),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				LogURL: "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "BuildSucceeded",
-		// 					Status: "Unknown",
-		// 					Reason: "Building",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Building",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	Key: "foo/running-build",
-		// }, {
-		// 	Name: "build newly done",
-		// 	// Test a Reconcile of a Revision with a Build that is just done.
-		// 	// We seed the world with a freshly created Revision that has a BuildName,
-		// 	// and a Build that has a Succeeded: True status. We then verify that a
-		// 	// Reconcile toggles the BuildSucceeded status and then acts similarly to
-		// 	// the first reconcile of a BYO-Container Revision.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				LogURL: "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "BuildSucceeded",
-		// 					Status: "Unknown",
-		// 				}},
-		// 			}),
-		// 		build("foo", "the-build", buildv1alpha1.BuildCondition{
-		// 			Type:   buildv1alpha1.BuildSucceeded,
-		// 			Status: corev1.ConditionTrue,
-		// 		}),
-		// 	},
-		// 	WantCreates: []metav1.Object{
-		// 		// The first reconciliation of a Revision creates the following resources.
-		// 		deploy("foo", "done-build", "Active", "busybox"),
-		// 		svc("foo", "done-build", "Active", "busybox"),
-		// 		deployAS("foo", "done-build", "Active", "busybox"),
-		// 		svcAS("foo", "done-build", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "done-build", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "BuildSucceeded",
-		// 					Status: "True",
-		// 				}, {
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	Key: "foo/done-build",
-		// }, {
-		// 	Name: "stable revision reconciliation (with build)",
-		// 	// Test a simple stable reconciliation of an Active Revision with a done Build.
-		// 	// We feed in a Revision and the resources it controls in a steady
-		// 	// state (immediately post-build completion), and verify that no changes
-		// 	// are necessary.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			addBuild(rev("foo", "stable-reconcile-with-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "stable-reconcile-with-build", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "BuildSucceeded",
-		// 					Status: "True",
-		// 				}, {
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 		build("foo", "the-build", buildv1alpha1.BuildCondition{
-		// 			Type:   buildv1alpha1.BuildSucceeded,
-		// 			Status: corev1.ConditionTrue,
-		// 		}),
-		// 		deploy("foo", "stable-reconcile-with-build", "Active", "busybox"),
-		// 		deployAS("foo", "stable-reconcile-with-build", "Active", "busybox"),
-		// 		svc("foo", "stable-reconcile-with-build", "Active", "busybox"),
-		// 		svcAS("foo", "stable-reconcile-with-build", "Active", "busybox"),
-		// 	},
-		// 	// No changes are made to any objects.
-		// 	Key: "foo/stable-reconcile-with-build",
-		// }, {
-		// 	Name: "build newly failed",
-		// 	// Test a Reconcile of a Revision with a Build that has just failed.
-		// 	// We seed the world with a freshly created Revision that has a BuildName,
-		// 	// and a Build that has just failed. We then verify that a Reconcile toggles
-		// 	// the BuildSucceeded status and stops.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				LogURL: "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "BuildSucceeded",
-		// 					Status: "Unknown",
-		// 				}},
-		// 			}),
-		// 		build("foo", "the-build", buildv1alpha1.BuildCondition{
-		// 			Type:    buildv1alpha1.BuildSucceeded,
-		// 			Status:  corev1.ConditionFalse,
-		// 			Reason:  "SomeReason",
-		// 			Message: "This is why the build failed.",
-		// 		}),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				LogURL: "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:    "BuildSucceeded",
-		// 					Status:  "False",
-		// 					Reason:  "SomeReason",
-		// 					Message: "This is why the build failed.",
-		// 				}, {
-		// 					Type:    "Ready",
-		// 					Status:  "False",
-		// 					Reason:  "SomeReason",
-		// 					Message: "This is why the build failed.",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	Key: "foo/failed-build",
-		// }, {
-		// 	Name: "build failed stable",
-		// 	// Test a Reconcile of a Revision with a Build that has previously failed.
-		// 	// We seed the world with a Revision that has a BuildName, and a Build that
-		// 	// has failed, which has been previously reconcile. We then verify that a
-		// 	// Reconcile has nothing to change.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			addBuild(rev("foo", "failed-build-stable", "Active", "busybox"), "the-build"),
-		// 			v1alpha1.RevisionStatus{
-		// 				LogURL: "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 				}, {
-		// 					Type:    "BuildSucceeded",
-		// 					Status:  "False",
-		// 					Reason:  "SomeReason",
-		// 					Message: "This is why the build failed.",
-		// 				}, {
-		// 					Type:    "Ready",
-		// 					Status:  "False",
-		// 					Reason:  "SomeReason",
-		// 					Message: "This is why the build failed.",
-		// 				}},
-		// 			}),
-		// 		build("foo", "the-build", buildv1alpha1.BuildCondition{
-		// 			Type:    buildv1alpha1.BuildSucceeded,
-		// 			Status:  corev1.ConditionFalse,
-		// 			Reason:  "SomeReason",
-		// 			Message: "This is why the build failed.",
-		// 		}),
-		// 	},
-		// 	Key: "foo/failed-build-stable",
+	}, {
+		Name: "endpoint is created (not ready)",
+		// Test the transition when a Revision's Endpoints are created (but not yet ready)
+		// This initializes the state of the world to the steady-state after a Revision's
+		// first reconciliation*.  It then introduces an Endpoints resource that's not yet
+		// ready.  This should result in no change, since there isn't really any new
+		// information.
+		//
+		// * - One caveat is that we have to explicitly set LastTransitionTime to keep us
+		// from thinking we've been waiting for this Endpoint since the beginning of time
+		// and declaring a timeout (this is the main difference from that test below).
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "endpoint-created-not-ready", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "endpoint-created-not-ready", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+						// We set the LTT so that we don't give up on the Endpoints yet.
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					}},
+				}),
+			deploy("foo", "endpoint-created-not-ready", "Active", "busybox"),
+			deployAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
+			svc("foo", "endpoint-created-not-ready", "Active", "busybox"),
+			svcAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
+			endpoints("foo", "endpoint-created-not-ready", "Active", "busybox"),
+			endpointsAS("foo", "endpoint-created-not-ready", "Active", "busybox"),
+		},
+		// No updates, since the endpoint didn't have meaningful status.
+		Key: "foo/endpoint-created-not-ready",
+	}, {
+		Name: "endpoint is created (timed out)",
+		// Test the transition when a Revision's Endpoints aren't ready after a long period.
+		// This examines the effects of Reconcile when the Endpoints exist, but we think that
+		// we've been waiting since the dawn of time because we omit LastTransitionTime from
+		// our Conditions.  We should see an update to put us into a ServiceTimeout state.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "endpoint-created-timeout", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+						// The LTT defaults and is long enough ago that we expire waiting
+						// on the Endpoints to become ready.
+					}},
+				}),
+			deploy("foo", "endpoint-created-timeout", "Active", "busybox"),
+			deployAS("foo", "endpoint-created-timeout", "Active", "busybox"),
+			svc("foo", "endpoint-created-timeout", "Active", "busybox"),
+			svcAS("foo", "endpoint-created-timeout", "Active", "busybox"),
+			endpoints("foo", "endpoint-created-timeout", "Active", "busybox"),
+			endpointsAS("foo", "endpoint-created-timeout", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "endpoint-created-timeout", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:    "ResourcesAvailable",
+						Status:  "False",
+						Reason:  "ServiceTimeout",
+						Message: "Timed out waiting for a service endpoint to become ready",
+					}, {
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "ServiceTimeout",
+						Message: "Timed out waiting for a service endpoint to become ready",
+					}},
+				}),
+		}},
+		// We update the Revision to timeout waiting on Endpoints.
+		Key: "foo/endpoint-created-timeout",
+	}, {
+		Name: "endpoint is ready",
+		// Test the transition that Reconcile makes when Endpoints become ready.
+		// This puts the world into the stable post-reconcile state for an Active
+		// Revision.  It then creates an Endpoints resource with active subsets.
+		// This signal should make our Reconcile mark the Revision as Ready.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "endpoint-ready", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+			deploy("foo", "endpoint-ready", "Active", "busybox"),
+			deployAS("foo", "endpoint-ready", "Active", "busybox"),
+			svc("foo", "endpoint-ready", "Active", "busybox"),
+			svcAS("foo", "endpoint-ready", "Active", "busybox"),
+			addEndpoint(endpoints("foo", "endpoint-ready", "Active", "busybox")),
+			addEndpoint(endpointsAS("foo", "endpoint-ready", "Active", "busybox")),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "endpoint-ready", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "True",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "True",
+					}, {
+						Type:   "Ready",
+						Status: "True",
+					}},
+				}),
+		}},
+		// We update the Revision to timeout waiting on Endpoints.
+		Key: "foo/endpoint-ready",
+	}, {
+		Name: "mutated service gets fixed",
+		// Test that we correct mutations to our K8s Service resources.
+		// This initializes the world to the stable post-create reconcile, and
+		// adds in mutations to the K8s services that we control.  We then
+		// verify that Reconcile posts the appropriate updates to correct the
+		// services back to our desired specification.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "fix-mutated-service", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+						// We set the LTT so that we don't give up on the Endpoints yet.
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					}},
+				}),
+			deploy("foo", "fix-mutated-service", "Active", "busybox"),
+			deployAS("foo", "fix-mutated-service", "Active", "busybox"),
+			changeService(svc("foo", "fix-mutated-service", "Active", "busybox")),
+			changeService(svcAS("foo", "fix-mutated-service", "Active", "busybox")),
+			endpoints("foo", "fix-mutated-service", "Active", "busybox"),
+			endpointsAS("foo", "fix-mutated-service", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			// Reason changes from Deploying to Updating.
+			Object: makeStatus(
+				rev("foo", "fix-mutated-service", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Updating",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Updating",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Updating",
+					}},
+				}),
+		}, {
+			Object: svc("foo", "fix-mutated-service", "Active", "busybox"),
+		}, {
+			Object: svcAS("foo", "fix-mutated-service", "Active", "busybox"),
+		}},
+		Key: "foo/fix-mutated-service",
+	}, {
+		Name: "failure updating user service",
+		// Induce a failure updating the user service.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "update-user-svc-failure", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+						// We set the LTT so that we don't give up on the Endpoints yet.
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					}},
+				}),
+			deploy("foo", "update-user-svc-failure", "Active", "busybox"),
+			deployAS("foo", "update-user-svc-failure", "Active", "busybox"),
+			changeService(svc("foo", "update-user-svc-failure", "Active", "busybox")),
+			svcAS("foo", "update-user-svc-failure", "Active", "busybox"),
+			endpoints("foo", "update-user-svc-failure", "Active", "busybox"),
+			endpointsAS("foo", "update-user-svc-failure", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svc("foo", "update-user-svc-failure", "Active", "busybox"),
+		}},
+		Key: "foo/update-user-svc-failure",
+	}, {
+		Name: "failure updating autoscaler service",
+		// Induce a failure updating the autoscaler service.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "services"),
+		},
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "update-as-svc-failure", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "update-as-svc-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+						// We set the LTT so that we don't give up on the Endpoints yet.
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					}},
+				}),
+			deploy("foo", "update-as-svc-failure", "Active", "busybox"),
+			deployAS("foo", "update-as-svc-failure", "Active", "busybox"),
+			svc("foo", "update-as-svc-failure", "Active", "busybox"),
+			changeService(svcAS("foo", "update-as-svc-failure", "Active", "busybox")),
+			endpoints("foo", "update-as-svc-failure", "Active", "busybox"),
+			endpointsAS("foo", "update-as-svc-failure", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcAS("foo", "update-as-svc-failure", "Active", "busybox"),
+		}},
+		Key: "foo/update-as-svc-failure",
+	}, {
+		Name: "surface deployment timeout",
+		// Test the propagation of ProgressDeadlineExceeded from Deployment.
+		// This initializes the world to the stable state after its first reconcile,
+		// but changes the user deployment to have a ProgressDeadlineExceeded
+		// condition.  It then verifies that Reconcile propagates this into the
+		// status of the Revision.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "deploy-timeout", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+						// We set the LTT so that we don't give up on the Endpoints yet.
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					}},
+				}),
+			timeoutDeploy(deploy("foo", "deploy-timeout", "Active", "busybox")),
+			deployAS("foo", "deploy-timeout", "Active", "busybox"),
+			svc("foo", "deploy-timeout", "Active", "busybox"),
+			svcAS("foo", "deploy-timeout", "Active", "busybox"),
+			endpoints("foo", "deploy-timeout", "Active", "busybox"),
+			endpointsAS("foo", "deploy-timeout", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "deploy-timeout", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:    "ResourcesAvailable",
+						Status:  "False",
+						Reason:  "ProgressDeadlineExceeded",
+						Message: "Unable to create pods for more than 120 seconds.",
+					}, {
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "ProgressDeadlineExceeded",
+						Message: "Unable to create pods for more than 120 seconds.",
+					}},
+				}),
+		}},
+		Key: "foo/deploy-timeout",
+	}, {
+		Name: "build missing",
+		// Test a Reconcile of a Revision with a Build that is not found.
+		// We seed the world with a freshly created Revision that has a BuildName.
+		// We then verify that a Reconcile does effectively nothing but initialize
+		// the conditions of this Revision.  It is notable that unlike the tests
+		// above, this will include a BuildSucceeded condition.
+		Objects: []runtime.Object{
+			addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
+		},
+		WantErr: true,
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				addBuild(rev("foo", "missing-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+					}, {
+						Type:   "BuildSucceeded",
+						Status: "Unknown",
+					}},
+				}),
+		}},
+		Key: "foo/missing-build",
+	}, {
+		Name: "build running",
+		// Test a Reconcile of a Revision with a Build that is not done.
+		// We seed the world with a freshly created Revision that has a BuildName.
+		// We then verify that a Reconcile does effectively nothing but initialize
+		// the conditions of this Revision.  It is notable that unlike the tests
+		// above, this will include a BuildSucceeded condition.
+		Objects: []runtime.Object{
+			addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
+			build("foo", "the-build",
+				buildv1alpha1.BuildCondition{
+					Type:   buildv1alpha1.BuildSucceeded,
+					Status: corev1.ConditionUnknown,
+				}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				addBuild(rev("foo", "running-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+					}, {
+						Type:   "BuildSucceeded",
+						Status: "Unknown",
+						Reason: "Building",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Building",
+					}},
+				}),
+		}},
+		Key: "foo/running-build",
+	}, {
+		Name: "build newly done",
+		// Test a Reconcile of a Revision with a Build that is just done.
+		// We seed the world with a freshly created Revision that has a BuildName,
+		// and a Build that has a Succeeded: True status. We then verify that a
+		// Reconcile toggles the BuildSucceeded status and then acts similarly to
+		// the first reconcile of a BYO-Container Revision.
+		Objects: []runtime.Object{
+			makeStatus(
+				addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+					}, {
+						Type:   "BuildSucceeded",
+						Status: "Unknown",
+					}},
+				}),
+			build("foo", "the-build", buildv1alpha1.BuildCondition{
+				Type:   buildv1alpha1.BuildSucceeded,
+				Status: corev1.ConditionTrue,
+			}),
+		},
+		WantCreates: []metav1.Object{
+			// The first reconciliation of a Revision creates the following resources.
+			deploy("foo", "done-build", "Active", "busybox"),
+			svc("foo", "done-build", "Active", "busybox"),
+			deployAS("foo", "done-build", "Active", "busybox"),
+			svcAS("foo", "done-build", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "done-build", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "BuildSucceeded",
+						Status: "True",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/done-build",
+	}, {
+		Name: "stable revision reconciliation (with build)",
+		// Test a simple stable reconciliation of an Active Revision with a done Build.
+		// We feed in a Revision and the resources it controls in a steady
+		// state (immediately post-build completion), and verify that no changes
+		// are necessary.
+		Objects: []runtime.Object{
+			makeStatus(
+				addBuild(rev("foo", "stable-reconcile-with-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "stable-reconcile-with-build", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "BuildSucceeded",
+						Status: "True",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+			build("foo", "the-build", buildv1alpha1.BuildCondition{
+				Type:   buildv1alpha1.BuildSucceeded,
+				Status: corev1.ConditionTrue,
+			}),
+			deploy("foo", "stable-reconcile-with-build", "Active", "busybox"),
+			deployAS("foo", "stable-reconcile-with-build", "Active", "busybox"),
+			svc("foo", "stable-reconcile-with-build", "Active", "busybox"),
+			svcAS("foo", "stable-reconcile-with-build", "Active", "busybox"),
+		},
+		// No changes are made to any objects.
+		Key: "foo/stable-reconcile-with-build",
+	}, {
+		Name: "build newly failed",
+		// Test a Reconcile of a Revision with a Build that has just failed.
+		// We seed the world with a freshly created Revision that has a BuildName,
+		// and a Build that has just failed. We then verify that a Reconcile toggles
+		// the BuildSucceeded status and stops.
+		Objects: []runtime.Object{
+			makeStatus(
+				addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+					}, {
+						Type:   "BuildSucceeded",
+						Status: "Unknown",
+					}},
+				}),
+			build("foo", "the-build", buildv1alpha1.BuildCondition{
+				Type:    buildv1alpha1.BuildSucceeded,
+				Status:  corev1.ConditionFalse,
+				Reason:  "SomeReason",
+				Message: "This is why the build failed.",
+			}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				addBuild(rev("foo", "failed-build", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+					}, {
+						Type:    "BuildSucceeded",
+						Status:  "False",
+						Reason:  "SomeReason",
+						Message: "This is why the build failed.",
+					}, {
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "SomeReason",
+						Message: "This is why the build failed.",
+					}},
+				}),
+		}},
+		Key: "foo/failed-build",
+	}, {
+		Name: "build failed stable",
+		// Test a Reconcile of a Revision with a Build that has previously failed.
+		// We seed the world with a Revision that has a BuildName, and a Build that
+		// has failed, which has been previously reconcile. We then verify that a
+		// Reconcile has nothing to change.
+		Objects: []runtime.Object{
+			makeStatus(
+				addBuild(rev("foo", "failed-build-stable", "Active", "busybox"), "the-build"),
+				v1alpha1.RevisionStatus{
+					LogURL: "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+					}, {
+						Type:    "BuildSucceeded",
+						Status:  "False",
+						Reason:  "SomeReason",
+						Message: "This is why the build failed.",
+					}, {
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "SomeReason",
+						Message: "This is why the build failed.",
+					}},
+				}),
+			build("foo", "the-build", buildv1alpha1.BuildCondition{
+				Type:    buildv1alpha1.BuildSucceeded,
+				Status:  corev1.ConditionFalse,
+				Reason:  "SomeReason",
+				Message: "This is why the build failed.",
+			}),
+		},
+		Key: "foo/failed-build-stable",
 	}}
 
 	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
