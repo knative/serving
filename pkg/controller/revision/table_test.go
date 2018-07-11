@@ -746,48 +746,53 @@ func TestReconcile(t *testing.T) {
 		}},
 		// We delete a bunch of stuff when we retire.
 		Key: "foo/retire",
-		// }, {
-		// 	Name: "failure deleting user deployment",
-		// 	// Induce a failure deleting the user's deployment
-		// 	WantErr: true,
-		// 	WithReactors: []clientgotesting.ReactionFunc{
-		// 		InduceFailure("delete", "deployments"),
-		// 	},
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			// The revision has been set to Retired, but all of the objects
-		// 			// reflect being Active.
-		// 			rev("foo", "delete-user-deploy-failure", "Retired", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 		// The Deployments match what we'd expect of an Active revision.
-		// 		deploy("foo", "delete-user-deploy-failure", "Active", "busybox"),
-		// 		deployAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
-		// 		// The Services match what we'd expect of an Active revision.
-		// 		svc("foo", "delete-user-deploy-failure", "Active", "busybox"),
-		// 		svcAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
-		// 	},
-		// 	WantDeletes: []clientgotesting.DeleteActionImpl{{
-		// 		Name: deploy("foo", "delete-user-deploy-failure", "Retired", "busybox").Name,
-		// 		// We don't get to deleting anything else.
-		// 	}},
-		// 	// We delete a bunch of stuff when we retire.
-		// 	Key: "foo/delete-user-deploy-failure",
+	}, {
+		Name: "failure deleting user deployment",
+		// Induce a failure deleting the user's deployment
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("delete", "deployments"),
+		},
+		Objects: []runtime.Object{
+			makeStatus(
+				// The revision has been set to Retired, but all of the objects
+				// reflect being Active.
+				rev("foo", "delete-user-deploy-failure", "Retired", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}},
+				}),
+			// The Deployments match what we'd expect of an Active revision.
+			deploy("foo", "delete-user-deploy-failure", "Active", "busybox"),
+			deployAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
+			// The Services match what we'd expect of an Active revision.
+			svc("foo", "delete-user-deploy-failure", "Active", "busybox"),
+			svcAS("foo", "delete-user-deploy-failure", "Active", "busybox"),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			Name: deploy("foo", "delete-user-deploy-failure", "Retired", "busybox").Name,
+			// We don't get to deleting anything else.
+		}},
+		// We delete a bunch of stuff when we retire.
+		Key: "foo/delete-user-deploy-failure",
 		// }, {
 		// 	Name: "failure deleting user service",
 		// 	// Induce a failure deleting the user's service
