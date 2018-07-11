@@ -23,7 +23,6 @@ import (
 
 	"github.com/knative/serving/pkg/configmap"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
@@ -62,11 +61,15 @@ var (
 
 func main() {
 	flag.Parse()
-	config, err := configmap.Load("/etc/config-logging")
+	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
+	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, "controller")
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -213,17 +216,16 @@ func init() {
 
 func receiveLoggingConfig(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel) func(configMap *corev1.ConfigMap) {
 	return func(configMap *corev1.ConfigMap) {
-		loggingConfig := logging.NewConfigFromConfigMap(configMap)
-		if levelStr, ok := loggingConfig.LoggingLevel["controller"]; ok {
-			var l zapcore.Level
-			if err := l.UnmarshalText([]byte(levelStr)); err != nil {
-				logger.Error("Failed to parse the logging level in config-logging config map. Previous logging level will be used.", zap.Error(err))
-				return
-			}
+		loggingConfig, err := logging.NewConfigFromConfigMap(configMap)
+		if err != nil {
+			logger.Error("Failed to parse the logging configmap. Previous config map will be used.", zap.Error(err))
+			return
+		}
 
-			if atomicLevel.Level() != l {
-				logger.Infof("Updating logging level from %v to %v.", atomicLevel.Level(), l)
-				atomicLevel.SetLevel(l)
+		if level, ok := loggingConfig.LoggingLevel["controller"]; ok {
+			if atomicLevel.Level() != level {
+				logger.Infof("Updating logging level from %v to %v.", atomicLevel.Level(), level)
+				atomicLevel.SetLevel(level)
 			}
 		}
 	}

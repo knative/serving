@@ -146,11 +146,15 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	config, err := configmap.Load("/etc/config-logging")
+	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "activator")
+	config, err := logging.NewConfigFromMap(cm)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, _ := logging.NewLoggerFromConfig(config, "activator")
 	defer logger.Sync()
 
 	logger.Info("Starting the knative activator")

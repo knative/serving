@@ -33,11 +33,15 @@ import (
 
 func main() {
 	flag.Parse()
-	config, err := configmap.Load("/etc/config-logging")
+	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "webhook")
+	config, err := logging.NewConfigFromMap(cm)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, _ := logging.NewLoggerFromConfig(config, "webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")

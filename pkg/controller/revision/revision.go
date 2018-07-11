@@ -918,7 +918,11 @@ func (c *Controller) getNetworkConfig() *config.Network {
 
 func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
 	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
-	newLoggingConfig := logging.NewConfigFromConfigMap(configMap)
+	newLoggingConfig, err := logging.NewConfigFromConfigMap(configMap)
+	if err != nil {
+		c.Logger.Error("Failed to parse logging configuration. Using previous configuration.", zap.Error(err))
+		return
+	}
 
 	c.loggingConfigMutex.Lock()
 	defer c.loggingConfigMutex.Unlock()

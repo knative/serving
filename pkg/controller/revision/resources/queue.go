@@ -87,6 +87,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 		autoscalerAddress = names.Autoscaler(rev)
 	}
 
+	var loggingLevel string
+	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
+		loggingLevel = ll.String()
+	}
+
 	return &corev1.Container{
 		Name:           queueContainerName,
 		Image:          controllerConfig.QueueSidecarImage,
@@ -125,7 +130,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, a
 			Value: loggingConfig.LoggingConfig,
 		}, {
 			Name:  "SERVING_LOGGING_LEVEL",
-			Value: loggingConfig.LoggingLevel["queueproxy"],
+			Value: loggingLevel,
 		}},
 	}
 }
