@@ -15,6 +15,11 @@ limitations under the License.
 */
 package activator
 
+const (
+	// The name of the activator service.
+	K8sServiceName = "activator-service"
+)
+
 // Status is an HTTP status code.
 type Status int
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/gob"
 	"flag"
+	"log"
 	"net/http"
 	"time"
 
@@ -27,11 +28,11 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
-	"github.com/josephburnett/k8sflag/pkg/k8sflag"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 
@@ -71,16 +72,6 @@ var (
 
 	// Revision-level configuration
 	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
-
-	// Cluster-level configuration
-	autoscaleFlagSet        = k8sflag.NewFlagSet("/etc/config-autoscaler")
-	enableScaleToZero       = autoscaleFlagSet.Bool("enable-scale-to-zero", false)
-	multiConcurrencyTarget  = autoscaleFlagSet.Float64("multi-concurrency-target", 0.0, k8sflag.Required)
-	singleConcurrencyTarget = autoscaleFlagSet.Float64("single-concurrency-target", 0.0, k8sflag.Required)
-
-	// Vertical pod autoscaling experiment
-	enableVerticalPodAutoscaling = autoscaleFlagSet.Bool("enable-vertical-pod-autoscaling", false)
-	vpaMultiConcurrencyTarget    = autoscaleFlagSet.Float64("vpa-multi-concurrency-target", 10.0)
 )
 
 func initEnv() {
@@ -92,27 +83,24 @@ func initEnv() {
 }
 
 func runAutoscaler() {
-	var targetConcurrency *k8sflag.Float64Flag
 	switch *concurrencyModel {
-	case string(v1alpha1.RevisionRequestConcurrencyModelSingle):
-		targetConcurrency = singleConcurrencyTarget
-	case string(v1alpha1.RevisionRequestConcurrencyModelMulti):
-		if enableVerticalPodAutoscaling.Get() {
-			targetConcurrency = vpaMultiConcurrencyTarget
-		} else {
-			targetConcurrency = multiConcurrencyTarget
-		}
+	case string(v1alpha1.RevisionRequestConcurrencyModelSingle),
+		string(v1alpha1.RevisionRequestConcurrencyModelMulti):
+		// It's good.
 	default:
 		logger.Fatalf("Unrecognized concurrency model: " + *concurrencyModel)
 	}
-	config := autoscaler.Config{
-		TargetConcurrency:    targetConcurrency.Get(),
-		MaxScaleUpRate:       autoscaleFlagSet.Float64("max-scale-up-rate", 0.0, k8sflag.Required).Get(),
-		StableWindow:         *autoscaleFlagSet.Duration("stable-window", nil, k8sflag.Required).Get(),
-		PanicWindow:          *autoscaleFlagSet.Duration("panic-window", nil, k8sflag.Required).Get(),
-		ScaleToZeroThreshold: *autoscaleFlagSet.Duration("scale-to-zero-threshold", nil, k8sflag.Required).Get(),
+	cm := v1alpha1.RevisionRequestConcurrencyModelType(*concurrencyModel)
+
+	rawConfig, err := configmap.Load("/etc/config-autoscaler")
+	if err != nil {
+		logger.Fatalf("Error reading config-autoscaler: %v", err)
 	}
-	a := autoscaler.NewAutoscaler(config, statsReporter)
+	config, err := autoscaler.NewConfigFromMap(rawConfig)
+	if err != nil {
+		logger.Fatalf("Error loading config-autoscaler: %v", err)
+	}
+	a := autoscaler.New(config, cm, statsReporter)
 	ticker := time.NewTicker(2 * time.Second)
 	ctx := logging.WithLogger(context.TODO(), logger)
 
@@ -122,7 +110,7 @@ func runAutoscaler() {
 			scale, ok := a.Scale(ctx, time.Now())
 			if ok {
 				// Flag guard scale to zero.
-				if !enableScaleToZero.Get() && scale == 0 {
+				if !config.EnableScaleToZero && scale == 0 {
 					continue
 				}
 
@@ -230,7 +218,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLoggerFromDefaultConfigMap("loglevel.autoscaler").Named("autoscaler")
+	loggingConfig, err := configmap.Load("/etc/config-logging")
+	if err != nil {
+		log.Fatalf("Error loading logging configuration: %v", err)
+	}
+	logger = logging.NewLoggerFromConfig(logging.NewConfigFromMap(loggingConfig), "autoscaler")
 	defer logger.Sync()
 
 	initEnv()

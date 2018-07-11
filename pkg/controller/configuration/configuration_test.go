@@ -17,24 +17,16 @@ limitations under the License.
 package configuration
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/controller"
-	"go.uber.org/zap"
+	"github.com/knative/serving/pkg/controller/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	. "github.com/knative/serving/pkg/controller/testing"
 )
@@ -55,128 +47,69 @@ var (
 	}
 )
 
+const noBuildName = ""
+
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	type fields struct {
-		c *ConfigurationLister
-		r *RevisionLister
-	}
-	tests := []struct {
-		name        string
-		fields      fields
-		key         string
-		wantErr     bool
-		wantCreates []metav1.Object
-		wantUpdates []clientgotesting.UpdateActionImpl
-		wantDeletes []clientgotesting.DeleteActionImpl
-		wantQueue   []string
-	}{{
-		name: "bad workqueue key",
-		fields: fields{
-			c: &ConfigurationLister{},
-			r: &RevisionLister{},
-		},
-		key: "too/many/parts",
+	table := TableTest{{
+		Name: "bad workqueue key",
+		Key:  "too/many/parts",
 	}, {
-		name: "key not found",
-		fields: fields{
-			c: &ConfigurationLister{},
-			r: &RevisionLister{},
-		},
-		key: "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 	}, {
-		name: "create revision matching generation",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "no-revisions-yet"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 1234,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
-					},
-				}},
-			},
-			r: &RevisionLister{},
+		Name: "create revision matching generation",
+		Objects: []runtime.Object{
+			cfg("no-revisions-yet", "foo", 1234),
 		},
-		wantCreates: []metav1.Object{
-			&v1alpha1.Revision{
-				ObjectMeta: com("foo", "no-revisions-yet", 1234),
-				Spec:       revisionSpec,
-			},
+		WantCreates: []metav1.Object{
+			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234), noBuildName),
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "no-revisions-yet"),
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 1234,
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: revisionSpec,
-					},
-				},
-				Status: v1alpha1.ConfigurationStatus{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("no-revisions-yet", "foo", 1234,
+				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "no-revisions-yet-01234",
 					ObservedGeneration:        1234,
 					Conditions: []v1alpha1.ConfigurationCondition{{
 						Type:   v1alpha1.ConfigurationConditionReady,
 						Status: corev1.ConditionUnknown,
 					}},
-				},
-			},
+				}),
 		}},
-		key: "foo/no-revisions-yet",
+		Key: "foo/no-revisions-yet",
 	}, {
-		name: "create revision matching generation with build",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "need-rev-and-build"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 99998,
-						Build:      &buildSpec,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: v1alpha1.RevisionSpec{
-								Container: corev1.Container{
-									Image: "busybox",
-								},
-							},
-						},
-					},
-				}},
-			},
-			r: &RevisionLister{},
+		Name: "webhook validation failure",
+		// If we attempt to create a Revision with a bad ConcurrencyModel set, we fail.
+		WantErr: true,
+		Objects: []runtime.Object{
+			setConcurrencyModel(cfg("validation-failure", "foo", 1234), "Bogus"),
 		},
-		wantCreates: []metav1.Object{
-			&buildv1alpha1.Build{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:       "foo",
-					Name:            "need-rev-and-build-99998",
-					OwnerReferences: or("need-rev-and-build"),
-				},
-				Spec: buildSpec,
-			},
-			&v1alpha1.Revision{
-				ObjectMeta: com("foo", "need-rev-and-build", 99998),
-				Spec: v1alpha1.RevisionSpec{
-					BuildName: "need-rev-and-build-99998",
-					Container: corev1.Container{
-						Image: "busybox",
-					},
-				},
-			},
+		WantCreates: []metav1.Object{
+			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234), noBuildName), "Bogus"),
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "need-rev-and-build"),
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 99998,
-					Build:      &buildSpec,
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: revisionSpec,
-					},
-				},
-				Status: v1alpha1.ConfigurationStatus{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				}), "Bogus"),
+		}},
+		Key: "foo/validation-failure",
+	}, {
+		Name: "create revision matching generation with build",
+		Objects: []runtime.Object{
+			cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
+			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
+				resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)).Name),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithBuildAndStatus("need-rev-and-build", "foo", 99998, &buildSpec,
+				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "need-rev-and-build-99998",
 					ObservedGeneration:        99998,
 					Conditions: []v1alpha1.ConfigurationCondition{{
@@ -184,40 +117,18 @@ func TestReconcile(t *testing.T) {
 						Status: corev1.ConditionUnknown,
 					}},
 				},
-			},
+			),
 		}},
-		key: "foo/need-rev-and-build",
+		Key: "foo/need-rev-and-build",
 	}, {
-		name: "reconcile revision matching generation (ready: unknown)",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-not-done"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5432,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
-					},
-				}},
-			},
-			r: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-not-done", 5432),
-					Spec:       revisionSpec,
-				}},
-			},
+		Name: "reconcile revision matching generation (ready: unknown)",
+		Objects: []runtime.Object{
+			cfg("matching-revision-not-done", "foo", 5432),
+			resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432), noBuildName),
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "matching-revision-not-done"),
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 5432,
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: revisionSpec,
-					},
-				},
-				Status: v1alpha1.ConfigurationStatus{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("matching-revision-not-done", "foo", 5432,
+				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "matching-revision-not-done-05432",
 					ObservedGeneration:        5432,
 					Conditions: []v1alpha1.ConfigurationCondition{{
@@ -225,46 +136,18 @@ func TestReconcile(t *testing.T) {
 						Status: corev1.ConditionUnknown,
 					}},
 				},
-			},
+			),
 		}},
-		key: "foo/matching-revision-not-done",
+		Key: "foo/matching-revision-not-done",
 	}, {
-		name: "reconcile revision matching generation (ready: true)",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-done"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5555,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
-					},
-				}},
-			},
-			r: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-done", 5555),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:   v1alpha1.RevisionConditionReady,
-							Status: corev1.ConditionTrue,
-						}},
-					},
-				}},
-			},
+		Name: "reconcile revision matching generation (ready: true)",
+		Objects: []runtime.Object{
+			cfg("matching-revision-done", "foo", 5555),
+			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555), noBuildName)),
 		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "matching-revision-done"),
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 5555,
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: revisionSpec,
-					},
-				},
-				Status: v1alpha1.ConfigurationStatus{
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("matching-revision-done", "foo", 5555,
+				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "matching-revision-done-05555",
 					LatestReadyRevisionName:   "matching-revision-done-05555",
 					ObservedGeneration:        5555,
@@ -273,85 +156,35 @@ func TestReconcile(t *testing.T) {
 						Status: corev1.ConditionTrue,
 					}},
 				},
-			},
+			),
 		}},
-		key: "foo/matching-revision-done",
+		Key: "foo/matching-revision-done",
 	}, {
-		name: "reconcile revision matching generation (ready: true, idempotent)",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-done-idempotent"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5566,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
-					},
-					Status: v1alpha1.ConfigurationStatus{
-						LatestCreatedRevisionName: "matching-revision-done-idempotent-05566",
-						LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
-						ObservedGeneration:        5566,
-						Conditions: []v1alpha1.ConfigurationCondition{{
-							Type:   v1alpha1.ConfigurationConditionReady,
-							Status: corev1.ConditionTrue,
-						}},
-					},
-				}},
-			},
-			r: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-done-idempotent", 5566),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:   v1alpha1.RevisionConditionReady,
-							Status: corev1.ConditionTrue,
-						}},
-					},
-				}},
-			},
-		},
-		key: "foo/matching-revision-done-idempotent",
-	}, {
-		name: "reconcile revision matching generation (ready: false)",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "matching-revision-failed"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5555,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
-					},
-				}},
-			},
-			r: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "matching-revision-failed", 5555),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:    v1alpha1.RevisionConditionReady,
-							Status:  corev1.ConditionFalse,
-							Reason:  "Armageddon",
-							Message: "It's the end of the world as we know it.",
-						}},
-					},
-				}},
-			},
-		},
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "matching-revision-failed"),
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 5555,
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: revisionSpec,
-					},
+		Name: "reconcile revision matching generation (ready: true, idempotent)",
+		Objects: []runtime.Object{
+			cfgWithStatus("matching-revision-done-idempotent", "foo", 5566,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "matching-revision-done-idempotent-05566",
+					LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
+					ObservedGeneration:        5566,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
 				},
-				Status: v1alpha1.ConfigurationStatus{
+			),
+			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566), noBuildName)),
+		},
+		Key: "foo/matching-revision-done-idempotent",
+	}, {
+		Name: "reconcile revision matching generation (ready: false)",
+		Objects: []runtime.Object{
+			cfg("matching-revision-failed", "foo", 5555),
+			makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555), noBuildName)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("matching-revision-failed", "foo", 5555,
+				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "matching-revision-failed-05555",
 					ObservedGeneration:        5555,
 					Conditions: []v1alpha1.ConfigurationCondition{{
@@ -361,47 +194,26 @@ func TestReconcile(t *testing.T) {
 						Message: `revision "matching-revision-failed-05555" failed with message: It's the end of the world as we know it.`,
 					}},
 				},
-			},
+			),
 		}},
-		key: "foo/matching-revision-failed",
+		Key: "foo/matching-revision-failed",
 	}, {
-		name: "reconcile revision matching generation (ready: bad)",
-		fields: fields{
-			c: &ConfigurationLister{
-				Items: []*v1alpha1.Configuration{{
-					ObjectMeta: om("foo", "bad-condition"),
-					Spec: v1alpha1.ConfigurationSpec{
-						Generation: 5555,
-						RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-							Spec: revisionSpec,
-						},
-					},
-				}},
-			},
-			r: &RevisionLister{
-				Items: []*v1alpha1.Revision{{
-					ObjectMeta: com("foo", "bad-condition", 5555),
-					Spec:       revisionSpec,
-					Status: v1alpha1.RevisionStatus{
-						Conditions: []v1alpha1.RevisionCondition{{
-							Type:   v1alpha1.RevisionConditionReady,
-							Status: "Bad",
-						}},
-					},
-				}},
-			},
-		},
-		wantErr: true,
-		wantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: &v1alpha1.Configuration{
-				ObjectMeta: om("foo", "bad-condition"),
-				Spec: v1alpha1.ConfigurationSpec{
-					Generation: 5555,
-					RevisionTemplate: v1alpha1.RevisionTemplateSpec{
-						Spec: revisionSpec,
-					},
+		Name: "reconcile revision matching generation (ready: bad)",
+		Objects: []runtime.Object{
+			cfg("bad-condition", "foo", 5555),
+			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555), noBuildName),
+				v1alpha1.RevisionStatus{
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   v1alpha1.RevisionConditionReady,
+						Status: "Bad",
+					}},
 				},
-				Status: v1alpha1.ConfigurationStatus{
+			),
+		},
+		WantErr: true,
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("bad-condition", "foo", 5555,
+				v1alpha1.ConfigurationStatus{
 					LatestCreatedRevisionName: "bad-condition-05555",
 					ObservedGeneration:        5555,
 					Conditions: []v1alpha1.ConfigurationCondition{{
@@ -409,161 +221,151 @@ func TestReconcile(t *testing.T) {
 						Status: corev1.ConditionUnknown,
 					}},
 				},
-			},
+			),
 		}},
-		key: "foo/bad-condition",
+		Key: "foo/bad-condition",
+	}, {
+		Name: "failure creating build",
+		// We induce a failure creating a build
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "builds"),
+		},
+		Objects: []runtime.Object{
+			cfgWithBuild("create-build-failure", "foo", 99998, &buildSpec),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeBuild(cfgWithBuild("create-build-failure", "foo", 99998, &buildSpec)),
+			// No Revision gets created.
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithBuildAndStatus("create-build-failure", "foo", 99998, &buildSpec,
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			),
+		}},
+		Key: "foo/create-build-failure",
+	}, {
+		Name: "failure creating revision",
+		// We induce a failure creating a revision
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("create", "revisions"),
+		},
+		Objects: []runtime.Object{
+			cfg("create-revision-failure", "foo", 99998),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998), noBuildName),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("create-revision-failure", "foo", 99998,
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			),
+		}},
+		Key: "foo/create-revision-failure",
+	}, {
+		Name: "failure updating configuration status",
+		// Induce a failure updating the status of the configuration.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "configurations"),
+		},
+		Objects: []runtime.Object{
+			cfg("update-config-failure", "foo", 1234),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeRevision(cfg("update-config-failure", "foo", 1234), noBuildName),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("update-config-failure", "foo", 1234,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "update-config-failure-01234",
+					ObservedGeneration:        1234,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionUnknown,
+					}},
+				},
+			),
+		}},
+		Key: "foo/update-config-failure",
 	}}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var objs []runtime.Object
-			for _, c := range tt.fields.c.Items {
-				objs = append(objs, c)
-			}
-			for _, r := range tt.fields.r.Items {
-				objs = append(objs, r)
-			}
-
-			kubeClient := fakekubeclientset.NewSimpleClientset()
-			client := fakeclientset.NewSimpleClientset(objs...)
-			buildClient := fakebuildclientset.NewSimpleClientset()
-			c := &Controller{
-				Base: controller.NewBase(controller.Options{
-					KubeClientSet:    kubeClient,
-					BuildClientSet:   buildClient,
-					ServingClientSet: client,
-					Logger:           zap.NewNop().Sugar(),
-				}, controllerAgentName, "Configurations"),
-				configurationLister: tt.fields.c,
-				revisionLister:      tt.fields.r,
-			}
-
-			if err := c.Reconcile(tt.key); (err != nil) != tt.wantErr {
-				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(tt.key)
-
-			c.WorkQueue.ShutDown()
-			var hasQueue []string
-			for {
-				key, shutdown := c.WorkQueue.Get()
-				if shutdown {
-					break
-				}
-				hasQueue = append(hasQueue, key.(string))
-			}
-			if diff := cmp.Diff(tt.wantQueue, hasQueue); diff != "" {
-				t.Errorf("unexpected queue (-want +got): %s", diff)
-			}
-
-			var createActions []clientgotesting.CreateAction
-			var updateActions []clientgotesting.UpdateAction
-			var deleteActions []clientgotesting.DeleteAction
-
-			type HasActions interface {
-				Actions() []clientgotesting.Action
-			}
-			for _, c := range []HasActions{buildClient, client, kubeClient} {
-				for _, action := range c.Actions() {
-					switch action.GetVerb() {
-					case "create":
-						createActions = append(createActions,
-							action.(clientgotesting.CreateAction))
-					case "update":
-						updateActions = append(updateActions,
-							action.(clientgotesting.UpdateAction))
-					case "delete":
-						deleteActions = append(deleteActions,
-							action.(clientgotesting.DeleteAction))
-					default:
-						t.Errorf("Unexpected verb %v", action.GetVerb())
-					}
-				}
-			}
-
-			for i, want := range tt.wantCreates {
-				if i >= len(createActions) {
-					t.Errorf("Missing create: %v", want)
-					continue
-				}
-				got := createActions[i]
-				if got.GetNamespace() != expectedNamespace {
-					t.Errorf("unexpected action[%d]: %#v", i, got)
-				}
-				obj := got.GetObject()
-				if diff := cmp.Diff(want, obj, ignoreLastTransitionTime); diff != "" {
-					t.Errorf("unexpected create (-want +got): %s", diff)
-				}
-			}
-			if got, want := len(createActions), len(tt.wantCreates); got > want {
-				t.Errorf("Extra creates: %v", createActions[want:])
-			}
-
-			for i, want := range tt.wantUpdates {
-				if i >= len(updateActions) {
-					t.Errorf("Missing update: %v", want)
-					continue
-				}
-				got := updateActions[i]
-				if diff := cmp.Diff(want.GetObject(), got.GetObject(), ignoreLastTransitionTime); diff != "" {
-					t.Errorf("unexpected update (-want +got): %s", diff)
-				}
-			}
-			if got, want := len(updateActions), len(tt.wantUpdates); got > want {
-				t.Errorf("Extra updates: %v", updateActions[want:])
-			}
-
-			for i, want := range tt.wantDeletes {
-				if i >= len(deleteActions) {
-					t.Errorf("Missing delete: %v", want)
-					continue
-				}
-				got := deleteActions[i]
-				if got.GetName() != want.Name || got.GetNamespace() != expectedNamespace {
-					t.Errorf("unexpected delete[%d]: %#v", i, got)
-				}
-			}
-			if got, want := len(deleteActions), len(tt.wantDeletes); got > want {
-				t.Errorf("Extra deletes: %v", deleteActions[want:])
-			}
-		})
-	}
+	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
+		return &Controller{
+			Base:                controller.NewBase(opt, controllerAgentName, "Configurations"),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+		}
+	})
 }
 
-var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
-	return strings.HasSuffix(p.String(), "LastTransitionTime.Time")
-}, cmp.Ignore())
-
-// or builds OwnerReferences for a child of a Configuration
-func or(name string) []metav1.OwnerReference {
-	return []metav1.OwnerReference{{
-		APIVersion:         v1alpha1.SchemeGroupVersion.String(),
-		Kind:               "Configuration",
-		Name:               name,
-		Controller:         &boolTrue,
-		BlockOwnerDeletion: &boolTrue,
-	}}
-}
-
-// om builds ObjectMeta for a Configuration
-func om(namespace, name string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:      name,
-		Namespace: namespace,
-	}
-}
-
-// com builds the ObjectMeta for a Child of a Configuration
-func com(namespace, name string, generation int) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:      fmt.Sprintf("%s-%05d", name, generation),
-		Namespace: namespace,
-		Annotations: map[string]string{
-			serving.ConfigurationGenerationAnnotationKey: fmt.Sprintf("%v", generation),
+func cfgWithBuildAndStatus(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
 		},
-		Labels: map[string]string{
-			serving.ConfigurationLabelKey: name,
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: generation,
+			Build:      build,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: revisionSpec,
+			},
 		},
-		OwnerReferences: or(name),
+		Status: status,
 	}
+}
+
+func cfgWithStatus(name, namespace string, generation int64, status v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
+	return cfgWithBuildAndStatus(name, namespace, generation, nil, status)
+}
+
+func cfgWithBuild(name, namespace string, generation int64, build *buildv1alpha1.BuildSpec) *v1alpha1.Configuration {
+	return cfgWithBuildAndStatus(name, namespace, generation, build, v1alpha1.ConfigurationStatus{})
+}
+
+func cfg(name, namespace string, generation int64) *v1alpha1.Configuration {
+	return cfgWithStatus(name, namespace, generation, v1alpha1.ConfigurationStatus{})
+}
+
+func setConcurrencyModel(cfg *v1alpha1.Configuration, ss v1alpha1.RevisionRequestConcurrencyModelType) *v1alpha1.Configuration {
+	cfg.Spec.RevisionTemplate.Spec.ConcurrencyModel = ss
+	return cfg
+}
+
+func setRevConcurrencyModel(rev *v1alpha1.Revision, ss v1alpha1.RevisionRequestConcurrencyModelType) *v1alpha1.Revision {
+	rev.Spec.ConcurrencyModel = ss
+	return rev
+}
+
+func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
+	rev.Status.InitializeConditions()
+	rev.Status.MarkContainerHealthy()
+	rev.Status.MarkResourcesAvailable()
+	if !rev.Status.IsReady() {
+		t.Fatalf("Wanted ready revision: %v", rev)
+	}
+	return rev
+}
+
+func makeRevFailed(rev *v1alpha1.Revision) *v1alpha1.Revision {
+	rev.Status.InitializeConditions()
+	rev.Status.MarkContainerMissing("It's the end of the world as we know it.")
+	return rev
+}
+
+func makeRevStatus(rev *v1alpha1.Revision, status v1alpha1.RevisionStatus) *v1alpha1.Revision {
+	rev.Status = status
+	return rev
 }

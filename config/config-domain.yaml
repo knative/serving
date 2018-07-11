@@ -19,11 +19,12 @@ metadata:
   namespace: knative-serving
 data:
   # These are example settings of domain.
-  # prod-domain.com will be used for routes having app=prod.
-  prod-domain.com: |
-    selector:
-      app: prod
+  # example.org will be used for routes having app=prod.
+  # example.org: |
+  #   selector:
+  #     app: prod
+
   # Default value for domain, for routes that does not have app=prod labels.
   # Although it will match all routes, it is the least-specific rule so it
   # will only be used if no other domain matches.
-  demo-domain.com: |
+  example.com: |

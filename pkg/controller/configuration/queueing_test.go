@@ -20,22 +20,19 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
-
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
+	hooks "github.com/knative/serving/pkg/controller/testing"
+	. "github.com/knative/serving/pkg/logging/testing"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
-
-	hooks "github.com/knative/serving/pkg/controller/testing"
 )
 
 /* TODO tests:
@@ -47,7 +44,7 @@ import (
 */
 
 const (
-	testNamespace string = "test"
+	testNamespace = "test"
 )
 
 func getTestConfiguration() *v1alpha1.Configuration {
@@ -58,7 +55,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			//TODO(grantr): This is a workaround for generation initialization
+			// TODO(grantr): This is a workaround for generation initialization
 			Generation: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
@@ -113,12 +110,11 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
-			Logger:           zap.NewNop().Sugar(),
+			Logger:           TestLogger(t),
 		},
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
-		&rest.Config{},
-	).(*Controller)
+	)
 
 	return
 }

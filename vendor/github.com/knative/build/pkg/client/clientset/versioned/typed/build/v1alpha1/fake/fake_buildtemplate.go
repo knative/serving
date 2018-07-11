@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google, Inc. All rights reserved.
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,9 +31,9 @@ type FakeBuildTemplates struct {
 	ns   string
 }
 
-var buildtemplatesResource = schema.GroupVersionResource{Group: "build.dev", Version: "v1alpha1", Resource: "buildtemplates"}
+var buildtemplatesResource = schema.GroupVersionResource{Group: "build.knative.dev", Version: "v1alpha1", Resource: "buildtemplates"}
 
-var buildtemplatesKind = schema.GroupVersionKind{Group: "build.dev", Version: "v1alpha1", Kind: "BuildTemplate"}
+var buildtemplatesKind = schema.GroupVersionKind{Group: "build.knative.dev", Version: "v1alpha1", Kind: "BuildTemplate"}
 
 // Get takes name of the buildTemplate, and returns the corresponding buildTemplate object, and an error if there is any.
 func (c *FakeBuildTemplates) Get(name string, options v1.GetOptions) (result *v1alpha1.BuildTemplate, err error) {

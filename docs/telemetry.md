@@ -134,7 +134,7 @@ kubernetes.labels.build\-name: "test-build"
 Replace `test-build` with your build's name. The build name is specified in the `.yaml` file as follows:
 
 ```yaml
-apiVersion: build.dev/v1alpha1
+apiVersion: build.knative.dev/v1alpha1
 kind: Build
 metadata:
   name: test-build
@@ -174,7 +174,7 @@ per request traces captured by Zipkin:
 	kubectl proxy
 	```
 
-1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana). 
+1. Open the [Kibana UI](http://localhost:8001/api/v1/namespaces/monitoring/services/kibana-logging/proxy/app/kibana).
 
 1. Navigate to Management -> Index Patterns -> Create Index Pattern.
 
@@ -246,16 +246,18 @@ instrument a sample 'Gauge' type metric using the setup.
 
 ```go
 import (
-	"context"
+	"net/http"
+	"time"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 )
 
 var (
-    desiredPodCountM *stats.Int64Measure
-    namespaceTagKey tag.Key
-    revisionTagKey tag.Key
+	desiredPodCountM *stats.Int64Measure
+	namespaceTagKey  tag.Key
+	revisionTagKey   tag.Key
 )
 
 func main() {
@@ -266,15 +268,15 @@ func main() {
 	view.RegisterExporter(exporter)
 	view.SetReportingPeriod(10 * time.Second)
 
-    // Create a sample gauge
+	// Create a sample gauge
 	var r = &Reporter{}
 	desiredPodCountM = stats.Int64(
 		"desired_pod_count",
 		"Number of pods autoscaler wants to allocate",
 		stats.UnitNone)
 
-    // Tag the statistics with namespace and revision labels
-    var err error
+	// Tag the statistics with namespace and revision labels
+	var err error
 	namespaceTagKey, err = tag.NewKey("namespace")
 	if err != nil {
 		// Error handling
@@ -359,20 +361,6 @@ definitions is to use Grafana UI (make sure to login with as admin user) and
 
 7. Validate the metrics flow either by Grafana UI or Prometheus UI (see
 Troubleshooting section above to enable Prometheus UI)
-
-## Generating logs
-<!--TODO: Explain why we recommend using glog. -->
-Use [glog](https://godoc.org/github.com/golang/glog) to write logs in your code.
-In your container spec, add the following arguments to redirect the logs to stderr:
-
-```yaml
-args:
-- "-logtostderr=true"
-- "-stderrthreshold=INFO"
-```
-
-See [helloworld](../sample/helloworld/README.md) sample's configuration file as
-an example.
 
 ## Distributed tracing with Zipkin
 Check [Telemetry sample](../sample/telemetrysample/README.md) as an example usage of

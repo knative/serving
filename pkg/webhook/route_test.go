@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	. "github.com/knative/serving/pkg/logging/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,42 +45,8 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &route, &route); err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
-	}
-}
-
-func TestEmptyTrafficTargetWithoutTrafficAllowed(t *testing.T) {
-	route := createRouteWithTraffic(nil)
-
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != nil {
-		t.Fatalf("Expected allowed, but failed with: %s.", err)
-	}
-}
-
-func TestNoneRouteTypeForOldResourceNotAllowed(t *testing.T) {
-	revision := v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevisionName,
-		},
-	}
-
-	if err := ValidateRoute(testCtx)(nil, &revision, &revision); err != errInvalidRouteInput {
-		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRouteInput, err)
-	}
-}
-
-func TestNoneRouteTypeForNewResourceNotAllowed(t *testing.T) {
-	revision := v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevisionName,
-		},
-	}
-
-	if err := ValidateRoute(testCtx)(nil, nil, &revision); err != errInvalidRouteInput {
-		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRouteInput, err)
 	}
 }
 
@@ -88,8 +55,16 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		Percent: 100,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errInvalidRevisions {
-		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRevisions, err)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
+	want := &v1alpha1.FieldError{
+		Message: "Expected exactly one, got neither",
+		Paths: []string{
+			"spec.traffic[0].revisionName",
+			"spec.traffic[0].configurationName",
+		},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -100,8 +75,16 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		Percent:           100,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errInvalidRevisions {
-		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidRevisions, err)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
+	want := &v1alpha1.FieldError{
+		Message: "Expected exactly one, got both",
+		Paths: []string{
+			"spec.traffic[0].revisionName",
+			"spec.traffic[0].configurationName",
+		},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -111,8 +94,13 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 		Percent:      -20,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errNegativeTargetPercent {
-		t.Fatalf("Expected: %s. Failed with: %s.", errNegativeTargetPercent, err)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
+	want := &v1alpha1.FieldError{
+		Message: `invalid value "-20"`,
+		Paths:   []string{"spec.traffic[0].percent"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -124,8 +112,13 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errInvalidTargetPercentSum {
-		t.Fatalf("Expected: %s. Failed with: %s.", errInvalidTargetPercentSum, err)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
+	want := &v1alpha1.FieldError{
+		Message: "Traffic targets sum to 50, want 100",
+		Paths:   []string{"spec.traffic"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -140,7 +133,12 @@ func TestNotAllowedIfTrafficNamesNotUnique(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateRoute(testCtx)(nil, &route, &route); err != errTrafficTargetsNotUnique {
-		t.Fatalf("Expected: %s. Failed with: %s.", errTrafficTargetsNotUnique, err)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
+	want := &v1alpha1.FieldError{
+		Message: `Multiple definitions for "test"`,
+		Paths:   []string{"spec.traffic[0].name", "spec.traffic[1].name"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }

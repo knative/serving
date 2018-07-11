@@ -42,7 +42,7 @@ func TestContainerErrorMsg(t *testing.T) {
 	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
 
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := test.Logger.Named("TestContainerErrorMsg")
 
 	// Specify an invalid image path
@@ -54,8 +54,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
-	defer TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { TearDown(clients, names) }, logger)
+	defer TearDown(clients, names, logger)
+	test.CleanupOnInterrupt(func() { TearDown(clients, names, logger) }, logger)
 
 	manifestUnknown := string(remote.ManifestUnknownErrorCode)
 	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")

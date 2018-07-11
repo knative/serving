@@ -165,9 +165,13 @@ ready to serve requests right away. To poll a deployed endpoint and wait for it 
 in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 
 ```go
-err = test.WaitForEndpointState(clients.Kube, resolvableDomain, updatedRoute.Status.Domain, namespaceName, routeName, func(body string) (bool, error) {
-    return body == expectedText, nil
-})
+err = test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		test.Flags.ResolvableDomain,
+		updatedRoute.Status.Domain,
+		test.EventuallyMatchesBody(expectedText),
+		"SomeDescription")
 if err != nil {
     t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)
 }
@@ -177,6 +181,24 @@ This function makes use of [the environment flag `resolvableDomain`](#use-flags)
 should be used or the domain should be used directly.
 
 _See [request.go](./request.go)._
+
+If you need more low-level access to the http request or response against a deployed
+service, you can directly use the `SpoofingClient` that `WaitForEndpointState` wraps.
+
+
+```go
+// Error handling elided for brevity, but you know better.
+client, err := spoof.New(clients.Kube, logger, route.Status.Domain, test.Flags.ResolvableDomain)
+req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", route.Status.Domain), nil)
+
+// Single request.
+resp, err := client.Do(req)
+
+// Polling until we meet some condition.
+resp, err := client.Poll(req, test.BodyMatches(expectedText))
+```
+
+_See [spoof.go](./spoof/spoof.go)._
 
 ### Check Knative Serving resources
 

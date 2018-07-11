@@ -28,13 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/controller/service/resources"
+	resourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 )
@@ -58,7 +59,7 @@ func NewController(
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
 	routeInformer servinginformers.RouteInformer,
-	config *rest.Config) controller.Interface {
+) *Controller {
 
 	c := &Controller{
 		Base:                controller.NewBase(opt, controllerAgentName, "Services"),
@@ -93,10 +94,9 @@ func NewController(
 	return c
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// Run starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return c.RunController(threadiness, stopCh, c.Reconcile, "Service")
 }
@@ -153,7 +153,7 @@ func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	logger := logging.FromContext(ctx)
 	service.Status.InitializeConditions()
 
-	configName := controller.GetServiceConfigurationName(service)
+	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if errors.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
@@ -173,7 +173,7 @@ func (c *Controller) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// Update our Status based on the state of our underlying Configuration.
 	service.Status.PropagateConfigurationStatus(config.Status)
 
-	routeName := controller.GetServiceRouteName(service)
+	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if errors.IsNotFound(err) {
 		route, err = c.createRoute(service)
@@ -217,7 +217,7 @@ func (c *Controller) updateStatus(service *v1alpha1.Service) (*v1alpha1.Service,
 }
 
 func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	cfg, err := MakeServiceConfiguration(service)
+	cfg, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
@@ -225,8 +225,9 @@ func (c *Controller) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 }
 
 func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
-	desiredConfig, err := MakeServiceConfiguration(service)
+	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
@@ -246,12 +247,12 @@ func (c *Controller) reconcileConfiguration(service *v1alpha1.Service, config *v
 }
 
 func (c *Controller) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(MakeServiceRoute(service))
+	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(resources.MakeRoute(service))
 }
 
 func (c *Controller) reconcileRoute(service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	logger := loggerWithServiceInfo(c.Logger, service.Namespace, service.Name)
-	desiredRoute := MakeServiceRoute(service)
+	desiredRoute := resources.MakeRoute(service)
 
 	// TODO(#642): Remove this (needed to avoid continuous updates)
 	desiredRoute.Spec.Generation = route.Spec.Generation

@@ -51,6 +51,10 @@ type Configuration struct {
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
+// Check that Configuration may be validated and defaulted.
+var _ Validatable = (*Configuration)(nil)
+var _ Defaultable = (*Configuration)(nil)
+
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
