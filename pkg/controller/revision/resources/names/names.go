@@ -17,7 +17,8 @@ limitations under the License.
 package names
 
 import (
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+        "github.com/knative/serving/pkg"
+	   "github.com/knative/serving/pkg/apis/serving/v1alpha1"
         "github.com/knative/serving/pkg/controller"
 )
 
@@ -27,6 +28,18 @@ func Deployment(rev *v1alpha1.Revision) string {
 
 func Autoscaler(rev *v1alpha1.Revision) string {
 	return rev.Name + "-autoscaler"
+}
+
+func AutoscalerFullName(rev *v1alpha1.Revision) string {
+        return controller.GetK8sServiceFullname(Autoscaler(rev), pkg.GetServingSystemNamespace())
+}
+
+func AutoscalerDestinationRule(rev *v1alpha1.Revision) string {
+        return Autoscaler(rev) + "-destination-rule"
+}
+
+func AutoscalerAuthPolicy(rev *v1alpha1.Revision) string {
+        return Autoscaler(rev) + "-auth-policy"
 }
 
 func VPA(rev *v1alpha1.Revision) string {
