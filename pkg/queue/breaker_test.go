@@ -81,6 +81,7 @@ func TestBreakerRecover(t *testing.T) {
 }
 
 func TestBreakerLargeCapacityRecover(t *testing.T) {
+	t.Skip("Re-enable once #1514 is fixed.")
 	b := NewBreaker(5, 45)    // Breaker capacity = 50
 	want := make([]bool, 150) // Process 150 requests
 	for i := 0; i < 50; i++ {

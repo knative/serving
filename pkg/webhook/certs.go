@@ -26,7 +26,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"go.uber.org/zap"
 
@@ -47,7 +47,7 @@ func createCertTemplate() (*x509.Certificate, error) {
 		return nil, errors.New("failed to generate serial number: " + err.Error())
 	}
 
-	serviceName := servingWebhookDeployment + "." + pkg.GetServingSystemNamespace()
+	serviceName := servingWebhookDeployment + "." + system.Namespace
 	serviceNames := []string{serviceName, serviceName + ".svc", serviceName + ".svc.cluster.local"}
 
 	tmpl := x509.Certificate{

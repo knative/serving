@@ -17,5 +17,5 @@ limitations under the License.
 package istio
 
 const (
-	GroupName = "config.istio.io"
+	GroupName = "networking.istio.io"
 )

@@ -248,7 +248,7 @@ func TestGetDeploymentProgressCondition(t *testing.T) {
 	tests := []struct {
 		description string
 		deploy      *appsv1.Deployment
-		cond        *appsv1.DeploymentCondition
+		timedOut    bool
 	}{{
 		description: "no conditions",
 		deploy:      &appsv1.Deployment{},
@@ -294,18 +294,14 @@ func TestGetDeploymentProgressCondition(t *testing.T) {
 				}},
 			},
 		},
-		cond: &appsv1.DeploymentCondition{
-			Type:   appsv1.DeploymentProgressing,
-			Status: corev1.ConditionFalse,
-			Reason: "ProgressDeadlineExceeded",
-		},
+		timedOut: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			cond := getDeploymentProgressCondition(test.deploy)
-			if diff := cmp.Diff(test.cond, cond); diff != "" {
-				t.Errorf("getDeploymentProgressCondition(%v); (-want +got) = %v", test.deploy, diff)
+			timedOut := hasDeploymentTimedOut(test.deploy)
+			if diff := cmp.Diff(test.timedOut, timedOut); diff != "" {
+				t.Errorf("hasDeploymentTimedOut(%v); (-want +got) = %v", test.deploy, diff)
 			}
 		})
 	}

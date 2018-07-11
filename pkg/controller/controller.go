@@ -28,7 +28,7 @@ import (
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	meta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,6 +43,8 @@ import (
 // Interface defines the controller interface
 type Interface interface {
 	Run(threadiness int, stopCh <-chan struct{}) error
+	Reconcile(key string) error
+	GetWorkQueue() workqueue.RateLimitingInterface
 }
 
 func init() {
@@ -185,10 +187,9 @@ func (c *Base) EnqueueKey(key string) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
-// RunController will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
+// RunController starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
+// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
+// current work items.
 func (c *Base) RunController(
 	threadiness int,
 	stopCh <-chan struct{},
@@ -268,4 +269,9 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 	}
 
 	return true
+}
+
+// GetWorkQueue helps implement Interface for derivatives.
+func (b *Base) GetWorkQueue() workqueue.RateLimitingInterface {
+	return b.WorkQueue
 }

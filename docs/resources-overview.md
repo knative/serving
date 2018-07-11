@@ -69,7 +69,7 @@ controller-5bfb798f96-2zjnf   1/1       Running   0          9m
 webhook-64c459569b-v5npx      1/1       Running   0          8m
 ```
 
-Similarly, you can run the same commands in the build-crd (`build-system`) and istio (`istio-system`) namespaces to view the running deployments. To view all namespaces, run `kubectl get namespaces`.
+Similarly, you can run the same commands in the build-crd (`knative-build`) and istio (`istio-system`) namespaces to view the running deployments. To view all namespaces, run `kubectl get namespaces`.
 
 ### Service Accounts and RBAC policies
 

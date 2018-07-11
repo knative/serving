@@ -14,8 +14,11 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -36,8 +39,9 @@ import (
 )
 
 const (
-	maxRetry      = 60
-	retryInterval = 1 * time.Second
+	maxUploadBytes = 32e6 // 32MB - same as app engine
+	maxRetry       = 60
+	retryInterval  = 1 * time.Second
 )
 
 type activationHandler struct {
@@ -53,11 +57,25 @@ type retryRoundTripper struct {
 }
 
 func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	var transport http.RoundTripper
+	var err error
+	var reqBody *bytes.Reader
 
-	transport = http.DefaultTransport
+	transport := http.DefaultTransport
+
 	if r.ProtoMajor == 2 {
 		transport = h2cutil.NewTransport()
+	}
+
+	if r.Body != nil {
+		reqBytes, err := ioutil.ReadAll(r.Body)
+
+		if err != nil {
+			rrt.logger.Errorf("Error reading request body: %s", err)
+			return nil, err
+		}
+
+		reqBody = bytes.NewReader(reqBytes)
+		r.Body = ioutil.NopCloser(reqBody)
 	}
 
 	resp, err := transport.RoundTrip(r)
@@ -68,16 +86,39 @@ func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 		if err == nil && resp != nil && resp.StatusCode != 503 {
 			break
 		}
-		resp.Body.Close()
+
+		if err != nil {
+			rrt.logger.Errorf("Error making a request: %s", err)
+		}
+
+		if resp != nil {
+			resp.Body.Close()
+		}
+
 		time.Sleep(retryInterval)
+
+		// The request body cannot be read multiple times for retries.
+		// The workaround is to clone the request body into a byte reader
+		// so the body can be read multiple times.
+		if r.Body != nil {
+			reqBody.Seek(0, io.SeekStart)
+		}
+
 		resp, err = transport.RoundTrip(r)
 	}
 	// TODO: add metrics for number of tries and the response code.
-	rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
-	return resp, nil
+	if resp != nil {
+		rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	}
+	return resp, err
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength > maxUploadBytes {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		return
+	}
+
 	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
 	name := r.Header.Get(controller.GetRevisionHeaderName())
 	endpoint, status, err := a.act.ActiveEndpoint(namespace, name)

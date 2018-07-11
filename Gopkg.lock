@@ -315,12 +315,6 @@
   revision = "0b12d6b5"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/josephburnett/k8sflag"
-  packages = ["pkg/k8sflag"]
-  revision = "632d8ec6ee68a68bbeef4aeee67f64661c1326c3"
-
-[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "f7279a603edee96fe7764d3de9c6ff8cf9970994"
@@ -342,7 +336,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-  revision = "5dba97ea172464d6459c393330ffba2152ec78dd"
+  revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -972,6 +966,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "94726259256e54eeb5e76941f9f2c5aab4d05209d3fcf263fbe3eb045df21192"
+  inputs-digest = "431ad47f0253f68661f750381a990e8e19ee70e6f3fae106cf2445fb43f74999"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -22,7 +22,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/controller"
+	revisionresourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -118,7 +118,7 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 	// Get the revision endpoint
 	services := r.kubeClient.CoreV1().Services(revision.GetNamespace())
-	serviceName := controller.GetServingK8SServiceNameForRevision(revision)
+	serviceName := revisionresourcenames.K8sService(revision)
 	svc, err := services.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return internalError("Unable to get service %s for revision: %v",

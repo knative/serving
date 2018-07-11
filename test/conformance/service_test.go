@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	serviceresourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
@@ -64,16 +64,14 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
 func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
-	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, namespaceName, names.Route, func(body string) (bool, error) {
-		return body == expectedText, nil
-	}, "WaitForEndpointToServeText")
+	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
 	logger.Info("The Revision will be marked as Ready when it can serve traffic")
-	if err := test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady()); err != nil {
+	if err := test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady); err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
 
@@ -120,7 +118,7 @@ func waitForServiceDomain(clients *test.Clients, names test.ResourceNames) (stri
 func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
-	//add test case specific name to its own logger
+	// Add test case specific name to its own logger.
 	logger := test.Logger.Named("TestRunLatestService")
 
 	var imagePaths []string
@@ -134,12 +132,12 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDownService(clients, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := clients.Services.Create(test.LatestService(namespaceName, names, imagePaths[0]))
+	svc, err := clients.Services.Create(test.LatestService(test.Flags.Namespace, names, imagePaths[0]))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	names.Route = controller.GetServiceRouteName(svc)
-	names.Config = controller.GetServiceConfigurationName(svc)
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
 
 	logger.Info("The Service will be updated with the name of the Revision once it is created")
 	revisionName, err := waitForServiceLatestCreatedRevision(clients, names)
@@ -155,7 +153,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady(), "ServiceIsReady"); err != nil {
+	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "What a spaceport!")
@@ -173,7 +171,7 @@ func TestRunLatestService(t *testing.T) {
 	names.Revision = revisionName
 
 	logger.Info("When the Service reports as Ready, everything should be ready.")
-	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady(), "ServiceIsReady"); err != nil {
+	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
 	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "Re-energize yourself with a slice of pepperoni!")

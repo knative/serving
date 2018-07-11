@@ -126,8 +126,6 @@ function dump_stack_info() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-  echo ">>> Ingress:"
-  kubectl get ingress --all-namespaces
   echo ">>> Knative Serving controller log:"
   kubectl logs $(get_knative_pod controller) -n knative-serving
   echo "***************************************"
@@ -139,9 +137,11 @@ function dump_stack_info() {
 function run_e2e_tests() {
   header "Running tests in $1"
   kubectl create namespace $2
+  kubectl label namespace $2 istio-injection=enabled --overwrite
   local options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
-  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/elafros-e2e-tests/$3 ${options}
+  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$3 ${options}
+
   local result=$?
   [[ ${result} -ne 0 ]] && dump_stack_info
   return ${result}
@@ -261,7 +261,7 @@ fi
 readonly USING_EXISTING_CLUSTER
 
 if [[ -z ${DOCKER_REPO_OVERRIDE} ]]; then
-  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/ela-e2e-img
+  export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/knative-e2e-img
 fi
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
@@ -290,14 +290,16 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving
+wait_until_pods_running knative-serving || abort_if_failed
+wait_until_pods_running istio-system || abort_if_failed
+wait_until_service_has_external_ip istio-system knative-ingressgateway
 abort_if_failed
 
 # Run the tests
 
-run_e2e_tests conformance pizzaplanet ela-conformance-test
+run_e2e_tests conformance pizzaplanet conformance
 result=$?
-run_e2e_tests e2e noodleburg ela-e2e-test
+run_e2e_tests e2e noodleburg e2e
 [[ $? -ne 0 || ${result} -ne 0 ]] && exit 1
 
 # kubetest teardown might fail and thus incorrectly report failure of the

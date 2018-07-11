@@ -20,8 +20,8 @@ set -o pipefail
 
 SERVING_ROOT=$(dirname "${BASH_SOURCE}")/..
 
-DIFFROOT="${SERVING_ROOT}/pkg"
-TMP_DIFFROOT="${SERVING_ROOT}/_tmp/pkg"
+DIFFROOT="${SERVING_ROOT}"
+TMP_DIFFROOT="${SERVING_ROOT}/_tmp"
 _tmp="${SERVING_ROOT}/_tmp"
 
 cleanup() {
@@ -32,14 +32,20 @@ trap "cleanup" EXIT SIGINT
 
 cleanup
 
-mkdir -p "${TMP_DIFFROOT}"
-cp -a "${DIFFROOT}"/* "${TMP_DIFFROOT}"
+mkdir -p "${TMP_DIFFROOT}/pkg"
+cp -a "${DIFFROOT}/pkg"/* "${TMP_DIFFROOT}/pkg"
+
+# We symlink a few testdata files from config, so copy it as well.
+mkdir -p "${TMP_DIFFROOT}/config"
+cp -a "${DIFFROOT}/config"/* "${TMP_DIFFROOT}/config"
+
+# TODO(mattmoor): We should be able to rm -rf pkg/client/ and vendor/
 
 "${SERVING_ROOT}/hack/update-codegen.sh"
 echo "Diffing ${DIFFROOT} against freshly generated codegen"
 ret=0
-diff -Naupr "${DIFFROOT}" "${TMP_DIFFROOT}" || ret=$?
-cp -a "${TMP_DIFFROOT}"/* "${DIFFROOT}"
+diff -Naupr "${DIFFROOT}/pkg" "${TMP_DIFFROOT}/pkg" || ret=$?
+cp -a "${TMP_DIFFROOT}/pkg"/* "${DIFFROOT}/pkg"
 if [[ $ret -eq 0 ]]
 then
   echo "${DIFFROOT} up to date."

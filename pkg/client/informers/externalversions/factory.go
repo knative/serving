@@ -121,11 +121,11 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Config() istio.Interface
+	Networking() istio.Interface
 	Serving() serving.Interface
 }
 
-func (f *sharedInformerFactory) Config() istio.Interface {
+func (f *sharedInformerFactory) Networking() istio.Interface {
 	return istio.New(f, f.namespace, f.tweakListOptions)
 }
 

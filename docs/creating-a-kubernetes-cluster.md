@@ -165,12 +165,66 @@ To use a k8s cluster running in GKE:
            [to setup access to GCR](#minikube-with-gcr).
         1. Deploy the rest of Knative:
            ```bash
-           ko apply -f config/
+           # Use the minikube docker daemon (among other things)
+           eval $(minikube docker-env)
+
+           # Switch the current kubectl context to minikube
+           kubectl config use-context minikube
+
+           # Deploy to minikube w/o registry.
+           ko apply -L -f config/
            ```
 
     1. [Enable log and metric collection](../DEVELOPMENT.md#enable-log-and-metric-collection)
        (Note you should be using a cluster with 12 GB of memory, see commands above.)
 
+
+### Enabling Knative to Use Images in Minikube
+
+In order to have Knative access an image in Minikube's Docker daemon you
+should prefix your image name with the `dev.local` registry. This will cause
+Knative to use the cached image. You must not tag your image as `latest` since
+this causes Kubernetes to [always attempt a pull](https://kubernetes.io/docs/concepts/containers/images/#updating-images).
+
+For example:
+
+```shell
+eval $(minikube docker-env)
+docker pull gcr.io/knative-samples/primer:latest
+docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
+```
+
+### Minikube locally with `ko`
+
+You can instruct `ko` to sideload images into your Docker daemon instead of
+publishing them to a registry via the `-L` (local) flag:
+
+```shell
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
+
+# Deploy to minikube w/o registry.
+ko apply -L -f config/
+```
+
+Alternatively (if you don't like flags), set `KO_DOCKER_REPO` to `ko.local`:
+
+```shell
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
+
+# Set KO_DOCKER_REPO to a sentinel value for ko to sideload into the daemon.
+export KO_DOCKER_REPO="ko.local"
+
+# Deploy to minikube w/o registry.
+ko apply -f config/
+```
 
 ### Minikube with GCR
 
@@ -226,7 +280,7 @@ For example, use these steps to allow Minikube to pull Knative Serving and Build
 from GCR as published in our development flow (`ko apply -f config/`).
 _This is only necessary if you are not using public Knative Serving and Build images._
 
-1.  Create a Kubernetes secret in the `knative-serving` and `build-system` namespace:
+1.  Create a Kubernetes secret in the `knative-serving` and `knative-build` namespace:
 
     ```shell
     export DOCKER_EMAIL=your.email@here.com
@@ -241,7 +295,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
       --docker-username=_json_key \
       --docker-password="$(cat minikube-gcr-key.json)" \
       --docker-email=$DOCKER_EMAIL \
-      -n "build-system"
+      -n "knative-build"
     ```
 
     _The secret must be created in the same namespace as the pod or service
@@ -253,7 +307,7 @@ _This is only necessary if you are not using public Knative Serving and Build im
     ```shell
     kubectl patch serviceaccount "build-controller" \
       -p '{"imagePullSecrets": [{"name": "build-gcr"}]}' \
-      -n "build-system"
+      -n "knative-build"
     kubectl patch serviceaccount "controller" \
       -p '{"imagePullSecrets": [{"name": "knative-serving-gcr"}]}' \
       -n "knative-serving"
