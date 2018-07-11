@@ -425,7 +425,11 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			}
 			if changed == WasChanged {
 				logger.Infof("Updated deployment %q", deploymentName)
-				rev.Status.MarkDeploying("Updating")
+				if *deployment.Spec.Replicas == 0 {
+					rev.Status.MarkDeploying("Reserve")
+				} else {
+					rev.Status.MarkDeploying("Updating")
+				}
 			}
 		}
 

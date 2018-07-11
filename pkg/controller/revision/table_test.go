@@ -95,7 +95,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first revision reconciliation",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we exect it to create them and initialize the Revision's status.
+		// and we expect it to create them and initialize the Revision's status.
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile", "Active", "busybox"),
 		},
@@ -365,20 +365,20 @@ func TestReconcile(t *testing.T) {
 	}, {
 		// TODO: test Active->ToReserve
 		// TODO: test ToReserve->Reserve (t0)
-		// TODO: test Reserve->Reserve (t+11)
 
 		Name: "deactivate: active to reserve",
 		// Test the transition that's made when Reserve is set.
 		// We initialize the world to a stable Active state, but make the
 		// Revision's ServingState Reserve.  We expect the Reserve
 		// condition to be set but no mutations of Deployment.
+		// This is phase-one of the two-phase deactivation.
 		Objects: []runtime.Object{
 			makeStatus(
 				// The revision has been set to Deactivated, but all of the objects
 				// reflect being Active.
-				rev("foo", "deactivate", "Reserve", "busybox"),
+				rev("foo", "deactivate-one", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deactivate", "Active", "busybox").Name,
+					ServiceName: svc("foo", "deactivate-one", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
@@ -392,21 +392,21 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 			// The Deployments match what we'd expect of an Active revision.
-			deploy("foo", "deactivate", "Active", "busybox"),
-			deployAS("foo", "deactivate", "Active", "busybox"),
+			deploy("foo", "deactivate-one", "Active", "busybox"),
+			deployAS("foo", "deactivate-one", "Active", "busybox"),
 			// The Services match what we'd expect of an Active revision.
-			svc("foo", "deactivate", "Active", "busybox"),
-			svcAS("foo", "deactivate", "Active", "busybox"),
+			svc("foo", "deactivate-one", "Active", "busybox"),
+			svcAS("foo", "deactivate-one", "Active", "busybox"),
 			// The Endpoints match what we'd expect of an Active revision.
-			endpoints("foo", "deactivate", "Active", "busybox"),
-			endpointsAS("foo", "deactivate", "Active", "busybox"),
+			endpoints("foo", "deactivate-one", "Active", "busybox"),
+			endpointsAS("foo", "deactivate-one", "Active", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: makeStatus(
-				rev("foo", "deactivate", "Reserve", "busybox"),
+				rev("foo", "deactivate-one", "Reserve", "busybox"),
 				// After reconciliation, the status will change to reflect that this is being Deactivated.
 				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "deactivate", "Reserve", "busybox").Name,
+					ServiceName: svc("foo", "deactivate-one", "Reserve", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
@@ -430,7 +430,90 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 		}},
-		Key: "foo/deactivate",
+		Key: "foo/deactivate-one",
+	}, {
+		Name: "deactivate: reserve after 11 seconds",
+		// Test the transition that's made when Reserve is set.
+		// We initialize the world to a stable Active state, but make the
+		// Revision's ServingState Reserve.  We expect the Reserve
+		// condition to be set but no mutations of Deployment.
+		Objects: []runtime.Object{
+			makeStatus(
+				// The revision has been set to Deactivated, but all of the objects
+				// reflect being Active.
+				rev("foo", "deactivate-two", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "deactivate-two", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "True",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "True",
+					}, {
+						Type:   "Ready",
+						Status: "True",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:               "Reserve",
+						Status:             "True",
+						Reason:             "Reserve",
+						Message:            "Revision has been placed into Reserve state.",
+						LastTransitionTime: metav1.NewTime(time.Now().Add(-11 * time.Second)),
+					}},
+				}),
+			// The Deployments match what we'd expect of an Active revision.
+			deploy("foo", "deactivate-two", "Active", "busybox"),
+			deployAS("foo", "deactivate-two", "Active", "busybox"),
+			// The Services match what we'd expect of an Active revision.
+			svc("foo", "deactivate-two", "Active", "busybox"),
+			svcAS("foo", "deactivate-two", "Active", "busybox"),
+			// The Endpoints match what we'd expect of an Active revision.
+			endpoints("foo", "deactivate-two", "Active", "busybox"),
+			endpointsAS("foo", "deactivate-two", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "deactivate-two", "Reserve", "busybox"),
+				// After reconciliation, the status will change to reflect that this is being Deactivated.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "deactivate-two", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:    "Reserve",
+						Status:  "True",
+						Reason:  "Reserve",
+						Message: "Revision has been placed into Reserve state.",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}},
+				},
+			)}, {
+			Object: deploy("foo", "deactivate-two", "Reserve", "busybox"),
+		}, {
+			Object: deployAS("foo", "deactivate-two", "Reserve", "busybox"),
+		}},
+		Key: "foo/deactivate-two",
 	}, {
 		Name: "failure updating user deployment",
 		// Induce a failure updating the user deployment
@@ -468,7 +551,7 @@ func TestReconcile(t *testing.T) {
 						Status:             "True",
 						Reason:             "Reserve",
 						Message:            "Revision has been placed into Reserve state.",
-						LastTransitionTime: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+						LastTransitionTime: metav1.NewTime(time.Now().Add(-11 * time.Second)),
 					}},
 				}),
 			// The Deployments match what we'd expect of an Active revision.
