@@ -1035,42 +1035,53 @@ func TestReconcile(t *testing.T) {
 			Object: deployAS("foo", "activate-revision", "Active", "busybox"),
 		}},
 		Key: "foo/activate-revision",
-		// }, {
-		// 	Name: "create resources in reserve",
-		// 	// Test a reconcile of a Revision in the Reserve state.
-		// 	// This tests the initial set of resources that we create for a Revision
-		// 	// when it is in a Reserve state and none of its resources exist.  The main
-		// 	// place we should expect this transition to happen is Retired -> Reserve.
-		// 	Objects: []runtime.Object{
-		// 		rev("foo", "create-in-reserve", "Reserve", "busybox"),
-		// 	},
-		// 	WantCreates: []metav1.Object{
-		// 		// Only Deployments are created and they have no replicas.
-		// 		deploy("foo", "create-in-reserve", "Reserve", "busybox"),
-		// 		deployAS("foo", "create-in-reserve", "Reserve", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			rev("foo", "create-in-reserve", "Reserve", "busybox"),
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 	}},
-		// 	Key: "foo/create-in-reserve",
+	}, {
+		Name: "create resources in reserve",
+		// Test a reconcile of a Revision in the Reserve state.
+		// This tests the initial set of resources that we create for a Revision
+		// when it is in a Reserve state and none of its resources exist.  The main
+		// place we should expect this transition to happen is Retired -> Reserve.
+		Objects: []runtime.Object{
+			rev("foo", "create-in-reserve", "Reserve", "busybox"),
+		},
+		WantCreates: []metav1.Object{
+			deploy("foo", "create-in-reserve", "Reserve", "busybox"),
+			svc("foo", "create-in-reserve", "Reserve", "busybox"),
+			deployAS("foo", "create-in-reserve", "Reserve", "busybox"),
+			svcAS("foo", "create-in-reserve", "Reserve", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-in-reserve", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    "Reserve",
+						Status:  "True",
+						Reason:  "Reserve",
+						Message: "Revision has been placed into Reserve state.",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-in-reserve",
 		// }, {
 		// 	Name: "endpoint is created (not ready)",
 		// 	// Test the transition when a Revision's Endpoints are created (but not yet ready)
