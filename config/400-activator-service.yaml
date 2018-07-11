@@ -28,3 +28,25 @@ spec:
     port: 80
     targetPort: 8080
   type: NodePort
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: activator-destination-rule
+  namespace: knative-serving
+spec:
+  host: activator-service.knative-serving.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: Policy
+metadata:
+  name: activator-service-auth-policy
+  namespace: knative-serving
+spec:
+  targets:
+  - name: activator-service
+  peers:
+  - mtls:
