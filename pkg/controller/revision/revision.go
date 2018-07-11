@@ -358,8 +358,6 @@ func (c *Controller) EnqueueEndpointsRevision(obj interface{}) {
 
 }
 
-
-
 func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
 	newNetworkConfig, err := config.NewNetworkFromConfigMap(configMap)
 	c.networkConfigMutex.Lock()
@@ -374,12 +372,6 @@ func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
 	}
 	c.Logger.Infof("Network config map is added or updated: %v", configMap)
 	c.networkConfig = newNetworkConfig
-}
-
-func (c *Controller) getNetworkConfig() *config.Network {
-	c.networkConfigMutex.Lock()
-	defer c.networkConfigMutex.Unlock()
-	return c.networkConfig
 }
 
 func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
@@ -423,24 +415,6 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 
 }
 
-func (c *Controller) getResolver() resolver {
-	c.resolverMutex.Lock()
-	defer c.resolverMutex.Unlock()
-	return c.resolver
-}
-
-func (c *Controller) getControllerConfig() *config.Controller {
-	c.controllerConfigMutex.Lock()
-	defer c.controllerConfigMutex.Unlock()
-	return c.controllerConfig
-}
-
-func (c *Controller) getLoggingConfig() *logging.Config {
-	c.loggingConfigMutex.Lock()
-	defer c.loggingConfigMutex.Unlock()
-	return c.loggingConfig
-}
-
 func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
 	newObservabilityConfig, err := config.NewObservabilityFromConfigMap(configMap)
 	c.observabilityConfigMutex.Lock()
@@ -457,12 +431,6 @@ func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
 	c.observabilityConfig = newObservabilityConfig
 }
 
-func (c *Controller) getObservabilityConfig() *config.Observability {
-	c.observabilityConfigMutex.Lock()
-	defer c.observabilityConfigMutex.Unlock()
-	return c.observabilityConfig
-}
-
 func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 	newAutoscalerConfig, err := autoscaler.NewConfigFromConfigMap(configMap)
 	c.autoscalerConfigMutex.Lock()
@@ -477,10 +445,4 @@ func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 	}
 	c.Logger.Infof("Autoscaler config map is added or updated: %v", configMap)
 	c.autoscalerConfig = newAutoscalerConfig
-}
-
-func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
-	c.autoscalerConfigMutex.Lock()
-	defer c.autoscalerConfigMutex.Unlock()
-	return c.autoscalerConfig
 }

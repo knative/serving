@@ -29,6 +29,8 @@ import (
         "github.com/google/go-cmp/cmp/cmpopts"
 
         "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+        "github.com/knative/serving/pkg/autoscaler"
+        "github.com/knative/serving/pkg/controller/revision/config"
         "github.com/knative/serving/pkg/controller/revision/resources"
         resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
         "github.com/knative/serving/pkg/logging"
@@ -128,6 +130,30 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
         }
 
         return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+}
+
+func (c *Controller) getObservabilityConfig() *config.Observability {
+        c.observabilityConfigMutex.Lock()
+        defer c.observabilityConfigMutex.Unlock()
+        return c.observabilityConfig
+}
+
+func (c *Controller) getNetworkConfig() *config.Network {
+        c.networkConfigMutex.Lock()
+        defer c.networkConfigMutex.Unlock()
+        return c.networkConfig
+}
+
+func (c *Controller) getResolver() resolver {
+        c.resolverMutex.Lock()
+        defer c.resolverMutex.Unlock()
+        return c.resolver
+}
+
+func (c *Controller) getLoggingConfig() *logging.Config {
+        c.loggingConfigMutex.Lock()
+        defer c.loggingConfigMutex.Unlock()
+        return c.loggingConfig
 }
 
 // This is a generic function used both for deployment of user code & autoscaler
@@ -479,6 +505,12 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
         return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
+func (c *Controller) getControllerConfig() *config.Controller {
+        c.controllerConfigMutex.Lock()
+        defer c.controllerConfigMutex.Unlock()
+        return c.controllerConfig
+}
+
 func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
         logger := logging.FromContext(ctx)
         if !c.getAutoscalerConfig().EnableVPA {
@@ -552,6 +584,12 @@ func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPod
                 return err
         }
         return nil
+}
+
+func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
+        c.autoscalerConfigMutex.Lock()
+        defer c.autoscalerConfigMutex.Unlock()
+        return c.autoscalerConfig
 }
 
 func (c *Controller) updateStatus(rev *v1alpha1.Revision) (*v1alpha1.Revision, error) {
