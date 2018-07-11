@@ -965,71 +965,76 @@ func TestReconcile(t *testing.T) {
 				}),
 		},
 		Key: "foo/stable-retirement",
-		// }, {
-		// 	Name: "activate a reserve revision",
-		// 	// Test the transition that's made when Active is set.
-		// 	// We initialize the world to a stable Reserve state, but make the
-		// 	// Revision's ServingState Active.  We then look for the expected
-		// 	// mutations, which should include scaling up the Deployments to
-		// 	// 1 replica each, and recreating the Kubernetes Service resources.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "activate-revision", "Active", "busybox"),
-		// 			// The status and state of the world reflect a Reserve Revision,
-		// 			// but it has a ServingState of Active.
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "activate-revision", "Reserve", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Updating",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "False",
-		// 					Reason: "Inactive",
-		// 				}},
-		// 			}),
-		// 		// The Deployments match what we'd expect of an Reserve revision.
-		// 		deploy("foo", "activate-revision", "Reserve", "busybox"),
-		// 		deployAS("foo", "activate-revision", "Reserve", "busybox"),
-		// 	},
-		// 	WantCreates: []metav1.Object{
-		// 		// Activation should recreate the K8s Services
-		// 		svc("foo", "activate-revision", "Active", "busybox"),
-		// 		svcAS("foo", "activate-revision", "Active", "busybox"),
-		// 	},
-		// 	WantUpdates: []clientgotesting.UpdateActionImpl{{
-		// 		Object: makeStatus(
-		// 			rev("foo", "activate-revision", "Active", "busybox"),
-		// 			// After activating the Revision status looks like this.
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "activate-revision", "Active", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}},
-		// 			}),
-		// 	}, {
-		// 		Object: deploy("foo", "activate-revision", "Active", "busybox"),
-		// 	}, {
-		// 		Object: deployAS("foo", "activate-revision", "Active", "busybox"),
-		// 	}},
-		// 	Key: "foo/activate-revision",
+	}, {
+		Name: "activate a reserve revision",
+		// Test the transition that's made when Active is set.
+		// We initialize the world to a stable Reserve state, but make the
+		// Revision's ServingState Active.  We then look for the expected
+		// mutations, which should include scaling up the Deployments to
+		// 1 replica each, and recreating the Kubernetes Service resources.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "activate-revision", "Active", "busybox"),
+				// The status and state of the world reflect a Reserve Revision,
+				// but it has a ServingState of Active.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "activate-revision", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}},
+				}),
+			// The Deployments match what we'd expect of an Reserve revision.
+			deploy("foo", "activate-revision", "Reserve", "busybox"),
+			deployAS("foo", "activate-revision", "Reserve", "busybox"),
+		},
+		WantCreates: []metav1.Object{
+			// Activation should recreate the K8s Services
+			svc("foo", "activate-revision", "Active", "busybox"),
+			svcAS("foo", "activate-revision", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "activate-revision", "Active", "busybox"),
+				// After activating the Revision status looks like this.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "activate-revision", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}, {
+			Object: deploy("foo", "activate-revision", "Active", "busybox"),
+		}, {
+			Object: deployAS("foo", "activate-revision", "Active", "busybox"),
+		}},
+		Key: "foo/activate-revision",
 		// }, {
 		// 	Name: "create resources in reserve",
 		// 	// Test a reconcile of a Revision in the Reserve state.
