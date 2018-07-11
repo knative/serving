@@ -932,34 +932,39 @@ func TestReconcile(t *testing.T) {
 		}},
 		// We delete a bunch of stuff when we retire.
 		Key: "foo/delete-as-svc-failure",
-		// }, {
-		// 	Name: "retired revision is stable",
-		// 	// Test a simple stable reconciliation of a Retired Revision.
-		// 	// We feed in a Revision and the resources it controls in a steady
-		// 	// state (port-Retired), and verify that no changes are necessary.
-		// 	Objects: []runtime.Object{
-		// 		makeStatus(
-		// 			rev("foo", "stable-retirement", "Retired", "busybox"),
-		// 			// The Status properly reflects that of a Retired revision.
-		// 			v1alpha1.RevisionStatus{
-		// 				ServiceName: svc("foo", "stable-retirement", "Retired", "busybox").Name,
-		// 				LogURL:      "http://logger.io/test-uid",
-		// 				Conditions: []v1alpha1.RevisionCondition{{
-		// 					Type:   "ResourcesAvailable",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "ContainerHealthy",
-		// 					Status: "Unknown",
-		// 					Reason: "Deploying",
-		// 				}, {
-		// 					Type:   "Ready",
-		// 					Status: "False",
-		// 					Reason: "Inactive",
-		// 				}},
-		// 			}),
-		// 	},
-		// 	Key: "foo/stable-retirement",
+	}, {
+		Name: "retired revision is stable",
+		// Test a simple stable reconciliation of a Retired Revision.
+		// We feed in a Revision and the resources it controls in a steady
+		// state (port-Retired), and verify that no changes are necessary.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "stable-retirement", "Retired", "busybox"),
+				// The Status properly reflects that of a Retired revision.
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "stable-retirement", "Retired", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Retired",
+					}, {
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}},
+				}),
+		},
+		Key: "foo/stable-retirement",
 		// }, {
 		// 	Name: "activate a reserve revision",
 		// 	// Test the transition that's made when Active is set.
