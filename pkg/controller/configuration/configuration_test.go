@@ -191,7 +191,7 @@ func TestReconcile(t *testing.T) {
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
-						Message: `revision "matching-revision-failed-05555" failed with message: It's the end of the world as we know it.`,
+						Message: `Revision "matching-revision-failed-05555" failed with message: "It's the end of the world as we know it".`,
 					}},
 				},
 			),
@@ -361,7 +361,7 @@ func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 
 func makeRevFailed(rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.InitializeConditions()
-	rev.Status.MarkContainerMissing("It's the end of the world as we know it.")
+	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 	return rev
 }
 

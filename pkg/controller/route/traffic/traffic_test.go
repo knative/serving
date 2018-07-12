@@ -18,7 +18,6 @@ package traffic
 import (
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -28,7 +27,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -40,10 +38,17 @@ const (
 )
 
 // A simple fixed Configuration/Revision layout for testing.
+// Tests should not modify these objects.
 var (
 	// These are objects never inserted.
 	missingConfig *v1alpha1.Configuration
 	missingRev    *v1alpha1.Revision
+
+	// emptyConfig never has any revision.
+	emptyConfig *v1alpha1.Configuration
+
+	// revDeletedConfig has a Ready revision but was deleted.
+	revDeletedConfig *v1alpha1.Configuration
 
 	// unreadyConfig only has unreadyRevision, and it's not ready.
 	unreadyConfig *v1alpha1.Configuration
@@ -68,6 +73,8 @@ var (
 )
 
 func setUp() {
+	emptyConfig = getTestEmptyConfig("empty")
+	revDeletedConfig = getTestConfigWithDeletedRevision("latest-rev-deleted")
 	unreadyConfig, unreadyRev = getTestUnreadyConfig("unready")
 	inactiveConfig, inactiveRev = getTestInactiveConfig("inactive")
 	goodConfig, goodOldRev, goodNewRev = getTestReadyConfig("good")
@@ -82,8 +89,12 @@ func setUp() {
 
 	// Add these test objects to the informers.
 	objs := []runtime.Object{
-		unreadyConfig, unreadyRev, inactiveConfig, inactiveRev, goodConfig, goodOldRev,
-		goodNewRev, niceConfig, niceOldRev, niceNewRev,
+		unreadyConfig, unreadyRev,
+		inactiveConfig, inactiveRev,
+		revDeletedConfig,
+		emptyConfig,
+		goodConfig, goodOldRev, goodNewRev,
+		niceConfig, niceOldRev, niceNewRev,
 	}
 
 	for _, obj := range objs {
@@ -407,23 +418,99 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev},
 	}
+	expectedErr := errMissingConfiguration(missingConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if err == nil || !apierrs.IsNotFound(err) {
-		t.Errorf("Expected not found, saw %v", err)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected %v, saw %v", expectedErr, err)
 	}
 	if diff := cmp.Diff(expected, tc); diff != "" {
 		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
 	}
-	if c := r.Status.GetCondition(v1alpha1.RouteConditionAllTrafficAssigned); c == nil || c.Status != corev1.ConditionFalse {
-		t.Errorf("Expected ConditionFalse, saw %v", c)
-	} else {
-		if c.Reason != "ConfigurationMissing" {
-			t.Errorf("Expected ConfigurationMissing, saw %q", c.Reason)
-		}
-		if !strings.Contains(c.Message, missingConfig.Name) {
-			t.Errorf("Expected to see %q in message, saw %q", missingConfig.Name, c.Message)
-		}
+}
+
+func TestBuildTrafficConfiguration_DeletedRevision(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		ConfigurationName: revDeletedConfig.Name,
+		Percent:           100,
+	}}
+	expected := &TrafficConfig{
+		Targets: map[string][]RevisionTarget{},
+		Configurations: map[string]*v1alpha1.Configuration{
+			revDeletedConfig.Name: revDeletedConfig},
+		Revisions: map[string]*v1alpha1.Revision{},
+	}
+	expectedErr := errDeletedRevision(revDeletedConfig.Name)
+	r := getTestRouteWithTrafficTargets(tts)
+	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected error %v, saw %v", expectedErr, err)
+	}
+	if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	}
+}
+
+func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		RevisionName: unreadyRev.Name,
+		Percent:      100,
+	}}
+	expected := &TrafficConfig{
+		Targets:        map[string][]RevisionTarget{},
+		Configurations: map[string]*v1alpha1.Configuration{},
+		Revisions:      map[string]*v1alpha1.Revision{unreadyRev.Name: unreadyRev},
+	}
+	expectedErr := errNotRoutableRevision(unreadyRev.Name)
+	r := getTestRouteWithTrafficTargets(tts)
+	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected error %v, saw %v", expectedErr, err)
+	}
+	if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	}
+}
+
+func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		ConfigurationName: unreadyConfig.Name,
+		Percent:           100,
+	}}
+	expected := &TrafficConfig{
+		Targets:        map[string][]RevisionTarget{},
+		Configurations: map[string]*v1alpha1.Configuration{unreadyConfig.Name: unreadyConfig},
+		Revisions:      map[string]*v1alpha1.Revision{},
+	}
+	expectedErr := errNotRoutableRevision(unreadyRev.Name)
+	r := getTestRouteWithTrafficTargets(tts)
+	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected error %v, saw %v", expectedErr, err)
+	}
+	if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	}
+}
+
+func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		ConfigurationName: emptyConfig.Name,
+		Percent:           100,
+	}}
+	expected := &TrafficConfig{
+		Targets:        map[string][]RevisionTarget{},
+		Configurations: map[string]*v1alpha1.Configuration{emptyConfig.Name: emptyConfig},
+		Revisions:      map[string]*v1alpha1.Revision{},
+	}
+	expectedErr := errEmptyConfiguration(emptyConfig.Name)
+	r := getTestRouteWithTrafficTargets(tts)
+	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected error %v, saw %v", expectedErr, err)
+	}
+	if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
 	}
 }
 
@@ -440,23 +527,14 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
 	}
+	expectedErr := errMissingRevision(missingRev.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if err == nil || !apierrs.IsNotFound(err) {
-		t.Errorf("Expected not found, saw %v", err)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected %s, saw %s", expectedErr.Error(), err.Error())
 	}
 	if diff := cmp.Diff(expected, tc); diff != "" {
 		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
-	}
-	if c := r.Status.GetCondition(v1alpha1.RouteConditionAllTrafficAssigned); c == nil || c.Status != corev1.ConditionFalse {
-		t.Errorf("Expected ConditionFalse, saw %v", c)
-	} else {
-		if c.Reason != "RevisionMissing" {
-			t.Errorf("Expected ConfigurationMissing, saw %v", c.Reason)
-		}
-		if !strings.Contains(c.Message, missingRev.Name) {
-			t.Errorf("Expected to see %q in message, saw %q", missingRev.Name, c.Message)
-		}
 	}
 }
 
@@ -540,6 +618,19 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 	}
 }
 
+func getTestEmptyConfig(name string) *v1alpha1.Configuration {
+	config := getTestConfig(name + "-config")
+	return config
+}
+
+func getTestConfigWithDeletedRevision(name string) *v1alpha1.Configuration {
+	config := getTestConfig(name + "-config")
+	config.Status.SetLatestCreatedRevisionName("i-was-deleted")
+	config.Status.SetLatestReadyRevisionName("")
+	config.Status.MarkLatestReadyDeleted()
+	return config
+}
+
 func getTestUnreadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revision) {
 	config := getTestConfig(name + "-config")
 	rev := getTestRevForConfig(config, name+"-revision")
@@ -551,6 +642,7 @@ func getTestInactiveConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revi
 	config := getTestConfig(name + "-config")
 	rev := getTestRevForConfig(config, name+"-revision")
 	config.Status.SetLatestReadyRevisionName(rev.Name)
+	config.Status.SetLatestCreatedRevisionName(rev.Name)
 	rev.Status.MarkInactive()
 	return config, rev
 }
@@ -564,6 +656,7 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()
 	config.Status.SetLatestReadyRevisionName(rev2.Name)
+	config.Status.SetLatestCreatedRevisionName(rev2.Name)
 	return config, rev1, rev2
 }
 

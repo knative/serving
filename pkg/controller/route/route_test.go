@@ -342,7 +342,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -429,7 +430,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -511,7 +513,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -629,7 +632,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
