@@ -65,7 +65,7 @@ function create_everything() {
   #
   # However, since network configurations may reach different ingress pods at slightly
   # different time, even ignoring failures for initial requests won't ensure subsequent
-  # requests will succeeed all the time.  We are disabling ingress pod autoscaling here
+  # requests will succeed all the time.  We are disabling ingress pod autoscaling here
   # to avoid having too much flakes in the tests.  That would allow us to be stricter
   # when checking non-probe requests to discover other routing issues.
   #

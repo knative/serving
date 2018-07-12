@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	concurrentRequests = 100
+	concurrentRequests = 200
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	minDirectPercentage = 1
@@ -106,6 +106,8 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
+	// counts maps the unexpected response body to the number of matching requests we saw.
+	badCounts := make(map[string]int)
 
 	// counts := eval(
 	//   SELECT body, count(*) AS total
@@ -114,10 +116,15 @@ func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, 
 	//   GROUP BY body
 	// )
 	for _, ar := range actualResponses {
+		expected := false
 		for _, er := range expectedResponses {
 			if strings.Contains(string(ar), er) {
 				counts[er]++
+				expected = true
 			}
+		}
+		if !expected {
+			badCounts[ar]++
 		}
 	}
 
@@ -134,8 +141,11 @@ func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, 
 		totalMatches += count
 	}
 	// Verify that the total expected responses match the number of requests made.
+	for badResponse, count := range badCounts {
+		logger.Infof("saw unexpected response %q %d times", badResponse, count)
+	}
 	if totalMatches < num {
-		return fmt.Errorf("Total expected responses %d, wanted %d", totalMatches, num)
+		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
 	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil
@@ -243,17 +253,17 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
+	// It doesn't matter which domain we probe, we just need to choose one.
 	if err := probeDomain(logger, clients, tealDomain); err != nil {
 		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
 	}
 
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
-	// First, send concurrent requests to tealDomain only, to allow autoscaling
-	// sometime to add more replicas into both Revisions.
-	min := int(concurrentRequests * minSplitPercentage)
-	checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
-	// Now send all remaining requests in parallel.
+	g.Go(func() error {
+		min := int(concurrentRequests * minSplitPercentage)
+		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
+	})
 	g.Go(func() error {
 		min := int(concurrentRequests * minDirectPercentage)
 		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
