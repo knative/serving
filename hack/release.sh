@@ -113,8 +113,6 @@ if (( ! SKIP_TESTS )); then
   ./test/presubmit-tests.sh
 fi
 
-install_ko
-
 banner "    BUILDING THE RELEASE   "
 
 # Set the repository
@@ -131,9 +129,6 @@ if (( TAG_RELEASE )); then
   TAG="v$(date +%Y%m%d)-${commit}"
 fi
 readonly TAG
-
-# If this is a prow job, authenticate against GCR.
-(( IS_PROW )) && gcr_auth
 
 if (( ! DONT_PUBLISH )); then
   echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
