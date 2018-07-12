@@ -47,6 +47,23 @@ const (
 	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
 )
 
+// Probe until we get a successful response. This ensures the domain is
+// routable before we send it a bunch of traffic.
+func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
+	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	if err != nil {
+		return err
+	}
+	// TODO(tcnghia): The ingress endpoint tends to return 404 during probes.
+	client.RetryCodes = []int{http.StatusNotFound}
+	_, err = client.Poll(req, test.MatchesAny)
+	return err
+}
+
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
 func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
@@ -72,9 +89,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 				return err
 			}
 
-			// TODO(tcnghia): The ingress endpoint tends to return 404. Ideally we can instead do:
-			// resp, err := client.Do(req)
-			resp, err := client.Poll(req, test.MatchesAny)
+			resp, err := client.Do(req)
 			if err != nil {
 				return err
 			}
@@ -88,7 +103,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 
@@ -108,6 +123,7 @@ func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedR
 
 	// Verify that we saw each entry in "expectedResponses" at least "min" times.
 	// check(SELECT body FROM $counts WHERE total < $min)
+	totalMatches := 0
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
@@ -115,8 +131,12 @@ func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedR
 		} else {
 			logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
 		}
+		totalMatches += count
 	}
-
+	// Verify that the total expected responses match the number of requests made.
+	if totalMatches < num {
+		return fmt.Errorf("Total expected responses %d, wanted %d", totalMatches, num)
+	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil
 }
@@ -128,8 +148,6 @@ func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain 
 	if err != nil {
 		return err
 	}
-	// TODO(tcnghia): The ingress endpoint tends to return 404.
-	client.RetryCodes = []int{http.StatusNotFound}
 
 	logger.Infof("Performing %d concurrent requests to %s", num, domain)
 	actualResponses, err := sendRequests(client, domain, num)
@@ -137,7 +155,7 @@ func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain 
 		return err
 	}
 
-	return checkResponses(logger, min, domain, expectedResponses, actualResponses)
+	return checkResponses(logger, num, min, domain, expectedResponses, actualResponses)
 }
 
 // TestBlueGreenRoute verifies that a route configured with a 50/50 traffic split
@@ -223,8 +241,19 @@ func TestBlueGreenRoute(t *testing.T) {
 	greenDomain := fmt.Sprintf("%s.%s", green.TrafficTarget, route.Status.Domain)
 	tealDomain := route.Status.Domain
 
+	// Istio network programming takes some time to be effective.  Currently Istio
+	// does not expose a Status, so we rely on probes to know when they are effective.
+	if err := probeDomain(logger, clients, tealDomain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
+	}
+
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
+	// First, send concurrent requests to tealDomain only, to allow autoscaling
+	// sometime to add more replicas into both Revisions.
+	min := int(concurrentRequests * minSplitPercentage)
+	checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
+	// Now send all remaining requests in parallel.
 	g.Go(func() error {
 		min := int(concurrentRequests * minDirectPercentage)
 		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
@@ -232,10 +261,6 @@ func TestBlueGreenRoute(t *testing.T) {
 	g.Go(func() error {
 		min := int(concurrentRequests * minDirectPercentage)
 		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
-	})
-	g.Go(func() error {
-		min := int(concurrentRequests * minSplitPercentage)
-		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Error sending requests: %v", err)
