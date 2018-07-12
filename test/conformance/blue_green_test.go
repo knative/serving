@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	concurrentRequests = 200
+	concurrentRequests = 100
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
 	minDirectPercentage = 1
