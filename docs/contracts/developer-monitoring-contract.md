@@ -1,0 +1,176 @@
+# Knative Developer Logging and Monitoring Contract
+
+This documents the logging and monitoring capabilities and expectations about the
+environment where Knative [developers'](../product/personas.md#developer-personas)
+applications, containers and functions run.
+
+## Background
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT",
+"RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" are to be interpreted as
+described in [RFC 2119](https://tools.ietf.org/html/rfc2119).
+
+## Logging
+
+### User Logs
+
+User logs are logs emitted from the applications, containers and functions. Knative
+generates a raw log record for each user log.
+
+#### User Logs Locations
+
+* `stdout` / `stderr`: Developer MUST be able to write logs to `stdout/stderr` channels.
+* `/var/log`: Developer SHOULD be able to write logs to any file under `/var/log`
+  if [cluster operator](../product/personas.md#operator-personas) enables this feature.
+
+#### User Logs Formats
+
+Logs are parsed line by line. If a single line message is a serialized JSON payload,
+it SHOULD be treated as **structured** log and parsed accordingly. Otherwise it SHOULD
+be treated as **plain text**.
+
+For **plain text** logs, the original log message SHOULD be present as `log` field in
+raw user log record.
+
+For **structured** logs, all fields from the JSON payload SHOULD be added to the
+raw user log record.
+
+##### Multi-line
+
+If the contents of `log` field in a consecutive sequence of raw user log records,
+which from the same source, form an exception stack trace, these raw user log records
+SHOULD be combined into one single user log record by taking the first log record
+of the sequence and replacing the content of `log` field with the concatenated content
+of all `log` fields in the sequence.
+
+#### User Logs Metadata
+
+The following metadata SHOULD be added to raw user log records:
+
+* *kubernetes.labels.knative_dev/configuration*: Name of Knative configuration
+  of the application, container or function that emitted the log.
+* *kubernetes.labels.knative_dev/revision*: Name of Knative revision of the application,
+  container or function that emitted the log.
+* *kubernetes.namespace_name*: Name of Kubernetes namespace of the application, container
+  or function that emitted the log.
+* *stream*: One of `stdout`, `stderr` or `varlog`.
+* *file_path*: If the log was from `/var/log/*`, the value is the relative path to `/var/log/`.
+  For example, the value of a log from `/var/log/foo/bar.log` is `foo/bar.log`. If
+  the log was from other locations, the filed is absent.
+* *time*: Time when the log was collected. **NOTE**: Developers need to add their own
+  timestamp to the log if they want the timestamp to be accurate.
+
+For example, a field `kubernetes.namespace_name` with value `default` means
+
+```json
+{
+  "kubernetes": {
+    "namespace_name": "default",
+  }
+}
+```
+
+### System Logs
+
+#### Requests Logs
+
+Status of requests or invocations sent to the applications, containers or functions
+SHOULD be automatically collected as raw request log records.
+
+##### Request Logs Metadata
+
+The following metadata SHOULD be added to raw requests log records:
+
+* *destinationConfiguration*: Name of Knative configuration that served the request.
+* *destinationNamespace*: Name of Kubernetes namespace that the request was served on.
+* *destinationRevision*: Name of Knative revision that served the request.
+* *latency*: Time with unit took for the request to complete.
+* *method*: HTTP request method (GET, POST, etc).
+* *protocol*: http, https or tcp.
+* *referer*: Address of the previous web page from which the request was made.
+* *requestHost*: Domain name of the service processing the request.
+* *requestSize*: Size of the request.
+* *responseCode*: HTTP response code.
+* *responseSize*: Size of the response.
+* *tag*: A fixed value set to “requestlog.logentry.istio-system” - used to identify request logs from other logs.
+* *timestamp*: Time request was made.
+* *traceId*: OpenTracing trace id.
+* *url*: Relative URL that was requested.
+* *userAgent*: User agent string of the request.
+
+**NOTE**: There is no extra payload/message field.
+
+### Log Destinations
+
+Knative MUST automatically perform log aggregation to the destination configured
+by the [cluster operator](../product/personas.md#operator-personas). Operator
+MUST document to developer how to access logs.
+
+Depending on the log aggregation configuration, a final log entry visible to developer
+MAY be different from its raw log record provided by Knative.
+
+### Log Cleanup
+
+If a container is evicted from the node, all its log files SHOULD be garbage collected
+at any point by Knative.
+
+Knative MUST perform the rotation configured by the
+[cluster operator](../product/personas.md#operator-personas) to the following log files:
+
+  1. `stdout/stderr` log files(a single file per container generated by Kubernetes)
+  2. log files under `/var/log/*`
+
+## Monitoring
+
+### Default Metrics
+
+#### Revision Request Metrics
+
+| Name | Type | Description |
+| :--- | :--- | :--- |
+| **revision_request_count** | Counter | Number of times an application, a container or a function has been called since it was deployed. |
+| **revision_request_duration** | Histogram | Time it took for an application, a container or a function to handle request. |
+| **revision_request_size** | Histogram | Size of requests to an application, a container or a function. |
+| **revision_response_size** | Histogram | Size of response from an application, a container or a function. |
+
+The following metadata SHOULD be added to revision request metrics:
+
+* *destination_configuration*: Name of Knative configuration that served the request.
+* *destination_namespace*: Name of Kubernetes namespace that the request was served on.
+* *destination_revision*: Name of Knative revision that served the request.
+* *response_code*: HTTP response code.
+* *source_service*: If the request was from outside the cluster, this will be
+  istio-ingress service name. If the request was from inside the cluster (revisions
+  calling other revisions), this will be Kubernetes service name of the revision.
+
+#### Container Metrics
+
+| Name | Type | Description |
+| :--- | :--- | :--- |
+| **container_memory_usage_bytes** | Gauge | Memory usage of a container. |
+| **container_cpu_usage_seconds_total** | Counter | CPU usage of a container. |
+
+The following metadata SHOULD be added to container metrics:
+
+* *container_name*: Name of the container.
+* *cpu*: CPU identification, cpu00, cpu01, etc.
+* *namespace*: Name of Kubernetes namespace that the container was served on.
+* *pod_name*: Name of Kubernetes pod that the container was served on.
+
+### Metrics Destinations
+
+Knative MUST automatically perform metrics aggregation to the destination configured
+by the [cluster operator](../product/personas.md#operator-personas). The destination
+backend MUST be capable of handling metadata-keyed streams. Operator
+MUST document to developer how to access metrics, as well as any dashboards provided.
+
+## Distributed Tracing
+
+Operators MAY choose to enable distributed tracing. If it is enabled, request traces
+are automatically generated on behalf of the developer by [Istio](https://istio.io/).
+
+### Traces Destinations
+
+Knative MUST automatically perform traces aggregation to the destination configured
+by the [cluster operator](../product/personas.md#operator-personas). Operator
+MUST document to developer how to access the traces.
