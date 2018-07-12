@@ -19,6 +19,8 @@ package revision
 import (
         "context"
 
+        "github.com/google/go-cmp/cmp"
+
         authv1alpha1 "github.com/knative/serving/pkg/apis/istio/authentication/v1alpha1"
         "github.com/knative/serving/pkg/apis/istio/v1alpha3"
         "github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -26,6 +28,9 @@ import (
         "github.com/knative/serving/pkg/logging"
 
         apierrs "k8s.io/apimachinery/pkg/api/errors"
+        "k8s.io/apimachinery/pkg/api/equality"
+
+        "go.uber.org/zap"
 )
 
 func (c *Controller) reconcileRevisionDestinationRule(ctx context.Context, rev *v1alpha1.Revision) error {
@@ -44,7 +49,7 @@ func (c *Controller) reconcileDestinationRule(ctx context.Context, rev *v1alpha1
         destinationRule, err := c.destinationRuleLister.DestinationRules(ns).Get(destinationRuleName)
         switch rev.Spec.ServingState {
                 case v1alpha1.RevisionServingStateActive:
-                        // When Active, the Service should exist and have a particular specification.
+                        // When Active, the DestinationRule should exist and have a particular specification.
                         if apierrs.IsNotFound(err) {
                                 rev.Status.MarkDeploying("Deploying")
                                 destinationRule, err = c.createDestinationRule(desiredDestinationRule)
@@ -58,8 +63,7 @@ func (c *Controller) reconcileDestinationRule(ctx context.Context, rev *v1alpha1
                                 logger.Errorf("Error reconciling Active DestinationRule %q: %v", destinationRuleName, err)
                                 return err
                         } else {
-                                // TODO(zhiminx): not sure if we allow user to modify it
-                                return nil
+                                return c.checkAndUpdateDestinationRule(ctx, destinationRule, desiredDestinationRule)
                         }
                 case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
                         // When Reserve or Retired, we remove the underlying DestinationRule.
@@ -84,6 +88,22 @@ func (c *Controller) createDestinationRule(destinationRule *v1alpha3.Destination
         return c.ServingClientSet.NetworkingV1alpha3().DestinationRules(ns).Create(destinationRule)
 }
 
+func (c *Controller) checkAndUpdateDestinationRule(ctx context.Context, destinationRule *v1alpha3.DestinationRule, desiredDestinationRule *v1alpha3.DestinationRule) error {
+        if !equality.Semantic.DeepEqual(destinationRule.Spec, desiredDestinationRule.Spec) {
+                logger := logging.FromContext(ctx)
+                logger.Infof("Reconciling destination rule diff (-desired, +observed): %v",
+                        cmp.Diff(desiredDestinationRule.Spec, destinationRule.Spec))
+                destinationRule.Spec = desiredDestinationRule.Spec
+                ns := desiredDestinationRule.Namespace
+                _, err := c.ServingClientSet.NetworkingV1alpha3().DestinationRules(ns).Update(destinationRule)
+                if err != nil {
+                        logger.Error("Error updating destination rule", zap.Error(err))
+                        return err
+                }
+        }
+        return nil
+}
+
 func (c *Controller) deleteDestinationRule(ctx context.Context, destinationRule *v1alpha3.DestinationRule) error {
         logger := logging.FromContext(ctx)
         err := c.ServingClientSet.NetworkingV1alpha3().DestinationRules(destinationRule.Namespace).Delete(destinationRule.Name, fgDeleteOptions)
@@ -97,11 +117,11 @@ func (c *Controller) deleteDestinationRule(ctx context.Context, destinationRule 
 }
 
 func (c *Controller) reconcileRevisionAuthPolicy(ctx context.Context, rev *v1alpha1.Revision) error {
-    return c.reconcileAuthPolicy(ctx, rev, resources.MakeRevisionAuthPolicy(rev))
+        return c.reconcileAuthPolicy(ctx, rev, resources.MakeRevisionAuthPolicy(rev))
 }
 
 func (c *Controller) reconcileAutoscalerAuthPolicy(ctx context.Context, rev *v1alpha1.Revision) error {
-    return c.reconcileAuthPolicy(ctx, rev, resources.MakeAutoscalerAuthPolicy(rev))
+        return c.reconcileAuthPolicy(ctx, rev, resources.MakeAutoscalerAuthPolicy(rev))
 }
 
 func (c *Controller) reconcileAuthPolicy(ctx context.Context, rev *v1alpha1.Revision, desiredAuthPolicy *authv1alpha1.Policy) error {
@@ -112,8 +132,7 @@ func (c *Controller) reconcileAuthPolicy(ctx context.Context, rev *v1alpha1.Revi
         authPolicy, err := c.authenticationPolicyLister.Policies(ns).Get(authPolicyName)
         switch rev.Spec.ServingState {
                 case v1alpha1.RevisionServingStateActive:
-                        // When Active, the Service should exist and have a particular specification.
-                        
+                        // When Active, the authentication policy should exist and have a particular specification.
                         if apierrs.IsNotFound(err) {
                                 rev.Status.MarkDeploying("Deploying")
                                 authPolicy, err = c.createAuthPolicy(desiredAuthPolicy)
@@ -127,8 +146,7 @@ func (c *Controller) reconcileAuthPolicy(ctx context.Context, rev *v1alpha1.Revi
                                 logger.Errorf("Error reconciling Active Authentication Policy %q: %v", authPolicyName, err)
                                 return err
                         } else {
-                                // TODO(zhiminx): not sure if we allow user to modify it
-                                return nil
+                                return c.checkAndUpdateAuthPolicy(ctx, authPolicy, desiredAuthPolicy)
                         }
                 case v1alpha1.RevisionServingStateReserve, v1alpha1.RevisionServingStateRetired:
                         // When Reserve or Retired, we remove the underlying DestinationRule.
@@ -151,6 +169,22 @@ func (c *Controller) reconcileAuthPolicy(ctx context.Context, rev *v1alpha1.Revi
 func (c *Controller) createAuthPolicy(authPolicy *authv1alpha1.Policy) (*authv1alpha1.Policy, error) {
         ns := authPolicy.Namespace
         return c.ServingClientSet.AuthenticationV1alpha1().Policies(ns).Create(authPolicy)
+}
+
+func (c *Controller) checkAndUpdateAuthPolicy(ctx context.Context, authPolicy *authv1alpha1.Policy, desiredAuthPolicy *authv1alpha1.Policy) error {
+        if !equality.Semantic.DeepEqual(authPolicy.Spec, desiredAuthPolicy.Spec) {
+                logger := logging.FromContext(ctx)
+                logger.Infof("Reconciling auth policy diff (-desired, +observed): %v",
+                        cmp.Diff(desiredAuthPolicy.Spec, authPolicy.Spec))
+                authPolicy.Spec = desiredAuthPolicy.Spec
+                ns := desiredAuthPolicy.Namespace
+                _, err := c.ServingClientSet.AuthenticationV1alpha1().Policies(ns).Update(authPolicy)
+                if err != nil {
+                        logger.Error("Error updating auth policy", zap.Error(err))
+                        return err
+                }
+        }
+        return nil
 }
 
 func (c *Controller) deleteAuthPolicy(ctx context.Context, authenticationPolicy *authv1alpha1.Policy) error {
