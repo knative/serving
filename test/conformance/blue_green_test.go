@@ -106,7 +106,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
-	// counts maps the unexpected response body to the number of matching requests we saw.
+	// badCounts maps the unexpected response body to the number of matching requests we saw.
 	badCounts := make(map[string]int)
 
 	// counts := eval(
