@@ -363,6 +363,59 @@ func TestReconcile(t *testing.T) {
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
 	}, {
+		Name: "reconcile replica count",
+		// Test that we reconcile replica count back to the
+		// desired count.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "reconcile-replicas", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "reconcile-replicas", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+			withReplicaCount(0, deploy("foo", "reconcile-replicas", "Active", "busybox")),
+			deployAS("foo", "reconcile-replicas", "Active", "busybox"),
+			svc("foo", "reconcile-replicas", "Active", "busybox"),
+			svcAS("foo", "reconcile-replicas", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "reconcile-replicas", "Active", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "reconcile-replicas", "Active", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+		}, {
+			Object: deploy("foo", "reconcile-replicas", "Active", "busybox"),
+		}},
+		Key: "foo/reconcile-replicas",
+	}, {
 		// TODO: test Active->ToReserve
 		// TODO: test ToReserve->Reserve (t0)
 
@@ -2030,6 +2083,11 @@ func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 		Reason: "ProgressDeadlineExceeded",
 	}}
 	return deploy
+}
+
+func withReplicaCount(count int32, dep *appsv1.Deployment) *appsv1.Deployment {
+	dep.Spec.Replicas = &count
+	return dep
 }
 
 // Build is a special case of resource creation because it isn't owned by
