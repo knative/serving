@@ -363,39 +363,35 @@ func TestReconcile(t *testing.T) {
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
 	}, {
-		Name: "reconcile replica count",
-		// Test that we reconcile replica count back to the
-		// desired count.
+		Name: "reconcile replica count when active",
+		// Test that we reconcile replica count back to 1 when in an Active state.
 		Objects: []runtime.Object{
 			makeStatus(
-				rev("foo", "reconcile-replicas", "Active", "busybox"),
+				rev("foo", "reconcile-replicas-1", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "reconcile-replicas", "Active", "busybox").Name,
+					ServiceName: svc("foo", "reconcile-replicas-1", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:   "ContainerHealthy",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}, {
 						Type:   "Ready",
-						Status: "Unknown",
-						Reason: "Deploying",
+						Status: "True",
 					}},
 				}),
-			withReplicaCount(0, deploy("foo", "reconcile-replicas", "Active", "busybox")),
-			deployAS("foo", "reconcile-replicas", "Active", "busybox"),
-			svc("foo", "reconcile-replicas", "Active", "busybox"),
-			svcAS("foo", "reconcile-replicas", "Active", "busybox"),
+			withReplicaCount(0, deploy("foo", "reconcile-replicas-1", "Active", "busybox")),
+			deployAS("foo", "reconcile-replicas-1", "Active", "busybox"),
+			svc("foo", "reconcile-replicas-1", "Active", "busybox"),
+			svcAS("foo", "reconcile-replicas-1", "Active", "busybox"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: makeStatus(
-				rev("foo", "reconcile-replicas", "Active", "busybox"),
+				rev("foo", "reconcile-replicas-1", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
-					ServiceName: svc("foo", "reconcile-replicas", "Active", "busybox").Name,
+					ServiceName: svc("foo", "reconcile-replicas-1", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
@@ -412,9 +408,83 @@ func TestReconcile(t *testing.T) {
 					}},
 				}),
 		}, {
-			Object: deploy("foo", "reconcile-replicas", "Active", "busybox"),
+			Object: withReplicaCount(1, deploy("foo", "reconcile-replicas-1", "Active", "busybox")),
 		}},
-		Key: "foo/reconcile-replicas",
+		Key: "foo/reconcile-replicas-1",
+	}, {
+		Name: "reconcile replica count when reserve",
+		// Test that we reconcile replica count back to 0 when in a Reserve state.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "reconcile-replicas-0", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "reconcile-replicas-0", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:    "Reserve",
+						Status:  "True",
+						Reason:  "Reserve",
+						Message: "Revision has been placed into Reserve state.",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}},
+				}),
+			withReplicaCount(1, deploy("foo", "reconcile-replicas-0", "Reserve", "busybox")),
+			deployAS("foo", "reconcile-replicas-0", "Reserve", "busybox"),
+			svc("foo", "reconcile-replicas-0", "Active", "busybox"),
+			svcAS("foo", "reconcile-replicas-0", "Active", "busybox"),
+			endpoints("foo", "reconcile-replicas-0", "Active", "busybox"),
+			endpointsAS("foo", "reconcile-replicas-0", "Active", "busybox"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "reconcile-replicas-0", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "reconcile-replicas-0", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    "Idle",
+						Status:  "True",
+						Reason:  "Idle",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:    "Reserve",
+						Status:  "True",
+						Reason:  "Reserve",
+						Message: "Revision has been placed into Reserve state.",
+					}, {
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Reserve",
+					}},
+				}),
+		}, {
+			Object: withReplicaCount(0, deploy("foo", "reconcile-replicas-0", "Reserve", "busybox")),
+		}},
+		Key: "foo/reconcile-replicas-0",
 	}, {
 		// TODO: test Active->ToReserve
 		// TODO: test ToReserve->Reserve (t0)
