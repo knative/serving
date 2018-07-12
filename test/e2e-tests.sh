@@ -45,16 +45,6 @@ readonly SCRIPT_CANONICAL_PATH="$(readlink -f ${BASH_SOURCE})"
 
 function create_istio() {
   kubectl apply -f ${ISTIO_DIR}/istio.yaml
-
-  # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
-  #
-  # However, since network configurations may reach different ingress pods at slightly
-  # different time, even ignoring failures for initial requests won't ensure subsequent
-  # requests will succeeed all the time.  We are disabling that here to avoid having
-  # too much flakes in the tests.
-  #
-  # We should revisit this when Istio API exposes a Status that we can rely on.
-  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
 }
 
 
@@ -71,6 +61,16 @@ function create_everything() {
   create_istio
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
+  # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
+  #
+  # However, since network configurations may reach different ingress pods at slightly
+  # different time, even ignoring failures for initial requests won't ensure subsequent
+  # requests will succeeed all the time.  We are disabling ingress pod autoscaling here
+  # to avoid having too much flakes in the tests.  That would allow us to be stricter
+  # when checking non-probe requests to discover other routing issues.
+  #
+  # We should revisit this when Istio API exposes a Status that we can rely on.
+  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
   create_monitoring
 }
 
