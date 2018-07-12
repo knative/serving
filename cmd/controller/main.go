@@ -22,10 +22,14 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/configmap"
-	"github.com/knative/serving/pkg/system"
+	"go.uber.org/zap"
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
+
+	"github.com/knative/serving/pkg/system"
+	corev1 "k8s.io/api/core/v1"
+
 	vpa "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
 	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
@@ -57,11 +61,15 @@ var (
 
 func main() {
 	flag.Parse()
-	config, err := configmap.Load("/etc/config-logging")
+	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "controller")
+	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, "controller")
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -155,6 +163,9 @@ func main() {
 		),
 	}
 
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher.Watch(logging.ConfigName, receiveLoggingConfig(logger, atomicLevel))
+
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
@@ -201,4 +212,21 @@ func main() {
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+}
+
+func receiveLoggingConfig(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel) func(configMap *corev1.ConfigMap) {
+	return func(configMap *corev1.ConfigMap) {
+		loggingConfig, err := logging.NewConfigFromConfigMap(configMap)
+		if err != nil {
+			logger.Error("Failed to parse the logging configmap. Previous config map will be used.", zap.Error(err))
+			return
+		}
+
+		if level, ok := loggingConfig.LoggingLevel["controller"]; ok {
+			if atomicLevel.Level() != level {
+				logger.Infof("Updating logging level from %v to %v.", atomicLevel.Level(), level)
+				atomicLevel.SetLevel(level)
+			}
+		}
+	}
 }

@@ -264,7 +264,8 @@ func setupAdminHandlers(server *http.Server) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL")).Named("queueproxy")
+	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
+	logger = logger.Named("queueproxy")
 	defer logger.Sync()
 
 	initEnv()
