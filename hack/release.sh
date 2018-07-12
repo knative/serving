@@ -36,10 +36,6 @@ readonly LITE_YAML=release-lite.yaml
 # Local generated yaml file without the logging and monitoring components.
 readonly NO_MON_YAML=release-no-mon.yaml
 
-function cleanup() {
-  restore_override_vars
-}
-
 function banner() {
   echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
   echo "@@@@ $1 @@@@"
@@ -69,7 +65,6 @@ function publish_yaml() {
 # Script entry point.
 
 cd ${SERVING_ROOT_DIR}
-trap cleanup EXIT
 
 SKIP_TESTS=0
 TAG_RELEASE=0

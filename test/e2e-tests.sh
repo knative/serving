@@ -99,7 +99,6 @@ function teardown() {
   else
     # Delete the kubernetes source downloaded by kubetest
     rm -fr kubernetes kubernetes.tar.gz
-    restore_override_vars
   fi
 }
 

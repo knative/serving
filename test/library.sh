@@ -28,12 +28,6 @@ readonly IS_PROW
 readonly SERVING_ROOT_DIR="$(dirname $(readlink -f ${BASH_SOURCE}))/.."
 readonly OUTPUT_GOBIN="${SERVING_ROOT_DIR}/_output/bin"
 
-# Copy of *_OVERRIDE variables
-readonly OG_DOCKER_REPO="${DOCKER_REPO_OVERRIDE}"
-readonly OG_K8S_CLUSTER="${K8S_CLUSTER_OVERRIDE}"
-readonly OG_K8S_USER="${K8S_USER_OVERRIDE}"
-readonly OG_KO_DOCKER_REPO="${KO_DOCKER_REPO}"
-
 # Simple header for logging purposes.
 function header() {
   echo "================================================="
@@ -46,14 +40,6 @@ function subheader() {
   echo "-------------------------------------------------"
   echo $1
   echo "-------------------------------------------------"
-}
-
-# Restores the *_OVERRIDE variables to their original value.
-function restore_override_vars() {
-  export DOCKER_REPO_OVERRIDE="${OG_DOCKER_REPO}"
-  export K8S_CLUSTER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export K8S_USER_OVERRIDE="${OG_K8S_CLUSTER}"
-  export KO_DOCKER_REPO="${OG_KO_DOCKER_REPO}"
 }
 
 # Remove ALL images in the given GCR repository.
