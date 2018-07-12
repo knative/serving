@@ -259,7 +259,7 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
 			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("%s failed with message: %s", prefix, message),
+			Message: fmt.Sprintf("%s failed with message: %q.", prefix, message),
 		})
 	}
 }
