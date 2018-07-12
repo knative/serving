@@ -42,6 +42,8 @@ instructions in each repo, or install a pre-built suite of components
 by following the instructions at
 [docs/install](https://github.com/knative/docs/tree/master/install).
 
+Read an [overview of the Knative Serving resource types](https://github.com/knative/serving/blob/master/docs/spec/overview.md#resource-types).
+
 
 # Who is Knative for?
 
