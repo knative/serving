@@ -135,6 +135,13 @@ type ServiceStatus struct {
 	Domain string `json:"domain,omitempty"`
 
 	// From RouteStatus.
+	// ServiceName holds the name of a core Kubernetes Service resource that
+	// fonts this Route, this service would be an appropriate ingress target for
+	// targeting the revision.
+	// +optional
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// From RouteStatus.
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
@@ -274,6 +281,7 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	ss.Domain = rs.Domain
+	ss.ServiceName = rs.ServiceName
 	ss.Traffic = rs.Traffic
 
 	rc := rs.GetCondition(RouteConditionReady)

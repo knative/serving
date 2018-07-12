@@ -81,6 +81,7 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 			return err
 		}
 		logger.Infof("Created service %s", name)
+		route.Status.ServiceName = resourcenames.K8sService(route)
 		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", name)
 	} else if err != nil {
 		return err
