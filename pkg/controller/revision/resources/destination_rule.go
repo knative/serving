@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-        "github.com/knative/serving/pkg"
+        "github.com/knative/serving/pkg/system"
         "github.com/knative/serving/pkg/apis/istio/v1alpha3"
         "github.com/knative/serving/pkg/apis/serving/v1alpha1"
         metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +48,7 @@ func MakeAutoscalerDestinationRule(rev *v1alpha1.Revision) *v1alpha3.Destination
         return &v1alpha3.DestinationRule{
                 ObjectMeta: metav1.ObjectMeta{
                         Name:            names.AutoscalerDestinationRule(rev),
-                        Namespace:       pkg.GetServingSystemNamespace(),
+                        Namespace:       system.Namespace,
                         Labels:          map[string]string{"revision": rev.Name},
                         OwnerReferences: []metav1.OwnerReference{*controller.NewControllerRef(rev)},
                 }, 

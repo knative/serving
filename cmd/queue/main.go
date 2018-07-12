@@ -33,13 +33,13 @@ import (
 	"time"
 
 	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/queue"
+	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
 	"go.uber.org/zap"
 
@@ -100,7 +100,7 @@ func initEnv() {
 
 func connectStatSink() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s",
-		servingAutoscaler, pkg.GetServingSystemNamespace(), servingAutoscalerPort)
+		servingAutoscaler, system.Namespace, servingAutoscalerPort)
 	logger.Infof("Connecting to autoscaler at %s.", autoscalerEndpoint)
 	for {
 		// TODO: use exponential backoff here
@@ -264,7 +264,8 @@ func setupAdminHandlers(server *http.Server) {
 
 func main() {
 	flag.Parse()
-	logger = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL")).Named("queueproxy")
+	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
+	logger = logger.Named("queueproxy")
 	defer logger.Sync()
 
 	initEnv()

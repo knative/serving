@@ -25,28 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Checks whether the Revision knows whether the build is done.
-func isBuildDone(rev *v1alpha1.Revision) (done, failed bool) {
-	if rev.Spec.BuildName == "" {
-		done, failed = true, false
-		return
-	}
-	cond := rev.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded)
-	if cond == nil {
-		done, failed = false, false
-		return
-	}
-	switch cond.Status {
-	case corev1.ConditionTrue:
-		done, failed = true, false
-	case corev1.ConditionFalse:
-		done, failed = true, true
-	case corev1.ConditionUnknown:
-		done, failed = false, false
-	}
-	return
-}
-
 // TODO(mattmoor): This should be a helper on Build (upstream)
 func getBuildDoneCondition(build *buildv1alpha1.Build) *buildv1alpha1.BuildCondition {
 	for _, cond := range build.Status.Conditions {
@@ -75,7 +53,7 @@ func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
 	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
 }
 
-func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.DeploymentCondition {
+func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
 	for _, cond := range deployment.Status.Conditions {
 		// Look for Deployment with status False
@@ -85,8 +63,8 @@ func getDeploymentProgressCondition(deployment *appsv1.Deployment) *appsv1.Deplo
 		// with Type Progressing and Reason Timeout
 		// TODO(arvtiwar): hard coding "ProgressDeadlineExceeded" to avoid import kubernetes/kubernetes
 		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == "ProgressDeadlineExceeded" {
-			return &cond
+			return true
 		}
 	}
-	return nil
+	return false
 }

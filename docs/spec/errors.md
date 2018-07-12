@@ -343,7 +343,7 @@ status:
   - type: Ready
     status: False
     reason: RevisionMissing
-    message: "The configuration 'abc' does not have a LatestReadyRevision."
+    message: "Configuration 'abc' does not have a LatestReadyRevision."
 ```
 
 ```http
@@ -360,11 +360,11 @@ status:
   - type: Ready
     status: False
     reason: RevisionMissing
-    message: "The configuration 'abc' does not have a LatestReadyRevision."
+    message: "Configuration 'abc' does not have a LatestReadyRevision."
   - type: RoutesReady
     status: False
     reason: RevisionMissing
-    message: "The configuration 'abc' does not have a LatestReadyRevision."
+    message: "Configuration 'abc' does not have a LatestReadyRevision."
   - type: ConfigurationsReady
     status: True
 ```

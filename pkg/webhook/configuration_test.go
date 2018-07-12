@@ -17,7 +17,6 @@ package webhook
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -30,14 +29,8 @@ import (
 func TestValidConfigurationAllowed(t *testing.T) {
 	configuration := createConfiguration(testGeneration, testConfigurationName)
 
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err != nil {
 		t.Fatalf("Expected allowed. Failed with %s", err)
-	}
-}
-
-func TestEmptyConfigurationNotAllowed(t *testing.T) {
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, nil, nil); err != errInvalidConfigurationInput {
-		t.Fatalf("Expected: %s. Failed with %s", errInvalidConfigurationInput, err)
 	}
 }
 
@@ -50,8 +43,13 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 		Spec: v1alpha1.ConfigurationSpec{},
 	}
 
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err != errEmptySpecInConfiguration {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptySpecInConfiguration, err)
+	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -67,8 +65,13 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err != errEmptyRevisionTemplateInSpec {
-		t.Fatalf("Expected: %s. Failed with %s", errEmptyRevisionTemplateInSpec, err)
+	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.revisionTemplate.spec"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -88,8 +91,13 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 		},
 	}
 
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err != errEmptyContainerInRevisionTemplate {
-		t.Fatalf("Expected: %v. Failed with %v", errEmptyRevisionTemplateInSpec, err)
+	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.revisionTemplate.spec.container"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -112,9 +120,9 @@ func TestServingStateNotAllowed(t *testing.T) {
 			},
 		},
 	}
-	expected := fmt.Sprintf("The configuration spec must not set the field(s): revisionTemplate.spec.servingState")
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
-		t.Fatalf("Result of ValidateConfiguration function: %s. Expected: %s.", err, expected)
+	expected := fmt.Sprintf("must not set the field(s): spec.revisionTemplate.spec.servingState")
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+		t.Fatalf("Result of Validate function: %s. Expected: %s.", err, expected)
 	}
 }
 
@@ -150,25 +158,30 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 			},
 		},
 	}
-	unwanted := []string{
-		"revisionTemplate.spec.container.name",
-		"revisionTemplate.spec.container.resources",
-		"revisionTemplate.spec.container.ports",
-		"revisionTemplate.spec.container.volumeMounts",
-		"revisionTemplate.spec.container.lifecycle",
+	want := &v1alpha1.FieldError{
+		Message: "must not set the field(s)",
+		Paths: []string{
+			"spec.revisionTemplate.spec.container.name",
+			"spec.revisionTemplate.spec.container.resources",
+			"spec.revisionTemplate.spec.container.ports",
+			"spec.revisionTemplate.spec.container.volumeMounts",
+			"spec.revisionTemplate.spec.container.lifecycle",
+		},
 	}
-	expected := fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted, ", "))
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	expected := want.Error()
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	configuration.Spec.RevisionTemplate.Spec.Container.Name = ""
-	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[1:], ", "))
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	want.Paths = want.Paths[1:]
+	expected = want.Error()
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	configuration.Spec.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{}
-	expected = fmt.Sprintf("The configuration spec must not set the field(s): %s", strings.Join(unwanted[2:], ", "))
-	if err := ValidateConfiguration(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	want.Paths = want.Paths[1:]
+	expected = want.Error()
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 }

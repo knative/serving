@@ -33,10 +33,8 @@ readonly ISTIO_DIR=./third_party/istio-${ISTIO_VERSION}/
 readonly OUTPUT_YAML=release.yaml
 # Local generated lite yaml file.
 readonly LITE_YAML=release-lite.yaml
-
-function cleanup() {
-  restore_override_vars
-}
+# Local generated yaml file without the logging and monitoring components.
+readonly NO_MON_YAML=release-no-mon.yaml
 
 function banner() {
   echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
@@ -67,7 +65,6 @@ function publish_yaml() {
 # Script entry point.
 
 cd ${SERVING_ROOT_DIR}
-trap cleanup EXIT
 
 SKIP_TESTS=0
 TAG_RELEASE=0
@@ -111,8 +108,6 @@ if (( ! SKIP_TESTS )); then
   ./test/presubmit-tests.sh
 fi
 
-install_ko
-
 banner "    BUILDING THE RELEASE   "
 
 # Set the repository
@@ -130,9 +125,6 @@ if (( TAG_RELEASE )); then
 fi
 readonly TAG
 
-# If this is a prow job, authenticate against GCR.
-(( IS_PROW )) && gcr_auth
-
 if (( ! DONT_PUBLISH )); then
   echo "- Destination GCR: ${SERVING_RELEASE_GCR}"
   echo "- Destination GCS: ${SERVING_RELEASE_GCS}"
@@ -146,9 +138,12 @@ echo "Building Knative Serving"
 ko resolve ${KO_FLAGS} -f config/ >> ${OUTPUT_YAML}
 echo "---" >> ${OUTPUT_YAML}
 
-echo "Building Monitoring & Logging"
 # Make a copy for the lite version
 cp ${OUTPUT_YAML} ${LITE_YAML}
+# Make a copy for the no monitoring version
+cp ${OUTPUT_YAML} ${NO_MON_YAML}
+
+echo "Building Monitoring & Logging"
 # Use ko to concatenate them all together.
 ko resolve -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
@@ -183,6 +178,9 @@ publish_yaml ${OUTPUT_YAML}
 
 echo "Publishing release-lite.yaml"
 publish_yaml ${LITE_YAML}
+
+echo "Publishing release-no-mon.yaml"
+publish_yaml ${NO_MON_YAML}
 
 echo "Publishing our istio.yaml, so users don't need to use helm."
 publish_yaml ${ISTIO_DIR}/istio.yaml

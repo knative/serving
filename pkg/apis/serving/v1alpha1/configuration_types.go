@@ -51,6 +51,10 @@ type Configuration struct {
 	Status ConfigurationStatus `json:"status,omitempty"`
 }
 
+// Check that Configuration may be validated and defaulted.
+var _ Validatable = (*Configuration)(nil)
+var _ Defaultable = (*Configuration)(nil)
+
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -251,7 +255,20 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
 			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("revision %q failed with message: %s", name, message),
+			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
 		})
 	}
+}
+
+func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
+	cct := []ConfigurationConditionType{ConfigurationConditionReady}
+	for _, cond := range cct {
+		cs.setCondition(&ConfigurationCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "RevisionDeleted",
+			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
+		})
+	}
+	cs.LatestReadyRevisionName = ""
 }

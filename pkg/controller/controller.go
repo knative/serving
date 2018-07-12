@@ -126,7 +126,6 @@ type Options struct {
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
 func NewBase(opt Options, controllerAgentName, workQueueName string) *Base {
-
 	// Enrich the logs with controller name
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 

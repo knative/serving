@@ -49,6 +49,10 @@ type Route struct {
 	Status RouteStatus `json:"status,omitempty"`
 }
 
+// Check that Route may be validated and defaulted.
+var _ Validatable = (*Route)(nil)
+var _ Defaultable = (*Route)(nil)
+
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this
@@ -240,7 +244,7 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
+func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
 		RouteConditionReady,
@@ -248,10 +252,32 @@ func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
 		rs.setCondition(&RouteCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
-			Reason:  kind + "Missing",
-			Message: fmt.Sprintf("Referenced %s %q not found", kind, name),
+			Reason:  reason,
+			Message: msg,
 		})
 	}
+}
+
+func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
+	rs.markTrafficNotAssigned("Unknown", msg)
+}
+
+func (rs *RouteStatus) MarkUnreadyConfigurationTarget(configName string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", configName)
+	rs.markTrafficNotAssigned(reason, msg)
+}
+
+func (rs *RouteStatus) MarkDeletedLatestRevisionTarget(configName string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Latest Revision of Configuration %q is deleted.", configName)
+	rs.markTrafficNotAssigned(reason, msg)
+}
+
+func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
+	reason := kind + "Missing"
+	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
+	rs.markTrafficNotAssigned(reason, msg)
 }
 
 func (rs *RouteStatus) checkAndMarkReady() {

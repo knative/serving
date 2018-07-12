@@ -17,11 +17,10 @@ limitations under the License.
 package traffic
 
 import (
-	"fmt"
-
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 // A RevisionTarget adds the Active/Inactive state of a Revision to a flattened TrafficTarget.
@@ -45,37 +44,17 @@ type TrafficConfig struct {
 // complete lists of Configurations and Revisions referred by the Route, directly or indirectly.  These referred targets
 // are keyed by name for easy access.
 //
-// In the case that some target is missing, it sets the Route.Status to TrafficNotAssigned with a reference to the
-// missing target, and return one of the error.  However, it still returns a complete list of referred existing targets.
+// In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
 	u *v1alpha1.Route) (*TrafficConfig, error) {
 	builder := newBuilder(configLister, revLister, u.Namespace)
-	var lastErr error
 	for _, tt := range u.Spec.Traffic {
-		if tt.RevisionName != "" {
-			// We don't fail fast because we want to compile a list of
-			// all referred target even in the case of missing
-			// targets.
-			if err := builder.addRevisionTarget(&tt); err != nil {
-				u.Status.MarkTrafficNotAssigned("Revision", tt.RevisionName)
-				lastErr = err
-			}
-		} else if tt.ConfigurationName != "" {
-			// We don't fail fast because we want to compile a list of
-			// all referred target even in the case of missing
-			// targets.
-			if err := builder.addConfigurationTarget(&tt); err != nil {
-				u.Status.MarkTrafficNotAssigned("Configuration", tt.ConfigurationName)
-				lastErr = err
-			}
+		if err := builder.addTrafficTarget(&tt); err != nil {
+			// Other non-traffic target errors shouldn't be ignored.
+			return nil, err
 		}
 	}
-	if lastErr != nil {
-		builder.targets = nil
-	}
-	// We still need to return all the referred targets, even if there
-	// are some missing targets.
-	return builder.build(), lastErr
+	return builder.build()
 }
 
 // GetTrafficTargets returns a list of TrafficTarget.
@@ -98,6 +77,9 @@ type trafficConfigBuilder struct {
 	configurations map[string]*v1alpha1.Configuration
 	// revisions contains all the referred Revision, keyed by their name.
 	revisions map[string]*v1alpha1.Revision
+
+	// TargetError are deferred until we got a complete list of all refered targets.
+	deferredTargetErr TargetError
 }
 
 func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *trafficConfigBuilder {
@@ -115,7 +97,9 @@ func newBuilder(configLister listers.ConfigurationLister, revLister listers.Revi
 func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
 	if _, ok := t.configurations[name]; !ok {
 		config, err := t.configLister.Configurations(t.namespace).Get(name)
-		if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errMissingConfiguration(name)
+		} else if err != nil {
 			return nil, err
 		}
 		t.configurations[name] = config
@@ -126,12 +110,30 @@ func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configur
 func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
 	if _, ok := t.revisions[name]; !ok {
 		rev, err := t.revLister.Revisions(t.namespace).Get(name)
-		if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errMissingRevision(name)
+		} else if err != nil {
 			return nil, err
 		}
 		t.revisions[name] = rev
 	}
 	return t.revisions[name], nil
+}
+
+func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
+	var err error
+	if tt.RevisionName != "" {
+		err = t.addRevisionTarget(tt)
+	} else if tt.ConfigurationName != "" {
+		err = t.addConfigurationTarget(tt)
+	}
+	if targetErr, ok := err.(TargetError); err != nil && ok {
+		// Defer target errors, as we still want to compile a list
+		// of all referred targets, including missing ones.
+		t.deferredTargetErr = targetErr
+		return nil
+	}
+	return err
 }
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
@@ -141,8 +143,8 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	if err != nil {
 		return err
 	}
-	if config.Status.LatestReadyRevisionName == "" {
-		return fmt.Errorf("Configuration %q is not ready", config.Name)
+	if err = checkConfiguration(config); err != nil {
+		return err
 	}
 	rev, err := t.getRevision(config.Status.LatestReadyRevisionName)
 	if err != nil {
@@ -153,7 +155,7 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 		Active:        !rev.Status.IsActivationRequired(),
 	}
 	target.TrafficTarget.RevisionName = rev.Name
-	t.addTarget(target)
+	t.addFlattenedTarget(target)
 	return nil
 }
 
@@ -163,7 +165,7 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 		return err
 	}
 	if !rev.Status.IsRoutable() {
-		return fmt.Errorf("Revision %q is not routable", rev.Name)
+		return errNotRoutableRevision(rev.Name)
 	}
 	target := RevisionTarget{
 		TrafficTarget: *tt,
@@ -176,11 +178,11 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 			return err
 		}
 	}
-	t.addTarget(target)
+	t.addFlattenedTarget(target)
 	return nil
 }
 
-func (t *trafficConfigBuilder) addTarget(target RevisionTarget) {
+func (t *trafficConfigBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Name
 	t.targets[""] = append(t.targets[""], target)
 	if name != "" {
@@ -220,10 +222,13 @@ func consolidateAll(targets map[string][]RevisionTarget) map[string][]RevisionTa
 	return consolidated
 }
 
-func (t *trafficConfigBuilder) build() *TrafficConfig {
+func (t *trafficConfigBuilder) build() (*TrafficConfig, error) {
+	if t.deferredTargetErr != nil {
+		t.targets = nil
+	}
 	return &TrafficConfig{
 		Targets:        consolidateAll(t.targets),
 		Configurations: t.configurations,
 		Revisions:      t.revisions,
-	}
+	}, t.deferredTargetErr
 }

@@ -65,7 +65,8 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 	// Launch "num" requests, recording the responses we get in "responses".
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < num; i++ {
-		i := i // https://golang.org/doc/faq#closures_and_goroutines
+		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
+		result := &responses[i]
 		g.Go(func() error {
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 			if err != nil {
@@ -79,7 +80,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 				return err
 			}
 
-			responses[i] = string(resp.Body)
+			*result = string(resp.Body)
 			return nil
 		})
 	}

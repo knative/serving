@@ -1,7 +1,7 @@
 # Welcome, Knative
 
 Knative (pronounced /ˈnā-tiv/) extends Kubernetes to provide the
-missing middleware that developers need to create modern,
+missing building blocks that developers need to create modern,
 source-centric, container-based, cloud-native applications.
 
 Each of the components under the Knative project attempt to identify
@@ -15,8 +15,8 @@ real-world Kubernetes-based frameworks and applications, such as:
 
 Knative focuses on the "boring but difficult" parts that everyone
 needs, but no one benefits from doing over again on their own. This in
-turn frees application developers to spend more time writing
-interesting code, not worrying about how they are going to build,
+turn frees developers to spend more time writing application
+code, not worrying about how they are going to build,
 deploy, monitor, and debug it.
 
 
@@ -39,7 +39,8 @@ We expect this list to grow as more areas are identified.
 
 You can choose to install individual Knative components following the
 instructions in each repo, or install a pre-built suite of components
-by following the instructions at https://github.com/knative/install.
+by following the instructions at
+[docs/install](https://github.com/knative/docs/tree/master/install).
 
 
 # Who is Knative for?
@@ -54,12 +55,12 @@ functions, applications, and containers to an auto-scaling runtime.
 
 To get started as a developer, [pick a Kubernetes cluster of your
 choice](https://kubernetes.io/docs/setup/pick-right-solution/) and
-follow the [Knative installation
-instructions](https://github.com/knative/install) to get the system up
-and running and [run some sample code](./sample/README.md). The
-install instructions also include a [sample
-application](https://github.com/knative/install#test-app) which
-demonstrates some of the key features of Knative.
+follow the [Knative installation 
+instructions](https://github.com/knative/docs/tree/master/install) 
+to get the system up and running and [run some sample 
+code](./sample/README.md). The install instructions also include a 
+[sample application](https://github.com/knative/docs/blob/master/install/Knative-with-Minikube.md#test-app) 
+which demonstrates some of the key features of Knative.
 
 To join the conversation, head over to
 https://groups.google.com/d/forum/knative-users.

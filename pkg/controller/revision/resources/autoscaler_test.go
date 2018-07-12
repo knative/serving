@@ -27,9 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/system"
 )
 
 var one int32 = 1
@@ -50,7 +50,7 @@ func TestMakeAutoscalerService(t *testing.T) {
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "bar-autoscaler",
 				Labels: map[string]string{
 					serving.AutoscalerLabelKey: "bar-autoscaler",
@@ -87,7 +87,7 @@ func TestMakeAutoscalerService(t *testing.T) {
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "baz-autoscaler",
 				Labels: map[string]string{
 					serving.AutoscalerLabelKey: "baz-autoscaler",
@@ -148,7 +148,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 		replicas: 1,
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "bar-autoscaler",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
@@ -233,7 +233,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 		replicas: 1,
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "bar-autoscaler",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
@@ -325,7 +325,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 		replicas: 1,
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "bar-autoscaler",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
@@ -413,7 +413,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 		replicas: 1,
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "bar-autoscaler",
 				Labels: map[string]string{
 					"ooga": "booga",
@@ -504,7 +504,7 @@ func TestMakeAutoscalerDeployment(t *testing.T) {
 		replicas: 1,
 		want: &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: pkg.GetServingSystemNamespace(),
+				Namespace: system.Namespace,
 				Name:      "bar-autoscaler",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",

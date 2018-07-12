@@ -28,79 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestIsBuildDone(t *testing.T) {
-	tests := []struct {
-		description string
-		rev         *v1alpha1.Revision
-		done        bool
-		failed      bool
-	}{{
-		// If there is no build name, treat as build done.
-		description: "no build",
-		rev:         &v1alpha1.Revision{},
-		done:        true,
-	}, {
-		// A build, but not "BuildSucceeded" condition is not done.
-		description: "no build condition",
-		rev: &v1alpha1.Revision{
-			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
-		},
-		done: false,
-	}, {
-		// A revision with "BuildSucceeded: True" has a done build.
-		description: "done build",
-		rev: &v1alpha1.Revision{
-			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
-			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
-					Type:   v1alpha1.RevisionConditionBuildSucceeded,
-					Status: corev1.ConditionTrue,
-				}},
-			},
-		},
-		done: true,
-	}, {
-		// A revision with "BuildSucceeded: Unknown" has a running build.
-		description: "running build",
-		rev: &v1alpha1.Revision{
-			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
-			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
-					Type:   v1alpha1.RevisionConditionBuildSucceeded,
-					Status: corev1.ConditionUnknown,
-				}},
-			},
-		},
-		done: false,
-	}, {
-		// A revision with "BuildSucceeded: False" has a failed build.
-		description: "failed build",
-		rev: &v1alpha1.Revision{
-			Spec: v1alpha1.RevisionSpec{BuildName: "foo"},
-			Status: v1alpha1.RevisionStatus{
-				Conditions: []v1alpha1.RevisionCondition{{
-					Type:   v1alpha1.RevisionConditionBuildSucceeded,
-					Status: corev1.ConditionFalse,
-				}},
-			},
-		},
-		done:   true,
-		failed: true,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.description, func(t *testing.T) {
-			done, failed := isBuildDone(test.rev)
-			if want, got := test.done, done; got != want {
-				t.Errorf("isBuildDone(%v).done = %v, want %v", test.rev, got, want)
-			}
-			if want, got := test.failed, failed; got != want {
-				t.Errorf("isBuildDone(%v).failed = %v, want %v", test.rev, got, want)
-			}
-		})
-	}
-}
-
 func TestGetBuildDoneCondition(t *testing.T) {
 	tests := []struct {
 		description string
@@ -248,7 +175,7 @@ func TestGetDeploymentProgressCondition(t *testing.T) {
 	tests := []struct {
 		description string
 		deploy      *appsv1.Deployment
-		cond        *appsv1.DeploymentCondition
+		timedOut    bool
 	}{{
 		description: "no conditions",
 		deploy:      &appsv1.Deployment{},
@@ -294,18 +221,14 @@ func TestGetDeploymentProgressCondition(t *testing.T) {
 				}},
 			},
 		},
-		cond: &appsv1.DeploymentCondition{
-			Type:   appsv1.DeploymentProgressing,
-			Status: corev1.ConditionFalse,
-			Reason: "ProgressDeadlineExceeded",
-		},
+		timedOut: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			cond := getDeploymentProgressCondition(test.deploy)
-			if diff := cmp.Diff(test.cond, cond); diff != "" {
-				t.Errorf("getDeploymentProgressCondition(%v); (-want +got) = %v", test.deploy, diff)
+			timedOut := hasDeploymentTimedOut(test.deploy)
+			if diff := cmp.Diff(test.timedOut, timedOut); diff != "" {
+				t.Errorf("hasDeploymentTimedOut(%v); (-want +got) = %v", test.deploy, diff)
 			}
 		})
 	}
