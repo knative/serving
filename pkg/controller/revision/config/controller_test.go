@@ -30,7 +30,7 @@ import (
 
 var noSidecarImage = ""
 
-func TestControllerConfiguration(t *testing.T) {
+func TestControllerConfigurationFromFile(t *testing.T) {
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ControllerConfigName))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
@@ -44,82 +44,82 @@ func TestControllerConfiguration(t *testing.T) {
 	}
 }
 
-var configTests = []struct {
-	name           string
-	wantErr        bool
-	wantController interface{}
-	config         *corev1.ConfigMap
-}{{
-	"controller configuration with bad registries",
-	false,
-	&Controller{
-		RegistriesSkippingTagResolving: map[string]struct{}{
-			"ko.local": struct{}{},
-			"":         struct{}{},
+func TestControllerConfiguration(t *testing.T) {
+	configTests := []struct {
+		name           string
+		wantErr        bool
+		wantController interface{}
+		config         *corev1.ConfigMap
+	}{{
+		name:    "controller configuration with bad registries",
+		wantErr: false,
+		wantController: &Controller{
+			RegistriesSkippingTagResolving: map[string]struct{}{
+				"ko.local": struct{}{},
+				"":         struct{}{},
+			},
+			QueueSidecarImage: noSidecarImage,
 		},
-		QueueSidecarImage: noSidecarImage,
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{
+				queueSidecarImageKey:           noSidecarImage,
+				registriesSkippingTagResolving: "ko.local,,",
+			},
+		}}, {
+		name:    "controller configuration with registries",
+		wantErr: false,
+		wantController: &Controller{
+			RegistriesSkippingTagResolving: map[string]struct{}{
+				"ko.dev":   struct{}{},
+				"ko.local": struct{}{},
+			},
+			QueueSidecarImage: noSidecarImage,
 		},
-		Data: map[string]string{
-			queueSidecarImageKey:           noSidecarImage,
-			registriesSkippingTagResolving: "ko.local,,",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{
+				queueSidecarImageKey:           noSidecarImage,
+				registriesSkippingTagResolving: "ko.local,ko.dev",
+			},
 		},
-	}}, {
-	"controller configuration with registries",
-	false,
-	&Controller{
-		RegistriesSkippingTagResolving: map[string]struct{}{
-			"ko.dev":   struct{}{},
-			"ko.local": struct{}{},
+	}, {
+		name:    "controller with autoscaler images",
+		wantErr: false,
+		wantController: &Controller{
+			QueueSidecarImage:              noSidecarImage,
+			AutoscalerImage:                "autoscale-image",
+			RegistriesSkippingTagResolving: map[string]struct{}{},
 		},
-		QueueSidecarImage: noSidecarImage,
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{
+				queueSidecarImageKey: noSidecarImage,
+				autoscalerImageKey:   "autoscale-image",
+			},
 		},
-		Data: map[string]string{
-			queueSidecarImageKey:           noSidecarImage,
-			registriesSkippingTagResolving: "ko.local,ko.dev",
+	}, {
+		name:           "controller with no side car image",
+		wantErr:        true,
+		wantController: (*Controller)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{},
 		},
-	},
-}, {
-	"controller with autoscaler images",
-	false,
-	&Controller{
-		QueueSidecarImage:              noSidecarImage,
-		AutoscalerImage:                "autoscale-image",
-		RegistriesSkippingTagResolving: map[string]struct{}{},
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
-		},
-		Data: map[string]string{
-			queueSidecarImageKey: noSidecarImage,
-			autoscalerImageKey:   "autoscale-image",
-		},
-	},
-}, {
-	"controller with no side car image",
-	true,
-	(*Controller)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
-		},
-		Data: map[string]string{},
-	},
-}}
+	}}
 
-func TestConfig(t *testing.T) {
 	for _, tt := range configTests {
 		actualController, err := NewControllerConfigFromConfigMap(tt.config)
 

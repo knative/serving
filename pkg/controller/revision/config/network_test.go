@@ -42,186 +42,186 @@ func TestOurNetwork(t *testing.T) {
 	}
 }
 
-var networkConfigTests = []struct {
-	name           string
-	wantErr        bool
-	wantController interface{}
-	config         *corev1.ConfigMap
-}{{
-	"network configuration with no network input",
-	false,
-	&Network{},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
+func TestNetworkConfiguration(t *testing.T) {
+	networkConfigTests := []struct {
+		name           string
+		wantErr        bool
+		wantController interface{}
+		config         *corev1.ConfigMap
+	}{{
+		name:           "network configuration with no network input",
+		wantErr:        false,
+		wantController: &Network{},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+		}}, {
+		name:           "network configuration with invalid outbound IP range",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "10.10.10.10/33",
+			},
+		}}, {
+		name:           "network configuration with empty network",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "",
+			},
+		}}, {
+		name:           "network configuration with both valid and some invalid range",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "10.10.10.10/12,invalid",
+			},
+		}}, {
+		name:           "network configuration with invalid network range",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "10.10.10.10/12,-1.1.1.1/10",
+			},
+		}}, {
+		name:           "network configuration with invalid network key",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "this is not an IP range",
+			},
+		}}, {
+		name:           "network configuration with invalid network",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*,*",
+			},
+		}}, {
+		name:           "network configuration with incomplete network array",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*,",
+			},
+		}}, {
+		name:           "network configuration with invalid network string",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: ", ,",
+			},
+		}}, {
+		name:           "network configuration with invalid network string",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: ",,",
+			},
+		}}, {
+		name:           "network configuration with invalid network range",
+		wantErr:        true,
+		wantController: (*Network)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: ",",
+			},
+		}}, {
+		name:    "network configuration with valid CIDR network range",
+		wantErr: false,
+		wantController: &Network{
+			IstioOutboundIPRanges: "10.10.10.0/24",
 		},
-	}}, {
-	"network configuration with invalid outbound IP range",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "10.10.10.0/24",
+			},
+		}}, {
+		name:    "network configuration with multiple valid network ranges",
+		wantErr: false,
+		wantController: &Network{
+			IstioOutboundIPRanges: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "10.10.10.10/33",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+			},
+		}}, {
+		name:    "network configuration with valid network",
+		wantErr: false,
+		wantController: &Network{
+			IstioOutboundIPRanges: "*",
 		},
-	}}, {
-	"network configuration with empty network",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "",
-		},
-	}}, {
-	"network configuration with both valid and some invalid range",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "10.10.10.10/12,invalid",
-		},
-	}}, {
-	"network configuration with invalid network range",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "10.10.10.10/12,-1.1.1.1/10",
-		},
-	}}, {
-	"network configuration with invalid network key",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "this is not an IP range",
-		},
-	}}, {
-	"network configuration with invalid network",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "*,*",
-		},
-	}}, {
-	"network configuration with incomplete network array",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "*,",
-		},
-	}}, {
-	"network configuration with invalid network string",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: ", ,",
-		},
-	}}, {
-	"network configuration with invalid network string",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: ",,",
-		},
-	}}, {
-	"network configuration with invalid network range",
-	true,
-	(*Network)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: ",",
-		},
-	}}, {
-	"network configuration with valid CIDR network range",
-	false,
-	&Network{
-		IstioOutboundIPRanges: "10.10.10.0/24",
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "10.10.10.0/24",
-		},
-	}}, {
-	"network configuration with multiple valid network ranges",
-	false,
-	&Network{
-		IstioOutboundIPRanges: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
-		},
-	}}, {
-	"network configuration with valid network",
-	false,
-	&Network{
-		IstioOutboundIPRanges: "*",
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			IstioOutboundIPRangesKey: "*",
-		},
-	}},
-}
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      NetworkConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey: "*",
+			},
+		}},
+	}
 
-func TestNetworkConfig(t *testing.T) {
 	for _, tt := range networkConfigTests {
 		actualController, err := NewNetworkFromConfigMap(tt.config)
 

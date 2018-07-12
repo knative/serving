@@ -42,61 +42,61 @@ func TestOurObservability(t *testing.T) {
 	}
 }
 
-var observabilityConfigTests = []struct {
-	name           string
-	wantErr        bool
-	wantController interface{}
-	config         *corev1.ConfigMap
-}{{
-	"observability configuration with all inputs",
-	false,
-	&Observability{
-		LoggingURLTemplate:         "https://logging.io",
-		FluentdSidecarOutputConfig: "the-config",
-		FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
-		EnableVarLogCollection:     true,
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ObservabilityConfigName,
+func TestObservabilityConfiguration(t *testing.T) {
+	observabilityConfigTests := []struct {
+		name           string
+		wantErr        bool
+		wantController interface{}
+		config         *corev1.ConfigMap
+	}{{
+		name:    "observability configuration with all inputs",
+		wantErr: false,
+		wantController: &Observability{
+			LoggingURLTemplate:         "https://logging.io",
+			FluentdSidecarOutputConfig: "the-config",
+			FluentdSidecarImage:        "gcr.io/log-stuff/fluentd:latest",
+			EnableVarLogCollection:     true,
 		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection":     "true",
-			"logging.fluentd-sidecar-image":         "gcr.io/log-stuff/fluentd:latest",
-			"logging.fluentd-sidecar-output-config": "the-config",
-			"logging.revision-url-template":         "https://logging.io",
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         "gcr.io/log-stuff/fluentd:latest",
+				"logging.fluentd-sidecar-output-config": "the-config",
+				"logging.revision-url-template":         "https://logging.io",
+			},
 		},
-	},
-}, {
-	"observability config with no map",
-	false,
-	&Observability{
-		EnableVarLogCollection: false,
-		LoggingURLTemplate:     "",
-	},
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ObservabilityConfigName,
+	}, {
+		name:    "observability config with no map",
+		wantErr: false,
+		wantController: &Observability{
+			EnableVarLogCollection: false,
+			LoggingURLTemplate:     "",
 		},
-	},
-}, {
-	"observability configuration with no side car image",
-	true,
-	(*Observability)(nil),
-	&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ObservabilityConfigName,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ObservabilityConfigName,
+			},
 		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection": "true",
+	}, {
+		name:           "observability configuration with no side car image",
+		wantErr:        true,
+		wantController: (*Observability)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection": "true",
+			},
 		},
-	},
-}}
+	}}
 
-func TestObservabilityConfig(t *testing.T) {
 	for _, tt := range observabilityConfigTests {
 		actualController, err := NewObservabilityFromConfigMap(tt.config)
 
