@@ -260,6 +260,15 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 	}
 }
 
+func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
+	cs.setCondition(&ConfigurationCondition{
+		Type:    ConfigurationConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionFailed",
+		Message: fmt.Sprintf("Revision creation failed with message: %q.", message),
+	})
+}
+
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
 	cct := []ConfigurationConditionType{ConfigurationConditionReady}
 	for _, cond := range cct {
