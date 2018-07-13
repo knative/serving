@@ -173,7 +173,7 @@ const (
 	// RevisionConditionReserve is True when the revision has been
 	// placed into a Reserve state and traffic is not being routed
 	// directly to the service.
-	// TODO: When Istio RouteRule Status is populated, this status
+	// TODO(#1591): When Istio RouteRule Status is populated, this status
 	// can be removed.  It is only here to record when the Revision
 	// transitioned to Reserve so we can wait for the network
 	// configuration to propagate before actually scaling to zero.
@@ -424,7 +424,7 @@ func (rs *RevisionStatus) MarkUnReserve() {
 
 // ReadyToTearDownResources indicates it is safe to tear down the
 // resources underlying the Revision.
-// TODO: When Istio starts surfacing RouteRule Status, the Route
+// TODO(#1591): When Istio starts surfacing RouteRule Status, the Route
 // controller will wait until the rules are updated before setting
 // Revision ServingState Reserve. For now, the Route controller sets
 // ServingState Reserve right away and the Revision controller waits at
