@@ -42,7 +42,7 @@ func MakeRevisionAuthPolicy(rev *v1alpha1.Revision) *authv1alpha1.Policy {
                         Peers: []authv1alpha1.PeerAuthenticationMethod{
                                 authv1alpha1.PeerAuthenticationMethod{
                                         Mtls: &authv1alpha1.MutualTls{
-                                                Mode: authv1alpha1.ModeStrict,
+                                                Mode: authv1alpha1.ModePermissive,
                                         },
                                 },
                         },
@@ -67,7 +67,7 @@ func MakeAutoscalerAuthPolicy(rev *v1alpha1.Revision) *authv1alpha1.Policy {
                         Peers: []authv1alpha1.PeerAuthenticationMethod{
                                 authv1alpha1.PeerAuthenticationMethod{
                                         Mtls: &authv1alpha1.MutualTls{
-                                                Mode: authv1alpha1.ModeStrict,
+                                                Mode: authv1alpha1.ModePermissive,
                                         },
                                 },
                         },

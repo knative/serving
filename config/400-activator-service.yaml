@@ -50,3 +50,4 @@ spec:
   - name: activator-service
   peers:
   - mtls:
+      mode: PERMISSIVE
