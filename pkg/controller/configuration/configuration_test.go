@@ -91,8 +91,10 @@ func TestReconcile(t *testing.T) {
 			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
 				v1alpha1.ConfigurationStatus{
 					Conditions: []v1alpha1.ConfigurationCondition{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:    v1alpha1.ConfigurationConditionReady,
+						Status:  corev1.ConditionFalse,
+						Reason:  "RevisionFailed",
+						Message: `Revision creation failed with message: "invalid value \"Bogus\": spec.concurrencyModel".`,
 					}},
 				}), "Bogus"),
 		}},
@@ -191,7 +193,7 @@ func TestReconcile(t *testing.T) {
 						Type:    v1alpha1.ConfigurationConditionReady,
 						Status:  corev1.ConditionFalse,
 						Reason:  "RevisionFailed",
-						Message: `revision "matching-revision-failed-05555" failed with message: It's the end of the world as we know it.`,
+						Message: `Revision "matching-revision-failed-05555" failed with message: "It's the end of the world as we know it".`,
 					}},
 				},
 			),
@@ -242,8 +244,10 @@ func TestReconcile(t *testing.T) {
 			Object: cfgWithBuildAndStatus("create-build-failure", "foo", 99998, &buildSpec,
 				v1alpha1.ConfigurationStatus{
 					Conditions: []v1alpha1.ConfigurationCondition{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:    v1alpha1.ConfigurationConditionReady,
+						Status:  corev1.ConditionFalse,
+						Reason:  "RevisionFailed",
+						Message: `Revision creation failed with message: "inducing failure for create builds".`,
 					}},
 				},
 			),
@@ -266,8 +270,10 @@ func TestReconcile(t *testing.T) {
 			Object: cfgWithStatus("create-revision-failure", "foo", 99998,
 				v1alpha1.ConfigurationStatus{
 					Conditions: []v1alpha1.ConfigurationCondition{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:    v1alpha1.ConfigurationConditionReady,
+						Status:  corev1.ConditionFalse,
+						Reason:  "RevisionFailed",
+						Message: `Revision creation failed with message: "inducing failure for create revisions".`,
 					}},
 				},
 			),
@@ -361,7 +367,7 @@ func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 
 func makeRevFailed(rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.InitializeConditions()
-	rev.Status.MarkContainerMissing("It's the end of the world as we know it.")
+	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
 	return rev
 }
 

@@ -28,11 +28,6 @@ source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 # Helper functions.
 
-function cleanup() {
-  echo "Cleaning up for teardown"
-  restore_override_vars
-}
-
 function build_tests() {
   header "Running build tests"
   go build -v ./cmd/... ./sample/... ./pkg/... || result=1
@@ -54,7 +49,6 @@ function unit_tests() {
 
 function integration_tests() {
   # Make sure environment variables are intact.
-  restore_override_vars
   local options=""
   (( EMIT_METRICS )) && options="--emit-metrics"
   ./test/e2e-tests.sh ${options}
@@ -126,12 +120,6 @@ if [[ -n "${PULL_PULL_SHA}" ]]; then
     header "Commit only contains changes that don't affect tests, skipping"
     exit 0
   fi
-fi
-
-# For local runs, cleanup before and after the tests.
-if (( ! IS_PROW )); then
-  trap cleanup EXIT
-  echo "Cleaning up for setup"
 fi
 
 # Tests to be performed, in the right order if --all-tests is passed.

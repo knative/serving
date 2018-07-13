@@ -255,7 +255,29 @@ func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
 			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("revision %q failed with message: %s", name, message),
+			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
 		})
 	}
+}
+
+func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
+	cs.setCondition(&ConfigurationCondition{
+		Type:    ConfigurationConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "RevisionFailed",
+		Message: fmt.Sprintf("Revision creation failed with message: %q.", message),
+	})
+}
+
+func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
+	cct := []ConfigurationConditionType{ConfigurationConditionReady}
+	for _, cond := range cct {
+		cs.setCondition(&ConfigurationCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "RevisionDeleted",
+			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
+		})
+	}
+	cs.LatestReadyRevisionName = ""
 }

@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
@@ -677,6 +679,46 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	annotations = getPodAnnotationsForConfig(t, "10.10.10.0/24", want)
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; got != want {
 		t.Fatalf("%v annotation is expected to have %v but got %v", resources.IstioOutboundIPRangeAnnotation, want, got)
+	}
+}
+
+func TestReceiveLoggingConfig(t *testing.T) {
+	_, _, _, _, controller, _, _, _, _, _ := newTestController(t)
+	cm := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      logging.ConfigName,
+		},
+		Data: map[string]string{
+			"zap-logger-config":   "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}",
+			"loglevel.controller": "info",
+		},
+	}
+
+	controller.receiveLoggingConfig(&cm)
+	if controller.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
+		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], controller.getLoggingConfig().LoggingConfig)
+	}
+	if controller.getLoggingConfig().LoggingLevel["controller"] != zapcore.InfoLevel {
+		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.InfoLevel, controller.getLoggingConfig().LoggingLevel["controller"])
+	}
+
+	cm.Data["loglevel.controller"] = "debug"
+	controller.receiveLoggingConfig(&cm)
+	if controller.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
+		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], controller.getLoggingConfig().LoggingConfig)
+	}
+	if controller.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
+		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, controller.getLoggingConfig().LoggingLevel["controller"])
+	}
+
+	cm.Data["loglevel.controller"] = "invalid"
+	controller.receiveLoggingConfig(&cm)
+	if controller.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
+		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], controller.getLoggingConfig().LoggingConfig)
+	}
+	if controller.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
+		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, controller.getLoggingConfig().LoggingLevel["controller"])
 	}
 }
 

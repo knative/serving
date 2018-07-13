@@ -965,14 +965,22 @@ func (c *Controller) getNetworkConfig() *config.Network {
 }
 
 func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
-	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
-	newLoggingConfig := logging.NewConfigFromConfigMap(configMap)
-
+	newLoggingConfig, err := logging.NewConfigFromConfigMap(configMap)
 	c.loggingConfigMutex.Lock()
 	defer c.loggingConfigMutex.Unlock()
+	if err != nil {
+		if c.loggingConfig != nil {
+			c.Logger.Error("Error updating Logging ConfigMap.", zap.Error(err))
+		} else {
+			c.Logger.Fatalf("Error initializing Logging ConfigMap: %v", err)
+		}
+		return
+	}
+
 	// TODO(mattmoor): When we support reconciling Deployment differences,
 	// we should consider triggering a global reconciliation here to the
 	// logging configuration changes are rolled out to active revisions.
+	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
 	c.loggingConfig = newLoggingConfig
 }
 

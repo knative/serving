@@ -195,16 +195,23 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
-	t, targetErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
-	// Even if targetErr != nil, we still need to finish updating the labels so that the updates to
-	// these targets can be propagated back.  In case of error updating the labels, we will return
-	// the error and not targetErr.
+	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	badTarget, isTargetError := err.(traffic.TargetError)
+	if err != nil && !isTargetError {
+		// An error that's not due to missing traffic target should
+		// make us fail fast.
+		r.Status.MarkUnknownTrafficError(err.Error())
+		return r, err
+	}
+	// If the only errors are missing traffic target, we need to
+	// update the labels first, so that when these targets recover we
+	// receive an update.
 	if err := c.syncLabels(ctx, r, t); err != nil {
 		return r, err
 	}
-	// Now, after updating the labels, we can return trafficErr here.
-	if targetErr != nil {
-		return r, targetErr
+	if badTarget != nil && isTargetError {
+		badTarget.MarkBadTrafficTarget(&r.Status)
+		return r, badTarget
 	}
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
