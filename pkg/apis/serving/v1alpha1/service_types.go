@@ -136,8 +136,8 @@ type ServiceStatus struct {
 
 	// From RouteStatus.
 	// ServiceName holds the name of a core Kubernetes Service resource that
-	// fonts this Route, this service would be an appropriate ingress target for
-	// targeting the revision.
+	// fronts this Route, this service would be an appropriate ingress target
+	// for targeting the revision.
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
 
