@@ -18,6 +18,7 @@ package webhook
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	. "github.com/knative/serving/pkg/logging/testing"
 	"github.com/mattbaird/jsonpatch"
@@ -27,12 +28,16 @@ func TestEmptySpec(t *testing.T) {
 	s := v1alpha1.Service{
 		Spec: v1alpha1.ServiceSpec{},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	if e, a := errInvalidRollouts, err; e != a {
-		t.Errorf("Expected %s got %s", e, a)
+	want := &v1alpha1.FieldError{
+		Message: "Expected exactly one, got neither",
+		Paths:   []string{"spec.runLatest", "spec.pinned"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -44,7 +49,7 @@ func TestRunLatest(t *testing.T) {
 			},
 		},
 	}
-	if err := ValidateService(TestContextWithLogger(t))(nil, &s, &s); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &s, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 }
@@ -55,13 +60,16 @@ func TestRunLatestWithMissingConfiguration(t *testing.T) {
 			RunLatest: &v1alpha1.RunLatestType{},
 		},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-
-	if e, a := errServiceMissingField("spec.runLatest.configuration").Error(), err.Error(); e != a {
-		t.Errorf("Expected %s got %s", e, a)
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.runLatest.configuration"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -75,7 +83,7 @@ func TestPinned(t *testing.T) {
 		},
 	}
 
-	if err := ValidateService(TestContextWithLogger(t))(nil, &s, &s); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &s, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 }
@@ -88,12 +96,17 @@ func TestPinnedFailsWithNoRevisionName(t *testing.T) {
 			},
 		},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	if e, a := errServiceMissingField("spec.pinned.revisionName").Error(), err.Error(); e != a {
-		t.Errorf("Expected %s got %s", e, a)
+
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.pinned.revisionName"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -105,12 +118,17 @@ func TestPinnedFailsWithNoConfiguration(t *testing.T) {
 			},
 		},
 	}
-	err := ValidateService(TestContextWithLogger(t))(nil, &s, &s)
-	if err == nil {
+	got := Validate(TestContextWithLogger(t))(nil, &s, &s)
+	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	if e, a := errServiceMissingField("spec.pinned.configuration").Error(), err.Error(); e != a {
-		t.Errorf("Expected %s got %s", e, a)
+
+	want := &v1alpha1.FieldError{
+		Message: "missing field(s)",
+		Paths:   []string{"spec.pinned.configuration"},
+	}
+	if got.Error() != want.Error() {
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -127,20 +145,18 @@ func TestPinnedSetsDefaults(t *testing.T) {
 	s.Spec.Pinned.Configuration.RevisionTemplate.Spec.ConcurrencyModel = ""
 
 	var patches []jsonpatch.JsonPatchOperation
-	if err := SetServiceDefaults(TestContextWithLogger(t))(&patches, &s); err != nil {
+	if err := SetDefaults(TestContextWithLogger(t))(&patches, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 
-	expected := jsonpatch.JsonPatchOperation{
+	expected := []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
 		Path:      "/spec/pinned/configuration/revisionTemplate/spec/concurrencyModel",
-		Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-	}
+		Value:     "Multi",
+	}}
 
-	if len(patches) != 1 {
-		t.Errorf("Unexpected number of patches: want 1, got %d", len(patches))
-	} else if got, want := patches[0].Json(), expected.Json(); got != want {
-		t.Errorf("Unexpected patch: want %v, got %v", want, got)
+	if diff := cmp.Diff(expected, patches); diff != "" {
+		t.Errorf("SetDefaults (-want, +got) = %v", diff)
 	}
 }
 
@@ -157,19 +173,17 @@ func TestLatestSetsDefaults(t *testing.T) {
 	s.Spec.RunLatest.Configuration.RevisionTemplate.Spec.ConcurrencyModel = ""
 
 	var patches []jsonpatch.JsonPatchOperation
-	if err := SetServiceDefaults(TestContextWithLogger(t))(&patches, &s); err != nil {
+	if err := SetDefaults(TestContextWithLogger(t))(&patches, &s); err != nil {
 		t.Errorf("Expected success, but failed with: %s", err)
 	}
 
-	expected := jsonpatch.JsonPatchOperation{
+	expected := []jsonpatch.JsonPatchOperation{{
 		Operation: "add",
 		Path:      "/spec/runLatest/configuration/revisionTemplate/spec/concurrencyModel",
-		Value:     v1alpha1.RevisionRequestConcurrencyModelMulti,
-	}
+		Value:     "Multi",
+	}}
 
-	if len(patches) != 1 {
-		t.Errorf("Unexpected number of patches: want 1, got %d", len(patches))
-	} else if got, want := patches[0].Json(), expected.Json(); got != want {
-		t.Errorf("Unexpected patch: want %v, got %v", want, got)
+	if diff := cmp.Diff(expected, patches); diff != "" {
+		t.Errorf("SetDefaults (-want, +got) = %v", diff)
 	}
 }

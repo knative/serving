@@ -156,6 +156,9 @@ func (c *Controller) Reconcile(key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.updateStatus(ctx, route); err != nil {
+		logger.Warn("Failed to update route status", zap.Error(err))
+		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for route %q: %v", route.Name, err)
 		return err
 	}
 	return err
@@ -192,16 +195,23 @@ func (c *Controller) reconcile(ctx context.Context, route *v1alpha1.Route) error
 func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*v1alpha1.Route, error) {
 	r.Status.Domain = c.routeDomain(r)
 	logger := logging.FromContext(ctx)
-	t, targetErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
-	// Even if targetErr != nil, we still need to finish updating the labels so that the updates to
-	// these targets can be propagated back.  In case of error updating the labels, we will return
-	// the error and not targetErr.
+	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	badTarget, isTargetError := err.(traffic.TargetError)
+	if err != nil && !isTargetError {
+		// An error that's not due to missing traffic target should
+		// make us fail fast.
+		r.Status.MarkUnknownTrafficError(err.Error())
+		return r, err
+	}
+	// If the only errors are missing traffic target, we need to
+	// update the labels first, so that when these targets recover we
+	// receive an update.
 	if err := c.syncLabels(ctx, r, t); err != nil {
 		return r, err
 	}
-	// Now, after updating the labels, we can return trafficErr here.
-	if targetErr != nil {
-		return r, targetErr
+	if badTarget != nil && isTargetError {
+		badTarget.MarkBadTrafficTarget(&r.Status)
+		return r, badTarget
 	}
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
@@ -212,17 +222,19 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	r.Status.MarkTrafficAssigned()
 
 	// Signal that idle Revisions have been removed from direct routing.
-	err := c.reserveRevisions(t)
+	err = c.reserveRevisions(t)
 	return r, err
 }
 
 func (c *Controller) reserveRevisions(t *traffic.TrafficConfig) error {
 	for _, rev := range t.Revisions {
 		if rev.Spec.ServingState == v1alpha1.RevisionServingStateToReserve && rev.Status.IsIdle() {
-			// TODO: When Istio provides RouteRule Status,
+			// TODO(#1591): When Istio provides RouteRule Status,
 			// wait until the Activator route has been fully
 			// configured before transitioning Revision to
-			// ServingState Reserve.
+			// ServingState Reserve. Then we can remove the
+			// time delay reclaiming resources in the Revision
+			// controller.
 			rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 			_, err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 			if err != nil {

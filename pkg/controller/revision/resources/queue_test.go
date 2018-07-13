@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -222,8 +223,8 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		lc: &logging.Config{
 			LoggingConfig: "The logging configuration goes here",
-			LoggingLevel: map[string]string{
-				"queueproxy": "error",
+			LoggingLevel: map[string]zapcore.Level{
+				"queueproxy": zapcore.ErrorLevel,
 			},
 		},
 		ac: &autoscaler.Config{},

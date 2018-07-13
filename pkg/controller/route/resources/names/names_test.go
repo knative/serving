@@ -39,7 +39,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    K8sService,
-		want: "blah-service",
+		want: "blah",
 	}, {
 		name: "VirtualService",
 		route: &v1alpha1.Route{
@@ -49,7 +49,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    VirtualService,
-		want: "foo-istio",
+		want: "foo",
 	}, {
 		name: "K8sServiceFullname",
 		route: &v1alpha1.Route{
@@ -59,7 +59,7 @@ func TestNamer(t *testing.T) {
 			},
 		},
 		f:    K8sServiceFullname,
-		want: "bar-service.default.svc.cluster.local",
+		want: "bar.default.svc.cluster.local",
 	}}
 
 	for _, test := range tests {

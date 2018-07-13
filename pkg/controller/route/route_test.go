@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -148,7 +148,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, pkg.GetServingSystemNamespace()),
+			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -171,7 +171,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.DomainConfigName,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 		Data: map[string]string{
 			defaultDomainSuffix: "",
@@ -242,16 +242,16 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route-service"`))
-	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created VirtualService "test-route-istio"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created service "test-route"`))
+	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Created VirtualService "test-route"`))
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, `Updated status for route "test-route"`))
 
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
+			Type:   v1alpha1.RevisionConditionIdle,
+			Status: corev1.ConditionTrue,
+			Reason: "Idle",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -269,6 +269,55 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	controller.Reconcile(KeyOrDie(route))
 
+	// Verify Reserve Revision Route
+	verifyOneReserveRevisionRoute(t, servingClient, route)
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestRouteRevisionTransitionToReserve(t *testing.T) {
+	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+
+	// A Revision waiting to be deactivated
+	rev := getTestRevisionWithCondition("test-rev",
+		v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionIdle,
+			Status: corev1.ConditionTrue,
+			Reason: "Idle",
+		})
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	// A route targeting the revision
+	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: "test-rev",
+			Percent:      100,
+		}},
+	)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.Reconcile(KeyOrDie(route))
+
+	// Expect the Revision to be transitioned to Reserve state
+	rev2, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting updated revision: %v", err)
+	}
+	if want, got := v1alpha1.RevisionServingStateReserve, rev2.Spec.ServingState; want != got {
+		t.Fatalf("Updated Revision in wrong state. Want %v. Got %v.", want, got)
+	}
+
+	// Verify Reserve Revision Route
+	verifyOneReserveRevisionRoute(t, servingClient, route)
+}
+
+func verifyOneReserveRevisionRoute(t *testing.T, servingClient *fakeclientset.Clientset, route *v1alpha1.Route) {
 	// Look for the route rule with activator as the destination.
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -292,7 +341,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -325,10 +374,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
 	}
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
@@ -342,7 +387,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -371,7 +417,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -418,9 +464,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
-			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
+			Type:   v1alpha1.RevisionConditionIdle,
+			Status: corev1.ConditionTrue,
+			Reason: "Idle",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -429,7 +475,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -458,7 +505,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -511,7 +558,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -558,7 +606,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -629,7 +677,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// created by the configuration controller.
 	config := getTestConfiguration()
 	cfgrev := getTestRevisionForConfig(config)
-	config.Status.LatestReadyRevisionName = cfgrev.Name
+	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
+	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
 	servingClient.ServingV1alpha1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Configurations().Informer().GetIndexer().Add(config)
@@ -661,7 +710,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		t.Fatalf("error getting virtualservice: %v", err)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route-service.test.svc.cluster.local"
+	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -853,7 +902,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -868,7 +917,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					"newdefault.net":   "",
@@ -885,7 +934,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: pkg.GetServingSystemNamespace(),
+					Namespace: system.Namespace,
 				},
 				Data: map[string]string{
 					"mytestdomain.com": "selector:\n  app: prod",

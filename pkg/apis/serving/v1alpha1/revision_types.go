@@ -30,7 +30,11 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Revision is an immutable snapshot of code and configuration.
+// Revision is an immutable snapshot of code and configuration.  A revision
+// references a container image, and optionally a build that is responsible for
+// materializing that container image from source. Revisions are created by
+// updates to a Configuration.
+//
 // See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
@@ -45,6 +49,11 @@ type Revision struct {
 	// +optional
 	Status RevisionStatus `json:"status,omitempty"`
 }
+
+// Check that Revision can be validated, can be defaulted, and has immutable fields.
+var _ Validatable = (*Revision)(nil)
+var _ Defaultable = (*Revision)(nil)
+var _ HasImmutableFields = (*Revision)(nil)
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
@@ -164,7 +173,7 @@ const (
 	// RevisionConditionReserve is True when the revision has been
 	// placed into a Reserve state and traffic is not being routed
 	// directly to the service.
-	// TODO: When Istio RouteRule Status is populated, this status
+	// TODO(#1591): When Istio RouteRule Status is populated, this status
 	// can be removed.  It is only here to record when the Revision
 	// transitioned to Reserve so we can wait for the network
 	// configuration to propagate before actually scaling to zero.
@@ -415,7 +424,7 @@ func (rs *RevisionStatus) MarkUnReserve() {
 
 // ReadyToTearDownResources indicates it is safe to tear down the
 // resources underlying the Revision.
-// TODO: When Istio starts surfacing RouteRule Status, the Route
+// TODO(#1591): When Istio starts surfacing RouteRule Status, the Route
 // controller will wait until the rules are updated before setting
 // Revision ServingState Reserve. For now, the Route controller sets
 // ServingState Reserve right away and the Revision controller waits at

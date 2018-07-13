@@ -106,12 +106,8 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 // Update the Status of the route.  Caller is responsible for checking
 // for semantic differences before calling.
 func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
-	logger := logging.FromContext(ctx)
-
 	existing, err := c.routeLister.Routes(route.Namespace).Get(route.Name)
 	if err != nil {
-		logger.Warn("Failed to update route status", zap.Error(err))
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to get current status for route %q: %v", route.Name, err)
 		return nil, err
 	}
 	// If there's nothing to update, just return.
@@ -122,8 +118,6 @@ func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*
 	// TODO: for CRD there's no updatestatus, so use normal update.
 	updated, err := c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Update(existing)
 	if err != nil {
-		logger.Warn("Failed to update route status", zap.Error(err))
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for route %q: %v", route.Name, err)
 		return nil, err
 	}
 

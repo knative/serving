@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -106,15 +106,13 @@ type Controller struct {
 
 	buildtracker *buildTracker
 
-	resolver resolver
+	resolver      resolver
+	resolverMutex sync.Mutex
 
-	// enableVarLogCollection dedicates whether to set up a fluentd sidecar to
-	// collect logs under /var/log/.
-	enableVarLogCollection bool
-
-	// controllerConfig includes the configurations for the controller
-	// TODO(mattmoor): This is a grab bag, it should move to a ConfigMap.
-	controllerConfig *config.Controller
+	// controllerConfig could change over time and access to it
+	// must go through controllerConfigMutex
+	controllerConfig      *config.Controller
+	controllerConfigMutex sync.Mutex
 
 	// networkConfig could change over time and access to it
 	// must go through networkConfigMutex
@@ -152,7 +150,6 @@ func NewController(
 	endpointsInformer corev1informers.EndpointsInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	vpaInformer vpav1alpha1informers.VerticalPodAutoscalerInformer,
-	controllerConfig *config.Controller,
 ) *Controller {
 
 	c := &Controller{
@@ -165,12 +162,6 @@ func NewController(
 		endpointsLister:  endpointsInformer.Lister(),
 		configMapLister:  configMapInformer.Lister(),
 		buildtracker:     &buildTracker{builds: map[key]set{}},
-		resolver: &digestResolver{
-			client:           opt.KubeClientSet,
-			transport:        http.DefaultTransport,
-			registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
-		},
-		controllerConfig: controllerConfig,
 	}
 
 	// Set up an event handler for when the resource types of interest change
@@ -211,6 +202,7 @@ func NewController(
 	opt.ConfigMapWatcher.Watch(logging.ConfigName, c.receiveLoggingConfig)
 	opt.ConfigMapWatcher.Watch(config.ObservabilityConfigName, c.receiveObservabilityConfig)
 	opt.ConfigMapWatcher.Watch(autoscaler.ConfigName, c.receiveAutoscalerConfig)
+	opt.ConfigMapWatcher.Watch(config.ControllerConfigName, c.receiveControllerConfig)
 
 	return c
 }
@@ -390,11 +382,12 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// workaround for missing Istio RouteRule Status, this
 		// timestamp is used to wait 10 seconds before scaling to
 		// zero.
+		// TODO(#1591): Remove the Reserve condition entirely.
 		rev.Status.MarkReserve()
-		// When the Revision is in Reserve or ToReserve states it
-		// should be marked as Idle.
+		// When the Revision is in Retired, Reserve or ToReserve
+		// states it should be marked as Idle.
 		rev.Status.MarkIdle()
-	case v1alpha1.RevisionServingStateToReserve:
+	case v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateRetired:
 		rev.Status.MarkIdle()
 	case v1alpha1.RevisionServingStateActive:
 		// When a Revision is in Active state it should not be
@@ -435,11 +428,14 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				logger.Infof("Updated deployment %q", deploymentName)
 				rev.Status.MarkDeploying("Updating")
 			}
+			if *deployment.Spec.Replicas == 0 {
+				rev.Status.MarkDeploying("Reserve")
+			}
 		}
 
 		// Now that we have a Deployment, determine whether there is any relevant
 		// status to surface in the Revision.
-		if cond := getDeploymentProgressCondition(deployment); cond != nil {
+		if hasDeploymentTimedOut(deployment) {
 			rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
 				"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 			c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
@@ -458,6 +454,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return err
 		}
 		logger.Infof("Deleted deployment %q", deploymentName)
+		rev.Status.MarkDeploying("Retired")
 		return nil
 
 	default:
@@ -474,10 +471,10 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 		replicaCount = 0
 	}
 	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
-		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.controllerConfig, replicaCount)
+		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig(), replicaCount)
 
 	// Resolve tag image references to digests.
-	if err := c.resolver.Resolve(deployment); err != nil {
+	if err := c.getResolver().Resolve(deployment); err != nil {
 		logger.Error("Error resolving deployment", zap.Error(err))
 		rev.Status.MarkContainerMissing(err.Error())
 		return nil, fmt.Errorf("Error resolving container to digest: %v", err)
@@ -508,8 +505,10 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 			*desiredDeployment.Spec.Replicas = 1
 		}
 	case (ss == v1alpha1.RevisionServingStateReserve && teardown), ss == v1alpha1.RevisionServingStateRetired:
-		logger.Infof("Scaling Deployment to 0")
-		*desiredDeployment.Spec.Replicas = 0
+		if *desiredDeployment.Spec.Replicas != 0 {
+			logger.Infof("Scaling Deployment to 0")
+			*desiredDeployment.Spec.Replicas = 0
+		}
 	}
 
 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
@@ -715,11 +714,11 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 
 func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
 	// If an autoscaler image is undefined, then skip the autoscaler reconciliation.
-	if c.controllerConfig.AutoscalerImage == "" {
+	if c.getControllerConfig().AutoscalerImage == "" {
 		return nil
 	}
 
-	ns := pkg.GetServingSystemNamespace()
+	ns := system.Namespace
 	serviceName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
@@ -762,7 +761,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		return nil
 
 	case v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the autoscaling Service.
+		// When Retired, we remove the autoscaling Service.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
 			return nil
@@ -782,11 +781,11 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 
 func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	// If an autoscaler image is undefined, then skip the autoscaler reconciliation.
-	if c.controllerConfig.AutoscalerImage == "" {
+	if c.getControllerConfig().AutoscalerImage == "" {
 		return nil
 	}
 
-	ns := pkg.GetServingSystemNamespace()
+	ns := system.Namespace
 	deploymentName := resourcenames.Autoscaler(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
@@ -846,7 +845,7 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
 	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 		replicaCount = 0
 	}
-	deployment := resources.MakeAutoscalerDeployment(rev, c.controllerConfig.AutoscalerImage, replicaCount)
+	deployment := resources.MakeAutoscalerDeployment(rev, c.getControllerConfig().AutoscalerImage, replicaCount)
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
@@ -887,7 +886,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return nil
 
 	case v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the underlying VPA.
+		// When Retired, we remove the underlying VPA.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
 			return nil
@@ -966,15 +965,64 @@ func (c *Controller) getNetworkConfig() *config.Network {
 }
 
 func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
-	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
-	newLoggingConfig := logging.NewConfigFromConfigMap(configMap)
-
+	newLoggingConfig, err := logging.NewConfigFromConfigMap(configMap)
 	c.loggingConfigMutex.Lock()
 	defer c.loggingConfigMutex.Unlock()
+	if err != nil {
+		if c.loggingConfig != nil {
+			c.Logger.Error("Error updating Logging ConfigMap.", zap.Error(err))
+		} else {
+			c.Logger.Fatalf("Error initializing Logging ConfigMap: %v", err)
+		}
+		return
+	}
+
 	// TODO(mattmoor): When we support reconciling Deployment differences,
 	// we should consider triggering a global reconciliation here to the
 	// logging configuration changes are rolled out to active revisions.
+	c.Logger.Infof("Logging config map is added or updated: %v", configMap)
 	c.loggingConfig = newLoggingConfig
+}
+
+func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
+	controllerConfig, err := config.NewControllerConfigFromConfigMap(configMap)
+
+	c.controllerConfigMutex.Lock()
+	defer c.controllerConfigMutex.Unlock()
+
+	c.resolverMutex.Lock()
+	defer c.resolverMutex.Unlock()
+
+	if err != nil {
+		if c.controllerConfig != nil {
+			c.Logger.Errorf("Error updating Controller ConfigMap: %v", err)
+		} else {
+			c.Logger.Fatalf("Error initializing Controller ConfigMap: %v", err)
+		}
+		return
+	}
+
+	c.Logger.Infof("Controller config map is added or updated: %v", configMap)
+
+	c.controllerConfig = controllerConfig
+	c.resolver = &digestResolver{
+		client:           c.KubeClientSet,
+		transport:        http.DefaultTransport,
+		registriesToSkip: controllerConfig.RegistriesSkippingTagResolving,
+	}
+
+}
+
+func (c *Controller) getResolver() resolver {
+	c.resolverMutex.Lock()
+	defer c.resolverMutex.Unlock()
+	return c.resolver
+}
+
+func (c *Controller) getControllerConfig() *config.Controller {
+	c.controllerConfigMutex.Lock()
+	defer c.controllerConfigMutex.Unlock()
+	return c.controllerConfig
 }
 
 func (c *Controller) getLoggingConfig() *logging.Config {

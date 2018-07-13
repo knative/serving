@@ -99,7 +99,6 @@ function teardown() {
   else
     # Delete the kubernetes source downloaded by kubetest
     rm -fr kubernetes kubernetes.tar.gz
-    restore_override_vars
   fi
 }
 
@@ -274,14 +273,9 @@ echo "- Docker is ${DOCKER_REPO_OVERRIDE}"
 header "Building and starting Knative Serving"
 trap teardown EXIT
 
-install_ko
-
 if (( USING_EXISTING_CLUSTER )); then
   echo "Deleting any previous Knative Serving instance"
   delete_everything
-fi
-if (( IS_PROW )); then
-  gcr_auth
 fi
 
 create_everything

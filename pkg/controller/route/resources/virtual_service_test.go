@@ -39,7 +39,7 @@ func TestMakeVirtualServiceSpec_CorrectMetadata(t *testing.T) {
 		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
 	}
 	expected := metav1.ObjectMeta{
-		Name:      "test-route-istio",
+		Name:      "test-route",
 		Namespace: "test-ns",
 		Labels:    map[string]string{"route": "test-route"},
 		OwnerReferences: []metav1.OwnerReference{
@@ -73,7 +73,7 @@ func TestMakeVirtualServiceSpec_CorrectSpec(t *testing.T) {
 		Hosts: []string{
 			"*.domain.com",
 			"domain.com",
-			"test-route-service.test-ns.svc.cluster.local",
+			"test-route.test-ns.svc.cluster.local",
 		},
 	}
 	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec
@@ -113,7 +113,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Authority: &v1alpha3.StringMatch{Exact: "domain.com"},
 		}, {
-			Authority: &v1alpha3.StringMatch{Exact: "test-route-service.test-ns.svc.cluster.local"},
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -153,7 +153,7 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 	}
 	base := "domain.com"
-	expected := []string{base, "test-route-service.test-ns.svc.cluster.local"}
+	expected := []string{base, "test-route.test-ns.svc.cluster.local"}
 	domains := getRouteDomains("", r, base)
 	if diff := cmp.Diff(expected, domains); diff != "" {
 		t.Errorf("Unexpected domains  (-want +got): %v", diff)
@@ -365,6 +365,43 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
 		Timeout: DefaultActivatorTimeout,
+	}
+	if diff := cmp.Diff(&expected, route); diff != "" {
+		t.Errorf("Unexpected route  (-want +got): %v", diff)
+	}
+}
+
+// Named target scaled to 0.
+func TestMakeVirtualServiceRoute_ZeroPercentNamedTargetScaledToZero(t *testing.T) {
+	targets := []traffic.RevisionTarget{{
+		TrafficTarget: v1alpha1.TrafficTarget{
+			ConfigurationName: "config",
+			RevisionName:      "revision",
+			Percent:           100,
+		},
+		Active: true,
+	}, {
+		TrafficTarget: v1alpha1.TrafficTarget{
+			ConfigurationName: "new-config",
+			RevisionName:      "new-revision",
+			Percent:           0,
+		},
+		Active: false,
+	}}
+	domains := []string{"test.org"}
+	ns := "test-ns"
+	route := makeVirtualServiceRoute(domains, ns, targets)
+	expected := v1alpha3.HTTPRoute{
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &v1alpha3.StringMatch{Exact: "test.org"},
+		}},
+		Route: []v1alpha3.DestinationWeight{{
+			Destination: v1alpha3.Destination{
+				Host: "revision-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 100,
+		}},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)

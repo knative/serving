@@ -21,10 +21,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
+	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/webhook"
 
 	"k8s.io/client-go/kubernetes"
@@ -33,11 +33,15 @@ import (
 
 func main() {
 	flag.Parse()
-	config, err := configmap.Load("/etc/config-logging")
+	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger := logging.NewLoggerFromConfig(logging.NewConfigFromMap(config), "webhook")
+	config, err := logging.NewConfigFromMap(cm)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, _ := logging.NewLoggerFromConfig(config, "webhook")
 	defer logger.Sync()
 
 	logger.Info("Starting the Configuration Webhook")
@@ -57,7 +61,7 @@ func main() {
 
 	options := webhook.ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: pkg.GetServingSystemNamespace(),
+		ServiceNamespace: system.Namespace,
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
