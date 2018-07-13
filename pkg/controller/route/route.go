@@ -229,10 +229,12 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 func (c *Controller) reserveRevisions(t *traffic.TrafficConfig) error {
 	for _, rev := range t.Revisions {
 		if rev.Spec.ServingState == v1alpha1.RevisionServingStateToReserve && rev.Status.IsIdle() {
-			// TODO: When Istio provides RouteRule Status,
+			// TODO(#1591): When Istio provides RouteRule Status,
 			// wait until the Activator route has been fully
 			// configured before transitioning Revision to
-			// ServingState Reserve.
+			// ServingState Reserve. Then we can remove the
+			// time delay reclaiming resources in the Revision
+			// controller.
 			rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 			_, err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 			if err != nil {

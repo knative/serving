@@ -185,7 +185,7 @@ func scaleTo(podCount int32) {
 	if revision.Spec.ServingState != v1alpha1.RevisionServingStateActive {
 		logger.Info("Transitioning Revision to serving state Active from %v.", revision.Spec.ServingState)
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-		_, err = revisionClient.Update(revision)
+		revision, err = revisionClient.Update(revision)
 		if err != nil {
 			logger.Errorf("Error updating Revision %q: %s", servingRevision, zap.Error(err))
 		}
@@ -222,7 +222,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			logger.Error("Failed to decode stats", zap.Error(err))
 			continue
 		}
-		logger.Infof("Got stat: %+v", sm.Stat) // TO NOT SUBMIT
 		statChan <- sm.Stat
 	}
 }

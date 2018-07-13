@@ -382,7 +382,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// workaround for missing Istio RouteRule Status, this
 		// timestamp is used to wait 10 seconds before scaling to
 		// zero.
-		// TODO: Remove the Reserve condition entirely.
+		// TODO(#1591): Remove the Reserve condition entirely.
 		rev.Status.MarkReserve()
 		// When the Revision is in Retired, Reserve or ToReserve
 		// states it should be marked as Idle.
@@ -761,7 +761,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 		return nil
 
 	case v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the autoscaling Service.
+		// When Retired, we remove the autoscaling Service.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
 			return nil
@@ -886,7 +886,7 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 		return nil
 
 	case v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the underlying VPA.
+		// When Retired, we remove the underlying VPA.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
 			return nil
