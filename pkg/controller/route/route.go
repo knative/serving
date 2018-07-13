@@ -222,7 +222,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	r.Status.MarkTrafficAssigned()
 
 	// Signal that idle Revisions have been removed from direct routing.
-	err := c.reserveRevisions(t)
+	err = c.reserveRevisions(t)
 	return r, err
 }
 
