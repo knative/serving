@@ -615,7 +615,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		return nil
 
 	case v1alpha1.RevisionServingStateRetired:
-		// When Reserve or Retired, we remove the underlying Service.
+		// When Retired, we remove the underlying Service.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then we have nothing to do.
 			return nil

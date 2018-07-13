@@ -166,7 +166,7 @@ Recplica count, which allows for the route rules to fully propagate.*
 
 First the Activator transitions the Revision to ServingState Active.  Then the
 Revision controller increases the Deployment Replica count to 1.  Once the Pod
-is ready, the Endpoint object is updated with a health IP address and the
+is ready, the Endpoints object is updated with a healthy IP address and the
 Revision controller marks the Revision as Status Ready.  The Route controller
 then updates the Istio RouteRule to point directly to the Revision.  Meanwhile,
 the Activator notices the Revision is Ready and forward pending requests to the
