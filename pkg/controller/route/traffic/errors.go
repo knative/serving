@@ -82,11 +82,6 @@ func (e *latestRevisionDeletedErr) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus
 	rs.MarkDeletedLatestRevisionTarget(e.name)
 }
 
-// errUnreadyTarget returns a TargetError for a target that is not ready.
-func errUnreadyTarget(kind string, name string) TargetError {
-	return &unreadyTargetError{kind: kind, name: name}
-}
-
 // errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
 func errUnreadyConfiguration(name string) TargetError {
 	return &unreadyTargetError{kind: "Configuration", name: name}
