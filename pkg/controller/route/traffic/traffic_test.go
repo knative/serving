@@ -547,6 +547,33 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 	}
 }
 
+func TestBuildTrafficConfiguration_FailedAndConfigurations(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		ConfigurationName: failedConfig.Name,
+		Percent:           50,
+	}, {
+		ConfigurationName: emptyConfig.Name,
+		Percent:           50,
+	}}
+	expected := &TrafficConfig{
+		Targets: map[string][]RevisionTarget{},
+		Configurations: map[string]*v1alpha1.Configuration{
+			emptyConfig.Name:  emptyConfig,
+			failedConfig.Name: failedConfig,
+		},
+		Revisions: map[string]*v1alpha1.Revision{},
+	}
+	expectedErr := errUnreadyConfiguration(failedConfig)
+	r := getTestRouteWithTrafficTargets(tts)
+	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected error %v, saw %v", expectedErr, err)
+	}
+	if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	}
+}
+
 func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		RevisionName: missingRev.Name,
