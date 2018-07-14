@@ -245,16 +245,12 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 }
 
 func (rs *RouteStatus) markTrafficNotAssigned(cond corev1.ConditionStatus, reason, msg string) {
-	for _, condType := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-	} {
-		rs.setCondition(&RouteCondition{
-			Type:    condType,
-			Status:  cond,
-			Reason:  reason,
-			Message: msg,
-		})
-	}
+	rs.setCondition(&RouteCondition{
+		Type:    RouteConditionAllTrafficAssigned,
+		Status:  cond,
+		Reason:  reason,
+		Message: msg,
+	})
 	rs.checkAndMarkReadiness()
 }
 
@@ -309,6 +305,11 @@ func worseCondition(a *RouteCondition, b *RouteCondition) *RouteCondition {
 	return b
 }
 
+// checkAndMarkReadiness should be called after we call setCondition()
+// on conditions that may affect RouteConditionReady.  It finds the
+// worst condition of those, based on the ordering
+// ConditionTrue > nil/ConditionUnknown > ConditionFalse, and sets
+// RouteConditionReady to reflect that worst condition.
 func (rs *RouteStatus) checkAndMarkReadiness() {
 	worst := &RouteCondition{
 		Type:   RouteConditionReady,
