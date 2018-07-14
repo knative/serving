@@ -244,7 +244,7 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
+func (rs *RouteStatus) markTrafficTargetNotReady(reason, msg string) {
 	rs.setCondition(&RouteCondition{
 		Type:    RouteConditionAllTrafficAssigned,
 		Status:  corev1.ConditionUnknown,
@@ -284,13 +284,13 @@ func (rs *RouteStatus) markTrafficTargetFailed(reason, msg string) {
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	rs.markTrafficNotAssigned("Unknown", msg)
+	rs.markTrafficTargetNotReady("Unknown", msg)
 }
 
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", name)
-	rs.markTrafficNotAssigned(reason, msg)
+	rs.markTrafficTargetNotReady(reason, msg)
 }
 
 func (rs *RouteStatus) MarkConfigurationFailed(name string) {
@@ -302,7 +302,7 @@ func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Revision %q is not ready.", name)
-	rs.markTrafficNotAssigned(reason, msg)
+	rs.markTrafficTargetNotReady(reason, msg)
 }
 
 func (rs *RouteStatus) MarkRevisionFailed(name string) {
