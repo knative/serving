@@ -67,12 +67,12 @@ func TestReconcile(t *testing.T) {
 				Domain: "first-reconcile.default.example.com",
 				Conditions: []v1alpha1.RouteCondition{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
+					Status:  corev1.ConditionUnknown,
 					Reason:  "RevisionMissing",
 					Message: `Configuration "not-ready" does not have a LatestReadyRevision.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
+					Status:  corev1.ConditionUnknown,
 					Reason:  "RevisionMissing",
 					Message: `Configuration "not-ready" does not have a LatestReadyRevision.`,
 				}},
@@ -108,12 +108,12 @@ func TestReconcile(t *testing.T) {
 				Domain: "first-reconcile.default.example.com",
 				Conditions: []v1alpha1.RouteCondition{{
 					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
-					Status:  corev1.ConditionFalse,
+					Status:  corev1.ConditionUnknown,
 					Reason:  "RevisionMissing",
 					Message: `Configuration "not-ready" does not have a LatestReadyRevision.`,
 				}, {
 					Type:    v1alpha1.RouteConditionReady,
-					Status:  corev1.ConditionFalse,
+					Status:  corev1.ConditionUnknown,
 					Reason:  "RevisionMissing",
 					Message: `Configuration "not-ready" does not have a LatestReadyRevision.`,
 				}},

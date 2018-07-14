@@ -324,7 +324,7 @@ operator error causing live resources to be deleted.
 
 If some percentage of traffic cannot be assigned to a live
 (materialized or scaled-to-zero) Revision, the Route will report the
-`Ready` condition as `False`. The Service will mirror this status in
+`Ready` condition as `Unknown`. The Service will mirror this status in
 its' `Ready` condition. For example, for a newly-created Service where
 the first Revision is unable to serve:
 
@@ -341,7 +341,7 @@ status:
     percent: 100
   conditions:
   - type: Ready
-    status: False
+    status: Unknown
     reason: RevisionMissing
     message: "Configuration 'abc' does not have a LatestReadyRevision."
 ```
@@ -358,11 +358,11 @@ status:
   domain: my-service.default.mydomain.com
   conditions:
   - type: Ready
-    status: False
+    status: Unknown
     reason: RevisionMissing
     message: "Configuration 'abc' does not have a LatestReadyRevision."
   - type: RoutesReady
-    status: False
+    status: Unknown
     reason: RevisionMissing
     message: "Configuration 'abc' does not have a LatestReadyRevision."
   - type: ConfigurationsReady

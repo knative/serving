@@ -461,7 +461,7 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{},
 		Revisions:      map[string]*v1alpha1.Revision{unreadyRev.Name: unreadyRev},
 	}
-	expectedErr := errNotRoutableRevision(unreadyRev.Name)
+	expectedErr := errUnreadyRevision(unreadyRev.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {

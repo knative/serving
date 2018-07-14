@@ -81,7 +81,7 @@ func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
 		got := r.Status.GetCondition(condType)
 		want := &v1alpha1.RouteCondition{
 			Type:               condType,
-			Status:             corev1.ConditionFalse,
+			Status:             corev1.ConditionUnknown,
 			Reason:             "RevisionMissing",
 			Message:            `Configuration "i-was-never-ready" does not have a LatestReadyRevision.`,
 			LastTransitionTime: got.LastTransitionTime,

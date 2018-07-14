@@ -165,7 +165,7 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 		return err
 	}
 	if !rev.Status.IsRoutable() {
-		return errNotRoutableRevision(rev.Name)
+		return errUnreadyRevision(rev.Name)
 	}
 	target := RevisionTarget{
 		TrafficTarget: *tt,

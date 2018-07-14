@@ -244,14 +244,14 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
-	for _, cond := range []RouteConditionType{
+func (rs *RouteStatus) markTrafficNotAssigned(cond corev1.ConditionStatus, reason, msg string) {
+	for _, condType := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
 		RouteConditionReady,
 	} {
 		rs.setCondition(&RouteCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
+			Type:    condType,
+			Status:  cond,
 			Reason:  reason,
 			Message: msg,
 		})
@@ -259,25 +259,25 @@ func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	rs.markTrafficNotAssigned("Unknown", msg)
+	rs.markTrafficNotAssigned(corev1.ConditionUnknown, "Unknown", msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyConfigurationTarget(configName string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", configName)
-	rs.markTrafficNotAssigned(reason, msg)
+func (rs *RouteStatus) MarkUnreadyTarget(kind string, name string) {
+	reason := fmt.Sprintf("RevisionMissing")
+	msg := fmt.Sprintf("%s %q does not have a LatestReadyRevision.", kind, name)
+	rs.markTrafficNotAssigned(corev1.ConditionUnknown, reason, msg)
 }
 
 func (rs *RouteStatus) MarkDeletedLatestRevisionTarget(configName string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Latest Revision of Configuration %q is deleted.", configName)
-	rs.markTrafficNotAssigned(reason, msg)
+	rs.markTrafficNotAssigned(corev1.ConditionFalse, reason, msg)
 }
 
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	reason := kind + "Missing"
 	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
-	rs.markTrafficNotAssigned(reason, msg)
+	rs.markTrafficNotAssigned(corev1.ConditionFalse, reason, msg)
 }
 
 func (rs *RouteStatus) checkAndMarkReady() {

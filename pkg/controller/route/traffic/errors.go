@@ -49,20 +49,21 @@ func (e *missingTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
 	rs.MarkMissingTrafficTarget(e.kind, e.name)
 }
 
-type unreadyConfigTargetError struct {
-	name string // Name of the Configuration that has no Ready target.
+type unreadyTargetError struct {
+	kind string // Kind of the traffic target.
+	name string // Name of the target that isn't ready.
 }
 
-var _ TargetError = (*unreadyConfigTargetError)(nil)
+var _ TargetError = (*unreadyTargetError)(nil)
 
 // Error implements error.
-func (e *unreadyConfigTargetError) Error() string {
-	return fmt.Sprintf("Configuraion %q referenced in traffic not ready", e.name)
+func (e *unreadyTargetError) Error() string {
+	return fmt.Sprintf("%s %q referenced in traffic not ready", e.kind, e.name)
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *unreadyConfigTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkUnreadyConfigurationTarget(e.name)
+func (e *unreadyTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+	rs.MarkUnreadyTarget(e.kind, e.name)
 }
 
 type latestRevisionDeletedErr struct {
@@ -81,9 +82,14 @@ func (e *latestRevisionDeletedErr) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus
 	rs.MarkDeletedLatestRevisionTarget(e.name)
 }
 
-// errUnreadyConfiguration returns a TargetError for a Configuration that never has a LatestCreatedRevisionName.
-func errUnreadyConfiguration(configName string) TargetError {
-	return &unreadyConfigTargetError{name: configName}
+// errUnreadyTarget returns a TargetError for a target that is not ready.
+func errUnreadyTarget(kind string, name string) TargetError {
+	return &unreadyTargetError{kind: kind, name: name}
+}
+
+// errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
+func errUnreadyConfiguration(name string) TargetError {
+	return &unreadyTargetError{kind: "Configuration", name: name}
 }
 
 // errMissingConfiguration returns a TargetError for a Configuration what does not exist.
@@ -105,8 +111,8 @@ func errMissingRevision(name string) TargetError {
 // errNotRoutableRevision returns a TargetError for a Revision that is
 // neither Ready nor Inactive.  The spec doesn't have a special case for this
 // kind of error, so we are using RevisionMissing here.
-func errNotRoutableRevision(name string) TargetError {
-	return &missingTargetError{
+func errUnreadyRevision(name string) TargetError {
+	return &unreadyTargetError{
 		kind: "Revision",
 		name: name,
 	}
