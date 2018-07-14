@@ -54,37 +54,6 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 	}
 }
 
-func TestGetConditionStatus_Deleted(t *testing.T) {
-	err := errDeletedRevision("missing-rev")
-	want := corev1.ConditionFalse
-	if got := err.GetConditionStatus(); got != want {
-		t.Errorf("wanted %v, got %v", want, got)
-	}
-}
-
-func TestMarkBadTrafficTarget_Deleted(t *testing.T) {
-	err := errDeletedRevision("my-latest-rev-was-deleted")
-	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
-
-	err.MarkBadTrafficTarget(&r.Status)
-	for _, condType := range []v1alpha1.RouteConditionType{
-		v1alpha1.RouteConditionAllTrafficAssigned,
-		v1alpha1.RouteConditionReady,
-	} {
-		got := r.Status.GetCondition(condType)
-		want := &v1alpha1.RouteCondition{
-			Type:               condType,
-			Status:             corev1.ConditionFalse,
-			Reason:             "RevisionMissing",
-			Message:            `Latest Revision of Configuration "my-latest-rev-was-deleted" is deleted.`,
-			LastTransitionTime: got.LastTransitionTime,
-		}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
-		}
-	}
-}
-
 func TestGetConditionStatus_NotYetReady(t *testing.T) {
 	err := errUnreadyConfiguration(unreadyConfig)
 	want := corev1.ConditionUnknown
@@ -93,7 +62,7 @@ func TestGetConditionStatus_NotYetReady(t *testing.T) {
 	}
 }
 
-func TestMarkBadTrafficTarget_ConfigNeverReady(t *testing.T) {
+func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 	err := errUnreadyConfiguration(unreadyConfig)
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
@@ -124,7 +93,30 @@ func TestGetConditionStatus_ConfigFailedToBeReady(t *testing.T) {
 	}
 }
 
-func TestMarkBadTrafficTarget_RevisionNeverReady(t *testing.T) {
+func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
+	err := errUnreadyConfiguration(failedConfig)
+	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+
+	err.MarkBadTrafficTarget(&r.Status)
+	for _, condType := range []v1alpha1.RouteConditionType{
+		v1alpha1.RouteConditionAllTrafficAssigned,
+		v1alpha1.RouteConditionReady,
+	} {
+		got := r.Status.GetCondition(condType)
+		want := &v1alpha1.RouteCondition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionMissing",
+			Message:            `Configuration "failed-config" fails to have a LatestReadyRevision.`,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+		}
+	}
+}
+
+func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 	err := errUnreadyRevision(failedRev)
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
@@ -138,7 +130,7 @@ func TestMarkBadTrafficTarget_RevisionNeverReady(t *testing.T) {
 			Type:               condType,
 			Status:             corev1.ConditionFalse,
 			Reason:             "RevisionMissing",
-			Message:            `Revision "failed-revision" is not ready.`,
+			Message:            `Revision "failed-revision" fails to be ready.`,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -152,5 +144,28 @@ func TestGetConditionStatus_RevFailedToBeReady(t *testing.T) {
 	want := corev1.ConditionFalse
 	if got := err.GetConditionStatus(); got != want {
 		t.Errorf("wanted %v, got %v", want, got)
+	}
+}
+
+func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
+	err := errUnreadyRevision(unreadyRev)
+	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+
+	err.MarkBadTrafficTarget(&r.Status)
+	for _, condType := range []v1alpha1.RouteConditionType{
+		v1alpha1.RouteConditionAllTrafficAssigned,
+		v1alpha1.RouteConditionReady,
+	} {
+		got := r.Status.GetCondition(condType)
+		want := &v1alpha1.RouteCondition{
+			Type:               condType,
+			Status:             corev1.ConditionUnknown,
+			Reason:             "RevisionMissing",
+			Message:            `Revision "unready-revision" is not ready.`,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+		}
 	}
 }

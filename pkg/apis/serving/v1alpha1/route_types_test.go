@@ -241,7 +241,7 @@ func TestTargetConfigurationNotYetReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyConfig("i-have-no-ready-revision", corev1.ConditionUnknown)
+	r.Status.MarkUnreadyConfig("i-have-no-ready-revision")
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 }
@@ -263,7 +263,7 @@ func TestTargetConfigurationFailedToBeReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyConfig("permanently-failed", corev1.ConditionFalse)
+	r.Status.MarkFailedConfig("permanently-failed")
 	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
@@ -274,7 +274,7 @@ func TestTargetRevisionNotYetReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyRevision("not-yet-ready", corev1.ConditionUnknown)
+	r.Status.MarkUnreadyRevision("not-yet-ready")
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 }
@@ -285,7 +285,7 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyRevision("cannot-find-image", corev1.ConditionFalse)
+	r.Status.MarkFailedRevision("cannot-find-image")
 	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }

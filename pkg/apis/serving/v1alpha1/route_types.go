@@ -241,88 +241,103 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 		Type:   RouteConditionAllTrafficAssigned,
 		Status: corev1.ConditionTrue,
 	})
-	rs.checkAndMarkReadiness()
+	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) markTrafficNotAssigned(cond corev1.ConditionStatus, reason, msg string) {
+func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 	rs.setCondition(&RouteCondition{
 		Type:    RouteConditionAllTrafficAssigned,
-		Status:  cond,
+		Status:  corev1.ConditionUnknown,
 		Reason:  reason,
 		Message: msg,
 	})
-	rs.checkAndMarkReadiness()
+	// TODO(tcnghia): when we start with new RouteConditionReady every revision,
+	// uncomment the short-circuiting below.
+	//
+	// // Do not downgrade Ready condition.
+	// if c := rs.GetCondition(RouteConditionReady); c != nil && c.Status == corev1.ConditionFalse {
+	// 	return
+	// }
+	//
+	// For now, the following is harmless because RouteConditionAllTrafficAssigned
+	// is the only condition RouteConditionReady depends on.
+	rs.setCondition(&RouteCondition{
+		Type:    RouteConditionReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: msg,
+	})
+}
+
+func (rs *RouteStatus) markTrafficTargetFailed(reason, msg string) {
+	for _, cond := range []RouteConditionType{
+		RouteConditionAllTrafficAssigned,
+		RouteConditionReady,
+	} {
+		rs.setCondition(&RouteCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: msg,
+		})
+	}
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	rs.markTrafficNotAssigned(corev1.ConditionUnknown, "Unknown", msg)
+	rs.markTrafficNotAssigned("Unknown", msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyConfig(name string, status corev1.ConditionStatus) {
-	reason := fmt.Sprintf("RevisionMissing")
+func (rs *RouteStatus) MarkUnreadyConfig(name string) {
+	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", name)
-	rs.markTrafficNotAssigned(status, reason, msg)
+	rs.markTrafficNotAssigned(reason, msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyRevision(name string, status corev1.ConditionStatus) {
+func (rs *RouteStatus) MarkFailedConfig(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Configuration %q fails to have a LatestReadyRevision.", name)
+	rs.markTrafficTargetFailed(reason, msg)
+}
+
+func (rs *RouteStatus) MarkUnreadyRevision(name string) {
 	reason := fmt.Sprintf("RevisionMissing")
 	msg := fmt.Sprintf("Revision %q is not ready.", name)
-	rs.markTrafficNotAssigned(status, reason, msg)
+	rs.markTrafficNotAssigned(reason, msg)
+}
+
+func (rs *RouteStatus) MarkFailedRevision(name string) {
+	reason := fmt.Sprintf("RevisionMissing")
+	msg := fmt.Sprintf("Revision %q fails to be ready.", name)
+	rs.markTrafficTargetFailed(reason, msg)
 }
 
 func (rs *RouteStatus) MarkDeletedLatestRevisionTarget(configName string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Latest Revision of Configuration %q is deleted.", configName)
-	rs.markTrafficNotAssigned(corev1.ConditionFalse, reason, msg)
+	rs.markTrafficTargetFailed(reason, msg)
 }
 
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	reason := kind + "Missing"
 	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
-	rs.markTrafficNotAssigned(corev1.ConditionFalse, reason, msg)
+	rs.markTrafficTargetFailed(reason, msg)
 }
 
-func goodnessRank(c *RouteCondition) int {
-	status := corev1.ConditionUnknown
-	if c != nil {
-		status = c.Status
-	}
-	switch status {
-	case corev1.ConditionTrue:
-		return 2
-	case corev1.ConditionFalse:
-		return 0
-	default: // unknown
-		return 1
-	}
-}
-
-func worseCondition(a *RouteCondition, b *RouteCondition) *RouteCondition {
-	ga, gb := goodnessRank(a), goodnessRank(b)
-	if ga < gb {
-		return a
-	}
-	return b
-}
-
-// checkAndMarkReadiness should be called after we call setCondition()
-// on conditions that may affect RouteConditionReady.  It finds the
-// worst condition of those, based on the ordering
-// ConditionTrue > nil/ConditionUnknown > ConditionFalse, and sets
-// RouteConditionReady to reflect that worst condition.
-func (rs *RouteStatus) checkAndMarkReadiness() {
-	worst := &RouteCondition{
-		Type:   RouteConditionReady,
-		Status: corev1.ConditionTrue,
-	}
+func (rs *RouteStatus) checkAndMarkReady() {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
 	} {
 		ata := rs.GetCondition(cond)
-		worst = worseCondition(ata, worst)
+		if ata == nil || ata.Status != corev1.ConditionTrue {
+			return
+		}
 	}
-	// Set RouteConditionReady based on the worst Condition we see.
-	readiness := *worst
-	readiness.Type = RouteConditionReady
-	rs.setCondition(&readiness)
+	rs.markReady()
+}
+
+func (rs *RouteStatus) markReady() {
+	rs.setCondition(&RouteCondition{
+		Type:   RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	})
 }

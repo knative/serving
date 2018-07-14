@@ -72,32 +72,16 @@ func (e *unreadyConfigError) Error() string {
 
 // MarkBadTrafficTarget implements TargetError.
 func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkUnreadyConfig(e.name, e.status)
+	switch e.status {
+	case corev1.ConditionFalse:
+		rs.MarkFailedConfig(e.name)
+	default:
+		rs.MarkUnreadyConfig(e.name)
+	}
 }
 
 func (e *unreadyConfigError) GetConditionStatus() corev1.ConditionStatus {
 	return e.status
-}
-
-type latestRevisionDeletedErr struct {
-	name string // name of the Configuration whose LatestReadyResivion is deletd.
-}
-
-var _ TargetError = (*latestRevisionDeletedErr)(nil)
-
-// Error implements error.
-func (e *latestRevisionDeletedErr) Error() string {
-	return fmt.Sprintf("Configuration %q has its LatestReadyResivion deleted", e.name)
-}
-
-// MarkBadTrafficTarget implements TargetError.
-func (e *latestRevisionDeletedErr) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkDeletedLatestRevisionTarget(e.name)
-}
-
-// GetConditionStatus implements TargetError.
-func (e *latestRevisionDeletedErr) GetConditionStatus() corev1.ConditionStatus {
-	return corev1.ConditionFalse
 }
 
 type unreadyRevisionError struct {
@@ -114,7 +98,12 @@ func (e *unreadyRevisionError) Error() string {
 
 // MarkBadTrafficTarget implements TargetError.
 func (e *unreadyRevisionError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkUnreadyRevision(e.name, e.status)
+	switch e.status {
+	case corev1.ConditionFalse:
+		rs.MarkFailedRevision(e.name)
+	default:
+		rs.MarkUnreadyRevision(e.name)
+	}
 }
 
 func (e *unreadyRevisionError) GetConditionStatus() corev1.ConditionStatus {
@@ -159,31 +148,4 @@ func errMissingRevision(name string) TargetError {
 		kind: "Revision",
 		name: name,
 	}
-}
-
-// errDeletedRevision returns ad TargetError for Configuration whose latest Revision is deleted.
-func errDeletedRevision(configName string) TargetError {
-	return &latestRevisionDeletedErr{name: configName}
-}
-
-func checkConfiguration(c *v1alpha1.Configuration) TargetError {
-	cs := c.Status
-	if cs.LatestCreatedRevisionName == "" {
-		// Configuration has not any Revision.
-		return errUnreadyConfiguration(c)
-	}
-	if cs.LatestReadyRevisionName == "" {
-		cond := cs.GetCondition(v1alpha1.ConfigurationConditionReady)
-		// Since LatestCreatedRevisionName is already set, cond isn't nil.
-		switch cond.Status {
-		case corev1.ConditionUnknown:
-			// Configuration was never Ready.
-			return errUnreadyConfiguration(c)
-		case corev1.ConditionFalse:
-			// ConfigurationConditionReady was set before, but the
-			// LatestCreatedRevisionName was deleted.
-			return errDeletedRevision(c.Name)
-		}
-	}
-	return nil
 }

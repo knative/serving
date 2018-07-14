@@ -435,28 +435,6 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 	}
 }
 
-func TestBuildTrafficConfiguration_DeletedRevision(t *testing.T) {
-	tts := []v1alpha1.TrafficTarget{{
-		ConfigurationName: revDeletedConfig.Name,
-		Percent:           100,
-	}}
-	expected := &TrafficConfig{
-		Targets: map[string][]RevisionTarget{},
-		Configurations: map[string]*v1alpha1.Configuration{
-			revDeletedConfig.Name: revDeletedConfig},
-		Revisions: map[string]*v1alpha1.Revision{},
-	}
-	expectedErr := errDeletedRevision(revDeletedConfig.Name)
-	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
-		t.Errorf("Expected error %v, saw %v", expectedErr, err)
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
-	}
-}
-
 func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		RevisionName: unreadyRev.Name,
@@ -547,7 +525,7 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 	}
 }
 
-func TestBuildTrafficConfiguration_FailedAndConfigurations(t *testing.T) {
+func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		ConfigurationName: failedConfig.Name,
 		Percent:           50,
@@ -680,6 +658,7 @@ func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.
 
 func getTestEmptyConfig(name string) *v1alpha1.Configuration {
 	config := getTestConfig(name + "-config")
+	config.Status.InitializeConditions()
 	return config
 }
 
@@ -701,6 +680,7 @@ func getTestUnreadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revis
 func getTestFailedConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revision) {
 	config := getTestConfig(name + "-config")
 	rev := getTestRevForConfig(config, name+"-revision")
+	config.Status.SetLatestCreatedRevisionName(rev.Name)
 	config.Status.MarkLatestCreatedFailed(rev.Name, "Permanently failed")
 	rev.Status.MarkContainerMissing("Should have used ko")
 	return config, rev

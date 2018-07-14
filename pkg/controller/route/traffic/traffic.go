@@ -156,8 +156,8 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	if err != nil {
 		return err
 	}
-	if err = checkConfiguration(config); err != nil {
-		return err
+	if config.Status.LatestReadyRevisionName == "" {
+		return errUnreadyConfiguration(config)
 	}
 	rev, err := t.getRevision(config.Status.LatestReadyRevisionName)
 	if err != nil {
