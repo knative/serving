@@ -95,6 +95,7 @@ func setUp() {
 	// Add these test objects to the informers.
 	objs := []runtime.Object{
 		unreadyConfig, unreadyRev,
+		failedConfig, failedRev,
 		inactiveConfig, inactiveRev,
 		revDeletedConfig,
 		emptyConfig,
@@ -509,6 +510,33 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
 	expectedErr := errUnreadyConfiguration(emptyConfig)
+	r := getTestRouteWithTrafficTargets(tts)
+	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
+	if expectedErr.Error() != err.Error() {
+		t.Errorf("Expected error %v, saw %v", expectedErr, err)
+	}
+	if diff := cmp.Diff(expected, tc); diff != "" {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	}
+}
+
+func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		ConfigurationName: emptyConfig.Name,
+		Percent:           50,
+	}, {
+		ConfigurationName: failedConfig.Name,
+		Percent:           50,
+	}}
+	expected := &TrafficConfig{
+		Targets: map[string][]RevisionTarget{},
+		Configurations: map[string]*v1alpha1.Configuration{
+			emptyConfig.Name:  emptyConfig,
+			failedConfig.Name: failedConfig,
+		},
+		Revisions: map[string]*v1alpha1.Revision{},
+	}
+	expectedErr := errUnreadyConfiguration(failedConfig)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
