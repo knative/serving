@@ -23,6 +23,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func TestGetConditionStatus_Missing(t *testing.T) {
+	err := errMissingRevision("missing-rev")
+	want := corev1.ConditionFalse
+	if got := err.GetConditionStatus(); got != want {
+		t.Errorf("wanted %v, got %v", want, got)
+	}
+}
+
 func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 	err := errMissingRevision("missing-rev")
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
@@ -43,6 +51,14 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 		}
+	}
+}
+
+func TestGetConditionStatus_Deleted(t *testing.T) {
+	err := errDeletedRevision("missing-rev")
+	want := corev1.ConditionFalse
+	if got := err.GetConditionStatus(); got != want {
+		t.Errorf("wanted %v, got %v", want, got)
 	}
 }
 
@@ -69,8 +85,16 @@ func TestMarkBadTrafficTarget_Deleted(t *testing.T) {
 	}
 }
 
+func TestGetConditionStatus_NotYetReady(t *testing.T) {
+	err := errUnreadyConfiguration(unreadyConfig)
+	want := corev1.ConditionUnknown
+	if got := err.GetConditionStatus(); got != want {
+		t.Errorf("wanted %v, got %v", want, got)
+	}
+}
+
 func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
-	err := errUnreadyConfiguration("i-was-never-ready")
+	err := errUnreadyConfiguration(unreadyConfig)
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)
@@ -83,11 +107,27 @@ func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
 			Type:               condType,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "RevisionMissing",
-			Message:            `Configuration "i-was-never-ready" does not have a LatestReadyRevision.`,
+			Message:            `Configuration "unready-config" does not have a LatestReadyRevision.`,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
 		}
+	}
+}
+
+func TestGetConditionStatus_ConfigFailedToBeReady(t *testing.T) {
+	err := errUnreadyConfiguration(failedConfig)
+	want := corev1.ConditionFalse
+	if got := err.GetConditionStatus(); got != want {
+		t.Errorf("wanted %v, got %v", want, got)
+	}
+}
+
+func TestGetConditionStatus_RevFailedToBeReady(t *testing.T) {
+	err := errUnreadyRevision(failedRev)
+	want := corev1.ConditionFalse
+	if got := err.GetConditionStatus(); got != want {
+		t.Errorf("wanted %v, got %v", want, got)
 	}
 }

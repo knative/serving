@@ -50,9 +50,13 @@ var (
 	// revDeletedConfig has a Ready revision but was deleted.
 	revDeletedConfig *v1alpha1.Configuration
 
-	// unreadyConfig only has unreadyRevision, and it's not ready.
+	// unreadyConfig only has unreadyRev, and it's not ready.
 	unreadyConfig *v1alpha1.Configuration
 	unreadyRev    *v1alpha1.Revision
+
+	// failedConfig only has failedRev, and it fails to be ready.
+	failedConfig *v1alpha1.Configuration
+	failedRev    *v1alpha1.Revision
 
 	// inactiveConfig only has inactiveRevision, and it's not active.
 	inactiveConfig *v1alpha1.Configuration
@@ -76,6 +80,7 @@ func setUp() {
 	emptyConfig = getTestEmptyConfig("empty")
 	revDeletedConfig = getTestConfigWithDeletedRevision("latest-rev-deleted")
 	unreadyConfig, unreadyRev = getTestUnreadyConfig("unready")
+	failedConfig, failedRev = getTestFailedConfig("failed")
 	inactiveConfig, inactiveRev = getTestInactiveConfig("inactive")
 	goodConfig, goodOldRev, goodNewRev = getTestReadyConfig("good")
 	niceConfig, niceOldRev, niceNewRev = getTestReadyConfig("nice")
@@ -461,7 +466,7 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{},
 		Revisions:      map[string]*v1alpha1.Revision{unreadyRev.Name: unreadyRev},
 	}
-	expectedErr := errUnreadyRevision(unreadyRev.Name)
+	expectedErr := errUnreadyRevision(unreadyRev)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -482,7 +487,7 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{unreadyConfig.Name: unreadyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := errUnreadyConfiguration(unreadyConfig.Name)
+	expectedErr := errUnreadyConfiguration(unreadyConfig)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -503,7 +508,7 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{emptyConfig.Name: emptyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := errUnreadyConfiguration(emptyConfig.Name)
+	expectedErr := errUnreadyConfiguration(emptyConfig)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -635,6 +640,14 @@ func getTestUnreadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revis
 	config := getTestConfig(name + "-config")
 	rev := getTestRevForConfig(config, name+"-revision")
 	config.Status.SetLatestCreatedRevisionName(rev.Name)
+	return config, rev
+}
+
+func getTestFailedConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revision) {
+	config := getTestConfig(name + "-config")
+	rev := getTestRevForConfig(config, name+"-revision")
+	config.Status.MarkLatestCreatedFailed(rev.Name, "Permanently failed")
+	rev.Status.MarkContainerMissing("Should have used ko")
 	return config, rev
 }
 

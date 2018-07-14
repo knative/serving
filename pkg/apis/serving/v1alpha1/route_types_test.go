@@ -241,9 +241,20 @@ func TestTargetConfigurationNotYetReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyTarget("Configuration", "i-have-no-ready-revision")
+	r.Status.MarkUnreadyTarget("Configuration", "i-have-no-ready-revision", corev1.ConditionUnknown)
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestTargetConfigurationFailedToBeReadyFlow(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkUnreadyTarget("Configuration", "i-have-no-ready-revision", corev1.ConditionFalse)
+	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
 func checkConditionSucceededRoute(rs RouteStatus, rct RouteConditionType, t *testing.T) {

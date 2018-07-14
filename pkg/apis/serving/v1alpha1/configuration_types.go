@@ -181,7 +181,6 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	if new == nil {
 		return
 	}
-
 	t := new.Type
 	var conditions []ConfigurationCondition
 	for _, cond := range cs.Conditions {

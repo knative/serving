@@ -262,10 +262,10 @@ func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
 	rs.markTrafficNotAssigned(corev1.ConditionUnknown, "Unknown", msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyTarget(kind string, name string) {
+func (rs *RouteStatus) MarkUnreadyTarget(kind string, name string, status corev1.ConditionStatus) {
 	reason := fmt.Sprintf("RevisionMissing")
 	msg := fmt.Sprintf("%s %q does not have a LatestReadyRevision.", kind, name)
-	rs.markTrafficNotAssigned(corev1.ConditionUnknown, reason, msg)
+	rs.markTrafficNotAssigned(status, reason, msg)
 }
 
 func (rs *RouteStatus) MarkDeletedLatestRevisionTarget(configName string) {

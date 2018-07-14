@@ -81,6 +81,43 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Key:     "default/first-reconcile",
 	}, {
+		Name: "configuration permanently failed",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "first-reconcile", "permanently-failed", nil),
+			simpleFailedConfig("default", "permanently-failed"),
+			simpleFailedRevision("default",
+				// Use the Revision name from the config.
+				simpleFailedConfig("default", "permanently-failed").Status.LatestCreatedRevisionName,
+			),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "permanently-failed", nil)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: addConfigLabel(
+				simpleFailedConfig("default", "permanently-failed"),
+				// The Route controller attaches our label to this Configuration.
+				"serving.knative.dev/route", "first-reconcile",
+			),
+		}, {
+			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
+				Domain: "first-reconcile.default.example.com",
+				Conditions: []v1alpha1.RouteCondition{{
+					Type:    v1alpha1.RouteConditionAllTrafficAssigned,
+					Status:  corev1.ConditionFalse,
+					Reason:  "RevisionMissing",
+					Message: `Configuration "permanently-failed" does not have a LatestReadyRevision.`,
+				}, {
+					Type:    v1alpha1.RouteConditionReady,
+					Status:  corev1.ConditionFalse,
+					Reason:  "RevisionMissing",
+					Message: `Configuration "permanently-failed" does not have a LatestReadyRevision.`,
+				}},
+			}),
+		}},
+		WantErr: true,
+		Key:     "default/first-reconcile",
+	}, {
 		Name:    "failure updating route status",
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -1509,6 +1546,28 @@ func simpleNotReadyConfig(namespace, name string) *v1alpha1.Configuration {
 	return cfg
 }
 
+func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
+	cfg := &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Generation: 1,
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: corev1.Container{
+						Image: "busybox",
+					},
+				},
+			},
+		},
+	}
+	cfg.Status.InitializeConditions()
+	cfg.Status.MarkLatestCreatedFailed(name+"-00001", "should have used ko")
+	return cfg
+}
+
 func simpleReadyConfig(namespace, name string) *v1alpha1.Configuration {
 	return setLatestReadyRevision(simpleNotReadyConfig(namespace, name))
 }
@@ -1563,7 +1622,22 @@ func simpleNotReadyRevision(namespace, name string) *v1alpha1.Revision {
 		Status: v1alpha1.RevisionStatus{
 			Conditions: []v1alpha1.RevisionCondition{{
 				Type:   v1alpha1.RevisionConditionReady,
-				Status: corev1.ConditionTrue,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	}
+}
+
+func simpleFailedRevision(namespace, name string) *v1alpha1.Revision {
+	return &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Status: v1alpha1.RevisionStatus{
+			Conditions: []v1alpha1.RevisionCondition{{
+				Type:   v1alpha1.RevisionConditionReady,
+				Status: corev1.ConditionFalse,
 			}},
 		},
 	}
