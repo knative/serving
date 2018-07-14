@@ -241,13 +241,12 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 		Type:   RouteConditionAllTrafficAssigned,
 		Status: corev1.ConditionTrue,
 	})
-	rs.checkAndMarkReady()
+	rs.checkAndMarkReadiness()
 }
 
 func (rs *RouteStatus) markTrafficNotAssigned(cond corev1.ConditionStatus, reason, msg string) {
 	for _, condType := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
-		RouteConditionReady,
 	} {
 		rs.setCondition(&RouteCondition{
 			Type:    condType,
@@ -256,6 +255,7 @@ func (rs *RouteStatus) markTrafficNotAssigned(cond corev1.ConditionStatus, reaso
 			Message: msg,
 		})
 	}
+	rs.checkAndMarkReadiness()
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
@@ -286,21 +286,42 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	rs.markTrafficNotAssigned(corev1.ConditionFalse, reason, msg)
 }
 
-func (rs *RouteStatus) checkAndMarkReady() {
+func goodnessRank(c *RouteCondition) int {
+	status := corev1.ConditionUnknown
+	if c != nil {
+		status = c.Status
+	}
+	switch status {
+	case corev1.ConditionTrue:
+		return 2
+	case corev1.ConditionFalse:
+		return 0
+	default: // unknown
+		return 1
+	}
+}
+
+func worseCondition(a *RouteCondition, b *RouteCondition) *RouteCondition {
+	ga, gb := goodnessRank(a), goodnessRank(b)
+	if ga < gb {
+		return a
+	}
+	return b
+}
+
+func (rs *RouteStatus) checkAndMarkReadiness() {
+	worst := &RouteCondition{
+		Type:   RouteConditionReady,
+		Status: corev1.ConditionTrue,
+	}
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
 	} {
 		ata := rs.GetCondition(cond)
-		if ata == nil || ata.Status != corev1.ConditionTrue {
-			return
-		}
+		worst = worseCondition(ata, worst)
 	}
-	rs.markReady()
-}
-
-func (rs *RouteStatus) markReady() {
-	rs.setCondition(&RouteCondition{
-		Type:   RouteConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	// Set RouteConditionReady based on the worst Condition we see.
+	readiness := *worst
+	readiness.Type = RouteConditionReady
+	rs.setCondition(&readiness)
 }
