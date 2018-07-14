@@ -241,7 +241,18 @@ func TestTargetConfigurationNotYetReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyTarget("Configuration", "i-have-no-ready-revision", corev1.ConditionUnknown)
+	r.Status.MarkUnreadyConfig("i-have-no-ready-revision", corev1.ConditionUnknown)
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestUnknownErrorWhenConfiguringTraffic(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkUnknownTrafficError("unknown-error")
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 }
@@ -252,7 +263,29 @@ func TestTargetConfigurationFailedToBeReadyFlow(t *testing.T) {
 	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
 
-	r.Status.MarkUnreadyTarget("Configuration", "i-have-no-ready-revision", corev1.ConditionFalse)
+	r.Status.MarkUnreadyConfig("permanently-failed", corev1.ConditionFalse)
+	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestTargetRevisionNotYetReadyFlow(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkUnreadyRevision("not-yet-ready", corev1.ConditionUnknown)
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkUnreadyRevision("cannot-find-image", corev1.ConditionFalse)
 	checkConditionFailedRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }

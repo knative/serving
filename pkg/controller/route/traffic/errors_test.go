@@ -93,7 +93,7 @@ func TestGetConditionStatus_NotYetReady(t *testing.T) {
 	}
 }
 
-func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
+func TestMarkBadTrafficTarget_ConfigNeverReady(t *testing.T) {
 	err := errUnreadyConfiguration(unreadyConfig)
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
@@ -121,6 +121,29 @@ func TestGetConditionStatus_ConfigFailedToBeReady(t *testing.T) {
 	want := corev1.ConditionFalse
 	if got := err.GetConditionStatus(); got != want {
 		t.Errorf("wanted %v, got %v", want, got)
+	}
+}
+
+func TestMarkBadTrafficTarget_RevisionNeverReady(t *testing.T) {
+	err := errUnreadyRevision(failedRev)
+	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+
+	err.MarkBadTrafficTarget(&r.Status)
+	for _, condType := range []v1alpha1.RouteConditionType{
+		v1alpha1.RouteConditionAllTrafficAssigned,
+		v1alpha1.RouteConditionReady,
+	} {
+		got := r.Status.GetCondition(condType)
+		want := &v1alpha1.RouteCondition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionMissing",
+			Message:            `Revision "failed-revision" is not ready.`,
+			LastTransitionTime: got.LastTransitionTime,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected condition diff (-want +got): %v", diff)
+		}
 	}
 }
 

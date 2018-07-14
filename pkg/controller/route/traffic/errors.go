@@ -58,25 +58,24 @@ func (e *missingTargetError) GetConditionStatus() corev1.ConditionStatus {
 	return corev1.ConditionFalse
 }
 
-type unreadyTargetError struct {
-	kind   string                 // Kind of the traffic target.
-	name   string                 // Name of the target that isn't ready.
-	status corev1.ConditionStatus // Status of the unready target.
+type unreadyConfigError struct {
+	name   string                 // Name of the config that isn't ready.
+	status corev1.ConditionStatus // Status of the unready config.
 }
 
-var _ TargetError = (*unreadyTargetError)(nil)
+var _ TargetError = (*unreadyConfigError)(nil)
 
 // Error implements error.
-func (e *unreadyTargetError) Error() string {
-	return fmt.Sprintf("%s %q referenced in traffic not ready", e.kind, e.name)
+func (e *unreadyConfigError) Error() string {
+	return fmt.Sprintf("Configuration %q referenced in traffic not ready: %v", e.name, e.status)
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *unreadyTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkUnreadyTarget(e.kind, e.name, e.status)
+func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+	rs.MarkUnreadyConfig(e.name, e.status)
 }
 
-func (e *unreadyTargetError) GetConditionStatus() corev1.ConditionStatus {
+func (e *unreadyConfigError) GetConditionStatus() corev1.ConditionStatus {
 	return e.status
 }
 
@@ -101,27 +100,46 @@ func (e *latestRevisionDeletedErr) GetConditionStatus() corev1.ConditionStatus {
 	return corev1.ConditionFalse
 }
 
+type unreadyRevisionError struct {
+	name   string                 // Name of the config that isn't ready.
+	status corev1.ConditionStatus // Status of the unready config.
+}
+
+var _ TargetError = (*unreadyRevisionError)(nil)
+
+// Error implements error.
+func (e *unreadyRevisionError) Error() string {
+	return fmt.Sprintf("Revision %q referenced in traffic not ready: %v", e.name, e.status)
+}
+
+// MarkBadTrafficTarget implements TargetError.
+func (e *unreadyRevisionError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+	rs.MarkUnreadyRevision(e.name, e.status)
+}
+
+func (e *unreadyRevisionError) GetConditionStatus() corev1.ConditionStatus {
+	return e.status
+}
+
 // errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
 func errUnreadyConfiguration(config *v1alpha1.Configuration) TargetError {
 	status := corev1.ConditionUnknown
 	if c := config.Status.GetCondition(v1alpha1.ConfigurationConditionReady); c != nil {
 		status = c.Status
 	}
-	return &unreadyTargetError{
-		kind:   "Configuration",
+	return &unreadyConfigError{
 		name:   config.Name,
 		status: status,
 	}
 }
 
-// errUnreadyConfiguration returns a TargetError for a Revision that is not ready.
+// errUnreadyRevision returns a TargetError for a Revision that is not ready.
 func errUnreadyRevision(rev *v1alpha1.Revision) TargetError {
 	status := corev1.ConditionUnknown
 	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil {
 		status = c.Status
 	}
-	return &unreadyTargetError{
-		kind:   "Revision",
+	return &unreadyRevisionError{
 		name:   rev.Name,
 		status: status,
 	}
