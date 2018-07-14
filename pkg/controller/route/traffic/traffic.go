@@ -20,7 +20,6 @@ import (
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -121,14 +120,10 @@ func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, err
 	return t.revisions[name], nil
 }
 
-// deferTargetError will record a TargetError with the most severe
-// Readiness ConditionStatus to be returned by build().
-//
-// An error with corev1.ConditionFalse status will always trump an
-// error with corev1.ConditionUnknown status, so that we can update
-// Route Status to the best Ready condition of our knowledge.
+// deferTargetError will record a TargetError.  A TargetError with
+// IsFailure()=true will always overwrite a previous TargetError.
 func (t *trafficConfigBuilder) deferTargetError(err TargetError) {
-	if t.deferredTargetErr == nil || err.GetConditionStatus() == corev1.ConditionFalse {
+	if t.deferredTargetErr == nil || err.IsFailure() {
 		t.deferredTargetErr = err
 	}
 }

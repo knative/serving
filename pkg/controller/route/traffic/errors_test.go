@@ -23,10 +23,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestGetConditionStatus_Missing(t *testing.T) {
+func TestIsFailure_Missing(t *testing.T) {
 	err := errMissingRevision("missing-rev")
-	want := corev1.ConditionFalse
-	if got := err.GetConditionStatus(); got != want {
+	want := true
+	if got := err.IsFailure(); got != want {
 		t.Errorf("wanted %v, got %v", want, got)
 	}
 }
@@ -54,10 +54,10 @@ func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 	}
 }
 
-func TestGetConditionStatus_NotYetReady(t *testing.T) {
+func TestIsFailure_NotYetReady(t *testing.T) {
 	err := errUnreadyConfiguration(unreadyConfig)
-	want := corev1.ConditionUnknown
-	if got := err.GetConditionStatus(); got != want {
+	want := false
+	if got := err.IsFailure(); got != want {
 		t.Errorf("wanted %v, got %v", want, got)
 	}
 }
@@ -85,10 +85,10 @@ func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 	}
 }
 
-func TestGetConditionStatus_ConfigFailedToBeReady(t *testing.T) {
+func TestIsFailure_ConfigFailedToBeReady(t *testing.T) {
 	err := errUnreadyConfiguration(failedConfig)
-	want := corev1.ConditionFalse
-	if got := err.GetConditionStatus(); got != want {
+	want := true
+	if got := err.IsFailure(); got != want {
 		t.Errorf("wanted %v, got %v", want, got)
 	}
 }
@@ -139,10 +139,10 @@ func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 	}
 }
 
-func TestGetConditionStatus_RevFailedToBeReady(t *testing.T) {
+func TestIsFailure_RevFailedToBeReady(t *testing.T) {
 	err := errUnreadyRevision(failedRev)
-	want := corev1.ConditionFalse
-	if got := err.GetConditionStatus(); got != want {
+	want := true
+	if got := err.IsFailure(); got != want {
 		t.Errorf("wanted %v, got %v", want, got)
 	}
 }

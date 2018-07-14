@@ -287,26 +287,26 @@ func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
 	rs.markTrafficNotAssigned("Unknown", msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyConfig(name string) {
+func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", name)
 	rs.markTrafficNotAssigned(reason, msg)
 }
 
-func (rs *RouteStatus) MarkFailedConfig(name string) {
+func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Configuration %q fails to have a LatestReadyRevision.", name)
 	rs.markTrafficTargetFailed(reason, msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyRevision(name string) {
-	reason := fmt.Sprintf("RevisionMissing")
+func (rs *RouteStatus) MarkRevisionNotReady(name string) {
+	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Revision %q is not ready.", name)
 	rs.markTrafficNotAssigned(reason, msg)
 }
 
-func (rs *RouteStatus) MarkFailedRevision(name string) {
-	reason := fmt.Sprintf("RevisionMissing")
+func (rs *RouteStatus) MarkRevisionFailed(name string) {
+	reason := "RevisionMissing"
 	msg := fmt.Sprintf("Revision %q fails to be ready.", name)
 	rs.markTrafficTargetFailed(reason, msg)
 }

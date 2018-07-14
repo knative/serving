@@ -31,9 +31,9 @@ type TargetError interface {
 	// to the error case of the traffic target.
 	MarkBadTrafficTarget(rs *v1alpha1.RouteStatus)
 
-	// GetConditionStatus returns corev1.ConditionUnknown or corev1.ConditionFalse
-	// depending on the kind of error we encounter.
-	GetConditionStatus() corev1.ConditionStatus
+	// IsFailure returns whether a TargetError is a true failure, e.g.
+	// a Configuration fails to become ready.
+	IsFailure() bool
 }
 
 type missingTargetError struct {
@@ -54,60 +54,58 @@ func (e *missingTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
 }
 
 // GetConditionStatus implements TargetError.
-func (e *missingTargetError) GetConditionStatus() corev1.ConditionStatus {
-	return corev1.ConditionFalse
+func (e *missingTargetError) IsFailure() bool {
+	return true
 }
 
 type unreadyConfigError struct {
-	name   string                 // Name of the config that isn't ready.
-	status corev1.ConditionStatus // Status of the unready config.
+	name      string // Name of the config that isn't ready.
+	isFailure bool   // True iff target fails to get ready.
 }
 
 var _ TargetError = (*unreadyConfigError)(nil)
 
 // Error implements error.
 func (e *unreadyConfigError) Error() string {
-	return fmt.Sprintf("Configuration %q referenced in traffic not ready: %v", e.name, e.status)
+	return fmt.Sprintf("Configuration '%q' not ready, isFailure=%t", e.name, e.isFailure)
 }
 
 // MarkBadTrafficTarget implements TargetError.
 func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	switch e.status {
-	case corev1.ConditionFalse:
-		rs.MarkFailedConfig(e.name)
-	default:
-		rs.MarkUnreadyConfig(e.name)
+	if e.IsFailure() {
+		rs.MarkConfigurationFailed(e.name)
+	} else {
+		rs.MarkConfigurationNotReady(e.name)
 	}
 }
 
-func (e *unreadyConfigError) GetConditionStatus() corev1.ConditionStatus {
-	return e.status
+func (e *unreadyConfigError) IsFailure() bool {
+	return e.isFailure
 }
 
 type unreadyRevisionError struct {
-	name   string                 // Name of the config that isn't ready.
-	status corev1.ConditionStatus // Status of the unready config.
+	name      string // Name of the config that isn't ready.
+	isFailure bool   // True iff the Revision fails to become ready.
 }
 
 var _ TargetError = (*unreadyRevisionError)(nil)
 
 // Error implements error.
 func (e *unreadyRevisionError) Error() string {
-	return fmt.Sprintf("Revision %q referenced in traffic not ready: %v", e.name, e.status)
+	return fmt.Sprintf("Revision %q not ready, isFailure=%t", e.name, e.isFailure)
 }
 
 // MarkBadTrafficTarget implements TargetError.
 func (e *unreadyRevisionError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	switch e.status {
-	case corev1.ConditionFalse:
-		rs.MarkFailedRevision(e.name)
-	default:
-		rs.MarkUnreadyRevision(e.name)
+	if e.IsFailure() {
+		rs.MarkRevisionFailed(e.name)
+	} else {
+		rs.MarkRevisionNotReady(e.name)
 	}
 }
 
-func (e *unreadyRevisionError) GetConditionStatus() corev1.ConditionStatus {
-	return e.status
+func (e *unreadyRevisionError) IsFailure() bool {
+	return e.isFailure
 }
 
 // errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
@@ -117,8 +115,8 @@ func errUnreadyConfiguration(config *v1alpha1.Configuration) TargetError {
 		status = c.Status
 	}
 	return &unreadyConfigError{
-		name:   config.Name,
-		status: status,
+		name:      config.Name,
+		isFailure: status == corev1.ConditionFalse,
 	}
 }
 
@@ -129,8 +127,8 @@ func errUnreadyRevision(rev *v1alpha1.Revision) TargetError {
 		status = c.Status
 	}
 	return &unreadyRevisionError{
-		name:   rev.Name,
-		status: status,
+		name:      rev.Name,
+		isFailure: status == corev1.ConditionFalse,
 	}
 }
 
