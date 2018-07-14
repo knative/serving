@@ -81,8 +81,8 @@ func (e *latestRevisionDeletedErr) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus
 	rs.MarkDeletedLatestRevisionTarget(e.name)
 }
 
-// errEmptyConfiguration returns a TargetError for a Configuration that never has a LatestCreatedRevisionName.
-func errEmptyConfiguration(configName string) TargetError {
+// errUnreadyConfiguration returns a TargetError for a Configuration that never has a LatestCreatedRevisionName.
+func errUnreadyConfiguration(configName string) TargetError {
 	return &unreadyConfigTargetError{name: configName}
 }
 
@@ -121,7 +121,7 @@ func checkConfiguration(c *v1alpha1.Configuration) TargetError {
 	cs := c.Status
 	if cs.LatestCreatedRevisionName == "" {
 		// Configuration has not any Revision.
-		return errEmptyConfiguration(c.Name)
+		return errUnreadyConfiguration(c.Name)
 	}
 	if cs.LatestReadyRevisionName == "" {
 		cond := cs.GetCondition(v1alpha1.ConfigurationConditionReady)
@@ -129,7 +129,7 @@ func checkConfiguration(c *v1alpha1.Configuration) TargetError {
 		switch cond.Status {
 		case corev1.ConditionUnknown:
 			// Configuration was never Ready.
-			return errNotRoutableRevision(cs.LatestCreatedRevisionName)
+			return errUnreadyConfiguration(c.Name)
 		case corev1.ConditionFalse:
 			// ConfigurationConditionReady was set before, but the
 			// LatestCreatedRevisionName was deleted.

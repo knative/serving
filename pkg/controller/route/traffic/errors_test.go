@@ -70,7 +70,7 @@ func TestMarkBadTrafficTarget_Deleted(t *testing.T) {
 }
 
 func TestMarkBadTrafficTarget_NeverReady(t *testing.T) {
-	err := errEmptyConfiguration("i-was-never-ready")
+	err := errUnreadyConfiguration("i-was-never-ready")
 	r := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 
 	err.MarkBadTrafficTarget(&r.Status)

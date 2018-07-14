@@ -482,7 +482,7 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{unreadyConfig.Name: unreadyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := errNotRoutableRevision(unreadyRev.Name)
+	expectedErr := errUnreadyConfiguration(unreadyConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
@@ -503,7 +503,7 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 		Configurations: map[string]*v1alpha1.Configuration{emptyConfig.Name: emptyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
-	expectedErr := errEmptyConfiguration(emptyConfig.Name)
+	expectedErr := errUnreadyConfiguration(emptyConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
 	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
 	if expectedErr.Error() != err.Error() {
