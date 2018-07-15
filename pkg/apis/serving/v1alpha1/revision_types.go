@@ -434,7 +434,7 @@ func (rs *RevisionStatus) ReadyToTearDownResources() bool {
 		if cond.Status != corev1.ConditionTrue {
 			return false
 		}
-		return time.Now().After(cond.LastTransitionTime.Add(10 * time.Second))
+		return time.Now().After(cond.LastTransitionTime.Add(20 * time.Second))
 	}
 	return false
 }
