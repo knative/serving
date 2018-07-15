@@ -496,18 +496,17 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	}
 
 	// Zero-to-one and one-to-zero transitions.
-	ss := rev.Spec.ServingState
-	teardown := rev.Status.ReadyToTearDownResources()
-	switch {
-	case ss == v1alpha1.RevisionServingStateActive, ss == v1alpha1.RevisionServingStateToReserve, (ss == v1alpha1.RevisionServingStateReserve && !teardown):
-		if *desiredDeployment.Spec.Replicas == 0 {
-			logger.Infof("Scaling Deployment to 1")
-			*desiredDeployment.Spec.Replicas = 1
-		}
-	case (ss == v1alpha1.RevisionServingStateReserve && teardown), ss == v1alpha1.RevisionServingStateRetired:
+	retired := rev.Spec.ServingState == v1alpha1.RevisionServingStateRetired
+	scaleToZero := rev.Status.ReadyToTearDownResources() || retired
+	if scaleToZero {
 		if *desiredDeployment.Spec.Replicas != 0 {
 			logger.Infof("Scaling Deployment to 0")
 			*desiredDeployment.Spec.Replicas = 0
+		}
+	} else {
+		if *desiredDeployment.Spec.Replicas == 0 {
+			logger.Infof("Scaling Deployment to 1")
+			*desiredDeployment.Spec.Replicas = 1
 		}
 	}
 

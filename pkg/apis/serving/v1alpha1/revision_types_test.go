@@ -81,13 +81,13 @@ func TestReadyToTearDownResources(t *testing.T) {
 		status                   RevisionStatus
 		readyToTearDownResources bool
 	}{{
-		name: "No Reserve status should be false",
+		name: "No Reserve condition should be false",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{}},
 		},
 		readyToTearDownResources: false,
 	}, {
-		name: "Reserve status now should be false",
+		name: "Reserve condition now should be false",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:               RevisionConditionReserve,
@@ -97,15 +97,35 @@ func TestReadyToTearDownResources(t *testing.T) {
 		},
 		readyToTearDownResources: false,
 	}, {
-		name: "Reserve status +11 seconds should be true",
+		name: "Reserve condition +21 seconds should be true",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:               RevisionConditionReserve,
 				Status:             corev1.ConditionTrue,
-				LastTransitionTime: metav1.NewTime(tZero.Add(11 * time.Second)),
+				LastTransitionTime: metav1.NewTime(tZero.Add(-21 * time.Second)),
+			}},
+		},
+		readyToTearDownResources: true,
+	}, {
+		name: "Idle condition now should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionIdle,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: tZero,
 			}},
 		},
 		readyToTearDownResources: false,
+	}, {
+		name: "Idle condition +61 seconds should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionIdle,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(tZero.Add(-61 * time.Second)),
+			}},
+		},
+		readyToTearDownResources: true,
 	}}
 
 	for _, tc := range cases {

@@ -430,10 +430,17 @@ func (rs *RevisionStatus) MarkUnReserve() {
 // ServingState Reserve right away and the Revision controller waits at
 // least 10 seconds before tearing down the underlying resources.
 func (rs *RevisionStatus) ReadyToTearDownResources() bool {
-	if cond := rs.GetCondition(RevisionConditionReserve); cond != nil {
-		if cond.Status != corev1.ConditionTrue {
-			return false
+	// Tear down after 1 minute of Idle.
+	// This ensures resources are reclaimed even if Revision has been
+	// removed from the Route before it was transitioned to Reserve
+	// state.
+	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
+		if time.Now().After(cond.LastTransitionTime.Add(time.Minute)) {
+			return true
 		}
+	}
+	// Tear down after 20 seconds of Reserve
+	if cond := rs.GetCondition(RevisionConditionReserve); cond != nil {
 		return time.Now().After(cond.LastTransitionTime.Add(20 * time.Second))
 	}
 	return false
