@@ -135,6 +135,13 @@ type ServiceStatus struct {
 	Domain string `json:"domain,omitempty"`
 
 	// From RouteStatus.
+	// DomainInternal holds the top-level domain that will distribute traffic over the provided
+	// targets from inside the cluster. It generally has the form
+	// {route-name}.{route-namespace}.svc.cluster.local
+	// +optional
+	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// From RouteStatus.
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// fronts this Route, this service would be an appropriate ingress target
 	// for targeting the revision.
@@ -281,6 +288,7 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	ss.Domain = rs.Domain
+	ss.DomainInternal = rs.DomainInternal
 	ss.ServiceName = rs.ServiceName
 	ss.Traffic = rs.Traffic
 

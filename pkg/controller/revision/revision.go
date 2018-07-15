@@ -501,6 +501,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
+	rev.Status.DomainInternal = resourcenames.K8sServiceFullname(rev)
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
 	switch rev.Spec.ServingState {

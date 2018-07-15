@@ -131,6 +131,12 @@ type RouteStatus struct {
 	// +optional
 	Domain string `json:"domain,omitempty"`
 
+	// DomainInternal holds the top-level domain that will distribute traffic over the provided
+	// targets from inside the cluster. It generally has the form
+	// {route-name}.{route-namespace}.svc.cluster.local
+	// +optional
+	DomainInternal string `json:"domainInternal,omitempty"`
+
 	// ServiceName holds the name of a core Kubernetes Service resource that
 	// fronts this Route, this service would be an appropriate ingress target
 	// for targeting the revision.

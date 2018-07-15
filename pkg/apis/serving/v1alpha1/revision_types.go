@@ -189,6 +189,12 @@ type RevisionStatus struct {
 	// +optional
 	ServiceName string `json:"serviceName,omitempty"`
 
+	// DomainInternal holds the top-level domain that will distribute traffic
+	// over the provided targets from inside the cluster. It generally has the
+	// form {revision-name}.{revision-namespace}.svc.cluster.local
+	// +optional
+	DomainInternal string `json:"domainInternal,omitempty"`
+
 	// Conditions communicates information about ongoing/complete
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
