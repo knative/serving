@@ -30,6 +30,10 @@ type TargetError interface {
 	// MarkBadTrafficTarget marks a RouteStatus with Condition corresponding
 	// to the error case of the traffic target.
 	MarkBadTrafficTarget(rs *v1alpha1.RouteStatus)
+
+	// IsFailure returns whether a TargetError is a true failure, e.g.
+	// a Configuration fails to become ready.
+	IsFailure() bool
 }
 
 type missingTargetError struct {
@@ -49,41 +53,83 @@ func (e *missingTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
 	rs.MarkMissingTrafficTarget(e.kind, e.name)
 }
 
-type unreadyConfigTargetError struct {
-	name string // Name of the Configuration that has no Ready target.
+// IsFailure implements TargetError.
+func (e *missingTargetError) IsFailure() bool {
+	return true
 }
 
-var _ TargetError = (*unreadyConfigTargetError)(nil)
+type unreadyConfigError struct {
+	name      string // Name of the config that isn't ready.
+	isFailure bool   // True iff target fails to get ready.
+}
+
+var _ TargetError = (*unreadyConfigError)(nil)
 
 // Error implements error.
-func (e *unreadyConfigTargetError) Error() string {
-	return fmt.Sprintf("Configuraion %q referenced in traffic not ready", e.name)
+func (e *unreadyConfigError) Error() string {
+	return fmt.Sprintf("Configuration '%q' not ready, isFailure=%t", e.name, e.isFailure)
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *unreadyConfigTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkUnreadyConfigurationTarget(e.name)
+func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+	if e.IsFailure() {
+		rs.MarkConfigurationFailed(e.name)
+	} else {
+		rs.MarkConfigurationNotReady(e.name)
+	}
 }
 
-type latestRevisionDeletedErr struct {
-	name string // name of the Configuration whose LatestReadyResivion is deletd.
+func (e *unreadyConfigError) IsFailure() bool {
+	return e.isFailure
 }
 
-var _ TargetError = (*latestRevisionDeletedErr)(nil)
+type unreadyRevisionError struct {
+	name      string // Name of the config that isn't ready.
+	isFailure bool   // True iff the Revision fails to become ready.
+}
+
+var _ TargetError = (*unreadyRevisionError)(nil)
 
 // Error implements error.
-func (e *latestRevisionDeletedErr) Error() string {
-	return fmt.Sprintf("Configuration %q has its LatestReadyResivion deleted", e.name)
+func (e *unreadyRevisionError) Error() string {
+	return fmt.Sprintf("Revision %q not ready, isFailure=%t", e.name, e.isFailure)
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *latestRevisionDeletedErr) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
-	rs.MarkDeletedLatestRevisionTarget(e.name)
+func (e *unreadyRevisionError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+	if e.IsFailure() {
+		rs.MarkRevisionFailed(e.name)
+	} else {
+		rs.MarkRevisionNotReady(e.name)
+	}
 }
 
-// errEmptyConfiguration returns a TargetError for a Configuration that never has a LatestCreatedRevisionName.
-func errEmptyConfiguration(configName string) TargetError {
-	return &unreadyConfigTargetError{name: configName}
+func (e *unreadyRevisionError) IsFailure() bool {
+	return e.isFailure
+}
+
+// errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
+func errUnreadyConfiguration(config *v1alpha1.Configuration) TargetError {
+	status := corev1.ConditionUnknown
+	if c := config.Status.GetCondition(v1alpha1.ConfigurationConditionReady); c != nil {
+		status = c.Status
+	}
+	return &unreadyConfigError{
+		name:      config.Name,
+		isFailure: status == corev1.ConditionFalse,
+	}
+}
+
+// errUnreadyRevision returns a TargetError for a Revision that is not ready.
+func errUnreadyRevision(rev *v1alpha1.Revision) TargetError {
+	status := corev1.ConditionUnknown
+	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil {
+		status = c.Status
+	}
+	return &unreadyRevisionError{
+		name:      rev.Name,
+		isFailure: status == corev1.ConditionFalse,
+	}
 }
 
 // errMissingConfiguration returns a TargetError for a Configuration what does not exist.
@@ -100,41 +146,4 @@ func errMissingRevision(name string) TargetError {
 		kind: "Revision",
 		name: name,
 	}
-}
-
-// errNotRoutableRevision returns a TargetError for a Revision that is
-// neither Ready nor Inactive.  The spec doesn't have a special case for this
-// kind of error, so we are using RevisionMissing here.
-func errNotRoutableRevision(name string) TargetError {
-	return &missingTargetError{
-		kind: "Revision",
-		name: name,
-	}
-}
-
-// errDeletedRevision returns ad TargetError for Configuration whose latest Revision is deleted.
-func errDeletedRevision(configName string) TargetError {
-	return &latestRevisionDeletedErr{name: configName}
-}
-
-func checkConfiguration(c *v1alpha1.Configuration) TargetError {
-	cs := c.Status
-	if cs.LatestCreatedRevisionName == "" {
-		// Configuration has not any Revision.
-		return errEmptyConfiguration(c.Name)
-	}
-	if cs.LatestReadyRevisionName == "" {
-		cond := cs.GetCondition(v1alpha1.ConfigurationConditionReady)
-		// Since LatestCreatedRevisionName is already set, cond isn't nil.
-		switch cond.Status {
-		case corev1.ConditionUnknown:
-			// Configuration was never Ready.
-			return errNotRoutableRevision(cs.LatestCreatedRevisionName)
-		case corev1.ConditionFalse:
-			// ConfigurationConditionReady was set before, but the
-			// LatestCreatedRevisionName was deleted.
-			return errDeletedRevision(c.Name)
-		}
-	}
-	return nil
 }

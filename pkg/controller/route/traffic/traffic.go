@@ -120,6 +120,14 @@ func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, err
 	return t.revisions[name], nil
 }
 
+// deferTargetError will record a TargetError.  A TargetError with
+// IsFailure()=true will always overwrite a previous TargetError.
+func (t *trafficConfigBuilder) deferTargetError(err TargetError) {
+	if t.deferredTargetErr == nil || err.IsFailure() {
+		t.deferredTargetErr = err
+	}
+}
+
 func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 	var err error
 	if tt.RevisionName != "" {
@@ -127,10 +135,10 @@ func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) erro
 	} else if tt.ConfigurationName != "" {
 		err = t.addConfigurationTarget(tt)
 	}
-	if targetErr, ok := err.(TargetError); err != nil && ok {
-		// Defer target errors, as we still want to compile a list
-		// of all referred targets, including missing ones.
-		t.deferredTargetErr = targetErr
+	if err, ok := err.(TargetError); err != nil && ok {
+		// Defer target errors, as we still want to compile a list of
+		// all referred targets, including missing ones.
+		t.deferTargetError(err)
 		return nil
 	}
 	return err
@@ -143,8 +151,8 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	if err != nil {
 		return err
 	}
-	if err = checkConfiguration(config); err != nil {
-		return err
+	if config.Status.LatestReadyRevisionName == "" {
+		return errUnreadyConfiguration(config)
 	}
 	rev, err := t.getRevision(config.Status.LatestReadyRevisionName)
 	if err != nil {
@@ -165,7 +173,7 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 		return err
 	}
 	if !rev.Status.IsRoutable() {
-		return errNotRoutableRevision(rev.Name)
+		return errUnreadyRevision(rev)
 	}
 	target := RevisionTarget{
 		TrafficTarget: *tt,

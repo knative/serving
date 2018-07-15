@@ -244,7 +244,32 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
+func (rs *RouteStatus) markTrafficTargetNotReady(reason, msg string) {
+	rs.setCondition(&RouteCondition{
+		Type:    RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: msg,
+	})
+	// TODO(tcnghia): when we start with new RouteConditionReady every revision,
+	// uncomment the short-circuiting below.
+	//
+	// // Do not downgrade Ready condition.
+	// if c := rs.GetCondition(RouteConditionReady); c != nil && c.Status == corev1.ConditionFalse {
+	// 	return
+	// }
+	//
+	// For now, the following is harmless because RouteConditionAllTrafficAssigned
+	// is the only condition RouteConditionReady depends on.
+	rs.setCondition(&RouteCondition{
+		Type:    RouteConditionReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: msg,
+	})
+}
+
+func (rs *RouteStatus) markTrafficTargetFailed(reason, msg string) {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
 		RouteConditionReady,
@@ -259,25 +284,37 @@ func (rs *RouteStatus) markTrafficNotAssigned(reason, msg string) {
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	rs.markTrafficNotAssigned("Unknown", msg)
+	rs.markTrafficTargetNotReady("Unknown", msg)
 }
 
-func (rs *RouteStatus) MarkUnreadyConfigurationTarget(configName string) {
+func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", configName)
-	rs.markTrafficNotAssigned(reason, msg)
+	msg := fmt.Sprintf("Configuration %q is waiting for a Revision to become ready.", name)
+	rs.markTrafficTargetNotReady(reason, msg)
 }
 
-func (rs *RouteStatus) MarkDeletedLatestRevisionTarget(configName string) {
+func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Latest Revision of Configuration %q is deleted.", configName)
-	rs.markTrafficNotAssigned(reason, msg)
+	msg := fmt.Sprintf("Configuration %q does not have any ready Revision.", name)
+	rs.markTrafficTargetFailed(reason, msg)
+}
+
+func (rs *RouteStatus) MarkRevisionNotReady(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Revision %q is not yet ready.", name)
+	rs.markTrafficTargetNotReady(reason, msg)
+}
+
+func (rs *RouteStatus) MarkRevisionFailed(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Revision %q failed to become ready.", name)
+	rs.markTrafficTargetFailed(reason, msg)
 }
 
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	reason := kind + "Missing"
 	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
-	rs.markTrafficNotAssigned(reason, msg)
+	rs.markTrafficTargetFailed(reason, msg)
 }
 
 func (rs *RouteStatus) checkAndMarkReady() {
