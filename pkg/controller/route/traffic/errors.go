@@ -53,7 +53,7 @@ func (e *missingTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
 	rs.MarkMissingTrafficTarget(e.kind, e.name)
 }
 
-// GetConditionStatus implements TargetError.
+// IsFailure implements TargetError.
 func (e *missingTargetError) IsFailure() bool {
 	return true
 }

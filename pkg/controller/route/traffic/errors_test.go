@@ -76,7 +76,7 @@ func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 			Type:               condType,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "RevisionMissing",
-			Message:            `Configuration "unready-config" does not have a LatestReadyRevision.`,
+			Message:            `Configuration "unready-config" is waiting for a Revision to become ready.`,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -107,7 +107,7 @@ func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 			Type:               condType,
 			Status:             corev1.ConditionFalse,
 			Reason:             "RevisionMissing",
-			Message:            `Configuration "failed-config" fails to have a LatestReadyRevision.`,
+			Message:            `Configuration "failed-config" does not have any ready Revision.`,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -130,7 +130,7 @@ func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 			Type:               condType,
 			Status:             corev1.ConditionFalse,
 			Reason:             "RevisionMissing",
-			Message:            `Revision "failed-revision" fails to be ready.`,
+			Message:            `Revision "failed-revision" failed to become ready.`,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -161,7 +161,7 @@ func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 			Type:               condType,
 			Status:             corev1.ConditionUnknown,
 			Reason:             "RevisionMissing",
-			Message:            `Revision "unready-revision" is not ready.`,
+			Message:            `Revision "unready-revision" is not yet ready.`,
 			LastTransitionTime: got.LastTransitionTime,
 		}
 		if diff := cmp.Diff(want, got); diff != "" {

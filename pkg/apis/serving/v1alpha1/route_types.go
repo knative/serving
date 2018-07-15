@@ -289,31 +289,25 @@ func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
 
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q does not have a LatestReadyRevision.", name)
+	msg := fmt.Sprintf("Configuration %q is waiting for a Revision to become ready.", name)
 	rs.markTrafficTargetNotReady(reason, msg)
 }
 
 func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Configuration %q fails to have a LatestReadyRevision.", name)
+	msg := fmt.Sprintf("Configuration %q does not have any ready Revision.", name)
 	rs.markTrafficTargetFailed(reason, msg)
 }
 
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Revision %q is not ready.", name)
+	msg := fmt.Sprintf("Revision %q is not yet ready.", name)
 	rs.markTrafficTargetNotReady(reason, msg)
 }
 
 func (rs *RouteStatus) MarkRevisionFailed(name string) {
 	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Revision %q fails to be ready.", name)
-	rs.markTrafficTargetFailed(reason, msg)
-}
-
-func (rs *RouteStatus) MarkDeletedLatestRevisionTarget(configName string) {
-	reason := "RevisionMissing"
-	msg := fmt.Sprintf("Latest Revision of Configuration %q is deleted.", configName)
+	msg := fmt.Sprintf("Revision %q failed to become ready.", name)
 	rs.markTrafficTargetFailed(reason, msg)
 }
 
