@@ -67,7 +67,6 @@ var (
 	servingConfig         string
 	servingRevision       string
 	servingAutoscalerPort string
-	currentScale          int32
 	logger                *zap.SugaredLogger
 
 	// Revision-level configuration
@@ -158,32 +157,37 @@ func scaleTo(podCount int32) {
 	statsReporter.Report(autoscaler.ActualPodCountM, (float64)(deployment.Status.ReadyReplicas))
 
 	if *deployment.Spec.Replicas == podCount {
-		currentScale = podCount
 		return
 	}
 
-	logger.Infof("Scaling from %v to %v", currentScale, podCount)
 	revisionClient := servingClient.ServingV1alpha1().Revisions(servingNamespace)
 	revision, err := revisionClient.Get(servingRevision, metav1.GetOptions{})
 	if err != nil {
 		logger.Errorf("Error getting Revision %q: %s", servingRevision, zap.Error(err))
 	}
 
-	// Revision serving state should be ToReserve
+	// Revision serving state should be ToReserve or Reserve
 	if podCount == 0 {
+		switch revision.Spec.ServingState {
+		case v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
+			// Nothing to do
+			return
+		default:
+		}
 		logger.Infof("Transitioning Revision to serving state ToReserve from %v.", revision.Spec.ServingState)
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
 		_, err = revisionClient.Update(revision)
 		if err != nil {
 			logger.Errorf("Error updating Revision %q: %s", servingRevision, zap.Error(err))
+			// We will try again with the next scaleTo(0) call
+			return
 		}
-		currentScale = 0
 		return
 	}
 
 	// Revision serving state should be Active
 	if revision.Spec.ServingState != v1alpha1.RevisionServingStateActive {
-		logger.Info("Transitioning Revision to serving state Active from %v.", revision.Spec.ServingState)
+		logger.Infof("Transitioning Revision to serving state Active from %v.", revision.Spec.ServingState)
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
 		revision, err = revisionClient.Update(revision)
 		if err != nil {
@@ -191,13 +195,13 @@ func scaleTo(podCount int32) {
 		}
 	}
 
+	logger.Infof("Scaling to %v", podCount)
 	deployment.Spec.Replicas = &podCount
 	_, err = dc.Update(deployment)
 	if err != nil {
 		logger.Errorf("Error updating Deployment %q: %s", servingDeployment, err)
 	}
 	logger.Info("Successfully scaled.")
-	currentScale = podCount
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {

@@ -112,26 +112,24 @@ func (agg *perPodAggregation) calculateAverage() float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*Config
-	stats                        map[statKey]Stat
-	statsMutex                   sync.Mutex
-	model                        v1alpha1.RevisionRequestConcurrencyModelType
-	panicking                    bool
-	panicTime                    *time.Time
-	maxPanicPods                 float64
-	reporter                     StatsReporter
-	lastRequestTime              time.Time
-	scaleToZeroThresholdExceeded bool
+	stats           map[statKey]Stat
+	statsMutex      sync.Mutex
+	model           v1alpha1.RevisionRequestConcurrencyModelType
+	panicking       bool
+	panicTime       *time.Time
+	maxPanicPods    float64
+	reporter        StatsReporter
+	lastRequestTime time.Time
 }
 
 // New creates a new instance of autoscaler
 func New(config *Config, model v1alpha1.RevisionRequestConcurrencyModelType, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		Config:                       config,
-		model:                        model,
-		stats:                        make(map[statKey]Stat),
-		reporter:                     reporter,
-		lastRequestTime:              time.Now(),
-		scaleToZeroThresholdExceeded: false,
+		Config:          config,
+		model:           model,
+		stats:           make(map[statKey]Stat),
+		reporter:        reporter,
+		lastRequestTime: time.Now(),
 	}
 }
 
@@ -188,7 +186,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			// actually contains requests
 			if a.lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
 				a.lastRequestTime = *stat.Time
-				a.scaleToZeroThresholdExceeded = false
 			}
 		} else {
 			// Drop metrics after 60 seconds
@@ -197,9 +194,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	}
 
 	// Scale to zero if the last request is from too long ago
-	if !a.scaleToZeroThresholdExceeded && a.lastRequestTime.Add(a.ScaleToZeroThreshold).Before(now) {
+	if a.lastRequestTime.Add(a.ScaleToZeroThreshold).Before(now) {
 		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
-		a.scaleToZeroThresholdExceeded = true
 		return 0, true
 	}
 
