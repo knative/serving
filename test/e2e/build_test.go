@@ -55,7 +55,6 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to create Route and Configuration with build: %v", err)
 	}
 	if _, err := clients.Routes.Create(test.Route(test.Flags.Namespace, names)); err != nil {
-
 		t.Fatalf("Failed to create Route and Configuration with build: %v", err)
 	}
 
@@ -73,12 +72,12 @@ func TestBuildAndServe(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText")
-	if err != nil {
+	if err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText"); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}
 
-	// Get latest revision's Build, and check that the Build was successful.
+	// Get Configuration's latest ready Revision's Build, and check that the Build was successful.
+	logger.Infof("Revision is ready and serving, checking Build status.")
 	config, err = clients.Configs.Get(config.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
@@ -88,6 +87,8 @@ func TestBuildAndServe(t *testing.T) {
 		t.Fatalf("Failed to get latest Revision: %v", err)
 	}
 	buildName := rev.Spec.BuildName
+	logger.Infof("Latest ready revision is %q", rev.Name)
+	logger.Infof("Revision's Build is %q", buildName)
 	b, err := clients.Builds.Get(buildName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get build for latest revision: %v", err)
