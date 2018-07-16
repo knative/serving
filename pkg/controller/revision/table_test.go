@@ -17,7 +17,6 @@ limitations under the License.
 package revision
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -113,11 +112,7 @@ func TestReconcile(t *testing.T) {
 				// After the first reconciliation of a Revision the status looks like this.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "first-reconcile", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "first-reconcile", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -158,11 +153,7 @@ func TestReconcile(t *testing.T) {
 				// After the first reconciliation of a Revision the status looks like this.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-status-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-status-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -240,11 +231,7 @@ func TestReconcile(t *testing.T) {
 				// After the first reconciliation of a Revision the status looks like this.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "create-user-service-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "create-user-service-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -286,10 +273,6 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL:      "http://logger.io/test-uid",
 					ServiceName: svc("foo", "create-as-deploy-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "create-as-deploy-failure", "Active", "busybox").Name,
-					),
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -330,10 +313,6 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL:      "http://logger.io/test-uid",
 					ServiceName: svc("foo", "create-as-svc-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "create-as-svc-failure", "Active", "busybox").Name,
-					),
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -361,11 +340,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "stable-reconcile", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-reconcile", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "stable-reconcile", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -401,11 +376,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "deactivate", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deactivate", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "deactivate", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -433,11 +404,7 @@ func TestReconcile(t *testing.T) {
 				// After reconciliation, the status will change to reflect that this is being Deactivated.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deactivate", "Reserve", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "deactivate", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -478,11 +445,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -524,11 +487,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "update-user-deploy-failure", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -556,11 +515,7 @@ func TestReconcile(t *testing.T) {
 				// After reconciliation, the status will change to reflect that this is being Deactivated.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-deploy-failure", "Reserve", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-user-deploy-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -595,11 +550,7 @@ func TestReconcile(t *testing.T) {
 				// The Revision status matches that of a properly deactivated Revision.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-deactivation", "Reserve", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "stable-deactivation", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -633,11 +584,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "retire", "Retired", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "retire", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "retire", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -665,11 +612,7 @@ func TestReconcile(t *testing.T) {
 				// After reconciliation, the status will change to reflect that this is being Retired.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "retire", "Retired", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "retire", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -710,11 +653,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "delete-user-deploy-failure", "Retired", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "delete-user-deploy-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -756,11 +695,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "delete-user-svc-failure", "Retired", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "delete-user-svc-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -801,11 +736,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "delete-as-deploy-failure", "Retired", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "delete-as-deploy-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "delete-as-deploy-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -845,11 +776,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "delete-as-svc-failure", "Retired", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "delete-as-svc-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "delete-as-svc-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -884,11 +811,7 @@ func TestReconcile(t *testing.T) {
 				// The Status properly reflects that of a Retired revision.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-retirement", "Retired", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "stable-retirement", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -919,11 +842,7 @@ func TestReconcile(t *testing.T) {
 				// but it has a ServingState of Active.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "activate-revision", "Reserve", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "activate-revision", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -953,11 +872,7 @@ func TestReconcile(t *testing.T) {
 				// After activating the Revision status looks like this.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "activate-revision", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "activate-revision", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -997,11 +912,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "create-in-reserve", "Reserve", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "create-in-reserve", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1034,11 +945,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "endpoint-created-not-ready", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-created-not-ready", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "endpoint-created-not-ready", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1075,11 +982,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "endpoint-created-timeout", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1108,11 +1011,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "endpoint-created-timeout", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "endpoint-created-timeout", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ContainerHealthy",
 						Status: "Unknown",
@@ -1143,11 +1042,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "endpoint-ready", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "endpoint-ready", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1174,11 +1069,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "endpoint-ready", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "endpoint-ready", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "endpoint-ready", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "True",
@@ -1205,11 +1096,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "fix-mutated-service", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1239,11 +1126,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "fix-mutated-service", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "fix-mutated-service", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1276,11 +1159,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "update-user-svc-failure", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-user-svc-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1320,11 +1199,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "update-as-svc-failure", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-as-svc-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-as-svc-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1364,11 +1239,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "deploy-timeout", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "deploy-timeout", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1397,11 +1268,7 @@ func TestReconcile(t *testing.T) {
 				rev("foo", "deploy-timeout", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "deploy-timeout", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "deploy-timeout", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ContainerHealthy",
 						Status: "Unknown",
@@ -1533,11 +1400,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "done-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "done-build", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "done-build", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "BuildSucceeded",
 						Status: "True",
@@ -1568,11 +1431,7 @@ func TestReconcile(t *testing.T) {
 				addBuild(rev("foo", "stable-reconcile-with-build", "Active", "busybox"), "the-build"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "stable-reconcile-with-build", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "stable-reconcile-with-build", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "BuildSucceeded",
 						Status: "True",
@@ -1777,11 +1636,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				// After the first reconciliation of a Revision the status looks like this.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "first-reconcile-var-log", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "first-reconcile-var-log", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1821,11 +1676,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				// After the first reconciliation of a Revision the status looks like this.
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "create-configmap-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "create-configmap-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1850,11 +1701,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				rev("foo", "steady-state", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "steady-state", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "steady-state", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1884,11 +1731,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				rev("foo", "update-fluentd-config", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-fluentd-config", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-fluentd-config", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
@@ -1938,11 +1781,7 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 				rev("foo", "update-configmap-failure", "Active", "busybox"),
 				v1alpha1.RevisionStatus{
 					ServiceName: svc("foo", "update-configmap-failure", "Active", "busybox").Name,
-					DomainInternal: fmt.Sprintf(
-						"%s.foo.svc.cluster.local",
-						svc("foo", "update-configmap-failure", "Active", "busybox").Name,
-					),
-					LogURL: "http://logger.io/test-uid",
+					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
