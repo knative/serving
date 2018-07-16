@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"k8s.io/api/core/v1"
 )
 
 // states contains functions for asserting against the state of Knative Serving
@@ -64,9 +63,4 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 // ready.
 func IsRouteReady(r *v1alpha1.Route) (bool, error) {
 	return r.Status.IsReady(), nil
-}
-
-// IsCoreServiceCreated will check that the Core Service has been created
-func IsCoreServiceCreated(s *v1.Service) (bool, error) {
-	return s.Name != "", nil
 }

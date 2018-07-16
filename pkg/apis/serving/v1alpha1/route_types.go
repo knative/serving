@@ -137,12 +137,6 @@ type RouteStatus struct {
 	// +optional
 	DomainInternal string `json:"domainInternal,omitempty"`
 
-	// ServiceName holds the name of a core Kubernetes Service resource that
-	// fronts this Route, this service would be an appropriate ingress target
-	// for targeting the revision.
-	// +optional
-	ServiceName string `json:"serviceName,omitempty"`
-
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the

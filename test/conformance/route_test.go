@@ -106,14 +106,6 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
-	logger.Infof("The Route has a core Kubernetes Service referenced in it's status")
-	err = test.CheckRouteState(clients.Routes, names.Route, func(r *v1alpha1.Route) (bool, error) {
-		err := test.CheckCoreServiceState(clients.Kube.CoreV1().Services(r.Namespace), r.Status.ServiceName, test.IsCoreServiceCreated)
-		if err != nil {
-			return false, fmt.Errorf("core Service not found for Route: %v", err)
-		}
-		return true, nil
-	})
 }
 
 func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (string, error) {

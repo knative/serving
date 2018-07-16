@@ -26,11 +26,9 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	"go.opencensus.io/trace"
-	"k8s.io/api/core/v1"
 	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coretyped "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 )
 
@@ -159,22 +157,6 @@ func WaitForServiceState(client servingtyped.ServiceInterface, name string, inSt
 	})
 }
 
-// CheckServiceState verifies the status of the Service called name from client
-// is in a particular state by calling `inState` and expecting `true`.
-// This is the non-polling variety of WaitForServiceState
-func CheckServiceState(client servingtyped.ServiceInterface, name string, inState func(r *v1alpha1.Service) (bool, error)) error {
-	r, err := client.Get(name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if done, err := inState(r); err != nil {
-		return err
-	} else if !done {
-		return fmt.Errorf("service %q is not in desired state: %+v", name, r)
-	}
-	return nil
-}
-
 // WaitForIngressState polls the status of the Ingress called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
@@ -191,20 +173,4 @@ func WaitForIngressState(client v1beta1.IngressInterface, name string, inState f
 		}
 		return inState(i)
 	})
-}
-
-// CheckCoreServiceState verifies the status of the Core Service called name
-// from client is in a particular state by calling `inState` and expecting
-// `true`.
-func CheckCoreServiceState(client coretyped.ServiceInterface, name string, inState func(r *v1.Service) (bool, error)) error {
-	r, err := client.Get(name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if done, err := inState(r); err != nil {
-		return err
-	} else if !done {
-		return fmt.Errorf("core service %q is not in desired state: %+v", name, r)
-	}
-	return nil
 }
