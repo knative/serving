@@ -131,10 +131,11 @@ func New(config *Config, model v1alpha1.RevisionRequestConcurrencyModelType, rep
 	// small values for ScaleToZeroThreshold. We need at least 15
 	// seconds so revisions can actually start before being scaled to
 	// zero.
-	minScaleToZeroThreshold := v1alpha1.PendingDeactivationSeconds * time.Second
-	if config.ScaleToZeroThreshold.Seconds() < minScaleToZeroThreshold.Seconds()+15 {
-		panic(fmt.Sprintf("scale-to-zero-threshold is too small: %v Need at least %v plus 15 seconds.",
-			config.ScaleToZeroThreshold, v1alpha1.PendingDeactivationSeconds))
+	minScaleToZeroThreshold := v1alpha1.PendingDeactivationSeconds*time.Second + 15*time.Second
+	if config.ScaleToZeroThreshold.Seconds() < minScaleToZeroThreshold.Seconds() {
+		fmt.Printf("Overridding too small scale-to-zero-threshold: %v Need at least %v plus 15 seconds.\n",
+			config.ScaleToZeroThreshold, v1alpha1.PendingDeactivationSeconds)
+		config.ScaleToZeroThreshold = minScaleToZeroThreshold
 	}
 	return &Autoscaler{
 		Config:                  config,
