@@ -393,8 +393,7 @@ namespace configuration.
 
 ### Devices
 
-Developers and container providers MUST NOT use OCI `devices` to request
-additional devices beyond the
+Developers MUST NOT use OCI `devices` to request additional devices beyond the
 [OCI specification "Default Devices"](https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md#default-devices).
 
 ### Control Groups
