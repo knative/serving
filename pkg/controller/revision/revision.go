@@ -424,7 +424,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return err
 		}
 		logger.Infof("Deleted deployment %q", deploymentName)
-		rev.Status.MarkDeploying("Retired")
+		rev.Status.MarkRetired()
 		return nil
 
 	default:
@@ -492,7 +492,6 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 		return deployment, nil
 	}
 
-	rev.Status.MarkDeploying("Updating")
 	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
 		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
 	deployment.Spec = desiredDeployment.Spec

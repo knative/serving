@@ -429,6 +429,22 @@ func (rs *RevisionStatus) MarkInactive() {
 	}
 }
 
+func (rs *RevisionStatus) MarkRetired() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "Retired",
+			Message: "Revision has been retired.",
+		})
+	}
+}
+
 func (rs *RevisionStatus) IsActive() bool {
 	if cond := rs.GetCondition(RevisionConditionActive); cond != nil {
 		return cond.Status == corev1.ConditionTrue
