@@ -139,6 +139,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	rev, _ := kna.ServingV1alpha1().Revisions(testNamespace).Get(testRevision, metav1.GetOptions{})
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
+	rev.Status.MarkActive()
 	kna.ServingV1alpha1().Revisions(testNamespace).Update(rev)
 
 	time.Sleep(3 * time.Second)

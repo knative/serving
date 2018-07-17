@@ -42,11 +42,11 @@ func TestIsActive(t *testing.T) {
 		status   RevisionStatus
 		isActive bool
 	}{{
-		name: "No Active condition should be false",
+		name: "No Active condition should be true",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{}},
 		},
-		isActive: false,
+		isActive: true,
 	}, {
 		name: "Active False should be false",
 		status: RevisionStatus{
@@ -114,7 +114,7 @@ func TestIsSafeToTearDownResources(t *testing.T) {
 				LastTransitionTime: tZero,
 			}},
 		},
-		isSafeToTearDownResources: false,
+		isSafeToTearDownResources: true,
 	}, {
 		name: "Active Unknown last updated now should be false",
 		status: RevisionStatus{
@@ -173,14 +173,14 @@ func TestIsRoutable(t *testing.T) {
 		},
 		isRoutable: true,
 	}, {
-		name: "Ready False with Active True conditions should be routable",
+		name: "Ready False with Active False conditions should be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
 			}, {
 				Type:   RevisionConditionActive,
-				Status: corev1.ConditionTrue,
+				Status: corev1.ConditionFalse,
 			}},
 		},
 		isRoutable: true,
@@ -382,6 +382,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
 	r.Status.InitializeBuildCondition()
+	r.Status.MarkActive()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
@@ -588,14 +589,15 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From a Ready state, change the revision to Reserve state.
-	r.Status.MarkInactive()
+	r.Status.MarkInactivePending()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
-	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionActive, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
 	// From a Reserve state, start to activate the revision.
 	want := "Updating"
+	r.Status.MarkActive()
 	r.Status.MarkDeploying(want)
 	r.Status.MarkDeploying(want)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
@@ -604,9 +606,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != want {
 		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
 	}
-	if got := checkConditionOngoingRevision(r.Status, RevisionConditionActive, t); got == nil || got.Reason != want {
-		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
-	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
 		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
 	}
