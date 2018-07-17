@@ -166,16 +166,13 @@ func scaleTo(podCount int32) {
 		logger.Errorf("Error getting Revision %q: %s", servingRevision, zap.Error(err))
 	}
 
-	// Revision serving state should be ToReserve or Reserve
+	// Revision serving state should be Reserve
 	if podCount == 0 {
-		switch revision.Spec.ServingState {
-		case v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
-			// Nothing to do
+		if revision.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
 			return
-		default:
 		}
-		logger.Infof("Transitioning Revision to serving state ToReserve from %v.", revision.Spec.ServingState)
-		revision.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
+		logger.Infof("Transitioning Revision to serving state Reserve from %v.", revision.Spec.ServingState)
+		revision.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 		_, err = revisionClient.Update(revision)
 		if err != nil {
 			logger.Errorf("Error updating Revision %q: %s", servingRevision, zap.Error(err))
