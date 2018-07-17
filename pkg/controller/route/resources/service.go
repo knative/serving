@@ -39,10 +39,8 @@ func MakeK8sService(route *v1alpha1.Route) *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name: PortName,
-				Port: PortNumber,
-			}},
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "knative-ingressgateway.istio-system.svc.cluster.local",
 		},
 	}
 }
