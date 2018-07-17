@@ -157,6 +157,22 @@ func WaitForServiceState(client servingtyped.ServiceInterface, name string, inSt
 	})
 }
 
+// CheckServiceState verifies the status of the Service called name from client
+// is in a particular state by calling `inState` and expecting `true`.
+// This is the non-polling variety of WaitForServiceState
+func CheckServiceState(client servingtyped.ServiceInterface, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
+	s, err := client.Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if done, err := inState(s); err != nil {
+		return err
+	} else if !done {
+		return fmt.Errorf("service %q is not in desired state: %+v", name, s)
+	}
+	return nil
+}
+
 // WaitForIngressState polls the status of the Ingress called name
 // from client every interval until inState returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric

@@ -135,6 +135,13 @@ type ServiceStatus struct {
 	Domain string `json:"domain,omitempty"`
 
 	// From RouteStatus.
+	// DomainInternal holds the top-level domain that will distribute traffic over the provided
+	// targets from inside the cluster. It generally has the form
+	// {route-name}.{route-namespace}.svc.cluster.local
+	// +optional
+	DomainInternal string `json:"domainInternal,omitempty"`
+
+	// From RouteStatus.
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
@@ -274,6 +281,7 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 
 func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	ss.Domain = rs.Domain
+	ss.DomainInternal = rs.DomainInternal
 	ss.Traffic = rs.Traffic
 
 	rc := rs.GetCondition(RouteConditionReady)
