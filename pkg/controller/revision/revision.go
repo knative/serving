@@ -469,29 +469,23 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
 		rev.Status.MarkActive()
+		if *desiredDeployment.Spec.Replicas == 0 {
+			*desiredDeployment.Spec.Replicas = 1
+		}
 	case v1alpha1.RevisionServingStateReserve:
 		if rev.Status.IsSafeToTearDownResources() {
 			rev.Status.MarkInactive()
+			*desiredDeployment.Spec.Replicas = 0
 		} else {
 			// TODO(#1591): We no longer need to pause in the Unknown status
 			// once we wait for Istio RouteRule propagation.
 			rev.Status.MarkInactivePending()
+			if *desiredDeployment.Spec.Replicas == 0 {
+				*desiredDeployment.Spec.Replicas = 1
+			}
 		}
-	case v1alpha1.RevisionServingStateRetired:
-		rev.Status.MarkInactive()
-	}
-
-	// One-to-zero and zero-to-one transitions
-	if rev.Status.IsSafeToTearDownResources() {
-		if *desiredDeployment.Spec.Replicas != 0 {
-			logger.Infof("Scaling Deployment to 0")
-			*desiredDeployment.Spec.Replicas = 0
-		}
-	} else {
-		if *desiredDeployment.Spec.Replicas == 0 {
-			logger.Infof("Scaling Deployment to 1")
-			*desiredDeployment.Spec.Replicas = 1
-		}
+	default:
+		return deployment, fmt.Errorf("Attempt to reconcile in %v state. Should be deleting.", rev.Spec.ServingState)
 	}
 
 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
