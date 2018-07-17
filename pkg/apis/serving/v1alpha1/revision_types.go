@@ -79,9 +79,6 @@ const (
 	// traffic quickly. It should have Kubernetes resources, but the Istio route
 	// should be pointed to the activator.
 	RevisionServingStateReserve RevisionServingStateType = "Reserve"
-	// The revision has been idle longer than the reserve threshold
-	// and is being placed into a Reserve state.
-	RevisionServingStateToReserve RevisionServingStateType = "ToReserve"
 	// The revision has been decommissioned and is not needed to serve traffic
 	// anymore. It should not have any Istio routes or Kubernetes resources.
 	// A Revision may be brought out of retirement, but it may take longer than
@@ -167,17 +164,15 @@ const (
 	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
-	// RevisionConditionIdle is True when the revision has not
-	// received any requests for a while. False otherwise.
-	RevisionConditionIdle RevisionConditionType = "Idle"
-	// RevisionConditionReserve is True when the revision has been
-	// placed into a Reserve state and traffic is not being routed
-	// directly to the service.
-	// TODO(#1591): When Istio RouteRule Status is populated, this status
-	// can be removed.  It is only here to record when the Revision
-	// transitioned to Reserve so we can wait for the network
-	// configuration to propagate before actually scaling to zero.
-	RevisionConditionReserve RevisionConditionType = "Reserve"
+	// RevisionConditionActive is True when the revision has received
+	// traffic recently and traffic is being routed directly to the
+	// revision (not through the Activator).  When the revision has
+	// been idle longer that the scale-to-zero threshold
+	// RevisionConditionActive will become Unknown. When the
+	// revision has been fully scaled to zero, it will be False.
+	// TODO(#1591): When Istio RouteRule Status is populated, the
+	// delay during status Unknown can be removed.
+	RevisionConditionActive RevisionConditionType = "Active"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -256,7 +251,7 @@ func (rs *RevisionStatus) IsReady() bool {
 }
 
 func (rs *RevisionStatus) IsRoutable() bool {
-	return rs.IsReady() || rs.IsIdle()
+	return rs.IsReady() || !rs.IsActive()
 }
 
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
@@ -307,6 +302,7 @@ func (rs *RevisionStatus) InitializeConditions() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionResourcesAvailable,
 		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
 		RevisionConditionReady,
 	} {
 		if rc := rs.GetCondition(cond); rc == nil {
@@ -409,59 +405,72 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RevisionStatus) MarkReserve() {
+func (rs *RevisionStatus) MarkActive() {
 	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionReserve,
-		Status:  corev1.ConditionTrue,
-		Reason:  "Reserve",
-		Message: "Revision has been placed into Reserve state.",
+		Type:   RevisionConditionActive,
+		Status: corev1.ConditionTrue,
 	})
+	rs.checkAndMarkReady()
 }
 
-func (rs *RevisionStatus) MarkUnReserve() {
-	rs.RemoveCondition(RevisionConditionReserve)
-}
-
-// ReadyToTearDownResources indicates it is safe to tear down the
-// resources underlying the Revision.
-// TODO(#1591): When Istio starts surfacing RouteRule Status, the Route
-// controller will wait until the rules are updated before setting
-// Revision ServingState Reserve. For now, the Route controller sets
-// ServingState Reserve right away and the Revision controller waits at
-// least 10 seconds before tearing down the underlying resources.
-func (rs *RevisionStatus) ReadyToTearDownResources() bool {
-	// Tear down after 1 minute of Idle.
-	// This ensures resources are reclaimed even if Revision has been
-	// removed from the Route before it was transitioned to Reserve
-	// state.
-	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
-		if time.Now().After(cond.LastTransitionTime.Add(time.Minute)) {
-			return true
-		}
+func (rs *RevisionStatus) MarkInactive() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionActive,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "Deactivated",
+			Message: "Revision has not received traffic recently.",
+		})
 	}
-	// Tear down after 20 seconds of Reserve
-	if cond := rs.GetCondition(RevisionConditionReserve); cond != nil {
-		return time.Now().After(cond.LastTransitionTime.Add(20 * time.Second))
-	}
-	return false
 }
 
-func (rs *RevisionStatus) MarkIdle() {
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionIdle,
-		Status:  corev1.ConditionTrue,
-		Reason:  "Idle",
-		Message: "Revision has not received traffic recently.",
-	})
-}
-
-func (rs *RevisionStatus) MarkUnIdle() {
-	rs.RemoveCondition(RevisionConditionIdle)
-}
-
-func (rs *RevisionStatus) IsIdle() bool {
-	if cond := rs.GetCondition(RevisionConditionIdle); cond != nil {
+func (rs *RevisionStatus) IsActive() bool {
+	if cond := rs.GetCondition(RevisionConditionActive); cond != nil {
 		return cond.Status == corev1.ConditionTrue
+	}
+	return true
+}
+
+// TODO(#1591): When Istio starts surfacing RouteRule Status we can start
+// waiting for confirmation that the rules have been fully
+// propagated. For now, we just wait 2 minutes which is the longest time
+// it typically takes RouteRule changes to propagate.
+const PendingDeactivationSeconds = 120
+
+func (rs *RevisionStatus) MarkInactivePending() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionActive,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionUnknown,
+			Reason:  "PendingDeactivation",
+			Message: "Revision has not received traffic recently. Deactivation pending route updates.",
+		})
+	}
+}
+
+// IsSafeToTearDownResources indicates it is safe to tear down the
+// resources underlying the Revision.
+func (rs *RevisionStatus) IsSafeToTearDownResources() bool {
+	if cond := rs.GetCondition(RevisionConditionActive); cond != nil {
+		switch cond.Status {
+		case corev1.ConditionTrue:
+			// Condition True means the revision needs resources.
+			return false
+		case corev1.ConditionFalse:
+			// Condition False means the revision does not need resources.
+			return true
+		case corev1.ConditionUnknown:
+			// Condition Unknown means the revision is in transition to inactive.
+			// TODO(#1591): We no longer need to pause in the Unknown status
+			// once we wait for Istio RouteRule propagation.
+			return time.Now().After(cond.LastTransitionTime.Add(PendingDeactivationSeconds * time.Second))
+		}
 	}
 	return false
 }
@@ -484,6 +493,7 @@ func (rs *RevisionStatus) checkAndMarkReady() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionContainerHealthy,
 		RevisionConditionResourcesAvailable,
+		RevisionConditionActive,
 	} {
 		c := rs.GetCondition(cond)
 		if c == nil || c.Status != corev1.ConditionTrue {

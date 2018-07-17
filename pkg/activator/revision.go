@@ -79,7 +79,6 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	case v1alpha1.RevisionServingStateReserve:
 		// Activate the revision
 		revision.Spec.ServingState = v1alpha1.RevisionServingStateActive
-		revision.Status.MarkUnIdle()
 		if _, err := revisionClient.Update(revision); err != nil {
 			return internalError("Failed to activate revision %v", err)
 		}

@@ -49,7 +49,6 @@ func (ss RevisionServingStateType) Validate() *FieldError {
 	case RevisionServingStateType(""),
 		RevisionServingStateRetired,
 		RevisionServingStateReserve,
-		RevisionServingStateToReserve,
 		RevisionServingStateActive:
 		return nil
 	default:

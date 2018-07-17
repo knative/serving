@@ -330,7 +330,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	}
 	if got, want := len(updateActions), len(r.WantUpdates); got > want {
 		for _, extra := range updateActions[want:] {
-			t.Errorf("Extra update: %v", extra)
+			t.Errorf("Extra update: %#v", extra.GetObject())
 		}
 	}
 

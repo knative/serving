@@ -249,9 +249,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionIdle,
-			Status: corev1.ConditionTrue,
-			Reason: "Idle",
+			Type:   v1alpha1.RevisionConditionActive,
+			Status: corev1.ConditionFalse,
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
@@ -268,31 +267,19 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
 	controller.Reconcile(KeyOrDie(route))
-
-	// Verify Reserve Revision Route
-	verifyOneReserveRevisionRoute(t, servingClient, route)
-
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestRouteRevisionTransitionToReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
 
 	// A Revision waiting to be deactivated
-	rev := getTestRevisionWithCondition("test-rev",
+	rev = getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionIdle,
-			Status: corev1.ConditionTrue,
-			Reason: "Idle",
+			Type:   v1alpha1.RevisionConditionActive,
+			Status: corev1.ConditionUnknown,
 		})
-	rev.Spec.ServingState = v1alpha1.RevisionServingStateToReserve
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(
+	route = getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
 			RevisionName: "test-rev",
 			Percent:      100,
@@ -304,20 +291,6 @@ func TestRouteRevisionTransitionToReserve(t *testing.T) {
 
 	controller.Reconcile(KeyOrDie(route))
 
-	// Expect the Revision to be transitioned to Reserve state
-	rev2, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error getting updated revision: %v", err)
-	}
-	if want, got := v1alpha1.RevisionServingStateReserve, rev2.Spec.ServingState; want != got {
-		t.Fatalf("Updated Revision in wrong state. Want %v. Got %v.", want, got)
-	}
-
-	// Verify Reserve Revision Route
-	verifyOneReserveRevisionRoute(t, servingClient, route)
-}
-
-func verifyOneReserveRevisionRoute(t *testing.T, servingClient *fakeclientset.Clientset, route *v1alpha1.Route) {
 	// Look for the route rule with activator as the destination.
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -373,6 +346,10 @@ func verifyOneReserveRevisionRoute(t *testing.T, servingClient *fakeclientset.Cl
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
 		t.Errorf("Unexpected rule spec diff (-want +got): %s", diff)
+	}
+
+	if err := h.WaitForHooks(time.Second * 3); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -464,9 +441,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionIdle,
-			Status: corev1.ConditionTrue,
-			Reason: "Idle",
+			Type:   v1alpha1.RevisionConditionActive,
+			Status: corev1.ConditionFalse,
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)

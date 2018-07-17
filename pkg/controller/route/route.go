@@ -220,30 +220,7 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
 	r.Status.Traffic = t.GetTrafficTargets()
 	r.Status.MarkTrafficAssigned()
-
-	// Signal that idle Revisions have been removed from direct routing.
-	err = c.reserveRevisions(t)
-	return r, err
-}
-
-func (c *Controller) reserveRevisions(t *traffic.TrafficConfig) error {
-	for _, rev := range t.Revisions {
-		if rev.Spec.ServingState == v1alpha1.RevisionServingStateToReserve && rev.Status.IsIdle() {
-			// TODO(#1591): When Istio provides RouteRule Status,
-			// wait until the Activator route has been fully
-			// configured before transitioning Revision to
-			// ServingState Reserve. Then we can remove the
-			// time delay reclaiming resources in the Revision
-			// controller.
-			rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
-			_, err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
-			if err != nil {
-				return err
-			}
-			c.Logger.Info("Transitioned Revision to ServingState Reserve.")
-		}
-	}
-	return nil
+	return r, nil
 }
 
 func (c *Controller) EnqueueReferringRoute(obj interface{}) {

@@ -374,34 +374,28 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 
-	// Set Status Conditions related to scale-to-zero.
+	// Set Active Condition for scale-to-zero.
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateReserve:
-		// When the Revision is in Reserve state, the Status
-		// should be marked as Reserve with a timestamp.  As a
-		// workaround for missing Istio RouteRule Status, this
-		// timestamp is used to wait 10 seconds before scaling to
-		// zero.
-		// TODO(#1591): Remove the Reserve condition entirely.
-		rev.Status.MarkReserve()
-		// When the Revision is in Retired, Reserve or ToReserve
-		// states it should be marked as Idle.
-		rev.Status.MarkIdle()
-	case v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateRetired:
-		rev.Status.MarkIdle()
 	case v1alpha1.RevisionServingStateActive:
-		// When a Revision is in Active state it should not be
-		// marked as Reserve or Idle.
-		rev.Status.MarkUnReserve()
-		rev.Status.MarkUnIdle()
+		rev.Status.MarkActive()
+	case v1alpha1.RevisionServingStateReserve:
+		if rev.Status.IsSafeToTearDownResources() {
+			rev.Status.MarkInactive()
+		} else {
+			// TODO(#1591): We no longer need to pause in the Unknown status
+			// once we wait for Istio RouteRule propagation.
+			rev.Status.MarkInactivePending()
+		}
+	case v1alpha1.RevisionServingStateRetired:
+		rev.Status.MarkInactive()
 	}
 
 	// Reconcile the Deployment.
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
-		// When the Revision is routeable (Active, ToReserve or
-		// Reserve), the Deployment should exist and have a
-		// particular specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routeable (Active or Reserve),
+		// the Deployment should exist and have a particular
+		// specification.
 		if apierrs.IsNotFound(getDepErr) {
 			// Deployment does not exist. Create it.
 			rev.Status.MarkDeploying("Deploying")
@@ -496,9 +490,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	}
 
 	// Zero-to-one and one-to-zero transitions.
-	retired := rev.Spec.ServingState == v1alpha1.RevisionServingStateRetired
-	scaleToZero := rev.Status.ReadyToTearDownResources() || retired
-	if scaleToZero {
+	if rev.Status.IsSafeToTearDownResources() {
 		if *desiredDeployment.Spec.Replicas != 0 {
 			logger.Infof("Scaling Deployment to 0")
 			*desiredDeployment.Spec.Replicas = 0
@@ -543,10 +535,10 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
-		// When the Revision is routable (Active, ToReserve or
-		// Reserve), the Service should exist and have a
-		// particular specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active or Reserve), the
+		// Service should exist and have a particular
+		// specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
 			rev.Status.MarkDeploying("Deploying")
@@ -624,7 +616,6 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			return err
 		}
 		logger.Infof("Deleted Service %q", serviceName)
-		rev.Status.MarkIdle()
 		return nil
 
 	default:
@@ -723,10 +714,10 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
-		// When the Revision is routable (Active, ToReserve or
-		// Reserve), the Service should exist and have a
-		// particular specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active or Reserve), the
+		// Service should exist and have a particular
+		// specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
 			service, err = c.createService(ctx, rev, resources.MakeAutoscalerService)
@@ -790,10 +781,10 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
-		// When the Revision is routable (Active, Reserve or
-		// ToReserve), the Autoscaler Deployment should exist and
-		// have a particular specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active or Reserve), the
+		// Autoscaler Deployment should exist and have a
+		// particular specification.
 		if apierrs.IsNotFound(getDepErr) {
 			// Deployment does not exist. Create it.
 			var err error
@@ -860,10 +851,9 @@ func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) e
 	// TODO(mattmoor): Switch to informer lister once it can reliably be sunk.
 	vpa, err := c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(ns).Get(vpaName, metav1.GetOptions{})
 	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateToReserve, v1alpha1.RevisionServingStateReserve:
-		// When the Revision is routable (Active, ToReserve or
-		// Reserve), the VPA should exist and have a particular
-		// specification.
+	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
+		// When the Revision is routable (Active or Reserve), the
+		// VPA should exist and have a particular specification.
 		if apierrs.IsNotFound(err) {
 			// If it does not exist, then create it.
 			vpa, err = c.createVPA(ctx, rev)
