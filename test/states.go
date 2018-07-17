@@ -18,6 +18,8 @@ package test
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
@@ -63,4 +65,28 @@ func IsServiceReady(s *v1alpha1.Service) (bool, error) {
 // ready.
 func IsRouteReady(r *v1alpha1.Route) (bool, error) {
 	return r.Status.IsReady(), nil
+}
+
+// ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
+func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
+	return c.Status.LatestCreatedRevisionName != "", nil
+}
+
+// IsRevisionBuildFailed will check the status conditions of the revision and
+// return true if the revision's build failed.
+func IsRevisionBuildFailed(r *v1alpha1.Revision) (bool, error) {
+	if cond := r.Status.GetCondition(v1alpha1.RevisionConditionBuildSucceeded); cond != nil {
+		return cond.Status == corev1.ConditionFalse, nil
+	}
+	return false, nil
+}
+
+// IsConfigRevisionCreationFailed will check the status conditions of the
+// configuration and return true if the configuration's revision failed to
+// create.
+func IsConfigRevisionCreationFailed(c *v1alpha1.Configuration) (bool, error) {
+	if cond := c.Status.GetCondition(v1alpha1.ConfigurationConditionReady); cond != nil {
+		return cond.Status == corev1.ConditionFalse && cond.Reason == "RevisionFailed", nil
+	}
+	return false, nil
 }
