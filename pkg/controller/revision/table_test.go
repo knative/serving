@@ -114,9 +114,6 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "first-reconcile", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "Unknown",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -128,6 +125,9 @@ func TestReconcile(t *testing.T) {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}, {
+						Type:   "Active",
+						Status: "True",
 					}},
 				}),
 		}},
@@ -158,9 +158,6 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "update-status-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "Unknown",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -172,6 +169,9 @@ func TestReconcile(t *testing.T) {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}, {
+						Type:   "Active",
+						Status: "True",
 					}},
 				}),
 		}},
@@ -199,9 +199,6 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.RevisionStatus{
 					LogURL: "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "Unknown",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -213,6 +210,9 @@ func TestReconcile(t *testing.T) {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}, {
+						Type:   "Active",
+						Status: "True",
 					}},
 				}),
 		}},
@@ -242,9 +242,6 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "create-user-service-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "Unknown",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -256,6 +253,9 @@ func TestReconcile(t *testing.T) {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}, {
+						Type:   "Active",
+						Status: "True",
 					}},
 				}),
 		}},
@@ -1209,7 +1209,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/activate-revision",
 	}, {
-		Name: "create resources in reserve",
+		Name: "create resources in reserve (before timeout)",
 		// Test a reconcile of a Revision in the Reserve state.
 		// This tests the initial set of resources that we create for a Revision
 		// when it is in a Reserve state and none of its resources exist.  The main
@@ -1218,7 +1218,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "create-in-reserve", "Reserve", "busybox"),
 		},
 		WantCreates: []metav1.Object{
-			deploy("foo", "create-in-reserve", "Reserve", "busybox"),
+			withReplicaCount(1, deploy("foo", "create-in-reserve", "Reserve", "busybox")),
 			svc("foo", "create-in-reserve", "Reserve", "busybox"),
 			deployAS("foo", "create-in-reserve", "Reserve", "busybox"),
 			svcAS("foo", "create-in-reserve", "Reserve", "busybox"),
@@ -1230,9 +1230,6 @@ func TestReconcile(t *testing.T) {
 					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "Unknown",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -1241,9 +1238,81 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 					}, {
+						Type:    "Active",
+						Status:  "Unknown",
+						Reason:  "PendingDeactivation",
+						Message: "Revision has not received traffic recently. Deactivation pending route updates.",
+					}, {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}},
+				}),
+		}},
+		Key: "foo/create-in-reserve",
+	}, {
+		Name: "create resources in reserve (after timeout)",
+		// Test a reconcile of a Revision in the Reserve state.
+		// This tests the initial set of resources that we create for a Revision
+		// when it is in a Reserve state and none of its resources exist.  The main
+		// place we should expect this transition to happen is Retired -> Reserve.
+		Objects: []runtime.Object{
+			makeStatus(
+				rev("foo", "create-in-reserve", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:   "ResourcesAvailable",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:   "ContainerHealthy",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}, {
+						Type:               "Active",
+						Status:             "Unknown",
+						LastTransitionTime: metav1.NewTime(time.Now().Add(-121 * time.Second)),
+					}, {
+						Type:   "Ready",
+						Status: "Unknown",
+						Reason: "Deploying",
+					}},
+				}),
+			svc("foo", "create-in-reserve", "Reserve", "busybox"),
+			deployAS("foo", "create-in-reserve", "Reserve", "busybox"),
+			svcAS("foo", "create-in-reserve", "Reserve", "busybox"),
+		},
+		WantCreates: []metav1.Object{
+			withReplicaCount(0, deploy("foo", "create-in-reserve", "Reserve", "busybox")),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: makeStatus(
+				rev("foo", "create-in-reserve", "Reserve", "busybox"),
+				v1alpha1.RevisionStatus{
+					ServiceName: svc("foo", "create-in-reserve", "Reserve", "busybox").Name,
+					LogURL:      "http://logger.io/test-uid",
+					Conditions: []v1alpha1.RevisionCondition{{
+						Type:    "Active",
+						Status:  "False",
+						Reason:  "Deactivated",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:    "ResourcesAvailable",
+						Status:  "False",
+						Reason:  "Deactivated",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:    "ContainerHealthy",
+						Status:  "False",
+						Reason:  "Deactivated",
+						Message: "Revision has not received traffic recently.",
+					}, {
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Deactivated",
+						Message: "Revision has not received traffic recently.",
 					}},
 				}),
 		}},
@@ -2014,9 +2083,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					ServiceName: svc("foo", "first-reconcile-var-log", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "True",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -2028,6 +2094,9 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}, {
+						Type:   "Active",
+						Status: "True",
 					}},
 				}),
 		}},
@@ -2057,9 +2126,6 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 					ServiceName: svc("foo", "create-configmap-failure", "Active", "busybox").Name,
 					LogURL:      "http://logger.io/test-uid",
 					Conditions: []v1alpha1.RevisionCondition{{
-						Type:   "Active",
-						Status: "True",
-					}, {
 						Type:   "ResourcesAvailable",
 						Status: "Unknown",
 						Reason: "Deploying",
@@ -2071,6 +2137,9 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 						Type:   "Ready",
 						Status: "Unknown",
 						Reason: "Deploying",
+					}, {
+						Type:   "Active",
+						Status: "True",
 					}},
 				}),
 		}},

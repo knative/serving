@@ -436,9 +436,24 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
 
-	var replicaCount int32 = 1
-	if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
-		replicaCount = 0
+	// Determine the appropriate replica count and state for the Active condition.
+	var replicaCount int32
+	switch rev.Spec.ServingState {
+	case v1alpha1.RevisionServingStateActive:
+		rev.Status.MarkActive()
+		replicaCount = 1
+	case v1alpha1.RevisionServingStateReserve:
+		if rev.Status.IsSafeToTearDownResources() {
+			rev.Status.MarkInactive()
+			replicaCount = 0
+		} else {
+			// TODO(#1591): We no longer need to pause in the Unknown status
+			// once we wait for Istio RouteRule propagation.
+			rev.Status.MarkInactivePending()
+			replicaCount = 1
+		}
+	default:
+		return nil, fmt.Errorf("Attempt to reconcile in %v state. Should be deleting.", rev.Spec.ServingState)
 	}
 	deployment := resources.MakeDeployment(rev, c.getLoggingConfig(), c.getNetworkConfig(),
 		c.getObservabilityConfig(), c.getAutoscalerConfig(), c.getControllerConfig(), replicaCount)
@@ -465,7 +480,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 		desiredDeployment.Spec.Replicas = &one
 	}
 
-	// Set Active Condition for scale-to-zero.
+	// Reconcile the replica count and state for the Active condition.
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive:
 		rev.Status.MarkActive()
@@ -485,7 +500,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 			}
 		}
 	default:
-		return deployment, fmt.Errorf("Attempt to reconcile in %v state. Should be deleting.", rev.Spec.ServingState)
+		return nil, fmt.Errorf("Attempt to reconcile in %v state. Should be deleting.", rev.Spec.ServingState)
 	}
 
 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
