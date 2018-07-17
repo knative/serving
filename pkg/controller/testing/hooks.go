@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetesting "k8s.io/client-go/testing"
-	"github.com/knative/serving/bazel-elafros/external/go_sdk/src/log"
+	"log"
 )
 
 // HookResult is the return value of hook functions.
