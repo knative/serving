@@ -415,6 +415,8 @@ func (rs *RevisionStatus) MarkActive() {
 
 func (rs *RevisionStatus) MarkInactive() {
 	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
 		RevisionConditionActive,
 		RevisionConditionReady,
 	} {

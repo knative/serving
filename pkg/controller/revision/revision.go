@@ -374,22 +374,6 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 
-	// Set Active Condition for scale-to-zero.
-	switch rev.Spec.ServingState {
-	case v1alpha1.RevisionServingStateActive:
-		rev.Status.MarkActive()
-	case v1alpha1.RevisionServingStateReserve:
-		if rev.Status.IsSafeToTearDownResources() {
-			rev.Status.MarkInactive()
-		} else {
-			// TODO(#1591): We no longer need to pause in the Unknown status
-			// once we wait for Istio RouteRule propagation.
-			rev.Status.MarkInactivePending()
-		}
-	case v1alpha1.RevisionServingStateRetired:
-		rev.Status.MarkInactive()
-	}
-
 	// Reconcile the Deployment.
 	switch rev.Spec.ServingState {
 	case v1alpha1.RevisionServingStateActive, v1alpha1.RevisionServingStateReserve:
@@ -411,19 +395,11 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return getDepErr
 		} else {
 			// Deployment exist. Update the replica count based on the serving state if necessary
-			var changed Changed
 			var err error
-			deployment, changed, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+			deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 			if err != nil {
 				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
 				return err
-			}
-			if changed == WasChanged {
-				logger.Infof("Updated deployment %q", deploymentName)
-				rev.Status.MarkDeploying("Updating")
-			}
-			if *deployment.Spec.Replicas == 0 {
-				rev.Status.MarkDeploying("Reserve")
 			}
 		}
 
@@ -478,7 +454,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 }
 
 // This is a generic function used both for deployment of user code & autoscaler
-func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
+func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
 
 	// TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
@@ -489,7 +465,23 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 		desiredDeployment.Spec.Replicas = &one
 	}
 
-	// Zero-to-one and one-to-zero transitions.
+	// Set Active Condition for scale-to-zero.
+	switch rev.Spec.ServingState {
+	case v1alpha1.RevisionServingStateActive:
+		rev.Status.MarkActive()
+	case v1alpha1.RevisionServingStateReserve:
+		if rev.Status.IsSafeToTearDownResources() {
+			rev.Status.MarkInactive()
+		} else {
+			// TODO(#1591): We no longer need to pause in the Unknown status
+			// once we wait for Istio RouteRule propagation.
+			rev.Status.MarkInactivePending()
+		}
+	case v1alpha1.RevisionServingStateRetired:
+		rev.Status.MarkInactive()
+	}
+
+	// One-to-zero and zero-to-one transitions
 	if rev.Status.IsSafeToTearDownResources() {
 		if *desiredDeployment.Spec.Replicas != 0 {
 			logger.Infof("Scaling Deployment to 0")
@@ -503,13 +495,15 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	}
 
 	if equality.Semantic.DeepEqual(desiredDeployment.Spec, deployment.Spec) {
-		return deployment, Unchanged, nil
+		return deployment, nil
 	}
+
+	rev.Status.MarkDeploying("Updating")
 	logger.Infof("Reconciling deployment diff (-desired, +observed): %v",
 		cmp.Diff(desiredDeployment.Spec, deployment.Spec, cmpopts.IgnoreUnexported(resource.Quantity{})))
 	deployment.Spec = desiredDeployment.Spec
 	d, err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Update(deployment)
-	return d, WasChanged, err
+	return d, err
 }
 
 // This is a generic function used both for deployment of user code & autoscaler
@@ -800,7 +794,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 		} else {
 			// Deployment exist. Update the replica count based on the serving state if necessary
 			var err error
-			deployment, _, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+			deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 			if err != nil {
 				logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
 				return err
