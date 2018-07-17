@@ -64,8 +64,6 @@ header "Installing istio"
 kubectl apply -f ${ISTIO_YAML}
 wait_until_pods_running istio-system
 
-kubectl label namespace default istio-injection=enabled
-
 header "Installing Knative Serving"
 kubectl apply -f ${SERVING_RELEASE}
 
