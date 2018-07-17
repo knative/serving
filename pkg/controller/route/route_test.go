@@ -249,15 +249,37 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// An inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
+			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
+		[]v1alpha1.TrafficTarget{{
+			RevisionName: "test-rev",
+			Percent:      100,
+		}},
+	)
+	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+
+	controller.Reconcile(KeyOrDie(route))
+
+	// A Revision waiting to be deactivated
+	rev = getTestRevisionWithCondition("test-rev",
+		v1alpha1.RevisionCondition{
+			Type:   v1alpha1.RevisionConditionActive,
+			Status: corev1.ConditionUnknown,
+		})
+	rev.Spec.ServingState = v1alpha1.RevisionServingStateReserve
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+
+	// A route targeting the revision
+	route = getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
 			RevisionName: "test-rev",
 			Percent:      100,
@@ -419,9 +441,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
-			Type:   v1alpha1.RevisionConditionReady,
+			Type:   v1alpha1.RevisionConditionActive,
 			Status: corev1.ConditionFalse,
-			Reason: "Inactive",
 		})
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)

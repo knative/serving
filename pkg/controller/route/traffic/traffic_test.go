@@ -700,9 +700,11 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	rev1 := getTestRevForConfig(config, name+"-revision-1")
 	rev1.Status.MarkResourcesAvailable()
 	rev1.Status.MarkContainerHealthy()
+	rev1.Status.MarkActive()
 	rev2 := getTestRevForConfig(config, name+"-revision-2")
 	rev2.Status.MarkResourcesAvailable()
 	rev2.Status.MarkContainerHealthy()
+	rev2.Status.MarkActive()
 	config.Status.SetLatestReadyRevisionName(rev2.Name)
 	config.Status.SetLatestCreatedRevisionName(rev2.Name)
 	return config, rev1, rev2

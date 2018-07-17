@@ -66,6 +66,9 @@ type RevisionTemplateSpec struct {
 
 // RevisionServingStateType is an enumeration of the levels of serving readiness of the Revision.
 // See also: https://github.com/knative/serving/blob/master/docs/spec/errors.md#error-conditions-and-reporting
+//
+// TODO: move ServingState to a serving sub-resource of revision:
+// https://github.com/knative/serving/issues/645#issuecomment-391789031
 type RevisionServingStateType string
 
 const (
@@ -161,6 +164,15 @@ const (
 	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
+	// RevisionConditionActive is True when the revision has received
+	// traffic recently and traffic is being routed directly to the
+	// revision (not through the Activator).  When the revision has
+	// been idle longer that the scale-to-zero threshold
+	// RevisionConditionActive will become Unknown. When the
+	// revision has been fully scaled to zero, it will be False.
+	// TODO(#1591): When Istio RouteRule Status is populated, the
+	// delay during status Unknown can be removed.
+	RevisionConditionActive RevisionConditionType = "Active"
 )
 
 // RevisionCondition defines a readiness condition for a Revision.
@@ -238,16 +250,8 @@ func (rs *RevisionStatus) IsReady() bool {
 	return false
 }
 
-func (rs *RevisionStatus) IsActivationRequired() bool {
-	if c := rs.GetCondition(RevisionConditionReady); c != nil {
-		return (c.Reason == "Inactive" && c.Status == corev1.ConditionFalse) ||
-			(c.Reason == "Updating" && c.Status == corev1.ConditionUnknown)
-	}
-	return false
-}
-
 func (rs *RevisionStatus) IsRoutable() bool {
-	return rs.IsReady() || rs.IsActivationRequired()
+	return rs.IsReady() || !rs.IsActive()
 }
 
 func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionCondition {
@@ -298,6 +302,7 @@ func (rs *RevisionStatus) InitializeConditions() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionResourcesAvailable,
 		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
 		RevisionConditionReady,
 	} {
 		if rc := rs.GetCondition(cond); rc == nil {
@@ -400,12 +405,92 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RevisionStatus) MarkInactive() {
+func (rs *RevisionStatus) MarkActive() {
 	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Inactive",
+		Type:   RevisionConditionActive,
+		Status: corev1.ConditionTrue,
 	})
+	rs.checkAndMarkReady()
+}
+
+func (rs *RevisionStatus) MarkInactive() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "Deactivated",
+			Message: "Revision has not received traffic recently.",
+		})
+	}
+}
+
+func (rs *RevisionStatus) MarkRetired() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionFalse,
+			Reason:  "Retired",
+			Message: "Revision has been retired.",
+		})
+	}
+}
+
+func (rs *RevisionStatus) IsActive() bool {
+	if cond := rs.GetCondition(RevisionConditionActive); cond != nil {
+		return cond.Status == corev1.ConditionTrue
+	}
+	return true
+}
+
+// TODO(#1591): When Istio starts surfacing RouteRule Status we can start
+// waiting for confirmation that the rules have been fully
+// propagated. For now, we just wait 2 minutes which is the longest time
+// it typically takes RouteRule changes to propagate.
+const PendingDeactivationSeconds = 120
+
+func (rs *RevisionStatus) MarkInactivePending() {
+	for _, cond := range []RevisionConditionType{
+		RevisionConditionActive,
+		RevisionConditionReady,
+	} {
+		rs.setCondition(&RevisionCondition{
+			Type:    cond,
+			Status:  corev1.ConditionUnknown,
+			Reason:  "PendingDeactivation",
+			Message: "Revision has not received traffic recently. Deactivation pending route updates.",
+		})
+	}
+}
+
+// IsSafeToTearDownResources indicates it is safe to tear down the
+// resources underlying the Revision.
+func (rs *RevisionStatus) IsSafeToTearDownResources() bool {
+	if cond := rs.GetCondition(RevisionConditionActive); cond != nil {
+		switch cond.Status {
+		case corev1.ConditionTrue:
+			// Condition True means the revision needs resources.
+			return false
+		case corev1.ConditionFalse:
+			// Condition False means the revision does not need resources.
+			return true
+		case corev1.ConditionUnknown:
+			// Condition Unknown means the revision is in transition to inactive.
+			// TODO(#1591): We no longer need to pause in the Unknown status
+			// once we wait for Istio RouteRule propagation.
+			return time.Now().After(cond.LastTransitionTime.Add(PendingDeactivationSeconds * time.Second))
+		}
+	}
+	return false
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
@@ -426,6 +511,7 @@ func (rs *RevisionStatus) checkAndMarkReady() {
 	for _, cond := range []RevisionConditionType{
 		RevisionConditionContainerHealthy,
 		RevisionConditionResourcesAvailable,
+		RevisionConditionActive,
 	} {
 		c := rs.GetCondition(cond)
 		if c == nil || c.Status != corev1.ConditionTrue {

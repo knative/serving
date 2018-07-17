@@ -15,8 +15,10 @@ package v1alpha1
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
@@ -34,67 +36,120 @@ func TestGeneration(t *testing.T) {
 
 }
 
-func TestIsActivationRequired(t *testing.T) {
+func TestIsActive(t *testing.T) {
 	cases := []struct {
-		name                 string
-		status               RevisionStatus
-		isActivationRequired bool
+		name     string
+		status   RevisionStatus
+		isActive bool
 	}{{
-		name:                 "empty status should not be inactive",
-		status:               RevisionStatus{},
-		isActivationRequired: false,
+		name: "No Active condition should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{}},
+		},
+		isActive: true,
 	}, {
-		name: "Ready status should not be inactive",
+		name: "Active False should be false",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
+				Type:   RevisionConditionActive,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+		isActive: false,
+	}, {
+		name: "Active Unknown should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionActive,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+		isActive: false,
+	}, {
+		name: "Active True should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:   RevisionConditionActive,
 				Status: corev1.ConditionTrue,
 			}},
 		},
-		isActivationRequired: false,
-	}, {
-		name: "Inactive status should be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
-			}},
-		},
-		isActivationRequired: true,
-	}, {
-		name: "Updating status should be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}},
-		},
-		isActivationRequired: true,
-	}, {
-		name: "NotReady status without reason should not be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isActivationRequired: false,
-	}, {
-		name: "Ready/Unknown status without reason should not be inactive",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-		isActivationRequired: false,
+		isActive: true,
 	}}
 
 	for _, tc := range cases {
-		if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
-			t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+		if e, i := tc.isActive, tc.status.IsActive(); e != i {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, i)
+		}
+	}
+}
+
+func TestIsSafeToTearDownResources(t *testing.T) {
+	tZero := metav1.NewTime(time.Now())
+	cases := []struct {
+		name                      string
+		status                    RevisionStatus
+		isSafeToTearDownResources bool
+	}{{
+		name: "No Active condition should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{}},
+		},
+		isSafeToTearDownResources: false,
+	}, {
+		name: "Active True should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionActive,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: tZero,
+			}},
+		},
+		isSafeToTearDownResources: false,
+	}, {
+		name: "Active False last updated now should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionActive,
+				Status:             corev1.ConditionFalse,
+				LastTransitionTime: tZero,
+			}},
+		},
+		isSafeToTearDownResources: true,
+	}, {
+		name: "Active Unknown last updated now should be false",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionActive,
+				Status:             corev1.ConditionUnknown,
+				LastTransitionTime: tZero,
+			}},
+		},
+		isSafeToTearDownResources: false,
+	}, {
+		name: "Active False condition after PendingDeactivationSeconds should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionActive,
+				Status:             corev1.ConditionFalse,
+				LastTransitionTime: metav1.NewTime(tZero.Add(-(PendingDeactivationSeconds + 1) * time.Second)),
+			}},
+		},
+		isSafeToTearDownResources: true,
+	}, {
+		name: "Active Unknown condition after PendingDeactivationSeconds should be true",
+		status: RevisionStatus{
+			Conditions: []RevisionCondition{{
+				Type:               RevisionConditionActive,
+				Status:             corev1.ConditionUnknown,
+				LastTransitionTime: metav1.NewTime(tZero.Add(-(PendingDeactivationSeconds + 1) * time.Second)),
+			}},
+		},
+		isSafeToTearDownResources: true,
+	}}
+
+	for _, tc := range cases {
+		if e, r := tc.isSafeToTearDownResources, tc.status.IsSafeToTearDownResources(); e != r {
+			t.Errorf("%q expected: %v got: %v", tc.name, e, r)
 		}
 	}
 }
@@ -109,7 +164,7 @@ func TestIsRoutable(t *testing.T) {
 		status:     RevisionStatus{},
 		isRoutable: false,
 	}, {
-		name: "Ready status should be routable",
+		name: "Ready True condition alone should be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
@@ -118,27 +173,19 @@ func TestIsRoutable(t *testing.T) {
 		},
 		isRoutable: true,
 	}, {
-		name: "Inactive status should be routable",
+		name: "Ready False with Active False conditions should be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
 				Status: corev1.ConditionFalse,
-				Reason: "Inactive",
+			}, {
+				Type:   RevisionConditionActive,
+				Status: corev1.ConditionFalse,
 			}},
 		},
 		isRoutable: true,
 	}, {
-		name: "Updating status should be routable",
-		status: RevisionStatus{
-			Conditions: []RevisionCondition{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-				Reason: "Updating",
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "NotReady status without reason should not be routable",
+		name: "Ready False condition alone should not be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
@@ -147,7 +194,7 @@ func TestIsRoutable(t *testing.T) {
 		},
 		isRoutable: false,
 	}, {
-		name: "Ready/Unknown status without reason should not be routable",
+		name: "Ready Unknown condition alone should not be routable",
 		status: RevisionStatus{
 			Conditions: []RevisionCondition{{
 				Type:   RevisionConditionReady,
@@ -160,7 +207,7 @@ func TestIsRoutable(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("IsRoutable() = %v want: %v", got, want)
+				t.Errorf("%q expect: %v got: %v", tc.name, want, got)
 			}
 		})
 	}
@@ -335,6 +382,7 @@ func TestTypicalFlowWithBuild(t *testing.T) {
 	r := &Revision{}
 	r.Status.InitializeConditions()
 	r.Status.InitializeBuildCondition()
+	r.Status.MarkActive()
 	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
@@ -528,25 +576,28 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	r.Status.InitializeConditions()
 	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionActive, t)
 	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	// Enter a Ready state.
+	// Enter a Ready condition.
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
+	r.Status.MarkActive()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
-	// From a Ready state, make the revision inactive to simulate scale to zero.
-	r.Status.MarkInactive()
+	// From a Ready state, change the revision to Reserve state.
+	r.Status.MarkInactivePending()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
-	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Inactive" {
-		t.Errorf("MarkInactive = %v, want Inactive", got)
-	}
+	checkConditionOngoingRevision(r.Status, RevisionConditionActive, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
 
-	// From an Inactive state, start to activate the revision.
+	// From a Reserve state, start to activate the revision.
 	want := "Updating"
+	r.Status.MarkActive()
 	r.Status.MarkDeploying(want)
 	r.Status.MarkDeploying(want)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
@@ -555,6 +606,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t); got == nil || got.Reason != want {
 		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
 	}
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	if got := checkConditionOngoingRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
 		t.Errorf("MarkDeploying = %v, wanted %v", got, want)
 	}
@@ -562,8 +614,10 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	// From the activating state, simulate the transition back to readiness.
 	r.Status.MarkContainerHealthy()
 	r.Status.MarkResourcesAvailable()
+	r.Status.MarkActive()
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionSucceededRevision(r.Status, RevisionConditionActive, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
