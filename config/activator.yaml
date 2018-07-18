@@ -36,7 +36,7 @@ spec:
         # and substituted here.
         image: github.com/knative/serving/cmd/activator
         ports:
-        - name: http
+        - name: activator-port
           containerPort: 8080
         args:
         - "-logtostderr=true"

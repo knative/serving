@@ -36,17 +36,19 @@ type revisionActivator struct {
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
 	logger      *zap.SugaredLogger
+	reporter    StatsReporter
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
 		knaClient:   servingClient,
 		logger:      logger,
+		reporter:    reporter,
 	}
 }
 
@@ -54,12 +56,14 @@ func (r *revisionActivator) Shutdown() {
 	// nothing to do
 }
 
-func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
+func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string) (end Endpoint, status Status, activationError error) {
 	logger := loggerWithRevisionInfo(r.logger, namespace, name)
-	rev := revisionID{namespace: namespace, name: name}
+	rev := revisionID{namespace: namespace,
+		configuration: configuration,
+		name:          name}
 
 	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
-		logger.Infof(msg, args...)
+		logger.Errorf(msg, args...)
 		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(fmt.Sprintf("%s for namespace: %s, revision name: %s ", msg, namespace, name), args...)
 	}
 
@@ -69,10 +73,13 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	if err != nil {
 		return internalError("Unable to get revision: %v", err)
 	}
+
 	switch revision.Spec.ServingState {
 	default:
+		r.reporter.ReportRequest(namespace, configuration, name, "Unknown", 1.0)
 		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)
 	case v1alpha1.RevisionServingStateRetired:
+		r.reporter.ReportRequest(namespace, configuration, name, string(v1alpha1.RevisionServingStateRetired), 1.0)
 		return internalError("Disregarding activation request for retired revision ")
 	case v1alpha1.RevisionServingStateActive:
 		// Revision is already active. Nothing to do

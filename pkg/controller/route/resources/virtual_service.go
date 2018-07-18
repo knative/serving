@@ -191,6 +191,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 	})
 	r.AppendHeaders = map[string]string{
 		controller.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
+		controller.GetConfigurationHeader():     maxInactiveTarget.ConfigurationName,
 		controller.GetRevisionHeaderNamespace(): ns,
 		IstioTimeoutHackHeaderKey:               IstioTimeoutHackHeaderValue,
 	}
