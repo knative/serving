@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -128,7 +127,7 @@ func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
 
@@ -139,7 +138,7 @@ func (c *Controller) Reconcile(key string) error {
 	original, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		runtime.HandleError(fmt.Errorf("route %q in work queue no longer exists", key))
+		logger.Errorf("route %q in work queue no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err
@@ -230,7 +229,6 @@ func (c *Controller) EnqueueReferringRoute(obj interface{}) {
 		return
 	}
 	if config.Status.LatestReadyRevisionName == "" {
-		fmt.Printf("Configuration %s is not ready\n", config.Name)
 		c.Logger.Infof("Configuration %s is not ready", config.Name)
 		return
 	}

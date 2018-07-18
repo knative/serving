@@ -53,7 +53,6 @@ import (
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -226,7 +225,7 @@ func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
 
@@ -238,7 +237,7 @@ func (c *Controller) Reconcile(key string) error {
 	original, err := c.revisionLister.Revisions(namespace).Get(name)
 	// The resource may no longer exist, in which case we stop processing.
 	if apierrs.IsNotFound(err) {
-		runtime.HandleError(fmt.Errorf("revision %q in work queue no longer exists", key))
+		logger.Errorf("revision %q in work queue no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err

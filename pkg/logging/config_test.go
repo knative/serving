@@ -234,3 +234,42 @@ func getTestConfig() (*Config, string, string) {
 	})
 	return c, wantCfg, wantLevel
 }
+
+func TestUpdateLevelFromConfigMap(t *testing.T) {
+	logger, atomicLevel := NewLogger("", "debug")
+	want := zapcore.DebugLevel
+	if atomicLevel.Level() != zapcore.DebugLevel {
+		t.Fatalf("Expected initial logger level to %v, got: %v", want, atomicLevel.Level())
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace,
+			Name:      "config-logging",
+		},
+		Data: map[string]string{
+			"zap-logger-config":   "",
+			"loglevel.controller": "panic",
+		},
+	}
+
+	tests := []struct {
+		setLevel  string
+		wantLevel zapcore.Level
+	}{
+		{"info", zapcore.InfoLevel},
+		{"error", zapcore.ErrorLevel},
+		{"invalid", zapcore.ErrorLevel},
+		{"debug", zapcore.DebugLevel},
+		{"debug", zapcore.DebugLevel},
+	}
+
+	u := UpdateLevelFromConfigMap(logger, atomicLevel, "controller")
+	for _, tt := range tests {
+		cm.Data["loglevel.controller"] = tt.setLevel
+		u(cm)
+		if atomicLevel.Level() != tt.wantLevel {
+			t.Errorf("Invalid logging level. want: %v, got: %v", tt.wantLevel, atomicLevel.Level())
+		}
+	}
+}

@@ -6,7 +6,7 @@ monitoring components by running the following at the root of the repository:
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
+    -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
@@ -26,9 +26,8 @@ a three digit prefix is added.
 * The root folder (`config/monitoring`) is special. It requires the following installation ordering:
 
   * `/config/monitoring/100-common`
-  * Only one of `/config/monitoring/150-*`. File with `dev` postfix is a special
-    configuration that enables verbose logging and should only be used for development
-    purposes. File with `elasticsearch` or `stackdriver` indicates the logging destination.
+  * Only one of `/config/monitoring/150-*`. 
+  File with `elasticsearch` or `stackdriver` indicates the logging destination.
   * `/third_party/config/monitoring/common`
   * `/third_party/config/monitoring/elasticsearch`. Required only when Elasticsearch is used as logging destination.
   * `/config/monitoring/200-common`

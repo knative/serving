@@ -33,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -97,7 +96,7 @@ func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
 	// Wrap our logger with the additional context of the configuration that we are reconciling.
@@ -108,7 +107,7 @@ func (c *Controller) Reconcile(key string) error {
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
-		runtime.HandleError(fmt.Errorf("configuration %q in work queue no longer exists", key))
+		logger.Errorf("configuration %q in work queue no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err

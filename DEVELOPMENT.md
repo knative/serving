@@ -82,7 +82,8 @@ To check out this repository:
 
 1. Create your own [fork of this
   repo](https://help.github.com/articles/fork-a-repo/)
-2. Clone it to your machine:
+1. Clone it to your machine:
+
   ```shell
   mkdir -p ${GOPATH}/src/github.com/knative
   cd ${GOPATH}/src/github.com/knative
@@ -152,9 +153,13 @@ Next, run:
 
 ```shell
 ko apply -f config/
+
+# Set the logging threhold to info for all Knative components and reapply the config
+sed 's/\"fatal\"/\"info\"/g' config/config-logging.yaml | kubectl apply -f -
 ```
 
 You can see things running with:
+
 ```shell
 kubectl -n knative-serving get pods
 NAME                                READY     STATUS    RESTARTS   AGE
@@ -172,34 +177,18 @@ If you're using a GCP project to host your Kubernetes cluster, it's good to chec
 [Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
 page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
-### Enable log and metric collection
+### Install logging and monitoring backends
 
-You can use two different setups for collecting logs(to Elasticsearch&Kibana) and metrics
-(See [Logs and Metrics](./docs/telemetry.md) for setting up other logging backend):
-
-1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+Run:
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
+    -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
-
-1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
-
-```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-dev \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
-```
-
-Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md).
 
 ## Iterating
 
@@ -212,6 +201,7 @@ As you make changes to the code-base, there are two special cases to be aware of
 These are both idempotent, and we expect that running these at `HEAD` to have no diffs.
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
+
 ```shell
 ko apply -f config/controller.yaml
 ```
@@ -222,6 +212,7 @@ redeploy `Knative Serving`](./README.md#start-knative).
 ## Clean up
 
 You can delete all of the service components with:
+
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-common \

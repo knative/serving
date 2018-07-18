@@ -131,3 +131,22 @@ func levelFromString(level string) (*zapcore.Level, error) {
 	}
 	return &zapLevel, nil
 }
+
+// UpdateLevelFromConfigMap returns a helper func that can be used to update the logging level
+// when a config map is updated
+func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, levelKey string) func(configMap *corev1.ConfigMap) {
+	return func(configMap *corev1.ConfigMap) {
+		loggingConfig, err := NewConfigFromConfigMap(configMap)
+		if err != nil {
+			logger.Error("Failed to parse the logging configmap. Previous config map will be used.", zap.Error(err))
+			return
+		}
+
+		if level, ok := loggingConfig.LoggingLevel[levelKey]; ok {
+			if atomicLevel.Level() != level {
+				logger.Infof("Updating logging level for %v from %v to %v.", levelKey, atomicLevel.Level(), level)
+				atomicLevel.SetLevel(level)
+			}
+		}
+	}
+}

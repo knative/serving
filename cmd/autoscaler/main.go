@@ -35,6 +35,7 @@ import (
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/gorilla/websocket"
 
@@ -53,6 +54,7 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
+	logLevelKey     = "autoscaler"
 )
 
 var (
@@ -69,6 +71,7 @@ var (
 	servingAutoscalerPort string
 	currentScale          int32
 	logger                *zap.SugaredLogger
+	atomicLevel           zap.AtomicLevel
 
 	// Revision-level configuration
 	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
@@ -226,7 +229,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, _ = logging.NewLoggerFromConfig(logginConfig, "autoscaler")
+	logger, atomicLevel = logging.NewLoggerFromConfig(logginConfig, logLevelKey)
 	defer logger.Sync()
 
 	initEnv()
@@ -265,6 +268,14 @@ func main() {
 	}
 	statsReporter = reporter
 
+	// Watch the logging config map and dynamically update logging levels.
+	stopCh := make(chan struct{})
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start configuration manager: %v", err)
+	}
+
 	go runAutoscaler()
 	go scaleSerializer()
 
@@ -272,4 +283,5 @@ func main() {
 	mux.HandleFunc("/", handler)
 	mux.Handle("/metrics", exporter)
 	http.ListenAndServe(":"+servingAutoscalerPort, mux)
+	close(stopCh)
 }
