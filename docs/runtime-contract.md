@@ -18,7 +18,7 @@ properties:
   on relatively stable underlying hardware resources.
 
 This contract does not define the control surfaces over the runtime environment
-except by [reference to the Knative kubernetes resources](spec/spec.md).
+except by [reference to the Knative Kubernetes resources](spec/spec.md).
 Similarly, this contract does not define the implementation of metrics or
 logging aggregation, except to provide a contract for the collection of logging
 data. It is expected that access to the aggregated telemetry will be provided by
@@ -282,7 +282,11 @@ deployment startup, the deployment SHOULD be marked as failed.
 Initial readiness and liveness probes allow the platform to avoid attempting to
 later provision or scale deployments (Revisions) which cannot become healthy,
 and act as a backstop to developer testing (via CI/CD or otherwise) which has
-been performed on the supplied container.
+been performed on the supplied container. Common causes of these failures can
+include: malformed dynamic code not tested in the container, environment
+differences between testing and deployment environment, and missing or
+misconfigured backends. This also provides an opportunity for the container to
+be run at least once despite scale-to-zero guarantees.
 
 ### Outbound network connectivity
 
@@ -307,7 +311,7 @@ metadata include:
 
 - Container information or control interfaces.
 - Host information, including maintenance or capability information.
-- Access to external configuration stores (such as the kubernetes ConfigMap
+- Access to external configuration stores (such as the Kubernetes ConfigMap
   APIs).
 - Access to secrets or identity tokens, to enable key rotation.
 
@@ -416,7 +420,7 @@ Additionally, operators or the platform MAY restrict or prevent CPU scheduling
 for instances when no requests are active,
 [where this capability is available](https://github.com/knative/serving/issues/848).
 The Knative developers are currently discussing the best implementations options
-for this feature with the kubernetes SIG-Node team.
+for this feature with the Kubernetes SIG-Node team.
 
 ### Sysctl
 
