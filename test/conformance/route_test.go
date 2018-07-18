@@ -106,6 +106,11 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
+	logger.Infof("TODO: The Route is accessible from inside the cluster without external DNS")
+	err = test.CheckRouteState(clients.Routes, names.Route, test.TODO_RouteTrafficToRevisionWithInClusterDNS)
+	if err != nil {
+		t.Fatalf("The Route %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Route, names.Revision, err)
+	}
 }
 
 func getNextRevisionName(clients *test.Clients, names test.ResourceNames) (string, error) {

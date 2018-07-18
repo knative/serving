@@ -78,6 +78,10 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
+  # domainInternal: A DNS name for the default (traffic-split) route which can
+  # be accessed without leaving the cluster environment.
+  domainInternal: my-service.default.svc.cluster.local
+
   traffic:
   # current rollout status list. configurationName references
   #   are dereferenced to latest revision
@@ -286,6 +290,11 @@ status:
   # Note that logs may still be access controlled separately from
   # access to the API object.
   logUrl: "http://logging.infra.mycompany.com/...?filter=revision_uid=a1e34&..."
+
+  # serviceName: The name for the core Kubernetes Service that fronts this
+  #   revision. Typically, the name will be the same as the name of the
+  #   revision.
+  serviceName: myservice-a1e34
 ```
 
 
@@ -367,7 +376,11 @@ status:
   # domain: The hostname used to access the default (traffic-split)
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
-  domain: my-service.default.mydomain.com
+  domain: myservice.default.mydomain.com
+
+  # domainInternal: A DNS name for the default (traffic-split) route which can
+  # be accessed without leaving the cluster environment.
+  domainInternal: myservice.default.svc.cluster.local
 
   # current rollout status list. configurationName references
   #   are dereferenced to latest revision

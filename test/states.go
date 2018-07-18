@@ -46,6 +46,28 @@ func AllRouteTrafficAtRevision(names ResourceNames) func(r *v1alpha1.Route) (boo
 	}
 }
 
+// RouteTrafficToRevisionWithInClusterDNS will check the revision that route r is routing
+// traffic using in cluster DNS and return true if the revision received the request.
+func TODO_RouteTrafficToRevisionWithInClusterDNS(r *v1alpha1.Route) (bool, error) {
+	if r.Status.DomainInternal == "" {
+		return false, fmt.Errorf("Expected route %s to have in cluster dns status set", r.Name)
+	}
+	// TODO make a curl request from inside the cluster using
+	// r.Status.DomainInternal to validate DNS is set correctly
+	return true, nil
+}
+
+// ServiceTrafficToRevisionWithInClusterDNS will check the revision that route r is routing
+// traffic using in cluster DNS and return true if the revision received the request.
+func TODO_ServiceTrafficToRevisionWithInClusterDNS(s *v1alpha1.Service) (bool, error) {
+	if s.Status.DomainInternal == "" {
+		return false, fmt.Errorf("Expected service %s to have in cluster dns status set", s.Name)
+	}
+	// TODO make a curl request from inside the cluster using
+	// s.Status.DomainInternal to validate DNS is set correctly
+	return true, nil
+}
+
 // IsRevisionReady will check the status conditions of the revision and return true if the revision is
 // ready to serve traffic. It will return false if the status indicates a state other than deploying
 // or being ready. It will also return false if the type of the condition is unexpected.

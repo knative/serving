@@ -88,6 +88,12 @@ func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clie
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 	}
 
+	logger.Infof("TODO: The Service's Route is accessible from inside the cluster without external DNS")
+	err = test.CheckServiceState(clients.Services, names.Service, test.TODO_ServiceTrafficToRevisionWithInClusterDNS)
+	if err != nil {
+		t.Fatalf("The Service %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Service, names.Revision, err)
+	}
+
 	// TODO(#1381): Check labels and annotations.
 }
 
