@@ -22,4 +22,9 @@ spec:
   names:
     kind: Route
     plural: routes
+    singular: route
+    categories:
+    - all
+    - knative
+    - serving
   scope: Namespaced

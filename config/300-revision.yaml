@@ -22,4 +22,9 @@ spec:
   names:
     kind: Revision
     plural: revisions
+    singular: revision
+    categories:
+    - all
+    - knative
+    - serving
   scope: Namespaced
