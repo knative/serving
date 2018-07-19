@@ -150,7 +150,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.Logger.Named("TestBlueGreenRoute")
+	logger := test.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))

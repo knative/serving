@@ -33,8 +33,8 @@ const (
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestHelloWorld")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")

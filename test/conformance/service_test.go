@@ -126,7 +126,7 @@ func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestRunLatestService")
+	logger := test.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))

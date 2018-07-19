@@ -43,8 +43,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestContainerErrorMsg")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestContainerErrorMsg")
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error

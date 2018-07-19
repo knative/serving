@@ -147,8 +147,8 @@ func tearDown(clients *test.Clients, names test.ResourceNames) {
 func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestRouteCreation")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
