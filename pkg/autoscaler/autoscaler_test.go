@@ -126,6 +126,22 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 	a.expectScale(t, now, 0, true)
 
 }
+
+func TestAutoscaler_ScaledToZero_StableRecommendation(t *testing.T) {
+	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelSingle, 10.0)
+	now := a.recordLinearSeries(
+		t,
+		time.Now(),
+		linearSeries{
+			startConcurrency: 0,
+			endConcurrency:   0,
+			durationSeconds:  300, // 5 minutes
+			podCount:         1,
+		})
+	a.expectScale(t, now, 0, true)
+	a.expectScale(t, now, 0, true)
+}
+
 func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelMulti, 10.0)
 	now := a.recordLinearSeries(

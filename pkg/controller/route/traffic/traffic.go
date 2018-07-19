@@ -160,7 +160,7 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	}
 	target := RevisionTarget{
 		TrafficTarget: *tt,
-		Active:        !rev.Status.IsActivationRequired(),
+		Active:        rev.Status.IsActive(),
 	}
 	target.TrafficTarget.RevisionName = rev.Name
 	t.addFlattenedTarget(target)
@@ -177,7 +177,7 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 	}
 	target := RevisionTarget{
 		TrafficTarget: *tt,
-		Active:        !rev.Status.IsActivationRequired(),
+		Active:        rev.Status.IsActive(),
 	}
 	t.revisions[tt.RevisionName] = rev
 	if configName, ok := rev.Labels[serving.ConfigurationLabelKey]; ok {

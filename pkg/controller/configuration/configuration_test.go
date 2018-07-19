@@ -359,6 +359,7 @@ func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.InitializeConditions()
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
+	rev.Status.MarkActive()
 	if !rev.Status.IsReady() {
 		t.Fatalf("Wanted ready revision: %v", rev)
 	}

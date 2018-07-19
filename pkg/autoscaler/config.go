@@ -91,7 +91,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key      string
 		field    *float64
 		optional bool
-		// specified exactyl when optional
+		// specified exactly when optional
 		defaultValue float64
 	}{{
 		key:   "max-scale-up-rate",
