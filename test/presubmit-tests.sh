@@ -30,7 +30,7 @@ source "$(dirname $(readlink -f ${BASH_SOURCE}))/library.sh"
 
 function build_tests() {
   header "Running build tests"
-  go build -v ./cmd/... ./sample/... ./pkg/... || result=1
+  go build -v ./cmd/... ./pkg/... || result=1
   # "go build" on //test will fail with "no non-test Go files in ..."
   # See https://github.com/golang/go/issues/8279 for details
   # Workaround is to use "go test -run" with a non matching pattern
