@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Load github.com/knative/test-infra/images/prow-tests/scripts/release.sh
 [ -f /workspace/release.sh ] \
   && source /workspace/release.sh \
   || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat release.sh')"
@@ -34,6 +35,8 @@ readonly OUTPUT_YAML=release.yaml
 readonly LITE_YAML=release-lite.yaml
 # Local generated yaml file without the logging and monitoring components.
 readonly NO_MON_YAML=release-no-mon.yaml
+
+# Script entry point
 
 parse_flags $@
 
