@@ -22,7 +22,7 @@ spec:
   names:
     kind: Revision
     plural: revisions
-    singular: revisions
+    singular: revision
     categories:
     - all
     - knative
