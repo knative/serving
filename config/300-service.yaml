@@ -22,4 +22,9 @@ spec:
   names:
     kind: Service
     plural: services
+    singular: service
+    categories:
+    - all
+    - knative
+    - serving
   scope: Namespaced
