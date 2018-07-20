@@ -234,6 +234,7 @@ func main() {
 
 	initEnv()
 	logger = logger.With(
+		zap.String(logkey.ControllerType, "autoscaler"),
 		zap.String(logkey.Namespace, servingNamespace),
 		zap.String(logkey.Configuration, servingConfig),
 		zap.String(logkey.Revision, servingRevision))

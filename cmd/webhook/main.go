@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/knative/build/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
@@ -47,6 +48,7 @@ func main() {
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
 	defer logger.Sync()
+	logger = logger.With(zap.String(logkey.ControllerType, "webhook"))
 
 	logger.Info("Starting the Configuration Webhook")
 

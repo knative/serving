@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/knative/serving/pkg/logging/logkey"
+
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/configmap"
@@ -158,7 +160,7 @@ func main() {
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
 	defer logger.Sync()
-
+	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
 	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
