@@ -4,12 +4,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/test"
 	"go.uber.org/zap"
+
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	"github.com/knative/serving/test"
 )
 
 const (
@@ -45,9 +47,13 @@ func TearDown(clients *test.Clients, names test.ResourceNames, logger *zap.Sugar
 	// upstream" causing timeouts.  Adding this small sleep to
 	// sidestep the issue.
 	//
+	// Only perform this sleep if the test created a Route.
+	//
 	// TODO(#1376):  Fix this when upstream fix is released.
-	logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
-	time.Sleep(20 * time.Second)
+	if names.Route != "" {
+		logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
+		time.Sleep(20 * time.Second)
+	}
 }
 
 // CreateRouteAndConfig will create Route and Config objects using clients.

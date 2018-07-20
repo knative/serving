@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -86,6 +87,12 @@ func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clie
 	logger.Info("Updates the Route to route traffic to the Revision")
 	if err := test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names)); err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
+	}
+
+	logger.Infof("TODO: The Service's Route is accessible from inside the cluster without external DNS")
+	err = test.CheckServiceState(clients.Services, names.Service, test.TODO_ServiceTrafficToRevisionWithInClusterDNS)
+	if err != nil {
+		t.Fatalf("The Service %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Service, names.Revision, err)
 	}
 
 	// TODO(#1381): Check labels and annotations.

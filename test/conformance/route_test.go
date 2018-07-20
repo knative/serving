@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -43,11 +44,11 @@ const (
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	_, err := clients.Configs.Create(test.Configuration(test.Flags.Namespace, names, imagePaths[0]))
+	err := test.CreateConfiguration(clients, names, imagePaths[0])
 	if err != nil {
 		return err
 	}
-	_, err = clients.Routes.Create(test.Route(test.Flags.Namespace, names))
+	err = test.CreateRoute(clients, names)
 	return err
 }
 
@@ -105,6 +106,11 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	err = test.CheckRouteState(clients.Routes, names.Route, test.AllRouteTrafficAtRevision(names))
 	if err != nil {
 		t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
+	}
+	logger.Infof("TODO: The Route is accessible from inside the cluster without external DNS")
+	err = test.CheckRouteState(clients.Routes, names.Route, test.TODO_RouteTrafficToRevisionWithInClusterDNS)
+	if err != nil {
+		t.Fatalf("The Route %s was not able to route traffic to the Revision %s with in cluster DNS: %v", names.Route, names.Revision, err)
 	}
 }
 

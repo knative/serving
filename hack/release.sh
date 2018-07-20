@@ -69,7 +69,7 @@ cd ${SERVING_ROOT_DIR}
 SKIP_TESTS=0
 TAG_RELEASE=0
 DONT_PUBLISH=0
-KO_FLAGS=""
+KO_FLAGS="-P"
 
 for parameter in "$@"; do
   case $parameter in

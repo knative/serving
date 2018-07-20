@@ -19,32 +19,41 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"sync"
 
-	"github.com/google/go-containerregistry/ko/build"
-	"github.com/google/go-containerregistry/ko/publish"
-	"github.com/google/go-containerregistry/ko/resolve"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/daemon"
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/ko/build"
+	"github.com/google/go-containerregistry/pkg/ko/publish"
+	"github.com/google/go-containerregistry/pkg/ko/resolve"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
 )
 
-func gobuildOptions() build.Options {
-	return build.Options{
-		GetBase:         getBaseImage,
-		GetCreationTime: getCreationTime,
+func gobuildOptions() ([]build.Option, error) {
+	creationTime, err := getCreationTime()
+	if err != nil {
+		return nil, err
 	}
+	opts := []build.Option{
+		build.WithBaseImages(getBaseImage),
+	}
+	if creationTime != nil {
+		opts = append(opts, build.WithCreationTime(*creationTime))
+	}
+	return opts, nil
 }
 
-func resolveFilesToWriter(fo *FilenameOptions, lo *LocalOptions, out io.Writer) {
+func resolveFilesToWriter(fo *FilenameOptions, no *NameOptions, lo *LocalOptions, out io.Writer) {
 	fs, err := enumerateFiles(fo)
 	if err != nil {
 		log.Fatalf("error enumerating files: %v", err)
 	}
 
-	opt := gobuildOptions()
+	opt, err := gobuildOptions()
+	if err != nil {
+		log.Fatalf("error setting up builder options: %v", err)
+	}
 	var sm sync.Map
 	wg := sync.WaitGroup{}
 	for _, f := range fs {
@@ -52,7 +61,7 @@ func resolveFilesToWriter(fo *FilenameOptions, lo *LocalOptions, out io.Writer) 
 		go func(f string) {
 			defer wg.Done()
 
-			b, err := resolveFile(f, lo, opt)
+			b, err := resolveFile(f, no, lo, opt...)
 			if err != nil {
 				log.Fatalf("error processing import paths in %q: %v", f, err)
 			}
@@ -76,20 +85,28 @@ func resolveFilesToWriter(fo *FilenameOptions, lo *LocalOptions, out io.Writer) 
 	}
 }
 
-func resolveFile(f string, lo *LocalOptions, opt build.Options) ([]byte, error) {
+func resolveFile(f string, no *NameOptions, lo *LocalOptions, opt ...build.Option) ([]byte, error) {
 	var pub publish.Interface
-	if lo.Local {
+	repoName := os.Getenv("KO_DOCKER_REPO")
+	if lo.Local || repoName == publish.LocalDomain {
 		pub = publish.NewDaemon(daemon.WriteOptions{})
 	} else {
-		repoName := os.Getenv("KO_DOCKER_REPO")
-		repo, err := name.NewRepository(repoName, name.WeakValidation)
+		_, err := name.NewRepository(repoName, name.WeakValidation)
 		if err != nil {
 			return nil, fmt.Errorf("the environment variable KO_DOCKER_REPO must be set to a valid docker repository, got %v", err)
 		}
 
-		pub = publish.NewDefault(repo, http.DefaultTransport, remote.WriteOptions{
-			MountPaths: getMountPaths(),
-		})
+		opts := []publish.Option{publish.WithAuthFromKeychain(authn.DefaultKeychain)}
+		if no.PreserveImportPaths {
+			opts = append(opts, publish.WithNamer(preserveImportPath))
+		} else {
+			opts = append(opts, publish.WithNamer(packageWithMD5))
+		}
+
+		pub, err = publish.NewDefault(repoName, opts...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	b, err := ioutil.ReadFile(f)
@@ -97,7 +114,7 @@ func resolveFile(f string, lo *LocalOptions, opt build.Options) ([]byte, error) 
 		return nil, err
 	}
 
-	builder, err := build.NewGo(opt)
+	builder, err := build.NewGo(opt...)
 	if err != nil {
 		return nil, err
 	}
