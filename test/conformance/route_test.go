@@ -44,11 +44,11 @@ const (
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	_, err := clients.Configs.Create(test.Configuration(test.Flags.Namespace, names, imagePaths[0]))
+	err := test.CreateConfiguration(clients, names, imagePaths)
 	if err != nil {
 		return err
 	}
-	_, err = clients.Routes.Create(test.Route(test.Flags.Namespace, names))
+	err = test.CreateRoute(clients, names)
 	return err
 }
 
