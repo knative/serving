@@ -28,8 +28,6 @@ readonly K8S_CLUSTER_NAME=${1:?"First argument must be the kubernetes cluster na
 readonly K8S_CLUSTER_ZONE=us-central1-a
 readonly K8S_CLUSTER_MACHINE=n1-standard-8
 readonly K8S_CLUSTER_NODES=5
-readonly SERVING_RELEASE=https://storage.googleapis.com/knative-releases/latest/release.yaml
-readonly ISTIO_YAML=https://storage.googleapis.com/knative-releases/latest/istio.yaml
 readonly PROJECT_USER=$(gcloud config get-value core/account)
 readonly CURRENT_PROJECT=$(gcloud config get-value project)
 
@@ -64,16 +62,6 @@ gcloud --project=${PROJECT_ID} container clusters create \
 header "Setting cluster admin"
 acquire_cluster_admin_role ${PROJECT_USER} ${K8S_CLUSTER_NAME} ${K8S_CLUSTER_ZONE}
 
-header "Installing istio"
-kubectl apply -f ${ISTIO_YAML}
-wait_until_pods_running istio-system
-
-kubectl label namespace default istio-injection=enabled
-
-header "Installing Knative Serving"
-kubectl apply -f ${SERVING_RELEASE}
-
-wait_until_pods_running knative-serving
-wait_until_pods_running knative-build
+start_latest_knative_serving
 
 header "Knative Serving deployed successfully to ${K8S_CLUSTER_NAME}"
