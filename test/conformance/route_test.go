@@ -44,7 +44,7 @@ const (
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	err := test.CreateConfiguration(clients, names, imagePaths)
+	err := test.CreateConfiguration(clients, names, imagePaths[0])
 	if err != nil {
 		return err
 	}

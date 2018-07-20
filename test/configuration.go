@@ -13,14 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// logging.go contains the logic to configure and interact with the
-// logging and metrics libraries.
+// configuration.go provides methods to perform actions on the configuration object.
 
 package test
 
-// CreateConfiguration creates a config object
-func CreateConfiguration(clients *Clients, names ResourceNames, imagePaths []string) error {
-	config := Configuration(Flags.Namespace, names, imagePaths[0])
+// CreateConfiguration create a configuration resource in namespace with the name names.Config
+// that uses the image specifed by imagePath.
+func CreateConfiguration(clients *Clients, names ResourceNames, imagePath string) error {
+	config := Configuration(Flags.Namespace, names, imagePath)
 	// Log config object
 	_, err := clients.Configs.Create(config)
 	return err

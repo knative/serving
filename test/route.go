@@ -13,12 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// logging.go contains the logic to configure and interact with the
-// logging and metrics libraries.
+// route.go provides methods to perform actions on the route resource.
 
 package test
 
-// CreateRoute creates a route object
+// CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(clients *Clients, names ResourceNames) error {
 	route := Route(Flags.Namespace, names)
 	// Log the route object
