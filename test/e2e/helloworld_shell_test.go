@@ -61,8 +61,8 @@ func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
-	// Add test case specific name to its own logger
-	logger := test.Logger.Named("TestHelloWorldFromShell")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestHelloWorldFromShell")
 
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 

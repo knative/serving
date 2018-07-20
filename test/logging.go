@@ -38,27 +38,27 @@ const (
 	metricViewReportingPeriod = 1 * time.Second
 )
 
-// Logger is to be used by test cases for logging and is also used
-// for emitting metrics.
-var Logger *zap.SugaredLogger
+var baseLogger *zap.SugaredLogger
 
-// ZapMetricExporter is a stats and trace exporter that logs the
+var exporter *zapMetricExporter
+
+// zapMetricExporter is a stats and trace exporter that logs the
 // exported data to the provided (probably test specific) zap logger.
 // It conforms to the view.Exporter and trace.Exporter interfaces.
-type ZapMetricExporter struct {
+type zapMetricExporter struct {
 	logger *zap.SugaredLogger
 }
 
 // ExportView will emit the view data vd (i.e. the stats that have been
 // recorded) to the zap logger.
-func (e *ZapMetricExporter) ExportView(vd *view.Data) {
+func (e *zapMetricExporter) ExportView(vd *view.Data) {
 	// We are not curretnly consuming these metrics, so for now we'll juse
 	// dump the view.Data object as is.
 	e.logger.Info(vd)
 }
 
 // ExportSpan will emit the trace data to the zap logger.
-func (e *ZapMetricExporter) ExportSpan(vd *trace.SpanData) {
+func (e *zapMetricExporter) ExportSpan(vd *trace.SpanData) {
 	duration := vd.EndTime.Sub(vd.StartTime)
 	// We will start the log entry with `metric` to identify it as a metric for parsing
 	e.logger.Infof("metric %s %d %d %s", vd.Name, vd.StartTime.UnixNano(), vd.EndTime.UnixNano(), duration)
@@ -90,10 +90,6 @@ func newLogger(logLevel string) *zap.SugaredLogger {
 }
 
 func initializeMetricExporter() {
-	exporter := &ZapMetricExporter{logger: Logger}
-	view.RegisterExporter(exporter)
-	trace.RegisterExporter(exporter)
-
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	view.SetReportingPeriod(metricViewReportingPeriod)
 }
@@ -108,5 +104,26 @@ func initializeLogger(logVerbose bool) {
 
 		logLevel = "debug"
 	}
-	Logger = newLogger(logLevel)
+	baseLogger = newLogger(logLevel)
+}
+
+// GetContextLogger creates a Named logger (https://godoc.org/go.uber.org/zap#Logger.Named)
+// using the provided context as a name. This will also register the logger as a metric exporter,
+// which is unfortunately global, so calling `GetContextLogger` will have the side effect of
+// changing the context in which all metrics are logged from that point forward.
+func GetContextLogger(context string) *zap.SugaredLogger {
+	// If there was a previously registered exporter, unregister it so we only emit
+	// the metrics in the current context.
+	if exporter != nil {
+		view.UnregisterExporter(exporter)
+		trace.UnregisterExporter(exporter)
+	}
+
+	logger := baseLogger.Named(context)
+
+	exporter = &zapMetricExporter{logger: logger}
+	view.RegisterExporter(exporter)
+	trace.RegisterExporter(exporter)
+
+	return logger
 }
