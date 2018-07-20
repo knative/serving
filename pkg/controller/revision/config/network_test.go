@@ -43,41 +43,68 @@ func TestNewNetworkNoEntry(t *testing.T) {
 }
 
 func TestNewNetwork(t *testing.T) {
-	validList := []string{
-		"10.10.10.0/24",                                // Valid single outbound IP range
-		"10.10.10.0/24,10.240.10.0/14,192.192.10.0/16", // Valid multiple outbound IP ranges
-		"*",
-	}
-	for _, want := range validList {
+	tests := []struct {
+		in   string
+		want string
+	}{{
+		in:   "10.10.10.0/24", // Valid single outbound IP range
+		want: "10.10.10.0/24",
+	}, {
+		in:   "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16", // Valid multiple outbound IP ranges
+		want: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+	}, {
+		in:   "*",
+		want: "*",
+	}, {
+		in:   "",
+		want: "",
+	}, {
+		in:   " *   ",
+		want: "*",
+	}, {
+		in:   "  ",
+		want: "",
+	}, {
+		in:   " ,   ,  , ",
+		want: "",
+	}, {
+		in:   "  10.10.2.3/24\t",
+		want: "10.10.2.3/24",
+	}, {
+		in:   "10.10.10.0/24,  10.240.10.0/14 \r,  192.192.10.0/16 ",
+		want: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+	}, {
+		in:   " \t\t10.10.10.0/24,  ,,\t\n\r\n,10.240.10.0/14\n,   192.192.10.0/16",
+		want: "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+	}}
+
+	for _, tt := range tests {
 		c, err := NewNetworkFromConfigMap(&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
 				Name:      NetworkConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey: want,
+				IstioOutboundIPRangesKey: tt.in,
 			},
 		})
 		if err != nil {
 			t.Errorf("NewNetworkFromConfigMap() = %v", err)
 		}
-		if c.IstioOutboundIPRanges != want {
-			t.Errorf("Want %v, got %v", want, c.IstioOutboundIPRanges)
+		if c.IstioOutboundIPRanges != tt.want {
+			t.Errorf("Want %v, got %v", tt.want, c.IstioOutboundIPRanges)
 		}
 	}
 }
 
 func TestBadNetwork(t *testing.T) {
 	invalidList := []string{
-		"",                       // Empty input should generate no annotation
 		"10.10.10.10/33",         // Invalid outbound IP range
 		"10.10.10.10/12,invalid", // Some valid, some invalid ranges
 		"10.10.10.10/12,-1.1.1.1/10",
-		",",
-		",,",
-		", ,",
 		"*,",
 		"*,*",
+		"*,   *",
 		"this is not an IP range",
 	}
 	for _, invalid := range invalidList {
