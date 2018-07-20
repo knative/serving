@@ -14,9 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
+# Load github.com/knative/test-infra/images/prow-tests/scripts/library.sh
+[ -f /workspace/library.sh ] \
+  && source /workspace/library.sh \
+  || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
+[ -v KNATIVE_TEST_INFRA ] || exit 1
 
-source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
+set -o errexit
 
 : ${PROJECT_ID:="knative-environments"}
 readonly PROJECT_ID
@@ -33,7 +37,7 @@ function cleanup() {
   gcloud config set project ${CURRENT_PROJECT}
 }
 
-cd ${SERVING_ROOT_DIR}
+cd ${REPO_ROOT_DIR}
 trap cleanup EXIT
 
 echo "Using project ${PROJECT_ID} and user ${PROJECT_USER}"
