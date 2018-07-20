@@ -253,8 +253,8 @@ and a
 If not provided, container startup and listening on the declared HTTP socket is
 considered sufficient to declare the container "ready" and "live" (see the probe
 definition below). If specified, liveness and readiness probes are REQUIRED to
-be of the the `httpGet` or `tcpSocket` types, and MUST target the inbound
-container port; platform providers SHOULD disallow other probe methods.
+be of the `httpGet` or `tcpSocket` types, and MUST target the inbound container
+port; platform providers SHOULD disallow other probe methods.
 
 Because serverless platforms automatically scale instances based on inbound
 requests, and because noncompliant (or even failing) containers may be provided
@@ -339,7 +339,7 @@ declarative fashion, and individual instances SHOULD NOT be interacted with or
 connected directly.
 
 - The `terminal` property SHOULD NOT be set to `true`.
-- The linux process specific properties MUST NOT be configurable by the Knative
+- The linux process specific properties MUST NOT be configurable by the
   developer, and MAY set by the operator or platform provider.
 
 The following environment variables MUST be set:
@@ -419,7 +419,7 @@ exposed in
 Additionally, operators or the platform MAY restrict or prevent CPU scheduling
 for instances when no requests are active,
 [where this capability is available](https://github.com/knative/serving/issues/848).
-The Knative developers are currently discussing the best implementations options
+The Knative authors are currently discussing the best implementations options
 for this feature with the Kubernetes SIG-Node team.
 
 ### Sysctl
@@ -449,26 +449,26 @@ From the OCI spec:
 > propagation.
 
 This option should only be set by the operator or platform provider, and MUST
-NOT be configurable by the Knative developer. As mount propagation may be part
-of the platform security hardening, operators MAY tune this over time as the
-threat environment changes.
+NOT be configurable by the developer. As mount propagation may be part of the
+platform security hardening, operators MAY tune this over time as the threat
+environment changes.
 
 ### Masked Paths
 
 This option MAY only be set by the operator or platform provider, and MUST NOT
-be configurable by the Knative developer. As masked paths may be part of the
-platform security hardening, operators may tune this from time to time as the
-threat environment changes.
+be configurable by the developer. As masked paths may be part of the platform
+security hardening, operators may tune this from time to time as the threat
+environment changes.
 
 ### Readonly Paths
 
 This option MAY only be set by the operator or platform provider, and MUST NOT
-be configurable by the Knative developer.
+be configurable by the developer.
 
 ### Posix-platform Hooks
 
-Operation hooks SHOULD NOT be configurable by the Knative developer. Operators
-or platform providers MAY use hooks to implement their own lifecycle controls.
+Operation hooks SHOULD NOT be configurable by the developer. Operators or
+platform providers MAY use hooks to implement their own lifecycle controls.
 
 ### Annotations
 
