@@ -103,6 +103,10 @@ func New(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, domain 
 			return nil, err
 		}
 
+		if len(ingress.Status.LoadBalancer.Ingress) != 1 {
+			return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingress.Status.LoadBalancer.Ingress), ingress.Status.LoadBalancer.Ingress)
+		}
+
 		if ingress.Status.LoadBalancer.Ingress[0].IP == "" {
 			return nil, fmt.Errorf("Expected ingress loadbalancer IP for %s to be set, instead was empty", ingressName)
 		}
