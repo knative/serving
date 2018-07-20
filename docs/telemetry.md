@@ -62,8 +62,8 @@ necessary and instrument your code as described in step 3.
 In the example below, we will setup the service to host the metrics and
 instrument a sample 'Gauge' type metric using the setup.
 
-1.First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
-2.Add the following to your application startup:
+1. First, go through [OpenCensus Go Documentation](https://godoc.org/go.opencensus.io).
+2. Add the following to your application startup:
 
 ```go
 import (
