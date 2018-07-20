@@ -22,4 +22,9 @@ spec:
   names:
     kind: Configuration
     plural: configurations
+    singular: configuration
+    categories:
+    - all
+    - knative
+    - serving
   scope: Namespaced

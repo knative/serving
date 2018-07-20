@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/remote"
-	"github.com/mattmoor/k8schain"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
@@ -62,11 +62,7 @@ func (r *digestResolver) Resolve(deploy *appsv1.Deployment) error {
 			continue
 		}
 
-		auth, err := kc.Resolve(tag.Registry)
-		if err != nil {
-			return err
-		}
-		img, err := remote.Image(tag, auth, r.transport)
+		img, err := remote.Image(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc))
 		if err != nil {
 			return err
 		}

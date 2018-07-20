@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"

@@ -59,8 +59,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2018-05-28
-  revision = "8bdfdfc3bd4146f40b7709f6b1b7d979a3385da8"
+  # HEAD as of 2018-07-19
+  revision = "0eeba96f66fdd1873f2ec7f3764ee3b58c5a050c"
 
 [[constraint]]
   name = "k8s.io/api"
