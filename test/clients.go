@@ -19,6 +19,8 @@ limitations under the License.
 package test
 
 import (
+	buildversioned "github.com/knative/build/pkg/client/clientset/versioned"
+	buildtyped "github.com/knative/build/pkg/client/clientset/versioned/typed/build/v1alpha1"
 	"github.com/knative/serving/pkg/client/clientset/versioned"
 	servingtyped "github.com/knative/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	"k8s.io/client-go/kubernetes"
@@ -33,6 +35,7 @@ type Clients struct {
 	Configs   servingtyped.ConfigurationInterface
 	Revisions servingtyped.RevisionInterface
 	Services  servingtyped.ServiceInterface
+	Builds    buildtyped.BuildInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
@@ -54,10 +57,16 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
+	bcs, err := buildversioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	clients.Routes = cs.ServingV1alpha1().Routes(namespace)
 	clients.Configs = cs.ServingV1alpha1().Configurations(namespace)
 	clients.Revisions = cs.ServingV1alpha1().Revisions(namespace)
 	clients.Services = cs.ServingV1alpha1().Services(namespace)
+	clients.Builds = bcs.BuildV1alpha1().Builds(namespace)
 
 	return clients, nil
 }

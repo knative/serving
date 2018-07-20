@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -89,6 +90,25 @@ func Configuration(namespace string, names ResourceNames, imagePath string) *v1a
 			Name:      names.Config,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
+			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+				Spec: v1alpha1.RevisionSpec{
+					Container: corev1.Container{
+						Image: imagePath,
+					},
+				},
+			},
+		},
+	}
+}
+
+func ConfigurationWithBuild(namespace string, names ResourceNames, build *buildv1alpha1.BuildSpec, imagePath string) *v1alpha1.Configuration {
+	return &v1alpha1.Configuration{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      names.Config,
+		},
+		Spec: v1alpha1.ConfigurationSpec{
+			Build: build,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
