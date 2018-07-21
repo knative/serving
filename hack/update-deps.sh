@@ -33,3 +33,6 @@ git apply --exclude='*_test.go' $SERVING_ROOT/hack/61195.patch
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
+
+# Run dep-collector to update our VENDOR-LICENSE
+go run ./vendor/github.com/mattmoor/dep-collector/*.go ./cmd/* > third_party/VENDOR-LICENSE
