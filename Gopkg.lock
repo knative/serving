@@ -227,6 +227,19 @@
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/google/licenseclassifier"
+  packages = [
+    ".",
+    "internal/sets",
+    "stringclassifier",
+    "stringclassifier/internal/pq",
+    "stringclassifier/searchset",
+    "stringclassifier/searchset/tokenizer"
+  ]
+  revision = "3c8ad1f0b0644b6646210ee9cf2f34ff907e2e18"
+
+[[projects]]
   name = "github.com/googleapis/gnostic"
   packages = [
     "OpenAPIv2",
@@ -328,6 +341,12 @@
   revision = "81af80346b1a01caae0cbc27fd3c1ba5b11e189f"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/mattmoor/dep-collector"
+  packages = ["."]
+  revision = "ea0470924d0dd9363ffae8936f88a22d28551685"
+
+[[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
   revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
@@ -386,6 +405,12 @@
     "xfs"
   ]
   revision = "282c8707aa210456a825798969cc27edda34992a"
+
+[[projects]]
+  name = "github.com/sergi/go-diff"
+  packages = ["diffmatchpatch"]
+  revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/spf13/afero"
@@ -911,6 +936,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f86b66f643b30eef1efadaf9da53464dc9ddf823b4305110214bbb5719202998"
+  inputs-digest = "22c9a44882d5f37220f73c78368972eb2f0c60c1eb86e83ac5fb5c2193f2557b"
   solver-name = "gps-cdcl"
   solver-version = 1
