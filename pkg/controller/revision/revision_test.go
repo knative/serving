@@ -657,15 +657,24 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 	var annotations map[string]string
 
 	// A valid IP range
+	in := "  10.10.10.0/24\r,,\t,\n,,"
 	want := "10.10.10.0/24"
-	annotations = getPodAnnotationsForConfig(t, want, "")
+	annotations = getPodAnnotationsForConfig(t, in, "")
+	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
+		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
+	}
+
+	// Multiple valid ranges with whitespaces
+	in = " \t\t10.10.10.0/24,  ,,\t\n\r\n,10.240.10.0/14\n,   192.192.10.0/16"
+	want = "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16"
+	annotations = getPodAnnotationsForConfig(t, in, "")
 	if got := annotations[resources.IstioOutboundIPRangeAnnotation]; want != got {
 		t.Fatalf("%v annotation expected to be %v, but is %v.", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}
 
 	// An invalid IP range
-	want = "10.10.10.10/33"
-	annotations = getPodAnnotationsForConfig(t, want, "")
+	in = "10.10.10.10/33"
+	annotations = getPodAnnotationsForConfig(t, in, "")
 	if got, ok := annotations[resources.IstioOutboundIPRangeAnnotation]; ok {
 		t.Fatalf("Expected to have no %v annotation for invalid option %v. But found value %v", resources.IstioOutboundIPRangeAnnotation, want, got)
 	}

@@ -24,6 +24,8 @@ import (
 )
 
 const (
+	// NetworkConfigName is the name of the configmap containing all
+	// customizations for networking features.
 	NetworkConfigName = "config-network"
 
 	// IstioOutboundIPRangesKey is the name of the configuration entry
@@ -39,18 +41,29 @@ type Network struct {
 	IstioOutboundIPRanges string
 }
 
-func validateOutboundIPRanges(s string) error {
+func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
+	s = strings.TrimSpace(s)
+
 	// * is a valid value
 	if s == "*" {
-		return nil
+		return s, nil
 	}
+
 	cidrs := strings.Split(s, ",")
+	var normalized []string
 	for _, cidr := range cidrs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return err
+		cidr = strings.TrimSpace(cidr)
+		if len(cidr) == 0 {
+			continue
 		}
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return "", err
+		}
+
+		normalized = append(normalized, cidr)
 	}
-	return nil
+
+	return strings.Join(normalized, ","), nil
 }
 
 // NewNetworkFromConfigMap creates a Network from the supplied ConfigMap
@@ -58,10 +71,10 @@ func NewNetworkFromConfigMap(configMap *corev1.ConfigMap) (*Network, error) {
 	nc := &Network{}
 	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
 		// It is OK for this to be absent, we will elide the annotation.
-	} else if err := validateOutboundIPRanges(ipr); err != nil {
+	} else if normalizedIpr, err := validateAndNormalizeOutboundIPRanges(ipr); err != nil {
 		return nil, err
 	} else {
-		nc.IstioOutboundIPRanges = ipr
+		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 	return nc, nil
 }
