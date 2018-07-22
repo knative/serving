@@ -14,12 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source "$(dirname $(readlink -f ${BASH_SOURCE}))/../test/library.sh"
-
 set -o errexit
 set -o nounset
 set -o pipefail
 
+readonly SERVING_ROOT_DIR="$(git rev-parse --show-toplevel)"
 readonly TMP_DIFFROOT="$(mktemp -d -p ${SERVING_ROOT_DIR})"
 
 cleanup() {
@@ -43,7 +42,7 @@ cp -a "${SERVING_ROOT_DIR}/config"/* "${TMP_DIFFROOT}/config"
 "${SERVING_ROOT_DIR}/hack/update-codegen.sh"
 echo "Diffing ${SERVING_ROOT_DIR} against freshly generated codegen"
 ret=0
-diff -Naupr "${SERVING_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=$?
+diff -Naupr "${SERVING_ROOT_DIR}/pkg" "${TMP_DIFFROOT}/pkg" || ret=1
 
 # Restore working tree state
 rm -fr "${TMP_DIFFROOT}/config"
