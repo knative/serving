@@ -101,23 +101,23 @@ To use a k8s cluster running in GKE:
 
     ```shell
     minikube start --memory=8192 --cpus=4 \
-    --kubernetes-version=v1.10.4 \
+    --kubernetes-version=v1.10.5 \
     --vm-driver=kvm2 \
     --bootstrapper=kubeadm \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
-    --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
     For macOS use:
 
     ```shell
     minikube start --memory=8192 --cpus=4 \
-    --kubernetes-version=v1.10.4 \
+    --kubernetes-version=v1.10.5 \
     --vm-driver=hyperkit \
     --bootstrapper=kubeadm \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
-    --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
 1.  [Configure your shell environment](../DEVELOPMENT.md#environment-setup)
     to use your minikube cluster:
@@ -165,7 +165,14 @@ To use a k8s cluster running in GKE:
            [to setup access to GCR](#minikube-with-gcr).
         1. Deploy the rest of Knative:
            ```bash
-           ko apply -f config/
+           # Use the minikube docker daemon (among other things)
+           eval $(minikube docker-env)
+
+           # Switch the current kubectl context to minikube
+           kubectl config use-context minikube
+
+           # Deploy to minikube w/o registry.
+           ko apply -L -f config/
            ```
 
     1. [Enable log and metric collection](../DEVELOPMENT.md#enable-log-and-metric-collection)
@@ -187,6 +194,37 @@ docker pull gcr.io/knative-samples/primer:latest
 docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
 ```
 
+### Minikube locally with `ko`
+
+You can instruct `ko` to sideload images into your Docker daemon instead of
+publishing them to a registry via the `-L` (local) flag:
+
+```shell
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
+
+# Deploy to minikube w/o registry.
+ko apply -L -f config/
+```
+
+Alternatively (if you don't like flags), set `KO_DOCKER_REPO` to `ko.local`:
+
+```shell
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
+
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
+
+# Set KO_DOCKER_REPO to a sentinel value for ko to sideload into the daemon.
+export KO_DOCKER_REPO="ko.local"
+
+# Deploy to minikube w/o registry.
+ko apply -f config/
+```
 
 ### Minikube with GCR
 

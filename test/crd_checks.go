@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -155,6 +156,22 @@ func WaitForServiceState(client servingtyped.ServiceInterface, name string, inSt
 		}
 		return inState(s)
 	})
+}
+
+// CheckServiceState verifies the status of the Service called name from client
+// is in a particular state by calling `inState` and expecting `true`.
+// This is the non-polling variety of WaitForServiceState
+func CheckServiceState(client servingtyped.ServiceInterface, name string, inState func(s *v1alpha1.Service) (bool, error)) error {
+	s, err := client.Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if done, err := inState(s); err != nil {
+		return err
+	} else if !done {
+		return fmt.Errorf("service %q is not in desired state: %+v", name, s)
+	}
+	return nil
 }
 
 // WaitForIngressState polls the status of the Ingress called name

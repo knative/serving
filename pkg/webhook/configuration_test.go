@@ -1,5 +1,6 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -29,7 +30,7 @@ import (
 func TestValidConfigurationAllowed(t *testing.T) {
 	configuration := createConfiguration(testGeneration, testConfigurationName)
 
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err != nil {
 		t.Fatalf("Expected allowed. Failed with %s", err)
 	}
 }
@@ -43,13 +44,13 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 		Spec: v1alpha1.ConfigurationSpec{},
 	}
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration)
+	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
 	want := &v1alpha1.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -65,13 +66,13 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 		},
 	}
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration)
+	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
 	want := &v1alpha1.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.revisionTemplate.spec"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -91,13 +92,13 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 		},
 	}
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration)
+	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
 	want := &v1alpha1.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.revisionTemplate.spec.container"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -121,8 +122,8 @@ func TestServingStateNotAllowed(t *testing.T) {
 		},
 	}
 	expected := fmt.Sprintf("must not set the field(s): spec.revisionTemplate.spec.servingState")
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
-		t.Fatalf("Result of ValidateNew function: %s. Expected: %s.", err, expected)
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+		t.Fatalf("Result of Validate function: %s. Expected: %s.", err, expected)
 	}
 }
 
@@ -169,19 +170,19 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 		},
 	}
 	expected := want.Error()
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	configuration.Spec.RevisionTemplate.Spec.Container.Name = ""
 	want.Paths = want.Paths[1:]
 	expected = want.Error()
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 	configuration.Spec.RevisionTemplate.Spec.Container.Resources = corev1.ResourceRequirements{}
 	want.Paths = want.Paths[1:]
 	expected = want.Error()
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
+	if err := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration); err == nil || err.Error() != expected {
 		t.Fatalf("Expected: %s. Failed with %s", expected, err)
 	}
 }

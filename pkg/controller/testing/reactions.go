@@ -21,6 +21,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 // InduceFailure is used in conjunction with TableTest's WithReactors field.
@@ -36,4 +38,28 @@ func InduceFailure(verb, resource string) clientgotesting.ReactionFunc {
 		}
 		return true, nil, fmt.Errorf("inducing failure for %s %s", action.GetVerb(), action.GetResource().Resource)
 	}
+}
+
+func ValidateCreates(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+	got := action.(clientgotesting.CreateAction).GetObject()
+	obj, ok := got.(v1alpha1.Validatable)
+	if !ok {
+		return false, nil, nil
+	}
+	if err := obj.Validate(); err != nil {
+		return true, nil, err
+	}
+	return false, nil, nil
+}
+
+func ValidateUpdates(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+	got := action.(clientgotesting.UpdateAction).GetObject()
+	obj, ok := got.(v1alpha1.Validatable)
+	if !ok {
+		return false, nil, nil
+	}
+	if err := obj.Validate(); err != nil {
+		return true, nil, err
+	}
+	return false, nil, nil
 }

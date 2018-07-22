@@ -65,6 +65,22 @@ const fluentdSidecarPreOutputConfig = `
 
 `
 
+var (
+	fluentdResources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: fluentdContainerCPU,
+		},
+	}
+
+	fluentdVolumeMounts = []corev1.VolumeMount{{
+		Name:      varLogVolumeName,
+		MountPath: "/var/log/revisions",
+	}, {
+		Name:      fluentdConfigMapVolumeName,
+		MountPath: "/etc/fluent/config.d",
+	}}
+)
+
 func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Observability) *corev1.ConfigMap {
 	varlogConf := fluentdSidecarPreOutputConfig + observabilityConfig.FluentdSidecarOutputConfig
 	return &corev1.ConfigMap{
@@ -78,5 +94,42 @@ func MakeFluentdConfigMap(rev *v1alpha1.Revision, observabilityConfig *config.Ob
 		Data: map[string]string{
 			"varlog.conf": varlogConf,
 		},
+	}
+}
+
+func makeFluentdContainer(rev *v1alpha1.Revision, observabilityConfig *config.Observability) *corev1.Container {
+	configName := ""
+	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
+		configName = owner.Name
+	}
+
+	return &corev1.Container{
+		Name:      fluentdContainerName,
+		Image:     observabilityConfig.FluentdSidecarImage,
+		Resources: fluentdResources,
+		Env: []corev1.EnvVar{{
+			Name:  "FLUENTD_ARGS",
+			Value: "--no-supervisor -q",
+		}, {
+			Name:  "SERVING_CONTAINER_NAME",
+			Value: UserContainerName,
+		}, {
+			Name:  "SERVING_CONFIGURATION",
+			Value: configName,
+		}, {
+			Name:  "SERVING_REVISION",
+			Value: rev.Name,
+		}, {
+			Name:  "SERVING_NAMESPACE",
+			Value: rev.Namespace,
+		}, {
+			Name: "SERVING_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		}},
+		VolumeMounts: fluentdVolumeMounts,
 	}
 }

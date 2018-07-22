@@ -1,5 +1,6 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -45,7 +46,7 @@ func TestValidRouteWithTrafficAllowed(t *testing.T) {
 		Percent:           50,
 	}})
 
-	if err := ValidateNew(TestContextWithLogger(t))(nil, &route, &route); err != nil {
+	if err := Validate(TestContextWithLogger(t))(nil, &route, &route); err != nil {
 		t.Fatalf("Expected allowed, but failed with: %s.", err)
 	}
 }
@@ -55,7 +56,7 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		Percent: 100,
 	}})
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &route, &route)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
 	want := &v1alpha1.FieldError{
 		Message: "Expected exactly one, got neither",
 		Paths: []string{
@@ -64,7 +65,7 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -75,7 +76,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		Percent:           100,
 	}})
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &route, &route)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
 	want := &v1alpha1.FieldError{
 		Message: "Expected exactly one, got both",
 		Paths: []string{
@@ -84,7 +85,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 		},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -94,13 +95,13 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 		Percent:      -20,
 	}})
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &route, &route)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
 	want := &v1alpha1.FieldError{
 		Message: `invalid value "-20"`,
 		Paths:   []string{"spec.traffic[0].percent"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -112,13 +113,13 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 		Percent:           50,
 	}})
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &route, &route)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
 	want := &v1alpha1.FieldError{
 		Message: "Traffic targets sum to 50, want 100",
 		Paths:   []string{"spec.traffic"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }
 
@@ -133,12 +134,12 @@ func TestNotAllowedIfTrafficNamesNotUnique(t *testing.T) {
 		Percent:           50,
 	}})
 
-	got := ValidateNew(TestContextWithLogger(t))(nil, &route, &route)
+	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
 	want := &v1alpha1.FieldError{
 		Message: `Multiple definitions for "test"`,
 		Paths:   []string{"spec.traffic[0].name", "spec.traffic[1].name"},
 	}
 	if got.Error() != want.Error() {
-		t.Errorf("ValidateNew() = %v, wanted %v", got, want)
+		t.Errorf("Validate() = %v, wanted %v", got, want)
 	}
 }

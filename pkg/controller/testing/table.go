@@ -24,8 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -279,6 +279,10 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		buildClient.PrependReactor("*", "*", reactor)
 	}
 
+	// Validate all Create operations through the serving client.
+	client.PrependReactor("create", "*", ValidateCreates)
+	client.PrependReactor("update", "*", ValidateUpdates)
+
 	// Run the Reconcile we're testing.
 	if err := c.Reconcile(r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
@@ -300,7 +304,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := createActions[i]
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != pkg.GetServingSystemNamespace() {
+		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
 			t.Errorf("unexpected action[%d]: %#v", i, got)
 		}
 		obj := got.GetObject()
@@ -339,7 +343,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		if got.GetName() != want.Name {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
-		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != pkg.GetServingSystemNamespace() {
+		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 	}

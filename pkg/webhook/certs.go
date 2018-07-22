@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -26,7 +27,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"go.uber.org/zap"
 
@@ -47,7 +48,7 @@ func createCertTemplate() (*x509.Certificate, error) {
 		return nil, errors.New("failed to generate serial number: " + err.Error())
 	}
 
-	serviceName := servingWebhookDeployment + "." + pkg.GetServingSystemNamespace()
+	serviceName := servingWebhookDeployment + "." + system.Namespace
 	serviceNames := []string{serviceName, serviceName + ".svc", serviceName + ".svc.cluster.local"}
 
 	tmpl := x509.Certificate{

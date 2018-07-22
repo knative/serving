@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -28,7 +29,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/mattbaird/jsonpatch"
@@ -45,7 +46,7 @@ import (
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
 		ServiceName:      "webhook",
-		ServiceNamespace: pkg.GetServingSystemNamespace(),
+		ServiceNamespace: system.Namespace,
 		Port:             443,
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
@@ -357,7 +358,7 @@ func TestInvalidRevisionUpdate(t *testing.T) {
 	}
 	req.Object.Raw = marshaled
 
-	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Revision spec should not change")
+	expectFailsWith(t, ac.admit(TestContextWithLogger(t), req), "Immutable fields changed")
 }
 
 func TestInvalidNewRevisionNameFails(t *testing.T) {
@@ -658,10 +659,10 @@ func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      servingWebhookDeployment,
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 		},
 	}
-	ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Create(deployment)
+	ac.client.ExtensionsV1beta1().Deployments(system.Namespace).Create(deployment)
 }
 
 func createBaseUpdateService() *admissionv1beta1.AdmissionRequest {

@@ -131,6 +131,12 @@ type RouteStatus struct {
 	// +optional
 	Domain string `json:"domain,omitempty"`
 
+	// DomainInternal holds the top-level domain that will distribute traffic over the provided
+	// targets from inside the cluster. It generally has the form
+	// {route-name}.{route-namespace}.svc.cluster.local
+	// +optional
+	DomainInternal string `json:"domainInternal,omitempty"`
+
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
@@ -244,7 +250,32 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
+func (rs *RouteStatus) markTrafficTargetNotReady(reason, msg string) {
+	rs.setCondition(&RouteCondition{
+		Type:    RouteConditionAllTrafficAssigned,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: msg,
+	})
+	// TODO(tcnghia): when we start with new RouteConditionReady every revision,
+	// uncomment the short-circuiting below.
+	//
+	// // Do not downgrade Ready condition.
+	// if c := rs.GetCondition(RouteConditionReady); c != nil && c.Status == corev1.ConditionFalse {
+	// 	return
+	// }
+	//
+	// For now, the following is harmless because RouteConditionAllTrafficAssigned
+	// is the only condition RouteConditionReady depends on.
+	rs.setCondition(&RouteCondition{
+		Type:    RouteConditionReady,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reason,
+		Message: msg,
+	})
+}
+
+func (rs *RouteStatus) markTrafficTargetFailed(reason, msg string) {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,
 		RouteConditionReady,
@@ -252,10 +283,44 @@ func (rs *RouteStatus) MarkTrafficNotAssigned(kind, name string) {
 		rs.setCondition(&RouteCondition{
 			Type:    cond,
 			Status:  corev1.ConditionFalse,
-			Reason:  kind + "Missing",
-			Message: fmt.Sprintf("Referenced %s %q not found", kind, name),
+			Reason:  reason,
+			Message: msg,
 		})
 	}
+}
+
+func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
+	rs.markTrafficTargetNotReady("Unknown", msg)
+}
+
+func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Configuration %q is waiting for a Revision to become ready.", name)
+	rs.markTrafficTargetNotReady(reason, msg)
+}
+
+func (rs *RouteStatus) MarkConfigurationFailed(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Configuration %q does not have any ready Revision.", name)
+	rs.markTrafficTargetFailed(reason, msg)
+}
+
+func (rs *RouteStatus) MarkRevisionNotReady(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Revision %q is not yet ready.", name)
+	rs.markTrafficTargetNotReady(reason, msg)
+}
+
+func (rs *RouteStatus) MarkRevisionFailed(name string) {
+	reason := "RevisionMissing"
+	msg := fmt.Sprintf("Revision %q failed to become ready.", name)
+	rs.markTrafficTargetFailed(reason, msg)
+}
+
+func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
+	reason := kind + "Missing"
+	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
+	rs.markTrafficTargetFailed(reason, msg)
 }
 
 func (rs *RouteStatus) checkAndMarkReady() {

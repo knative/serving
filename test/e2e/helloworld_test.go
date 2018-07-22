@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -32,8 +33,8 @@ const (
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestHelloWorld")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")

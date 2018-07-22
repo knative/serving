@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -28,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/knative/serving/pkg/logging/logkey"
 
@@ -221,31 +222,41 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 			"Revision": {
 				Factory:   &v1alpha1.Revision{},
 				Defaulter: SetDefaults(ctx),
-				Validator: ValidateRevision(ctx),
+				Validator: Validate(ctx),
 			},
 			"Configuration": {
 				Factory:   &v1alpha1.Configuration{},
 				Defaulter: SetDefaults(ctx),
-				Validator: ValidateNew(ctx),
+				Validator: Validate(ctx),
 			},
 			"Route": {
 				Factory:   &v1alpha1.Route{},
 				Defaulter: SetDefaults(ctx),
-				Validator: ValidateNew(ctx),
+				Validator: Validate(ctx),
 			},
 			"Service": {
 				Factory:   &v1alpha1.Service{},
 				Defaulter: SetDefaults(ctx),
-				Validator: ValidateNew(ctx),
+				Validator: Validate(ctx),
 			},
 		},
 		logger: logger,
 	}, nil
 }
 
-// ValidateNew simply delegates validation to v1alpha1.Validatable on "new"
-func ValidateNew(ctx context.Context) ResourceCallback {
+// Validate checks whether "new" and "old" implement HasImmutableFields and checks them,
+// it then delegates validation to v1alpha1.Validatable on "new".
+func Validate(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
+		if hifNew, ok := new.(v1alpha1.HasImmutableFields); ok && old != nil {
+			hifOld, ok := old.(v1alpha1.HasImmutableFields)
+			if !ok {
+				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
+			}
+			if err := hifNew.CheckImmutableFields(hifOld); err != nil {
+				return err
+			}
+		}
 		// Can't just `return new.Validate()` because it doesn't properly nil-check.
 		if err := new.Validate(); err != nil {
 			return err
@@ -387,7 +398,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment
-	deployment, err := ac.client.ExtensionsV1beta1().Deployments(pkg.GetServingSystemNamespace()).Get(servingWebhookDeployment, metav1.GetOptions{})
+	deployment, err := ac.client.ExtensionsV1beta1().Deployments(system.Namespace).Get(servingWebhookDeployment, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}

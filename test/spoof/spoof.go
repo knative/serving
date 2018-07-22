@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -100,6 +101,10 @@ func New(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, domain 
 		ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
+		}
+
+		if len(ingress.Status.LoadBalancer.Ingress) != 1 {
+			return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingress.Status.LoadBalancer.Ingress), ingress.Status.LoadBalancer.Ingress)
 		}
 
 		if ingress.Status.LoadBalancer.Ingress[0].IP == "" {

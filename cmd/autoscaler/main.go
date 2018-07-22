@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -218,11 +219,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	loggingConfig, err := configmap.Load("/etc/config-logging")
+	loggingConfigMap, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatalf("Error loading logging configuration: %v", err)
 	}
-	logger = logging.NewLoggerFromConfig(logging.NewConfigFromMap(loggingConfig), "autoscaler")
+	logginConfig, err := logging.NewConfigFromMap(loggingConfigMap)
+	if err != nil {
+		log.Fatalf("Error parsing logging configuration: %v", err)
+	}
+	logger, _ = logging.NewLoggerFromConfig(logginConfig, "autoscaler")
 	defer logger.Sync()
 
 	initEnv()

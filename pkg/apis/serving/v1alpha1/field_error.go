@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -31,6 +32,8 @@ const currentField = ""
 type FieldError struct {
 	Message string
 	Paths   []string
+	// Details contains an optional longer payload.
+	Details string
 }
 
 // FieldError implements error
@@ -40,6 +43,14 @@ var _ error = (*FieldError)(nil)
 type Validatable interface {
 	// Validate checks the validity of this types fields.
 	Validate() *FieldError
+}
+
+// HasImmutableFields indicates that a particular type has fields that should
+// not change after creation.
+type HasImmutableFields interface {
+	// CheckImmutableFields checks that the current instance's immutable
+	// fields haven't changed from the provided original.
+	CheckImmutableFields(original HasImmutableFields) *FieldError
 }
 
 // ViaField is used to propagate a validation error along a field access.
@@ -68,7 +79,10 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 
 // Error implements error
 func (fe *FieldError) Error() string {
-	return fmt.Sprintf("%v: %v", fe.Message, strings.Join(fe.Paths, ", "))
+	if fe.Details == "" {
+		return fmt.Sprintf("%v: %v", fe.Message, strings.Join(fe.Paths, ", "))
+	}
+	return fmt.Sprintf("%v: %v\n%v", fe.Message, strings.Join(fe.Paths, ", "), fe.Details)
 }
 
 func errMissingField(fieldPaths ...string) *FieldError {

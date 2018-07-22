@@ -35,18 +35,8 @@ To run all unit tests:
 go test ./...
 ```
 
-_By default `go test` will not run [the e2e tests](#running-end-to-end-tests) and [integration tests](#running-integration-tests), which need [`-tags=e2e`](#running-end-to-end-tests) and  [`-tags=integration`](#running-integration-tests) respectively to be enabled._
+_By default `go test` will not run [the e2e tests](#running-end-to-end-tests), which need [`-tags=e2e`](#running-end-to-end-tests) to be enabled._
 
-
-## Running integration tests
-
-To run component level integration tests:
-
-```bash
-go test -v -tags=integration ./...
-```
-
-_Integration tests are given a build tag of [`integration`](https://golang.org/pkg/go/build/#hdr-Build_Constraints)._
 
 ## Running end to end tests
 

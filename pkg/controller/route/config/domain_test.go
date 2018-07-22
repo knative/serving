@@ -23,7 +23,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg"
+	"github.com/knative/serving/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -61,7 +61,7 @@ func TestSelectorMatches(t *testing.T) {
 func TestNewConfigNoEntry(t *testing.T) {
 	_, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      DomainConfigName,
 		},
 	})
@@ -73,7 +73,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 func TestNewConfigBadYaml(t *testing.T) {
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
@@ -104,7 +104,7 @@ func TestNewConfig(t *testing.T) {
 	}
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pkg.GetServingSystemNamespace(),
+			Namespace: system.Namespace,
 			Name:      DomainConfigName,
 		},
 		Data: map[string]string{

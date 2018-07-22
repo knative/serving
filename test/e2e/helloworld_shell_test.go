@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -60,8 +61,8 @@ func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
-	// Add test case specific name to its own logger
-	logger := test.Logger.Named("TestHelloWorldFromShell")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestHelloWorldFromShell")
 
 	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
 

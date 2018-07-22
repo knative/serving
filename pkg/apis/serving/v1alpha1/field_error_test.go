@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -48,6 +49,22 @@ func TestFieldError(t *testing.T) {
 		},
 		prefixes: [][]string{{"baz", "ugh"}},
 		want:     "invalid field(s): baz.ugh.foo, baz.ugh.bar",
+	}, {
+		name: "multiple propagation with details",
+		err: &FieldError{
+			Message: "invalid field(s)",
+			Paths:   []string{"foo", "bar"},
+			Details: `I am a long
+long
+loooong
+Body.`,
+		},
+		prefixes: [][]string{{"baz", "ugh"}},
+		want: `invalid field(s): baz.ugh.foo, baz.ugh.bar
+I am a long
+long
+loooong
+Body.`,
 	}, {
 		name: "single propagation, empty start",
 		err: &FieldError{

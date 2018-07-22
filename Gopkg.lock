@@ -199,43 +199,45 @@
 [[projects]]
   name = "github.com/google/go-containerregistry"
   packages = [
-    "authn",
     "cmd/ko",
-    "ko/build",
-    "ko/publish",
-    "ko/resolve",
-    "name",
-    "v1",
-    "v1/daemon",
-    "v1/empty",
-    "v1/mutate",
-    "v1/partial",
-    "v1/random",
-    "v1/remote",
-    "v1/remote/transport",
-    "v1/tarball",
-    "v1/types",
-    "v1/v1util"
+    "pkg/authn",
+    "pkg/authn/k8schain",
+    "pkg/ko/build",
+    "pkg/ko/publish",
+    "pkg/ko/resolve",
+    "pkg/name",
+    "pkg/v1",
+    "pkg/v1/daemon",
+    "pkg/v1/empty",
+    "pkg/v1/mutate",
+    "pkg/v1/partial",
+    "pkg/v1/random",
+    "pkg/v1/remote",
+    "pkg/v1/remote/transport",
+    "pkg/v1/tarball",
+    "pkg/v1/types",
+    "pkg/v1/v1util"
   ]
-  revision = "8bdfdfc3bd4146f40b7709f6b1b7d979a3385da8"
-
-[[projects]]
-  name = "github.com/google/go-github"
-  packages = ["github"]
-  revision = "e48060a28fac52d0f1cb758bc8b87c07bac4a87d"
-  version = "v15.0.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/google/go-querystring"
-  packages = ["query"]
-  revision = "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
+  revision = "0eeba96f66fdd1873f2ec7f3764ee3b58c5a050c"
 
 [[projects]]
   branch = "master"
   name = "github.com/google/gofuzz"
   packages = ["."]
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/google/licenseclassifier"
+  packages = [
+    ".",
+    "internal/sets",
+    "stringclassifier",
+    "stringclassifier/internal/pq",
+    "stringclassifier/searchset",
+    "stringclassifier/searchset/tokenizer"
+  ]
+  revision = "3c8ad1f0b0644b6646210ee9cf2f34ff907e2e18"
 
 [[projects]]
   name = "github.com/googleapis/gnostic"
@@ -246,18 +248,6 @@
   ]
   revision = "ee43cbb60db7bd22502942cccbc39059117352ab"
   version = "v0.1.0"
-
-[[projects]]
-  name = "github.com/gorilla/context"
-  packages = ["."]
-  revision = "1ea25387ff6f684839d82767c1733ff4d4d15d0a"
-  version = "v1.1"
-
-[[projects]]
-  name = "github.com/gorilla/mux"
-  packages = ["."]
-  revision = "53c1911da2b537f792e7cafcb446b05ffe33b996"
-  version = "v1.6.1"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -352,9 +342,9 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/mattmoor/k8schain"
+  name = "github.com/mattmoor/dep-collector"
   packages = ["."]
-  revision = "9f8b5c528673cdc2e8ebac0b2930ad1c00a7cb35"
+  revision = "ea0470924d0dd9363ffae8936f88a22d28551685"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -367,19 +357,6 @@
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
   revision = "bb74f1db0675b241733089d5a1faa5dd8b0ef57b"
-
-[[projects]]
-  name = "github.com/openzipkin/zipkin-go"
-  packages = [
-    ".",
-    "idgenerator",
-    "model",
-    "propagation",
-    "reporter",
-    "reporter/http"
-  ]
-  revision = "f197ec29e729f226d23370ea60f0e49b8f44ccf4"
-  version = "v0.1.0"
 
 [[projects]]
   name = "github.com/pelletier/go-toml"
@@ -430,6 +407,12 @@
   revision = "282c8707aa210456a825798969cc27edda34992a"
 
 [[projects]]
+  name = "github.com/sergi/go-diff"
+  packages = ["diffmatchpatch"]
+  revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/spf13/afero"
   packages = [
     ".",
@@ -470,18 +453,14 @@
   name = "go.opencensus.io"
   packages = [
     "exporter/prometheus",
-    "exporter/zipkin",
     "internal",
     "internal/tagencoding",
-    "plugin/ochttp",
-    "plugin/ochttp/propagation/b3",
     "stats",
     "stats/internal",
     "stats/view",
     "tag",
     "trace",
-    "trace/internal",
-    "trace/propagation"
+    "trace/internal"
   ]
   revision = "0095aec66ae14801c6711210f6f0716411cefdd3"
   version = "v0.8.0"
@@ -615,15 +594,6 @@
   ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
-
-[[projects]]
-  name = "gopkg.in/go-playground/webhooks.v3"
-  packages = [
-    ".",
-    "github"
-  ]
-  revision = "c271ec3e322dab2e93990e8c5287fe5d5d1209ba"
-  version = "v3.8.0"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -966,6 +936,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "431ad47f0253f68661f750381a990e8e19ee70e6f3fae106cf2445fb43f74999"
+  inputs-digest = "22c9a44882d5f37220f73c78368972eb2f0c60c1eb86e83ac5fb5c2193f2557b"
   solver-name = "gps-cdcl"
   solver-version = 1

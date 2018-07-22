@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -21,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestContainerValidation(t *testing.T) {
@@ -78,6 +80,51 @@ func TestContainerValidation(t *testing.T) {
 			Lifecycle: &corev1.Lifecycle{},
 		},
 		want: errDisallowedFields("lifecycle"),
+	}, {
+		name: "valid with probes (no port)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid readiness http probe (has port)",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.FromInt(8080),
+					},
+				},
+			},
+		},
+		want: errDisallowedFields("readinessProbe.httpGet.port"),
+	}, {
+		name: "invalid liveness tcp probe (has port)",
+		c: corev1.Container{
+			Image: "foo",
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromString("http"),
+					},
+				},
+			},
+		},
+		want: errDisallowedFields("livenessProbe.tcpSocket.port"),
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
@@ -319,6 +366,172 @@ func TestRevisionValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate()
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+type notARevision struct{}
+
+func (nar *notARevision) CheckImmutableFields(HasImmutableFields) *FieldError {
+	return nil
+}
+
+func TestImmutableFields(t *testing.T) {
+	tests := []struct {
+		name string
+		new  HasImmutableFields
+		old  HasImmutableFields
+		want *FieldError
+	}{{
+		name: "good (no change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: nil,
+	}, {
+		name: "good (serving state change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Reserve",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: nil,
+	}, {
+		name: "bad (type mismatch)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old:  &notARevision{},
+		want: &FieldError{Message: "The provided original was not a Revision"},
+	}, {
+		name: "bad (container image change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		want: &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.Container.Image:
+	-: "busybox"
+	+: "helloworld"
+`,
+		},
+	}, {
+		name: "bad (concurrency model change)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Single",
+			},
+		},
+		want: &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.ConcurrencyModel:
+	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
+	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+`,
+		},
+	}, {
+		name: "bad (multiple changes)",
+		new: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Active",
+				Container: corev1.Container{
+					Image: "helloworld",
+				},
+				ConcurrencyModel: "Multi",
+			},
+		},
+		old: &Revision{
+			Spec: RevisionSpec{
+				ServingState: "Reserve",
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+				ConcurrencyModel: "Single",
+			},
+		},
+		want: &FieldError{
+			Message: "Immutable fields changed (-old +new)",
+			Paths:   []string{"spec"},
+			Details: `{v1alpha1.RevisionSpec}.ConcurrencyModel:
+	-: v1alpha1.RevisionRequestConcurrencyModelType("Single")
+	+: v1alpha1.RevisionRequestConcurrencyModelType("Multi")
+{v1alpha1.RevisionSpec}.Container.Image:
+	-: "busybox"
+	+: "helloworld"
+`,
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.new.CheckImmutableFields(test.old)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

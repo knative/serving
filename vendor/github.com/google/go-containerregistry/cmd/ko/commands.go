@@ -64,6 +64,7 @@ func addKubeCommands(topLevel *cobra.Command) {
 	})
 
 	lo := &LocalOptions{}
+	no := &NameOptions{}
 	fo := &FilenameOptions{}
 	apply := &cobra.Command{
 		Use:   "apply -f FILENAME",
@@ -72,19 +73,29 @@ func addKubeCommands(topLevel *cobra.Command) {
 		Example: `
   # Build and publish import path references to a Docker
   # Registry as:
-  #   ${KO_DOCKER_REPO}/<import path>
-  # Then, feed the resulting yaml into "kubectl apply"
+  #   ${KO_DOCKER_REPO}/<package name>-<hash of import path>
+  # Then, feed the resulting yaml into "kubectl apply".
+  # When KO_DOCKER_REPO is ko.local, it is the same as if
+  # --local and --preserve-import-paths were passed.
   ko apply -f config/
+
+  # Build and publish import path references to a Docker
+  # Registry preserving import path names as:
+  #   ${KO_DOCKER_REPO}/<import path>
+  # Then, feed the resulting yaml into "kubectl apply".
+  ko apply --preserve-import-paths -f config/
 
   # Build and publish import path references to a Docker
   # daemon as:
   #   ko.local/<import path>
-  # Then, feed the resulting yaml into "kubectl apply"
-  ko apply -L -f config/`,
+  # Then, feed the resulting yaml into "kubectl apply".
+  # This always preserves import paths.
+  ko apply --local -f config/`,
+		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			// TODO(mattmoor): Use io.Pipe to avoid buffering the whole thing.
 			buf := bytes.NewBuffer(nil)
-			resolveFilesToWriter(fo, lo, buf)
+			resolveFilesToWriter(fo, no, lo, buf)
 
 			// Issue a "kubectl apply" command reading from stdin,
 			// to which we will pipe the resolved files.
@@ -104,6 +115,7 @@ func addKubeCommands(topLevel *cobra.Command) {
 		},
 	}
 	addLocalArg(apply, lo)
+	addNamingArgs(apply, no)
 	addFileArg(apply, fo)
 	topLevel.AddCommand(apply)
 
@@ -114,18 +126,30 @@ func addKubeCommands(topLevel *cobra.Command) {
 		Example: `
   # Build and publish import path references to a Docker
   # Registry as:
-  #   ${KO_DOCKER_REPO}/<import path>
+  #   ${KO_DOCKER_REPO}/<package name>-<hash of import path>
+  # When KO_DOCKER_REPO is ko.local, it is the same as if
+  # --local and --preserve-import-paths were passed.
   ko resolve -f config/
+
+  # Build and publish import path references to a Docker
+  # Registry preserving import path names as:
+  #   ${KO_DOCKER_REPO}/<import path>
+  # When KO_DOCKER_REPO is ko.local, it is the same as if
+  # --local was passed.
+  ko resolve --preserve-import-paths -f config/
 
   # Build and publish import path references to a Docker
   # daemon as:
   #   ko.local/<import path>
-  ko resolve -L -f config/`,
+  # This always preserves import paths.
+  ko resolve --local -f config/`,
+		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			resolveFilesToWriter(fo, lo, os.Stdout)
+			resolveFilesToWriter(fo, no, lo, os.Stdout)
 		},
 	}
 	addLocalArg(resolve, lo)
+	addNamingArgs(resolve, no)
 	addFileArg(resolve, fo)
 	topLevel.AddCommand(resolve)
 
@@ -136,18 +160,34 @@ func addKubeCommands(topLevel *cobra.Command) {
 		Example: `
   # Build and publish import path references to a Docker
   # Registry as:
-  #   ${KO_DOCKER_REPO}/<import path>
+  #   ${KO_DOCKER_REPO}/<package name>-<hash of import path>
+  # When KO_DOCKER_REPO is ko.local, it is the same as if
+  # --local and --preserve-import-paths were passed.
   ko publish github.com/foo/bar/cmd/baz github.com/foo/bar/cmd/blah
+
+  # Build and publish a relative import path as:
+  #   ${KO_DOCKER_REPO}/<package name>-<hash of import path>
+  # When KO_DOCKER_REPO is ko.local, it is the same as if
+  # --local and --preserve-import-paths were passed.
+  ko publish ./cmd/blah
+
+  # Build and publish a relative import path as:
+  #   ${KO_DOCKER_REPO}/<import path>
+  # When KO_DOCKER_REPO is ko.local, it is the same as if
+  # --local was passed.
+  ko publish --preserve-import-paths ./cmd/blah
 
   # Build and publish import path references to a Docker
   # daemon as:
   #   ko.local/<import path>
-  ko publish -L github.com/foo/bar/cmd/baz github.com/foo/bar/cmd/blah`,
+  # This always preserves import paths.
+  ko publish --local github.com/foo/bar/cmd/baz github.com/foo/bar/cmd/blah`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(_ *cobra.Command, args []string) {
-			publishImages(args, lo)
+			publishImages(args, no, lo)
 		},
 	}
 	addLocalArg(publish, lo)
+	addNamingArgs(publish, no)
 	topLevel.AddCommand(publish)
 }
