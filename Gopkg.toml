@@ -9,8 +9,6 @@ required = [
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
-  "github.com/google/go-containerregistry/cmd/ko",
-  "github.com/mattmoor/dep-collector",
 ]
 
 
