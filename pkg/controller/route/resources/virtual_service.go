@@ -49,6 +49,8 @@ const (
 	IstioTimeoutHackHeaderValue = "0"
 
 	DefaultActivatorTimeout = "60s"
+
+	DefaultRouteTimeout = "60s"
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -142,6 +144,10 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 	route := v1alpha3.HTTPRoute{
 		Match: matches,
 		Route: weights,
+		Timeout: DefaultRouteTimeout,
+		AppendHeaders: map[string]string{
+			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+		},
 	}
 	// Add traffic rules for activator.
 	return addActivatorRoutes(&route, ns, inactive)
