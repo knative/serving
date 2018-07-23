@@ -125,7 +125,11 @@ func TestAutoscaler_StableModeNoTraffic_ScaleToZero(t *testing.T) {
 		})
 	a.expectScale(t, now, 0, true)
 
+	// Should not scale to zero again if there is no more traffic.
+	// Note: scale of 1 will be ignored since the autoscaler is not responsible for scaling from 0.
+	a.expectScale(t, now, 1, true)
 }
+
 func TestAutoscaler_PanicMode_DoublePodCount(t *testing.T) {
 	a := newTestAutoscaler(v1alpha1.RevisionRequestConcurrencyModelMulti, 10.0)
 	now := a.recordLinearSeries(
@@ -319,10 +323,15 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 		now = now.Add(time.Second)
 		for j := 1; j <= s.podCount; j++ {
 			t = t.Add(time.Millisecond)
+			requestCount := 0
+			if point > 0 {
+				requestCount = 1
+			}
 			stat := Stat{
 				Time:                      &t,
 				PodName:                   fmt.Sprintf("pod-%v", j),
 				AverageConcurrentRequests: float64(point),
+				RequestCount:              int32(requestCount),
 			}
 			a.Record(TestContextWithLogger(test), stat)
 		}
@@ -331,6 +340,7 @@ func (a *Autoscaler) recordLinearSeries(test *testing.T, now time.Time, s linear
 }
 
 func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale int32, expectOk bool) {
+	t.Helper()
 	scale, ok := a.Scale(TestContextWithLogger(t), now)
 	if ok != expectOk {
 		t.Errorf("Unexpected autoscale decison. Expected %v. Got %v.", expectOk, ok)
