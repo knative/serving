@@ -93,9 +93,9 @@ func TestHelloWorldFromShell(t *testing.T) {
 	logger.Infof("Manifest file is '%s'", newYamlFilename)
 	logger.Info("Deploying using kubectl")
 
-	// Deply using kubectl
-	if err = exec.Command("kubectl", "apply", "-f", newYamlFilename).Run(); err != nil {
-		t.Fatalf("Error running kubectl: %v", err)
+	// Deploy using kubectl
+	if output, err := exec.Command("kubectl", "apply", "-f", newYamlFilename).CombinedOutput(); err != nil {
+		t.Fatalf("Error running kubectl: %v", strings.TrimSpace(string(output)))
 	}
 
 	logger.Info("Waiting for ingress to come up")
