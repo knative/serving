@@ -21,7 +21,7 @@
 [ -v KNATIVE_TEST_INFRA ] || exit 1
 
 # Set default GCS/GCR
-: ${SERVING_RELEASE_GCS:="knative-releases"}
+: ${SERVING_RELEASE_GCS:="knative-releases/serving"}
 : ${SERVING_RELEASE_GCR:="gcr.io/knative-releases"}
 readonly SERVING_RELEASE_GCS
 readonly SERVING_RELEASE_GCR
