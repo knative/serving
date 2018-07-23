@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -163,6 +164,25 @@ const (
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )
 
+type RevisionConditionSlice []RevisionCondition
+
+// Len implements sort.Interface
+func (rcs RevisionConditionSlice) Len() int {
+	return len(rcs)
+}
+
+// Less implements sort.Interface
+func (rcs RevisionConditionSlice) Less(i, j int) bool {
+	return rcs[i].Type < rcs[j].Type
+}
+
+// Swap implements sort.Interface
+func (rcs RevisionConditionSlice) Swap(i, j int) {
+	rcs[i], rcs[j] = rcs[j], rcs[i]
+}
+
+var _ sort.Interface = (RevisionConditionSlice)(nil)
+
 // RevisionCondition defines a readiness condition for a Revision.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RevisionCondition struct {
@@ -265,7 +285,7 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	}
 
 	t := new.Type
-	var conditions []RevisionCondition
+	var conditions RevisionConditionSlice
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -279,6 +299,7 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	}
 	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
+	sort.Sort(conditions)
 	rs.Conditions = conditions
 }
 
