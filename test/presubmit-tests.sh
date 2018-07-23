@@ -41,7 +41,7 @@ function build_tests() {
   # Fetch the google/licenseclassifier for its license db
   go get github.com/google/licenseclassifier
   # Check that we don't have any forbidden licenses in our images.
-  go run ./vendor/github.com/mattmoor/dep-collector/*.go -check ./cmd/* || result=1
+  dep-collector -check ./cmd/* || result=1
   return ${result}
 }
 
