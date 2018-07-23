@@ -37,10 +37,12 @@ readonly ISTIO_YAML=./third_party/istio-0.8.0/istio.yaml
 # Helper functions.
 
 function create_istio() {
+  echo ">> Bringing up Istio"
   kubectl apply -f ${ISTIO_YAML}
 }
 
 function create_monitoring() {
+  echo ">> Bringing up monitoring"
   kubectl apply -R -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
     -f third_party/config/monitoring/common \
@@ -51,17 +53,20 @@ function create_monitoring() {
 
 function create_everything() {
   create_istio
+  echo ">> Binging up Serving "
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
   create_monitoring
 }
 
 function delete_istio() {
+  echo ">> Bringing down Istio"
   kubectl delete -f ${ISTIO_YAML}
   kubectl delete clusterrolebinding cluster-admin-binding
 }
 
 function delete_monitoring() {
+  echo ">> Bringing down monitoring"
   kubectl delete --ignore-not-found=true -f config/monitoring/100-common \
     -f config/monitoring/150-elasticsearch-prod \
     -f third_party/config/monitoring/common \
@@ -71,12 +76,14 @@ function delete_monitoring() {
 
 function delete_everything() {
   delete_monitoring
+  echo ">> Bringing down Serving"
   ko delete --ignore-not-found=true -f config/
   kubectl delete --ignore-not-found=true -f third_party/config/build/release.yaml
   delete_istio
 }
 
 function teardown() {
+  header "Tearing down test environment"
   delete_everything
 }
 
@@ -122,9 +129,9 @@ create_everything
 set +o errexit
 set +o pipefail
 
-wait_until_pods_running knative-serving || fail_test
-wait_until_pods_running istio-system || fail_test
-wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test
+wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
+wait_until_pods_running istio-system || fail_test "Istio system is not up"
+wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
 
 # Run the tests
 
