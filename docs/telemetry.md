@@ -105,7 +105,7 @@ fields.
 To access the logs for a configuration, enter the following search query in Kibana:
 
 ```
-kubernetes.labels.knative_dev\/configuration: "configuration-example"
+kubernetes.labels.serving_knative_dev\/configuration: "configuration-example"
 ```
 
 Replace `configuration-example` with your configuration's name. Enter the following
@@ -118,7 +118,7 @@ kubectl get configurations
 To access logs for a revision, enter the following search query in Kibana:
 
 ```
-kubernetes.labels.knative_dev\/revision: "configuration-example-00001"
+kubernetes.labels.serving_knative_dev\/revision: "configuration-example-00001"
 ```
 
 Replace `configuration-example-00001` with your revision's name.
