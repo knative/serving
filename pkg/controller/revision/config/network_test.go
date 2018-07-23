@@ -71,8 +71,8 @@ func TestNetworkConfiguration(t *testing.T) {
 			},
 		}}, {
 		name:           "network configuration with empty network",
-		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantErr:        false,
+		wantController: &Network{},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
@@ -143,8 +143,8 @@ func TestNetworkConfiguration(t *testing.T) {
 			},
 		}}, {
 		name:           "network configuration with invalid network string",
-		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantErr:        false,
+		wantController: &Network{},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
@@ -155,8 +155,8 @@ func TestNetworkConfiguration(t *testing.T) {
 			},
 		}}, {
 		name:           "network configuration with invalid network string",
-		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantErr:        false,
+		wantController: &Network{},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
@@ -167,8 +167,8 @@ func TestNetworkConfiguration(t *testing.T) {
 			},
 		}}, {
 		name:           "network configuration with invalid network range",
-		wantErr:        true,
-		wantController: (*Network)(nil),
+		wantErr:        false,
+		wantController: &Network{},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace,
