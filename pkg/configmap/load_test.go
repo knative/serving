@@ -84,31 +84,30 @@ func TestLoadError(t *testing.T) {
 	}
 }
 
-// TODO(#1401): When Prow runs as a mere mortal, uncomment this.
-// func TestReadFileError(t *testing.T) {
-// 	written := map[string]string{
-// 		"foo":    "bar",
-// 		"a.b.c":  "blah",
-// 		".z.y.x": "hidden!",
-// 	}
-// 	tmpdir, err := ioutil.TempDir("", "")
-// 	if err != nil {
-// 		t.Fatalf("TempDir() = %v", err)
-// 	}
-// 	defer os.RemoveAll(tmpdir)
+func TestReadFileError(t *testing.T) {
+	written := map[string]string{
+		"foo":    "bar",
+		"a.b.c":  "blah",
+		".z.y.x": "hidden!",
+	}
+	tmpdir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("TempDir() = %v", err)
+	}
+	defer os.RemoveAll(tmpdir)
 
-// 	// Write out the files as write-only, so we fail reading.
-// 	for k, v := range written {
-// 		err := ioutil.WriteFile(path.Join(tmpdir, k), []byte(v), 0200)
-// 		if err != nil {
-// 			t.Fatalf("WriteFile(%q) = %v", k, err)
-// 		}
-// 	}
+	// Write out the files as write-only, so we fail reading.
+	for k, v := range written {
+		err := ioutil.WriteFile(path.Join(tmpdir, k), []byte(v), 0200)
+		if err != nil {
+			t.Fatalf("WriteFile(%q) = %v", k, err)
+		}
+	}
 
-// 	if got, err := Load(tmpdir); err == nil {
-// 		t.Fatalf("Load() = %v, want error", got)
-// 	}
-// }
+	if got, err := Load(tmpdir); err == nil {
+		t.Fatalf("Load() = %v, want error", got)
+	}
+}
 
 func TestReadSymlinkedFileError(t *testing.T) {
 	tmpdir, err := ioutil.TempDir("", "")
