@@ -241,6 +241,58 @@ func TestServiceHappyPath(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 }
 
+func TestFailureRecovery(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Config failure causes us to become unready immediately (route still ok).
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		Conditions: []ConfigurationCondition{{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionFalse,
+		}},
+	})
+	checkConditionFailedService(svc.Status, ServiceConditionReady, t)
+	checkConditionFailedService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Route failure causes route to become failed (config and service still failed).
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Conditions: []RouteCondition{{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionFalse,
+		}},
+	})
+	checkConditionFailedService(svc.Status, ServiceConditionReady, t)
+	checkConditionFailedService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Fix Configuration moves our ConfigurationsReady condition (route and service still failed).
+	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+		Conditions: []ConfigurationCondition{{
+			Type:   ConfigurationConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionFailedService(svc.Status, ServiceConditionReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t)
+
+	// Fix route, should make everything ready.
+	svc.Status.PropagateRouteStatus(RouteStatus{
+		Conditions: []RouteCondition{{
+			Type:   RouteConditionReady,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	checkConditionSucceededService(svc.Status, ServiceConditionReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
+}
+
 func TestConfigurationFailurePropagation(t *testing.T) {
 	svc := &Service{}
 	svc.Status.InitializeConditions()
