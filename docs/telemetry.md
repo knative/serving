@@ -2,16 +2,8 @@
 
 Install monitoring components using
 [Monitoring, Logging and Tracing Installation](https://github.com/knative/docs/blob/master/serving/installing-logging-metrics-traces.md).
-
-To enable logs from Knative components, run:
-
-```shell
-kubectl edit configmap config-logging -n knative-serving
-```
-
-and change the level from `fatal` to `info` for Knative components that you are interested in.
-
-Once finished, visit [Knative Serving](https://github.com/knative/docs/tree/master/serving)
+Once finished, visit
+[Knative Serving](https://github.com/knative/docs/tree/master/serving)
 for guides on accessing logs, metrics and traces.
 
 ## Default metrics

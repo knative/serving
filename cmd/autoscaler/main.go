@@ -271,6 +271,7 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	stopCh := make(chan struct{})
+	defer close(stopCh)
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
 	if err := configMapWatcher.Start(stopCh); err != nil {
@@ -284,5 +285,4 @@ func main() {
 	mux.HandleFunc("/", handler)
 	mux.Handle("/metrics", exporter)
 	http.ListenAndServe(":"+servingAutoscalerPort, mux)
-	close(stopCh)
 }

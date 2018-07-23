@@ -42,12 +42,11 @@ data:
     }
   
   # Log level overrides
-  # By default, we only log critical errors.
-  # To enable logging for Knative components, change log levels below to "info"
-  # For all components except the autoscaler, changes will be picked up immediately.
-  # Autoscaler changes require recreation of the revision until the multi-tenant autoscaler lands.
-  loglevel.controller: "fatal"
-  loglevel.autoscaler: "fatal"
-  loglevel.queueproxy: "fatal"
-  loglevel.webhook: "fatal"
-  loglevel.activator: "fatal"
+  # For all components except the autoscaler and queue proxy, 
+  # changes are be picked up immediately.
+  # For autoscaler and queue proxy, changes require recreation of the pods.
+  loglevel.controller: "info"
+  loglevel.autoscaler: "info"
+  loglevel.queueproxy: "info"
+  loglevel.webhook: "info"
+  loglevel.activator: "info"

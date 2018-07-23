@@ -153,9 +153,6 @@ Next, run:
 
 ```shell
 ko apply -f config/
-
-# Set the logging threshold to info for all Knative components and reapply the config
-sed 's/\"fatal\"/\"info\"/g' config/config-logging.yaml | kubectl apply -f -
 ```
 
 You can see things running with:
