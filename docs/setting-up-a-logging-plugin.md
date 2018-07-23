@@ -68,7 +68,7 @@ kubectl apply -f <the-fluentd-config-for-daemonset> \
 ```
 
 In the commands above, replace `<the-fluentd-config-for-daemonset>` with the
-Fluentd DaemonSet configuration file, e.g. `config/monitoring/150-stackdriver-prod`.
+Fluentd DaemonSet configuration file, e.g. `config/monitoring/150-stackdriver`.
 
 **NOTE**: Operators sometimes need to deploy extra services as the logging
 backends. For example, if they desire Elasticsearch&Kibana, they have to deploy

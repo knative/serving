@@ -139,6 +139,10 @@ func MakeAutoscalerDeployment(rev *v1alpha1.Revision, autoscalerImage string, re
 						}},
 						Args: []string{
 							fmt.Sprintf("-concurrencyModel=%v", rev.Spec.ConcurrencyModel),
+							// Disable glog writing into stderr. Our code doesn't use glog
+							// and seeing k8s logs in addition to ours is not useful.
+							"-logtostderr=false",
+							"-stderrthreshold=FATAL",
 						},
 						VolumeMounts: autoscalerVolumeMounts,
 					}},

@@ -28,7 +28,7 @@ data:
     <source>
       @id fluentd-containers.log
       @type tail
-      path /var/log/containers/*user-container-*.log,/var/log/containers/*build-step-*.log
+      path /var/log/containers/*user-container-*.log,/var/log/containers/*build-step-*.log,/var/log/containers/*controller-*.log,/var/log/containers/*webhook-*.log,/var/log/containers/*autoscaler-*.log,/var/log/containers/*queue-proxy-*.log,/var/log/containers/*activator-*.log
       pos_file /var/log/es-containers.log.pos
       time_format %Y-%m-%dT%H:%M:%S.%NZ
       tag raw.kubernetes.*
@@ -49,6 +49,8 @@ data:
     # Add Kubernetes metadata
     <filter kubernetes.**>
       @type kubernetes_metadata
+      merge_json_log false # Don't parse json log
+      preserve_json_log false
     </filter>
   300.forward.input.conf: |-
     # Takes the messages sent over TCP, e.g. request logs from Istio
@@ -57,26 +59,34 @@ data:
       port 24224
     </source>
   900.output.conf: |-
-    # Send to Elastic Search
+    # Send to Stackdriver
+    # google_cloud plugin moves `kubernetes` metadata to `labels`.
     <match **>
-      @id elasticsearch
-      @type elasticsearch
-      @log_level info
-      include_tag_key true
-      host elasticsearch-logging
-      port 9200
-      logstash_format true
-      <buffer>
-        @type file
-        path /var/log/fluentd-buffers/kubernetes.system.buffer
-        flush_mode interval
-        retry_type exponential_backoff
-        flush_thread_count 2
-        flush_interval 5s
-        retry_forever
-        retry_max_interval 30
-        chunk_limit_size 2M
-        queue_limit_length 8
-        overflow_action block
-      </buffer>
+      @type google_cloud
+
+      # Try to detect JSON formatted log entries.
+      detect_json true
+      # Allow log entries from multiple containers to be sent in the same request.
+      split_logs_by_tag false
+      # Set the buffer type to file to improve the reliability and reduce the memory consumption
+      buffer_type file
+      buffer_path /var/log/fluentd-buffers/kubernetes.containers.buffer
+      # Set queue_full action to block because we want to pause gracefully
+      # in case of the off-the-limits load instead of throwing an exception
+      buffer_queue_full_action block
+      # Set the chunk limit conservatively to avoid exceeding the recommended
+      # chunk size of 5MB per write request.
+      buffer_chunk_limit 1M
+      # Cap the combined memory usage of this buffer and the one below to
+      # 1MiB/chunk * (6 + 2) chunks = 8 MiB
+      buffer_queue_limit 6
+      # Never wait more than 5 seconds before flushing logs in the non-error case.
+      flush_interval 5s
+      # Never wait longer than 30 seconds between retries.
+      max_retry_wait 30
+      # Disable the limit on the number of retries (retry forever).
+      disable_retry_limit
+      # Use multiple threads for processing.
+      num_threads 2
+      use_grpc true
     </match>

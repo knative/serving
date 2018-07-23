@@ -76,7 +76,7 @@ cp ${OUTPUT_YAML} ${LITE_YAML}
 cp ${OUTPUT_YAML} ${NO_MON_YAML}
 # Use ko to concatenate them all together.
 ko resolve ${KO_FLAGS} -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
+    -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
@@ -86,7 +86,7 @@ ko resolve ${KO_FLAGS} -R -f config/monitoring/100-common \
     -f third_party/config/monitoring/common/istio \
     -f third_party/config/monitoring/common/kubernetes/kube-state-metrics \
     -f third_party/config/monitoring/common/prometheus-operator \
-    -f config/monitoring/150-elasticsearch-prod/100-scaling-configmap.yaml \
+    -f config/monitoring/150-elasticsearch/100-scaling-configmap.yaml \
     -f config/monitoring/200-common/100-fluentd.yaml \
     -f config/monitoring/200-common/100-grafana-dash-knative-efficiency.yaml \
     -f config/monitoring/200-common/100-grafana-dash-knative.yaml \

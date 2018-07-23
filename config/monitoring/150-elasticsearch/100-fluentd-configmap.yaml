@@ -28,7 +28,7 @@ data:
     <source>
       @id fluentd-containers.log
       @type tail
-      path /var/log/containers/*user-container-*.log,/var/log/containers/*build-step-*.log,/var/log/containers/*controller-*.log,/var/log/containers/*webhook-*.log,/var/log/containers/*autoscaler-*.log,/var/log/containers/*queue-proxy-*.log,/var/log/containers/*activator-*.log
+      path /var/log/containers/*user-container-*.log,/var/log/containers/*build-step-*.log,/var/log/containers/controller-*controller-*.log,/var/log/containers/webhook-*webhook-*.log,/var/log/containers/*autoscaler-*autoscaler-*.log,/var/log/containers/*queue-proxy-*.log,/var/log/containers/activator-*activator-*.log
       pos_file /var/log/es-containers.log.pos
       time_format %Y-%m-%dT%H:%M:%S.%NZ
       tag raw.kubernetes.*
