@@ -7,7 +7,7 @@ Knative Serving Revisions are automatically scaled up and down according incomin
 * Knative Serving **Revision** -- a custom resource which is a running snapshot of the user's code (in a Container) and configuration.
 * Knative Serving **Route** -- a custom resource which exposes Revisions to clients via an Istio ingress rule.
 * Kubernetes **Deployment** -- a k8s resource which manages the lifecycle of individual Pods running Containers.  One of these is running user code in each Revision.
-* Knative Serving **Autoscaler** -- another k8s Deployment (one per Revision) running a single Pod which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
+* Knative Serving **Autoscaler** -- another k8s Deployment running a single Pod which watches request load on the Pods running user code.  It increases and decreases the size of the Deployment running the user code in order to compensate for higher or lower traffic load.
 * Knative Serving **Activator** -- a k8s Deployment running a single, multi-tenant Pod (one per Cluster for all Revisions) which catches requests for Revisions with no Pods.  It brings up Pods running user code (via the Revision controller) and forwards caught requests.
 * **Concurrency** -- the number of requests currently being served at a given moment.  More QPS or higher latency means more concurrent requests.
 
@@ -20,7 +20,7 @@ Revisions have three autoscaling states which are:
 
 When a Revision is actively serving requests it will increase and decrease the number of Pods to maintain the desired average concurrent requests per Pod.  When requests are no longer being served, the Revision will be put in a Reserve state.  When the first request arrives, the Revision is put in an Active state, and the request is queued until it becomes ready.
 
-In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its number of concurrent requests each second to the Autoscaler (how many clients are connected at that moment).
+In the Active state, each Revision has a Deployment which maintains the desired number of Pods.  It also has an Autoscaler (one per Revision for single-tenancy; one for all Revisions for multi-tenancy) which watches traffic metrics and adjusts the Deployment's desired number of pods up and down.  Each Pod reports its number of concurrent requests each second to the Autoscaler.
 
 In the Reserve state, the Revision has no scheduled Pods and consumes no CPU.  The Istio route rule for the Revision points to the single multi-tenant Activator which will catch traffic for all Reserve Revisions.  When the Activator catches a request for a Reserve Revision, it will flip the Revision to an Active state and then forward requests to the Revision when it ready.
 
@@ -29,6 +29,40 @@ In the Retired state, the Revision has provisioned resources.  No requests will 
 Note: Retired state is currently not set anywhere. See [issue 1203](https://github.com/knative/serving/issues/1203).
 
 ## Context 
+The following diagram shows the autoscaler configured for single-tenancy:
+
+```
+   +---------------------+
+   | ROUTE               |
+   |                     |
+   |   +-------------+   |
+   |   | Istio Route |---------------+
+   |   +-------------+   |           |
+   |         |           |           |
+   +---------|-----------+           |
+             |                       |
+             |                       |
+             | inactive              | active
+             |  route                | route
+             |                       |
+             |                       |
+             |                +------|------------------------------------+
+             V         watch  |      V                                    |
+       +-----------+   first  |   +- ----+  create   +------------+       |
+       | Activator |------------->| Pods |<----------| Deployment |       |
+       +-----------+          |   +------+           +------------+       |
+             |                |       |                     ^             |
+             |   activate     |       |                     | resize      |
+             +--------------->|       |                     |             |
+                              |       |    metrics    +---------------+   |
+                              |       +-------------->| Single-tenant |   |
+                              |                       |  Autoscaler   |   |
+                              |                       +---------------+   |
+                              | REVISION                                  |
+                              +-------------------------------------------+
+                              
+```
+The following diagram shows the autoscaler configured for multi-tenancy:
 
 ```
    +---------------------+
@@ -48,14 +82,15 @@ Note: Retired state is currently not set anywhere. See [issue 1203](https://gith
              |                +------|---------------------------------+
              V         watch  |      V                                 |
        +-----------+   first  |   +- ----+  create   +------------+    |
-       | Activator |------------->| Pods |<----------| Deployment |    |
-       +-----------+          |   +------+           +------------+    |
-             |                |       |                     ^          |
-             |   activate     |       |                     | resize   |
-             +--------------->|       |                     |          |
-                              |       |    metrics    +------------+   |
-                              |       +-------------->| Autoscaler |   |
-                              |                       +------------+   |
+       | Activator |------------->| Pods |<----------| Deployment |<--------------+
+       +-----------+          |   +------+           +------------+    |          |
+             |                |       |                                |          | resize
+             |   activate     |       |                                |          |
+             +--------------->|       |                                |          |
+                              |       |               metrics          |   +--------------+ 
+                              |       +----------------------------------->| Multi-tenant | 
+                              |                                        |   |  Autoscaler  | 
+                              |                                        |   +--------------+ 
                               | REVISION                               |
                               +----------------------------------------+
                               
@@ -80,14 +115,22 @@ This is subject to change as the Knative Serving implementation changes.
 ### Code
 
 * [Autoscaler Library](../../pkg/autoscaler/autoscaler.go)
-* [Autoscaler Binary](../../cmd/autoscaler/main.go)
+* [Single Tenant Autoscaler Binary](../../cmd/autoscaler/main.go)
+* [Multi-tenant Autoscaler Binary](../../cmd/multitenant-autoscaler/main.go)
 * [Queue Proxy Binary](../../cmd/queue/main.go)
+* [Autoscaling Controller](../../pkg/controller/autoscaling/autoscaling.go)
+* [Statistics Server](../../pkg/server/stats/server.go)
+
 
 ### Autoscaler
 
 There is a proxy in the Knative Serving Pods (`queue-proxy`) which is responsible for enforcing request queue parameters (single or multi threaded), and reporting concurrent client metrics to the Autoscaler.  If we can get rid of this and just use [Envoy](https://www.envoyproxy.io/docs/envoy/latest/), that would be great (see [Design Goal #3](#design-goals)).  The Knative Serving controller injects the identity of the Revision into the queue proxy environment variables.  When the queue proxy wakes up, it will find the Autoscaler for the Revision and establish a websocket connection.  Every 1 second, the queue proxy pushes a gob serialized struct with the observed number of concurrent requests at that moment.
 
-The Autoscaler is also given the identity of the Revision through environment variables.  When it wakes up, it starts a websocket-enabled http server.  Queue proxies start sending their metrics to the Autoscaler and it maintains a 60-second sliding window of data points.  The Autoscaler has two modes of operation, Panic Mode and Stable Mode.
+The single tenant Autoscaler is also given the identity of the Revision through environment variables. The multi-tenant Autoscaler runs a controller which monitors Revisions and provides autoscaling for each Revision that is present.
+
+The Autoscaler provides a websocket-enabled Statistics Server.  Queue proxies send their metrics to the Autoscaler's Statistics Server and the Autoscaler maintains a 60-second sliding window of data points.
+
+The Autoscaler implements a scaling algorithm with two modes of operation: Stable Mode and Panic Mode.
 
 #### Stable Mode
 
@@ -99,7 +142,7 @@ The Autoscaler evaluates its metrics every 2 seconds.  In addition to the 60-sec
 
 #### Deactivation
 
-When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/knative/serving/issues/305)), it will transistion the Revision into the Reserve state.  This causes the Deployment and the Autoscaler to be turned down (or scaled to 0) and routes all traffic for the Revision to the Activator.
+When the Autoscaler has observed an average concurrency per pod of 0.0 for some time ([#305](https://github.com/knative/serving/issues/305)), it will transistion the Revision into the Reserve state.  This scales the Deployment to 0, stops any single tenant Autoscaler associated with the Revision, and routes all traffic for the Revision to the Activator.
 
 ### Activator
 

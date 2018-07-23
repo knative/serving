@@ -1,9 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./community/CONTRIBUTING.md) to `Knative Serving`. Also take a look at:
+[contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
+to `Knative Serving`. Also take a look at:
 
-* [The pull request workflow](./community/CONTRIBUTING.md#pull-requests)
+* [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
 * [How to add and run tests](./test/README.md)
 * [Iterating](#iterating)
 

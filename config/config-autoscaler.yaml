@@ -60,6 +60,9 @@ data:
   # enable-vertical-pod-autoscaling is true. And it will be the new
   # default when the experiment is launched and removed.
   vpa-multi-concurrency-target: "10.0"
+
+  # Tick interval is the time between autoscaling calculations.
+  tick-interval: "2s"
   
   # Dynamic parameters (take effect when config map is updated):
 

@@ -15,39 +15,80 @@
 package main
 
 import (
+	"fmt"
+	gb "go/build"
 	"log"
-	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 
-	"github.com/google/go-containerregistry/ko/build"
-	"github.com/google/go-containerregistry/ko/publish"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/daemon"
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/ko/build"
+	"github.com/google/go-containerregistry/pkg/ko/publish"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
 )
 
-func publishImages(importpaths []string, lo *LocalOptions) {
-	b, err := build.NewGo(gobuildOptions())
+func qualifyLocalImport(importpath, gopathsrc, pwd string) (string, error) {
+	if !strings.HasPrefix(pwd, gopathsrc) {
+		return "", fmt.Errorf("pwd (%q) must be on $GOPATH/src (%q) to support local imports", pwd, gopathsrc)
+	}
+	// Given $GOPATH/src and $PWD (which must be within $GOPATH/src), trim
+	// off $GOPATH/src/ from $PWD and append local importpath to get the
+	// fully-qualified importpath.
+	return filepath.Join(strings.TrimPrefix(pwd, gopathsrc+string(filepath.Separator)), importpath), nil
+}
+
+func publishImages(importpaths []string, no *NameOptions, lo *LocalOptions) {
+	opt, err := gobuildOptions()
+	if err != nil {
+		log.Fatalf("error setting up builder options: %v", err)
+	}
+	b, err := build.NewGo(opt...)
 	if err != nil {
 		log.Fatalf("error creating go builder: %v", err)
 	}
 	for _, importpath := range importpaths {
+		if gb.IsLocalImport(importpath) {
+			// Qualify relative imports to their fully-qualified
+			// import path, assuming $PWD is within $GOPATH/src.
+			gopathsrc := filepath.Join(gb.Default.GOPATH, "src")
+			pwd, err := os.Getwd()
+			if err != nil {
+				log.Fatalf("error getting current working directory: %v", err)
+			}
+			importpath, err = qualifyLocalImport(importpath, gopathsrc, pwd)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		if !b.IsSupportedReference(importpath) {
+			log.Fatalf("importpath %q is not supported", importpath)
+		}
+
 		img, err := b.Build(importpath)
 		if err != nil {
 			log.Fatalf("error building %q: %v", importpath, err)
 		}
 		var pub publish.Interface
-		if lo.Local {
+		repoName := os.Getenv("KO_DOCKER_REPO")
+		if lo.Local || repoName == publish.LocalDomain {
 			pub = publish.NewDaemon(daemon.WriteOptions{})
 		} else {
-			repoName := os.Getenv("KO_DOCKER_REPO")
-			repo, err := name.NewRepository(repoName, name.WeakValidation)
-			if err != nil {
+			if _, err := name.NewRepository(repoName, name.WeakValidation); err != nil {
 				log.Fatalf("the environment variable KO_DOCKER_REPO must be set to a valid docker repository, got %v", err)
 			}
-			pub = publish.NewDefault(repo, http.DefaultTransport, remote.WriteOptions{
-				MountPaths: getMountPaths(),
-			})
+			opts := []publish.Option{publish.WithAuthFromKeychain(authn.DefaultKeychain)}
+			if no.PreserveImportPaths {
+				opts = append(opts, publish.WithNamer(preserveImportPath))
+			} else {
+				opts = append(opts, publish.WithNamer(packageWithMD5))
+			}
+			pub, err = publish.NewDefault(repoName, opts...)
+			if err != nil {
+				log.Fatalf("error setting up default image publisher: %v", err)
+			}
 		}
 		if _, err := pub.Publish(img, importpath); err != nil {
 			log.Fatalf("error publishing %s: %v", importpath, err)

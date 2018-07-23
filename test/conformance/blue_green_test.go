@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -149,7 +150,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.Logger.Named("TestBlueGreenRoute")
+	logger := test.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))

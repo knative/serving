@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,7 +19,6 @@ limitations under the License.
 package conformance
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -43,11 +43,11 @@ const (
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	_, err := clients.Configs.Create(test.Configuration(test.Flags.Namespace, names, imagePaths[0]))
+	err := test.CreateConfiguration(clients, names, imagePaths[0])
 	if err != nil {
 		return err
 	}
-	_, err = clients.Routes.Create(test.Route(test.Flags.Namespace, names))
+	err = test.CreateRoute(clients, names)
 	return err
 }
 
@@ -60,17 +60,14 @@ func updateConfigWithImage(clients *test.Clients, names test.ResourceNames, imag
 		},
 	}
 	patchBytes, err := json.Marshal(patches)
-	newConfig, err := clients.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
+	_, err = clients.Configs.Patch(names.Config, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
-	}
-	if newConfig.Spec.Generation != int64(2) {
-		return fmt.Errorf("The spec was updated so the Generation should be 2 but it was actually %d", newConfig.Spec.Generation)
 	}
 	return nil
 }
 
-func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, expectedText string) {
+func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, expectedGeneration, expectedText string) {
 	logger.Infof("When the Route reports as Ready, everything should be ready.")
 	if err := test.WaitForRouteState(clients.Routes, names.Route, test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
@@ -93,6 +90,11 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, logger *zap.Sugared
 	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady)
 	if err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
+	}
+	logger.Infof("The Revision will be annotated with the generation")
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	if err != nil {
+		t.Fatalf("Revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
 	}
 	logger.Infof("Updates the Configuration that the Revision is ready")
 	err = test.CheckConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
@@ -146,8 +148,8 @@ func tearDown(clients *test.Clients, names test.ResourceNames) {
 func TestRouteCreation(t *testing.T) {
 	clients := setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestRouteCreation")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestRouteCreation")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
@@ -174,7 +176,7 @@ func TestRouteCreation(t *testing.T) {
 	}
 	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "What a spaceport!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "1", "What a spaceport!")
 
 	logger.Infof("Updating the Configuration to use a different image")
 	err = updateConfigWithImage(clients, names, imagePaths)
@@ -189,5 +191,5 @@ func TestRouteCreation(t *testing.T) {
 	}
 	names.Revision = revisionName
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "Re-energize yourself with a slice of pepperoni!")
+	assertResourcesUpdatedWhenRevisionIsReady(t, logger, clients, names, "2", "Re-energize yourself with a slice of pepperoni!")
 }

@@ -98,6 +98,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                "10s",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 		want: &Config{
 			SingleTargetConcurrency:   1.0,
@@ -108,6 +109,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
+			TickInterval:              2 * time.Second,
 		},
 	}, {
 		name: "with vpa specified",
@@ -120,6 +122,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                 "10s",
 			"scale-to-zero-threshold":      "10m",
 			"concurrency-quantum-of-time":  "100ms",
+			"tick-interval":                "2s",
 		},
 		want: &Config{
 			SingleTargetConcurrency:   1.0,
@@ -130,6 +133,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
+			TickInterval:              2 * time.Second,
 		},
 	}, {
 		name: "with toggles on",
@@ -143,6 +147,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                    "10s",
 			"scale-to-zero-threshold":         "10m",
 			"concurrency-quantum-of-time":     "100ms",
+			"tick-interval":                   "2s",
 		},
 		want: &Config{
 			EnableScaleToZero:         true,
@@ -155,6 +160,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
+			TickInterval:              2 * time.Second,
 		},
 	}, {
 		name: "with toggles on strange casing",
@@ -168,6 +174,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                    "10s",
 			"scale-to-zero-threshold":         "10m",
 			"concurrency-quantum-of-time":     "100ms",
+			"tick-interval":                   "2s",
 		},
 		want: &Config{
 			EnableScaleToZero:         true,
@@ -180,6 +187,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
+			TickInterval:              2 * time.Second,
 		},
 	}, {
 		name: "with toggles explicitly off",
@@ -193,6 +201,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                    "10s",
 			"scale-to-zero-threshold":         "10m",
 			"concurrency-quantum-of-time":     "100ms",
+			"tick-interval":                   "2s",
 		},
 		want: &Config{
 			SingleTargetConcurrency:   1.0,
@@ -203,6 +212,7 @@ func TestNewConfig(t *testing.T) {
 			PanicWindow:               10 * time.Second,
 			ScaleToZeroThreshold:      10 * time.Minute,
 			ConcurrencyQuantumOfTime:  100 * time.Millisecond,
+			TickInterval:              2 * time.Second,
 		},
 	}, {
 		name: "missing required float field",
@@ -213,6 +223,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                "10s",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 		wantErr: true,
 	}, {
@@ -224,6 +235,7 @@ func TestNewConfig(t *testing.T) {
 			"stable-window":               "5m",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 		wantErr: true,
 	}, {
@@ -236,6 +248,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                "10s",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 		wantErr: true,
 	}, {
@@ -248,6 +261,7 @@ func TestNewConfig(t *testing.T) {
 			"panic-window":                "10s",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 		wantErr: true,
 	}}
