@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -124,9 +125,28 @@ const (
 	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 
+type ServiceConditionSlice []ServiceCondition
+
+// Len implements sort.Interface
+func (scs ServiceConditionSlice) Len() int {
+	return len(scs)
+}
+
+// Less implements sort.Interface
+func (scs ServiceConditionSlice) Less(i, j int) bool {
+	return scs[i].Type < scs[j].Type
+}
+
+// Swap implements sort.Interface
+func (scs ServiceConditionSlice) Swap(i, j int) {
+	scs[i], scs[j] = scs[j], scs[i]
+}
+
+var _ sort.Interface = (ServiceConditionSlice)(nil)
+
 type ServiceStatus struct {
 	// +optional
-	Conditions []ServiceCondition `json:"conditions,omitempty"`
+	Conditions ServiceConditionSlice `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -211,7 +231,7 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	}
 
 	t := new.Type
-	var conditions []ServiceCondition
+	var conditions ServiceConditionSlice
 	for _, cond := range ss.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -225,6 +245,7 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	}
 	new.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, *new)
+	sort.Sort(conditions)
 	ss.Conditions = conditions
 }
 
