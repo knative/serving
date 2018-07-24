@@ -213,7 +213,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []RevisionCondition `json:"conditions,omitempty"`
+	Conditions RevisionConditionSlice `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
