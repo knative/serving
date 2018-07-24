@@ -48,7 +48,7 @@ const (
 	IstioTimeoutHackHeaderKey   = "x-envoy-upstream-rq-timeout-ms"
 	IstioTimeoutHackHeaderValue = "0"
 
-	DefaultActivatorTimeout = "60s"
+	DefaultRouteTimeout = "60s"
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -142,6 +142,10 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 	route := v1alpha3.HTTPRoute{
 		Match: matches,
 		Route: weights,
+		Timeout: DefaultRouteTimeout,
+		AppendHeaders: map[string]string{
+			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+		},
 	}
 	// Add traffic rules for activator.
 	return addActivatorRoutes(&route, ns, inactive)
@@ -189,12 +193,8 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		},
 		Weight: totalInactivePercent,
 	})
-	r.AppendHeaders = map[string]string{
-		controller.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
-		controller.GetRevisionHeaderNamespace(): ns,
-		IstioTimeoutHackHeaderKey:               IstioTimeoutHackHeaderValue,
-	}
-	r.Timeout = DefaultActivatorTimeout
+	r.AppendHeaders[controller.GetRevisionHeaderName()] = maxInactiveTarget.RevisionName
+	r.AppendHeaders[controller.GetRevisionHeaderNamespace()] = ns
 	return r
 }
 
