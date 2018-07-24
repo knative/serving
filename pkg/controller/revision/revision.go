@@ -424,7 +424,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			return err
 		}
 		logger.Infof("Deleted deployment %q", deploymentName)
-		rev.Status.MarkInactive()
+		rev.Status.MarkInactive(fmt.Sprintf("Revision %q is Inactive.", rev.Name))
 		return nil
 
 	default:
@@ -582,7 +582,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 			return err
 		}
 		logger.Infof("Deleted Service %q", serviceName)
-		rev.Status.MarkInactive()
+		rev.Status.MarkInactive(fmt.Sprintf("Revision %q is Inactive.", rev.Name))
 		return nil
 
 	default:
