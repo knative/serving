@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/knative/build/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/logging"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
@@ -85,7 +86,12 @@ func newLogger(logLevel string) *zap.SugaredLogger {
 	  }
 	}`
 	configJSON := fmt.Sprintf(configJSONTemplate, logLevel)
-	l, _ := logging.NewLogger(string(configJSON), logLevel)
+	l, _, err := logging.NewLogger(string(configJSON), logLevel)
+	if err != nil {
+		l.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err))
+	} else {
+		l.Infof("Successfully created the logger at level %s with config %s ", zap.String(logkey.JSONConfig, configJSON))
+	}
 	return l
 }
 

@@ -61,8 +61,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(loggingConfig, "autoscaler")
+	logger, _, err := logging.NewLoggerFromConfig(loggingConfig, "autoscaler")
 	defer logger.Sync()
+
+	if err != nil {
+		logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err))
+	}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -99,7 +103,7 @@ func main() {
 	opt := controller.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
-		Logger: logger,
+		Logger:           logger,
 	}
 
 	ctl := autoscaling.NewController(&opt, multiScaler, time.Second*30)

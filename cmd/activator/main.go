@@ -161,8 +161,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
+	logger, atomicLevel, err := logging.NewLoggerFromConfig(config, logLevelKey)
 	defer logger.Sync()
+	if err != nil {
+		logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err))
+	}
+
 	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
 	logger.Info("Starting the knative activator")
 

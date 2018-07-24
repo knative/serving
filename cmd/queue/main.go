@@ -265,8 +265,13 @@ func setupAdminHandlers(server *http.Server) {
 
 func main() {
 	flag.Parse()
-	logger, _ = logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
+
+	logger, _, err := logging.NewLogger(os.Getenv("SERVING_LOGGING_CONFIG"), os.Getenv("SERVING_LOGGING_LEVEL"))
 	logger = logger.Named("queueproxy")
+	if err != nil {
+		logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err))
+	}
+
 	defer logger.Sync()
 
 	initEnv()

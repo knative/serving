@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/knative/serving/pkg/configmap"
+	"go.uber.org/zap"
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
@@ -68,9 +69,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
+	logger, atomicLevel, err := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
 	defer logger.Sync()
-
+	if err != nil {
+		logger.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err))
+	}
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
