@@ -45,7 +45,7 @@ func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
-	want := Endpoint{testServiceFQDN, 8080}
+	want := Endpoint{testServiceFQDN, 8080, Unknown}
 	if got != want {
 		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
 	}
@@ -68,7 +68,7 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 
 	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
 
-	want := Endpoint{testServiceFQDN, 8080}
+	want := Endpoint{testServiceFQDN, 8080, Unknown}
 	if got != want {
 		t.Errorf("Wrong endpoint. Want %+v. Got %+v.", want, got)
 	}
@@ -144,7 +144,7 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	time.Sleep(3 * time.Second)
 	select {
 	case result := <-ch:
-		want := Endpoint{testServiceFQDN, 8080}
+		want := Endpoint{testServiceFQDN, 8080, Unknown}
 		if result.endpoint != want {
 			t.Errorf("Unexpected endpoint. Want %+v. Got %+v.", want, result.endpoint)
 		}

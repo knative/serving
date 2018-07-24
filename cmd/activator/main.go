@@ -17,16 +17,17 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
+
+	"bytes"
+	"io"
+	"io/ioutil"
 	"net/http/httputil"
 	"net/url"
-	"time"
 
 	"github.com/knative/serving/pkg/logging/logkey"
 
@@ -135,14 +136,26 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, int(status))
 		return
 	}
+
+	var transport http.RoundTripper
+	if endpoint.IsVerified() {
+		transport = http.DefaultTransport
+		if r.ProtoMajor == 2 {
+			transport = h2cutil.NewTransport()
+		}
+	} else {
+		transport = retryRoundTripper{
+			logger: a.logger,
+		}
+	}
+
 	target := &url.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port),
 	}
+
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = retryRoundTripper{
-		logger: a.logger,
-	}
+	proxy.Transport = transport
 
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/knative/serving/issues/964

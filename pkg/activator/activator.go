@@ -37,6 +37,19 @@ type revisionID struct {
 
 // Endpoint is a fully-qualified domain name / port pair for an active revision.
 type Endpoint struct {
-	FQDN string
-	Port int32
+	FQDN     string
+	Port     int32
+	Verified VerificationStatus
+}
+
+type VerificationStatus string
+
+const (
+	Unknown VerificationStatus = "Unknown"
+	Pass    VerificationStatus = "Pass"
+	Fail    VerificationStatus = "Fail"
+)
+
+func (e *Endpoint) IsVerified() bool {
+	return e.Verified == Pass
 }

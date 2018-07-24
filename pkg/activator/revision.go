@@ -138,6 +138,9 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 		FQDN: fqdn,
 		Port: port,
 	}
+
+	verifyRevisionRoutability(revision, &end, logger)
+
 	return end, 0, nil
 }
 
