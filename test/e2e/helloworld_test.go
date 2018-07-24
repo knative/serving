@@ -31,7 +31,7 @@ const (
 )
 
 func TestHelloWorld(t *testing.T) {
-	clients := Setup(t)
+	clients := Setup(t, true)
 
 	//add test case specific name to its own logger
 	logger := test.GetContextLogger("TestHelloWorld")

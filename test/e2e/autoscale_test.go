@@ -86,7 +86,7 @@ func setScaleToZeroThreshold(clients *test.Clients, threshold string) error {
 }
 
 func setup(t *testing.T, logger *zap.SugaredLogger) *test.Clients {
-	clients := Setup(t)
+	clients := Setup(t, false)
 
 	configMap, err := getAutoscalerConfigMap(clients)
 	if err != nil {

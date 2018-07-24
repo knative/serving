@@ -41,7 +41,7 @@ const (
 
 func TestContainerErrorMsg(t *testing.T) {
 	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
-	clients := Setup(t)
+	clients := Setup(t, true)
 
 	//add test case specific name to its own logger
 	logger := test.GetContextLogger("TestContainerErrorMsg")
