@@ -154,7 +154,7 @@ func TestGetRevisionLastTransitionTime(t *testing.T) {
 				Conditions: []v1alpha1.RevisionCondition{{
 					Type:               v1alpha1.RevisionConditionReady,
 					Status:             corev1.ConditionTrue,
-					LastTransitionTime: metav1.NewTime(expectedTime),
+					LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(expectedTime)},
 				}},
 			},
 		},
