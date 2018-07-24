@@ -86,6 +86,7 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 	} else if err != nil {
 		return err
 	} else {
+		route.Status.DomainInternal = resourcenames.K8sServiceFullname(route)
 		// Make sure that the service has the proper specification
 		desiredService := resources.MakeK8sService(route)
 		// Preserve the ClusterIP field in the Service's Spec, if it has been set.
