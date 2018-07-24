@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 )
@@ -71,7 +72,7 @@ func primes(N int) []int {
 	return primes
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func defaultHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	p := primes(40000000)
@@ -79,7 +80,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "The largest prime under 40000000 is %d. Enjoy your noodles!", largest)
 }
 
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("autoscale app received a health request.")
+	w.WriteHeader(http.StatusOK)
+}
+
 func main() {
-	http.HandleFunc("/", handler)
+	log.Print("autoscale app started.")
+	http.HandleFunc("/health", healthHandler)
+	http.HandleFunc("/", defaultHandler)
 	http.ListenAndServe(":8080", nil)
 }

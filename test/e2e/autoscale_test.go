@@ -110,28 +110,60 @@ func tearDown(clients *test.Clients, names test.ResourceNames, logger *zap.Sugar
 	TearDown(clients, names, logger)
 }
 
-func TestAutoscaleUpDownUp(t *testing.T) {
+func TestAutoscaleUpDownUp_WithoutReadinessProbe(t *testing.T) {
 	//add test case specific name to its own logger
-	logger := test.GetContextLogger("TestAutoscaleUpDownUp")
+	logger := test.GetContextLogger("TestAutoscaleUpDownUp_WithoutReadinessProbe")
 
 	clients := setup(t, logger)
-	imagePath := strings.Join(
-		[]string{
-			test.Flags.DockerRepo,
-			"autoscale"},
-		"/")
+	imagePath := strings.Join([]string{test.Flags.DockerRepo, "autoscale"}, "/")
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
+
 	test.CleanupOnInterrupt(func() { tearDown(clients, names, logger) }, logger)
 	defer tearDown(clients, names, logger)
 
+	testAutoscaleUpDownUp(t, logger, clients, names)
+}
+
+func TestAutoscaleUpDownUp_WithReadinessProbe(t *testing.T) {
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestAutoscaleUpDownUp_WithReadinessProbe")
+
+	clients := setup(t, logger)
+	imagePath := strings.Join([]string{test.Flags.DockerRepo, "autoscale"}, "/")
+
+	logger.Infof("Creating a new Route and Configuration")
+
+	names := test.ResourceNames{
+		Config: test.AppendRandomString(configName, logger),
+		Route:  test.AppendRandomString(routeName, logger),
+	}
+
+	configuration := test.ConfigurationWithHTTPGetReadinessProbe(test.Flags.Namespace, names, imagePath, "/health")
+	_, err := clients.Configs.Create(configuration)
+	if err != nil {
+		t.Fatalf("Failed to create Configuration: %v", err)
+	}
+
+	_, err = clients.Routes.Create(test.Route(test.Flags.Namespace, names))
+	if err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
+	test.CleanupOnInterrupt(func() { tearDown(clients, names, logger) }, logger)
+	defer tearDown(clients, names, logger)
+
+	testAutoscaleUpDownUp(t, logger, clients, names)
+}
+
+func testAutoscaleUpDownUp(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames) {
 	logger.Infof(`When the Revision can have traffic routed to it,
 	            the Route is marked as Ready.`)
-	err = test.WaitForRouteState(
+	err := test.WaitForRouteState(
 		clients.Routes,
 		names.Route,
 		test.IsRouteReady,

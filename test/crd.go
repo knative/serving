@@ -101,6 +101,20 @@ func Configuration(namespace string, names ResourceNames, imagePath string) *v1a
 	}
 }
 
+func ConfigurationWithHTTPGetReadinessProbe(namespace string, names ResourceNames, imagePath string, healthPath string) *v1alpha1.Configuration {
+	probe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: healthPath,
+			},
+		},
+	}
+
+	configuration := Configuration(namespace, names, imagePath)
+	configuration.Spec.RevisionTemplate.Spec.Container.ReadinessProbe = probe
+	return configuration
+}
+
 func ConfigurationWithBuild(namespace string, names ResourceNames, build *buildv1alpha1.BuildSpec, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
