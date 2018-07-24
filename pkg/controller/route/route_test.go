@@ -319,7 +319,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				ctrl.GetRevisionHeaderNamespace():   testNamespace,
 				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
-			Timeout: resources.DefaultActivatorTimeout,
+			Timeout: resources.DefaultRouteTimeout,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -497,7 +497,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				ctrl.GetRevisionHeaderNamespace():   testNamespace,
 				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
-			Timeout: resources.DefaultActivatorTimeout,
+			Timeout: resources.DefaultRouteTimeout,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {

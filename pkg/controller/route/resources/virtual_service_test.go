@@ -341,7 +341,7 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			"Knative-Serving-Namespace": "test-ns",
 			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
-		Timeout: DefaultActivatorTimeout,
+		Timeout: DefaultRouteTimeout,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -384,7 +384,7 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			"Knative-Serving-Namespace": "test-ns",
 			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
-		Timeout: DefaultActivatorTimeout,
+		Timeout: DefaultRouteTimeout,
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)

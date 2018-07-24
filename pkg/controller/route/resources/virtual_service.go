@@ -48,8 +48,6 @@ const (
 	IstioTimeoutHackHeaderKey   = "x-envoy-upstream-rq-timeout-ms"
 	IstioTimeoutHackHeaderValue = "0"
 
-	DefaultActivatorTimeout = "60s"
-
 	DefaultRouteTimeout = "60s"
 )
 
@@ -195,12 +193,8 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		},
 		Weight: totalInactivePercent,
 	})
-	r.AppendHeaders = map[string]string{
-		controller.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
-		controller.GetRevisionHeaderNamespace(): ns,
-		IstioTimeoutHackHeaderKey:               IstioTimeoutHackHeaderValue,
-	}
-	r.Timeout = DefaultActivatorTimeout
+	r.AppendHeaders[controller.GetRevisionHeaderName()] = maxInactiveTarget.RevisionName
+	r.AppendHeaders[controller.GetRevisionHeaderNamespace()] = ns
 	return r
 }
 
