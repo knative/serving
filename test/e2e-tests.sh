@@ -56,6 +56,17 @@ function create_everything() {
   echo ">> Binging up Serving "
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
+  # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
+  #
+  # However, since network configurations may reach different ingress pods at slightly
+  # different time, even ignoring failures for initial requests won't ensure subsequent
+  # requests will succeed all the time.  We are disabling ingress pod autoscaling here
+  # to avoid having too much flakes in the tests.  That would allow us to be stricter
+  # when checking non-probe requests to discover other routing issues.
+  #
+  # We should revisit this when Istio API exposes a Status that we can rely on.
+  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/822 is fixed.
+  kubectl patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
   create_monitoring
 }
 
