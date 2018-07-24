@@ -6,13 +6,14 @@ and scales to support advanced scenarios.
 
 The Knative Serving project provides middleware primitives that enable:
 
-* Rapid deployment of serverless containers
-* Automatic scaling up and down to zero
-* Routing and network programming for Istio components
-* Point-in-time snapshots of deployed code and configurations
+- Rapid deployment of serverless containers
+- Automatic scaling up and down to zero
+- Routing and network programming for Istio components
+- Point-in-time snapshots of deployed code and configurations
 
-For complete Knative Serving documentation, see [Knative Serving](https://github.com/knative/docs/tree/master/serving)
-or [Knative docs](https://github.com/knative/docs) to learn about Knative.
+For complete Knative Serving documentation, see
+[Knative Serving](https://github.com/knative/docs/tree/master/serving) or
+[Knative docs](https://github.com/knative/docs) to learn about Knative.
 
-If you are interested in contributing, see
-[CONTRIBUTING.md](./CONTRIBUTING.md) and [DEVELOPMENT.md](./DEVELOPMENT.md).
+If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)
+and [DEVELOPMENT.md](./DEVELOPMENT.md).
