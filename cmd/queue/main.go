@@ -68,12 +68,11 @@ const (
 )
 
 var (
-	podName              string
-	servingNamespace     string
-	servingConfiguration string
-	// servingRevision is the revision name prepended with its namespace, e.g.
-	// namespace/name.
+	podName               string
+	servingNamespace      string
+	servingConfiguration  string
 	servingRevision       string
+	servingRevisionKey    string
 	servingAutoscaler     string
 	servingAutoscalerPort string
 	statChan              = make(chan *autoscaler.Stat, statReportingQueueLength)
@@ -97,6 +96,7 @@ func initEnv() {
 	servingRevision = util.GetRequiredEnvOrFatal("SERVING_REVISION", logger)
 	servingAutoscaler = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER", logger)
 	servingAutoscalerPort = util.GetRequiredEnvOrFatal("SERVING_AUTOSCALER_PORT", logger)
+	servingRevisionKey = fmt.Sprintf("%s/%s", servingNamespace, servingRevision)
 }
 
 func connectStatSink() {
@@ -140,7 +140,7 @@ func statReporter() {
 		}
 		sm := autoscaler.StatMessage{
 			Stat:        *s,
-			RevisionKey: servingRevision,
+			RevisionKey: servingRevisionKey,
 		}
 		var b bytes.Buffer
 		enc := gob.NewEncoder(&b)

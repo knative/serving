@@ -24,12 +24,17 @@ import (
 
 	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/pkg/webhook"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+)
+
+const (
+	logLevelKey = "webhook"
 )
 
 func main() {
@@ -42,8 +47,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(config, "webhook")
+	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
 	defer logger.Sync()
+	logger = logger.With(zap.String(logkey.ControllerType, "webhook"))
 
 	logger.Info("Starting the Configuration Webhook")
 
@@ -55,9 +61,16 @@ func main() {
 		logger.Fatal("Failed to get in cluster config", zap.Error(err))
 	}
 
-	clientset, err := kubernetes.NewForConfig(clusterConfig)
+	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatal("Failed to get the client set", zap.Error(err))
+	}
+
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	if err = configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start configuration manager: %v", err)
 	}
 
 	options := webhook.ControllerOptions{
@@ -67,7 +80,7 @@ func main() {
 		SecretName:       "webhook-certs",
 		WebhookName:      "webhook.knative.dev",
 	}
-	controller, err := webhook.NewAdmissionController(clientset, options, logger)
+	controller, err := webhook.NewAdmissionController(kubeClient, options, logger)
 	if err != nil {
 		logger.Fatal("Failed to create the admission controller", zap.Error(err))
 	}

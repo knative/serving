@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"github.com/google/go-cmp/cmp"
@@ -27,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -113,7 +111,7 @@ func (c *Controller) Reconcile(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
 
@@ -125,7 +123,7 @@ func (c *Controller) Reconcile(key string) error {
 	original, err := c.serviceLister.Services(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		runtime.HandleError(fmt.Errorf("service %q in work queue no longer exists", key))
+		logger.Errorf("service %q in work queue no longer exists", key)
 		return nil
 	} else if err != nil {
 		return err

@@ -185,6 +185,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			"panic-window":                "10s",
 			"scale-to-zero-threshold":     "10m",
 			"concurrency-quantum-of-time": "100ms",
+			"tick-interval":               "2s",
 		},
 	}, getTestControllerConfigMap(),
 	)
@@ -225,7 +226,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
 	kubeClient, _, _, _, controller, kubeInformer, buildInformer,
-		servingInformer, servingSystemInformer, vpaInformer :=
+	servingInformer, servingSystemInformer, vpaInformer :=
 		newTestController(t, rev)
 
 	h := NewHooks()

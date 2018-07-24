@@ -45,6 +45,7 @@ type Config struct {
 	MaxScaleUpRate           float64
 	StableWindow             time.Duration
 	PanicWindow              time.Duration
+	TickInterval             time.Duration
 	ScaleToZeroThreshold     time.Duration
 	ConcurrencyQuantumOfTime time.Duration
 }
@@ -137,6 +138,9 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}, {
 		key:   "concurrency-quantum-of-time",
 		field: &lc.ConcurrencyQuantumOfTime,
+	}, {
+		key:   "tick-interval",
+		field: &lc.TickInterval,
 	}} {
 		if raw, ok := data[dur.key]; !ok {
 			return nil, fmt.Errorf("Autoscaling configmap is missing %q", dur.key)

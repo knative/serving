@@ -156,7 +156,7 @@ func (c *Base) Enqueue(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
-		runtime.HandleError(err)
+		c.Logger.Error(zap.Error(err))
 		return
 	}
 	c.EnqueueKey(key)
@@ -170,7 +170,7 @@ func (c *Base) EnqueueControllerOf(obj interface{}) {
 	// to enqueue the last known owner.
 	object, err := meta.Accessor(obj)
 	if err != nil {
-		runtime.HandleError(err)
+		c.Logger.Error(zap.Error(err))
 		return
 	}
 
@@ -247,7 +247,7 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 			// Forget here else we'd go into a loop of attempting to
 			// process a work item that is invalid.
 			c.WorkQueue.Forget(obj)
-			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
+			c.Logger.Errorf("expected string in workqueue but got %#v", obj)
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
@@ -263,7 +263,7 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 	}(obj)
 
 	if err != nil {
-		runtime.HandleError(err)
+		c.Logger.Error(zap.Error(err))
 		return true
 	}
 
