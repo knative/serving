@@ -273,7 +273,7 @@ func (in *RevisionStatus) DeepCopyInto(out *RevisionStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]RevisionCondition, len(*in))
+		*out = make(RevisionConditionSlice, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
