@@ -16,10 +16,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 )
@@ -266,8 +266,8 @@ func TestGetSetCondition(t *testing.T) {
 		Status: corev1.ConditionTrue,
 	}
 	// Set Condition and make sure it's the only thing returned
-	rs.setCondition(rc)
-	if e, a := rc, rs.GetCondition(RevisionConditionBuildSucceeded); !reflect.DeepEqual(e, a) {
+	rs.setCondition(string(rc.Type), rc.Status, rc.Reason, rc.Message)
+	if e, a := rc, rs.GetCondition(RevisionConditionBuildSucceeded); !equality.Semantic.DeepEqual(e, a) {
 		t.Errorf("GetCondition expected %v got: %v", e, a)
 	}
 	if a := rs.GetCondition(RevisionConditionReady); a != nil {
@@ -287,28 +287,14 @@ func TestRevisionConditions(t *testing.T) {
 	}
 
 	// Add a new condition.
-	rev.Status.setCondition(foo)
-
-	if got, want := len(rev.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	rev.Status.setCondition(nil)
+	rev.Status.setCondition(string(foo.Type), foo.Status, foo.Reason, foo.Message)
 
 	if got, want := len(rev.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add a second condition.
-	rev.Status.setCondition(bar)
-
-	if got, want := len(rev.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	rev.Status.setCondition(nil)
+	rev.Status.setCondition(string(bar.Type), bar.Status, bar.Reason, bar.Message)
 
 	if got, want := len(rev.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)

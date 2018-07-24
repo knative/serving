@@ -133,21 +133,15 @@ func TestServiceConditions(t *testing.T) {
 	}
 
 	// Add a single condition.
-	svc.Status.setCondition(foo)
+	svc.Status.setCondition(string(foo.Type), foo.Status, foo.Reason, foo.Message)
 	if got, want := len(svc.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add a second Condition.
-	svc.Status.setCondition(bar)
+	svc.Status.setCondition(string(bar.Type), bar.Status, bar.Reason, bar.Message)
 	if got, want := len(svc.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Test Add nil condition.
-	svc.Status.setCondition(nil)
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatal("Error, nil condition was allowed to be added.")
 	}
 }
 
