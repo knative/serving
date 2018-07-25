@@ -912,7 +912,7 @@ func (c *Controller) receiveNetworkConfig(configMap *corev1.ConfigMap) {
 func (c *Controller) getNetworkConfig() *config.Network {
 	c.networkConfigMutex.Lock()
 	defer c.networkConfigMutex.Unlock()
-	return c.networkConfig
+	return c.networkConfig.DeepCopy()
 }
 
 func (c *Controller) receiveLoggingConfig(configMap *corev1.ConfigMap) {
@@ -973,13 +973,13 @@ func (c *Controller) getResolver() resolver {
 func (c *Controller) getControllerConfig() *config.Controller {
 	c.controllerConfigMutex.Lock()
 	defer c.controllerConfigMutex.Unlock()
-	return c.controllerConfig
+	return c.controllerConfig.DeepCopy()
 }
 
 func (c *Controller) getLoggingConfig() *logging.Config {
 	c.loggingConfigMutex.Lock()
 	defer c.loggingConfigMutex.Unlock()
-	return c.loggingConfig
+	return c.loggingConfig.DeepCopy()
 }
 
 func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
@@ -1001,7 +1001,7 @@ func (c *Controller) receiveObservabilityConfig(configMap *corev1.ConfigMap) {
 func (c *Controller) getObservabilityConfig() *config.Observability {
 	c.observabilityConfigMutex.Lock()
 	defer c.observabilityConfigMutex.Unlock()
-	return c.observabilityConfig
+	return c.observabilityConfig.DeepCopy()
 }
 
 func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
@@ -1023,5 +1023,5 @@ func (c *Controller) receiveAutoscalerConfig(configMap *corev1.ConfigMap) {
 func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
 	c.autoscalerConfigMutex.Lock()
 	defer c.autoscalerConfigMutex.Unlock()
-	return c.autoscalerConfig
+	return c.autoscalerConfig.DeepCopy()
 }
