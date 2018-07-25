@@ -61,10 +61,9 @@ go test -v -tags=e2e -count=1 ./test/e2e -run ^TestAutoscaleUpDownUp$
 These tests require:
 
 1. [A running `Knative Serving` cluster.](/DEVELOPMENT.md#getting-started)
-2. The namespaces `pizzaplanet` and `noodleburg`:
+2. The namespace `serving-tests``:
     ```bash
-    kubectl create namespace pizzaplanet
-    kubectl create namespace noodleburg
+    kubectl create namespace serving-tests
     ```
 3. A docker repo containing [the test images](#test-images)
 
@@ -109,8 +108,7 @@ test images used by the conformance and e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh ./test/e2e/test_images
-./test/upload-test-images.sh ./test/conformance/test_images
+./test/upload-test-images.sh ./test/e2e/test_images ./test/conformance/test_images
 ```
 
 ### Adding new test images
@@ -120,6 +118,8 @@ for building and running the test image.
 
 The new test images will also need to be uploaded to the e2e tests Docker repo. You will need one
 of the owners found in [`/test/OWNERS`](OWNERS) to do this.
+
+Because the test images are uploaded to the same folder, they **must** have different names.
 
 ## Flags
 
@@ -171,7 +171,7 @@ kubectl config get-clusters
 ### Specifying namespace
 
 The `--namespace` argument lets you specify the namespace to use for the
-tests. By default, `conformance` will use `noodleburg` and `e2e` will use `pizzaplanet`.
+tests. By default, tests will use `serving-tests`.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --namespace your-namespace-name
