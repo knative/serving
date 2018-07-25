@@ -414,9 +414,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Updating",
 					}, {
-						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "deactivate" is Inactive.`,
 					}},
 				}),
 		}, {
@@ -525,9 +526,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 					}, {
-						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "update-user-deploy-failure" is Inactive.`,
 					}},
 				}),
 		}, {
@@ -560,9 +562,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Updating",
 					}, {
-						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "stable-deactivation" is Inactive.`,
 					}},
 				}),
 			// The Deployments match what we'd expect of an Reserve revision.
@@ -622,9 +625,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 					}, {
-						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "retire" is Inactive.`,
 					}},
 				}),
 		}},
@@ -821,9 +825,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 					}, {
-						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "stable-retirement" is Inactive.`,
 					}},
 				}),
 		},
@@ -852,9 +857,10 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Updating",
 					}, {
-						Type:   "Ready",
-						Status: "False",
-						Reason: "Inactive",
+						Type:    "Ready",
+						Status:  "False",
+						Reason:  "Inactive",
+						Message: `Revision "activate-revision" is Inactive.`,
 					}},
 				}),
 			// The Deployments match what we'd expect of an Reserve revision.

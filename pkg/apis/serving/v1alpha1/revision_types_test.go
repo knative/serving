@@ -541,7 +541,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 
 	// From a Ready state, make the revision inactive to simulate scale to zero.
-	r.Status.MarkInactive()
+	r.Status.MarkInactive("Reserve")
 	checkConditionSucceededRevision(r.Status, RevisionConditionResourcesAvailable, t)
 	checkConditionSucceededRevision(r.Status, RevisionConditionContainerHealthy, t)
 	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != "Inactive" {

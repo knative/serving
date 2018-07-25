@@ -400,11 +400,12 @@ func (rs *RevisionStatus) MarkResourcesAvailable() {
 	rs.checkAndMarkReady()
 }
 
-func (rs *RevisionStatus) MarkInactive() {
+func (rs *RevisionStatus) MarkInactive(message string) {
 	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionFalse,
-		Reason: "Inactive",
+		Type:    RevisionConditionReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  "Inactive",
+		Message: message,
 	})
 }
 
