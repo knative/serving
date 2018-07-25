@@ -45,10 +45,10 @@ type statusFilterRoundTripper struct {
 }
 
 func newStatusFilterRoundTripper(rt http.RoundTripper, statuses ...int) http.RoundTripper {
-	return statusFilterRoundTripper{rt, statuses}
+	return &statusFilterRoundTripper{rt, statuses}
 }
 
-func (rt statusFilterRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rt *statusFilterRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	resp, err := rt.transport.RoundTrip(r)
 	if err != nil {
 		return nil, err
@@ -75,10 +75,10 @@ type retryRoundTripper struct {
 }
 
 func newRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, mr int, i time.Duration) http.RoundTripper {
-	return retryRoundTripper{logger: l, maxRetries: mr, interval: i, transport: rt}
+	return &retryRoundTripper{logger: l, maxRetries: mr, interval: i, transport: rt}
 }
 
-func (rrt retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	resp, err := rrt.transport.RoundTrip(r)
 	// TODO: Activator should retry with backoff.
 	// https://github.com/knative/serving/issues/1229
