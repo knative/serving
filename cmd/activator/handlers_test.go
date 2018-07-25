@@ -35,19 +35,19 @@ type fakeActivator struct {
 	name      string
 }
 
-func newFakeActivator(namespace string, name string, server *httptest.Server) fakeActivator {
+func newFakeActivator(namespace string, name string, server *httptest.Server) activator.Activator {
 	url, _ := url.Parse(server.URL)
 	host := url.Hostname()
 	port, _ := strconv.Atoi(url.Port())
 
-	return fakeActivator{
+	return &fakeActivator{
 		endpoint:  activator.Endpoint{FQDN: host, Port: int32(port)},
 		namespace: namespace,
 		name:      name,
 	}
 }
 
-func (fa fakeActivator) ActiveEndpoint(namespace, name string) (activator.Endpoint, activator.Status, error) {
+func (fa *fakeActivator) ActiveEndpoint(namespace, name string) (activator.Endpoint, activator.Status, error) {
 	if namespace == fa.namespace && name == fa.name {
 		return fa.endpoint, http.StatusOK, nil
 	}
@@ -55,7 +55,7 @@ func (fa fakeActivator) ActiveEndpoint(namespace, name string) (activator.Endpoi
 	return activator.Endpoint{}, http.StatusNotFound, errors.New("not found!")
 }
 
-func (fa fakeActivator) Shutdown() {
+func (fa *fakeActivator) Shutdown() {
 }
 
 func TestActivationHandler(t *testing.T) {

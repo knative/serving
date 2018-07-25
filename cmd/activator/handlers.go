@@ -76,13 +76,13 @@ type uploadHandler struct {
 }
 
 func newUploadHandler(h http.Handler, maxUploadBytes int64) http.Handler {
-	return uploadHandler{
+	return &uploadHandler{
 		Handler:        h,
 		MaxUploadBytes: maxUploadBytes,
 	}
 }
 
-func (h uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength > h.MaxUploadBytes {
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
