@@ -259,7 +259,7 @@ func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap
 func (c *Controller) getDomainConfig() *config.Domain {
 	c.domainConfigMutex.Lock()
 	defer c.domainConfigMutex.Unlock()
-	return c.domainConfig
+	return c.domainConfig.DeepCopy()
 }
 
 func (c *Controller) routeDomain(route *v1alpha1.Route) string {
