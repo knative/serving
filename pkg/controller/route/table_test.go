@@ -17,6 +17,7 @@ limitations under the License.
 package route
 
 import (
+	"fmt"
 	"testing"
 
 	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
@@ -56,13 +57,10 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleNotReadyConfig("default", "not-ready"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "first-reconcile",
-			),
-		}, {
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Domain:         "first-reconcile.default.example.com",
 				DomainInternal: "first-reconcile.default.svc.cluster.local",
@@ -94,13 +92,10 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "permanently-failed", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "permanently-failed", "serving.knative.dev/route", "first-reconcile"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleFailedConfig("default", "permanently-failed"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "first-reconcile",
-			),
-		}, {
 			Object: simpleRunLatest("default", "first-reconcile", "permanently-failed", &v1alpha1.RouteStatus{
 				Domain:         "first-reconcile.default.example.com",
 				DomainInternal: "first-reconcile.default.svc.cluster.local",
@@ -136,13 +131,10 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			resources.MakeK8sService(simpleRunLatest("default", "first-reconcile", "not-ready", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "not-ready", "serving.knative.dev/route", "first-reconcile"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleNotReadyConfig("default", "not-ready"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "first-reconcile",
-			),
-		}, {
 			Object: simpleRunLatest("default", "first-reconcile", "not-ready", &v1alpha1.RouteStatus{
 				Domain:         "first-reconcile.default.example.com",
 				DomainInternal: "first-reconcile.default.svc.cluster.local",
@@ -188,13 +180,10 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "becomes-ready", "config", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "config"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "becomes-ready",
-			),
-		}, {
 			Object: simpleRunLatest("default", "becomes-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "becomes-ready.default.example.com",
 				DomainInternal: "becomes-ready.default.svc.cluster.local",
@@ -218,7 +207,7 @@ func TestReconcile(t *testing.T) {
 		// Start from the test case where the route becomes ready and introduce a failure updating the configuration.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "configurations"),
+			InduceFailure("patch", "configurations"),
 		},
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "label-config-failure", "config", nil),
@@ -231,13 +220,10 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			resources.MakeK8sService(simpleRunLatest("default", "label-config-failure", "config", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "config", "serving.knative.dev/route", "label-config-failure"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "config"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "label-config-failure",
-			),
-		}, {
 			Object: simpleRunLatest("default", "label-config-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "label-config-failure.default.example.com",
 				DomainInternal: "label-config-failure.default.svc.cluster.local",
@@ -315,13 +301,10 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "vs-create-failure", "config", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "config"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "vs-create-failure",
-			),
-		}, {
 			Object: simpleRunLatest("default", "vs-create-failure", "config", &v1alpha1.RouteStatus{
 				Domain:         "vs-create-failure.default.example.com",
 				DomainInternal: "vs-create-failure.default.svc.cluster.local",
@@ -953,17 +936,11 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "change-configs", "oldconfig", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", "oldconfig", "serving.knative.dev/route"),
+			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// The label is removed from "oldconfig"
-			Object: simpleReadyConfig("default", "oldconfig"),
-		}, {
-			// The label is added to "newconfig"
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "newconfig"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "change-configs",
-			),
-		}, {
 			// Updated to point to "newconfig" things.
 			Object: resources.MakeVirtualService(
 				setDomain(simpleRunLatest("default", "change-configs", "newconfig", nil), "change-configs.default.example.com"),
@@ -1064,13 +1041,10 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []metav1.Object{
 			resources.MakeK8sService(simpleRunLatest("default", "missing-revision-indirect", "config", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "config", "serving.knative.dev/route", "missing-revision-indirect"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "config"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "missing-revision-indirect",
-			),
-		}, {
 			Object: simpleRunLatest("default", "missing-revision-indirect", "config", &v1alpha1.RouteStatus{
 				Domain:         "missing-revision-indirect.default.example.com",
 				DomainInternal: "missing-revision-indirect.default.svc.cluster.local",
@@ -1122,15 +1096,12 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
+		WantPatches: []clientgotesting.PatchActionImpl{
 			// TODO(#1495): The parent configuration isn't labeled because it's established through
 			// labels instead of owner references.
-			// Object: addConfigLabel(
-			// 	simpleReadyConfig("default", "config"),
-			// 	// The Route controller attaches our label to this Configuration.
-			// 	"serving.knative.dev/route", "pinned-becomes-ready",
-			// ),
-			// }, {
+			//patchAddLabel("default", "config", "serving.knative.dev/route", "pinned-becomes-ready"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simplePinned("default", "pinned-becomes-ready",
 				// Use the config's revision name.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName, &v1alpha1.RouteStatus{
@@ -1219,19 +1190,11 @@ func TestReconcile(t *testing.T) {
 					Percent:           50,
 				})),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "named-traffic-split"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "blue"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "named-traffic-split",
-			),
-		}, {
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "green"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "named-traffic-split",
-			),
-		}, {
 			Object: routeWithTraffic("default", "named-traffic-split", &v1alpha1.RouteStatus{
 				Domain:         "named-traffic-split.default.example.com",
 				DomainInternal: "named-traffic-split.default.svc.cluster.local",
@@ -1311,15 +1274,11 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "switch-configs", "blue", nil)),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
+			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs"),
+		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyConfig("default", "blue"),
-		}, {
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "green"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "switch-configs",
-			),
-		}, {
 			Object: resources.MakeVirtualService(
 				setDomain(simpleRunLatest("default", "switch-configs", "green", nil), "switch-configs.default.example.com"),
 				&traffic.TrafficConfig{
@@ -1360,7 +1319,7 @@ func TestReconcile(t *testing.T) {
 		// the "blue" configuration.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "configurations"),
+			InduceFailure("patch", "configurations"),
 		},
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "rmlabel-config-failure", "green", &v1alpha1.RouteStatus{
@@ -1410,9 +1369,9 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "rmlabel-config-failure", "blue", nil)),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyConfig("default", "blue"),
-		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", "blue", "serving.knative.dev/route"),
+		},
 		Key: "default/rmlabel-config-failure",
 	}, {
 		Name: "failure labeling configuration",
@@ -1420,7 +1379,7 @@ func TestReconcile(t *testing.T) {
 		// and induce a failure when we go to label the "green" configuration.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "configurations"),
+			InduceFailure("patch", "configurations"),
 		},
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "addlabel-config-failure", "green", &v1alpha1.RouteStatus{
@@ -1466,13 +1425,9 @@ func TestReconcile(t *testing.T) {
 			),
 			resources.MakeK8sService(simpleRunLatest("default", "addlabel-config-failure", "blue", nil)),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addConfigLabel(
-				simpleReadyConfig("default", "green"),
-				// The Route controller attaches our label to this Configuration.
-				"serving.knative.dev/route", "addlabel-config-failure",
-			),
-		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "green", "serving.knative.dev/route", "addlabel-config-failure"),
+		},
 		Key: "default/addlabel-config-failure",
 	}}
 
@@ -1594,6 +1549,28 @@ func simpleFailedConfig(namespace, name string) *v1alpha1.Configuration {
 	cfg.Status.InitializeConditions()
 	cfg.Status.MarkLatestCreatedFailed(name+"-00001", "should have used ko")
 	return cfg
+}
+
+func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, key)
+
+	action.Patch = []byte(patch)
+	return action
+}
+
+func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
+	action := clientgotesting.PatchActionImpl{}
+	action.Name = name
+	action.Namespace = namespace
+
+	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, key, value)
+
+	action.Patch = []byte(patch)
+	return action
 }
 
 func simpleReadyConfig(namespace, name string) *v1alpha1.Configuration {
