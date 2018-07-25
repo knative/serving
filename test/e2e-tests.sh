@@ -146,8 +146,14 @@ wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_t
 
 # Run the tests
 
-result=0
-run_e2e_tests conformance pizzaplanet || result=1
-run_e2e_tests e2e noodleburg || result=1
-[[ ${result} -ne 0 ]] && exit 1 # run_e2e_tests already dumps state
+header "Running tests"
+kubectl create namespace serving-tests
+kubectl label namespace serving-tests istio-injection=enabled --overwrite
+options=""
+(( EMIT_METRICS )) && options="-emitmetrics"
+report_go_test -v -tags=e2e -count=1 \
+  ./test/conformance ./test/e2e \
+  ${options} \
+  -dockerrepo gcr.io/knative-tests/test-images/knative-serving || fail_test
+
 success

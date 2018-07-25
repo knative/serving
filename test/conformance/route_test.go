@@ -39,7 +39,7 @@ import (
 const (
 	image1               = "pizzaplanetv1"
 	image2               = "pizzaplanetv2"
-	defaultNamespaceName = "pizzaplanet"
+	defaultNamespaceName = "serving-tests"
 )
 
 func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {

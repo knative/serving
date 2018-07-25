@@ -17,7 +17,7 @@ import (
 const (
 	configName           = "prod"
 	routeName            = "noodleburg"
-	defaultNamespaceName = "noodleburg"
+	defaultNamespaceName = "serving-tests"
 )
 
 // Setup creates the client objects needed in the e2e tests.
