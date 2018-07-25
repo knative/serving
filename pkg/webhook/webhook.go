@@ -369,6 +369,7 @@ func (ac *AdmissionController) register(
 	ctx context.Context, client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
 	logger := logging.FromContext(ctx)
 	resources := []string{"configurations", "routes", "revisions", "services"}
+	failurePolicy := admissionregistrationv1beta1.Fail
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -394,6 +395,7 @@ func (ac *AdmissionController) register(
 				},
 				CABundle: caCert,
 			},
+			FailurePolicy: &failurePolicy,
 		}},
 	}
 
