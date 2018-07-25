@@ -35,7 +35,7 @@ func TestNewLogger(t *testing.T) {
 		t.Error("expected a non-nil logger")
 	}
 	if err == nil {
-		t.Error("expected error")
+		t.Error("expected error when creating a logger with an empty config ")
 	}
 
 	logger, _, err = NewLogger("some invalid JSON here", "")
@@ -43,7 +43,7 @@ func TestNewLogger(t *testing.T) {
 		t.Error("expected a non-nil logger")
 	}
 	if err == nil {
-		t.Error("expected error")
+		t.Error("expected error when creating a logger with invalid JSON")
 	}
 
 	logger, atomicLevel, err := NewLogger("", "debug")
@@ -54,7 +54,7 @@ func TestNewLogger(t *testing.T) {
 		t.Error("expected level to be debug")
 	}
 	if err == nil {
-		t.Error("expected error")
+		t.Error("expected error when creating a logger with empty config")
 	}
 
 	// No good way to test if all the config is applied,
@@ -227,7 +227,7 @@ func TestInvalidLevel(t *testing.T) {
 		},
 	})
 	if err == nil {
-		t.Errorf("Expected errors. got nothing")
+		t.Errorf("Expected errors when invalid level is present in logging config. got nothing")
 	}
 }
 
