@@ -108,8 +108,7 @@ test images used by the conformance and e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh ./test/e2e/test_images
-./test/upload-test-images.sh ./test/conformance/test_images
+./test/upload-test-images.sh ./test/e2e/test_images ./test/conformance/test_images
 ```
 
 ### Adding new test images
