@@ -28,116 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNewControllerConfigwithoutQueueSideCarImage(t *testing.T) {
-	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
-		},
-	})
+var noSidecarImage = ""
 
-	if err == nil {
-		t.Errorf("NewControllerConfigFromConfigMap() = %v, wanted error", c)
-	}
-}
-
-func TestNewControllerConfigWithoutAutoscalerImage(t *testing.T) {
-	var want = "some-image"
-	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      NetworkConfigName,
-		},
-		Data: map[string]string{
-			queueSidecarImageKey: want,
-		},
-	})
-
-	if err != nil {
-		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
-	}
-
-	if c.QueueSidecarImage != want {
-		t.Errorf("want %q, but got %q", want, c.QueueSidecarImage)
-	}
-}
-
-func TestNewControllerConfigWithAutoscalerImage(t *testing.T) {
-	var want = "some-autoscale-image"
-
-	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
-		},
-		Data: map[string]string{
-			queueSidecarImageKey: "some-image",
-			autoscalerImageKey:   want,
-		},
-	})
-
-	if err != nil {
-		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
-	}
-
-	if c.AutoscalerImage != want {
-		t.Errorf("want %q, but got %q", want, c.AutoscalerImage)
-	}
-}
-
-func TestNewControllerConfigwWithRegisteries(t *testing.T) {
-	wantRegistry := map[string]struct{}{
-		"ko.local": struct{}{},
-		"ko.dev":   struct{}{},
-	}
-
-	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
-		},
-		Data: map[string]string{
-			queueSidecarImageKey:           "some-image",
-			registriesSkippingTagResolving: "ko.local,ko.dev",
-		},
-	})
-
-	if err != nil {
-		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
-	}
-
-	if diff := cmp.Diff(c.RegistriesSkippingTagResolving, wantRegistry); diff != "" {
-		t.Errorf("want %q, but got %q", wantRegistry, c.RegistriesSkippingTagResolving)
-	}
-}
-
-func TestNewControllerConfigwWithBadRegisteries(t *testing.T) {
-	want := map[string]struct{}{
-		"ko.local": struct{}{},
-		"":         struct{}{},
-	}
-
-	c, err := NewControllerConfigFromConfigMap(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
-			Name:      ControllerConfigName,
-		},
-		Data: map[string]string{
-			queueSidecarImageKey:           "some-image",
-			registriesSkippingTagResolving: "ko.local,,",
-		},
-	})
-
-	if err != nil {
-		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
-	}
-
-	if diff := cmp.Diff(c.RegistriesSkippingTagResolving, want); diff != "" {
-		t.Errorf("want %q, but got %q", want, c.RegistriesSkippingTagResolving)
-	}
-}
-
-func TestControllerConfiguration(t *testing.T) {
+func TestControllerConfigurationFromFile(t *testing.T) {
 	b, err := ioutil.ReadFile(fmt.Sprintf("testdata/%s.yaml", ControllerConfigName))
 	if err != nil {
 		t.Errorf("ReadFile() = %v", err)
@@ -148,5 +41,94 @@ func TestControllerConfiguration(t *testing.T) {
 	}
 	if _, err := NewControllerConfigFromConfigMap(&cm); err != nil {
 		t.Errorf("NewControllerConfigFromConfigMap() = %v", err)
+	}
+}
+
+func TestControllerConfiguration(t *testing.T) {
+	configTests := []struct {
+		name           string
+		wantErr        bool
+		wantController interface{}
+		config         *corev1.ConfigMap
+	}{{
+		name:    "controller configuration with bad registries",
+		wantErr: false,
+		wantController: &Controller{
+			RegistriesSkippingTagResolving: map[string]struct{}{
+				"ko.local": struct{}{},
+				"":         struct{}{},
+			},
+			QueueSidecarImage: noSidecarImage,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{
+				queueSidecarImageKey:           noSidecarImage,
+				registriesSkippingTagResolving: "ko.local,,",
+			},
+		}}, {
+		name:    "controller configuration with registries",
+		wantErr: false,
+		wantController: &Controller{
+			RegistriesSkippingTagResolving: map[string]struct{}{
+				"ko.dev":   struct{}{},
+				"ko.local": struct{}{},
+			},
+			QueueSidecarImage: noSidecarImage,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{
+				queueSidecarImageKey:           noSidecarImage,
+				registriesSkippingTagResolving: "ko.local,ko.dev",
+			},
+		},
+	}, {
+		name:    "controller with autoscaler images",
+		wantErr: false,
+		wantController: &Controller{
+			QueueSidecarImage:              noSidecarImage,
+			AutoscalerImage:                "autoscale-image",
+			RegistriesSkippingTagResolving: map[string]struct{}{},
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{
+				queueSidecarImageKey: noSidecarImage,
+				autoscalerImageKey:   "autoscale-image",
+			},
+		},
+	}, {
+		name:           "controller with no side car image",
+		wantErr:        true,
+		wantController: (*Controller)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace,
+				Name:      ControllerConfigName,
+			},
+			Data: map[string]string{},
+		},
+	}}
+
+	for _, tt := range configTests {
+		actualController, err := NewControllerConfigFromConfigMap(tt.config)
+
+		if (err != nil) != tt.wantErr {
+			t.Fatalf("Test: %q; NewControllerConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
+		}
+
+		if diff := cmp.Diff(actualController, tt.wantController); diff != "" {
+			t.Fatalf("Test: %q; want %v, but got %v", tt.name, tt.wantController, actualController)
+		}
 	}
 }
