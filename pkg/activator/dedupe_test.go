@@ -25,7 +25,7 @@ import (
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
-	want := Endpoint{"ip", 8080}
+	want := Endpoint{FQDN: "ip", Port: 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
 			revisionID{"default", "rev1"}: activationResult{
@@ -53,7 +53,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 }
 
 func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
-	ep := Endpoint{"ip", 8080}
+	ep := Endpoint{FQDN: "ip", Port: 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
 			revisionID{"default", "rev1"}: activationResult{
@@ -82,8 +82,8 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 }
 
 func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
-	ep1 := Endpoint{"ip1", 8080}
-	ep2 := Endpoint{"ip2", 8080}
+	ep1 := Endpoint{FQDN: "ip1", Port: 8080}
+	ep2 := Endpoint{FQDN: "ip2", Port: 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
 			revisionID{"default", "rev1"}: activationResult{
@@ -121,7 +121,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 }
 
 func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
-	ep1 := Endpoint{"ip1", 8080}
+	ep1 := Endpoint{FQDN: "ip1", Port: 8080}
 	status2 := Status(http.StatusInternalServerError)
 	error2 := fmt.Errorf("test error")
 	f := newFakeActivator(t,
@@ -191,7 +191,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	}
 
 	// Later activation succeeds
-	successEp := Endpoint{"ip", 8080}
+	successEp := Endpoint{FQDN: "ip", Port: 8080}
 	successStatus := Status(0)
 	f.responses[revisionID{"default", "rev1"}] = activationResult{
 		endpoint: successEp,
@@ -216,7 +216,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 }
 
 func TestShutdown_ReturnError(t *testing.T) {
-	ep := Endpoint{"ip", 8080}
+	ep := Endpoint{FQDN: "ip", Port: 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
 			revisionID{"default", "rev1"}: activationResult{

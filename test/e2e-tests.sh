@@ -117,7 +117,7 @@ function run_e2e_tests() {
   kubectl label namespace $2 istio-injection=enabled --overwrite
   local options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
-  report_go_test -v -tags=e2e -count=1 ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$1 ${options}
+  report_go_test -v -tags=e2e -count=1 -timeout=20m ./test/$1 -dockerrepo gcr.io/knative-tests/test-images/$1 ${options}
 
   local result=$?
   [[ ${result} -ne 0 ]] && dump_cluster_state
