@@ -38,50 +38,39 @@ const (
 	testRevision  = "test-revision"
 )
 
-// FIXME: Matt Moor asked 'Can we combine some of these tests into a "table test"?'
+func TestRevisionScaler(t *testing.T) {
+	examples := []struct {
+		label         string
+		startState    v1alpha1.RevisionServingStateType
+		startReplicas int
+		scaleTo       int32
+		wantState     v1alpha1.RevisionServingStateType
+		wantReplicas  int
+		wantScaling   bool
+	}{
+		{"scales to zero", v1alpha1.RevisionServingStateActive, 1, 0, v1alpha1.RevisionServingStateReserve, 1, false},
+		{"scales up", v1alpha1.RevisionServingStateActive, 1, 10, v1alpha1.RevisionServingStateActive, 10, true},
+		{"scales up inactive revision", v1alpha1.RevisionServingStateReserve, 1, 10, v1alpha1.RevisionServingStateReserve, 1, false},
+		{"does not scale up from zero", v1alpha1.RevisionServingStateActive, 0, 10, v1alpha1.RevisionServingStateActive, 0, false},
+	}
 
-func TestRevisionScalerScalesToZero(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
-	deployment := newDeployment(revision, 1)
+	for _, e := range examples {
+		t.Run(e.label, func(t *testing.T) {
+			revision := newRevision(e.startState)
+			deployment := newDeployment(revision, e.startReplicas)
+			revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
 
-	revisionScaler, servingClient, _ := createRevisionScaler(t, revision, deployment)
+			revisionScaler.Scale(revision, e.scaleTo)
 
-	revisionScaler.Scale(revision, 0)
+			checkServingState(t, servingClient, e.wantState)
 
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateReserve)
-}
-
-func TestRevisionScalerScalesUp(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
-	deployment := newDeployment(revision, 1)
-	revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
-
-	revisionScaler.Scale(revision, 10)
-
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateActive)
-	checkReplicas(t, scaleClient, deployment, 10)
-}
-
-func TestRevisionScalerDoesScaleUpInactiveRevision(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateReserve)
-	deployment := newDeployment(revision, 1)
-	revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
-
-	revisionScaler.Scale(revision, 10)
-
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateReserve)
-	checkNoScaling(t, scaleClient)
-}
-
-func TestRevisionScalerDoesNotScaleUpFromZero(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateActive) // normally implies a non-zero scale
-	deployment := newDeployment(revision, 0)
-	revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
-
-	revisionScaler.Scale(revision, 10)
-
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateActive)
-	checkNoScaling(t, scaleClient)
+			if e.wantScaling {
+				checkReplicas(t, scaleClient, deployment, e.wantReplicas)
+			} else {
+				checkNoScaling(t, scaleClient)
+			}
+		})
+	}
 }
 
 func createRevisionScaler(t *testing.T, revision *v1alpha1.Revision, deployment *v1.Deployment) (autoscaler.RevisionScaler, clientset.Interface, *scalefake.FakeScaleClient) {
@@ -135,6 +124,9 @@ func newDeployment(revision *v1alpha1.Revision, replicas int) *v1.Deployment {
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &scale,
+		},
+		Status: v1.DeploymentStatus{
+			Replicas: scale,
 		},
 	}
 }
