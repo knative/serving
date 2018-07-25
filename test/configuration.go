@@ -28,13 +28,11 @@ import (
 func CreateConfiguration(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) error {
 	config := Configuration(Flags.Namespace, names, imagePath)
 	// Log config object
-	configJSON, err := json.Marshal(config)
-	if err != nil {
+	if configJSON, err := json.Marshal(config); err != nil {
 		logger.Infof("Failed to create json from route object")
 	} else {
-		logger.Infow("Created resource object",
-			"CONFIGURATION", string(configJSON))
+		logger.Infow("Created resource object", "CONFIGURATION", string(configJSON))
 	}
-	_, err = clients.Configs.Create(config)
+	_, err := clients.Configs.Create(config)
 	return err
 }
