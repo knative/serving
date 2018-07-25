@@ -151,7 +151,10 @@ const (
 
 // r is used by AppendRandomString to generate a random string. It is seeded with the time
 // at import so the strings will be different between test runs.
-var r *rand.Rand
+var (
+	r        *rand.Rand
+	rndMutex *sync.Mutex
+)
 
 // once is used to initialize r
 var once sync.Once
@@ -161,6 +164,7 @@ func initSeed(logger *zap.SugaredLogger) func() {
 		seed := time.Now().UTC().UnixNano()
 		logger.Infof("Seeding rand.Rand with %v", seed)
 		r = rand.New(rand.NewSource(seed))
+		rndMutex = &sync.Mutex{}
 	}
 }
 
@@ -171,8 +175,10 @@ func initSeed(logger *zap.SugaredLogger) func() {
 func AppendRandomString(prefix string, logger *zap.SugaredLogger) string {
 	once.Do(initSeed(logger))
 	suffix := make([]byte, randSuffixLen)
+	rndMutex.Lock()
 	for i := range suffix {
 		suffix[i] = letterBytes[r.Intn(len(letterBytes))]
 	}
+	rndMutex.Unlock()
 	return prefix + string(suffix)
 }
