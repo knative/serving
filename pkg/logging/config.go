@@ -93,6 +93,7 @@ func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, 
 }
 
 // Config contains the configuration defined in the logging ConfigMap.
+// +k8s:deepcopy-gen=true
 type Config struct {
 	LoggingConfig string
 	LoggingLevel  map[string]zapcore.Level
