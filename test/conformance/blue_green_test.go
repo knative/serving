@@ -59,25 +59,14 @@ func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string
 	if err != nil {
 		return err
 	}
-	// TODO(tcnghia): The ingress endpoint tends to return 404 during probes.
-	client.RetryCodes = []int{http.StatusNotFound}
+	// TODO(tcnghia): Replace this probing with Status check when we have them.
+	client.RetryCodes = []int{http.StatusNotFound, http.StatusServiceUnavailable}
 	_, err = client.Poll(req, test.MatchesAny)
 	return err
 }
 
 // sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
 func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Poll until we get a successful response. This ensures the domain is
-	// routable before we send it a bunch of traffic.
-	if _, err := client.Poll(req, test.MatchesAny); err != nil {
-		return nil, err
-	}
-
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
