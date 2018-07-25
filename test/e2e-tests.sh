@@ -53,7 +53,7 @@ function create_monitoring() {
 
 function create_everything() {
   create_istio
-  echo ">> Binging up Serving "
+  echo ">> Bringing up Serving"
   kubectl apply -f third_party/config/build/release.yaml
   ko apply -f config/
   # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
