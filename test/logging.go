@@ -90,7 +90,7 @@ func newLogger(logLevel string) *zap.SugaredLogger {
 	if err != nil {
 		l.Error("Failed to parse the logging config. Falling back to default logger.", zap.Error(err))
 	} else {
-		l.Infof("Successfully created the logger at level %s with config %s ", zap.String(logkey.JSONConfig, configJSON))
+		l.Infof("Successfully created the logger with config %s", zap.String(logkey.JSONConfig, configJSON))
 	}
 	return l
 }
