@@ -8,6 +8,7 @@ RUN BUILD_DEPS="make gcc g++ libc6-dev ruby-dev libffi-dev" \
                      ruby \
     && echo 'gem: --no-document' >> /etc/gemrc \
     && gem install fluent-plugin-google-cloud -v 0.6.19 \
+    && gem install fluent-plugin-record-reformer -v 0.8.3\
     && rm -rf /tmp/* \
               /var/lib/apt/lists/* \
               /usr/lib/ruby/gems/*/cache/*.gem \

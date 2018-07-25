@@ -28,17 +28,21 @@ data:
     <source>
       @id fluentd-containers.log
       @type tail
-      path /var/log/containers/*user-container-*.log,/var/log/containers/*build-step-*.log,/var/log/containers/*controller-*.log,/var/log/containers/*webhook-*.log,/var/log/containers/*autoscaler-*.log,/var/log/containers/*queue-proxy-*.log,/var/log/containers/*activator-*.log
+      path /var/log/containers/*user-container-*.log,/var/log/containers/*build-step-*.log,/var/log/containers/controller-*controller-*.log,/var/log/containers/webhook-*webhook-*.log,/var/log/containers/*autoscaler-*autoscaler-*.log,/var/log/containers/*queue-proxy-*.log,/var/log/containers/activator-*activator-*.log
       pos_file /var/log/es-containers.log.pos
       time_format %Y-%m-%dT%H:%M:%S.%NZ
-      tag raw.kubernetes.*
+      # Tags at this point are in the format of:
+      # 'raw.reform.kubernetes.<POD_NAME>_<NAMESPACE_NAME>_<CONTAINER_NAME>-<CONTAINER_ID>.log'.
+      tag raw.reform.kubernetes.*
       format json
       read_from_head true
     </source>
     # Combine multi line logs which form an exception stack trace into a single log entry
-    <match raw.kubernetes.**>
-      @id raw.kubernetes
+    <match raw.reform.kubernetes.**>
+      @id raw.reform.kubernetes
       @type detect_exceptions
+      # Tags at this point are in the format of:
+      # 'reform.kubernetes.<POD_NAME>_<NAMESPACE_NAME>_<CONTAINER_NAME>-<CONTAINER_ID>.log'.
       remove_tag_prefix raw
       message log
       stream stream
@@ -47,11 +51,24 @@ data:
       max_lines 1000
     </match>
     # Add Kubernetes metadata
-    <filter kubernetes.**>
+    <filter reform.kubernetes.**>
       @type kubernetes_metadata
       merge_json_log false # Don't parse json log
       preserve_json_log false
     </filter>
+    <match reform.kubernetes.**>
+      @type record_reformer
+      enable_ruby true
+      # Tags at this point are in the format of:
+      # 'kubernetes.<POD_NAME>_<NAMESPACE_NAME>_<CONTAINER_NAME>'.
+      # which is the format google_cloud uses to extac basic information
+      tag kubernetes.${tag_suffix[4].split('-')[0..-2].join('-')}
+      remove_keys _dummy_
+      # In GKE resource type, pod_id actually is pod_name, and namespace_id is namespace_name
+      <record>
+        _dummy_ ${record['kubernetes']["pod_id"] = record['kubernetes']["pod_name"]; record['kubernetes']["namespace_id"] = record['kubernetes']["namespace_name"]; nil}
+      </record>
+    </match>
   300.forward.input.conf: |-
     # Takes the messages sent over TCP, e.g. request logs from Istio
     <source>
