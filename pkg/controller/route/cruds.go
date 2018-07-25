@@ -81,12 +81,10 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 			return err
 		}
 		logger.Infof("Created service %s", name)
-		route.Status.DomainInternal = resourcenames.K8sServiceFullname(route)
 		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created service %q", name)
 	} else if err != nil {
 		return err
 	} else {
-		route.Status.DomainInternal = resourcenames.K8sServiceFullname(route)
 		// Make sure that the service has the proper specification
 		desiredService := resources.MakeK8sService(route)
 		// Preserve the ClusterIP field in the Service's Spec, if it has been set.
@@ -99,6 +97,8 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 			}
 		}
 	}
+	// Update the route's domain internal field
+	route.Status.DomainInternal = resourcenames.K8sServiceFullname(route)
 
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
