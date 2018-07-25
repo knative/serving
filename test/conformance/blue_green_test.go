@@ -60,8 +60,7 @@ func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string
 		return err
 	}
 	// TODO(tcnghia): The ingress endpoint tends to return 404 during probes.
-	client.RetryCodes = []int{http.StatusNotFound}
-	_, err = client.Poll(req, test.MatchesAny)
+	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound))
 	return err
 }
 
