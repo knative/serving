@@ -136,7 +136,8 @@ kubectl create namespace serving-tests
 kubectl label namespace serving-tests istio-injection=enabled --overwrite
 options=""
 (( EMIT_METRICS )) && options="-emitmetrics"
-report_go_test -v -tags=e2e -count=1 \
+report_go_test \
+  -v -tags=e2e -count=1 -timeout=20m \
   ./test/conformance ./test/e2e \
   ${options} \
   -dockerrepo gcr.io/knative-tests/test-images/knative-serving || fail_test
