@@ -42,12 +42,12 @@ const (
 	defaultNamespaceName = "pizzaplanet"
 )
 
-func createRouteAndConfig(clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
-	err := test.CreateConfiguration(clients, names, imagePaths[0])
+func createRouteAndConfig(logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, imagePaths []string) error {
+	err := test.CreateConfiguration(logger, clients, names, imagePaths[0])
 	if err != nil {
 		return err
 	}
-	err = test.CreateRoute(clients, names)
+	err = test.CreateRoute(logger, clients, names)
 	return err
 }
 
@@ -164,7 +164,7 @@ func TestRouteCreation(t *testing.T) {
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a new Route and Configuration")
-	err := createRouteAndConfig(clients, names, imagePaths)
+	err := createRouteAndConfig(logger, clients, names, imagePaths)
 	if err != nil {
 		t.Fatalf("Failed to create Route and Configuration: %v", err)
 	}
