@@ -80,9 +80,11 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 			// Traffic originates from outside of the cluster would be of the form "*.domain", or "domain"
 			fmt.Sprintf("*.%s", domain),
 			domain,
-			// Traffic from inside the cluster will use the FQDN of the Route's headless Service.
-			names.K8sServiceFullname(u),
 		},
+	}
+	if domain != names.K8sServiceFullname(u) {
+		// Add a local alias for the k8s Service in the svc.cluster.local DNS space.
+		spec.Hosts = append(spec.Hosts, names.K8sServiceFullname(u))
 	}
 	names := []string{}
 	for name := range targets {
