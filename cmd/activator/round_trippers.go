@@ -28,11 +28,11 @@ func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-// baseTransport will the appropriate transport for the request's http protocol version
+// baseTransport will use the appropriate transport for the request's http protocol version
 var baseTransport http.RoundTripper = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 	var transport http.RoundTripper = http.DefaultTransport
 	if r.ProtoMajor == 2 {
-		transport = h2cutil.NewTransport()
+		transport = h2cutil.DefaultTransport
 	}
 
 	return transport.RoundTrip(r)
