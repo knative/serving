@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
@@ -408,7 +408,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}},
 	}
@@ -601,7 +601,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "test-revision-1." + domain}}},
@@ -614,7 +614,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "test-revision-2." + domain}}},
@@ -627,7 +627,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}},
 	}
@@ -717,7 +717,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "bar." + domain}}},
@@ -730,7 +730,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "foo." + domain}}},
@@ -743,7 +743,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			}},
 			Timeout: resources.DefaultRouteTimeout,
 			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey:   resources.IstioTimeoutHackHeaderValue,
+				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
 			},
 		}},
 	}

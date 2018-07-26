@@ -21,7 +21,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/pkg/configmap"
 
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"

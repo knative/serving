@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/configmap"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
 	. "github.com/knative/serving/pkg/logging/testing"
