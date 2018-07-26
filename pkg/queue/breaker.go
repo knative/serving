@@ -30,18 +30,29 @@ type Breaker struct {
 }
 
 // NewBreaker creates a Breaker with the desired queue depth and
-// concurrency limit.
-func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
+// concurrency limit. If maxConcurrency is 0, this breaker will not
+// enforce any maximum concurrency, and will simply forward all
+// requests.
+func NewBreaker(queueDepth, maxConcurrency int) *Breaker {
 	if queueDepth <= 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", queueDepth))
 	}
-	if maxConcurrency <= 0 {
-		panic(fmt.Sprintf("Max concurrency must be greater than 0. Got %v.", maxConcurrency))
+	if maxConcurrency < 0 {
+		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", maxConcurrency))
 	}
-	return &Breaker{
-		pendingRequests: make(chan token, queueDepth),
-		activeRequests:  make(chan token, maxConcurrency),
+	retval := &Breaker{
+		// Active requests keep their pending capacity until
+		// after the request has completed, to prevent hiccups
+		// where there is active capacity which has not yet
+		// been utilized by one of the pending requests. (This
+		// manifests as flakiness in tests.)
+		pendingRequests: make(chan token, queueDepth+maxConcurrency),
 	}
+	if maxConcurrency > 0 {
+		retval.activeRequests = make(chan token, maxConcurrency)
+	}
+	return retval
+
 }
 
 // Maybe conditionally executes thunk based on the Breaker concurrency
@@ -49,6 +60,11 @@ func NewBreaker(queueDepth, maxConcurrency int32) *Breaker {
 // already consumed, Maybe returns immediately without calling thunk. If
 // the thunk was executed, Maybe returns true, else false.
 func (b *Breaker) Maybe(thunk func()) bool {
+	if b.activeRequests == nil {
+		// unlimited concurrency
+		thunk()
+		return true
+	}
 	var t token
 	select {
 	default:
@@ -56,12 +72,10 @@ func (b *Breaker) Maybe(thunk func()) bool {
 		return false
 	case b.pendingRequests <- t:
 		// Pending request has capacity.
-		// Wait for capacity in the active queue.
+		// Acquire capacity in the active queue, too.
 		b.activeRequests <- t
-		// Release capacity in the pending request queue.
-		<-b.pendingRequests
-		// Defer releasing capacity in the active request queue.
-		defer func() { <-b.activeRequests }()
+		// Defer releasing any capacity.
+		defer func() { <-b.activeRequests; <-b.pendingRequests }()
 		// Do the thing.
 		thunk()
 		// Report success
