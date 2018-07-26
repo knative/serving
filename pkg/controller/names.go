@@ -29,9 +29,9 @@ func GetServingK8SServiceNameForObj(name string) string {
 }
 
 func GetRevisionHeaderName() string {
-	return "Knative-Serving-Revision"
+	return "knative-serving-revision"
 }
 
 func GetRevisionHeaderNamespace() string {
-	return "Knative-Serving-Namespace"
+	return "knative-serving-namespace"
 }

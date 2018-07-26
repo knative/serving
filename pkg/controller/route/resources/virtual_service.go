@@ -140,11 +140,11 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 		})
 	}
 	route := v1alpha3.HTTPRoute{
-		Match: matches,
-		Route: weights,
+		Match:   matches,
+		Route:   weights,
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}
 	// Add traffic rules for activator.
