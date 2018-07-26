@@ -124,7 +124,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		}},
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
@@ -139,7 +139,7 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		}},
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}}
 	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec.Http
@@ -215,7 +215,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 		}},
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
@@ -255,7 +255,7 @@ func TestMakeVirtualServiceRoute_ZeroPercentTarget(t *testing.T) {
 		}},
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
@@ -302,7 +302,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 		}},
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
@@ -337,8 +337,8 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			Weight: 100,
 		}},
 		AppendHeaders: map[string]string{
-			"Knative-Serving-Revision":  "revision",
-			"Knative-Serving-Namespace": "test-ns",
+			"knative-serving-revision":  "revision",
+			"knative-serving-namespace": "test-ns",
 			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
 		Timeout: DefaultRouteTimeout,
@@ -380,8 +380,8 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			Weight: 100,
 		}},
 		AppendHeaders: map[string]string{
-			"Knative-Serving-Revision":  "revision",
-			"Knative-Serving-Namespace": "test-ns",
+			"knative-serving-revision":  "revision",
+			"knative-serving-namespace": "test-ns",
 			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
 		},
 		Timeout: DefaultRouteTimeout,
@@ -424,7 +424,7 @@ func TestMakeVirtualServiceRoute_ZeroPercentNamedTargetScaledToZero(t *testing.T
 		}},
 		Timeout: DefaultRouteTimeout,
 		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey:   IstioTimeoutHackHeaderValue,
+			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
 		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
