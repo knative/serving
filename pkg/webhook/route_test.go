@@ -19,6 +19,7 @@ package webhook
 import (
 	"testing"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	. "github.com/knative/serving/pkg/logging/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +58,7 @@ func TestEmptyRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 	}})
 
 	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "Expected exactly one, got neither",
 		Paths: []string{
 			"spec.traffic[0].revisionName",
@@ -77,7 +78,7 @@ func TestBothRevisionAndConfigurationInOneTargetNotAllowed(t *testing.T) {
 	}})
 
 	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "Expected exactly one, got both",
 		Paths: []string{
 			"spec.traffic[0].revisionName",
@@ -96,7 +97,7 @@ func TestNegativeTargetPercentNotAllowed(t *testing.T) {
 	}})
 
 	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: `invalid value "-20"`,
 		Paths:   []string{"spec.traffic[0].percent"},
 	}
@@ -114,7 +115,7 @@ func TestNotAllowedIfTrafficPercentSumIsNot100(t *testing.T) {
 	}})
 
 	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "Traffic targets sum to 50, want 100",
 		Paths:   []string{"spec.traffic"},
 	}
@@ -135,7 +136,7 @@ func TestNotAllowedIfTrafficNamesNotUnique(t *testing.T) {
 	}})
 
 	got := Validate(TestContextWithLogger(t))(nil, &route, &route)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: `Multiple definitions for "test"`,
 		Paths:   []string{"spec.traffic[0].name", "spec.traffic[1].name"},
 	}

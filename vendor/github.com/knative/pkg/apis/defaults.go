@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package apis
 
 // Defaultable defines an interface for setting the defaults for the
 // uninitialized fields of this instance.

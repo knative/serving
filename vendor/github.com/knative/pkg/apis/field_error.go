@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package apis
 
 import (
 	"fmt"
 	"strings"
 )
 
-// currentField is a constant to supply as a fieldPath for when there is
+// CurrentField is a constant to supply as a fieldPath for when there is
 // a problem with the current field itself.
-const currentField = ""
+const CurrentField = ""
 
 // FieldError is used to propagate the context of errors pertaining to
 // specific fields in a manner suitable for use in a recursive walk, so
@@ -45,12 +45,12 @@ type Validatable interface {
 	Validate() *FieldError
 }
 
-// HasImmutableFields indicates that a particular type has fields that should
+// Immutable indicates that a particular type has fields that should
 // not change after creation.
-type HasImmutableFields interface {
+type Immutable interface {
 	// CheckImmutableFields checks that the current instance's immutable
 	// fields haven't changed from the provided original.
-	CheckImmutableFields(original HasImmutableFields) *FieldError
+	CheckImmutableFields(original Immutable) *FieldError
 }
 
 // ViaField is used to propagate a validation error along a field access.
@@ -66,7 +66,7 @@ func (fe *FieldError) ViaField(prefix ...string) *FieldError {
 	}
 	var newPaths []string
 	for _, oldPath := range fe.Paths {
-		if oldPath == currentField {
+		if oldPath == CurrentField {
 			newPaths = append(newPaths, strings.Join(prefix, "."))
 		} else {
 			newPaths = append(newPaths,
@@ -85,21 +85,21 @@ func (fe *FieldError) Error() string {
 	return fmt.Sprintf("%v: %v\n%v", fe.Message, strings.Join(fe.Paths, ", "), fe.Details)
 }
 
-func errMissingField(fieldPaths ...string) *FieldError {
+func ErrMissingField(fieldPaths ...string) *FieldError {
 	return &FieldError{
 		Message: "missing field(s)",
 		Paths:   fieldPaths,
 	}
 }
 
-func errDisallowedFields(fieldPaths ...string) *FieldError {
+func ErrDisallowedFields(fieldPaths ...string) *FieldError {
 	return &FieldError{
 		Message: "must not set the field(s)",
 		Paths:   fieldPaths,
 	}
 }
 
-func errInvalidValue(value string, fieldPath string) *FieldError {
+func ErrInvalidValue(value string, fieldPath string) *FieldError {
 	return &FieldError{
 		Message: fmt.Sprintf("invalid value %q", value),
 		Paths:   []string{fieldPath},

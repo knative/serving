@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	. "github.com/knative/serving/pkg/logging/testing"
 	"github.com/mattbaird/jsonpatch"
@@ -33,7 +34,7 @@ func TestEmptySpec(t *testing.T) {
 	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "Expected exactly one, got neither",
 		Paths:   []string{"spec.runLatest", "spec.pinned"},
 	}
@@ -65,7 +66,7 @@ func TestRunLatestWithMissingConfiguration(t *testing.T) {
 	if got == nil {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.runLatest.configuration"},
 	}
@@ -102,7 +103,7 @@ func TestPinnedFailsWithNoRevisionName(t *testing.T) {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
 
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.pinned.revisionName"},
 	}
@@ -124,7 +125,7 @@ func TestPinnedFailsWithNoConfiguration(t *testing.T) {
 		t.Errorf("Expected failure, but succeeded with: %+v", s)
 	}
 
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.pinned.configuration"},
 	}

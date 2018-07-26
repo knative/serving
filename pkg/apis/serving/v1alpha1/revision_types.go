@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
@@ -51,9 +52,9 @@ type Revision struct {
 }
 
 // Check that Revision can be validated, can be defaulted, and has immutable fields.
-var _ Validatable = (*Revision)(nil)
-var _ Defaultable = (*Revision)(nil)
-var _ HasImmutableFields = (*Revision)(nil)
+var _ apis.Validatable = (*Revision)(nil)
+var _ apis.Defaultable = (*Revision)(nil)
+var _ apis.Immutable = (*Revision)(nil)
 
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190

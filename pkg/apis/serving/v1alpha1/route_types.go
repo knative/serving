@@ -24,6 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
@@ -50,8 +52,8 @@ type Route struct {
 }
 
 // Check that Route may be validated and defaulted.
-var _ Validatable = (*Route)(nil)
-var _ Defaultable = (*Route)(nil)
+var _ apis.Validatable = (*Route)(nil)
+var _ apis.Defaultable = (*Route)(nil)
 
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {

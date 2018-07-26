@@ -255,6 +255,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/knative/pkg"
+  packages = ["apis"]
+  revision = "945c05cc41ca3f9992ba4d4829ab3f9db61c26ae"
+
+[[projects]]
+  branch = "master"
   name = "github.com/mattbaird/jsonpatch"
   packages = ["."]
   revision = "81af80346b1a01caae0cbc27fd3c1ba5b11e189f"
@@ -791,6 +797,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7414474c5d3c5d64da93bd0d22c68ea43589e7e454cad1a2e75c003f47e4d22f"
+  inputs-digest = "4c1f6d26670204c19d59af7c840f220cc863b98ffe1b3ad4a76c48be2d47eac7"
   solver-name = "gps-cdcl"
   solver-version = 1

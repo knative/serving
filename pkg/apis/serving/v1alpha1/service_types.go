@@ -23,6 +23,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
@@ -51,8 +53,8 @@ type Service struct {
 }
 
 // Check that Service may be validated and defaulted.
-var _ Validatable = (*Service)(nil)
-var _ Defaultable = (*Service)(nil)
+var _ apis.Validatable = (*Service)(nil)
+var _ apis.Defaultable = (*Service)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
