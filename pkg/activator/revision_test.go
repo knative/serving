@@ -31,19 +31,34 @@ import (
 )
 
 const (
-	testNamespace   = "test-namespace"
-	testRevision    = "test-rev"
-	testService     = testRevision + "-service"
-	testServiceFQDN = testService + "." + testNamespace + ".svc.cluster.local"
+	testNamespace     = "test-namespace"
+	testConfiguration = "test-configuration"
+	testRevision      = "test-rev"
+	testService       = testRevision + "-service"
+	testServiceFQDN   = testService + "." + testNamespace + ".svc.cluster.local"
 )
+
+type mockReporter struct{}
+
+func (r *mockReporter) ReportRequest(ns, config, rev, servingState string, v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportResponseCount(ns, config, rev string, responseCode, numTries int, v float64) error {
+	return nil
+}
+
+func (r *mockReporter) ReportResponseTime(ns, config, rev string, responseCode int, d time.Duration) error {
+	return nil
+}
 
 func TestActiveEndpoint_Active_StaysActive(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(newRevisionBuilder().build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
 
-	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+	got, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
 
 	want := Endpoint{testServiceFQDN, 8080}
 	if got != want {
@@ -64,9 +79,9 @@ func TestActiveEndpoint_Reserve_BecomesActive(t *testing.T) {
 			withServingState(v1alpha1.RevisionServingStateReserve).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
 
-	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+	got, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
 
 	want := Endpoint{testServiceFQDN, 8080}
 	if got != want {
@@ -92,9 +107,9 @@ func TestActiveEndpoint_Retired_StaysRetiredWithError(t *testing.T) {
 			withServingState(v1alpha1.RevisionServingStateRetired).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
 
-	got, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+	got, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
 
 	want := Endpoint{}
 	if got != want {
@@ -121,11 +136,11 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
 
 	ch := make(chan activationResult)
 	go func() {
-		endpoint, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+		endpoint, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
 		ch <- activationResult{endpoint, status, err}
 	}()
 
@@ -167,12 +182,12 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
-	a := NewRevisionActivator(k8s, kna, TestLogger(t))
+	a := NewRevisionActivator(k8s, kna, TestLogger(t), &mockReporter{})
 	a.(*revisionActivator).readyTimout = 200 * time.Millisecond
 
 	ch := make(chan activationResult)
 	go func() {
-		endpoint, status, err := a.ActiveEndpoint(testNamespace, testRevision)
+		endpoint, status, err := a.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
 		ch <- activationResult{endpoint, status, err}
 	}()
 
@@ -241,6 +256,11 @@ func newRevisionBuilder() *revisionBuilder {
 
 func (b *revisionBuilder) build() *v1alpha1.Revision {
 	return b.revision
+}
+
+func (b *revisionBuilder) withRevisionName(name string) *revisionBuilder {
+	b.revision.ObjectMeta.Name = name
+	return b
 }
 
 func (b *revisionBuilder) withServingState(servingState v1alpha1.RevisionServingStateType) *revisionBuilder {

@@ -194,6 +194,7 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		Weight: totalInactivePercent,
 	})
 	r.AppendHeaders[controller.GetRevisionHeaderName()] = maxInactiveTarget.RevisionName
+	r.AppendHeaders[controller.GetConfigurationHeader()] = maxInactiveTarget.ConfigurationName
 	r.AppendHeaders[controller.GetRevisionHeaderNamespace()] = ns
 	return r
 }
