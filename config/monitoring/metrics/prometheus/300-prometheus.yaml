@@ -12,6 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We use the following service to put all Prometheus instances that we initiated
+# for the system use and monitor them through this service. Instead of this,
+# we can monitor prometheus-operated service as well but that service will contain
+# all Prometheus instances, including the user created one.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-system-discovery
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  clusterIP: None
+  ports:
+  - name: web
+    port: 9090
+    protocol: TCP
+    targetPort: web
+  selector:
+    app: prometheus
+  sessionAffinity: None
+  type: ClusterIP
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

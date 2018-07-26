@@ -1,4 +1,21 @@
-# RBAC authn and authz
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-logging
+  namespace: monitoring
+  labels:
+    app: elasticsearch-logging
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/name: "Elasticsearch"
+spec:
+  ports:
+  - port: 9200
+    protocol: TCP
+    targetPort: db
+  selector:
+    app: elasticsearch-logging
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

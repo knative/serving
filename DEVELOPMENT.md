@@ -174,12 +174,12 @@ page to ensure that all services are up and running (and not blocked by a quota 
 Run:
 
 ```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
+kubectl apply -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 ```
 
 ## Iterating
@@ -212,7 +212,7 @@ You can delete all of the service components with:
 
 ```shell
 ko delete --ignore-not-found=true \
-  -f config/monitoring/100-common \
+  -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
   -f ./third_party/istio-1.0-prerelease/istio.yaml

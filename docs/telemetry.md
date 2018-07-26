@@ -186,8 +186,5 @@ as an example usage of [OpenZipkin](https://zipkin.io/pages/existing_instrumenta
 Enter:
 
 ```shell
-ko delete --ignore-not-found=true \
-  -f config/monitoring/200-common/100-istio.yaml \
-  -f config/monitoring/200-common/100-zipkin.yaml \
-  -f config/monitoring/100-common
+ko delete --ignore-not-found=true -f config/monitoring/100-namespace.yaml
 ```
