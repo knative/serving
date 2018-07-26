@@ -96,8 +96,11 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error)
 	}
 
 	// TODO: add metrics for number of tries and the response code.
-	if resp != nil {
-		rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
+	if err == nil {
+		rrt.logger.Infof("Activation finished after %d attempt(s). Response code: %d", i, resp.StatusCode)
+	} else {
+		rrt.logger.Errorf("Activation failed after %d attempts. Last error: %v", i, err)
 	}
+
 	return resp, err
 }
