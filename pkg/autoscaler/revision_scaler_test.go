@@ -48,10 +48,42 @@ func TestRevisionScaler(t *testing.T) {
 		wantReplicas  int
 		wantScaling   bool
 	}{
-		{"scales to zero", v1alpha1.RevisionServingStateActive, 1, 0, v1alpha1.RevisionServingStateReserve, 1, false},
-		{"scales up", v1alpha1.RevisionServingStateActive, 1, 10, v1alpha1.RevisionServingStateActive, 10, true},
-		{"scales up inactive revision", v1alpha1.RevisionServingStateReserve, 1, 10, v1alpha1.RevisionServingStateReserve, 1, false},
-		{"does not scale up from zero", v1alpha1.RevisionServingStateActive, 0, 10, v1alpha1.RevisionServingStateActive, 0, false},
+		{
+			label:         "scales to zero",
+			startState:    v1alpha1.RevisionServingStateActive,
+			startReplicas: 1,
+			scaleTo:       0,
+			wantState:     v1alpha1.RevisionServingStateReserve,
+			wantReplicas:  1,
+			wantScaling:   false,
+		},
+		{
+			label:         "scales up",
+			startState:    v1alpha1.RevisionServingStateActive,
+			startReplicas: 1,
+			scaleTo:       10,
+			wantState:     v1alpha1.RevisionServingStateActive,
+			wantReplicas:  10,
+			wantScaling:   true,
+		},
+		{
+			label:         "scales up inactive revision",
+			startState:    v1alpha1.RevisionServingStateReserve,
+			startReplicas: 1,
+			scaleTo:       10,
+			wantState:     v1alpha1.RevisionServingStateReserve,
+			wantReplicas:  1,
+			wantScaling:   false,
+		},
+		{
+			label:         "does not scale up from zero",
+			startState:    v1alpha1.RevisionServingStateActive,
+			startReplicas: 0,
+			scaleTo:       10,
+			wantState:     v1alpha1.RevisionServingStateActive,
+			wantReplicas:  0,
+			wantScaling:   false,
+		},
 	}
 
 	for _, e := range examples {
