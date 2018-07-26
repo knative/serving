@@ -82,9 +82,30 @@ func TestActivationHandler(t *testing.T) {
 		wantCode  int
 		wantErr   error
 	}{
-		{"active endpoint", "real-namespace", "real-name", "everything good!", http.StatusOK, nil},
-		{"no active endpoint", "fake-namespace", "fake-name", errMsg("not found!"), http.StatusNotFound, nil},
-		{"request error", "real-namespace", "real-name", "", http.StatusBadGateway, errors.New("request error!")},
+		{
+			label:     "active endpoint",
+			namespace: "real-namespace",
+			name:      "real-name",
+			wantBody:  "everything good!",
+			wantCode:  http.StatusOK,
+			wantErr:   nil,
+		},
+		{
+			label:     "no active endpoint",
+			namespace: "fake-namespace",
+			name:      "fake-name",
+			wantBody:  errMsg("not found!"),
+			wantCode:  http.StatusNotFound,
+			wantErr:   nil,
+		},
+		{
+			label:     "request error",
+			namespace: "real-namespace",
+			name:      "real-name",
+			wantBody:  "",
+			wantCode:  http.StatusBadGateway,
+			wantErr:   errors.New("request error!"),
+		},
 	}
 
 	for _, e := range examples {
@@ -131,9 +152,21 @@ func TestUploadHandler(t *testing.T) {
 		maxUpload int
 		status    int
 	}{
-		{"under", len(payload) + 1, http.StatusOK},
-		{"equal", len(payload), http.StatusOK},
-		{"over", len(payload) - 1, http.StatusRequestEntityTooLarge},
+		{
+			label:     "under",
+			maxUpload: len(payload) + 1,
+			status:    http.StatusOK,
+		},
+		{
+			label:     "equal",
+			maxUpload: len(payload),
+			status:    http.StatusOK,
+		},
+		{
+			label:     "over",
+			maxUpload: len(payload) - 1,
+			status:    http.StatusRequestEntityTooLarge,
+		},
 	}
 
 	for _, e := range examples {

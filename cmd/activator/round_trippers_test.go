@@ -37,8 +37,16 @@ func TestRetryRoundTripper(t *testing.T) {
 		retries int
 		wantErr bool
 	}{
-		{"success", maxRetries, false},
-		{"failure", maxRetries + 1, true},
+		{
+			label:   "success",
+			retries: maxRetries,
+			wantErr: false,
+		},
+		{
+			label:   "failure",
+			retries: maxRetries + 1,
+			wantErr: true,
+		},
 	}
 
 	for _, e := range examples {
@@ -120,9 +128,24 @@ func TestStatusFilterRoundTripper(t *testing.T) {
 		status    int
 		err       error
 	}{
-		{"filtered status", goodRT, 502, errors.New("Filtering 502")},
-		{"unfiltered status", goodRT, 503, nil},
-		{"transport error", errorRT, 200, errors.New("some error")},
+		{
+			label:     "filtered status",
+			transport: goodRT,
+			status:    502,
+			err:       errors.New("Filtering 502"),
+		},
+		{
+			label:     "unfiltered status",
+			transport: goodRT,
+			status:    503,
+			err:       nil,
+		},
+		{
+			label:     "transport error",
+			transport: errorRT,
+			status:    200,
+			err:       errors.New("some error"),
+		},
 	}
 
 	for _, e := range examples {
