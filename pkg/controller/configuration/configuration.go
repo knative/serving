@@ -175,9 +175,9 @@ func (c *Controller) reconcile(ctx context.Context, config *v1alpha1.Configurati
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
+		// Update the LatestReadyRevisionName and surface an event for the transition.
+		config.Status.SetLatestReadyRevisionName(latestCreatedRevision.Name)
 		if created != ready {
-			// Update the LatestReadyRevisionName and surface an event for the transition.
-			config.Status.SetLatestReadyRevisionName(latestCreatedRevision.Name)
 			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
 				"LatestReadyRevisionName updated to %q", latestCreatedRevision.Name)
 		}
