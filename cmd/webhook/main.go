@@ -74,11 +74,12 @@ func main() {
 	}
 
 	options := webhook.ControllerOptions{
-		ServiceName:      "webhook",
-		ServiceNamespace: system.Namespace,
-		Port:             443,
-		SecretName:       "webhook-certs",
-		WebhookName:      "webhook.knative.dev",
+		ServiceName:    "webhook",
+		DeploymentName: "webhook",
+		Namespace:      system.Namespace,
+		Port:           443,
+		SecretName:     "webhook-certs",
+		WebhookName:    "webhook.serving.knative.dev",
 	}
 	controller, err := webhook.NewAdmissionController(kubeClient, options, logger)
 	if err != nil {
