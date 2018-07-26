@@ -17,11 +17,22 @@ limitations under the License.
 
 package test
 
+import (
+	"encoding/json"
+
+	"go.uber.org/zap"
+)
+
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specifed by imagePath.
-func CreateConfiguration(clients *Clients, names ResourceNames, imagePath string) error {
+func CreateConfiguration(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) error {
 	config := Configuration(Flags.Namespace, names, imagePath)
 	// Log config object
+	if configJSON, err := json.Marshal(config); err != nil {
+		logger.Infof("Failed to create json from route object")
+	} else {
+		logger.Infow("Created resource object", "CONFIGURATION", string(configJSON))
+	}
 	_, err := clients.Configs.Create(config)
 	return err
 }
