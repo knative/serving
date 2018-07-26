@@ -37,10 +37,10 @@ const (
 // If configuration is empty, a fallback configuration is used.
 // If configuration cannot be used to instantiate a logger,
 // the same fallback configuration is used.
-func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap.AtomicLevel, error) {
+func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap.AtomicLevel) {
 	logger, atomicLevel, err := newLoggerFromConfig(configJSON, levelOverride)
 	if err == nil {
-		return logger.Sugar(), atomicLevel, nil
+		return logger.Sugar(), atomicLevel
 	}
 
 	loggingCfg := zap.NewProductionConfig()
@@ -50,20 +50,18 @@ func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap
 		}
 	}
 
-	logger, err2 := loggingCfg.Build()
+	logger, err2 := loggingCfg.Build(zap.Fields(zap.String("fallback-logger", "true")))
 	if err2 != nil {
 		panic(err2)
 	}
 
-	// logger.Error("Failed to parse the logging config. Falling back to default logger.",
-	// 	zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
-	return logger.Sugar(), loggingCfg.Level, err
+	return logger.Sugar(), loggingCfg.Level
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
-func NewLoggerFromConfig(config *Config, name string) (*zap.SugaredLogger, zap.AtomicLevel, error) {
-	logger, level, err := NewLogger(config.LoggingConfig, config.LoggingLevel[name].String())
-	return logger.Named(name), level, err
+func NewLoggerFromConfig(config *Config, name string) (*zap.SugaredLogger, zap.AtomicLevel) {
+	logger, level := NewLogger(config.LoggingConfig, config.LoggingLevel[name].String())
+	return logger.Named(name), level
 }
 
 func newLoggerFromConfig(configJSON string, levelOverride string) (*zap.Logger, zap.AtomicLevel, error) {

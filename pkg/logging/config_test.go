@@ -30,36 +30,27 @@ import (
 )
 
 func TestNewLogger(t *testing.T) {
-	logger, _, err := NewLogger("", "")
+	logger, _ := NewLogger("", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
-	if err == nil {
-		t.Error("expected error when creating a logger with an empty config ")
-	}
 
-	logger, _, err = NewLogger("some invalid JSON here", "")
+	logger, _ = NewLogger("some invalid JSON here", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
-	if err == nil {
-		t.Error("expected error when creating a logger with invalid JSON")
-	}
 
-	logger, atomicLevel, err := NewLogger("", "debug")
+	logger, atomicLevel := NewLogger("", "debug")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
 	if atomicLevel.Level() != zapcore.DebugLevel {
 		t.Error("expected level to be debug")
 	}
-	if err == nil {
-		t.Error("expected error when creating a logger with empty config")
-	}
 
 	// No good way to test if all the config is applied,
 	// but at the minimum, we can check and see if level is getting applied.
-	logger, atomicLevel, err = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
+	logger, atomicLevel = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -73,7 +64,7 @@ func TestNewLogger(t *testing.T) {
 		t.Errorf("expected atomicLevel.Level() to be ErrorLevel but got %v.", atomicLevel.Level())
 	}
 
-	logger, atomicLevel, err = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
+	logger, atomicLevel = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -100,7 +91,7 @@ func TestNewLogger(t *testing.T) {
 	}
 
 	// Test logging override
-	logger, _, err = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
+	logger, _ = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -112,7 +103,7 @@ func TestNewLogger(t *testing.T) {
 	}
 
 	// Invalid logging override
-	logger, _, err = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
+	logger, _ = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
 	if logger == nil {
 		t.Error("expected a non-nil logger")
 	}
@@ -186,12 +177,9 @@ func TestOurConfig(t *testing.T) {
 
 func TestNewLoggerFromConfig(t *testing.T) {
 	c, _, _ := getTestConfig()
-	_, atomicLevel, err := NewLoggerFromConfig(c, "queueproxy")
+	_, atomicLevel := NewLoggerFromConfig(c, "queueproxy")
 	if atomicLevel.Level() != zapcore.DebugLevel {
 		t.Errorf("logger level wanted: DebugLevel, got: %v", atomicLevel)
-	}
-	if err != nil {
-		t.Errorf("expected error to be nil")
 	}
 }
 
@@ -248,14 +236,12 @@ func getTestConfig() (*Config, string, string) {
 }
 
 func TestUpdateLevelFromConfigMap(t *testing.T) {
-	logger, atomicLevel, err := NewLogger("", "debug")
+	logger, atomicLevel := NewLogger("", "debug")
 	want := zapcore.DebugLevel
 	if atomicLevel.Level() != zapcore.DebugLevel {
 		t.Fatalf("Expected initial logger level to %v, got: %v", want, atomicLevel.Level())
 	}
-	if err == nil {
-		t.Errorf("Expected err not to be nil")
-	}
+
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace,
