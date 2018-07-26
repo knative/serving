@@ -19,7 +19,7 @@ metadata:
     heritage: Tiller
     istio: mixer
 data:
-  validatingwebhookconfiguration.yaml: |-    
+  validatingwebhookconfiguration.yaml: |-
     apiVersion: admissionregistration.k8s.io/v1beta1
     kind: ValidatingWebhookConfiguration
     metadata:
@@ -159,7 +159,7 @@ metadata:
     heritage: Tiller
     istio: mixer
 data:
-  custom-resources.yaml: |-    
+  custom-resources.yaml: |-
     apiVersion: "config.istio.io/v1alpha2"
     kind: attributemanifest
     metadata:
@@ -270,7 +270,7 @@ data:
           valueType: STRING
         request.api_key:
           valueType: STRING
-    
+
     ---
     apiVersion: "config.istio.io/v1alpha2"
     kind: attributemanifest
@@ -778,7 +778,7 @@ data:
         - tcpbytesent.metric
         - tcpbytereceived.metric
     ---
-    
+
     apiVersion: "config.istio.io/v1alpha2"
     kind: kubernetesenv
     metadata:
@@ -791,7 +791,7 @@ data:
       # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
       #
       # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
-    
+
     ---
     apiVersion: "config.istio.io/v1alpha2"
     kind: rule
@@ -851,7 +851,7 @@ data:
         destination.workload.uid: $out.destination_workload_uid | "unknown"
         destination.workload.name: $out.destination_workload_name | "unknown"
         destination.workload.namespace: $out.destination_workload_namespace | "unknown"
-    
+
     ---
     # Configuration needed by Mixer.
     # Mixer cluster is delivered via CDS
@@ -882,19 +882,19 @@ data:
             http2MaxRequests: 10000
             maxRequestsPerConnection: 10000
     ---
-    
-  run.sh: |-    
+
+  run.sh: |-
     #!/bin/sh
-    
+
     set -x
-    
+
     if [ "$#" -ne "1" ]; then
         echo "first argument should be path to custom resource yaml"
         exit 1
     fi
-    
+
     pathToResourceYAML=${1}
-    
+
     /kubectl get validatingwebhookconfiguration istio-galley 2>/dev/null
     if [ "$?" -eq 0 ]; then
         echo "istio-galley validatingwebhookconfiguration found - waiting for istio-galley deployment to be ready"
@@ -914,7 +914,7 @@ data:
     fi
     sleep 5
     /kubectl apply -f ${pathToResourceYAML}
-    
+
 
 ---
 # Source: istio/charts/security/templates/configmap.yaml
@@ -931,18 +931,18 @@ metadata:
     istio: security
 data:
   custom-resources.yaml: |-
-  run.sh: |-    
+  run.sh: |-
     #!/bin/sh
-    
+
     set -x
-    
+
     if [ "$#" -ne "1" ]; then
         echo "first argument should be path to custom resource yaml"
         exit 1
     fi
-    
+
     pathToResourceYAML=${1}
-    
+
     /kubectl get validatingwebhookconfiguration istio-galley 2>/dev/null
     if [ "$?" -eq 0 ]; then
         echo "istio-galley validatingwebhookconfiguration found - waiting for istio-galley deployment to be ready"
@@ -962,7 +962,7 @@ data:
     fi
     sleep 5
     /kubectl apply -f ${pathToResourceYAML}
-    
+
 
 ---
 # Source: istio/templates/configmap.yaml
@@ -996,9 +996,9 @@ data:
     ingressService: istio-ingress
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: ""
-    
+
     # How frequently should Envoy fetch key/cert from NodeAgent.
     sdsRefreshDelay: 15s
 
@@ -1109,9 +1109,18 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      
+
       containers:
       - name: istio-proxy
+        # PATCH #2:  Add a prestop sleep.
+        # TODO(#1370) Remove this.
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "20"
+        # PATCH #2 ends.
         image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
         "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
         [[ else -]]
@@ -1188,7 +1197,7 @@ data:
         [[ else -]]
           requests:
             cpu: 10m
-          
+
         [[ end -]]
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -3003,7 +3012,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
+
         volumeMounts:
         - name: config-volume
           mountPath: /etc/statsd
@@ -3136,7 +3145,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
       volumes:
       - name: certs
         secret:
@@ -3144,7 +3153,7 @@ spec:
       - name: config
         configMap:
           name: istio-galley-configuration
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -3239,7 +3248,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
           env:
           - name: POD_NAME
             valueFrom:
@@ -3283,7 +3292,7 @@ spec:
         secret:
           secretName: "istio-egressgateway-ca-certs"
           optional: true
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -3378,7 +3387,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
           env:
           - name: POD_NAME
             valueFrom:
@@ -3422,7 +3431,7 @@ spec:
         secret:
           secretName: "istio-ingressgateway-ca-certs"
           optional: true
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -3488,7 +3497,7 @@ spec:
           optional: true
       - name: uds-socket
         emptyDir: {}
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -3537,7 +3546,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
+
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
@@ -3580,7 +3589,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
+
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -3639,7 +3648,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
+
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
@@ -3682,7 +3691,7 @@ spec:
         resources:
           requests:
             cpu: 10m
-          
+
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -3696,7 +3705,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
 
---- 
+---
 
 ---
 # Source: istio/charts/pilot/templates/deployment.yaml
@@ -3761,7 +3770,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -3803,7 +3812,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -3815,7 +3824,7 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -3886,8 +3895,8 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
-      affinity:      
+
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -3985,7 +3994,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-            
+
       volumes:
       - name: config-volume
         configMap:
@@ -3999,7 +4008,7 @@ spec:
           items:
           - key: config
             path: config
-      affinity:      
+      affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -4139,5 +4148,3 @@ webhooks:
 
 ---
 # Source: istio/templates/install-custom-resources.sh.tpl
-
-
