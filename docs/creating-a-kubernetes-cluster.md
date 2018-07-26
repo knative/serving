@@ -78,7 +78,7 @@ To use a k8s cluster running in GKE:
 ## Minikube
 
 1. [Install and configure
-    minikube](https://github.com/kubernetes/minikube#minikube) with a [VM
+    minikube](https://github.com/kubernetes/minikube#minikube) version v0.28.1 or later with a [VM
     driver](https://github.com/kubernetes/minikube#requirements), e.g. `kvm2` on
     Linux or `hyperkit` on macOS.
 
@@ -101,24 +101,24 @@ To use a k8s cluster running in GKE:
 
     ```shell
     minikube start --memory=8192 --cpus=4 \
-    --kubernetes-version=v1.10.5 \
+    --kubernetes-version=v1.11.3 \
     --vm-driver=kvm2 \
     --bootstrapper=kubeadm \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
-    --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
 
     For macOS use:
 
     ```shell
     minikube start --memory=8192 --cpus=4 \
-    --kubernetes-version=v1.10.5 \
+    --kubernetes-version=v1.11.3 \
     --vm-driver=hyperkit \
     --bootstrapper=kubeadm \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
-    --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
 
 1. [Configure your shell environment](../DEVELOPMENT.md#environment-setup)
