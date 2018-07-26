@@ -35,6 +35,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
@@ -125,8 +126,8 @@ type AdmissionController struct {
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
 type GenericCRD interface {
-	v1alpha1.Defaultable
-	v1alpha1.Validatable
+	apis.Defaultable
+	apis.Validatable
 
 	// GetObjectMeta return the object metadata
 	GetObjectMeta() metav1.Object
@@ -245,11 +246,11 @@ func NewAdmissionController(client kubernetes.Interface, options ControllerOptio
 }
 
 // Validate checks whether "new" and "old" implement HasImmutableFields and checks them,
-// it then delegates validation to v1alpha1.Validatable on "new".
+// it then delegates validation to apis.Validatable on "new".
 func Validate(ctx context.Context) ResourceCallback {
 	return func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error {
-		if hifNew, ok := new.(v1alpha1.HasImmutableFields); ok && old != nil {
-			hifOld, ok := old.(v1alpha1.HasImmutableFields)
+		if hifNew, ok := new.(apis.Immutable); ok && old != nil {
+			hifOld, ok := old.(apis.Immutable)
 			if !ok {
 				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
 			}
@@ -265,7 +266,7 @@ func Validate(ctx context.Context) ResourceCallback {
 	}
 }
 
-// SetDefaults simply leverages v1alpha1.Defaultable to set defaults.
+// SetDefaults simply leverages apis.Defaultable to set defaults.
 func SetDefaults(ctx context.Context) ResourceDefaulter {
 	return func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error {
 		rawOriginal, err := json.Marshal(crd)

@@ -26,6 +26,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
@@ -52,8 +54,8 @@ type Configuration struct {
 }
 
 // Check that Configuration may be validated and defaulted.
-var _ Validatable = (*Configuration)(nil)
-var _ Defaultable = (*Configuration)(nil)
+var _ apis.Validatable = (*Configuration)(nil)
+var _ apis.Defaultable = (*Configuration)(nil)
 
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {

@@ -20,13 +20,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/knative/pkg/apis"
 )
 
 func TestRouteValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		r    *Route
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		r: &Route{
@@ -64,7 +66,7 @@ func TestRouteValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Expected exactly one, got neither",
 			Paths: []string{
 				"spec.traffic[0].revisionName",
@@ -87,7 +89,7 @@ func TestRouteSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rs   *RouteSpec
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		rs: &RouteSpec{
@@ -114,7 +116,7 @@ func TestRouteSpecValidation(t *testing.T) {
 	}, {
 		name: "empty spec",
 		rs:   &RouteSpec{},
-		want: errMissingField(currentField),
+		want: apis.ErrMissingField(apis.CurrentField),
 	}, {
 		name: "invalid traffic entry",
 		rs: &RouteSpec{
@@ -123,7 +125,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent: 100,
 			}},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Expected exactly one, got neither",
 			Paths:   []string{"traffic[0].revisionName", "traffic[0].configurationName"},
 		},
@@ -140,7 +142,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: `Multiple definitions for "foo"`,
 			Paths:   []string{"traffic[0].name", "traffic[1].name"},
 		},
@@ -169,7 +171,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      99,
 			}},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Traffic targets sum to 198, want 100",
 			Paths:   []string{"traffic"},
 		},
@@ -189,7 +191,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		tt   *TrafficTarget
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid with name and revision",
 		tt: &TrafficTarget{
@@ -226,7 +228,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName:      "foo",
 			ConfigurationName: "bar",
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Expected exactly one, got both",
 			Paths:   []string{"revisionName", "configurationName"},
 		},
@@ -236,7 +238,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Name:    "foo",
 			Percent: 100,
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Expected exactly one, got neither",
 			Paths:   []string{"revisionName", "configurationName"},
 		},
@@ -246,14 +248,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "foo",
 			Percent:      -5,
 		},
-		want: errInvalidValue("-5", "percent"),
+		want: apis.ErrInvalidValue("-5", "percent"),
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
 			Percent:      101,
 		},
-		want: errInvalidValue("101", "percent"),
+		want: apis.ErrInvalidValue("101", "percent"),
 	}}
 
 	for _, test := range tests {

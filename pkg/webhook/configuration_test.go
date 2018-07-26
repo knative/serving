@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/knative/pkg/apis"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	. "github.com/knative/serving/pkg/logging/testing"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +46,7 @@ func TestEmptySpecInConfigurationNotAllowed(t *testing.T) {
 	}
 
 	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec"},
 	}
@@ -67,7 +68,7 @@ func TestEmptyTemplateInSpecNotAllowed(t *testing.T) {
 	}
 
 	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.revisionTemplate.spec"},
 	}
@@ -93,7 +94,7 @@ func TestEmptyContainerNotAllowed(t *testing.T) {
 	}
 
 	got := Validate(TestContextWithLogger(t))(nil, &configuration, &configuration)
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "missing field(s)",
 		Paths:   []string{"spec.revisionTemplate.spec.container"},
 	}
@@ -159,7 +160,7 @@ func TestUnwantedFieldInContainerNotAllowed(t *testing.T) {
 			},
 		},
 	}
-	want := &v1alpha1.FieldError{
+	want := &apis.FieldError{
 		Message: "must not set the field(s)",
 		Paths: []string{
 			"spec.revisionTemplate.spec.container.name",
