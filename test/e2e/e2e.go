@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"testing"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -40,19 +39,6 @@ func Setup(t *testing.T) *test.Clients {
 func TearDown(clients *test.Clients, names test.ResourceNames, logger *zap.SugaredLogger) {
 	if clients != nil {
 		clients.Delete([]string{names.Route}, []string{names.Config})
-	}
-
-	// There seems to be an Istio bug where if we delete / create
-	// VirtualServices too quickly we will hit pro-longed "No health
-	// upstream" causing timeouts.  Adding this small sleep to
-	// sidestep the issue.
-	//
-	// Only perform this sleep if the test created a Route.
-	//
-	// TODO(#1376):  Fix this when upstream fix is released.
-	if names.Route != "" {
-		logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
-		time.Sleep(20 * time.Second)
 	}
 }
 

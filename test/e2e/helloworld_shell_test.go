@@ -50,14 +50,6 @@ func noStderrShell(name string, arg ...string) string {
 func cleanup(yamlFilename string, logger *zap.SugaredLogger) {
 	exec.Command("kubectl", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
-	// There seems to be an Istio bug where if we delete / create
-	// VirtualServices too quickly we will hit pro-longed "No health
-	// upstream" causing timeouts.  Adding this small sleep to
-	// sidestep the issue.
-	//
-	// TODO(#1376):  Fix this when upstream fix is released.
-	logger.Info("Sleeping for 20 seconds after Route deletion to avoid hitting issue in #1376")
-	time.Sleep(20 * time.Second)
 }
 
 func TestHelloWorldFromShell(t *testing.T) {

@@ -143,13 +143,13 @@ To use a k8s cluster running in GKE:
        so deploy istio with `LoadBalancer` replaced by `NodePort`:
 
        ```bash
-       sed 's/LoadBalancer/NodePort/' third_party/istio-0.8.0/istio.yaml | kubectl apply -f -
+       sed 's/LoadBalancer/NodePort/' third_party/istio-1.0-prerelease/istio.yaml | kubectl apply -f -
        ```
 
        (Then optionally [enable istio injection](../DEVELOPMENT.md#deploy-istio).)
 
     1. [Deploy build](../DEVELOPMENT.md#deploy-build):
-        
+
         ```shell
         kubectl apply -f ./third_party/config/build/release.yaml
         ```

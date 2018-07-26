@@ -34,6 +34,8 @@ spec:
       protocol: HTTPS
     hosts:
     - "*"
+    tls:
+      mode: PASSTHROUGH
 ---
 # This is the Service definition for the ingress pods serving
 # Knative's shared Gateway.
