@@ -124,7 +124,7 @@ the OCI specification as long as:
 - A container should write its own termination message to `/dev/termination-log`
   by default. If no message is written by the container, the last few lines of
   log output should be reported as the execution error (i.e. by
-  [setting the `terminationMessagePolicy` to `FallbackToLogsOnError`](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/#customizing-the-termination-message)).
+  [setting the `terminationMessagePolicy` to `FallbackToLogsOnError`](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/#customizing-the-termination-message))
   on Kubernetes.
 
 ### Warnings
