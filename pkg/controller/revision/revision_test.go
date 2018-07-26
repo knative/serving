@@ -30,8 +30,8 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	. "github.com/knative/serving/pkg/logging/testing"
 	"github.com/knative/serving/pkg/system"

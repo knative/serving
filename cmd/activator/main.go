@@ -30,9 +30,9 @@ import (
 
 	"github.com/knative/serving/pkg/logging/logkey"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/controller"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"

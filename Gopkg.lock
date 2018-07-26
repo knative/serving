@@ -256,7 +256,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/knative/pkg"
-  packages = ["apis"]
+  packages = [
+    "apis",
+    "configmap"
+  ]
   revision = "945c05cc41ca3f9992ba4d4829ab3f9db61c26ae"
 
 [[projects]]
@@ -797,6 +800,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4c1f6d26670204c19d59af7c840f220cc863b98ffe1b3ad4a76c48be2d47eac7"
+  inputs-digest = "d5f2d4525c2478aa10cb4b37156cec18f50aa1288a84d3dfa6e84f16ac9958ed"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -21,11 +21,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/autoscaling"
 	"github.com/knative/serving/pkg/logging"
@@ -99,7 +99,7 @@ func main() {
 	opt := controller.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
-		Logger: logger,
+		Logger:           logger,
 	}
 
 	ctl := autoscaling.NewController(&opt, multiScaler, time.Second*30)

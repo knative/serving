@@ -22,12 +22,12 @@ import (
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/configmap"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
@@ -226,7 +226,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// upgrade to 1.10 we can remove the config argument here and instead use the
 	// Create() method.
 	kubeClient, _, _, _, controller, kubeInformer, buildInformer,
-	servingInformer, servingSystemInformer, vpaInformer :=
+		servingInformer, servingSystemInformer, vpaInformer :=
 		newTestController(t, rev)
 
 	h := NewHooks()

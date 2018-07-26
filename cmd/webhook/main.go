@@ -22,7 +22,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/configmap"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/signals"

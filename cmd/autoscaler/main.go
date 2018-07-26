@@ -29,11 +29,11 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/system"

@@ -21,10 +21,10 @@ import (
 	"time"
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
