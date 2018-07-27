@@ -18,25 +18,13 @@ limitations under the License.
 package test
 
 import (
-	"encoding/json"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
 )
-
-func logRoute(logger *zap.SugaredLogger, route *v1alpha1.Route) {
-	// Log the route object
-	if routeJSON, err := json.Marshal(route); err != nil {
-		logger.Infof("Failed to create json from route object: %v", err)
-	} else {
-		LogResourceObject(logger, "ROUTE", string(routeJSON))
-	}
-}
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceNames) error {
 	route := Route(Flags.Namespace, names)
-	logRoute(logger, route)
+	LogResourceObject(logger, "ROUTE", ResourceObjects{Route: route})
 	_, err := clients.Routes.Create(route)
 	return err
 }
@@ -45,7 +33,7 @@ func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceName
 // Traffic is evenly split between the two routes specified by blue and green.
 func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, blue, green ResourceNames) error {
 	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
-	logRoute(logger, route)
+	LogResourceObject(logger, "ROUTE", ResourceObjects{Route: route})
 	_, err := clients.Routes.Create(route)
 	return err
 }
