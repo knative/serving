@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -103,7 +104,9 @@ type RouteCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
+	// differences (all other things held constant).
+	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -125,6 +128,25 @@ const (
 	// backends ready to receive traffic.
 	RouteConditionAllTrafficAssigned RouteConditionType = "AllTrafficAssigned"
 )
+
+type RouteConditionSlice []RouteCondition
+
+// Len implements sort.Interface
+func (rsc RouteConditionSlice) Len() int {
+	return len(rsc)
+}
+
+// Less implements sort.Interface
+func (rsc RouteConditionSlice) Less(i, j int) bool {
+	return rsc[i].Type < rsc[j].Type
+}
+
+// Swap implements sort.Interface
+func (rsc RouteConditionSlice) Swap(i, j int) {
+	rsc[i], rsc[j] = rsc[j], rsc[i]
+}
+
+var _ sort.Interface = (RouteConditionSlice)(nil)
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
@@ -150,7 +172,7 @@ type RouteStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []RouteCondition `json:"conditions,omitempty"`
+	Conditions RouteConditionSlice `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -203,7 +225,7 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	}
 
 	t := new.Type
-	var conditions []RouteCondition
+	var conditions RouteConditionSlice
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -215,8 +237,9 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
+	sort.Sort(conditions)
 	rs.Conditions = conditions
 }
 
