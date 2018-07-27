@@ -66,11 +66,11 @@ func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.
 }
 
 func dedup(strs []string) []string {
-	existed := make(map[string]bool)
+	existed := make(map[string]struct{})
 	unique := []string{}
 	for _, s := range strs {
-		if ok, _ := existed[s]; !ok {
-			existed[s] = true
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
 			unique = append(unique, s)
 		}
 	}
@@ -119,9 +119,7 @@ func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []stri
 			names.K8sServiceFullname(u),
 			fmt.Sprintf("%s.%s.svc", u.Name, u.Namespace),
 			fmt.Sprintf("%s.%s", u.Name, u.Namespace),
-		}
-		if u.Namespace == "default" {
-			domains = append(domains, u.Name)
+			u.Name,
 		}
 	} else {
 		domains = []string{fmt.Sprintf("%s.%s", targetName, domain)}

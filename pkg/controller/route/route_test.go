@@ -308,6 +308,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
 			}, {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
@@ -391,6 +393,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
 			}, {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -486,6 +490,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
 			}, {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -590,6 +596,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
 			}, {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -709,6 +717,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
 			}, {
 				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
