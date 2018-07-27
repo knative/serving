@@ -37,7 +37,8 @@ ${GOPATH}/bin/deepcopy-gen --input-dirs \
   --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
 # Update code to change Gatewaies -> Gateways to workaround cleverness of codegen pluralizer.
-find -name '*.go' -exec grep -l atewaies {} \; | xargs sed 's/atewaies/ateways/g' -i
+[[ x$(uname) == "xDarwin" ]] && sedi=(-i '') || sedi=(-i)
+find . -name '*.go' -exec grep -l atewaies {} \; | xargs sed "${sedi[@]}" 's/atewaies/ateways/g'
 
 # Make sure our dependencies are up-to-date
 ${SERVING_ROOT}/hack/update-deps.sh
