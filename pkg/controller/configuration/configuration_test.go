@@ -305,6 +305,37 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		Key: "foo/update-config-failure",
+	}, {
+		Name: "failed revision recovers",
+		Objects: []runtime.Object{
+			cfgWithStatus("revision-recovers", "foo", 1337,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "revision-recovers-01337",
+					LatestReadyRevisionName:   "revision-recovers-01337",
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:    v1alpha1.ConfigurationConditionReady,
+						Status:  corev1.ConditionFalse,
+						Reason:  "RevisionFailed",
+						Message: `Revision "revision-recovers-01337" failed with message: "Weebles wobble, but they don't fall down".`,
+					}},
+				},
+			),
+			makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337), noBuildName)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("revision-recovers", "foo", 1337,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "revision-recovers-01337",
+					LatestReadyRevisionName:   "revision-recovers-01337",
+					ObservedGeneration:        1337,
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			),
+		}},
+		Key: "foo/revision-recovers",
 	}}
 
 	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
