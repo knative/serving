@@ -127,3 +127,8 @@ func GetContextLogger(context string) *zap.SugaredLogger {
 
 	return logger
 }
+
+// LogResourceObject logs the resrouce object with the resource name and value
+func LogResourceObject(logger *zap.SugaredLogger, name string, value string) {
+	logger.Infof("resource %s %s", name, value)
+}

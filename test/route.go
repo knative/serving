@@ -27,16 +27,15 @@ import (
 func logRoute(logger *zap.SugaredLogger, route *v1alpha1.Route) {
 	// Log the route object
 	if routeJSON, err := json.Marshal(route); err != nil {
-		logger.Infof("Failed to create json from route object")
+		logger.Infof("Failed to create json from route object: %v", err)
 	} else {
-		logger.Infow("resource", "ROUTE", string(routeJSON))
+		LogResourceObject(logger, "ROUTE", string(routeJSON))
 	}
 }
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceNames) error {
 	route := Route(Flags.Namespace, names)
-	// Log the route object
 	logRoute(logger, route)
 	_, err := clients.Routes.Create(route)
 	return err
@@ -46,9 +45,7 @@ func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceName
 // Traffic is evenly split between the two routes specified by blue and green.
 func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, blue, green ResourceNames) error {
 	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
-	// Log the route object
 	logRoute(logger, route)
-
 	_, err := clients.Routes.Create(route)
 	return err
 }
