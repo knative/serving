@@ -129,7 +129,12 @@ func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
 	return nil
 }
 
-func setRouteLabelForConfiguration(configClient servingv1alpha1.ConfigurationInterface, configName string, routeName *string) error {
+func setRouteLabelForConfiguration(
+	configClient servingv1alpha1.ConfigurationInterface,
+	configName string,
+	routeName *string, // a nil route name will cause the route label to be deleted
+) error {
+
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
 			"labels": map[string]interface{}{
