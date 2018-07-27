@@ -224,16 +224,6 @@ func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
 	cs.Conditions = conditions
 }
 
-func (cs *ConfigurationStatus) RemoveCondition(t ConfigurationConditionType) {
-	var conditions []ConfigurationCondition
-	for _, cond := range cs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	cs.Conditions = conditions
-}
-
 func (cs *ConfigurationStatus) InitializeConditions() {
 	for _, cond := range []ConfigurationConditionType{
 		ConfigurationConditionReady,

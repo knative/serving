@@ -306,16 +306,6 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	rs.Conditions = conditions
 }
 
-func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
-	var conditions []RevisionCondition
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	rs.Conditions = conditions
-}
-
 func (rs *RevisionStatus) InitializeConditions() {
 	// We don't include BuildSucceeded here because it could confuse users if
 	// no `buildName` was specified.

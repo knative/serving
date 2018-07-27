@@ -253,16 +253,6 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	ss.Conditions = conditions
 }
 
-func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
-	var conditions []ServiceCondition
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	ss.Conditions = conditions
-}
-
 func (ss *ServiceStatus) InitializeConditions() {
 	for _, cond := range []ServiceConditionType{
 		ServiceConditionReady,
