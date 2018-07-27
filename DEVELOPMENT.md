@@ -28,7 +28,7 @@ Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 You must install these tools:
 
-1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is built in
+1. [`go` 1.10+](https://golang.org/doc/install): The language `Knative Serving` is built in
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
@@ -39,8 +39,7 @@ development.
 
 ### Environment setup
 
-To [start your environment](./README.md#start-knative) you'll need to set these environment
-variables (we recommend adding them to your `.bashrc`):
+To start your environment you'll need to set these environment variables (we recommend adding them to your `.bashrc`):
 
 1. `GOPATH`: If you don't have one, simply pick a directory and add
 `export GOPATH=...`
@@ -202,6 +201,8 @@ Once the codegen and dependency information is correct, redeploying the controll
 ```shell
 ko apply -f config/controller.yaml
 ```
+
+For `ko` to successfully build container images, you'll need access to a Docker daemon. If you have trouble setting up Docker directly on your system, consider using Docker daemon included with Minikube via `eval $(minikube docker-env)`.
 
 Or you can [clean it up completely](./README.md#clean-up) and [completely
 redeploy `Knative Serving`](./README.md#start-knative).
