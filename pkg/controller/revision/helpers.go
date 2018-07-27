@@ -50,7 +50,7 @@ func getRevisionLastTransitionTime(r *v1alpha1.Revision) time.Time {
 	if condCount == 0 {
 		return r.CreationTimestamp.Time
 	}
-	return r.Status.Conditions[condCount-1].LastTransitionTime.Inner.Time
+	return r.Status.Conditions[condCount-1].LastTransitionTime.Time
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
