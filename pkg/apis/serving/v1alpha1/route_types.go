@@ -243,16 +243,6 @@ func (rs *RouteStatus) setCondition(new *RouteCondition) {
 	rs.Conditions = conditions
 }
 
-func (rs *RouteStatus) RemoveCondition(t RouteConditionType) {
-	var conditions []RouteCondition
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
-	rs.Conditions = conditions
-}
-
 func (rs *RouteStatus) InitializeConditions() {
 	for _, cond := range []RouteConditionType{
 		RouteConditionAllTrafficAssigned,

@@ -40,104 +40,79 @@ func TestServiceIsReady(t *testing.T) {
 		name    string
 		status  ServiceStatus
 		isReady bool
-	}{
-		{
-			name:    "empty status should not be ready",
-			status:  ServiceStatus{},
-			isReady: false,
+	}{{
+		name:    "empty status should not be ready",
+		status:  ServiceStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type:   "Foo",
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "Different condition type should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type:   ServiceConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "False condition status should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type:   ServiceConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
 		},
-		{
-			name: "Unknown condition status should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionUnknown,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type: ServiceConditionReady,
+			}},
 		},
-		{
-			name: "Missing condition status should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type: ServiceConditionReady,
-					},
-				},
-			},
-			isReady: false,
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type:   ServiceConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "True condition status should be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type:   "Foo",
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   ServiceConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
 		},
-		{
-			name: "Multiple conditions with ready status should be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			isReady: true,
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: ServiceStatus{
+			Conditions: []ServiceCondition{{
+				Type:   "Foo",
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   ServiceConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
 		},
-		{
-			name: "Multiple conditions with ready status false should not be ready",
-			status: ServiceStatus{
-				Conditions: []ServiceCondition{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   ServiceConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-			isReady: false,
-		},
-	}
+		isReady: false,
+	}}
 
 	for _, tc := range cases {
 		if e, a := tc.isReady, tc.status.IsReady(); e != a {
@@ -163,27 +138,15 @@ func TestServiceConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
-	// Remove non-existent condition.
-	svc.Status.RemoveCondition(bar.Type)
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
 	// Add a second Condition.
 	svc.Status.setCondition(bar)
 	if got, want := len(svc.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
-	// Remove the first Condition.
-	svc.Status.RemoveCondition(foo.Type)
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected condition length; got %d, want %d", got, want)
-	}
-
 	// Test Add nil condition.
 	svc.Status.setCondition(nil)
-	if got, want := len(svc.Status.Conditions), 1; got != want {
+	if got, want := len(svc.Status.Conditions), 2; got != want {
 		t.Fatal("Error, nil condition was allowed to be added.")
 	}
 }
