@@ -51,6 +51,10 @@ func (r *nopResolver) Resolve(_ *appsv1.Deployment) error {
 	return nil
 }
 
+func (r *nopResolver) Clone() resolver {
+	return r
+}
+
 const (
 	testAutoscalerImage            = "autoscalerImage"
 	testFluentdImage               = "fluentdImage"

@@ -320,12 +320,20 @@ func (r *fixedResolver) Resolve(deploy *appsv1.Deployment) error {
 	return nil
 }
 
+func (r *fixedResolver) Clone() resolver {
+	return r
+}
+
 type errorResolver struct {
 	error string
 }
 
 func (r *errorResolver) Resolve(deploy *appsv1.Deployment) error {
 	return errors.New(r.error)
+}
+
+func (r *errorResolver) Clone() resolver {
+	return r
 }
 
 func TestResolutionFailed(t *testing.T) {

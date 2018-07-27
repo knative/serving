@@ -74,3 +74,16 @@ func (r *digestResolver) Resolve(deploy *appsv1.Deployment) error {
 	}
 	return nil
 }
+
+func (r *digestResolver) Clone() resolver {
+	skip := map[string]struct{}{}
+	for k,v := range r.registriesToSkip {
+		skip[k] = v
+	}
+
+	return &digestResolver{
+		client: r.client, // goroutine safe
+		transport: r.transport, // goroutine safe
+		registriesToSkip: skip, // immutable
+	}
+}

@@ -86,6 +86,8 @@ const (
 
 type resolver interface {
 	Resolve(*appsv1.Deployment) error
+	// Clone returns a functionally equivalent resolver which is goroutine safe
+	Clone() resolver
 }
 
 // Controller implements the controller for Revision resources.
@@ -967,7 +969,7 @@ func (c *Controller) receiveControllerConfig(configMap *corev1.ConfigMap) {
 func (c *Controller) getResolver() resolver {
 	c.resolverMutex.Lock()
 	defer c.resolverMutex.Unlock()
-	return c.resolver
+	return c.resolver.Clone()
 }
 
 func (c *Controller) getControllerConfig() *config.Controller {
