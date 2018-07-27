@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	revisionresourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
@@ -143,5 +144,5 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.
 func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Revision, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
 }

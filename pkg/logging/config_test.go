@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -219,7 +220,7 @@ func TestInvalidLevel(t *testing.T) {
 	}
 }
 
-func getTestConfig() (*Config, string, string) {
+func getTestConfig() (*logging.Config, string, string) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
 	wantLevel := "debug"
 	c, _ := NewConfigFromConfigMap(&corev1.ConfigMap{

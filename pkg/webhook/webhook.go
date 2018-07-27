@@ -33,10 +33,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/apis"
-
-	// TODO(mattmoor): Awaiting https://github.com/knative/pkg/issues/7
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/pkg/logging"
+	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"

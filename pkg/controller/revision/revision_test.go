@@ -33,7 +33,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"

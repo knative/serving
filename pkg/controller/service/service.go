@@ -28,6 +28,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -101,7 +102,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 // loggerWithServiceInfo enriches the logs with service name and namespace.
 func loggerWithServiceInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Service, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Service, name))
 }
 
 // Reconcile compares the actual state with the desired, and attempts to
