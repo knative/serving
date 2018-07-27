@@ -23,7 +23,17 @@ import (
 
 // VolatileTime wraps metav1.Time
 type VolatileTime struct {
-	Inner metav1.Time `json:",inline"`
+	Inner metav1.Time
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (t VolatileTime) MarshalJSON() ([]byte, error) {
+	return t.Inner.MarshalJSON()
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface.
+func (t *VolatileTime) UnmarshalJSON(b []byte) error {
+	return t.Inner.UnmarshalJSON(b)
 }
 
 func init() {
