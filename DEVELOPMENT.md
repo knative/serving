@@ -193,8 +193,7 @@ kubectl apply -R -f config/monitoring/100-common \
 As you make changes to the code-base, there are two special cases to be aware of:
 
 * **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
-    * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
-    * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+    * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.).
 
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
