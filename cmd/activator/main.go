@@ -30,6 +30,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/configmap"
 
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
@@ -98,7 +99,7 @@ func main() {
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
-	rt := baseTransport
+	rt := newHttpRoundTripper(http.DefaultTransport, h2cutil.DefaultTransport)
 	rt = newStatusFilterRoundTripper(rt, http.StatusServiceUnavailable)
 	rt = newRetryRoundTripper(rt, logger, defaultMaxRetries, defaultRetryInterval)
 

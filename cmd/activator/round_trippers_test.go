@@ -23,6 +23,67 @@ import (
 	"go.uber.org/zap"
 )
 
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
+}
+
+func TestHttpRoundTripper(t *testing.T) {
+	v1Flag := false
+	v1RT := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		v1Flag = true
+
+		return nil, nil
+	})
+
+	v2Flag := false
+	v2RT := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		v2Flag = true
+
+		return nil, nil
+	})
+
+	rt := newHttpRoundTripper(v1RT, v2RT)
+
+	examples := []struct {
+		label      string
+		protoMajor int
+		wantFlag   *bool
+	}{
+		{
+			label:      "use default transport for http1",
+			protoMajor: 1,
+			wantFlag:   &v1Flag,
+		},
+		{
+			label:      "use h2c transport for http2",
+			protoMajor: 2,
+			wantFlag:   &v2Flag,
+		},
+		{
+			label:      "use default transport for all others",
+			protoMajor: 99,
+			wantFlag:   &v1Flag,
+		},
+	}
+
+	for _, e := range examples {
+		t.Run(e.label, func(t *testing.T) {
+			v1Flag = false
+			v2Flag = false
+
+			r := &http.Request{ProtoMajor: e.protoMajor}
+
+			rt.RoundTrip(r)
+
+			if *e.wantFlag != true {
+				t.Error("Wrong transport selected for request.")
+			}
+		})
+	}
+}
+
 func TestRetryRoundTripper(t *testing.T) {
 	wantBody := "all good!"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

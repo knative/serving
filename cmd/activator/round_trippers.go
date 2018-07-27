@@ -18,25 +18,27 @@ import (
 	"net/http"
 	"time"
 
-	h2cutil "github.com/knative/serving/pkg/h2c"
 	"go.uber.org/zap"
 )
 
-type roundTripperFunc func(*http.Request) (*http.Response, error)
-
-func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return rt(r)
+// httpRoundTripper will use the appropriate transport for the request's http protocol version
+type httpRoundTripper struct {
+	v1 http.RoundTripper
+	v2 http.RoundTripper
 }
 
-// baseTransport will use the appropriate transport for the request's http protocol version
-var baseTransport http.RoundTripper = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-	var transport http.RoundTripper = http.DefaultTransport
+func newHttpRoundTripper(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
+	return &httpRoundTripper{v1: v1, v2: v2}
+}
+
+func (rt *httpRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	var t http.RoundTripper = rt.v1
 	if r.ProtoMajor == 2 {
-		transport = h2cutil.DefaultTransport
+		t = rt.v2
 	}
 
-	return transport.RoundTrip(r)
-})
+	return t.RoundTrip(r)
+}
 
 // statusFilterRoundTripper returns an error if the response contains one of the filtered statuses.
 type statusFilterRoundTripper struct {
