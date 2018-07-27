@@ -28,6 +28,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	istioinformers "github.com/knative/serving/pkg/client/informers/externalversions/istio/v1alpha3"
@@ -253,7 +254,7 @@ func (c *Controller) EnqueueReferringRoute(obj interface{}) {
 /////////////////////////////////////////
 // loggerWithRouteInfo enriches the logs with route name and namespace.
 func loggerWithRouteInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Route, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Route, name))
 }
 
 func (c *Controller) getDomainConfig() *config.Domain {

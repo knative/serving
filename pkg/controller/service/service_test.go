@@ -32,7 +32,7 @@ import (
 	"github.com/knative/serving/pkg/controller/service/resources"
 
 	. "github.com/knative/serving/pkg/controller/testing"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 )
 
 var (

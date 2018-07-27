@@ -24,7 +24,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

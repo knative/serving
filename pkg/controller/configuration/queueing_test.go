@@ -26,7 +26,7 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	hooks "github.com/knative/serving/pkg/controller/testing"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

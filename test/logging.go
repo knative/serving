@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/pkg/logging"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
