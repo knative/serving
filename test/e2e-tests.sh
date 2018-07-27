@@ -133,7 +133,6 @@ wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_t
 
 header "Running tests"
 kubectl create namespace serving-tests
-kubectl label namespace serving-tests istio-injection=enabled --overwrite
 options=""
 (( EMIT_METRICS )) && options="-emitmetrics"
 report_go_test \

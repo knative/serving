@@ -10,7 +10,7 @@ helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=true \
   --set sidecarInjectorWebhook.enableNamespacesByDefault=true \
   --set global.proxy.image=proxyv2 \
-  --set global.autoInject=disabled \
+  --set global.proxy.autoInject=disabled \
   --set prometheus.enabled=false \
   install/kubernetes/helm/istio > ../istio.yaml
 
