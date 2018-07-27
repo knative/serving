@@ -16,13 +16,6 @@ limitations under the License.
 
 package route
 
-/* TODO tests:
-- When a Route is created:
-  - a namespace is created
-
-- When a Revision is updated TODO
-- When a Revision is deleted TODO
-*/
 import (
 	"fmt"
 	"strings"
@@ -292,7 +285,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -305,13 +297,19 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
@@ -372,7 +370,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -385,13 +382,19 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -464,7 +467,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -477,13 +479,19 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -565,7 +573,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -578,13 +585,19 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -681,7 +694,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		t.Fatalf("error getting virtualservice: %v", err)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -694,13 +706,19 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{

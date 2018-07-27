@@ -65,6 +65,18 @@ func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.
 	}
 }
 
+func dedup(strs []string) []string {
+	existed := make(map[string]struct{})
+	unique := []string{}
+	for _, s := range strs {
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
+			unique = append(unique, s)
+		}
+	}
+	return unique
+}
+
 func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha3.VirtualServiceSpec {
 	domain := u.Status.Domain
 	spec := v1alpha3.VirtualServiceSpec{
@@ -76,13 +88,13 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 			names.K8sGatewayFullname,
 			"mesh",
 		},
-		Hosts: []string{
+		Hosts: dedup([]string{
 			// Traffic originates from outside of the cluster would be of the form "*.domain", or "domain"
 			fmt.Sprintf("*.%s", domain),
 			domain,
 			// Traffic from inside the cluster will use the FQDN of the Route's headless Service.
 			names.K8sServiceFullname(u),
-		},
+		}),
 	}
 	names := []string{}
 	for name := range targets {
@@ -98,13 +110,21 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 }
 
 func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []string {
+	var domains []string
 	if targetName == "" {
-		// Nameless traffic targets correspond to two domains: the Route.Status.Domain, and also the FQDN
-		// of the Route's headless Service.
-		return []string{domain, names.K8sServiceFullname(u)}
+		// Nameless traffic targets correspond to many domains: the
+		// Route.Status.Domain, and also various names of the Route's
+		// headless Service.
+		domains = []string{domain,
+			names.K8sServiceFullname(u),
+			fmt.Sprintf("%s.%s.svc", u.Name, u.Namespace),
+			fmt.Sprintf("%s.%s", u.Name, u.Namespace),
+			u.Name,
+		}
+	} else {
+		domains = []string{fmt.Sprintf("%s.%s", targetName, domain)}
 	}
-	// Named traffic targets correspond to a subdomain of the Route.Status.Domain.
-	return []string{fmt.Sprintf("%s.%s", targetName, domain)}
+	return dedup(domains)
 }
 
 func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.RevisionTarget) *v1alpha3.HTTPRoute {
