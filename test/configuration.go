@@ -18,8 +18,6 @@ limitations under the License.
 package test
 
 import (
-	"encoding/json"
-
 	"go.uber.org/zap"
 )
 
@@ -27,12 +25,7 @@ import (
 // that uses the image specifed by imagePath.
 func CreateConfiguration(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) error {
 	config := Configuration(Flags.Namespace, names, imagePath)
-	// Log config object
-	if configJSON, err := json.Marshal(config); err != nil {
-		logger.Infof("Failed to create json from route object")
-	} else {
-		logger.Infow("Created resource object", "CONFIGURATION", string(configJSON))
-	}
+	LogResourceObject(logger, ResourceObjects{Configuration: config})
 	_, err := clients.Configs.Create(config)
 	return err
 }
