@@ -26,19 +26,17 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
-
-	"github.com/knative/serving/pkg/system"
-
-	"github.com/knative/serving/pkg/logging/logkey"
 
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/apis"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+
+	// TODO(mattmoor): Awaiting https://github.com/knative/pkg/issues/7
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/logging/logkey"
 
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -48,17 +46,15 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	clientadmissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
 
 const (
-	knativeAPIVersion = "v1alpha1"
-	secretServerKey   = "server-key.pem"
-	secretServerCert  = "server-cert.pem"
-	secretCACert      = "ca-cert.pem"
-	// TODO: Could these come from somewhere else.
-	servingWebhookDeployment = "webhook"
+	secretServerKey  = "server-key.pem"
+	secretServerCert = "server-cert.pem"
+	secretCACert     = "ca-cert.pem"
 )
 
 var (
@@ -75,8 +71,8 @@ type ControllerOptions struct {
 	// ServiceName is the service name of the webhook.
 	ServiceName string
 
-	// ServiceNamespace is the namespace of the webhook service.
-	ServiceNamespace string
+	// DeploymentName is the service name of the webhook.
+	DeploymentName string
 
 	// SecretName is the name of k8s secret that contains the webhook
 	// server key/cert and corresponding CA cert that signed them. The
@@ -84,6 +80,9 @@ type ControllerOptions struct {
 	// is provided to k8s apiserver during admission controller
 	// registration.
 	SecretName string
+
+	// Namespace is the namespace in which everything above lives
+	Namespace string
 
 	// Port where the webhook is served. Per k8s admission
 	// registration requirements this should be 443 unless there is
@@ -107,20 +106,14 @@ type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericC
 // is denied. Mutations should be appended to the patches operations.
 type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
 
-// GenericCRDHandler defines the factory object to use for unmarshaling incoming objects
-type GenericCRDHandler struct {
-	Factory   runtime.Object
-	Defaulter ResourceDefaulter
-	Validator ResourceCallback
-}
-
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	client   kubernetes.Interface
-	options  ControllerOptions
-	handlers map[string]GenericCRDHandler
-	logger   *zap.SugaredLogger
+	client       kubernetes.Interface
+	options      ControllerOptions
+	groupVersion schema.GroupVersion
+	handlers     map[string]runtime.Object
+	logger       *zap.SugaredLogger
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -176,25 +169,25 @@ func makeTLSConfig(serverCert, serverKey, caCert []byte) (*tls.Config, error) {
 	}, nil
 }
 
-func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Interface, name,
-	namespace string) (serverKey, serverCert, caCert []byte, err error) {
+func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Interface,
+	options *ControllerOptions) (serverKey, serverCert, caCert []byte, err error) {
 	logger := logging.FromContext(ctx)
-	secret, err := client.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, nil, nil, err
 		}
 		logger.Info("Did not find existing secret, creating one")
-		newSecret, err := generateSecret(ctx, name, namespace)
+		newSecret, err := generateSecret(ctx, options)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		secret, err = client.CoreV1().Secrets(namespace).Create(newSecret)
+		secret, err = client.CoreV1().Secrets(newSecret.Namespace).Create(newSecret)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, nil, nil, err
 		}
 		// Ok, so something else might have created, try fetching it one more time
-		secret, err = client.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+		secret, err = client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -211,38 +204,6 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 		return nil, nil, nil, errors.New("ca cert missing")
 	}
 	return serverKey, serverCert, caCert, nil
-}
-
-// NewAdmissionController creates a new instance of the admission webhook controller.
-func NewAdmissionController(client kubernetes.Interface, options ControllerOptions, logger *zap.SugaredLogger) (*AdmissionController, error) {
-	ctx := logging.WithLogger(context.TODO(), logger)
-	return &AdmissionController{
-		client:  client,
-		options: options,
-		handlers: map[string]GenericCRDHandler{
-			"Revision": {
-				Factory:   &v1alpha1.Revision{},
-				Defaulter: SetDefaults(ctx),
-				Validator: Validate(ctx),
-			},
-			"Configuration": {
-				Factory:   &v1alpha1.Configuration{},
-				Defaulter: SetDefaults(ctx),
-				Validator: Validate(ctx),
-			},
-			"Route": {
-				Factory:   &v1alpha1.Route{},
-				Defaulter: SetDefaults(ctx),
-				Validator: Validate(ctx),
-			},
-			"Service": {
-				Factory:   &v1alpha1.Service{},
-				Defaulter: SetDefaults(ctx),
-				Validator: Validate(ctx),
-			},
-		},
-		logger: logger,
-	}, nil
 }
 
 // Validate checks whether "new" and "old" implement HasImmutableFields and checks them,
@@ -296,7 +257,7 @@ func configureCerts(ctx context.Context, client kubernetes.Interface, options *C
 		return nil, nil, err
 	}
 	serverKey, serverCert, caCert, err := getOrGenerateKeyCertsFromSecret(
-		ctx, client, options.SecretName, options.ServiceNamespace)
+		ctx, client, options)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -365,12 +326,17 @@ func (ac *AdmissionController) unregister(
 
 // Register registers the external admission webhook for pilot
 // configuration types.
-
 func (ac *AdmissionController) register(
 	ctx context.Context, client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
 	logger := logging.FromContext(ctx)
-	resources := []string{"configurations", "routes", "revisions", "services"}
 	failurePolicy := admissionregistrationv1beta1.Fail
+
+	resources := sort.StringSlice{}
+	for k := range ac.handlers {
+		// Lousy pluralizer
+		resources = append(resources, strings.ToLower(k)+"s")
+	}
+	resources.Sort()
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -384,14 +350,14 @@ func (ac *AdmissionController) register(
 					admissionregistrationv1beta1.Update,
 				},
 				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{serving.GroupName},
-					APIVersions: []string{knativeAPIVersion},
+					APIGroups:   []string{ac.groupVersion.Group},
+					APIVersions: []string{ac.groupVersion.Version},
 					Resources:   resources,
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: ac.options.ServiceNamespace,
+					Namespace: ac.options.Namespace,
 					Name:      ac.options.ServiceName,
 				},
 				CABundle: caCert,
@@ -401,7 +367,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment
-	deployment, err := ac.client.ExtensionsV1beta1().Deployments(system.Namespace).Get(servingWebhookDeployment, metav1.GetOptions{})
+	deployment, err := ac.client.ExtensionsV1beta1().Deployments(ac.options.Namespace).Get(ac.options.DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}
@@ -520,8 +486,8 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
 	}
 
-	oldObj := handler.Factory.DeepCopyObject().(GenericCRD)
-	newObj := handler.Factory.DeepCopyObject().(GenericCRD)
+	oldObj := handler.DeepCopyObject().(GenericCRD)
+	newObj := handler.DeepCopyObject().(GenericCRD)
 
 	if len(newBytes) != 0 {
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
@@ -553,7 +519,7 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 		return nil, fmt.Errorf("Failed to update generation: %s", err)
 	}
 
-	if defaulter := handler.Defaulter; defaulter != nil {
+	if defaulter := SetDefaults(ctx); defaulter != nil {
 		if err := defaulter(&patches, newObj); err != nil {
 			logger.Error("Failed the resource specific defaulter", zap.Error(err))
 			// Return the error message as-is to give the defaulter callback
@@ -566,11 +532,13 @@ func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes
 	if newObj == nil {
 		return nil, errMissingNewObject
 	}
-	if err := handler.Validator(&patches, oldObj, newObj); err != nil {
-		logger.Error("Failed the resource specific validation", zap.Error(err))
-		// Return the error message as-is to give the validation callback
-		// discretion over (our portion of) the message that the user sees.
-		return nil, err
+	if validator := Validate(ctx); validator != nil {
+		if err := validator(&patches, oldObj, newObj); err != nil {
+			logger.Error("Failed the resource specific validation", zap.Error(err))
+			// Return the error message as-is to give the validation callback
+			// discretion over (our portion of) the message that the user sees.
+			return nil, err
+		}
 	}
 
 	if err := validateMetadata(newObj); err != nil {
@@ -661,15 +629,15 @@ func updateGeneration(ctx context.Context, patches *[]jsonpatch.JsonPatchOperati
 	return nil
 }
 
-func generateSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {
-	serverKey, serverCert, caCert, err := CreateCerts(ctx)
+func generateSecret(ctx context.Context, options *ControllerOptions) (*corev1.Secret, error) {
+	serverKey, serverCert, caCert, err := CreateCerts(ctx, options.ServiceName, options.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      options.SecretName,
+			Namespace: options.Namespace,
 		},
 		Data: map[string][]byte{
 			secretServerKey:  serverKey,

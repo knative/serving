@@ -45,11 +45,11 @@ import (
 
 func newDefaultOptions() ControllerOptions {
 	return ControllerOptions{
-		ServiceName:      "webhook",
-		ServiceNamespace: system.Namespace,
-		Port:             443,
-		SecretName:       "webhook-certs",
-		WebhookName:      "webhook.knative.dev",
+		Namespace:   system.Namespace,
+		ServiceName: "webhook",
+		Port:        443,
+		SecretName:  "webhook-certs",
+		WebhookName: "webhook.knative.dev",
 	}
 }
 
@@ -506,11 +506,11 @@ func TestCertConfigurationForAlreadyGeneratedSecret(t *testing.T) {
 	ns := "test-namespace"
 	opts := newDefaultOptions()
 	opts.SecretName = secretName
-	opts.ServiceNamespace = ns
+	opts.Namespace = ns
 	kubeClient, ac := newNonRunningTestAdmissionController(t, opts)
 
 	ctx := context.TODO()
-	newSecret, err := generateSecret(ctx, secretName, ns)
+	newSecret, err := generateSecret(ctx, &opts)
 	if err != nil {
 		t.Fatalf("Failed to generate secret: %v", err)
 	}
@@ -551,7 +551,7 @@ func TestCertConfigurationForGeneratedSecret(t *testing.T) {
 	ns := "test-namespace"
 	opts := newDefaultOptions()
 	opts.SecretName = secretName
-	opts.ServiceNamespace = ns
+	opts.Namespace = ns
 	kubeClient, ac := newNonRunningTestAdmissionController(t, opts)
 
 	ctx := context.TODO()
@@ -658,7 +658,7 @@ func createUpdateRoute(old, new *v1alpha1.Route) *admissionv1beta1.AdmissionRequ
 func createDeployment(ac *AdmissionController) {
 	deployment := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      servingWebhookDeployment,
+			Name:      "whatever",
 			Namespace: system.Namespace,
 		},
 	}

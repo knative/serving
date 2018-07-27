@@ -27,7 +27,7 @@ import (
 )
 
 func TestCreateCerts(t *testing.T) {
-	sKey, serverCertPEM, caCertBytes, err := CreateCerts(context.TODO())
+	sKey, serverCertPEM, caCertBytes, err := CreateCerts(context.TODO(), "got-the-hook", "knative-webhook")
 	if err != nil {
 		t.Fatalf("Failed to create certs %v", err)
 	}
@@ -59,9 +59,9 @@ func TestCreateCerts(t *testing.T) {
 
 	// Verify domain names
 	expectedDNSNames := []string{
-		"webhook.knative-serving",
-		"webhook.knative-serving.svc",
-		"webhook.knative-serving.svc.cluster.local",
+		"got-the-hook.knative-webhook",
+		"got-the-hook.knative-webhook.svc",
+		"got-the-hook.knative-webhook.svc.cluster.local",
 	}
 	if diff := cmp.Diff(caParsedCert.DNSNames, expectedDNSNames); diff != "" {
 		t.Fatalf("Unexpected CA Cert DNS Name (-want +got) : %v", diff)
