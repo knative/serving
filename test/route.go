@@ -18,21 +18,22 @@ limitations under the License.
 package test
 
 import (
-	"encoding/json"
-
 	"go.uber.org/zap"
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceNames) error {
 	route := Route(Flags.Namespace, names)
-	// Log the route object
-	if routeJSON, err := json.Marshal(route); err != nil {
-		logger.Infof("Failed to create json from route object")
-	} else {
-		logger.Infow("Created resource object", "ROUTE", string(routeJSON))
-	}
+	LogResourceObject(logger, ResourceObjects{Route: route})
+	_, err := clients.Routes.Create(route)
+	return err
+}
 
+// CreateBlueGreenRoute creates a route in the given namespace using the route name in names.
+// Traffic is evenly split between the two routes specified by blue and green.
+func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, blue, green ResourceNames) error {
+	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
+	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.Routes.Create(route)
 	return err
 }

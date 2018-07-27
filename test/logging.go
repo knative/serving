@@ -19,6 +19,7 @@ limitations under the License.
 package test
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"time"
@@ -126,4 +127,14 @@ func GetContextLogger(context string) *zap.SugaredLogger {
 	trace.RegisterExporter(exporter)
 
 	return logger
+}
+
+// LogResourceObject logs the resource object with the resource name and value
+func LogResourceObject(logger *zap.SugaredLogger, value ResourceObjects) {
+	// Log the route object
+	if resourceJSON, err := json.Marshal(value); err != nil {
+		logger.Infof("Failed to create json from resource object: %v", err)
+	} else {
+		logger.Infof("resource %s", string(resourceJSON))
+	}
 }
