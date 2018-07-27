@@ -24,7 +24,7 @@ import (
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceNames) error {
 	route := Route(Flags.Namespace, names)
-	LogResourceObject(logger, "ROUTE", ResourceObjects{Route: route})
+	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.Routes.Create(route)
 	return err
 }
@@ -33,7 +33,7 @@ func CreateRoute(logger *zap.SugaredLogger, clients *Clients, names ResourceName
 // Traffic is evenly split between the two routes specified by blue and green.
 func CreateBlueGreenRoute(logger *zap.SugaredLogger, clients *Clients, names, blue, green ResourceNames) error {
 	route := BlueGreenRoute(Flags.Namespace, names, blue, green)
-	LogResourceObject(logger, "ROUTE", ResourceObjects{Route: route})
+	LogResourceObject(logger, ResourceObjects{Route: route})
 	_, err := clients.Routes.Create(route)
 	return err
 }
