@@ -31,7 +31,6 @@ const (
 )
 
 // Config defines the tunable autoscaler parameters
-// +k8s:deepcopy-gen=true
 type Config struct {
 	// Feature flags.
 	EnableScaleToZero bool

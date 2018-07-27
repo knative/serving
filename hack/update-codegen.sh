@@ -30,12 +30,6 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   "serving:v1alpha1 istio:v1alpha3" \
   --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
-# Depends on generate-groups.sh to install bin/deepcopy-gen
-${GOPATH}/bin/deepcopy-gen --input-dirs \
-  github.com/knative/serving/pkg/controller/revision/config,github.com/knative/serving/pkg/autoscaler,github.com/knative/serving/pkg/logging \
-  -O zz_generated.deepcopy \
-  --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
-
 # Update code to change Gatewaies -> Gateways to workaround cleverness of codegen pluralizer.
 find -name '*.go' -exec grep -l atewaies {} \; | xargs sed 's/atewaies/ateways/g' -i
 
