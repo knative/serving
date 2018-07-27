@@ -965,7 +965,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: metav1.NewTime(time.Now()),
 					}},
 				}),
 			deploy("foo", "endpoint-created-not-ready", "Active", "busybox"),
@@ -1116,7 +1116,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: metav1.NewTime(time.Now()),
 					}},
 				}),
 			deploy("foo", "fix-mutated-service", "Active", "busybox"),
@@ -1179,7 +1179,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: metav1.NewTime(time.Now()),
 					}},
 				}),
 			deploy("foo", "update-user-svc-failure", "Active", "busybox"),
@@ -1219,7 +1219,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: metav1.NewTime(time.Now()),
 					}},
 				}),
 			deploy("foo", "update-as-svc-failure", "Active", "busybox"),
@@ -1259,7 +1259,7 @@ func TestReconcile(t *testing.T) {
 						Status: "Unknown",
 						Reason: "Deploying",
 						// We set the LTT so that we don't give up on the Endpoints yet.
-						LastTransitionTime: v1alpha1.VolatileTime{metav1.NewTime(time.Now())},
+						LastTransitionTime: metav1.NewTime(time.Now()),
 					}},
 				}),
 			timeoutDeploy(deploy("foo", "deploy-timeout", "Active", "busybox")),

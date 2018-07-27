@@ -436,7 +436,7 @@ func (tt TableTest) Test(t *testing.T, ctor Ctor) {
 }
 
 var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
-	return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
+	return strings.HasSuffix(p.String(), "LastTransitionTime.Time")
 }, cmp.Ignore())
 
 var safeDeployDiff = cmpopts.IgnoreUnexported(resource.Quantity{})
