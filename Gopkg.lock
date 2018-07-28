@@ -261,9 +261,10 @@
     "configmap",
     "logging",
     "logging/logkey",
-    "logging/testing"
+    "logging/testing",
+    "webhook"
   ]
-  revision = "9d1975b29fbab0f2f955f77bbfb1d173ef5a5815"
+  revision = "03fb14296d9a79df7743e7037e381846a57f7ff1"
 
 [[projects]]
   branch = "master"
@@ -803,6 +804,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7dc92ee7d588467a9c2ea97827830ddb9517ec08e378e0d21c0a9ac824d7e7d4"
+  inputs-digest = "40ff26fc58b2120e778b2d70e4e76632beb9b14b5b994fe17fe664e05be69a80"
   solver-name = "gps-cdcl"
   solver-version = 1

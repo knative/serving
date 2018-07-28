@@ -107,11 +107,11 @@ type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd Generic
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	client       kubernetes.Interface
-	options      ControllerOptions
-	groupVersion schema.GroupVersion
-	handlers     map[string]runtime.Object
-	logger       *zap.SugaredLogger
+	Client       kubernetes.Interface
+	Options      ControllerOptions
+	GroupVersion schema.GroupVersion
+	Handlers     map[string]runtime.Object
+	Logger       *zap.SugaredLogger
 }
 
 // GenericCRD is the interface definition that allows us to perform the generic
@@ -268,9 +268,9 @@ func configureCerts(ctx context.Context, client kubernetes.Interface, options *C
 
 // Run implements the admission controller run loop.
 func (ac *AdmissionController) Run(stop <-chan struct{}) error {
-	logger := ac.logger
+	logger := ac.Logger
 	ctx := logging.WithLogger(context.TODO(), logger)
-	tlsConfig, caCert, err := configureCerts(ctx, ac.client, &ac.options)
+	tlsConfig, caCert, err := configureCerts(ctx, ac.Client, &ac.Options)
 	if err != nil {
 		logger.Error("Could not configure admission webhook certs", zap.Error(err))
 		return err
@@ -278,18 +278,18 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 
 	server := &http.Server{
 		Handler:   ac,
-		Addr:      fmt.Sprintf(":%v", ac.options.Port),
+		Addr:      fmt.Sprintf(":%v", ac.Options.Port),
 		TLSConfig: tlsConfig,
 	}
 
 	logger.Info("Found certificates for webhook...")
-	if ac.options.RegistrationDelay != 0 {
-		logger.Infof("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
+	if ac.Options.RegistrationDelay != 0 {
+		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
 	}
 
 	select {
-	case <-time.After(ac.options.RegistrationDelay):
-		cl := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	case <-time.After(ac.Options.RegistrationDelay):
+		cl := ac.Client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 		if err := ac.register(ctx, cl, caCert); err != nil {
 			logger.Error("Failed to register webhook", zap.Error(err))
 			return err
@@ -330,7 +330,7 @@ func (ac *AdmissionController) register(
 	failurePolicy := admissionregistrationv1beta1.Fail
 
 	resources := sort.StringSlice{}
-	for k := range ac.handlers {
+	for k := range ac.Handlers {
 		// Lousy pluralizer
 		resources = append(resources, strings.ToLower(k)+"s")
 	}
@@ -338,25 +338,25 @@ func (ac *AdmissionController) register(
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ac.options.WebhookName,
+			Name: ac.Options.WebhookName,
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{{
-			Name: ac.options.WebhookName,
+			Name: ac.Options.WebhookName,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
 					admissionregistrationv1beta1.Update,
 				},
 				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{ac.groupVersion.Group},
-					APIVersions: []string{ac.groupVersion.Version},
+					APIGroups:   []string{ac.GroupVersion.Group},
+					APIVersions: []string{ac.GroupVersion.Version},
 					Resources:   resources,
 				},
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: ac.options.Namespace,
-					Name:      ac.options.ServiceName,
+					Namespace: ac.Options.Namespace,
+					Name:      ac.Options.ServiceName,
 				},
 				CABundle: caCert,
 			},
@@ -365,7 +365,7 @@ func (ac *AdmissionController) register(
 	}
 
 	// Set the owner to our deployment
-	deployment, err := ac.client.ExtensionsV1beta1().Deployments(ac.options.Namespace).Get(ac.options.DeploymentName, metav1.GetOptions{})
+	deployment, err := ac.Client.ExtensionsV1beta1().Deployments(ac.Options.Namespace).Get(ac.Options.DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to fetch our deployment: %s", err)
 	}
@@ -379,7 +379,7 @@ func (ac *AdmissionController) register(
 			return fmt.Errorf("Failed to create a webhook: %s", err)
 		}
 		logger.Info("Webhook already exists")
-		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
+		configuredWebhook, err := client.Get(ac.Options.WebhookName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("Error retrieving webhook: %s", err)
 		}
@@ -402,7 +402,7 @@ func (ac *AdmissionController) register(
 // ServeHTTP implements the external admission webhook for mutating
 // serving resources.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := ac.logger
+	logger := ac.Logger
 	logger.Infof("Webhook ServeHTTP request=%#v", r)
 
 	// verify the content type is accurate
@@ -478,7 +478,7 @@ func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1be
 
 func (ac *AdmissionController) mutate(ctx context.Context, kind string, oldBytes []byte, newBytes []byte) ([]byte, error) {
 	logger := logging.FromContext(ctx)
-	handler, ok := ac.handlers[kind]
+	handler, ok := ac.Handlers[kind]
 	if !ok {
 		logger.Errorf("Unhandled kind %q", kind)
 		return nil, fmt.Errorf("unhandled kind: %q", kind)
