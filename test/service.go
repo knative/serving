@@ -25,7 +25,7 @@ import (
 )
 
 // CreateLatestService creates a service in namespace with the name names.Service
-// that uses the image specifed by imagePath
+// that uses the image specified by imagePath
 func CreateLatestService(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
 	service := LatestService(Flags.Namespace, names, imagePath)
 	// Log the service object

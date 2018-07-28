@@ -24,7 +24,7 @@ import (
 )
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
-// that uses the image specifed by imagePath.
+// that uses the image specified by imagePath.
 func CreateConfiguration(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) error {
 	config := Configuration(Flags.Namespace, names, imagePath)
 	// Log config object
