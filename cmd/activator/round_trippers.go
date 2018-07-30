@@ -80,29 +80,34 @@ func newRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, mr int, i 
 	return &retryRoundTripper{logger: l, maxRetries: mr, interval: i, transport: rt}
 }
 
-func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	resp, err := rrt.transport.RoundTrip(r)
-	// TODO: Activator should retry with backoff.
-	// https://github.com/knative/serving/issues/1229
-	i := 1
-	for ; i < rrt.maxRetries; i++ {
-		if err == nil {
-			break
+func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, err error) {
+	attempts := rrt.retry(func() bool {
+		resp, err = rrt.transport.RoundTrip(r)
+		if err != nil {
+			rrt.logger.Errorf("Error making a request: %s", err)
+
+			return true
 		}
 
-		rrt.logger.Errorf("Error making a request: %s", err)
-
-		time.Sleep(rrt.interval)
-
-		resp, err = rrt.transport.RoundTrip(r)
-	}
+		return false
+	})
 
 	// TODO: add metrics for number of tries and the response code.
 	if err == nil {
-		rrt.logger.Infof("Activation finished after %d attempt(s). Response code: %d", i, resp.StatusCode)
+		rrt.logger.Infof("Activation finished after %d attempt(s). Response code: %d", attempts, resp.StatusCode)
 	} else {
-		rrt.logger.Errorf("Activation failed after %d attempts. Last error: %v", i, err)
+		rrt.logger.Errorf("Activation failed after %d attempts. Last error: %v", attempts, err)
 	}
 
-	return resp, err
+	return
+}
+
+func (rrt *retryRoundTripper) retry(action func() bool) (attempts int) {
+	// TODO: Activator should retry with backoff.
+	// https://github.com/knative/serving/issues/1229
+	for attempts = 1; attempts <= rrt.maxRetries && action(); attempts++ {
+		time.Sleep(rrt.interval)
+	}
+
+	return
 }
