@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
@@ -29,7 +30,6 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/autoscaling"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/signals"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
