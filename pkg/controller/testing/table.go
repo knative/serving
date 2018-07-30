@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,6 +60,7 @@ type Listers struct {
 	K8sService *K8sServiceLister
 	Endpoints  *EndpointsLister
 	ConfigMap  *ConfigMapLister
+	Ingress    *IngressLister
 }
 
 func (f *Listers) GetServiceLister() *ServiceLister {
@@ -73,6 +75,13 @@ func (f *Listers) GetVirtualServiceLister() *VirtualServiceLister {
 		return &VirtualServiceLister{}
 	}
 	return f.VirtualService
+}
+
+func (f *Listers) GetIngressLister() *IngressLister {
+	if f.Ingress == nil {
+		return &IngressLister{}
+	}
+	return f.Ingress
 }
 
 func (f *Listers) GetRouteLister() *RouteLister {
@@ -145,6 +154,9 @@ func (f *Listers) GetKubeObjects() []runtime.Object {
 	for _, r := range f.GetConfigMapLister().Items {
 		kubeObjs = append(kubeObjs, r)
 	}
+	for _, r := range f.GetIngressLister().Items {
+		kubeObjs = append(kubeObjs, r)
+	}
 	return kubeObjs
 }
 
@@ -191,6 +203,7 @@ func NewListers(objs []runtime.Object) Listers {
 		K8sService: &K8sServiceLister{},
 		Endpoints:  &EndpointsLister{},
 		ConfigMap:  &ConfigMapLister{},
+		Ingress:    &IngressLister{},
 	}
 	for _, obj := range objs {
 		switch o := obj.(type) {
@@ -217,6 +230,8 @@ func NewListers(objs []runtime.Object) Listers {
 			ls.Endpoints.Items = append(ls.Endpoints.Items, o)
 		case *corev1.ConfigMap:
 			ls.ConfigMap.Items = append(ls.ConfigMap.Items, o)
+		case *extv1beta1.Ingress:
+			ls.Ingress.Items = append(ls.Ingress.Items, o)
 
 		default:
 			panic(fmt.Sprintf("Unsupported type in TableTest %T", obj))

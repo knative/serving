@@ -125,6 +125,7 @@ func main() {
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
 	virtualServiceInformer := servingInformerFactory.Networking().V1alpha3().VirtualServices()
+	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -153,6 +154,7 @@ func main() {
 			revisionInformer,
 			coreServiceInformer,
 			virtualServiceInformer,
+			ingressInformer,
 		),
 		service.NewController(
 			opt,
@@ -188,6 +190,7 @@ func main() {
 		endpointsInformer.Informer().HasSynced,
 		configMapInformer.Informer().HasSynced,
 		virtualServiceInformer.Informer().HasSynced,
+		ingressInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
 			logger.Fatalf("failed to wait for cache at index %v to sync", i)

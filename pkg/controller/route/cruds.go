@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -60,6 +61,39 @@ func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha
 	}
 
 	// TODO(mattmoor): This is where we'd look at the state of the VirtualService and
+	// reflect any necessary state into the Route.
+	return err
+}
+
+func (c *Controller) reconcileIngress(ctx context.Context, route *v1alpha1.Route,
+	desiredIngress *extv1beta1.Ingress) error {
+	logger := logging.FromContext(ctx)
+	ns := desiredIngress.Namespace
+	name := desiredIngress.Name
+
+	ingress, err := c.ingressLister.Ingresses(ns).Get(name)
+	if apierrs.IsNotFound(err) {
+		ingress, err = c.KubeClientSet.ExtensionsV1beta1().Ingresses(ns).Create(desiredIngress)
+		if err != nil {
+			logger.Error("Failed to create Ingress", zap.Error(err))
+			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Ingress %q: %v", name, err)
+			return err
+		}
+		c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created",
+			"Created Ingress %q", desiredIngress.Name)
+	} else if err != nil {
+		return err
+	} else if !equality.Semantic.DeepEqual(ingress.Spec, desiredIngress.Spec) {
+		ingress.Spec = desiredIngress.Spec
+		ingress, err = c.KubeClientSet.ExtensionsV1beta1().Ingresses(ns).Update(ingress)
+		if err != nil {
+			logger.Error("Failed to update Ingress", zap.Error(err))
+			return err
+		}
+	}
+
+	// TODO(mattmoor): This is where we'd look at the state of the Ingress and
 	// reflect any necessary state into the Route.
 	return err
 }

@@ -31,8 +31,10 @@ import (
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	extv1beta1listers "k8s.io/client-go/listers/extensions/v1beta1"
 )
 
 // ServiceLister is a lister.ServiceLister fake for testing.
@@ -519,6 +521,54 @@ func (r *nsVirtualServiceLister) List(selector labels.Selector) (results []*isti
 }
 
 func (r *nsVirtualServiceLister) Get(name string) (*istiov1alpha3.VirtualService, error) {
+	for _, s := range r.r.Items {
+		if s.Name == name && r.ns == s.Namespace {
+			return s, nil
+		}
+	}
+	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+}
+
+// IngressLister is a extv1beta1listers.IngressLister fake for testing.
+type IngressLister struct {
+	Err   error
+	Items []*extv1beta1.Ingress
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ extv1beta1listers.IngressLister = (*IngressLister)(nil)
+
+func (r *IngressLister) List(selector labels.Selector) (results []*extv1beta1.Ingress, err error) {
+	for _, elt := range r.Items {
+		if selector.Matches(labels.Set(elt.Labels)) {
+			results = append(results, elt)
+		}
+	}
+	return results, r.Err
+}
+
+func (r *IngressLister) Ingresses(namespace string) extv1beta1listers.IngressNamespaceLister {
+	return &nsIngressLister{r: r, ns: namespace}
+}
+
+type nsIngressLister struct {
+	r  *IngressLister
+	ns string
+}
+
+// Assert that our fake implements the interface it is faking.
+var _ extv1beta1listers.IngressNamespaceLister = (*nsIngressLister)(nil)
+
+func (r *nsIngressLister) List(selector labels.Selector) (results []*extv1beta1.Ingress, err error) {
+	for _, elt := range r.r.Items {
+		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
+			results = append(results, elt)
+		}
+	}
+	return results, r.r.Err
+}
+
+func (r *nsIngressLister) Get(name string) (*extv1beta1.Ingress, error) {
 	for _, s := range r.r.Items {
 		if s.Name == name && r.ns == s.Namespace {
 			return s, nil
