@@ -50,12 +50,11 @@ func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap
 		}
 	}
 
-	logger, err2 := loggingCfg.Build(zap.Fields(zap.String("fallback-logger", "true")))
+	logger, err2 := loggingCfg.Build()
 	if err2 != nil {
 		panic(err2)
 	}
-
-	return logger.Sugar(), loggingCfg.Level
+	return logger.Named("fallback-logger").Sugar(), loggingCfg.Level
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
