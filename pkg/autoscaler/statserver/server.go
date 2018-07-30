@@ -57,10 +57,19 @@ func New(statsServerAddr string, statsCh chan<- *autoscaler.StatMessage, logger 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", svr.Handler)
 	svr.wsSrv = http.Server{
-		Addr:    statsServerAddr,
-		Handler: mux,
+		Addr:      statsServerAddr,
+		Handler:   mux,
+		ConnState: svr.onConnStateChange,
 	}
 	return &svr
+}
+
+func (s *Server) onConnStateChange(conn net.Conn, state http.ConnState) {
+	if state == http.StateNew {
+		tcpConn := conn.(*net.TCPConn)
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(3 * time.Minute)
+	}
 }
 
 // ListenAndServe listens on the address s.addr and handles incoming connections.
@@ -79,27 +88,13 @@ func (s *Server) listen() (net.Listener, error) {
 	return net.Listen("tcp", s.addr)
 }
 
-func (s *Server) serve(listener net.Listener) error {
+func (s *Server) serve(l net.Listener) error {
 	close(s.servingCh)
-	err := s.wsSrv.Serve(keepAlive{listener.(*net.TCPListener)})
+	err := s.wsSrv.Serve(l)
 	if err != http.ErrServerClosed {
 		return err
 	}
 	return nil
-}
-
-type keepAlive struct {
-	*net.TCPListener
-}
-
-func (l keepAlive) Accept() (net.Conn, error) {
-	conn, err := l.AcceptTCP()
-	if err != nil {
-		return nil, err
-	}
-	conn.SetKeepAlive(true)
-	conn.SetKeepAlivePeriod(3 * time.Minute)
-	return conn, nil
 }
 
 // Handler exposes a websocket handler for receiving stats from queue

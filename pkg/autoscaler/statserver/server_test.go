@@ -36,7 +36,7 @@ const testAddress = "127.0.0.1:0"
 
 func TestServerLifecycle(t *testing.T) {
 	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.New(testAddress, statsCh, zap.NewNop().Sugar())
+	server := stats.NewTestServer(statsCh)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -48,6 +48,7 @@ func TestServerLifecycle(t *testing.T) {
 		}
 	}()
 
+	server.ListenAddr()
 	server.Shutdown(time.Second)
 
 	wg.Wait()
