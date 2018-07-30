@@ -28,7 +28,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/serving/pkg/activator"

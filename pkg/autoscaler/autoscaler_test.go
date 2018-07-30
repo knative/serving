@@ -23,7 +23,7 @@ import (
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 )
 
 func TestAutoscaler_NoData_NoAutoscale(t *testing.T) {

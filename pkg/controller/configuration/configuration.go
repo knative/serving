@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
@@ -86,7 +87,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 // loggerWithConfigInfo enriches the logs with configuration name and namespace.
 func loggerWithConfigInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Configuration, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Configuration, name))
 }
 
 // Reconcile compares the actual state with the desired, and attempts to

@@ -17,12 +17,12 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/knative/pkg/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources/names"
-	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/queue"
 
 	appsv1 "k8s.io/api/apps/v1"

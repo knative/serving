@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -235,8 +236,8 @@ func main() {
 
 	initEnv()
 	logger = logger.With(
-		zap.String(logkey.ControllerType, "autoscaler"),
-		zap.String(logkey.Namespace, servingNamespace),
+		zap.String(commonlogkey.ControllerType, "autoscaler"),
+		zap.String(commonlogkey.Namespace, servingNamespace),
 		zap.String(logkey.Configuration, servingConfig),
 		zap.String(logkey.Revision, servingRevision))
 
