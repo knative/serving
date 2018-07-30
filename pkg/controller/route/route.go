@@ -25,7 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	extv1beta1informers "k8s.io/client-go/informers/extensions/v1beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	extv1beta1listers "k8s.io/client-go/listers/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/knative/serving/pkg/apis/serving"
@@ -57,6 +59,7 @@ type Controller struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	virtualServiceLister istiolisters.VirtualServiceLister
+	ingressLister        extv1beta1listers.IngressLister
 
 	// Domain configuration could change over time and access to domainConfig
 	// must go through domainConfigMutex
@@ -76,6 +79,7 @@ func NewController(
 	revisionInformer servinginformers.RevisionInformer,
 	serviceInformer corev1informers.ServiceInformer,
 	virtualServiceInformer istioinformers.VirtualServiceInformer,
+	ingressInformer extv1beta1informers.IngressInformer,
 ) *Controller {
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
@@ -87,6 +91,7 @@ func NewController(
 		revisionLister:       revisionInformer.Lister(),
 		serviceLister:        serviceInformer.Lister(),
 		virtualServiceLister: virtualServiceInformer.Lister(),
+		ingressLister:        ingressInformer.Lister(),
 	}
 
 	c.Logger.Info("Setting up event handlers")
@@ -212,11 +217,16 @@ func (c *Controller) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 		badTarget.MarkBadTrafficTarget(&r.Status)
 		return r, badTarget
 	}
-	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
-	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
+	// logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
+	// if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
+	// 	return r, err
+	// }
+	// logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
+	logger.Info("All referred targets are routable.  Creating Ingress.")
+	if err := c.reconcileIngress(ctx, r, resources.MakeIngress(r, t)); err != nil {
 		return r, err
 	}
-	logger.Info("VirtualService created, marking AllTrafficAssigned with traffic information.")
+	logger.Info("Ingress created, marking AllTrafficAssigned with traffic information.")
 	r.Status.Traffic = t.GetTrafficTargets()
 	r.Status.MarkTrafficAssigned()
 	return r, nil

@@ -195,6 +195,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
 		servingInformer.Networking().V1alpha3().VirtualServices(),
+		kubeInformer.Extensions().V1beta1().Ingresses(),
 	)
 
 	return

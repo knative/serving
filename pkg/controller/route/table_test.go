@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"testing"
 
-	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
+	// istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
 	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
 	corev1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
@@ -163,7 +164,8 @@ func TestReconcile(t *testing.T) {
 			),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(
+			resources.MakeK8sService(simpleRunLatest("default", "becomes-ready", "config", nil)),
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "becomes-ready", "config", nil), "becomes-ready.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -178,7 +180,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "becomes-ready", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", "config", "serving.knative.dev/route", "becomes-ready"),
@@ -268,7 +269,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "default/create-svc-failure",
 	}, {
-		Name: "failure creating virtual service",
+		Name: "failure creating ingress",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "vs-create-failure", "config", nil),
 			simpleReadyConfig("default", "config"),
@@ -277,14 +278,15 @@ func TestReconcile(t *testing.T) {
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
 		},
-		// We induce a failure creating the VirtualService.
+		// We induce a failure creating the Ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "virtualservices"),
+			InduceFailure("create", "ingresses"),
 		},
 		WantCreates: []metav1.Object{
+			resources.MakeK8sService(simpleRunLatest("default", "vs-create-failure", "config", nil)),
 			// This is the Create we see for the virtual service, but we induce a failure.
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "vs-create-failure", "config", nil), "vs-create-failure.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -299,7 +301,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "vs-create-failure", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", "config", "serving.knative.dev/route", "vs-create-failure"),
@@ -346,7 +347,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "steady-state", "config", nil), "steady-state.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -395,7 +396,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "different-domain", "config", nil), "different-domain.default.another-example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -446,7 +447,7 @@ func TestReconcile(t *testing.T) {
 			),
 			// This is the name of the new revision we're referencing above.
 			simpleNotReadyRevision("default", "config-00002"),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "new-latest-created", "config", nil), "new-latest-created.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -498,7 +499,7 @@ func TestReconcile(t *testing.T) {
 			),
 			// This is the name of the new revision we're referencing above.
 			simpleReadyRevision("default", "config-00002"),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "new-latest-ready", "config", nil), "new-latest-ready.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -517,22 +518,6 @@ func TestReconcile(t *testing.T) {
 		},
 		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "new-latest-ready", "config", nil), "new-latest-ready.default.example.com"),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": []traffic.RevisionTarget{{
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// This is the new config we're making become ready.
-								RevisionName: "config-00002",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-		}, {
 			Object: simpleRunLatest("default", "new-latest-ready", "config", &v1alpha1.RouteStatus{
 				Domain:         "new-latest-ready.default.example.com",
 				DomainInternal: "new-latest-ready.default.svc.cluster.local",
@@ -549,14 +534,30 @@ func TestReconcile(t *testing.T) {
 					Percent:           100,
 				}},
 			}),
+		}, {
+			Object: resources.MakeIngress(
+				setDomain(simpleRunLatest("default", "new-latest-ready", "config", nil), "new-latest-ready.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": []traffic.RevisionTarget{{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// This is the new config we're making become ready.
+								RevisionName: "config-00002",
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
 		}},
 		Key: "default/new-latest-ready",
 	}, {
-		Name: "failure updating virtual service",
-		// Starting from the new latest ready, induce a failure updating the virtual service.
+		Name: "failure updating ingress",
+		// Starting from the new latest ready, induce a failure updating the ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "virtualservices"),
+			InduceFailure("update", "ingresses"),
 		},
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "update-vs-failure", "config", &v1alpha1.RouteStatus{
@@ -589,7 +590,7 @@ func TestReconcile(t *testing.T) {
 			),
 			// This is the name of the new revision we're referencing above.
 			simpleReadyRevision("default", "config-00002"),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "update-vs-failure", "config", nil), "update-vs-failure.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -608,7 +609,7 @@ func TestReconcile(t *testing.T) {
 		},
 		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
+			Object: resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "update-vs-failure", "config", nil), "update-vs-failure.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -653,7 +654,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "svc-mutation", "config", nil), "svc-mutation.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -707,7 +708,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "svc-mutation", "config", nil), "svc-mutation.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -756,7 +757,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "cluster-ip", "config", nil), "cluster-ip.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -802,7 +803,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			mutateVirtualService(resources.MakeVirtualService(
+			mutateIngress(resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "virt-svc-mutation", "config", nil), "virt-svc-mutation.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -820,7 +821,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeK8sService(simpleRunLatest("default", "virt-svc-mutation", "config", nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
+			Object: resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "virt-svc-mutation", "config", nil), "virt-svc-mutation.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -865,7 +866,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "config").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "licked-cookie", "config", nil), "licked-cookie.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -919,7 +920,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "newconfig").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "change-configs", "oldconfig", nil), "change-configs.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -941,23 +942,6 @@ func TestReconcile(t *testing.T) {
 			patchAddLabel("default", "newconfig", "serving.knative.dev/route", "change-configs"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// Updated to point to "newconfig" things.
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "change-configs", "newconfig", nil), "change-configs.default.example.com"),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": []traffic.RevisionTarget{{
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "newconfig").Status.LatestReadyRevisionName,
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-		}, {
 			// Status updated to "newconfig"
 			Object: simpleRunLatest("default", "change-configs", "newconfig", &v1alpha1.RouteStatus{
 				Domain:         "change-configs.default.example.com",
@@ -975,6 +959,23 @@ func TestReconcile(t *testing.T) {
 					Percent:           100,
 				}},
 			}),
+		}, {
+			// Updated to point to "newconfig" things.
+			Object: resources.MakeIngress(
+				setDomain(simpleRunLatest("default", "change-configs", "newconfig", nil), "change-configs.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": []traffic.RevisionTarget{{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "newconfig").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
 		}},
 		Key: "default/change-configs",
 	}, {
@@ -1079,7 +1080,8 @@ func TestReconcile(t *testing.T) {
 			),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(
+			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "pinned-becomes-ready", "config", nil), "pinned-becomes-ready.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -1094,7 +1096,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(simpleRunLatest("default", "pinned-becomes-ready", "config", nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			// TODO(#1495): The parent configuration isn't labeled because it's established through
@@ -1152,7 +1153,15 @@ func TestReconcile(t *testing.T) {
 			),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeVirtualService(
+			resources.MakeK8sService(routeWithTraffic("default", "named-traffic-split", nil,
+				v1alpha1.TrafficTarget{
+					ConfigurationName: "blue",
+					Percent:           50,
+				}, v1alpha1.TrafficTarget{
+					ConfigurationName: "green",
+					Percent:           50,
+				})),
+			resources.MakeIngress(
 				setDomain(routeWithTraffic("default", "named-traffic-split", nil,
 					v1alpha1.TrafficTarget{
 						ConfigurationName: "blue",
@@ -1181,14 +1190,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-			resources.MakeK8sService(routeWithTraffic("default", "named-traffic-split", nil,
-				v1alpha1.TrafficTarget{
-					ConfigurationName: "blue",
-					Percent:           50,
-				}, v1alpha1.TrafficTarget{
-					ConfigurationName: "green",
-					Percent:           50,
-				})),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", "blue", "serving.knative.dev/route", "named-traffic-split"),
@@ -1257,7 +1258,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "switch-configs", "blue", nil), "switch-configs.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -1279,22 +1280,6 @@ func TestReconcile(t *testing.T) {
 			patchAddLabel("default", "green", "serving.knative.dev/route", "switch-configs"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeVirtualService(
-				setDomain(simpleRunLatest("default", "switch-configs", "green", nil), "switch-configs.default.example.com"),
-				&traffic.TrafficConfig{
-					Targets: map[string][]traffic.RevisionTarget{
-						"": []traffic.RevisionTarget{{
-							TrafficTarget: v1alpha1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
-		}, {
 			Object: simpleRunLatest("default", "switch-configs", "green", &v1alpha1.RouteStatus{
 				Domain:         "switch-configs.default.example.com",
 				DomainInternal: "switch-configs.default.svc.cluster.local",
@@ -1311,6 +1296,22 @@ func TestReconcile(t *testing.T) {
 					Percent:           100,
 				}},
 			}),
+		}, {
+			Object: resources.MakeIngress(
+				setDomain(simpleRunLatest("default", "switch-configs", "green", nil), "switch-configs.default.example.com"),
+				&traffic.TrafficConfig{
+					Targets: map[string][]traffic.RevisionTarget{
+						"": []traffic.RevisionTarget{{
+							TrafficTarget: v1alpha1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
+								Percent:      100,
+							},
+							Active: true,
+						}},
+					},
+				},
+			),
 		}},
 		Key: "default/switch-configs",
 	}, {
@@ -1352,7 +1353,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "rmlabel-config-failure", "blue", nil), "rmlabel-config-failure.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -1408,7 +1409,7 @@ func TestReconcile(t *testing.T) {
 				// Use the Revision name from the config.
 				simpleReadyConfig("default", "green").Status.LatestReadyRevisionName,
 			),
-			resources.MakeVirtualService(
+			resources.MakeIngress(
 				setDomain(simpleRunLatest("default", "addlabel-config-failure", "blue", nil), "addlabel-config-failure.default.example.com"),
 				&traffic.TrafficConfig{
 					Targets: map[string][]traffic.RevisionTarget{
@@ -1443,6 +1444,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:       listers.GetRevisionLister(),
 			serviceLister:        listers.GetK8sServiceLister(),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
+			ingressLister:        listers.GetIngressLister(),
 			domainConfig: &config.Domain{
 				Domains: map[string]*config.LabelSelector{
 					"example.com": &config.LabelSelector{},
@@ -1455,9 +1457,9 @@ func TestReconcile(t *testing.T) {
 	})
 }
 
-func mutateVirtualService(vs *istiov1alpha3.VirtualService) *istiov1alpha3.VirtualService {
+func mutateIngress(vs *extv1beta1.Ingress) *extv1beta1.Ingress {
 	// Thor's Hammer
-	vs.Spec = istiov1alpha3.VirtualServiceSpec{}
+	vs.Spec = extv1beta1.IngressSpec{}
 	return vs
 }
 
