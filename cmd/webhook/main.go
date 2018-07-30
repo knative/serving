@@ -24,11 +24,13 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/webhook"
+	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/system"
-	"github.com/knative/serving/pkg/webhook"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -81,7 +83,19 @@ func main() {
 		SecretName:     "webhook-certs",
 		WebhookName:    "webhook.serving.knative.dev",
 	}
-	controller, err := webhook.NewAdmissionController(kubeClient, options, logger)
+	controller := webhook.AdmissionController{
+		Client:  kubeClient,
+		Options: options,
+		// TODO(mattmoor): Will we need to rework these to support versioning?
+		GroupVersion: v1alpha1.SchemeGroupVersion,
+		Handlers: map[string]runtime.Object{
+			"Revision":      &v1alpha1.Revision{},
+			"Configuration": &v1alpha1.Configuration{},
+			"Route":         &v1alpha1.Route{},
+			"Service":       &v1alpha1.Service{},
+		},
+		Logger: logger,
+	}
 	if err != nil {
 		logger.Fatal("Failed to create the admission controller", zap.Error(err))
 	}
