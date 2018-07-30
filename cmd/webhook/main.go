@@ -49,6 +49,7 @@ func main() {
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
 	defer logger.Sync()
+
 	logger = logger.With(zap.String(logkey.ControllerType, "webhook"))
 
 	logger.Info("Starting the Configuration Webhook")

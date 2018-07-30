@@ -54,10 +54,7 @@ func NewLogger(configJSON string, levelOverride string) (*zap.SugaredLogger, zap
 	if err2 != nil {
 		panic(err2)
 	}
-
-	logger.Error("Failed to parse the logging config. Falling back to default logger.",
-		zap.Error(err), zap.String(logkey.JSONConfig, configJSON))
-	return logger.Sugar(), loggingCfg.Level
+	return logger.Named("fallback-logger").Sugar(), loggingCfg.Level
 }
 
 // NewLoggerFromConfig creates a logger using the provided Config
