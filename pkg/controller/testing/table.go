@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/controller/testing/builder"
 	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -200,6 +201,8 @@ func NewListers(objs []runtime.Object) Listers {
 			ls.Route.Items = append(ls.Route.Items, o)
 		case *v1alpha1.Configuration:
 			ls.Configuration.Items = append(ls.Configuration.Items, o)
+		case builder.ConfigBuilder:
+			ls.Configuration.Items = append(ls.Configuration.Items, o.Build())
 		case *v1alpha1.Revision:
 			ls.Revision.Items = append(ls.Revision.Items, o)
 
@@ -264,6 +267,13 @@ type Ctor func(*Listers, controller.Options) controller.Interface
 
 func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	ls := NewListers(r.Objects)
+
+	for i, action := range r.WantUpdates {
+		if builder, ok := action.Object.(builder.ConfigBuilder); ok {
+			action.Object = builder.Build()
+		}
+		r.WantUpdates[i] = action
+	}
 
 	kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
