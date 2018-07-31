@@ -202,7 +202,9 @@ func NewListers(objs []runtime.Object) Listers {
 		case *v1alpha1.Configuration:
 			ls.Configuration.Items = append(ls.Configuration.Items, o)
 		case builder.ConfigBuilder:
-			ls.Configuration.Items = append(ls.Configuration.Items, o.Build())
+			ls.Configuration.Items = append(ls.Configuration.Items, o.Configuration)
+		case builder.RevisionBuilder:
+			ls.Revision.Items = append(ls.Revision.Items, o.Revision)
 		case *v1alpha1.Revision:
 			ls.Revision.Items = append(ls.Revision.Items, o)
 
@@ -267,13 +269,6 @@ type Ctor func(*Listers, controller.Options) controller.Interface
 
 func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	ls := NewListers(r.Objects)
-
-	for i, action := range r.WantUpdates {
-		if builder, ok := action.Object.(builder.ConfigBuilder); ok {
-			action.Object = builder.Build()
-		}
-		r.WantUpdates[i] = action
-	}
 
 	kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
@@ -353,7 +348,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := deleteActions[i]
-		if got.GetName() != want.Name {
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
@@ -373,7 +368,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		}
 
 		got := patchActions[i]
-		if got.GetName() != want.Name {
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
