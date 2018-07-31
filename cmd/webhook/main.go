@@ -24,10 +24,10 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
+	"github.com/knative/pkg/signals"
 	"github.com/knative/pkg/webhook"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/system"
 
 	"k8s.io/apimachinery/pkg/runtime"
