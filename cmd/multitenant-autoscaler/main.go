@@ -27,6 +27,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/autoscaler/statserver"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/autoscaling"
 	"github.com/knative/serving/pkg/logging"
@@ -36,6 +37,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -96,16 +98,31 @@ func main() {
 
 	multiScaler := autoscaler.NewMultiScaler(config, revisionScaler, stopCh, uniScalerFactory, logger)
 
-	opt := controller.Options{
+	opt := controller.ReconcileOptions{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
 		Logger:           logger,
 	}
 
-	ctl := autoscaling.NewController(&opt, multiScaler, time.Second*30)
+	servingInformerFactory := informers.NewSharedInformerFactory(servingClientSet, time.Second*30)
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+
+	ctl := autoscaling.NewController(&opt, revisionInformer, multiScaler, time.Second*30)
+
+	// Start the serving informer factory.
+	servingInformerFactory.Start(stopCh)
+
+	// Wait for the caches to be synced before starting controllers.
+	logger.Info("Waiting for informer caches to sync")
+	for i, synced := range []cache.InformerSynced{
+		revisionInformer.Informer().HasSynced,
+	} {
+		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {
+			logger.Fatalf("failed to wait for cache at index %v to sync", i)
+		}
+	}
 
 	var eg errgroup.Group
-
 	eg.Go(func() error {
 		return ctl.Run(controllerThreads, stopCh)
 	})

@@ -256,7 +256,7 @@ type TableRow struct {
 	WithReactors []clientgotesting.ReactionFunc
 }
 
-type Ctor func(*Listers, controller.Options) controller.Interface
+type Ctor func(*Listers, controller.ReconcileOptions) controller.Reconciler
 
 func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	ls := NewListers(r.Objects)
@@ -265,7 +265,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
 	// Set up our Controller from the fakes.
-	c := ctor(&ls, controller.Options{
+	c := ctor(&ls, controller.ReconcileOptions{
 		KubeClientSet:    kubeClient,
 		BuildClientSet:   buildClient,
 		ServingClientSet: client,

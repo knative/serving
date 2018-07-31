@@ -20,36 +20,20 @@ import (
 	"fmt"
 	"time"
 
-	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
-	"github.com/knative/pkg/configmap"
-	"github.com/knative/pkg/logging/logkey"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
 
-// Interface defines the controller interface
-type Interface interface {
-	Run(threadiness int, stopCh <-chan struct{}) error
+// Reconciler is the interface that controller implementations are expected
+// to implement, so that the shared controller.Impl can drive work through it.
+type Reconciler interface {
 	Reconcile(key string) error
-}
-
-func init() {
-	// Add serving types to the default Kubernetes Scheme so Events can be
-	// logged for serving types.
-	servingScheme.AddToScheme(scheme.Scheme)
 }
 
 // PassNew makes it simple to create an UpdateFunc for use with
@@ -77,24 +61,11 @@ func Filter(gvk schema.GroupVersionKind) func(obj interface{}) bool {
 	}
 }
 
-// Base implements most of the boilerplate and common code
-// we have in our controllers.
-type Base struct {
-	// KubeClientSet allows us to talk to the k8s for core APIs
-	KubeClientSet kubernetes.Interface
-
-	// ServingClientSet allows us to configure Serving objects
-	ServingClientSet clientset.Interface
-
-	// BuildClientSet allows us to configure Build objects
-	BuildClientSet buildclientset.Interface
-
-	// ConfigMapWatcher allows us to watch for ConfigMap changes.
-	ConfigMapWatcher configmap.Watcher
-
-	// Recorder is an event recorder for recording Event resources to the
-	// Kubernetes API.
-	Recorder record.EventRecorder
+// Impl implements the core controller logic, given a Reconciler.
+type Impl struct {
+	// Reconciler is the workhorse of this controller, it is fed the keys
+	// from the workqueue to process.  Public for testing.
+	Reconciler Reconciler
 
 	// WorkQueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -108,54 +79,29 @@ type Base struct {
 	// and use the returned raw logger instead. In addition to the
 	// performance benefits, raw logger also preserves type-safety at
 	// the expense of slightly greater verbosity.
-	Logger *zap.SugaredLogger
+	logger *zap.SugaredLogger
 }
 
-// Options defines the common controller options passed to NewBase.
-// We define this to reduce the boilerplate argument list when
-// creating derivative controllers.
-type Options struct {
-	KubeClientSet    kubernetes.Interface
-	ServingClientSet clientset.Interface
-	BuildClientSet   buildclientset.Interface
-	ConfigMapWatcher configmap.Watcher
-	Logger           *zap.SugaredLogger
-}
-
-// NewBase instantiates a new instance of Base implementing
+// NewImpl instantiates a new instance of Base implementing
 // the common & boilerplate code between our controllers.
-func NewBase(opt Options, controllerAgentName, workQueueName string) *Base {
-	// Enrich the logs with controller name
-	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
-
-	// Create event broadcaster
-	logger.Debug("Creating event broadcaster")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: opt.KubeClientSet.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(
-		scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
-
-	base := &Base{
-		KubeClientSet:    opt.KubeClientSet,
-		ServingClientSet: opt.ServingClientSet,
-		BuildClientSet:   opt.BuildClientSet,
-		ConfigMapWatcher: opt.ConfigMapWatcher,
-		Recorder:         recorder,
-		WorkQueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		Logger:           logger,
+func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
+	return &Impl{
+		Reconciler: r,
+		WorkQueue: workqueue.NewNamedRateLimitingQueue(
+			workqueue.DefaultControllerRateLimiter(),
+			workQueueName,
+		),
+		logger: logger,
 	}
-
-	return base
 }
 
 // Enqueue takes a resource and converts it into a
 // namespace/name string which is then put onto the work queue.
-func (c *Base) Enqueue(obj interface{}) {
+func (c *Impl) Enqueue(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
-		c.Logger.Error(zap.Error(err))
+		c.logger.Error(zap.Error(err))
 		return
 	}
 	c.EnqueueKey(key)
@@ -163,13 +109,13 @@ func (c *Base) Enqueue(obj interface{}) {
 
 // EnqueueControllerOf takes a resource, identifies its controller resource, and
 // converts it into a namespace/name string which is then put onto the work queue.
-func (c *Base) EnqueueControllerOf(obj interface{}) {
+func (c *Impl) EnqueueControllerOf(obj interface{}) {
 	// TODO(mattmoor): This will not properly handle Delete, which we do
 	// not currently use.  Consider using "cache.DeletedFinalStateUnknown"
 	// to enqueue the last known owner.
 	object, err := meta.Accessor(obj)
 	if err != nil {
-		c.Logger.Error(zap.Error(err))
+		c.logger.Error(zap.Error(err))
 		return
 	}
 
@@ -181,30 +127,23 @@ func (c *Base) EnqueueControllerOf(obj interface{}) {
 }
 
 // EnqueueKey takes a namespace/name string and puts it onto the work queue.
-func (c *Base) EnqueueKey(key string) {
+func (c *Impl) EnqueueKey(key string) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
 // RunController starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
 // is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
 // current work items.
-func (c *Base) RunController(
-	threadiness int,
-	stopCh <-chan struct{},
-	syncHandler func(string) error,
-	controllerName string) error {
-
+func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.WorkQueue.ShutDown()
 
-	logger := c.Logger
-	logger.Infof("Starting %s controller", controllerName)
-
 	// Launch workers to process Revision resources
-	logger.Info("Starting workers")
+	logger := c.logger
+	logger.Info("Starting controller and workers")
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(func() {
-			for c.processNextWorkItem(syncHandler) {
+			for c.processNextWorkItem(c.Reconciler.Reconcile) {
 			}
 		}, time.Second, stopCh)
 	}
@@ -218,7 +157,7 @@ func (c *Base) RunController(
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
-func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
+func (c *Impl) processNextWorkItem(syncHandler func(string) error) bool {
 	obj, shutdown := c.WorkQueue.Get()
 
 	if shutdown {
@@ -246,7 +185,7 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 			// Forget here else we'd go into a loop of attempting to
 			// process a work item that is invalid.
 			c.WorkQueue.Forget(obj)
-			c.Logger.Errorf("expected string in workqueue but got %#v", obj)
+			c.logger.Errorf("expected string in workqueue but got %#v", obj)
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
@@ -257,12 +196,12 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.WorkQueue.Forget(obj)
-		c.Logger.Infof("Successfully synced %q", key)
+		c.logger.Infof("Successfully synced %q", key)
 		return nil
 	}(obj)
 
 	if err != nil {
-		c.Logger.Error(zap.Error(err))
+		c.logger.Error(zap.Error(err))
 		return true
 	}
 

@@ -21,12 +21,12 @@ import (
 	"time"
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	hooks "github.com/knative/serving/pkg/controller/testing"
-	. "github.com/knative/pkg/logging/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,7 +89,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
-	controller *Controller,
+	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory) {
 
@@ -106,7 +106,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
-		ctrl.Options{
+		ctrl.ReconcileOptions{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
