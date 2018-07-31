@@ -184,7 +184,7 @@ func NewController(
 	})
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter("Revision"),
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
@@ -192,7 +192,7 @@ func NewController(
 	})
 
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter("Revision"),
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
