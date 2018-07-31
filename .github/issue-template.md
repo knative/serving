@@ -1,6 +1,7 @@
 <!--
-Uncomment leaving one or more of the following to ensure that the appropriate
-working groups are aware of the issue:
+Pro-tip: You can leave this block commented, and it still works!
+
+Select the appropriate areas for your issue:
 
 /area API
 /area autoscale
@@ -9,21 +10,17 @@ working groups are aware of the issue:
 /area networking
 /area test-and-release
 
--->
+Classify what kind of issue this is:
 
-<!--
-Uncomment leaving one or more of the following to classify the kind of issue:
-
+/kind question
 /kind bug
 /kind cleanup
-/kind dev
 /kind doc
--->
+/kind feature
+/kind good-first-issue
+/kind process
+/kind spec
 
-<!--
-You may also assign an issue via:
-
-/assign @user
 -->
 
 ## Expected Behavior

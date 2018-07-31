@@ -27,11 +27,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/knative/serving/pkg/system"
-
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/pkg/logging"
 )
 
 const (
@@ -41,14 +39,14 @@ const (
 
 // Create the common parts of the cert. These don't change between
 // the root/CA cert and the server cert.
-func createCertTemplate() (*x509.Certificate, error) {
+func createCertTemplate(name, namespace string) (*x509.Certificate, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
 		return nil, errors.New("failed to generate serial number: " + err.Error())
 	}
 
-	serviceName := servingWebhookDeployment + "." + system.Namespace
+	serviceName := name + "." + namespace
 	serviceNames := []string{serviceName, serviceName + ".svc", serviceName + ".svc.cluster.local"}
 
 	tmpl := x509.Certificate{
@@ -64,8 +62,8 @@ func createCertTemplate() (*x509.Certificate, error) {
 }
 
 // Create cert template suitable for CA and hence signing
-func createCACertTemplate() (*x509.Certificate, error) {
-	rootCert, err := createCertTemplate()
+func createCACertTemplate(name, namespace string) (*x509.Certificate, error) {
+	rootCert, err := createCertTemplate(name, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +75,8 @@ func createCACertTemplate() (*x509.Certificate, error) {
 }
 
 // Create cert template that we can use on the server for TLS
-func createServerCertTemplate() (*x509.Certificate, error) {
-	serverCert, err := createCertTemplate()
+func createServerCertTemplate(name, namespace string) (*x509.Certificate, error) {
+	serverCert, err := createCertTemplate(name, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +102,7 @@ func createCert(template, parent *x509.Certificate, pub interface{}, parentPriv 
 	return
 }
 
-func createCA(ctx context.Context) (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
+func createCA(ctx context.Context, name, namespace string) (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
 	logger := logging.FromContext(ctx)
 	rootKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -112,7 +110,7 @@ func createCA(ctx context.Context) (*rsa.PrivateKey, *x509.Certificate, []byte, 
 		return nil, nil, nil, err
 	}
 
-	rootCertTmpl, err := createCACertTemplate()
+	rootCertTmpl, err := createCACertTemplate(name, namespace)
 	if err != nil {
 		logger.Error("error generating CA cert", zap.Error(err))
 		return nil, nil, nil, err
@@ -130,10 +128,10 @@ func createCA(ctx context.Context) (*rsa.PrivateKey, *x509.Certificate, []byte, 
 // key for the server. serverKey and serverCert are used by the server
 // to establish trust for clients, CA certificate is used by the
 // client to verify the server authentication chain.
-func CreateCerts(ctx context.Context) (serverKey, serverCert, caCert []byte, err error) {
+func CreateCerts(ctx context.Context, name, namespace string) (serverKey, serverCert, caCert []byte, err error) {
 	logger := logging.FromContext(ctx)
 	// First create a CA certificate and private key
-	caKey, caCertificate, caCertificatePEM, err := createCA(ctx)
+	caKey, caCertificate, caCertificatePEM, err := createCA(ctx, name, namespace)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -144,7 +142,7 @@ func CreateCerts(ctx context.Context) (serverKey, serverCert, caCert []byte, err
 		logger.Error("error generating random key", zap.Error(err))
 		return nil, nil, nil, err
 	}
-	servCertTemplate, err := createServerCertTemplate()
+	servCertTemplate, err := createServerCertTemplate(name, namespace)
 	if err != nil {
 		logger.Error("failed to create the server certificate template", zap.Error(err))
 		return nil, nil, nil, err

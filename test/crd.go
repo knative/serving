@@ -39,6 +39,13 @@ type ResourceNames struct {
 	TrafficTarget string
 }
 
+// ResourceObjects holds types of the resource objects.
+type ResourceObjects struct {
+	Route         *v1alpha1.Route
+	Configuration *v1alpha1.Configuration
+	Service       *v1alpha1.Service
+}
+
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
 func Route(namespace string, names ResourceNames) *v1alpha1.Route {

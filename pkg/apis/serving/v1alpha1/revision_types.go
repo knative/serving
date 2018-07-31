@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -164,6 +165,25 @@ const (
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )
 
+type RevisionConditionSlice []RevisionCondition
+
+// Len implements sort.Interface
+func (rcs RevisionConditionSlice) Len() int {
+	return len(rcs)
+}
+
+// Less implements sort.Interface
+func (rcs RevisionConditionSlice) Less(i, j int) bool {
+	return rcs[i].Type < rcs[j].Type
+}
+
+// Swap implements sort.Interface
+func (rcs RevisionConditionSlice) Swap(i, j int) {
+	rcs[i], rcs[j] = rcs[j], rcs[i]
+}
+
+var _ sort.Interface = (RevisionConditionSlice)(nil)
+
 // RevisionCondition defines a readiness condition for a Revision.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RevisionCondition struct {
@@ -172,7 +192,9 @@ type RevisionCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
+	// differences (all other things held constant).
+	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -194,7 +216,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions []RevisionCondition `json:"conditions,omitempty"`
+	Conditions RevisionConditionSlice `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -266,7 +288,7 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	}
 
 	t := new.Type
-	var conditions []RevisionCondition
+	var conditions RevisionConditionSlice
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -278,18 +300,9 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	rs.Conditions = conditions
-}
-
-func (rs *RevisionStatus) RemoveCondition(t RevisionConditionType) {
-	var conditions []RevisionCondition
-	for _, cond := range rs.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
+	sort.Sort(conditions)
 	rs.Conditions = conditions
 }
 

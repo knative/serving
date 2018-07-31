@@ -258,9 +258,14 @@
   name = "github.com/knative/pkg"
   packages = [
     "apis",
-    "configmap"
+    "configmap",
+    "logging",
+    "logging/logkey",
+    "logging/testing",
+    "signals",
+    "webhook"
   ]
-  revision = "945c05cc41ca3f9992ba4d4829ab3f9db61c26ae"
+  revision = "484160f313516c21c2c619e30a515e4aa600445a"
 
 [[projects]]
   branch = "master"
@@ -800,6 +805,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d5f2d4525c2478aa10cb4b37156cec18f50aa1288a84d3dfa6e84f16ac9958ed"
+  inputs-digest = "ac2a2dd0ad8c194db279e6dc08fa8fd51a42ceeacaec3e1c6e2c417b66db0465"
   solver-name = "gps-cdcl"
   solver-version = 1

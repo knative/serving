@@ -28,15 +28,15 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/pkg/logging/logkey"
 
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/controller"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/signals"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
 	"go.opencensus.io/exporter/prometheus"
@@ -162,11 +162,6 @@ func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
 		reporter: a.reporter,
 		start:    start,
 	}
-
-	// TODO: Clear the host to avoid 404's.
-	// https://github.com/knative/serving/issues/964
-	r.Host = ""
-
 	proxy.ServeHTTP(w, r)
 }
 

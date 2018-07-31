@@ -114,6 +114,12 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Authority: &v1alpha3.StringMatch{Exact: "domain.com"},
 		}, {
 			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 		}},
 		Route: []v1alpha3.DestinationWeight{{
 			Destination: v1alpha3.Destination{
@@ -123,9 +129,6 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Authority: &v1alpha3.StringMatch{Exact: "v1.domain.com"},
@@ -138,9 +141,6 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}}
 	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
@@ -161,7 +161,12 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 		},
 	}
 	base := "domain.com"
-	expected := []string{base, "test-route.test-ns.svc.cluster.local"}
+	expected := []string{base,
+		"test-route.test-ns.svc.cluster.local",
+		"test-route.test-ns.svc",
+		"test-route.test-ns",
+		"test-route",
+	}
 	domains := getRouteDomains("", r, base)
 	if diff := cmp.Diff(expected, domains); diff != "" {
 		t.Errorf("Unexpected domains  (-want +got): %v", diff)
@@ -214,9 +219,6 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -254,9 +256,6 @@ func TestMakeVirtualServiceRoute_ZeroPercentTarget(t *testing.T) {
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -301,9 +300,6 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Weight: 10,
 		}},
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
@@ -340,7 +336,6 @@ func TestMakeVirtualServiceRoute_VanillaScaledToZero(t *testing.T) {
 			"knative-serving-revision":      "revision",
 			"knative-serving-configuration": "config",
 			"knative-serving-namespace":     "test-ns",
-			IstioTimeoutHackHeaderKey:       IstioTimeoutHackHeaderValue,
 		},
 		Timeout: DefaultRouteTimeout,
 	}
@@ -384,7 +379,6 @@ func TestMakeVirtualServiceRoute_TwoInactiveTargets(t *testing.T) {
 			"knative-serving-revision":      "revision",
 			"knative-serving-configuration": "config",
 			"knative-serving-namespace":     "test-ns",
-			IstioTimeoutHackHeaderKey:       IstioTimeoutHackHeaderValue,
 		},
 		Timeout: DefaultRouteTimeout,
 	}
@@ -425,9 +419,6 @@ func TestMakeVirtualServiceRoute_ZeroPercentNamedTargetScaledToZero(t *testing.T
 			Weight: 100,
 		}},
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}
 	if diff := cmp.Diff(&expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)

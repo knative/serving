@@ -85,6 +85,7 @@ func (fe *FieldError) Error() string {
 	return fmt.Sprintf("%v: %v\n%v", fe.Message, strings.Join(fe.Paths, ", "), fe.Details)
 }
 
+// ErrMissingField is a variadic helper method for constructing a FieldError for a set of missing fields.
 func ErrMissingField(fieldPaths ...string) *FieldError {
 	return &FieldError{
 		Message: "missing field(s)",
@@ -92,6 +93,7 @@ func ErrMissingField(fieldPaths ...string) *FieldError {
 	}
 }
 
+// ErrDisallowedFields is a variadic helper method for constructing a FieldError for a set of disallowed fields.
 func ErrDisallowedFields(fieldPaths ...string) *FieldError {
 	return &FieldError{
 		Message: "must not set the field(s)",
@@ -99,6 +101,7 @@ func ErrDisallowedFields(fieldPaths ...string) *FieldError {
 	}
 }
 
+// ErrInvalidValue constructs a FieldError for a field that has received an invalid string value.
 func ErrInvalidValue(value string, fieldPath string) *FieldError {
 	return &FieldError{
 		Message: fmt.Sprintf("invalid value %q", value),

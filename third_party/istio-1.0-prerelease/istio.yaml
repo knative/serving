@@ -4,6 +4,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system
+  labels:
+    istio-injection: disabled
 # PATCH #1 ends.
 ---
 # Source: istio/charts/galley/templates/configmap.yaml
@@ -1067,7 +1069,7 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: enabled
+    policy: disabled
     template: |-
       initContainers:
       - name: istio-init

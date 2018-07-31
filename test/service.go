@@ -18,8 +18,6 @@ limitations under the License.
 package test
 
 import (
-	"encoding/json"
-
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"go.uber.org/zap"
 )
@@ -28,13 +26,7 @@ import (
 // that uses the image specifed by imagePath
 func CreateLatestService(logger *zap.SugaredLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
 	service := LatestService(Flags.Namespace, names, imagePath)
-	// Log the service object
-	if serviceJSON, err := json.Marshal(service); err != nil {
-		logger.Infof("Failed to create json from service object: %v", err)
-	} else {
-		logger.Infow("Created resource object", "SERVICE", string(serviceJSON))
-	}
-
+	LogResourceObject(logger, ResourceObjects{Service: service})
 	svc, err := clients.Services.Create(service)
 	return svc, err
 }

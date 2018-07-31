@@ -21,8 +21,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/knative/serving/pkg/logging"
 	"go.uber.org/zap"
+
+	"github.com/knative/pkg/logging"
 )
 
 var (

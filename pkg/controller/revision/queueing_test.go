@@ -42,7 +42,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
 	. "github.com/knative/serving/pkg/controller/testing"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 )
 
 type nopResolver struct{}

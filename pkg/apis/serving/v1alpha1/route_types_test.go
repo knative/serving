@@ -146,13 +146,6 @@ func TestRouteConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
-	// Remove a non-existent condition.
-	svc.Status.RemoveCondition(bar.Type)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
 	// Add a second condition.
 	svc.Status.setCondition(bar)
 
@@ -160,17 +153,10 @@ func TestRouteConditions(t *testing.T) {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
-	// Remove an existing condition.
-	svc.Status.RemoveCondition(bar.Type)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
 	// Add nil condition.
 	svc.Status.setCondition(nil)
 
-	if got, want := len(svc.Status.Conditions), 1; got != want {
+	if got, want := len(svc.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 }

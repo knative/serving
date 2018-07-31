@@ -18,7 +18,10 @@
 [ -f /workspace/library.sh ] \
   && source /workspace/library.sh \
   || eval "$(docker run --entrypoint sh gcr.io/knative-tests/test-infra/prow-tests -c 'cat library.sh')"
-[ -v KNATIVE_TEST_INFRA ] || exit 1
+
+if [ -z "${KNATIVE_TEST_INFRA}" ]; then
+  exit 1
+fi
 
 set -o errexit
 set -o nounset

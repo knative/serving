@@ -60,8 +60,7 @@ func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string
 		return err
 	}
 	// TODO(tcnghia): Replace this probing with Status check when we have them.
-	client.RetryCodes = []int{http.StatusNotFound, http.StatusServiceUnavailable}
-	_, err = client.Poll(req, test.MatchesAny)
+	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
 	return err
 }
 
@@ -181,7 +180,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a Configuration")
-	if _, err := clients.Configs.Create(test.Configuration(test.Flags.Namespace, names, imagePaths[0])); err != nil {
+	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
@@ -223,7 +222,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	green.TrafficTarget = "green"
 
 	logger.Infof("Creating a Route")
-	if _, err := clients.Routes.Create(test.BlueGreenRoute(test.Flags.Namespace, names, blue, green)); err != nil {
+	if err := test.CreateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 

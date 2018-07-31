@@ -29,6 +29,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	commonlogging "github.com/knative/pkg/logging"
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/controller/revision/config"
@@ -120,7 +122,7 @@ type Controller struct {
 
 	// loggingConfig could change over time and access to it
 	// must go through loggingConfigMutex
-	loggingConfig      *logging.Config
+	loggingConfig      *commonlogging.Config
 	loggingConfigMutex sync.Mutex
 
 	// observabilityConfig could change over time and access to it
@@ -215,7 +217,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.
 func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Revision, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
 }
 
 // Reconcile compares the actual state with the desired, and attempts to
@@ -369,7 +371,7 @@ func (c *Controller) EnqueueEndpointsRevision(obj interface{}) {
 func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
+	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
@@ -497,7 +499,7 @@ func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.De
 func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
 	ns := rev.Namespace
 	serviceName := resourcenames.K8sService(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
+	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.KubernetesService, serviceName))
 
 	rev.Status.ServiceName = serviceName
 
@@ -677,7 +679,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
 
 	ns := system.Namespace
 	serviceName := resourcenames.Autoscaler(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.KubernetesService, serviceName))
+	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.KubernetesService, serviceName))
 
 	service, err := c.serviceLister.Services(ns).Get(serviceName)
 	switch rev.Spec.ServingState {
@@ -742,7 +744,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
 
 	ns := system.Namespace
 	deploymentName := resourcenames.Autoscaler(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
+	logger := logging.FromContext(ctx).With(zap.String(commonlogkey.Deployment, deploymentName))
 
 	deployment, getDepErr := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	switch rev.Spec.ServingState {
@@ -976,7 +978,7 @@ func (c *Controller) getControllerConfig() *config.Controller {
 	return c.controllerConfig.DeepCopy()
 }
 
-func (c *Controller) getLoggingConfig() *logging.Config {
+func (c *Controller) getLoggingConfig() *commonlogging.Config {
 	c.loggingConfigMutex.Lock()
 	defer c.loggingConfigMutex.Unlock()
 	return c.loggingConfig.DeepCopy()

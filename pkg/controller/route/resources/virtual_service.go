@@ -35,19 +35,6 @@ const (
 	PortNumber = 80
 	PortName   = "http"
 
-	// There is a bug in Istio 0.8 preventing the timeout to
-	// be set more than 15 seconds.  The bug is now fixed at HEAD,
-	// but not yet released.  15 seconds is too short for our 0->1
-	// use case (see https://github.com/knative/serving/issues/1297).
-	//
-	// HACK: This applies the workaround suggested in
-	//     https://github.com/istio/istio/issues/6230
-	// to allow setting a longer timeout than 15s.
-	//
-	// TODO: Remove hack when Istio 1.0 is out.
-	IstioTimeoutHackHeaderKey   = "x-envoy-upstream-rq-timeout-ms"
-	IstioTimeoutHackHeaderValue = "0"
-
 	DefaultRouteTimeout = "60s"
 )
 
@@ -65,6 +52,18 @@ func MakeVirtualService(u *v1alpha1.Route, tc *traffic.TrafficConfig) *v1alpha3.
 	}
 }
 
+func dedup(strs []string) []string {
+	existed := make(map[string]struct{})
+	unique := []string{}
+	for _, s := range strs {
+		if _, ok := existed[s]; !ok {
+			existed[s] = struct{}{}
+			unique = append(unique, s)
+		}
+	}
+	return unique
+}
+
 func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.RevisionTarget) v1alpha3.VirtualServiceSpec {
 	domain := u.Status.Domain
 	spec := v1alpha3.VirtualServiceSpec{
@@ -76,13 +75,13 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 			names.K8sGatewayFullname,
 			"mesh",
 		},
-		Hosts: []string{
+		Hosts: dedup([]string{
 			// Traffic originates from outside of the cluster would be of the form "*.domain", or "domain"
 			fmt.Sprintf("*.%s", domain),
 			domain,
 			// Traffic from inside the cluster will use the FQDN of the Route's headless Service.
 			names.K8sServiceFullname(u),
-		},
+		}),
 	}
 	names := []string{}
 	for name := range targets {
@@ -98,13 +97,21 @@ func makeVirtualServiceSpec(u *v1alpha1.Route, targets map[string][]traffic.Revi
 }
 
 func getRouteDomains(targetName string, u *v1alpha1.Route, domain string) []string {
+	var domains []string
 	if targetName == "" {
-		// Nameless traffic targets correspond to two domains: the Route.Status.Domain, and also the FQDN
-		// of the Route's headless Service.
-		return []string{domain, names.K8sServiceFullname(u)}
+		// Nameless traffic targets correspond to many domains: the
+		// Route.Status.Domain, and also various names of the Route's
+		// headless Service.
+		domains = []string{domain,
+			names.K8sServiceFullname(u),
+			fmt.Sprintf("%s.%s.svc", u.Name, u.Namespace),
+			fmt.Sprintf("%s.%s", u.Name, u.Namespace),
+			u.Name,
+		}
+	} else {
+		domains = []string{fmt.Sprintf("%s.%s", targetName, domain)}
 	}
-	// Named traffic targets correspond to a subdomain of the Route.Status.Domain.
-	return []string{fmt.Sprintf("%s.%s", targetName, domain)}
+	return dedup(domains)
 }
 
 func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.RevisionTarget) *v1alpha3.HTTPRoute {
@@ -143,9 +150,6 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 		Match:   matches,
 		Route:   weights,
 		Timeout: DefaultRouteTimeout,
-		AppendHeaders: map[string]string{
-			IstioTimeoutHackHeaderKey: IstioTimeoutHackHeaderValue,
-		},
 	}
 	// Add traffic rules for activator.
 	return addActivatorRoutes(&route, ns, inactive)
@@ -193,9 +197,11 @@ func addActivatorRoutes(r *v1alpha3.HTTPRoute, ns string, inactive []traffic.Rev
 		},
 		Weight: totalInactivePercent,
 	})
-	r.AppendHeaders[controller.GetRevisionHeaderName()] = maxInactiveTarget.RevisionName
-	r.AppendHeaders[controller.GetConfigurationHeader()] = maxInactiveTarget.ConfigurationName
-	r.AppendHeaders[controller.GetRevisionHeaderNamespace()] = ns
+	r.AppendHeaders = map[string]string{
+		controller.GetRevisionHeaderName():      maxInactiveTarget.RevisionName,
+		controller.GetConfigurationHeader():     maxInactiveTarget.ConfigurationName,
+		controller.GetRevisionHeaderNamespace(): ns,
+	}
 	return r
 }
 

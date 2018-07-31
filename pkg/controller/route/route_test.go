@@ -16,13 +16,6 @@ limitations under the License.
 
 package route
 
-/* TODO tests:
-- When a Route is created:
-  - a namespace is created
-
-- When a Revision is updated TODO
-- When a Revision is deleted TODO
-*/
 import (
 	"fmt"
 	"strings"
@@ -35,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -42,7 +36,6 @@ import (
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	ctrl "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
-	. "github.com/knative/serving/pkg/logging/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -293,7 +286,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -306,20 +298,25 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():        "test-rev",
-				ctrl.GetConfigurationHeader():       "test-config",
-				ctrl.GetRevisionHeaderNamespace():   testNamespace,
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
+				ctrl.GetRevisionHeaderName():      "test-rev",
+				ctrl.GetConfigurationHeader():     "test-config",
+				ctrl.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 		}},
@@ -374,7 +371,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -387,13 +383,19 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -409,9 +411,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 				Weight: 10,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -467,7 +466,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -480,13 +478,19 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -496,10 +500,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Weight: 90,
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():        "test-rev",
-				ctrl.GetConfigurationHeader():       "test-config",
-				ctrl.GetRevisionHeaderNamespace():   testNamespace,
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
+				ctrl.GetRevisionHeaderName():      "test-rev",
+				ctrl.GetConfigurationHeader():     "test-config",
+				ctrl.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 		}},
@@ -569,7 +572,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	}
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -582,13 +584,19 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -604,9 +612,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 50,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "test-revision-1." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -617,9 +622,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "test-revision-2." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -630,9 +632,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {
@@ -685,7 +684,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		t.Fatalf("error getting virtualservice: %v", err)
 	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
-	clusterDomain := "test-route.test.svc.cluster.local"
 	expectedSpec := v1alpha3.VirtualServiceSpec{
 		// We want to connect to two Gateways: the Route's ingress
 		// Gateway, and the 'mesh' Gateway.  The former provides
@@ -698,13 +696,19 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		Hosts: []string{
 			"*." + domain,
 			domain,
-			clusterDomain,
+			"test-route.test.svc.cluster.local",
 		},
 		Http: []v1alpha3.HTTPRoute{{
 			Match: []v1alpha3.HTTPMatchRequest{{
 				Authority: &v1alpha3.StringMatch{Exact: domain},
 			}, {
-				Authority: &v1alpha3.StringMatch{Exact: clusterDomain},
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc.cluster.local"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test.svc"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route.test"},
+			}, {
+				Authority: &v1alpha3.StringMatch{Exact: "test-route"},
 			}},
 			Route: []v1alpha3.DestinationWeight{{
 				Destination: v1alpha3.Destination{
@@ -720,9 +724,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 50,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "bar." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -733,9 +734,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}, {
 			Match: []v1alpha3.HTTPMatchRequest{{Authority: &v1alpha3.StringMatch{Exact: "foo." + domain}}},
 			Route: []v1alpha3.DestinationWeight{{
@@ -746,9 +744,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				Weight: 100,
 			}},
 			Timeout: resources.DefaultRouteTimeout,
-			AppendHeaders: map[string]string{
-				resources.IstioTimeoutHackHeaderKey: resources.IstioTimeoutHackHeaderValue,
-			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, vs.Spec); diff != "" {

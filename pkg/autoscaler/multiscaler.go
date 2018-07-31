@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
@@ -127,7 +128,7 @@ func (m *MultiScaler) OnAbsent(namespace string, name string, logger *zap.Sugare
 
 // loggerWithRevisionInfo enriches the logs with revision name and namespace.
 func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *zap.SugaredLogger {
-	return logger.With(zap.String(logkey.Namespace, ns), zap.String(logkey.Revision, name))
+	return logger.With(zap.String(commonlogkey.Namespace, ns), zap.String(logkey.Revision, name))
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, rev *v1alpha1.Revision) (*scalerRunner, error) {

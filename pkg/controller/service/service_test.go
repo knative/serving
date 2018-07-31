@@ -32,7 +32,7 @@ import (
 	"github.com/knative/serving/pkg/controller/service/resources"
 
 	. "github.com/knative/serving/pkg/controller/testing"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 )
 
 var (
@@ -48,10 +48,10 @@ var (
 	}
 
 	initialConditions = []v1alpha1.ServiceCondition{{
-		Type:   v1alpha1.ServiceConditionReady,
+		Type:   v1alpha1.ServiceConditionConfigurationsReady,
 		Status: corev1.ConditionUnknown,
 	}, {
-		Type:   v1alpha1.ServiceConditionConfigurationsReady,
+		Type:   v1alpha1.ServiceConditionReady,
 		Status: corev1.ConditionUnknown,
 	}, {
 		Type:   v1alpha1.ServiceConditionRoutesReady,

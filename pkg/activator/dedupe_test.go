@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	. "github.com/knative/serving/pkg/logging/testing"
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {

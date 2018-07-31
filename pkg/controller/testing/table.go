@@ -40,7 +40,7 @@ import (
 	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/controller"
-	. "github.com/knative/serving/pkg/logging/testing"
+	. "github.com/knative/pkg/logging/testing"
 )
 
 // Listers holds the universe of objects that are available at the start
@@ -249,6 +249,9 @@ type TableRow struct {
 	// WantDeletes holds the set of Delete calls we expect during reconciliation.
 	WantDeletes []clientgotesting.DeleteActionImpl
 
+	// WantPatches holds the set of Patch calls we expect during reconcilliation
+	WantPatches []clientgotesting.PatchActionImpl
+
 	// WantQueue is the set of keys we expect to be in the workqueue following reconciliation.
 	WantQueue []string
 
@@ -296,7 +299,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		t.Errorf("unexpected queue (-Want +got): %s", diff)
 	}
 
-	createActions, updateActions, deleteActions := extractActions(t, buildClient, client, kubeClient)
+	createActions, updateActions, deleteActions, patchActions := extractActions(t, buildClient, client, kubeClient)
 
 	for i, want := range r.WantCreates {
 		if i >= len(createActions) {
@@ -352,15 +355,41 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			t.Errorf("Extra delete: %v", extra)
 		}
 	}
+
+	for i, want := range r.WantPatches {
+		if i >= len(patchActions) {
+			t.Errorf("Missing patch: %v", want)
+			continue
+		}
+
+		got := patchActions[i]
+		if got.GetName() != want.Name {
+			t.Errorf("unexpected patch[%d]: %#v", i, got)
+		}
+		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
+			t.Errorf("unexpected patch[%d]: %#v", i, got)
+		}
+		if diff := cmp.Diff(string(want.GetPatch()), string(got.GetPatch())); diff != "" {
+			t.Errorf("unexpected patch(-want +got): %s", diff)
+		}
+	}
+	if got, want := len(patchActions), len(r.WantPatches); got > want {
+		for _, extra := range patchActions[want:] {
+			t.Errorf("Extra patch: %v", extra)
+		}
+	}
 }
 
 type hasActions interface {
 	Actions() []clientgotesting.Action
 }
 
-func extractActions(t *testing.T, clients ...hasActions) (createActions []clientgotesting.CreateAction,
+func extractActions(t *testing.T, clients ...hasActions) (
+	createActions []clientgotesting.CreateAction,
 	updateActions []clientgotesting.UpdateAction,
-	deleteActions []clientgotesting.DeleteAction) {
+	deleteActions []clientgotesting.DeleteAction,
+	patchActions []clientgotesting.PatchAction,
+) {
 
 	for _, c := range clients {
 		for _, action := range c.Actions() {
@@ -374,6 +403,9 @@ func extractActions(t *testing.T, clients ...hasActions) (createActions []client
 			case "delete":
 				deleteActions = append(deleteActions,
 					action.(clientgotesting.DeleteAction))
+			case "patch":
+				patchActions = append(patchActions,
+					action.(clientgotesting.PatchAction))
 			default:
 				t.Errorf("Unexpected verb %v: %+v", action.GetVerb(), action)
 			}
@@ -404,7 +436,7 @@ func (tt TableTest) Test(t *testing.T, ctor Ctor) {
 }
 
 var ignoreLastTransitionTime = cmp.FilterPath(func(p cmp.Path) bool {
-	return strings.HasSuffix(p.String(), "LastTransitionTime.Time")
+	return strings.HasSuffix(p.String(), "LastTransitionTime.Inner.Time")
 }, cmp.Ignore())
 
 var safeDeployDiff = cmpopts.IgnoreUnexported(resource.Quantity{})
