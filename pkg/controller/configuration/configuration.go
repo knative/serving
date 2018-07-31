@@ -69,7 +69,7 @@ func NewController(
 	})
 
 	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter("Configuration"),
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Configuration")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),

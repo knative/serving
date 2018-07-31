@@ -75,7 +75,7 @@ func NewController(
 	})
 
 	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter("Service"),
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
@@ -83,7 +83,7 @@ func NewController(
 	})
 
 	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter("Service"),
+		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.EnqueueControllerOf,
 			UpdateFunc: controller.PassNew(c.EnqueueControllerOf),

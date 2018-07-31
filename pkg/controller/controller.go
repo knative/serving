@@ -23,13 +23,13 @@ import (
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servingScheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -65,14 +65,14 @@ func PassNew(f func(interface{})) func(interface{}, interface{}) {
 
 // Filter makes it simple to create FilterFunc's for use with
 // cache.FilteringResourceEventHandler that filter based on the
-// kind of the controlling resources.
-func Filter(kind string) func(obj interface{}) bool {
+// schema.GroupVersionKind of the controlling resources.
+func Filter(gvk schema.GroupVersionKind) func(obj interface{}) bool {
 	return func(obj interface{}) bool {
 		if object, ok := obj.(metav1.Object); ok {
 			owner := metav1.GetControllerOf(object)
 			return owner != nil &&
-				owner.APIVersion == v1alpha1.SchemeGroupVersion.String() &&
-				owner.Kind == kind
+				owner.APIVersion == gvk.GroupVersion().String() &&
+				owner.Kind == gvk.Kind
 		}
 		return false
 	}
