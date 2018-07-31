@@ -102,8 +102,15 @@ func NewController(
 		UpdateFunc: controller.PassNew(c.EnqueueReferringRoute),
 	})
 
-	// TODO(mattmoor): We should Reconcile Routes when controlled Services
-	// and VirtualServices change.
+	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.EnqueueControllerOf,
+		UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
+	})
+
+	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.EnqueueControllerOf,
+		UpdateFunc: controller.PassNew(c.EnqueueControllerOf),
+	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	opt.ConfigMapWatcher.Watch(config.DomainConfigName, c.receiveDomainConfig)
