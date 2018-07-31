@@ -44,7 +44,6 @@ import (
 type Interface interface {
 	Run(threadiness int, stopCh <-chan struct{}) error
 	Reconcile(key string) error
-	GetWorkQueue() workqueue.RateLimitingInterface
 }
 
 func init() {
@@ -268,9 +267,4 @@ func (c *Base) processNextWorkItem(syncHandler func(string) error) bool {
 	}
 
 	return true
-}
-
-// GetWorkQueue helps implement Interface for derivatives.
-func (b *Base) GetWorkQueue() workqueue.RateLimitingInterface {
-	return b.WorkQueue
 }
