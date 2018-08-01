@@ -23,15 +23,10 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
-	_, kna := fakeClients()
-	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder().
-			withServingState(v1alpha1.RevisionServingStateReserve).build())
 	want := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
@@ -41,7 +36,7 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDedupingActivator(Activator(f), kna, TestLogger(t), &mockReporter{})
+	d := NewDedupingActivator(Activator(f))
 
 	endpoint, status, err := d.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
 
@@ -60,10 +55,6 @@ func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 }
 
 func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
-	_, kna := fakeClients()
-	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder().
-			withServingState(v1alpha1.RevisionServingStateReserve).build())
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]activationResult{
@@ -73,7 +64,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDedupingActivator(f, kna, TestLogger(t), &mockReporter{})
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		revisionID{testNamespace, testConfiguration, testRevision},
@@ -113,7 +104,7 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDedupingActivator(f, kna, TestLogger(t), &mockReporter{})
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		revisionID{testNamespace, testConfiguration, "rev1"},
@@ -158,7 +149,7 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 				err:      error2,
 			},
 		})
-	d := NewDedupingActivator(f, kna, TestLogger(t), &mockReporter{})
+	d := NewDedupingActivator(f)
 
 	got := concurrentTest(d, f, []revisionID{
 		revisionID{testNamespace, testConfiguration, "rev1"},
@@ -197,7 +188,7 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 				err:      failErr,
 			},
 		})
-	d := NewDedupingActivator(Activator(f), kna, TestLogger(t), &mockReporter{})
+	d := NewDedupingActivator(Activator(f))
 
 	// Activation initially fails
 	endpoint, status, err := d.ActiveEndpoint(testNamespace, testConfiguration, testRevision)
@@ -254,7 +245,7 @@ func TestShutdown_ReturnError(t *testing.T) {
 				err:      nil,
 			},
 		})
-	d := NewDedupingActivator(Activator(f), kna, TestLogger(t), &mockReporter{})
+	d := NewDedupingActivator(Activator(f))
 	f.hold(revisionID{testNamespace, testConfiguration, testRevision})
 
 	go func() {

@@ -207,7 +207,7 @@ func main() {
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
-	a = activator.NewDedupingActivator(a, servingClient, logger, reporter)
+	a = activator.NewDedupingActivator(a)
 	ah := &activationHandler{a, logger, reporter}
 
 	// set up signals so we handle the first shutdown signal gracefully
