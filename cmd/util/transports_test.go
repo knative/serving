@@ -10,7 +10,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package util
 
 import (
 	"errors"
@@ -21,16 +21,10 @@ import (
 	"go.uber.org/zap"
 )
 
-type roundTripperFunc func(*http.Request) (*http.Response, error)
-
-func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return rt(r)
-}
-
 func TestHttpRoundTripper(t *testing.T) {
 	wants := map[string]bool{}
 	frt := func(key string) http.RoundTripper {
-		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 			wants[key] = true
 
 			return nil, nil
@@ -83,7 +77,7 @@ func TestRetryRoundTripper(t *testing.T) {
 	badStatus := 500
 
 	resp := func(status int) *http.Response {
-		return &http.Response{StatusCode: status, Body: &readCloser{}}
+		return &http.Response{StatusCode: status, Body: &SpyCloser{}}
 	}
 
 	someErr := errors.New("some error")
@@ -125,7 +119,7 @@ func TestRetryRoundTripper(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			transport := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			transport := RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 				return e.wantResp, e.wantErr
 			})
 
@@ -140,7 +134,7 @@ func TestRetryRoundTripper(t *testing.T) {
 				return 1
 			}
 
-			rt := newRetryRoundTripper(transport, logger, retry, shouldRetry)
+			rt := NewRetryRoundTripper(transport, logger, retry, shouldRetry)
 
 			gotResp, gotErr := rt.RoundTrip(req)
 
@@ -152,7 +146,7 @@ func TestRetryRoundTripper(t *testing.T) {
 				t.Errorf("Unexpected error. Want %v, got %v", e.wantErr, gotErr)
 			}
 
-			if e.wantBodyClosed && !e.wantResp.Body.(*readCloser).closed {
+			if e.wantBodyClosed && !e.wantResp.Body.(*SpyCloser).Closed {
 				t.Errorf("Expected response body to be closed.")
 			}
 		})
@@ -221,7 +215,7 @@ func TestLinearRetry(t *testing.T) {
 				return ok
 			}
 
-			lr := linearRetryer(e.interval, e.maxRetries)
+			lr := LinearRetryer(e.interval, e.maxRetries)
 
 			reported := lr(a)
 

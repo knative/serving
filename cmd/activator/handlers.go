@@ -14,10 +14,7 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -27,15 +24,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// activationHandler will proxy a request to the active endpoint for the specified revision,
-// using the provided transport
 type activationHandler struct {
 	activator activator.Activator
 	logger    *zap.SugaredLogger
 	transport http.RoundTripper
 }
 
-func newActivationHandler(a activator.Activator, rt http.RoundTripper, l *zap.SugaredLogger) http.Handler {
+// activationHandler will proxy a request to the active endpoint for the specified revision,
+// using the provided transport
+func NewActivationHandler(a activator.Activator, rt http.RoundTripper, l *zap.SugaredLogger) http.Handler {
 	return &activationHandler{activator: a, transport: rt, logger: l}
 }
 
@@ -66,65 +63,4 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Host = ""
 
 	proxy.ServeHTTP(w, r)
-}
-
-// uploadHandler wraps the provided handler with a request body that supports
-// re-reading and prevents uploads larger than `maxUploadBytes`
-type uploadHandler struct {
-	http.Handler
-	MaxUploadBytes int64
-}
-
-func newUploadHandler(h http.Handler, maxUploadBytes int64) http.Handler {
-	return &uploadHandler{
-		Handler:        h,
-		MaxUploadBytes: maxUploadBytes,
-	}
-}
-
-func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.ContentLength > h.MaxUploadBytes {
-		w.WriteHeader(http.StatusRequestEntityTooLarge)
-		return
-	}
-
-	// The request body cannot be read multiple times for retries.
-	// The workaround is to clone the request body into a byte reader
-	// so the body can be read multiple times.
-	r.Body = newRewinder(r.Body)
-
-	h.Handler.ServeHTTP(w, r)
-}
-
-// rewinder wraps a single-use `ReadCloser` into a `ReadCloser` that can be read multiple times
-type rewinder struct {
-	rc io.ReadCloser
-	rs io.ReadSeeker
-}
-
-func newRewinder(rc io.ReadCloser) io.ReadCloser {
-	return &rewinder{rc: rc}
-}
-
-func (r *rewinder) Read(b []byte) (int, error) {
-	// On the first `Read()`, the contents of `rc` is read into a buffer `rs`.
-	// This buffer is used for all subsequent reads
-	if r.rs == nil {
-		buf, err := ioutil.ReadAll(r.rc)
-		if err != nil {
-			return 0, err
-		}
-		r.rc.Close()
-
-		r.rs = bytes.NewReader(buf)
-	}
-
-	return r.rs.Read(b)
-}
-
-func (r *rewinder) Close() error {
-	// Rewind the buffer on `Close()` for the next call to `Read`
-	r.rs.Seek(0, io.SeekStart)
-
-	return nil
 }

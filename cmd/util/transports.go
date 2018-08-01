@@ -11,14 +11,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package util
 
 import (
 	"net/http"
 	"time"
 
+	h2cutil "github.com/knative/serving/pkg/h2c"
 	"go.uber.org/zap"
 )
+
+type RoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
+}
 
 // httpRoundTripper will use the appropriate transport for the request's http protocol version
 type httpRoundTripper struct {
@@ -39,9 +46,12 @@ func (rt *httpRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	return t.RoundTrip(r)
 }
 
-type retryer func(func() bool) int
+// AutoTransport uses h2c for HTTPv2 requests and falls back to `http.DefaultTransport` for all others
+var AutoTransport = newHttpRoundTripper(http.DefaultTransport, h2cutil.DefaultTransport)
 
-func linearRetryer(interval time.Duration, maxRetries int) retryer {
+type Retryer func(func() bool) int
+
+func LinearRetryer(interval time.Duration, maxRetries int) Retryer {
 	return func(action func() bool) (retries int) {
 		for retries = 1; !action() && retries < maxRetries; retries++ {
 			time.Sleep(interval)
@@ -50,21 +60,23 @@ func linearRetryer(interval time.Duration, maxRetries int) retryer {
 	}
 }
 
-type shouldRetryFunc func(*http.Response) bool
+type ShouldRetryFunc func(*http.Response) bool
 
-func retry503(resp *http.Response) bool {
-	return resp.StatusCode == http.StatusServiceUnavailable
+func ShouldRetryStatus(status int) ShouldRetryFunc {
+	return func(resp *http.Response) bool {
+		return resp.StatusCode == status
+	}
 }
 
 type retryRoundTripper struct {
 	logger      *zap.SugaredLogger
 	transport   http.RoundTripper
-	retry       retryer
-	shouldRetry shouldRetryFunc
+	retry       Retryer
+	shouldRetry ShouldRetryFunc
 }
 
 // retryRoundTripper retries a request on error or `shouldRetry` condition, using the given `retry` strategy
-func newRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, r retryer, sr shouldRetryFunc) http.RoundTripper {
+func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, r Retryer, sr ShouldRetryFunc) http.RoundTripper {
 	return &retryRoundTripper{
 		logger:      l,
 		transport:   rt,

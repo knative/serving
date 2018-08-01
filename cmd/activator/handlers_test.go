@@ -13,7 +13,6 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +23,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/controller"
 	"go.uber.org/zap"
@@ -110,11 +110,17 @@ func TestActivationHandler(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
+<<<<<<< HEAD
 			rt := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 				if r.Host != "" {
 					t.Errorf("Unexpected request host. Want %q, got %q", "", r.Host)
 				}
 
+||||||| merged common ancestors
+			rt := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+=======
+			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+>>>>>>> Move non-activator specific components from cmd/activator to cmd/util
 				if e.wantErr != nil {
 					return nil, e.wantErr
 				}
@@ -122,7 +128,7 @@ func TestActivationHandler(t *testing.T) {
 				return http.DefaultTransport.RoundTrip(r)
 			})
 
-			handler := newActivationHandler(act, rt, logger)
+			handler := NewActivationHandler(act, rt, logger)
 
 			resp := httptest.NewRecorder()
 
@@ -141,98 +147,5 @@ func TestActivationHandler(t *testing.T) {
 				t.Errorf("Unexpected response body. Want %q, got %q", e.wantBody, gotBody)
 			}
 		})
-	}
-}
-
-func TestUploadHandler(t *testing.T) {
-	payload := "SAMPLE PAYLOAD"
-
-	examples := []struct {
-		label     string
-		maxUpload int
-		status    int
-	}{
-		{
-			label:     "under",
-			maxUpload: len(payload) + 1,
-			status:    http.StatusOK,
-		},
-		{
-			label:     "equal",
-			maxUpload: len(payload),
-			status:    http.StatusOK,
-		},
-		{
-			label:     "over",
-			maxUpload: len(payload) - 1,
-			status:    http.StatusRequestEntityTooLarge,
-		},
-	}
-
-	for _, e := range examples {
-		t.Run(e.label, func(t *testing.T) {
-			baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				b1, _ := ioutil.ReadAll(r.Body)
-				r.Body.Close()
-
-				b2, _ := ioutil.ReadAll(r.Body)
-				r.Body.Close()
-
-				if string(b1) != payload || string(b2) != payload {
-					t.Errorf("Expected request body to be rereadable. Want %q, got %q and %q.", payload, b1, b2)
-				}
-			})
-			handler := newUploadHandler(baseHandler, int64(e.maxUpload))
-
-			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "http://example.com", bytes.NewBufferString(payload))
-
-			handler.ServeHTTP(resp, req)
-
-			if resp.Code != e.status {
-				t.Errorf("Unexpected response status for payload %q. Want %d, got %d", payload, e.status, resp.Code)
-			}
-		})
-	}
-}
-
-type readCloser struct {
-	io.Reader
-	closed bool
-}
-
-func (rc *readCloser) Close() error {
-	rc.closed = true
-
-	return nil
-}
-
-func TestRewinder(t *testing.T) {
-	str := "test string"
-	rc := &readCloser{bytes.NewBufferString(str), false}
-	rewinder := newRewinder(rc)
-
-	b1, err := ioutil.ReadAll(rewinder)
-	if err != nil {
-		t.Errorf("Unexpected error reading b1: %v", err)
-	}
-	rewinder.Close()
-
-	b2, err := ioutil.ReadAll(rewinder)
-	if err != nil {
-		t.Errorf("Unexpected error reading b2: %v", err)
-	}
-	rewinder.Close()
-
-	if string(b1) != str {
-		t.Errorf("Unexpected str b1. Want %q, got %q", str, b1)
-	}
-
-	if string(b2) != str {
-		t.Errorf("Unexpected str b2. Want %q, got %q", str, b2)
-	}
-
-	if !rc.closed {
-		t.Errorf("Expected ReadCloser to be closed")
 	}
 }
