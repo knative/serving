@@ -100,8 +100,7 @@ func main() {
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
 	rt := newHttpRoundTripper(http.DefaultTransport, h2cutil.DefaultTransport)
-	rt = newStatusFilterRoundTripper(rt, http.StatusServiceUnavailable)
-	rt = newRetryRoundTripper(rt, logger, defaultMaxRetries, defaultRetryInterval)
+	rt = newRetryRoundTripper(rt, logger, linearRetryer(retryInterval, maxRetries), retry503)
 
 	ah := newActivationHandler(a, rt, logger)
 	ah = newUploadHandler(ah, defaultMaxUploadBytes)

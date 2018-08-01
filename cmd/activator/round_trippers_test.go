@@ -14,9 +14,7 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -30,54 +28,48 @@ func (rt roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestHttpRoundTripper(t *testing.T) {
-	v1Flag := false
-	v1RT := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		v1Flag = true
+	wants := map[string]bool{}
+	frt := func(key string) http.RoundTripper {
+		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			wants[key] = true
 
-		return nil, nil
-	})
+			return nil, nil
+		})
+	}
 
-	v2Flag := false
-	v2RT := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		v2Flag = true
-
-		return nil, nil
-	})
-
-	rt := newHttpRoundTripper(v1RT, v2RT)
+	rt := newHttpRoundTripper(frt("v1"), frt("v2"))
 
 	examples := []struct {
 		label      string
 		protoMajor int
-		wantFlag   *bool
+		want       string
 	}{
 		{
 			label:      "use default transport for http1",
 			protoMajor: 1,
-			wantFlag:   &v1Flag,
+			want:       "v1",
 		},
 		{
 			label:      "use h2c transport for http2",
 			protoMajor: 2,
-			wantFlag:   &v2Flag,
+			want:       "v2",
 		},
 		{
 			label:      "use default transport for all others",
 			protoMajor: 99,
-			wantFlag:   &v1Flag,
+			want:       "v1",
 		},
 	}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			v1Flag = false
-			v2Flag = false
+			wants[e.want] = false
 
 			r := &http.Request{ProtoMajor: e.protoMajor}
 
 			rt.RoundTrip(r)
 
-			if *e.wantFlag != true {
+			if wants[e.want] != true {
 				t.Error("Wrong transport selected for request.")
 			}
 		})
@@ -85,151 +77,160 @@ func TestHttpRoundTripper(t *testing.T) {
 }
 
 func TestRetryRoundTripper(t *testing.T) {
-	wantBody := "all good!"
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(wantBody))
-	}))
-	l := zap.NewExample().Sugar()
-	maxRetries := 3
-	interval := 10 * time.Millisecond
+	req := &http.Request{}
+
+	goodStatus := 200
+	badStatus := 500
+
+	resp := func(status int) *http.Response {
+		return &http.Response{StatusCode: status, Body: &readCloser{}}
+	}
+
+	someErr := errors.New("some error")
+
+	logger := zap.NewExample().Sugar()
+	shouldRetry := func(resp *http.Response) bool {
+		return resp.StatusCode == badStatus
+	}
 
 	examples := []struct {
-		label   string
-		retries int
-		wantErr bool
+		label          string
+		wantResp       *http.Response
+		wantErr        error
+		wantRetry      bool
+		wantBodyClosed bool
 	}{
 		{
-			label:   "success",
-			retries: maxRetries,
-			wantErr: false,
+			label:          "no retry",
+			wantResp:       resp(goodStatus),
+			wantErr:        nil,
+			wantRetry:      false,
+			wantBodyClosed: false,
 		},
 		{
-			label:   "failure",
-			retries: maxRetries + 1,
-			wantErr: true,
+			label:          "retry on error",
+			wantResp:       nil,
+			wantErr:        someErr,
+			wantRetry:      true,
+			wantBodyClosed: false,
+		},
+		{
+			label:          "retry on condition",
+			wantResp:       resp(badStatus),
+			wantErr:        nil,
+			wantRetry:      true,
+			wantBodyClosed: true,
 		},
 	}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			var last time.Time
-
-			gotRetries := 0
-			rt := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				gotRetries += 1
-
-				now := time.Now()
-				duration := now.Sub(last)
-				if duration < interval {
-					t.Errorf("Unexpected retry interval. Want %v, got %v", interval, duration)
-				}
-				last = now
-
-				if gotRetries < e.retries {
-
-					if r.Body != nil {
-						ioutil.ReadAll(r.Body)
-						r.Body.Close()
-					}
-
-					return nil, errors.New("some error!")
-				}
-
-				return http.DefaultTransport.RoundTrip(r)
+			transport := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				return e.wantResp, e.wantErr
 			})
 
-			rrt := newRetryRoundTripper(rt, l, maxRetries, interval)
-			req := httptest.NewRequest("", ts.URL, nil)
+			retry := func(a func() bool) int {
+				if a() {
+					if !e.wantRetry {
+						t.Errorf("Unexpected retry.")
+					}
 
-			resp, err := rrt.RoundTrip(req)
+				}
 
-			wantRetries := maxRetries
-			if e.retries < wantRetries {
-				wantRetries = e.retries
+				return 1
 			}
 
-			if gotRetries != wantRetries {
-				t.Errorf("Unexpected number of retries. Want %d, got %d", wantRetries, gotRetries)
+			rt := newRetryRoundTripper(transport, logger, retry, shouldRetry)
+
+			gotResp, gotErr := rt.RoundTrip(req)
+
+			if gotResp != e.wantResp {
+				t.Errorf("Unexpected response. Want %v, got %v", e.wantResp, gotResp)
 			}
 
-			if e.wantErr {
-				if err == nil {
-					t.Errorf("Expected error")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				gotBody, _ := ioutil.ReadAll(resp.Body)
-				if string(gotBody) != wantBody {
-					t.Errorf("Unexpected response. Want %q, got %q", wantBody, gotBody)
-				}
+			if gotErr != e.wantErr {
+				t.Errorf("Unexpected error. Want %v, got %v", e.wantErr, gotErr)
+			}
+
+			if e.wantBodyClosed && !e.wantResp.Body.(*readCloser).closed {
+				t.Errorf("Expected response body to be closed.")
 			}
 		})
 	}
 }
 
-func TestStatusFilterRoundTripper(t *testing.T) {
-	testServer := func(status int) *httptest.Server {
-		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(status)
-		}))
+func TestLinearRetry(t *testing.T) {
+	checkInterval := func(last *time.Time, want time.Duration) {
+		now := time.Now()
+		got := now.Sub(*last)
+		*last = now
+
+		if got < want {
+			t.Errorf("Unexpected retry interval. Want %v, got %v", want, got)
+		}
 	}
 
-	goodRT := http.DefaultTransport
-	errorRT := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		return nil, errors.New("some error")
-	})
-
-	filtered := []int{501, 502}
-
 	examples := []struct {
-		label     string
-		transport http.RoundTripper
-		status    int
-		err       error
+		label       string
+		interval    time.Duration
+		maxRetries  int
+		responses   []bool
+		wantRetries int
 	}{
 		{
-			label:     "filtered status",
-			transport: goodRT,
-			status:    502,
-			err:       errors.New("Filtering 502"),
+			label:       "atleast once",
+			interval:    5 * time.Millisecond,
+			maxRetries:  0,
+			responses:   []bool{true},
+			wantRetries: 1,
 		},
 		{
-			label:     "unfiltered status",
-			transport: goodRT,
-			status:    503,
-			err:       nil,
+			label:       "< maxRetries",
+			interval:    5 * time.Millisecond,
+			maxRetries:  3,
+			responses:   []bool{false, true},
+			wantRetries: 2,
 		},
 		{
-			label:     "transport error",
-			transport: errorRT,
-			status:    200,
-			err:       errors.New("some error"),
+			label:       "= maxRetries",
+			interval:    10 * time.Millisecond,
+			maxRetries:  3,
+			responses:   []bool{false, false, true},
+			wantRetries: 3,
+		},
+		{
+			label:       "> maxRetries",
+			interval:    5 * time.Millisecond,
+			maxRetries:  3,
+			responses:   []bool{false, false, false, true},
+			wantRetries: 3,
 		},
 	}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-			ts := testServer(e.status)
-			defer ts.Close()
+			var lastRetry time.Time
+			var got int
 
-			rt := newStatusFilterRoundTripper(e.transport, filtered...)
+			a := func() bool {
+				checkInterval(&lastRetry, e.interval)
 
-			req := httptest.NewRequest("", ts.URL, nil)
-			resp, err := rt.RoundTrip(req)
+				ok := e.responses[got]
+				got++
 
-			if e.err != nil {
-				if err.Error() != e.err.Error() {
-					t.Errorf("Unexpected error. Want %v, got %v", e.err, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error %v", err)
-				}
-				if resp.StatusCode != e.status {
-					t.Errorf("Unexpected response status. Want %d, got %d", e.status, resp.StatusCode)
-				}
+				return ok
+			}
+
+			lr := linearRetryer(e.interval, e.maxRetries)
+
+			reported := lr(a)
+
+			if got != e.wantRetries {
+				t.Errorf("Unexpected retries. Want %d, got %d", e.wantRetries, got)
+			}
+
+			if reported != e.wantRetries {
+				t.Errorf("Unexpected retries reported. Want %d, got %d", e.wantRetries, reported)
 			}
 		})
 	}
