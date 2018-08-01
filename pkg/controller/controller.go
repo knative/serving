@@ -131,14 +131,14 @@ func (c *Impl) EnqueueKey(key string) {
 	c.WorkQueue.AddRateLimited(key)
 }
 
-// RunController starts the controller's worker threads, the number of which is threadiness. It then blocks until stopCh
-// is closed, at which point it shuts down its internal work queue and waits for workers to finish processing their
-// current work items.
+// Run starts the controller's worker threads, the number of which is threadiness.
+// It then blocks until stopCh is closed, at which point it shuts down its internal
+// work queue and waits for workers to finish processing their current work items.
 func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.WorkQueue.ShutDown()
 
-	// Launch workers to process Revision resources
+	// Launch workers to process resources that get enqueued to our workqueue.
 	logger := c.logger
 	logger.Info("Starting controller and workers")
 	for i := 0; i < threadiness; i++ {
