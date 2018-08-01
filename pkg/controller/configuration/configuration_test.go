@@ -338,9 +338,9 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/revision-recovers",
 	}}
 
-	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
-		return &Controller{
-			Base:                controller.NewBase(opt, controllerAgentName, "Configurations"),
+	table.Test(t, func(listers *Listers, opt controller.ReconcileOptions) controller.Reconciler {
+		return &Reconciler{
+			Base:                controller.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 		}
