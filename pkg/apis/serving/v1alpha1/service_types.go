@@ -57,6 +57,9 @@ type Service struct {
 var _ apis.Validatable = (*Service)(nil)
 var _ apis.Defaultable = (*Service)(nil)
 
+// Check that ServiceStatus can use our standardized condition manipulation infrastructure.
+var _ conditionAccessor = (*ServiceStatus)(nil)
+
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
 // track the latest ready revision of a configuration or be pinned to a specific
@@ -127,6 +130,16 @@ const (
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
 	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
+)
+
+var (
+	serviceConditions = &conditionManager{
+		ready: string(ServiceConditionReady),
+		subconditions: []string{
+			string(ServiceConditionRoutesReady),
+			string(ServiceConditionConfigurationsReady),
+		},
+	}
 )
 
 type ServiceConditionSlice []ServiceCondition
@@ -229,43 +242,42 @@ func (ss *ServiceStatus) GetCondition(t ServiceConditionType) *ServiceCondition 
 	return nil
 }
 
-func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
-	if new == nil {
-		return
+// setCondition implements conditionAccessor
+func (ss *ServiceStatus) setCondition(t string, status corev1.ConditionStatus, reason, message string) {
+	new := ServiceCondition{
+		Type:    ServiceConditionType(t),
+		Status:  status,
+		Reason:  reason,
+		Message: message,
 	}
-
-	t := new.Type
 	var conditions ServiceConditionSlice
 	for _, cond := range ss.Conditions {
-		if cond.Type != t {
+		if cond.Type != new.Type {
 			conditions = append(conditions, cond)
 		} else {
 			// If we'd only update the LastTransitionTime, then return.
 			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
+			if reflect.DeepEqual(new, cond) {
 				return
 			}
 		}
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
+	conditions = append(conditions, new)
 	sort.Sort(conditions)
 	ss.Conditions = conditions
 }
 
-func (ss *ServiceStatus) InitializeConditions() {
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionReady,
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		if rc := ss.GetCondition(cond); rc == nil {
-			ss.setCondition(&ServiceCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
+// getConditionStatus implements conditionAccessor
+func (ss *ServiceStatus) getConditionStatus(t string) *corev1.ConditionStatus {
+	if c := ss.GetCondition(ServiceConditionType(t)); c != nil {
+		return &c.Status
 	}
+	return nil
+}
+
+func (ss *ServiceStatus) InitializeConditions() {
+	serviceConditions.initializeConditions(ss)
 }
 
 func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
@@ -273,24 +285,15 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs ConfigurationStatus) {
 	ss.LatestCreatedRevisionName = cs.LatestCreatedRevisionName
 
 	cc := cs.GetCondition(ConfigurationConditionReady)
-	if cc == nil {
+	switch {
+	case cc == nil:
 		return
-	}
-	sct := []ServiceConditionType{ServiceConditionConfigurationsReady}
-	// If the underlying Configuration reported not ready, then bubble it up.
-	if cc.Status != corev1.ConditionTrue {
-		sct = append(sct, ServiceConditionReady)
-	}
-	for _, cond := range sct {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  cc.Status,
-			Reason:  cc.Reason,
-			Message: cc.Message,
-		})
-	}
-	if cc.Status == corev1.ConditionTrue {
-		ss.checkAndMarkReady()
+	case cc.Status == corev1.ConditionUnknown:
+		serviceConditions.setUnknownCondition(ss, string(ServiceConditionConfigurationsReady), cc.Reason, cc.Message)
+	case cc.Status == corev1.ConditionTrue:
+		serviceConditions.setTrueCondition(ss, string(ServiceConditionConfigurationsReady), cc.Reason, cc.Message)
+	case cc.Status == corev1.ConditionFalse:
+		serviceConditions.setFalseCondition(ss, string(ServiceConditionConfigurationsReady), cc.Reason, cc.Message)
 	}
 }
 
@@ -300,43 +303,14 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs RouteStatus) {
 	ss.Traffic = rs.Traffic
 
 	rc := rs.GetCondition(RouteConditionReady)
-	if rc == nil {
+	switch {
+	case rc == nil:
 		return
+	case rc.Status == corev1.ConditionUnknown:
+		serviceConditions.setUnknownCondition(ss, string(ServiceConditionRoutesReady), rc.Reason, rc.Message)
+	case rc.Status == corev1.ConditionTrue:
+		serviceConditions.setTrueCondition(ss, string(ServiceConditionRoutesReady), rc.Reason, rc.Message)
+	case rc.Status == corev1.ConditionFalse:
+		serviceConditions.setFalseCondition(ss, string(ServiceConditionRoutesReady), rc.Reason, rc.Message)
 	}
-	sct := []ServiceConditionType{ServiceConditionRoutesReady}
-	// If the underlying Route reported not ready, then bubble it up.
-	if rc.Status != corev1.ConditionTrue {
-		sct = append(sct, ServiceConditionReady)
-	}
-	for _, cond := range sct {
-		ss.setCondition(&ServiceCondition{
-			Type:    cond,
-			Status:  rc.Status,
-			Reason:  rc.Reason,
-			Message: rc.Message,
-		})
-	}
-	if rc.Status == corev1.ConditionTrue {
-		ss.checkAndMarkReady()
-	}
-}
-
-func (ss *ServiceStatus) checkAndMarkReady() {
-	for _, cond := range []ServiceConditionType{
-		ServiceConditionConfigurationsReady,
-		ServiceConditionRoutesReady,
-	} {
-		c := ss.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	ss.markReady()
-}
-
-func (ss *ServiceStatus) markReady() {
-	ss.setCondition(&ServiceCondition{
-		Type:   ServiceConditionReady,
-		Status: corev1.ConditionTrue,
-	})
 }

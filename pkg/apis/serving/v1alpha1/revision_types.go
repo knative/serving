@@ -57,6 +57,9 @@ var _ apis.Validatable = (*Revision)(nil)
 var _ apis.Defaultable = (*Revision)(nil)
 var _ apis.Immutable = (*Revision)(nil)
 
+// Check that RevisionStatus can use our standardized condition manipulation infrastructure.
+var _ conditionAccessor = (*RevisionStatus)(nil)
+
 // RevisionTemplateSpec describes the data a revision should have when created from a template.
 // Based on: https://github.com/kubernetes/api/blob/e771f807/core/v1/types.go#L3179-L3190
 type RevisionTemplateSpec struct {
@@ -163,6 +166,16 @@ const (
 	RevisionConditionResourcesAvailable RevisionConditionType = "ResourcesAvailable"
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
+)
+
+var (
+	revisionConditions = &conditionManager{
+		ready: string(RevisionConditionReady),
+		subconditions: []string{
+			string(RevisionConditionResourcesAvailable),
+			string(RevisionConditionContainerHealthy),
+		},
+	}
 )
 
 type RevisionConditionSlice []RevisionCondition
@@ -282,177 +295,92 @@ func (rs *RevisionStatus) GetCondition(t RevisionConditionType) *RevisionConditi
 	return nil
 }
 
-func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
-	if new == nil {
-		return
+// setCondition implements conditionAccessor
+func (rs *RevisionStatus) setCondition(t string, status corev1.ConditionStatus, reason, message string) {
+	new := RevisionCondition{
+		Type:    RevisionConditionType(t),
+		Status:  status,
+		Reason:  reason,
+		Message: message,
 	}
-
-	t := new.Type
 	var conditions RevisionConditionSlice
 	for _, cond := range rs.Conditions {
-		if cond.Type != t {
+		if cond.Type != new.Type {
 			conditions = append(conditions, cond)
 		} else {
 			// If we'd only update the LastTransitionTime, then return.
 			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
+			if reflect.DeepEqual(new, cond) {
 				return
 			}
 		}
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
+	conditions = append(conditions, new)
 	sort.Sort(conditions)
 	rs.Conditions = conditions
 }
 
-func (rs *RevisionStatus) InitializeConditions() {
-	// We don't include BuildSucceeded here because it could confuse users if
-	// no `buildName` was specified.
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionReady,
-	} {
-		if rc := rs.GetCondition(cond); rc == nil {
-			rs.setCondition(&RevisionCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
+// getConditionStatus implements conditionAccessor
+func (rs *RevisionStatus) getConditionStatus(t string) *corev1.ConditionStatus {
+	if c := rs.GetCondition(RevisionConditionType(t)); c != nil {
+		return &c.Status
 	}
+	return nil
+}
+
+func (rs *RevisionStatus) InitializeConditions() {
+	revisionConditions.initializeConditions(rs)
 }
 
 func (rs *RevisionStatus) InitializeBuildCondition() {
 	if rc := rs.GetCondition(RevisionConditionBuildSucceeded); rc == nil {
-		rs.setCondition(&RevisionCondition{
-			Type:   RevisionConditionBuildSucceeded,
-			Status: corev1.ConditionUnknown,
-		})
+		revisionConditions.setUnknownCondition(rs, string(RevisionConditionBuildSucceeded), "", "")
 	}
 }
 
 func (rs *RevisionStatus) PropagateBuildStatus(bs buildv1alpha1.BuildStatus) {
 	bc := bs.GetCondition(buildv1alpha1.BuildSucceeded)
-	if bc == nil {
+	switch {
+	case bc == nil:
 		return
-	}
-	rct := []RevisionConditionType{RevisionConditionBuildSucceeded}
-	// If the underlying Build is not ready, then mark the Revision not ready.
-	if bc.Status != corev1.ConditionTrue {
-		rct = append(rct, RevisionConditionReady)
-	}
-	reason := "Building"
-	if bc.Status != corev1.ConditionUnknown {
-		reason = bc.Reason
-	}
-	for _, cond := range rct {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  bc.Status,
-			Reason:  reason,
-			Message: bc.Message,
-		})
+	case bc.Status == corev1.ConditionUnknown:
+		revisionConditions.setUnknownCondition(rs, string(RevisionConditionBuildSucceeded), "Building", bc.Message)
+	case bc.Status == corev1.ConditionTrue:
+		revisionConditions.setTrueCondition(rs, string(RevisionConditionBuildSucceeded), bc.Reason, bc.Message)
+	case bc.Status == corev1.ConditionFalse:
+		revisionConditions.setFalseCondition(rs, string(RevisionConditionBuildSucceeded), bc.Reason, bc.Message)
 	}
 }
 
 func (rs *RevisionStatus) MarkDeploying(reason string) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:   cond,
-			Status: corev1.ConditionUnknown,
-			Reason: reason,
-		})
-	}
+	revisionConditions.setUnknownCondition(rs, string(RevisionConditionResourcesAvailable), reason, "")
+	revisionConditions.setUnknownCondition(rs, string(RevisionConditionContainerHealthy), reason, "")
 }
 
 func (rs *RevisionStatus) MarkServiceTimeout() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ServiceTimeout",
-			Message: "Timed out waiting for a service endpoint to become ready",
-		})
-	}
+	revisionConditions.setFalseCondition(rs, string(RevisionConditionResourcesAvailable),
+		"ServiceTimeout", "Timed out waiting for a service endpoint to become ready")
 }
 
 func (rs *RevisionStatus) MarkProgressDeadlineExceeded(message string) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionResourcesAvailable,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ProgressDeadlineExceeded",
-			Message: message,
-		})
-	}
+	revisionConditions.setFalseCondition(rs, string(RevisionConditionResourcesAvailable),
+		"ProgressDeadlineExceeded", message)
 }
 
 func (rs *RevisionStatus) MarkContainerHealthy() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionContainerHealthy,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
+	revisionConditions.setTrueCondition(rs, string(RevisionConditionContainerHealthy), "", "")
 }
 
 func (rs *RevisionStatus) MarkResourcesAvailable() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionResourcesAvailable,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
+	revisionConditions.setTrueCondition(rs, string(RevisionConditionResourcesAvailable), "", "")
 }
 
 func (rs *RevisionStatus) MarkInactive(message string) {
-	rs.setCondition(&RevisionCondition{
-		Type:    RevisionConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "Inactive",
-		Message: message,
-	})
+	revisionConditions.setFalseCondition(rs, string(RevisionConditionReady), "Inactive", message)
 }
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionContainerHealthy,
-		RevisionConditionReady,
-	} {
-		rs.setCondition(&RevisionCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ContainerMissing",
-			Message: message,
-		})
-	}
-}
-
-func (rs *RevisionStatus) checkAndMarkReady() {
-	for _, cond := range []RevisionConditionType{
-		RevisionConditionContainerHealthy,
-		RevisionConditionResourcesAvailable,
-	} {
-		c := rs.GetCondition(cond)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	rs.markReady()
-}
-
-func (rs *RevisionStatus) markReady() {
-	rs.setCondition(&RevisionCondition{
-		Type:   RevisionConditionReady,
-		Status: corev1.ConditionTrue,
-	})
+	revisionConditions.setFalseCondition(rs, string(RevisionConditionContainerHealthy),
+		"ContainerMissing", message)
 }

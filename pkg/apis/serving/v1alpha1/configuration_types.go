@@ -58,6 +58,9 @@ type Configuration struct {
 var _ apis.Validatable = (*Configuration)(nil)
 var _ apis.Defaultable = (*Configuration)(nil)
 
+// Check that ConfigurationStatus can use our standardized condition manipulation infrastructure.
+var _ conditionAccessor = (*ConfigurationStatus)(nil)
+
 // ConfigurationSpec holds the desired state of the Configuration (from the client).
 type ConfigurationSpec struct {
 	// TODO: Generation does not work correctly with CRD. They are scrubbed
@@ -88,6 +91,16 @@ const (
 	// ConfigurationConditionReady is set when the configuration's latest
 	// underlying revision has reported readiness.
 	ConfigurationConditionReady ConfigurationConditionType = "Ready"
+)
+
+var (
+	configurationConditions = &conditionManager{
+		ready: string(ConfigurationConditionReady),
+		subconditions: []string{
+			// Remove this if we split out subconditions
+			string(ConfigurationConditionReady),
+		},
+	}
 )
 
 type ConfigurationConditionSlice []ConfigurationCondition
@@ -201,97 +214,68 @@ func (config *ConfigurationStatus) GetCondition(t ConfigurationConditionType) *C
 	return nil
 }
 
-func (cs *ConfigurationStatus) setCondition(new *ConfigurationCondition) {
-	if new == nil {
-		return
+// setCondition implements conditionAccessor
+func (cs *ConfigurationStatus) setCondition(t string, status corev1.ConditionStatus, reason, message string) {
+	new := ConfigurationCondition{
+		Type:    ConfigurationConditionType(t),
+		Status:  status,
+		Reason:  reason,
+		Message: message,
 	}
-	t := new.Type
 	var conditions ConfigurationConditionSlice
 	for _, cond := range cs.Conditions {
-		if cond.Type != t {
+		if cond.Type != new.Type {
 			conditions = append(conditions, cond)
 		} else {
 			// If we'd only update the LastTransitionTime, then return.
 			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
+			if reflect.DeepEqual(new, cond) {
 				return
 			}
 		}
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
+	conditions = append(conditions, new)
 	sort.Sort(conditions)
 	cs.Conditions = conditions
 }
 
-func (cs *ConfigurationStatus) InitializeConditions() {
-	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionReady,
-	} {
-		if rc := cs.GetCondition(cond); rc == nil {
-			cs.setCondition(&ConfigurationCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
+// getConditionStatus implements conditionAccessor
+func (cs *ConfigurationStatus) getConditionStatus(t string) *corev1.ConditionStatus {
+	if c := cs.GetCondition(ConfigurationConditionType(t)); c != nil {
+		return &c.Status
 	}
+	return nil
+}
+
+func (cs *ConfigurationStatus) InitializeConditions() {
+	configurationConditions.initializeConditions(cs)
 }
 
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   ConfigurationConditionReady,
-			Status: corev1.ConditionUnknown,
-		})
+		configurationConditions.setUnknownCondition(cs, string(ConfigurationConditionReady), "", "")
 	}
 }
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
-	for _, cond := range []ConfigurationConditionType{
-		ConfigurationConditionReady,
-	} {
-		cs.setCondition(&ConfigurationCondition{
-			Type:   cond,
-			Status: corev1.ConditionTrue,
-		})
-	}
+	configurationConditions.setTrueCondition(cs, string(ConfigurationConditionReady), "", "")
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {
-	cct := []ConfigurationConditionType{ConfigurationConditionReady}
-	if cs.LatestReadyRevisionName == "" {
-		cct = append(cct, ConfigurationConditionReady)
-	}
-	for _, cond := range cct {
-		cs.setCondition(&ConfigurationCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionFailed",
-			Message: fmt.Sprintf("Revision %q failed with message: %q.", name, message),
-		})
-	}
+	configurationConditions.setFalseCondition(cs, string(ConfigurationConditionReady), "RevisionFailed",
+		fmt.Sprintf("Revision %q failed with message: %q.", name, message))
 }
 
 func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
-	cs.setCondition(&ConfigurationCondition{
-		Type:    ConfigurationConditionReady,
-		Status:  corev1.ConditionFalse,
-		Reason:  "RevisionFailed",
-		Message: fmt.Sprintf("Revision creation failed with message: %q.", message),
-	})
+	configurationConditions.setFalseCondition(cs, string(ConfigurationConditionReady), "RevisionFailed",
+		fmt.Sprintf("Revision creation failed with message: %q.", message))
 }
 
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
-	cct := []ConfigurationConditionType{ConfigurationConditionReady}
-	for _, cond := range cct {
-		cs.setCondition(&ConfigurationCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  "RevisionDeleted",
-			Message: fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName),
-		})
-	}
+	configurationConditions.setFalseCondition(cs, string(ConfigurationConditionReady), "RevisionDeleted",
+		fmt.Sprintf("Revision %q was deleted.", cs.LatestReadyRevisionName))
 	cs.LatestReadyRevisionName = ""
 }

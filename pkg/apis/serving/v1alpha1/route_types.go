@@ -56,6 +56,9 @@ type Route struct {
 var _ apis.Validatable = (*Route)(nil)
 var _ apis.Defaultable = (*Route)(nil)
 
+// Check that RouteStatus can use our standardized condition manipulation infrastructure.
+var _ conditionAccessor = (*RouteStatus)(nil)
+
 // TrafficTarget holds a single entry of the routing table for a Route.
 type TrafficTarget struct {
 	// Name is optionally used to expose a dedicated hostname for referencing this
@@ -127,6 +130,15 @@ const (
 	// service is not configured properly or has no available
 	// backends ready to receive traffic.
 	RouteConditionAllTrafficAssigned RouteConditionType = "AllTrafficAssigned"
+)
+
+var (
+	routeConditions = &conditionManager{
+		ready: string(RouteConditionReady),
+		subconditions: []string{
+			string(RouteConditionAllTrafficAssigned),
+		},
+	}
 )
 
 type RouteConditionSlice []RouteCondition
@@ -219,89 +231,54 @@ func (rs *RouteStatus) GetCondition(t RouteConditionType) *RouteCondition {
 	return nil
 }
 
-func (rs *RouteStatus) setCondition(new *RouteCondition) {
-	if new == nil {
-		return
+// setCondition implements conditionAccessor
+func (rs *RouteStatus) setCondition(t string, status corev1.ConditionStatus, reason, message string) {
+	new := RouteCondition{
+		Type:    RouteConditionType(t),
+		Status:  status,
+		Reason:  reason,
+		Message: message,
 	}
-
-	t := new.Type
 	var conditions RouteConditionSlice
 	for _, cond := range rs.Conditions {
-		if cond.Type != t {
+		if cond.Type != new.Type {
 			conditions = append(conditions, cond)
 		} else {
 			// If we'd only update the LastTransitionTime, then return.
 			new.LastTransitionTime = cond.LastTransitionTime
-			if reflect.DeepEqual(new, &cond) {
+			if reflect.DeepEqual(new, cond) {
 				return
 			}
 		}
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
-	conditions = append(conditions, *new)
+	conditions = append(conditions, new)
 	sort.Sort(conditions)
 	rs.Conditions = conditions
 }
 
-func (rs *RouteStatus) InitializeConditions() {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-		RouteConditionReady,
-	} {
-		if rc := rs.GetCondition(cond); rc == nil {
-			rs.setCondition(&RouteCondition{
-				Type:   cond,
-				Status: corev1.ConditionUnknown,
-			})
-		}
+// getConditionStatus implements conditionAccessor
+func (rs *RouteStatus) getConditionStatus(t string) *corev1.ConditionStatus {
+	if c := rs.GetCondition(RouteConditionType(t)); c != nil {
+		return &c.Status
 	}
+	return nil
+}
+
+func (rs *RouteStatus) InitializeConditions() {
+	routeConditions.initializeConditions(rs)
 }
 
 func (rs *RouteStatus) MarkTrafficAssigned() {
-	rs.setCondition(&RouteCondition{
-		Type:   RouteConditionAllTrafficAssigned,
-		Status: corev1.ConditionTrue,
-	})
-	rs.checkAndMarkReady()
+	routeConditions.setTrueCondition(rs, string(RouteConditionAllTrafficAssigned), "", "")
 }
 
 func (rs *RouteStatus) markTrafficTargetNotReady(reason, msg string) {
-	rs.setCondition(&RouteCondition{
-		Type:    RouteConditionAllTrafficAssigned,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: msg,
-	})
-	// TODO(tcnghia): when we start with new RouteConditionReady every revision,
-	// uncomment the short-circuiting below.
-	//
-	// // Do not downgrade Ready condition.
-	// if c := rs.GetCondition(RouteConditionReady); c != nil && c.Status == corev1.ConditionFalse {
-	// 	return
-	// }
-	//
-	// For now, the following is harmless because RouteConditionAllTrafficAssigned
-	// is the only condition RouteConditionReady depends on.
-	rs.setCondition(&RouteCondition{
-		Type:    RouteConditionReady,
-		Status:  corev1.ConditionUnknown,
-		Reason:  reason,
-		Message: msg,
-	})
+	routeConditions.setUnknownCondition(rs, string(RouteConditionAllTrafficAssigned), reason, msg)
 }
 
 func (rs *RouteStatus) markTrafficTargetFailed(reason, msg string) {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-		RouteConditionReady,
-	} {
-		rs.setCondition(&RouteCondition{
-			Type:    cond,
-			Status:  corev1.ConditionFalse,
-			Reason:  reason,
-			Message: msg,
-		})
-	}
+	routeConditions.setFalseCondition(rs, string(RouteConditionAllTrafficAssigned), reason, msg)
 }
 
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
@@ -336,23 +313,4 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 	reason := kind + "Missing"
 	msg := fmt.Sprintf("%s %q referenced in traffic not found.", kind, name)
 	rs.markTrafficTargetFailed(reason, msg)
-}
-
-func (rs *RouteStatus) checkAndMarkReady() {
-	for _, cond := range []RouteConditionType{
-		RouteConditionAllTrafficAssigned,
-	} {
-		ata := rs.GetCondition(cond)
-		if ata == nil || ata.Status != corev1.ConditionTrue {
-			return
-		}
-	}
-	rs.markReady()
-}
-
-func (rs *RouteStatus) markReady() {
-	rs.setCondition(&RouteCondition{
-		Type:   RouteConditionReady,
-		Status: corev1.ConditionTrue,
-	})
 }

@@ -133,28 +133,13 @@ func TestRouteConditions(t *testing.T) {
 	}
 
 	// Add a new condition.
-	svc.Status.setCondition(foo)
-
-	if got, want := len(svc.Status.Conditions), 1; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nothing
-	svc.Status.setCondition(nil)
-
+	svc.Status.setCondition(string(foo.Type), foo.Status, foo.Reason, foo.Message)
 	if got, want := len(svc.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add a second condition.
-	svc.Status.setCondition(bar)
-
-	if got, want := len(svc.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	svc.Status.setCondition(nil)
+	svc.Status.setCondition(string(bar.Type), bar.Status, bar.Reason, bar.Message)
 
 	if got, want := len(svc.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)

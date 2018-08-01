@@ -132,21 +132,14 @@ func TestConfigurationConditions(t *testing.T) {
 	}
 
 	// Add a new condition.
-	config.Status.setCondition(foo)
+	config.Status.setCondition(string(foo.Type), foo.Status, foo.Reason, foo.Message)
 
 	if got, want := len(config.Status.Conditions), 1; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
 	}
 
 	// Add a second condition.
-	config.Status.setCondition(bar)
-
-	if got, want := len(config.Status.Conditions), 2; got != want {
-		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
-	}
-
-	// Add nil condition.
-	config.Status.setCondition(nil)
+	config.Status.setCondition(string(bar.Type), bar.Status, bar.Reason, bar.Message)
 
 	if got, want := len(config.Status.Conditions), 2; got != want {
 		t.Fatalf("Unexpected Condition length; got %d, want %d", got, want)
