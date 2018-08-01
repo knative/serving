@@ -124,7 +124,7 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-1.0-prerelease/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.0/istio.yaml
 ```
 
 Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
@@ -215,7 +215,7 @@ ko delete --ignore-not-found=true \
   -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0-prerelease/istio.yaml
+  -f ./third_party/istio-1.0.0/istio.yaml
 ```
 
 ## Telemetry
