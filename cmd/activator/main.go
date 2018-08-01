@@ -99,9 +99,9 @@ func main() {
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
-	shouldRetry := util.ShouldRetryStatus(http.StatusServiceUnavailable)
-	retrier := util.LinearRetryer(retryInterval, maxRetries)
-	rt := util.NewRetryRoundTripper(util.AutoTransport, logger, retrier, shouldRetry)
+	shouldRetry := util.RetryStatus(http.StatusServiceUnavailable)
+	retryer := util.NewLinearRetryer(retryInterval, maxRetries)
+	rt := util.NewRetryRoundTripper(util.AutoTransport, logger, retryer, shouldRetry)
 
 	ah := newActivationHandler(a, rt, logger)
 	ah = newUploadHandler(ah, defaultMaxUploadBytes)

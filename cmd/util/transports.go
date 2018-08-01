@@ -27,66 +27,69 @@ func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-// httpRoundTripper will use the appropriate transport for the request's http protocol version
-type httpRoundTripper struct {
-	v1 http.RoundTripper
-	v2 http.RoundTripper
-}
+// HttpTransport will use the appropriate transport for the request's http protocol version
+func NewHttpTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
+	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		var t http.RoundTripper = v1
+		if r.ProtoMajor == 2 {
+			t = v2
+		}
 
-func newHttpRoundTripper(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
-	return &httpRoundTripper{v1: v1, v2: v2}
-}
-
-func (rt *httpRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	var t http.RoundTripper = rt.v1
-	if r.ProtoMajor == 2 {
-		t = rt.v2
-	}
-
-	return t.RoundTrip(r)
+		return t.RoundTrip(r)
+	})
 }
 
 // AutoTransport uses h2c for HTTPv2 requests and falls back to `http.DefaultTransport` for all others
-var AutoTransport = newHttpRoundTripper(http.DefaultTransport, h2cutil.DefaultTransport)
+var AutoTransport = NewHttpTransport(http.DefaultTransport, h2cutil.DefaultTransport)
 
-type Retryer func(func() bool) int
+type Retryer interface {
+	Retry(func() bool) int
+}
 
-func LinearRetryer(interval time.Duration, maxRetries int) Retryer {
-	return func(action func() bool) (retries int) {
+type RetryerFunc func(func() bool) int
+
+func (r RetryerFunc) Retry(f func() bool) int {
+	return r(f)
+}
+
+// LinearRetryer will retry `action` up to `maxRetries` times with `interval` delay between retries
+func NewLinearRetryer(interval time.Duration, maxRetries int) Retryer {
+	return RetryerFunc(func(action func() bool) (retries int) {
 		for retries = 1; !action() && retries < maxRetries; retries++ {
 			time.Sleep(interval)
 		}
 		return
-	}
+	})
 }
 
-type ShouldRetryFunc func(*http.Response) bool
+type RetryCond func(*http.Response) bool
 
-func ShouldRetryStatus(status int) ShouldRetryFunc {
+// RetryStatus will filter responses matching `status`
+func RetryStatus(status int) RetryCond {
 	return func(resp *http.Response) bool {
 		return resp.StatusCode == status
 	}
 }
 
 type retryRoundTripper struct {
-	logger      *zap.SugaredLogger
-	transport   http.RoundTripper
-	retry       Retryer
-	shouldRetry ShouldRetryFunc
+	logger     *zap.SugaredLogger
+	transport  http.RoundTripper
+	retryer    Retryer
+	retryConds []RetryCond
 }
 
-// retryRoundTripper retries a request on error or `shouldRetry` condition, using the given `retry` strategy
-func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, r Retryer, sr ShouldRetryFunc) http.RoundTripper {
+// RetryRoundTripper retries a request on error or retry condition, using the given `retry` strategy
+func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, r Retryer, sr ...RetryCond) http.RoundTripper {
 	return &retryRoundTripper{
-		logger:      l,
-		transport:   rt,
-		retry:       r,
-		shouldRetry: sr,
+		logger:     l,
+		transport:  rt,
+		retryer:    r,
+		retryConds: sr,
 	}
 }
 
 func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, err error) {
-	attempts := rrt.retry(func() bool {
+	attempts := rrt.retryer.Retry(func() bool {
 		resp, err = rrt.transport.RoundTrip(r)
 
 		if err != nil {
@@ -94,9 +97,11 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, e
 			return true
 		}
 
-		if rrt.shouldRetry(resp) {
-			resp.Body.Close()
-			return true
+		for _, retryCond := range rrt.retryConds {
+			if retryCond(resp) {
+				resp.Body.Close()
+				return true
+			}
 		}
 
 		return false
