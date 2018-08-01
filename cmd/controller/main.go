@@ -107,7 +107,7 @@ func main() {
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
 
-	opt := controller.Options{
+	opt := controller.ReconcileOptions{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
@@ -129,7 +129,7 @@ func main() {
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
-	controllers := []controller.Interface{
+	controllers := []*controller.Impl{
 		configuration.NewController(
 			opt,
 			configurationInformer,
@@ -196,7 +196,7 @@ func main() {
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {
-		go func(ctrlr controller.Interface) {
+		go func(ctrlr *controller.Impl) {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {

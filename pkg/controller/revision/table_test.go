@@ -1562,9 +1562,9 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/failed-build-stable",
 	}}
 
-	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
-		return &Controller{
-			Base:                controller.NewBase(opt, controllerAgentName, "Revisions"),
+	table.Test(t, func(listers *Listers, opt controller.ReconcileOptions) controller.Reconciler {
+		return &Reconciler{
+			Base:                controller.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
 			buildLister:         listers.GetBuildLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
@@ -1821,9 +1821,9 @@ func TestReconcileWithVarLogEnabled(t *testing.T) {
 		Key: "foo/update-configmap-failure",
 	}}
 
-	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
-		return &Controller{
-			Base:                controller.NewBase(opt, controllerAgentName, "Revisions"),
+	table.Test(t, func(listers *Listers, opt controller.ReconcileOptions) controller.Reconciler {
+		return &Reconciler{
+			Base:                controller.NewBase(opt, controllerAgentName),
 			revisionLister:      listers.GetRevisionLister(),
 			buildLister:         listers.GetBuildLister(),
 			deploymentLister:    listers.GetDeploymentLister(),

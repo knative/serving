@@ -42,7 +42,7 @@ const (
         serviceTimeoutDuration = 5 * time.Minute
 )
 
-func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
         ns := rev.Namespace
         deploymentName := resourcenames.Deployment(rev)
         logger := logging.FromContext(ctx).With(zap.String(commonlogkey.Deployment, deploymentName))
@@ -109,7 +109,7 @@ func (c *Controller) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
         }
 }
 
-func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revision) error {
         ns := rev.Namespace
         serviceName := resourcenames.K8sService(rev)
         logger := logging.FromContext(ctx).With(zap.String(commonlogkey.KubernetesService, serviceName))
@@ -206,7 +206,7 @@ func (c *Controller) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
         }
 }
 
-func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha1.Revision) error {
         logger := logging.FromContext(ctx)
         if !c.getObservabilityConfig().EnableVarLogCollection {
                 return nil
@@ -243,7 +243,7 @@ func (c *Controller) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
         return nil
 }
 
-func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileAutoscalerService(ctx context.Context, rev *v1alpha1.Revision) error {
         // If an autoscaler image is undefined, then skip the autoscaler reconciliation.
         if c.getControllerConfig().AutoscalerImage == "" {
                 return nil
@@ -308,7 +308,7 @@ func (c *Controller) reconcileAutoscalerService(ctx context.Context, rev *v1alph
         }
 }
 
-func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
         // If an autoscaler image is undefined, then skip the autoscaler reconciliation.
         if c.getControllerConfig().AutoscalerImage == "" {
                 return nil
@@ -367,7 +367,7 @@ func (c *Controller) reconcileAutoscalerDeployment(ctx context.Context, rev *v1a
         }
 }
 
-func (c *Controller) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileVPA(ctx context.Context, rev *v1alpha1.Revision) error {
         logger := logging.FromContext(ctx)
         if !c.getAutoscalerConfig().EnableVPA {
                 return nil

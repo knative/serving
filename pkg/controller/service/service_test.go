@@ -31,8 +31,8 @@ import (
 	"github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/service/resources"
 
-	. "github.com/knative/serving/pkg/controller/testing"
 	. "github.com/knative/pkg/logging/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 var (
@@ -228,9 +228,9 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
-		return &Controller{
-			Base:                controller.NewBase(opt, controllerAgentName, "Services"),
+	table.Test(t, func(listers *Listers, opt controller.ReconcileOptions) controller.Reconciler {
+		return &Reconciler{
+			Base:                controller.NewBase(opt, controllerAgentName),
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			routeLister:         listers.GetRouteLister(),
@@ -247,7 +247,7 @@ func TestNew(t *testing.T) {
 	routeInformer := servingInformer.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
 
-	c := NewController(controller.Options{
+	c := NewController(controller.ReconcileOptions{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),

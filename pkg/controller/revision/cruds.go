@@ -40,7 +40,7 @@ import (
         vpav1alpha1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/poc.autoscaling.k8s.io/v1alpha1"
 )
 
-func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
+func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
         logger := logging.FromContext(ctx)
 
         var replicaCount int32 = 1
@@ -62,7 +62,7 @@ func (c *Controller) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 
 
 // This is a generic function used both for deployment of user code & autoscaler
-func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
+func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, deployment *appsv1.Deployment) (*appsv1.Deployment, Changed, error) {
         logger := logging.FromContext(ctx)
 
         // TODO(mattmoor): Generalize this to reconcile discrepancies vs. what
@@ -89,7 +89,7 @@ func (c *Controller) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 }
 
 // This is a generic function used both for deployment of user code & autoscaler
-func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
+func (c *Reconciler) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
         logger := logging.FromContext(ctx)
 
         err := c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Delete(deployment.Name, fgDeleteOptions)
@@ -102,17 +102,16 @@ func (c *Controller) deleteDeployment(ctx context.Context, deployment *appsv1.De
         return nil
 }
 
-
 type serviceFactory func(*v1alpha1.Revision) *corev1.Service
 
-func (c *Controller) createService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory) (*corev1.Service, error) {
+func (c *Reconciler) createService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory) (*corev1.Service, error) {
         // Create the service.
         service := sf(rev)
 
         return c.KubeClientSet.CoreV1().Services(service.Namespace).Create(service)
 }
 
-func (c *Controller) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
+func (c *Reconciler) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Revision, sf serviceFactory, service *corev1.Service) (*corev1.Service, Changed, error) {
         logger := logging.FromContext(ctx)
 
         desiredService := sf(rev)
@@ -131,7 +130,7 @@ func (c *Controller) checkAndUpdateService(ctx context.Context, rev *v1alpha1.Re
         return d, WasChanged, err
 }
 
-func (c *Controller) deleteService(ctx context.Context, svc *corev1.Service) error {
+func (c *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) error {
         logger := logging.FromContext(ctx)
 
         err := c.KubeClientSet.CoreV1().Services(svc.Namespace).Delete(svc.Name, fgDeleteOptions)
@@ -144,8 +143,7 @@ func (c *Controller) deleteService(ctx context.Context, svc *corev1.Service) err
         return nil
 }
 
-
-func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
+func (c *Reconciler) createAutoscalerDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
         var replicaCount int32 = 1
         if rev.Spec.ServingState == v1alpha1.RevisionServingStateReserve {
                 replicaCount = 0
@@ -154,13 +152,13 @@ func (c *Controller) createAutoscalerDeployment(ctx context.Context, rev *v1alph
         return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-func (c *Controller) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
+func (c *Reconciler) createVPA(ctx context.Context, rev *v1alpha1.Revision) (*vpav1alpha1.VerticalPodAutoscaler, error) {
         vpa := resources.MakeVPA(rev)
 
         return c.vpaClient.PocV1alpha1().VerticalPodAutoscalers(vpa.Namespace).Create(vpa)
 }
 
-func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPodAutoscaler) error {
+func (c *Reconciler) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPodAutoscaler) error {
         logger := logging.FromContext(ctx)
         if !c.getAutoscalerConfig().EnableVPA {
                 return nil
@@ -176,37 +174,37 @@ func (c *Controller) deleteVPA(ctx context.Context, vpa *vpav1alpha1.VerticalPod
         return nil
 }
 
-func (c *Controller) getNetworkConfig() *config.Network {
+func (c *Reconciler) getNetworkConfig() *config.Network {
         c.networkConfigMutex.Lock()
         defer c.networkConfigMutex.Unlock()
         return c.networkConfig.DeepCopy()
 }
 
-func (c *Controller) getResolver() resolver {
+func (c *Reconciler) getResolver() resolver {
         c.resolverMutex.Lock()
         defer c.resolverMutex.Unlock()
         return c.resolver
 }
 
-func (c *Controller) getControllerConfig() *config.Controller {
+func (c *Reconciler) getControllerConfig() *config.Controller {
         c.controllerConfigMutex.Lock()
         defer c.controllerConfigMutex.Unlock()
         return c.controllerConfig.DeepCopy()
 }
 
-func (c *Controller) getLoggingConfig() *commonlogging.Config {
+func (c *Reconciler) getLoggingConfig() *commonlogging.Config {
         c.loggingConfigMutex.Lock()
         defer c.loggingConfigMutex.Unlock()
         return c.loggingConfig.DeepCopy()
 }
 
-func (c *Controller) getObservabilityConfig() *config.Observability {
+func (c *Reconciler) getObservabilityConfig() *config.Observability {
         c.observabilityConfigMutex.Lock()
         defer c.observabilityConfigMutex.Unlock()
         return c.observabilityConfig.DeepCopy()
 }
 
-func (c *Controller) getAutoscalerConfig() *autoscaler.Config {
+func (c *Reconciler) getAutoscalerConfig() *autoscaler.Config {
         c.autoscalerConfigMutex.Lock()
         defer c.autoscalerConfigMutex.Unlock()
         return c.autoscalerConfig.DeepCopy()

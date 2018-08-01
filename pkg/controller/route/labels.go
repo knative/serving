@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *Controller) syncLabels(ctx context.Context, r *v1alpha1.Route, tc *traffic.TrafficConfig) error {
+func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route, tc *traffic.TrafficConfig) error {
 	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, r, tc.Configurations); err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (c *Controller) syncLabels(ctx context.Context, r *v1alpha1.Route, tc *traf
 	return nil
 }
 
-func (c *Controller) setLabelForGivenConfigurations(
+func (c *Reconciler) setLabelForGivenConfigurations(
 	ctx context.Context,
 	route *v1alpha1.Route,
 	configMap map[string]*v1alpha1.Configuration,
@@ -91,7 +91,7 @@ func (c *Controller) setLabelForGivenConfigurations(
 	return nil
 }
 
-func (c *Controller) deleteLabelForOutsideOfGivenConfigurations(
+func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 	ctx context.Context,
 	route *v1alpha1.Route,
 	configMap map[string]*v1alpha1.Configuration,
