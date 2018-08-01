@@ -25,7 +25,6 @@ import (
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller/configuration/resources/names"
 )
 
 func TestRevisions(t *testing.T) {
@@ -227,7 +226,7 @@ func TestRevisions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeRevision(test.configuration, names.Build(test.configuration))
+			got := MakeRevision(test.configuration)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeRevision (-want, +got) = %v", diff)
 			}

@@ -25,7 +25,7 @@ import (
 	"github.com/knative/serving/pkg/controller/configuration/resources/names"
 )
 
-func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Revision {
+func MakeRevision(config *v1alpha1.Configuration) *v1alpha1.Revision {
 	// Start from the ObjectMeta/Spec inlined in the Configuration resources.
 	rev := &v1alpha1.Revision{
 		ObjectMeta: config.Spec.RevisionTemplate.ObjectMeta,
@@ -51,7 +51,7 @@ func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Re
 	rev.OwnerReferences = append(rev.OwnerReferences, *controller.NewControllerRef(config))
 
 	// Fill in the build name, if specified.
-	rev.Spec.BuildName = buildName
+	rev.Spec.BuildName = names.Build(config)
 
 	return rev
 }

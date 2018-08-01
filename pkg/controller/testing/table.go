@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/controller/testing/builder"
 	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -199,6 +200,10 @@ func NewListers(objs []runtime.Object) Listers {
 			ls.Route.Items = append(ls.Route.Items, o)
 		case *v1alpha1.Configuration:
 			ls.Configuration.Items = append(ls.Configuration.Items, o)
+		case builder.ConfigBuilder:
+			ls.Configuration.Items = append(ls.Configuration.Items, o.Configuration)
+		case builder.RevisionBuilder:
+			ls.Revision.Items = append(ls.Revision.Items, o.Revision)
 		case *v1alpha1.Revision:
 			ls.Revision.Items = append(ls.Revision.Items, o)
 
@@ -333,7 +338,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 			continue
 		}
 		got := deleteActions[i]
-		if got.GetName() != want.Name {
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected delete[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
@@ -353,7 +358,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 		}
 
 		got := patchActions[i]
-		if got.GetName() != want.Name {
+		if got.GetName() != want.GetName() {
 			t.Errorf("unexpected patch[%d]: %#v", i, got)
 		}
 		if got.GetNamespace() != expectedNamespace && got.GetNamespace() != system.Namespace {
