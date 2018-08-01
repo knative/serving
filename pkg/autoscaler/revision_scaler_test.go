@@ -39,48 +39,61 @@ const (
 
 // FIXME: Matt Moor asked 'Can we combine some of these tests into a "table test"?'
 
-func TestRevisionScalerScalesToZero(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
-	deployment := newDeployment(revision, 1)
+func TestRevisionScaler(t *testing.T) {
+	tests := []struct {
+		name             string
+		initServingState v1alpha1.RevisionServingStateType
+		initReplicas     int
+		targetReplicas   int32
+		wantServingState v1alpha1.RevisionServingStateType
+		wantReplicas     int
+	}{
+		{
+			name:             "scales to zero",
+			initServingState: v1alpha1.RevisionServingStateActive,
+			initReplicas:     1,
+			targetReplicas:   0,
+			wantServingState: v1alpha1.RevisionServingStateReserve,
+			wantReplicas:     1, // deployment spec shouldn't be updated when scale to zero
+		},
+		{
+			name:             "scales up",
+			initServingState: v1alpha1.RevisionServingStateActive,
+			initReplicas:     1,
+			targetReplicas:   10,
+			wantServingState: v1alpha1.RevisionServingStateActive,
+			wantReplicas:     10,
+		},
+		{
+			name:             "does not scale up inactive revision",
+			initServingState: v1alpha1.RevisionServingStateReserve,
+			initReplicas:     1,
+			targetReplicas:   10,
+			wantServingState: v1alpha1.RevisionServingStateReserve,
+			wantReplicas:     1,
+		},
+		{
+			name:             "does not scale up from zero",
+			initServingState: v1alpha1.RevisionServingStateActive,
+			initReplicas:     0,
+			targetReplicas:   10,
+			wantServingState: v1alpha1.RevisionServingStateActive,
+			wantReplicas:     0,
+		},
+	}
 
-	revisionScaler, servingClient, _ := createRevisionScaler(t, revision, deployment)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			revision := newRevision(test.initServingState)
+			deployment := newDeployment(revision, test.initReplicas)
+			revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
 
-	revisionScaler.Scale(revision, 0)
+			revisionScaler.Scale(revision, test.targetReplicas)
 
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateReserve)
-}
-
-func TestRevisionScalerScalesUp(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateActive)
-	deployment := newDeployment(revision, 1)
-	revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
-
-	revisionScaler.Scale(revision, 10)
-
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateActive)
-	checkReplicas(t, kubeClient, deployment, 10)
-}
-
-func TestRevisionScalerDoesScaleUpInactiveRevision(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateReserve)
-	deployment := newDeployment(revision, 1)
-	revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
-
-	revisionScaler.Scale(revision, 10)
-
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateReserve)
-	checkReplicas(t, kubeClient, deployment, 1)
-}
-
-func TestRevisionScalerDoesNotScaleUpFromZero(t *testing.T) {
-	revision := newRevision(v1alpha1.RevisionServingStateActive) // normally implies a non-zero scale
-	deployment := newDeployment(revision, 0)
-	revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
-
-	revisionScaler.Scale(revision, 10)
-
-	checkServingState(t, servingClient, v1alpha1.RevisionServingStateActive)
-	checkReplicas(t, kubeClient, deployment, 0)
+			checkServingState(t, servingClient, test.wantServingState)
+			checkReplicas(t, kubeClient, deployment, test.wantReplicas)
+		})
+	}
 }
 
 func createRevisionScaler(t *testing.T, revision *v1alpha1.Revision, deployment *v1.Deployment) (autoscaler.RevisionScaler, clientset.Interface, kubernetes.Interface) {
@@ -146,6 +159,6 @@ func checkReplicas(t *testing.T, kubeClient kubernetes.Interface, deployment *v1
 	}
 
 	if *updatedDeployment.Spec.Replicas != int32(expectedScale) {
-		t.Fatal("Unexpected deployment replicas.", updatedDeployment.Spec.Replicas)
+		t.Fatal("Unexpected deployment replicas.", *updatedDeployment.Spec.Replicas)
 	}
 }
