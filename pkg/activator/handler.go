@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package activator
 
 import (
 	"fmt"
@@ -19,20 +19,19 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/knative/serving/pkg/activator"
 	"github.com/knative/serving/pkg/controller"
 	"go.uber.org/zap"
 )
 
 type activationHandler struct {
-	activator activator.Activator
+	activator Activator
 	logger    *zap.SugaredLogger
 	transport http.RoundTripper
 }
 
 // activationHandler will proxy a request to the active endpoint for the specified revision,
 // using the provided transport
-func NewActivationHandler(a activator.Activator, rt http.RoundTripper, l *zap.SugaredLogger) http.Handler {
+func NewActivationHandler(a Activator, rt http.RoundTripper, l *zap.SugaredLogger) http.Handler {
 	return &activationHandler{activator: a, transport: rt, logger: l}
 }
 
