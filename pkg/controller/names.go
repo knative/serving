@@ -32,6 +32,10 @@ func GetRevisionHeaderName() string {
 	return "knative-serving-revision"
 }
 
+func GetConfigurationHeader() string {
+	return "knative-serving-configuration"
+}
+
 func GetRevisionHeaderNamespace() string {
 	return "knative-serving-namespace"
 }

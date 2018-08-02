@@ -279,8 +279,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			RevisionName: "test-rev",
-			Percent:      100,
+			RevisionName:      "test-rev",
+			ConfigurationName: "test-config",
+			Percent:           100,
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -341,6 +342,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
 				rclr.GetRevisionHeaderName():      "test-rev",
+				rclr.GetConfigurationHeader():     "test-config",
 				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
@@ -474,8 +476,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			ConfigurationName: config.Name,
 			Percent:           90,
 		}, {
-			RevisionName: rev.Name,
-			Percent:      10,
+			RevisionName:      rev.Name,
+			ConfigurationName: "test-config",
+			Percent:           10,
 		}},
 	)
 	servingClient.ServingV1alpha1().Routes(testNamespace).Create(route)
@@ -525,6 +528,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
 				rclr.GetRevisionHeaderName():      "test-rev",
+				rclr.GetConfigurationHeader():     "test-config",
 				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
