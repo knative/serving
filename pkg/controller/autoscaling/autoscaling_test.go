@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaling_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/autoscaling"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -45,7 +46,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	stopCh := make(chan struct{})
 	createdCh := make(chan struct{})
 
-	opts := controller.ReconcileOptions{
+	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           zap.NewNop().Sugar(),
@@ -65,7 +66,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	rev := newTestRevision(testNamespace, testRevision)
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
-	ctl.Reconciler.Reconcile(testNamespace + "/" + testRevision)
+	ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
 
 	// Ensure revision creation has been seen before deleting it.
 	select {
@@ -80,7 +81,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
-	ctl.Reconciler.Reconcile(testNamespace + "/" + testRevision)
+	ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
 
 	if fakeSynchronizer.onAbsentCallCount.Load() == 0 {
 		t.Fatal("OnAbsent was not called")

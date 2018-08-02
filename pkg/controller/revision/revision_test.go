@@ -22,6 +22,7 @@ package revision
 */
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -40,11 +41,12 @@ import (
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	rclr "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
@@ -191,7 +193,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
-		ctrl.ReconcileOptions{
+		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
@@ -221,7 +223,7 @@ func createRevision(t *testing.T,
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	if err := controller.Reconciler.Reconcile(KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
 		rev, _, _ = addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
 	}
 	return rev
@@ -235,7 +237,7 @@ func updateRevision(t *testing.T,
 	servingClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
-	if err := controller.Reconciler.Reconcile(KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
 		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
 	}
 }
@@ -337,7 +339,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
-	rev.OwnerReferences = append(rev.OwnerReferences, *ctrl.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *rclr.NewControllerRef(config))
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
@@ -513,7 +515,7 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 
 	f := controller.Reconciler.(*Reconciler).EnqueueBuildTrackers(controller)
 	f(bld)
-	controller.Reconciler.Reconcile(KeyOrDie(rev))
+	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
 	completedRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
@@ -569,7 +571,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
 	f := controller.Reconciler.(*Reconciler).EnqueueEndpointsRevision(controller)
 	f(endpoints)
-	controller.Reconciler.Reconcile(KeyOrDie(rev))
+	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
 	readyRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
@@ -600,7 +602,7 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewControllerRef(config),
+		*rclr.NewControllerRef(config),
 	)
 	// Update controller config with no autoscaler image
 	controller.Reconciler.(*Reconciler).receiveControllerConfig(
@@ -636,7 +638,7 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewControllerRef(config),
+		*rclr.NewControllerRef(config),
 	)
 	// Update controller config with no side car image
 	controller.Reconciler.(*Reconciler).receiveControllerConfig(
@@ -840,7 +842,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewControllerRef(config),
+		*rclr.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)

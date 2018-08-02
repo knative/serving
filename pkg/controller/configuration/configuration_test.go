@@ -20,8 +20,9 @@ import (
 	"testing"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -338,9 +339,9 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/revision-recovers",
 	}}
 
-	table.Test(t, func(listers *Listers, opt controller.ReconcileOptions) controller.Reconciler {
+	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
 		return &Reconciler{
-			Base:                controller.NewBase(opt, controllerAgentName),
+			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 		}

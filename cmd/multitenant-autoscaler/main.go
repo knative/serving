@@ -28,7 +28,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler/statserver"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/autoscaling"
 	"github.com/knative/serving/pkg/logging"
 	"go.opencensus.io/exporter/prometheus"
@@ -98,7 +98,7 @@ func main() {
 
 	multiScaler := autoscaler.NewMultiScaler(config, revisionScaler, stopCh, uniScalerFactory, logger)
 
-	opt := controller.ReconcileOptions{
+	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
 		ServingClientSet: servingClientSet,
 		Logger:           logger,

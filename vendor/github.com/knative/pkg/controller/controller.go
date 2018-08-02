@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -33,7 +34,7 @@ import (
 // Reconciler is the interface that controller implementations are expected
 // to implement, so that the shared controller.Impl can drive work through it.
 type Reconciler interface {
-	Reconcile(key string) error
+	Reconcile(ctx context.Context, key string) error
 }
 
 // PassNew makes it simple to create an UpdateFunc for use with
@@ -61,7 +62,8 @@ func Filter(gvk schema.GroupVersionKind) func(obj interface{}) bool {
 	}
 }
 
-// Impl implements the core controller logic, given a Reconciler.
+// Impl is our core controller implementation.  It handles queuing and feeding work
+// from the queue to an implementation of Reconciler.
 type Impl struct {
 	// Reconciler is the workhorse of this controller, it is fed the keys
 	// from the workqueue to process.  Public for testing.
@@ -82,8 +84,8 @@ type Impl struct {
 	logger *zap.SugaredLogger
 }
 
-// NewImpl instantiates a new instance of Base implementing
-// the common & boilerplate code between our controllers.
+// NewImpl instantiates an instance of our controller that will feed work to the
+// provided Reconciler as it is enqueued.
 func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Impl {
 	return &Impl{
 		Reconciler: r,
@@ -95,20 +97,19 @@ func NewImpl(r Reconciler, logger *zap.SugaredLogger, workQueueName string) *Imp
 	}
 }
 
-// Enqueue takes a resource and converts it into a
-// namespace/name string which is then put onto the work queue.
+// Enqueue takes a resource, converts it into a namespace/name string,
+// and passes it to EnqueueKey.
 func (c *Impl) Enqueue(obj interface{}) {
-	var key string
-	var err error
-	if key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
 		c.logger.Error(zap.Error(err))
 		return
 	}
 	c.EnqueueKey(key)
 }
 
-// EnqueueControllerOf takes a resource, identifies its controller resource, and
-// converts it into a namespace/name string which is then put onto the work queue.
+// EnqueueControllerOf takes a resource, identifies its controller resource,
+// converts it into a namespace/name string, and passes that to EnqueueKey.
 func (c *Impl) EnqueueControllerOf(obj interface{}) {
 	// TODO(mattmoor): This will not properly handle Delete, which we do
 	// not currently use.  Consider using "cache.DeletedFinalStateUnknown"
@@ -143,7 +144,7 @@ func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	logger.Info("Starting controller and workers")
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(func() {
-			for c.processNextWorkItem(c.Reconciler.Reconcile) {
+			for c.processNextWorkItem() {
 			}
 		}, time.Second, stopCh)
 	}
@@ -156,10 +157,9 @@ func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
-// attempt to process it, by calling the syncHandler.
-func (c *Impl) processNextWorkItem(syncHandler func(string) error) bool {
+// attempt to process it, by calling Reconcile on our Reconciler.
+func (c *Impl) processNextWorkItem() bool {
 	obj, shutdown := c.WorkQueue.Get()
-
 	if shutdown {
 		return false
 	}
@@ -173,14 +173,14 @@ func (c *Impl) processNextWorkItem(syncHandler func(string) error) bool {
 		// put back on the workqueue and attempted again after a back-off
 		// period.
 		defer c.WorkQueue.Done(obj)
-		var key string
-		var ok bool
+
 		// We expect strings to come off the workqueue. These are of the
 		// form namespace/name. We do this as the delayed nature of the
 		// workqueue means the items in the informer cache may actually be
 		// more up to date that when the item was initially put onto the
 		// workqueue.
-		if key, ok = obj.(string); !ok {
+		key, ok := obj.(string)
+		if !ok {
 			// As the item in the workqueue is actually invalid, we call
 			// Forget here else we'd go into a loop of attempting to
 			// process a work item that is invalid.
@@ -188,9 +188,10 @@ func (c *Impl) processNextWorkItem(syncHandler func(string) error) bool {
 			c.logger.Errorf("expected string in workqueue but got %#v", obj)
 			return nil
 		}
-		// Run the syncHandler, passing it the namespace/name string of the
+
+		// Run Reconcile, passing it the namespace/name string of the
 		// resource to be synced.
-		if err := syncHandler(key); err != nil {
+		if err := c.Reconciler.Reconcile(context.TODO(), key); err != nil {
 			return fmt.Errorf("error syncing %q: %v", key, err)
 		}
 		// Finally, if no error occurs we Forget this item so it does not

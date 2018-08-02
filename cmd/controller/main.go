@@ -23,7 +23,8 @@ import (
 
 	"github.com/knative/pkg/configmap"
 
-	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
 
 	"github.com/knative/serving/pkg/system"
@@ -107,7 +108,7 @@ func main() {
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
 
-	opt := controller.ReconcileOptions{
+	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,

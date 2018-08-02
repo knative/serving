@@ -17,14 +17,16 @@ limitations under the License.
 package autoscaling
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/knative/pkg/controller"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +49,7 @@ type RevisionSynchronizer interface {
 
 // Reconciler tracks revisions and notifies a RevisionSynchronizer of their presence and absence.
 type Reconciler struct {
-	*controller.Base
+	*reconciler.Base
 
 	revisionLister listers.RevisionLister
 	revSynch       RevisionSynchronizer
@@ -58,14 +60,14 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 
 // NewController creates an autoscaling Controller.
 func NewController(
-	opts *controller.ReconcileOptions,
+	opts *reconciler.Options,
 	revisionInformer servinginformers.RevisionInformer,
 	revSynch RevisionSynchronizer,
 	informerResyncInterval time.Duration,
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:           controller.NewBase(*opts, controllerAgentName),
+		Base:           reconciler.NewBase(*opts, controllerAgentName),
 		revisionLister: revisionInformer.Lister(),
 		revSynch:       revSynch,
 	}
@@ -82,7 +84,7 @@ func NewController(
 }
 
 // Reconcile notifies the RevisionSynchronizer of the presence or absence.
-func (c *Reconciler) Reconcile(revKey string) error {
+func (c *Reconciler) Reconcile(ctx context.Context, revKey string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(revKey)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", revKey, err))

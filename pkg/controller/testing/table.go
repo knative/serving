@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -36,10 +37,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 )
 
 // Listers holds the universe of objects that are available at the start
@@ -256,7 +258,7 @@ type TableRow struct {
 	WithReactors []clientgotesting.ReactionFunc
 }
 
-type Ctor func(*Listers, controller.ReconcileOptions) controller.Reconciler
+type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
 func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	ls := NewListers(r.Objects)
@@ -265,7 +267,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
 	// Set up our Controller from the fakes.
-	c := ctor(&ls, controller.ReconcileOptions{
+	c := ctor(&ls, reconciler.Options{
 		KubeClientSet:    kubeClient,
 		BuildClientSet:   buildClient,
 		ServingClientSet: client,
@@ -283,7 +285,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	client.PrependReactor("update", "*", ValidateUpdates)
 
 	// Run the Reconcile we're testing.
-	if err := c.Reconcile(r.Key); (err != nil) != r.WantErr {
+	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
 	}
 	// Now check that the Reconcile had the desired effects.
