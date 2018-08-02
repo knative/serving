@@ -129,7 +129,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	// Check the number of goroutines eventually reduces to the number there were before the connection was created
 	for i := 1000; i >= 0; i-- {
 		currentGoRoutines := runtime.NumGoroutine()
-		if currentGoRoutines == originalGoroutines {
+		if currentGoRoutines <= originalGoroutines {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)
