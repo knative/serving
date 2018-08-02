@@ -34,9 +34,9 @@ import (
 	"github.com/knative/pkg/signals"
 	"github.com/knative/serving/pkg/activator"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/controller"
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/system"
 	"github.com/knative/serving/third_party/h2c"
 	"go.opencensus.io/exporter/prometheus"
@@ -121,9 +121,9 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error)
 
 	if resp != nil {
 		rrt.logger.Infof("It took %d tries to get response code %d", i, resp.StatusCode)
-		namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
-		name := r.Header.Get(controller.GetRevisionHeaderName())
-		config := r.Header.Get(controller.GetConfigurationHeader())
+		namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
+		name := r.Header.Get(reconciler.GetRevisionHeaderName())
+		config := r.Header.Get(reconciler.GetConfigurationHeader())
 		rrt.reporter.ReportResponseCount(namespace, config, name, resp.StatusCode, i, 1.0)
 		rrt.reporter.ReportResponseTime(namespace, config, name, resp.StatusCode, time.Now().Sub(rrt.start))
 	}
@@ -131,9 +131,9 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (*http.Response, error)
 }
 
 func (a *activationHandler) handler(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
-	name := r.Header.Get(controller.GetRevisionHeaderName())
-	config := r.Header.Get(controller.GetConfigurationHeader())
+	namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
+	name := r.Header.Get(reconciler.GetRevisionHeaderName())
+	config := r.Header.Get(reconciler.GetConfigurationHeader())
 	start := time.Now()
 
 	if r.ContentLength > maxUploadBytes {

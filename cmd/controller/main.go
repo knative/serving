@@ -24,8 +24,8 @@ import (
 	"github.com/knative/pkg/configmap"
 
 	"github.com/knative/pkg/controller"
-	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
+	reconciler "github.com/knative/serving/pkg/reconciler"
 
 	"github.com/knative/serving/pkg/system"
 
@@ -43,10 +43,10 @@ import (
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/controller/configuration"
-	"github.com/knative/serving/pkg/controller/revision"
-	"github.com/knative/serving/pkg/controller/route"
-	"github.com/knative/serving/pkg/controller/service"
+	"github.com/knative/serving/pkg/reconciler/configuration"
+	"github.com/knative/serving/pkg/reconciler/revision"
+	"github.com/knative/serving/pkg/reconciler/route"
+	"github.com/knative/serving/pkg/reconciler/service"
 )
 
 const (

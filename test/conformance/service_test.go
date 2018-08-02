@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
@@ -42,7 +42,7 @@ func tearDownService(clients *test.Clients, names test.ResourceNames) {
 
 func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, imagePath string) error {
 	patches := []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
+		{
 			Operation: "replace",
 			Path:      "/spec/runLatest/configuration/revisionTemplate/spec/container/image",
 			Value:     imagePath,
