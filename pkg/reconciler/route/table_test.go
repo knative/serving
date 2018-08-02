@@ -23,7 +23,7 @@ import (
 	"github.com/knative/pkg/controller"
 	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	reconciler "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/route/config"
 	"github.com/knative/serving/pkg/reconciler/route/resources"
 	"github.com/knative/serving/pkg/reconciler/route/traffic"

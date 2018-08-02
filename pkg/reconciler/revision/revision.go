@@ -54,7 +54,7 @@ import (
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	reconciler "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (

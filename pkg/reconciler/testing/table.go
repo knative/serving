@@ -41,7 +41,7 @@ import (
 	. "github.com/knative/pkg/logging/testing"
 	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	reconciler "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 // Listers holds the universe of objects that are available at the start

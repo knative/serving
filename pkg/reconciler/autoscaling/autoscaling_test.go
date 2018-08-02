@@ -25,7 +25,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	reconciler "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"

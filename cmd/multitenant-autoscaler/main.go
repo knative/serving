@@ -29,7 +29,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/logging"
-	reconciler "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/autoscaling"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"

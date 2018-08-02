@@ -25,7 +25,7 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
-	reconciler "github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler"
 
 	"github.com/knative/serving/pkg/system"
 
