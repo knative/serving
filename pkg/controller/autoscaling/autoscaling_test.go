@@ -17,15 +17,15 @@ limitations under the License.
 package autoscaling_test
 
 import (
+	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
-	fakeBld "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/controller"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/autoscaling"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -42,41 +42,36 @@ const (
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	kubeClient := fakeK8s.NewSimpleClientset()
 	servingClient := fakeKna.NewSimpleClientset()
-	buildClient := fakeBld.NewSimpleClientset()
 
 	stopCh := make(chan struct{})
 	createdCh := make(chan struct{})
 
-	opts := controller.Options{
+	opts := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
-		BuildClientSet:   buildClient,
 		Logger:           zap.NewNop().Sugar(),
 	}
 
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+
 	fakeSynchronizer := newTestRevisionSynchronizer(createdCh, stopCh)
 	ctl := autoscaling.NewController(&opts,
+		servingInformer.Serving().V1alpha1().Revisions(),
 		fakeSynchronizer,
 		time.Duration(0), // disable resynch
 	)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	servingInformer.Start(stopCh)
 
-	// Run the controller.
-	go func() {
-		if err := ctl.Run(1, stopCh); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-		wg.Done()
-	}()
-
-	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(newTestRevision(testNamespace, testRevision))
+	rev := newTestRevision(testNamespace, testRevision)
+	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
+	ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
 
 	// Ensure revision creation has been seen before deleting it.
 	select {
 	case <-createdCh:
-	case <-time.After(time.Minute):
+	case <-time.After(3 * time.Second):
 		t.Fatal("Revision creation notification timed out")
 	}
 
@@ -85,9 +80,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	}
 
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
-
-	// Check the controller terminates normally.
-	wg.Wait()
+	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Delete(rev)
+	ctl.Reconciler.Reconcile(context.TODO(), testNamespace+"/"+testRevision)
 
 	if fakeSynchronizer.onAbsentCallCount.Load() == 0 {
 		t.Fatal("OnAbsent was not called")

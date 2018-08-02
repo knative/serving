@@ -23,12 +23,13 @@ import (
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
+	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	rclr "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
@@ -41,8 +42,8 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 
-	. "github.com/knative/serving/pkg/controller/testing"
 	. "github.com/knative/pkg/logging/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 type nopResolver struct{}
@@ -135,7 +136,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	vpaClient *fakevpaclientset.Clientset,
-	controller *Controller,
+	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
@@ -187,8 +188,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 			"concurrency-quantum-of-time": "100ms",
 			"tick-interval":               "2s",
 		},
-	}, getTestControllerConfigMap(),
-	)
+	}, getTestControllerConfigMap())
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
@@ -198,7 +198,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
-		ctrl.Options{
+		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
@@ -214,7 +214,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 	)
 
-	controller.resolver = &nopResolver{}
+	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
 	return
 }

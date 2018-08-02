@@ -31,7 +31,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha1.Route,
+func (c *Reconciler) reconcileVirtualService(ctx context.Context, route *v1alpha1.Route,
 	desiredVirtualService *v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
 	ns := desiredVirtualService.Namespace
@@ -64,7 +64,7 @@ func (c *Controller) reconcileVirtualService(ctx context.Context, route *v1alpha
 	return err
 }
 
-func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
+func (c *Reconciler) reconcilePlaceholderService(ctx context.Context, route *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 	name := resourcenames.K8sService(route)
@@ -107,7 +107,7 @@ func (c *Controller) reconcilePlaceholderService(ctx context.Context, route *v1a
 
 // Update the Status of the route.  Caller is responsible for checking
 // for semantic differences before calling.
-func (c *Controller) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+func (c *Reconciler) updateStatus(ctx context.Context, route *v1alpha1.Route) (*v1alpha1.Route, error) {
 	existing, err := c.routeLister.Routes(route.Namespace).Get(route.Name)
 	if err != nil {
 		return nil, err

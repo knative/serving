@@ -17,25 +17,24 @@ limitations under the License.
 package autoscaling
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/knative/pkg/controller"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/logging/logkey"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
 
 const (
-	controllerName      = "Autoscaling"
 	controllerAgentName = "autoscaling-controller"
 )
 
@@ -48,80 +47,54 @@ type RevisionSynchronizer interface {
 	OnAbsent(namespace string, name string, logger *zap.SugaredLogger)
 }
 
-// Controller tracks revisions and notifies a RevisionSynchronizer of their presence and absence.
-type Controller struct {
-	*controller.Base
-	revSynch               RevisionSynchronizer
-	kubeInformerFactory    kubeinformers.SharedInformerFactory
-	servingInformerFactory informers.SharedInformerFactory
-	sharedRevisionInformer servinginformers.RevisionInformer
-	lister                 listers.RevisionLister
-	logger                 *zap.SugaredLogger
+// Reconciler tracks revisions and notifies a RevisionSynchronizer of their presence and absence.
+type Reconciler struct {
+	*reconciler.Base
+
+	revisionLister listers.RevisionLister
+	revSynch       RevisionSynchronizer
 }
+
+// Check that our Reconciler implements controller.Reconciler
+var _ controller.Reconciler = (*Reconciler)(nil)
 
 // NewController creates an autoscaling Controller.
 func NewController(
-	opts *controller.Options,
+	opts *reconciler.Options,
+	revisionInformer servinginformers.RevisionInformer,
 	revSynch RevisionSynchronizer,
-	informerResyncInterval time.Duration) *Controller {
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(opts.KubeClientSet, informerResyncInterval)
-	servingInformerFactory := informers.NewSharedInformerFactory(opts.ServingClientSet, informerResyncInterval)
+	informerResyncInterval time.Duration,
+) *controller.Impl {
 
-	sharedRevisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
-
-	c := Controller{
-		Base: controller.NewBase(*opts,
-			controllerAgentName,
-			controllerName,
-		),
-		revSynch:               revSynch,
-		kubeInformerFactory:    kubeInformerFactory,
-		servingInformerFactory: servingInformerFactory,
-		sharedRevisionInformer: sharedRevisionInformer,
-		lister:                 sharedRevisionInformer.Lister(),
-		logger:                 opts.Logger,
+	c := &Reconciler{
+		Base:           reconciler.NewBase(*opts, controllerAgentName),
+		revisionLister: revisionInformer.Lister(),
+		revSynch:       revSynch,
 	}
+	impl := controller.NewImpl(c, c.Logger, "Autoscaling")
 
-	opts.Logger.Debugf("NewController returning controller %#v", c)
-	return &c
-}
-
-// Run starts the Controller monitoring revisions. The Controller uses numThreads goroutines for
-// monitoring and blocks until stopCh is closed, at which point it terminates gracefully
-// and returns.
-func (c *Controller) Run(numThreads int, stopCh <-chan struct{}) error {
-	c.logger.Info("Starting revision informer")
-	go c.servingInformerFactory.Start(stopCh)
-
-	c.logger.Info("Waiting for revision informer cache to sync")
-	informer := c.sharedRevisionInformer.Informer()
-	if ok := cache.WaitForCacheSync(stopCh, informer.HasSynced); !ok {
-		c.logger.Fatalf("failed to wait for revision informer cache to sync")
-	}
-
-	c.logger.Info("Setting up event handlers")
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.Enqueue,
-		UpdateFunc: controller.PassNew(c.Enqueue),
-		DeleteFunc: c.Enqueue,
+	c.Logger.Info("Setting up event handlers")
+	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    impl.Enqueue,
+		UpdateFunc: controller.PassNew(impl.Enqueue),
+		DeleteFunc: impl.Enqueue,
 	})
 
-	c.logger.Info("Launching controller worker threads")
-	return c.RunController(numThreads, stopCh, c.Reconcile, controllerName)
+	return impl
 }
 
 // Reconcile notifies the RevisionSynchronizer of the presence or absence.
-func (c *Controller) Reconcile(revKey string) error {
+func (c *Reconciler) Reconcile(ctx context.Context, revKey string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(revKey)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", revKey, err))
 		return nil
 	}
 
-	logger := loggerWithRevisionInfo(c.logger, namespace, name)
+	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
 	logger.Debug("Reconcile Revision")
 
-	rev, err := c.lister.Revisions(namespace).Get(name)
+	rev, err := c.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Debug("Revision no longer exists")

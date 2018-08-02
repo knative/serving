@@ -17,6 +17,7 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -28,13 +29,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	ctrl "github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	rclr "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -141,7 +143,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
+			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -150,10 +152,33 @@ func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	}
 }
 
+func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
+	kubeClient *fakekubeclientset.Clientset,
+	servingClient *fakeclientset.Clientset,
+	reconciler *Reconciler,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	servingInformer informers.SharedInformerFactory,
+	configMapWatcher configmap.Watcher) {
+	kubeClient, servingClient, _, reconciler, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t)
+	return
+}
+
 func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	kubeClient *fakekubeclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
-	controller *Controller,
+	controller *ctrl.Impl,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	servingInformer informers.SharedInformerFactory,
+	configMapWatcher configmap.Watcher) {
+	kubeClient, servingClient, controller, _, kubeInformer, servingInformer, configMapWatcher = newTestSetup(t)
+	return
+}
+
+func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
+	kubeClient *fakekubeclientset.Clientset,
+	servingClient *fakeclientset.Clientset,
+	controller *ctrl.Impl,
+	reconciler *Reconciler,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
 	configMapWatcher configmap.Watcher) {
@@ -184,7 +209,7 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
-		ctrl.Options{
+		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
@@ -196,6 +221,8 @@ func newTestController(t *testing.T, configs ...*corev1.ConfigMap) (
 		kubeInformer.Core().V1().Services(),
 		servingInformer.Networking().V1alpha3().VirtualServices(),
 	)
+
+	reconciler = controller.Reconciler.(*Reconciler)
 
 	return
 }
@@ -230,7 +257,7 @@ func addResourcesToInformers(
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	kubeClient, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
 
 	h := NewHooks()
 	// Look for the events. Events are delivered asynchronously so we need to use
@@ -261,7 +288,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	// Look for the route rule with activator as the destination.
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
@@ -314,9 +341,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():      "test-rev",
-				ctrl.GetConfigurationHeader():     "test-config",
-				ctrl.GetRevisionHeaderNamespace(): testNamespace,
+				rclr.GetRevisionHeaderName():      "test-rev",
+				rclr.GetConfigurationHeader():     "test-config",
+				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 		}},
@@ -331,7 +358,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -363,7 +390,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -420,7 +447,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
 	rev := getTestRevisionWithCondition("test-rev",
 		v1alpha1.RevisionCondition{
@@ -458,7 +485,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -500,9 +527,9 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Weight: 90,
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():      "test-rev",
-				ctrl.GetConfigurationHeader():     "test-config",
-				ctrl.GetRevisionHeaderNamespace(): testNamespace,
+				rclr.GetRevisionHeaderName():      "test-rev",
+				rclr.GetConfigurationHeader():     "test-config",
+				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 		}},
@@ -513,7 +540,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -564,7 +591,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -641,7 +668,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -677,7 +704,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -753,7 +780,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestEnqueueReferringRoute(t *testing.T) {
-	_, servingClient, controller, _, servingInformer, _ := newTestController(t)
+	_, servingClient, controller, reconciler, _, servingInformer, _ := newTestSetup(t)
 	routeClient := servingClient.ServingV1alpha1().Routes(testNamespace)
 
 	config := getTestConfiguration()
@@ -774,7 +801,8 @@ func TestEnqueueReferringRoute(t *testing.T) {
 	config.Labels = map[string]string{
 		serving.RouteLabelKey: route.Name,
 	}
-	controller.EnqueueReferringRoute(config)
+	f := reconciler.EnqueueReferringRoute(controller)
+	f(config)
 	// add this fake queue end marker.
 	controller.WorkQueue.AddRateLimited("queue-has-no-work")
 	expected := fmt.Sprintf("%s/%s", route.Namespace, route.Name)
@@ -784,7 +812,7 @@ func TestEnqueueReferringRoute(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController(t)
+	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
 
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
@@ -800,7 +828,8 @@ func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
 	config.Labels = map[string]string{
 		serving.RouteLabelKey: route.Name,
 	}
-	controller.EnqueueReferringRoute(config)
+	f := reconciler.EnqueueReferringRoute(controller)
+	f(config)
 	// add this item to avoid being blocked by queue.
 	expected := "queue-has-no-work"
 	controller.WorkQueue.AddRateLimited(expected)
@@ -810,10 +839,11 @@ func TestEnqueueReferringRouteNotEnqueueIfCannotFindRoute(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController(t)
+	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
 
-	controller.EnqueueReferringRoute(config)
+	f := reconciler.EnqueueReferringRoute(controller)
+	f(config)
 	// add this item to avoid being blocked by queue.
 	expected := "queue-has-no-work"
 	controller.WorkQueue.AddRateLimited(expected)
@@ -823,7 +853,7 @@ func TestEnqueueReferringRouteNotEnqueueIfHasNoLatestReady(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController(t)
+	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 	fmt.Println(rev.Name)
@@ -832,7 +862,8 @@ func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
 	if controller.WorkQueue.Len() > 0 {
 		t.Errorf("Expecting no route sync work prior to config change")
 	}
-	controller.EnqueueReferringRoute(config)
+	f := reconciler.EnqueueReferringRoute(controller)
+	f(config)
 	// add this item to avoid being blocked by queue.
 	expected := "queue-has-no-work"
 	controller.WorkQueue.AddRateLimited(expected)
@@ -842,14 +873,15 @@ func TestEnqueueReferringRouteNotEnqueueIfHavingNoRouteLabel(t *testing.T) {
 }
 
 func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
-	_, _, controller, _, _, _ := newTestController(t)
+	_, _, controller, reconciler, _, _, _ := newTestSetup(t)
 	config := getTestConfiguration()
 	rev := getTestRevisionForConfig(config)
 
 	if controller.WorkQueue.Len() > 0 {
 		t.Errorf("Expecting no route sync work prior to config change")
 	}
-	controller.EnqueueReferringRoute(rev)
+	f := reconciler.EnqueueReferringRoute(controller)
+	f(rev)
 	// add this item to avoid being blocked by queue.
 	expected := "queue-has-no-work"
 	controller.WorkQueue.AddRateLimited(expected)
@@ -859,14 +891,14 @@ func TestEnqueueReferringRouteNotEnqueueIfNotGivenAConfig(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	kubeClient, servingClient, controller, kubeInformer, servingInformer, _ := newTestController(t)
+	kubeClient, servingClient, controller, kubeInformer, servingInformer, _ := newTestReconciler(t)
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := servingClient.ServingV1alpha1().Routes(route.Namespace)
 
 	// Create a route.
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 	addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
@@ -930,7 +962,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		expectation.apply()
 		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
-		controller.Reconcile(KeyOrDie(route))
+		controller.Reconcile(context.TODO(), KeyOrDie(route))
 		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})

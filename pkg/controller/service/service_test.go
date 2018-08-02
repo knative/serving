@@ -25,14 +25,15 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/service/resources"
 
-	. "github.com/knative/serving/pkg/controller/testing"
 	. "github.com/knative/pkg/logging/testing"
+	. "github.com/knative/serving/pkg/controller/testing"
 )
 
 var (
@@ -228,9 +229,9 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	table.Test(t, func(listers *Listers, opt controller.Options) controller.Interface {
-		return &Controller{
-			Base:                controller.NewBase(opt, controllerAgentName, "Services"),
+	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		return &Reconciler{
+			Base:                reconciler.NewBase(opt, controllerAgentName),
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			routeLister:         listers.GetRouteLister(),
@@ -247,7 +248,7 @@ func TestNew(t *testing.T) {
 	routeInformer := servingInformer.Serving().V1alpha1().Routes()
 	configurationInformer := servingInformer.Serving().V1alpha1().Configurations()
 
-	c := NewController(controller.Options{
+	c := NewController(reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),

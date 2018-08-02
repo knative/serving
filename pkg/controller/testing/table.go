@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -34,13 +35,13 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	"github.com/knative/pkg/controller"
+	. "github.com/knative/pkg/logging/testing"
 	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
+	reconciler "github.com/knative/serving/pkg/controller"
 )
 
 // Listers holds the universe of objects that are available at the start
@@ -252,15 +253,12 @@ type TableRow struct {
 	// WantPatches holds the set of Patch calls we expect during reconcilliation
 	WantPatches []clientgotesting.PatchActionImpl
 
-	// WantQueue is the set of keys we expect to be in the workqueue following reconciliation.
-	WantQueue []string
-
 	// WithReactors is a set of functions that are installed as Reactors for the execution
 	// of this row of the table-driven-test.
 	WithReactors []clientgotesting.ReactionFunc
 }
 
-type Ctor func(*Listers, controller.Options) controller.Interface
+type Ctor func(*Listers, reconciler.Options) controller.Reconciler
 
 func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	ls := NewListers(r.Objects)
@@ -269,7 +267,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
 	// Set up our Controller from the fakes.
-	c := ctor(&ls, controller.Options{
+	c := ctor(&ls, reconciler.Options{
 		KubeClientSet:    kubeClient,
 		BuildClientSet:   buildClient,
 		ServingClientSet: client,
@@ -287,17 +285,11 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	client.PrependReactor("update", "*", ValidateUpdates)
 
 	// Run the Reconcile we're testing.
-	if err := c.Reconcile(r.Key); (err != nil) != r.WantErr {
+	if err := c.Reconcile(context.TODO(), r.Key); (err != nil) != r.WantErr {
 		t.Errorf("Reconcile() error = %v, WantErr %v", err, r.WantErr)
 	}
 	// Now check that the Reconcile had the desired effects.
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
-
-	c.GetWorkQueue().ShutDown()
-	gotQueue := drainWorkQueue(c.GetWorkQueue())
-	if diff := cmp.Diff(r.WantQueue, gotQueue); diff != "" {
-		t.Errorf("unexpected queue (-Want +got): %s", diff)
-	}
 
 	createActions, updateActions, deleteActions, patchActions := extractActions(t, buildClient, client, kubeClient)
 
@@ -410,17 +402,6 @@ func extractActions(t *testing.T, clients ...hasActions) (
 				t.Errorf("Unexpected verb %v: %+v", action.GetVerb(), action)
 			}
 		}
-	}
-	return
-}
-
-func drainWorkQueue(wq workqueue.RateLimitingInterface) (hasQueue []string) {
-	for {
-		key, shutdown := wq.Get()
-		if shutdown {
-			break
-		}
-		hasQueue = append(hasQueue, key.(string))
 	}
 	return
 }

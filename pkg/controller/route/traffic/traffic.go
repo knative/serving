@@ -78,7 +78,7 @@ type trafficConfigBuilder struct {
 	// revisions contains all the referred Revision, keyed by their name.
 	revisions map[string]*v1alpha1.Revision
 
-	// TargetError are deferred until we got a complete list of all refered targets.
+	// TargetError are deferred until we got a complete list of all referred targets.
 	deferredTargetErr TargetError
 }
 

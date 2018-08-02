@@ -22,6 +22,7 @@ package revision
 */
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -31,20 +32,21 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/knative/pkg/configmap"
+	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/autoscaler"
 	"github.com/knative/serving/pkg/logging"
-	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/system"
 
 	"github.com/google/go-cmp/cmp"
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	rclr "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/controller/revision/resources"
 	resourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
@@ -121,7 +123,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	buildClient *fakebuildclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	vpaClient *fakevpaclientset.Clientset,
-	controller *Controller,
+	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	buildInformer buildinformers.SharedInformerFactory,
 	servingInformer informers.SharedInformerFactory,
@@ -191,7 +193,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
-		ctrl.Options{
+		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
@@ -207,7 +209,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		vpaInformer.Poc().V1alpha1().VerticalPodAutoscalers(),
 	)
 
-	controller.resolver = &nopResolver{}
+	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
 
 	return
 }
@@ -215,13 +217,13 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 func createRevision(t *testing.T,
 	kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
 	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory,
-	controller *Controller, rev *v1alpha1.Revision) *v1alpha1.Revision {
+	controller *ctrl.Impl, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	t.Helper()
 	servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
-	if err := controller.Reconcile(KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
 		rev, _, _ = addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
 	}
 	return rev
@@ -230,12 +232,12 @@ func createRevision(t *testing.T,
 func updateRevision(t *testing.T,
 	kubeClient *fakekubeclientset.Clientset, kubeInformer kubeinformers.SharedInformerFactory,
 	servingClient *fakeclientset.Clientset, servingInformer informers.SharedInformerFactory,
-	controller *Controller, rev *v1alpha1.Revision) {
+	controller *ctrl.Impl, rev *v1alpha1.Revision) {
 	t.Helper()
 	servingClient.ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Update(rev)
 
-	if err := controller.Reconcile(KeyOrDie(rev)); err == nil {
+	if err := controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev)); err == nil {
 		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
 	}
 }
@@ -333,11 +335,11 @@ func TestResolutionFailed(t *testing.T) {
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
-	controller.resolver = &errorResolver{errorMessage}
+	controller.Reconciler.(*Reconciler).resolver = &errorResolver{errorMessage}
 
 	rev := getTestRevision()
 	config := getTestConfiguration()
-	rev.OwnerReferences = append(rev.OwnerReferences, *ctrl.NewControllerRef(config))
+	rev.OwnerReferences = append(rev.OwnerReferences, *rclr.NewControllerRef(config))
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
@@ -386,7 +388,7 @@ func TestCreateRevWithVPA(t *testing.T) {
 	revClient := servingClient.ServingV1alpha1().Revisions(testNamespace)
 	rev := getTestRevision()
 
-	if !controller.getAutoscalerConfig().EnableVPA {
+	if !controller.Reconciler.(*Reconciler).getAutoscalerConfig().EnableVPA {
 		t.Fatal("EnableVPA = false, want true")
 	}
 
@@ -429,7 +431,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)
 
 	// Update controllers logging URL
-	controller.receiveObservabilityConfig(&corev1.ConfigMap{
+	controller.Reconciler.(*Reconciler).receiveObservabilityConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace,
 			Name:      config.ObservabilityConfigName,
@@ -511,8 +513,9 @@ func TestCreateRevWithCompletedBuildNameCompletes(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	buildInformer.Build().V1alpha1().Builds().Informer().GetIndexer().Add(bld)
 
-	controller.EnqueueBuildTrackers(bld)
-	controller.Reconcile(KeyOrDie(rev))
+	f := controller.Reconciler.(*Reconciler).EnqueueBuildTrackers(controller)
+	f(bld)
+	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
 	completedRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
@@ -566,8 +569,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 
 	endpoints := getTestReadyEndpoints(rev.Name)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(endpoints)
-	controller.EnqueueEndpointsRevision(endpoints)
-	controller.Reconcile(KeyOrDie(rev))
+	f := controller.Reconciler.(*Reconciler).EnqueueEndpointsRevision(controller)
+	f(endpoints)
+	controller.Reconciler.Reconcile(context.TODO(), KeyOrDie(rev))
 
 	// Make sure that the changes from the Reconcile are reflected in our Informers.
 	readyRev, _, _ := addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, rev)
@@ -598,10 +602,10 @@ func TestNoAutoscalerImageCreatesNoAutoscalers(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewControllerRef(config),
+		*rclr.NewControllerRef(config),
 	)
 	// Update controller config with no autoscaler image
-	controller.receiveControllerConfig(
+	controller.Reconciler.(*Reconciler).receiveControllerConfig(
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "config-controller",
@@ -634,10 +638,10 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	config := getTestConfiguration()
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewControllerRef(config),
+		*rclr.NewControllerRef(config),
 	)
 	// Update controller config with no side car image
-	controller.receiveControllerConfig(
+	controller.Reconciler.(*Reconciler).receiveControllerConfig(
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "config-controller",
@@ -786,30 +790,31 @@ func TestReceiveLoggingConfig(t *testing.T) {
 		},
 	}
 
-	controller.receiveLoggingConfig(&cm)
-	if controller.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
-		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], controller.getLoggingConfig().LoggingConfig)
+	r := controller.Reconciler.(*Reconciler)
+	r.receiveLoggingConfig(&cm)
+	if r.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
+		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], r.getLoggingConfig().LoggingConfig)
 	}
-	if controller.getLoggingConfig().LoggingLevel["controller"] != zapcore.InfoLevel {
-		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.InfoLevel, controller.getLoggingConfig().LoggingLevel["controller"])
+	if r.getLoggingConfig().LoggingLevel["controller"] != zapcore.InfoLevel {
+		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.InfoLevel, r.getLoggingConfig().LoggingLevel["controller"])
 	}
 
 	cm.Data["loglevel.controller"] = "debug"
-	controller.receiveLoggingConfig(&cm)
-	if controller.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
-		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], controller.getLoggingConfig().LoggingConfig)
+	controller.Reconciler.(*Reconciler).receiveLoggingConfig(&cm)
+	if r.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
+		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], r.getLoggingConfig().LoggingConfig)
 	}
-	if controller.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
-		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, controller.getLoggingConfig().LoggingLevel["controller"])
+	if r.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
+		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, r.getLoggingConfig().LoggingLevel["controller"])
 	}
 
 	cm.Data["loglevel.controller"] = "invalid"
-	controller.receiveLoggingConfig(&cm)
-	if controller.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
-		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], controller.getLoggingConfig().LoggingConfig)
+	controller.Reconciler.(*Reconciler).receiveLoggingConfig(&cm)
+	if r.getLoggingConfig().LoggingConfig != cm.Data["zap-logger-config"] {
+		t.Errorf("Invalid logging config. want: %v, got: %v", cm.Data["zap-logger-config"], r.getLoggingConfig().LoggingConfig)
 	}
-	if controller.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
-		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, controller.getLoggingConfig().LoggingLevel["controller"])
+	if r.getLoggingConfig().LoggingLevel["controller"] != zapcore.DebugLevel {
+		t.Errorf("Invalid logging level. want: %v, got: %v", zapcore.DebugLevel, r.getLoggingConfig().LoggingLevel["controller"])
 	}
 }
 
@@ -819,8 +824,8 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
-	controller.resolver = &fixedResolver{digest}
-	controller.receiveNetworkConfig(&corev1.ConfigMap{
+	controller.Reconciler.(*Reconciler).resolver = &fixedResolver{digest}
+	controller.Reconciler.(*Reconciler).receiveNetworkConfig(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NetworkConfigName,
 			Namespace: system.Namespace,
@@ -837,7 +842,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 
 	rev.OwnerReferences = append(
 		rev.OwnerReferences,
-		*ctrl.NewControllerRef(config),
+		*rclr.NewControllerRef(config),
 	)
 
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, controller, rev)

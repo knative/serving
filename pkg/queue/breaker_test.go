@@ -123,7 +123,7 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 		got[i] = <-g
 	}
 
-	// Check the first few suceeded
+	// Check the first few succeeded
 	if !reflect.DeepEqual(want[:10], got[:10]) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
 	}
