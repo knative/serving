@@ -43,10 +43,10 @@ import (
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/reconciler/configuration"
-	"github.com/knative/serving/pkg/reconciler/revision"
-	"github.com/knative/serving/pkg/reconciler/route"
-	"github.com/knative/serving/pkg/reconciler/service"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
 )
 
 const (

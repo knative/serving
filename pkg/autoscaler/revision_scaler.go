@@ -19,7 +19,7 @@ package autoscaler
 import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

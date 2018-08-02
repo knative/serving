@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
