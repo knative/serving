@@ -43,8 +43,8 @@ Revisions, the resources would look like:
 #### Routing in the presence of Inactive Revisions (aka 0→1)
 
 In the case of inactive Revisions, a Route would direct requests through the
-`activator` Service, with enough information in the headers so that the
-`activator` Service can activate a Revision before relaying the traffic to
+ Service `activator-service`, with enough information in the headers so that the
+ Service `activator-service` Service can activate a Revision before relaying the traffic to
 it.
 
 From the same scenario of the previous example, if the Revision
@@ -63,4 +63,4 @@ the resources would look like:
 
 If any activation happens, Revisions becomes active again and traffic will be
 adjusted to route directly to the Revision, without going through the Service
-`activator`.
+`activator-service`.
