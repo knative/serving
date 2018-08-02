@@ -28,11 +28,12 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/knative/pkg/controller"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/service/resources"
 	resourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
 	"github.com/knative/serving/pkg/logging"
@@ -43,7 +44,7 @@ const controllerAgentName = "service-controller"
 
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
-	*controller.Base
+	*reconciler.Base
 
 	// listers index properties about resources
 	serviceLister       listers.ServiceLister
@@ -57,14 +58,14 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
-	opt controller.ReconcileOptions,
+	opt reconciler.Options,
 	serviceInformer servinginformers.ServiceInformer,
 	configurationInformer servinginformers.ConfigurationInformer,
 	routeInformer servinginformers.RouteInformer,
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:                controller.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(opt, controllerAgentName),
 		serviceLister:       serviceInformer.Lister(),
 		configurationLister: configurationInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
@@ -105,7 +106,7 @@ func loggerWithServiceInfo(logger *zap.SugaredLogger, ns string, name string) *z
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
-func (c *Reconciler) Reconcile(key string) error {
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -115,7 +116,7 @@ func (c *Reconciler) Reconcile(key string) error {
 
 	// Wrap our logger with the additional context of the configuration that we are reconciling.
 	logger := loggerWithServiceInfo(c.Logger, namespace, name)
-	ctx := logging.WithLogger(context.TODO(), logger)
+	ctx = logging.WithLogger(ctx, logger)
 
 	// Get the Service resource with this namespace/name
 	original, err := c.serviceLister.Services(namespace).Get(name)

@@ -23,12 +23,13 @@ import (
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
+	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	rclr "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/revision/config"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
@@ -197,7 +198,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	vpaInformer = vpainformers.NewSharedInformerFactory(vpaClient, 0)
 
 	controller = NewController(
-		ctrl.ReconcileOptions{
+		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,

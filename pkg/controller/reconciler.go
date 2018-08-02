@@ -31,10 +31,10 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-// ReconcileOptions defines the common reconciler options.
+// Options defines the common reconciler options.
 // We define this to reduce the boilerplate argument list when
 // creating our controllers.
-type ReconcileOptions struct {
+type Options struct {
 	KubeClientSet    kubernetes.Interface
 	ServingClientSet clientset.Interface
 	BuildClientSet   buildclientset.Interface
@@ -70,7 +70,7 @@ type Base struct {
 
 // NewBase instantiates a new instance of Base implementing
 // the common & boilerplate code between our reconcilers.
-func NewBase(opt ReconcileOptions, controllerAgentName string) *Base {
+func NewBase(opt Options, controllerAgentName string) *Base {
 	// Enrich the logs with controller name
 	logger := opt.Logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 

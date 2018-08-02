@@ -21,11 +21,12 @@ import (
 	"time"
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
+	ctrl "github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	hooks "github.com/knative/serving/pkg/controller/testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -106,7 +107,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
-		ctrl.ReconcileOptions{
+		reconciler.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),

@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/knative/pkg/controller"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/configuration/resources"
 	resourcenames "github.com/knative/serving/pkg/controller/configuration/resources/names"
 	"github.com/knative/serving/pkg/logging"
@@ -41,7 +42,7 @@ const controllerAgentName = "configuration-controller"
 
 // Reconciler implements controller.Reconciler for Configuration resources.
 type Reconciler struct {
-	*controller.Base
+	*reconciler.Base
 
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
@@ -53,13 +54,13 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 
 // NewController creates a new Configuration controller
 func NewController(
-	opt controller.ReconcileOptions,
+	opt reconciler.Options,
 	configurationInformer servinginformers.ConfigurationInformer,
 	revisionInformer servinginformers.RevisionInformer,
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:                controller.NewBase(opt, controllerAgentName),
+		Base:                reconciler.NewBase(opt, controllerAgentName),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
@@ -90,7 +91,7 @@ func loggerWithConfigInfo(logger *zap.SugaredLogger, ns string, name string) *za
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
-func (c *Reconciler) Reconcile(key string) error {
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -99,7 +100,7 @@ func (c *Reconciler) Reconcile(key string) error {
 	}
 	// Wrap our logger with the additional context of the configuration that we are reconciling.
 	logger := loggerWithConfigInfo(c.Logger, namespace, name)
-	ctx := logging.WithLogger(context.TODO(), logger)
+	ctx = logging.WithLogger(ctx, logger)
 
 	// Get the Configuration resource with this namespace/name
 	original, err := c.configurationLister.Configurations(namespace).Get(name)

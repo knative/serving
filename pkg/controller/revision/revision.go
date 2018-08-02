@@ -61,9 +61,10 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 )
 
 const (
@@ -92,7 +93,7 @@ type resolver interface {
 
 // Reconciler implements controller.Reconciler for Revision resources.
 type Reconciler struct {
-	*controller.Base
+	*reconciler.Base
 
 	// VpaClientSet allows us to configure VPA objects
 	vpaClient vpa.Interface
@@ -145,7 +146,7 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // queue - message queue for handling new events.  unique to this controller.
 func NewController(
-	opt controller.ReconcileOptions,
+	opt reconciler.Options,
 	vpaClient vpa.Interface,
 	revisionInformer servinginformers.RevisionInformer,
 	buildInformer buildinformers.BuildInformer,
@@ -157,7 +158,7 @@ func NewController(
 ) *controller.Impl {
 
 	c := &Reconciler{
-		Base:             controller.NewBase(opt, controllerAgentName),
+		Base:             reconciler.NewBase(opt, controllerAgentName),
 		vpaClient:        vpaClient,
 		revisionLister:   revisionInformer.Lister(),
 		buildLister:      buildInformer.Lister(),
@@ -220,7 +221,7 @@ func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
-func (c *Reconciler) Reconcile(key string) error {
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -229,7 +230,7 @@ func (c *Reconciler) Reconcile(key string) error {
 	}
 
 	logger := loggerWithRevisionInfo(c.Logger, namespace, name)
-	ctx := logging.WithLogger(context.TODO(), logger)
+	ctx = logging.WithLogger(ctx, logger)
 	logger.Info("Running reconcile Revision")
 
 	// Get the Revision resource with this namespace/name

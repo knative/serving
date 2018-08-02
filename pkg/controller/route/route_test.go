@@ -17,6 +17,7 @@ limitations under the License.
 package route
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -28,13 +29,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	ctrl "github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	ctrl "github.com/knative/serving/pkg/controller"
+	rclr "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -141,7 +143,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: ctrl.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
+			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -207,7 +209,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	servingInformer = informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller = NewController(
-		ctrl.ReconcileOptions{
+		rclr.Options{
 			KubeClientSet:    kubeClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
@@ -285,7 +287,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	// Look for the route rule with activator as the destination.
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
@@ -338,8 +340,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 			Route: []v1alpha3.DestinationWeight{getActivatorDestinationWeight(100)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():      "test-rev",
-				ctrl.GetRevisionHeaderNamespace(): testNamespace,
+				rclr.GetRevisionHeaderName():      "test-rev",
+				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 		}},
@@ -386,7 +388,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -480,7 +482,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -522,8 +524,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 				Weight: 90,
 			}, getActivatorDestinationWeight(10)},
 			AppendHeaders: map[string]string{
-				ctrl.GetRevisionHeaderName():      "test-rev",
-				ctrl.GetRevisionHeaderNamespace(): testNamespace,
+				rclr.GetRevisionHeaderName():      "test-rev",
+				rclr.GetRevisionHeaderNamespace(): testNamespace,
 			},
 			Timeout: resources.DefaultRouteTimeout,
 		}},
@@ -585,7 +587,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -698,7 +700,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 
 	vs, err := servingClient.NetworkingV1alpha3().VirtualServices(testNamespace).Get(resourcenames.VirtualService(route), metav1.GetOptions{})
 	if err != nil {
@@ -892,7 +894,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	// Create a route.
 	servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
-	controller.Reconcile(KeyOrDie(route))
+	controller.Reconcile(context.TODO(), KeyOrDie(route))
 	addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
@@ -956,7 +958,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		expectation.apply()
 		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
 		routeClient.Update(route)
-		controller.Reconcile(KeyOrDie(route))
+		controller.Reconcile(context.TODO(), KeyOrDie(route))
 		addResourcesToInformers(t, kubeClient, kubeInformer, servingClient, servingInformer, route)
 
 		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})

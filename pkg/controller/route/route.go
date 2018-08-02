@@ -28,6 +28,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/knative/pkg/controller"
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -35,7 +36,7 @@ import (
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/controller"
+	reconciler "github.com/knative/serving/pkg/controller"
 	"github.com/knative/serving/pkg/controller/route/config"
 	"github.com/knative/serving/pkg/controller/route/resources"
 	"github.com/knative/serving/pkg/controller/route/traffic"
@@ -50,7 +51,7 @@ const (
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
-	*controller.Base
+	*reconciler.Base
 
 	// Listers index properties about resources
 	routeLister          listers.RouteLister
@@ -74,7 +75,7 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // si - informer factory shared across all controllers for listening to events and indexing resource properties
 // reconcileKey - function for mapping queue keys to resource names
 func NewController(
-	opt controller.ReconcileOptions,
+	opt reconciler.Options,
 	routeInformer servinginformers.RouteInformer,
 	configInformer servinginformers.ConfigurationInformer,
 	revisionInformer servinginformers.RevisionInformer,
@@ -85,7 +86,7 @@ func NewController(
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Reconciler{
-		Base:                 controller.NewBase(opt, controllerAgentName),
+		Base:                 reconciler.NewBase(opt, controllerAgentName),
 		routeLister:          routeInformer.Lister(),
 		configurationLister:  configInformer.Lister(),
 		revisionLister:       revisionInformer.Lister(),
@@ -128,7 +129,7 @@ func NewController(
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
-func (c *Reconciler) Reconcile(key string) error {
+func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -137,7 +138,7 @@ func (c *Reconciler) Reconcile(key string) error {
 	}
 
 	logger := loggerWithRouteInfo(c.Logger, namespace, name)
-	ctx := logging.WithLogger(context.TODO(), logger)
+	ctx = logging.WithLogger(ctx, logger)
 
 	// Get the Route resource with this namespace/name
 	original, err := c.routeLister.Routes(namespace).Get(name)
