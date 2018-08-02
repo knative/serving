@@ -32,7 +32,7 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen --input-dirs \
-  github.com/knative/serving/pkg/controller/revision/config,github.com/knative/serving/pkg/autoscaler,github.com/knative/serving/pkg/logging \
+  github.com/knative/serving/pkg/reconciler/revision/config,github.com/knative/serving/pkg/autoscaler,github.com/knative/serving/pkg/logging \
   -O zz_generated.deepcopy \
   --go-header-file ${SERVING_ROOT}/hack/boilerplate/boilerplate.go.txt
 
