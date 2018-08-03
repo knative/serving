@@ -201,7 +201,6 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 func (c *Reconciler) createRevision(config *v1alpha1.Configuration, revName string) (*v1alpha1.Revision, error) {
 	logger := loggerWithConfigInfo(c.Logger, config.Namespace, config.Name)
 
-	buildName := ""
 	if config.Spec.Build != nil {
 		// TODO(mattmoor): Determine whether we reuse the previous build.
 		build := resources.MakeBuild(config)
@@ -211,10 +210,9 @@ func (c *Reconciler) createRevision(config *v1alpha1.Configuration, revName stri
 		}
 		logger.Infof("Created Build:\n%+v", created.Name)
 		c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Build %q", created.Name)
-		buildName = created.Name
 	}
 
-	rev := resources.MakeRevision(config, buildName)
+	rev := resources.MakeRevision(config)
 	created, err := c.ServingClientSet.ServingV1alpha1().Revisions(config.Namespace).Create(rev)
 	if err != nil {
 		return nil, err
