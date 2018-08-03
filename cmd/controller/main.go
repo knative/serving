@@ -40,8 +40,8 @@ import (
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
-	istioclientset "github.com/knative/pkg/client/clientset/versioned"
-	istioinformers "github.com/knative/pkg/client/informers/externalversions"
+	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
+	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
@@ -87,9 +87,9 @@ func main() {
 		logger.Fatalf("Error building kubernetes clientset: %v", err)
 	}
 
-	istioClient, err := istioclientset.NewForConfig(cfg)
+	sharedClient, err := sharedclientset.NewForConfig(cfg)
 	if err != nil {
-		logger.Fatalf("Error building istio clientset: %v", err)
+		logger.Fatalf("Error building shared clientset: %v", err)
 	}
 
 	servingClient, err := clientset.NewForConfig(cfg)
@@ -107,7 +107,7 @@ func main() {
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	istioInformerFactory := istioinformers.NewSharedInformerFactory(istioClient, time.Second*30)
+	sharedInformerFactory := sharedinformers.NewSharedInformerFactory(sharedClient, time.Second*30)
 	servingInformerFactory := informers.NewSharedInformerFactory(servingClient, time.Second*30)
 	buildInformerFactory := buildinformers.NewSharedInformerFactory(buildClient, time.Second*30)
 	servingSystemInformerFactory := kubeinformers.NewFilteredSharedInformerFactory(kubeClient,
@@ -118,7 +118,7 @@ func main() {
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
-		IstioClientSet:   istioClient,
+		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
 		ConfigMapWatcher: configMapWatcher,
@@ -134,7 +134,7 @@ func main() {
 	coreServiceInformer := kubeInformerFactory.Core().V1().Services()
 	endpointsInformer := kubeInformerFactory.Core().V1().Endpoints()
 	configMapInformer := kubeInformerFactory.Core().V1().ConfigMaps()
-	virtualServiceInformer := istioInformerFactory.Networking().V1alpha3().VirtualServices()
+	virtualServiceInformer := sharedInformerFactory.Networking().V1alpha3().VirtualServices()
 	vpaInformer := vpaInformerFactory.Poc().V1alpha1().VerticalPodAutoscalers()
 
 	// Build all of our controllers, with the clients constructed above.
@@ -177,7 +177,7 @@ func main() {
 
 	// These are non-blocking.
 	kubeInformerFactory.Start(stopCh)
-	istioInformerFactory.Start(stopCh)
+	sharedInformerFactory.Start(stopCh)
 	servingInformerFactory.Start(stopCh)
 	buildInformerFactory.Start(stopCh)
 	servingSystemInformerFactory.Start(stopCh)

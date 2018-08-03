@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
-	istioclientset "github.com/knative/pkg/client/clientset/versioned"
+	sharedclientset "github.com/knative/pkg/client/clientset/versioned"
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -37,7 +37,7 @@ import (
 // creating our controllers.
 type Options struct {
 	KubeClientSet    kubernetes.Interface
-	IstioClientSet   istioclientset.Interface
+	SharedClientSet  sharedclientset.Interface
 	ServingClientSet clientset.Interface
 	BuildClientSet   buildclientset.Interface
 	ConfigMapWatcher configmap.Watcher
@@ -49,8 +49,8 @@ type Base struct {
 	// KubeClientSet allows us to talk to the k8s for core APIs
 	KubeClientSet kubernetes.Interface
 
-	// IstioClientSet allows us to configure Istio objects
-	IstioClientSet istioclientset.Interface
+	// SharedClientSet allows us to configure shared objects
+	SharedClientSet sharedclientset.Interface
 
 	// ServingClientSet allows us to configure Serving objects
 	ServingClientSet clientset.Interface
@@ -89,7 +89,7 @@ func NewBase(opt Options, controllerAgentName string) *Base {
 
 	base := &Base{
 		KubeClientSet:    opt.KubeClientSet,
-		IstioClientSet:   opt.IstioClientSet,
+		SharedClientSet:  opt.SharedClientSet,
 		ServingClientSet: opt.ServingClientSet,
 		BuildClientSet:   opt.BuildClientSet,
 		ConfigMapWatcher: opt.ConfigMapWatcher,

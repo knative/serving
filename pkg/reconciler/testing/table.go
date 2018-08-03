@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	fakeistioclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/knative/serving/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
@@ -175,7 +175,7 @@ func (f *Listers) GetServingObjects() []runtime.Object {
 	return objs
 }
 
-func (f *Listers) GetIstioObjects() []runtime.Object {
+func (f *Listers) GetSharedObjects() []runtime.Object {
 	var objs []runtime.Object
 	for _, r := range f.GetVirtualServiceLister().Items {
 		objs = append(objs, r)
@@ -270,13 +270,13 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	ls := NewListers(r.Objects)
 
 	kubeClient := fakekubeclientset.NewSimpleClientset(ls.GetKubeObjects()...)
-	istioClient := fakeistioclientset.NewSimpleClientset(ls.GetIstioObjects()...)
+	sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
 	// Set up our Controller from the fakes.
 	c := ctor(&ls, reconciler.Options{
 		KubeClientSet:    kubeClient,
-		IstioClientSet:   istioClient,
+		SharedClientSet:  sharedClient,
 		BuildClientSet:   buildClient,
 		ServingClientSet: client,
 		Logger:           TestLogger(t),
@@ -284,7 +284,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 
 	for _, reactor := range r.WithReactors {
 		kubeClient.PrependReactor("*", "*", reactor)
-		istioClient.PrependReactor("*", "*", reactor)
+		sharedClient.PrependReactor("*", "*", reactor)
 		client.PrependReactor("*", "*", reactor)
 		buildClient.PrependReactor("*", "*", reactor)
 	}
@@ -300,7 +300,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	// Now check that the Reconcile had the desired effects.
 	expectedNamespace, _, _ := cache.SplitMetaNamespaceKey(r.Key)
 
-	createActions, updateActions, deleteActions, patchActions := extractActions(t, istioClient, buildClient, client, kubeClient)
+	createActions, updateActions, deleteActions, patchActions := extractActions(t, sharedClient, buildClient, client, kubeClient)
 
 	for i, want := range r.WantCreates {
 		if i >= len(createActions) {

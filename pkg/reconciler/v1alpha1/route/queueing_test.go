@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	fakeistioclientset "github.com/knative/pkg/client/clientset/versioned/fake"
-	istioinformers "github.com/knative/pkg/client/informers/externalversions"
+	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	sharedinformers "github.com/knative/pkg/client/informers/externalversions"
 	"github.com/knative/pkg/configmap"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -75,19 +75,19 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 			prodDomainSuffix:    "selector:\n  app: prod",
 		},
 	})
-	istioClient := fakeistioclientset.NewSimpleClientset()
+	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset(rev, route)
 
 	// Create informer factories with fake clients. The second parameter sets the
 	// resync period to zero, disabling it.
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-	istioInformer := istioinformers.NewSharedInformerFactory(istioClient, 0)
+	sharedInformer := sharedinformers.NewSharedInformerFactory(sharedClient, 0)
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 
 	controller := NewController(
 		reconciler.Options{
 			KubeClientSet:    kubeClient,
-			IstioClientSet:   istioClient,
+			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			ConfigMapWatcher: configMapWatcher,
 			Logger:           TestLogger(t),
@@ -96,7 +96,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		servingInformer.Serving().V1alpha1().Configurations(),
 		servingInformer.Serving().V1alpha1().Revisions(),
 		kubeInformer.Core().V1().Services(),
-		istioInformer.Networking().V1alpha3().VirtualServices(),
+		sharedInformer.Networking().V1alpha3().VirtualServices(),
 	)
 
 	h := NewHooks()

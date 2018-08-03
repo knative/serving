@@ -21,7 +21,7 @@ import (
 	"time"
 
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
-	fakeistioclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	ctrl "github.com/knative/pkg/controller"
 	. "github.com/knative/pkg/logging/testing"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -90,7 +90,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 
 func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	kubeClient *fakekubeclientset.Clientset,
-	istioClient *fakeistioclientset.Clientset,
+	sharedClient *fakesharedclientset.Clientset,
 	servingClient *fakeclientset.Clientset,
 	controller *ctrl.Impl,
 	kubeInformer kubeinformers.SharedInformerFactory,
@@ -98,7 +98,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	istioClient = fakeistioclientset.NewSimpleClientset()
+	sharedClient = fakesharedclientset.NewSimpleClientset()
 	// The ability to insert objects here is intended to work around the problem
 	// with watches not firing in client-go 1.9. When we update to client-go 1.10
 	// this can probably be removed.
@@ -112,7 +112,7 @@ func newTestController(t *testing.T, servingObjects ...runtime.Object) (
 	controller = NewController(
 		reconciler.Options{
 			KubeClientSet:    kubeClient,
-			IstioClientSet:   istioClient,
+			SharedClientSet:  sharedClient,
 			ServingClientSet: servingClient,
 			BuildClientSet:   fakebuildclientset.NewSimpleClientset(),
 			Logger:           TestLogger(t),
