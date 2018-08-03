@@ -26,6 +26,10 @@ var K8sGatewayFullname = reconciler.GetK8sServiceFullname(
 	"knative-shared-gateway",
 	system.Namespace)
 
+var K8sGatewayServiceFullname = reconciler.GetK8sServiceFullname(
+	"knative-ingressgateway",
+	"istio-system")
+
 func K8sService(route *v1alpha1.Route) string {
 	return route.Name
 }
