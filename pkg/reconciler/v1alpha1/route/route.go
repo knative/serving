@@ -216,7 +216,9 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route) (*
 	}
 	if badTarget != nil && isTargetError {
 		badTarget.MarkBadTrafficTarget(&r.Status)
-		return r, badTarget
+
+		// Traffic targets aren't ready, no need to configure Route.
+		return r, nil
 	}
 	logger.Info("All referred targets are routable.  Creating Istio VirtualService.")
 	if err := c.reconcileVirtualService(ctx, r, resources.MakeVirtualService(r, t)); err != nil {
