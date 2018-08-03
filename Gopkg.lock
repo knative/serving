@@ -277,8 +277,7 @@
     "signals",
     "webhook"
   ]
-  revision = "2dbc2f9b7f4d77f6f907a0b2f14ce3b30f895157"
-  source = "https://github.com/scothis/pkg.git"
+  revision = "a088fee6227f7c6842ce7f7406cb75af8a6e0643"
 
 [[projects]]
   branch = "master"
@@ -818,6 +817,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2f680d2571959383f0ca291fab1d99bb96fc136081ca09f068d77f38ec3a6b1e"
+  inputs-digest = "a57da1fda4f2d4fa334f0729f724bfd3b5c7f265d869031baf6a5f6809a1c63d"
   solver-name = "gps-cdcl"
   solver-version = 1

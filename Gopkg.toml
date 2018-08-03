@@ -36,8 +36,8 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/pkg"
-  source = "https://github.com/scothis/pkg.git"
-  revision = "2dbc2f9b7f4d77f6f907a0b2f14ce3b30f895157"
+  # HEAD as of 2018-08-03
+  revision = "a088fee6227f7c6842ce7f7406cb75af8a6e0643"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
