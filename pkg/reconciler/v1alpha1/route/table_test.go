@@ -78,8 +78,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: false,
-		Key:     "default/first-reconcile",
+		Key: "default/first-reconcile",
 	}, {
 		Name: "configuration permanently failed",
 		Objects: []runtime.Object{
@@ -113,8 +112,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: false,
-		Key:     "default/first-reconcile",
+		Key: "default/first-reconcile",
 	}, {
 		Name:    "failure updating route status",
 		WantErr: true,
@@ -1003,8 +1001,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: false,
-		Key:     "default/config-missing",
+		Key: "default/config-missing",
 	}, {
 		Name: "revision missing (direct)",
 		Objects: []runtime.Object{
@@ -1031,8 +1028,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: false,
-		Key:     "default/missing-revision-direct",
+		Key: "default/missing-revision-direct",
 	}, {
 		Name: "revision missing (indirect)",
 		Objects: []runtime.Object{
@@ -1062,8 +1058,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: false,
-		Key:     "default/missing-revision-indirect",
+		Key: "default/missing-revision-indirect",
 	}, {
 		Name: "pinned route becomes ready",
 		Objects: []runtime.Object{
