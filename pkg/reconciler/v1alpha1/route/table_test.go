@@ -78,7 +78,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: true,
+		WantErr: false,
 		Key:     "default/first-reconcile",
 	}, {
 		Name: "configuration permanently failed",
@@ -113,7 +113,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: true,
+		WantErr: false,
 		Key:     "default/first-reconcile",
 	}, {
 		Name:    "failure updating route status",
@@ -1003,7 +1003,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: true,
+		WantErr: false,
 		Key:     "default/config-missing",
 	}, {
 		Name: "revision missing (direct)",
@@ -1031,7 +1031,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: true,
+		WantErr: false,
 		Key:     "default/missing-revision-direct",
 	}, {
 		Name: "revision missing (indirect)",
@@ -1062,7 +1062,7 @@ func TestReconcile(t *testing.T) {
 				}},
 			}),
 		}},
-		WantErr: true,
+		WantErr: false,
 		Key:     "default/missing-revision-indirect",
 	}, {
 		Name: "pinned route becomes ready",
