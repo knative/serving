@@ -227,6 +227,111 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcRL("run-latest", "foo", initialConditions...),
 		}},
+	}, {
+		Name: "runLatest - route and config ready, propagate ready",
+		// When both route and config are ready, the service should become ready.
+		Objects: []runtime.Object{
+			svcRL("all-ready", "foo", initialConditions...),
+			routeWithStatus(resources.MakeRoute(svcRL("all-ready", "foo", initialConditions...)),
+				v1alpha1.RouteStatus{
+					Conditions: []v1alpha1.RouteCondition{{
+						Type:   v1alpha1.RouteConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				}),
+			cfgWithStatus(mustMakeConfig(t, svcRL("all-ready", "foo", initialConditions...)),
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				}),
+		},
+		Key: "foo/all-ready",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcRL("all-ready", "foo", []v1alpha1.ServiceCondition{{
+				Type:   v1alpha1.ServiceConditionConfigurationsReady,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   v1alpha1.ServiceConditionReady,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   v1alpha1.ServiceConditionRoutesReady,
+				Status: corev1.ConditionTrue,
+			}}...),
+		}},
+	}, {
+		Name: "runLatest - config fails, propagate failure",
+		// When config fails, the service should fail.
+		Objects: []runtime.Object{
+			svcRL("config-fails", "foo", initialConditions...),
+			routeWithStatus(resources.MakeRoute(svcRL("config-fails", "foo", initialConditions...)),
+				v1alpha1.RouteStatus{
+					Conditions: []v1alpha1.RouteCondition{{
+						Type:   v1alpha1.RouteConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				}),
+			cfgWithStatus(mustMakeConfig(t, svcRL("config-fails", "foo", initialConditions...)),
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionFalse,
+						Reason: "Propagate me, please",
+					}},
+				}),
+		},
+		Key: "foo/config-fails",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcRL("config-fails", "foo", []v1alpha1.ServiceCondition{{
+				Type:   v1alpha1.ServiceConditionConfigurationsReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}, {
+				Type:   v1alpha1.ServiceConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}, {
+				Type:   v1alpha1.ServiceConditionRoutesReady,
+				Status: corev1.ConditionTrue,
+			}}...),
+		}},
+	}, {
+		Name: "runLatest - route fails, propagate failure",
+		// When route fails, the service should fail.
+		Objects: []runtime.Object{
+			svcRL("route-fails", "foo", initialConditions...),
+			routeWithStatus(resources.MakeRoute(svcRL("route-fails", "foo", initialConditions...)),
+				v1alpha1.RouteStatus{
+					Conditions: []v1alpha1.RouteCondition{{
+						Type:   v1alpha1.RouteConditionReady,
+						Status: corev1.ConditionFalse,
+						Reason: "Propagate me, please",
+					}},
+				}),
+			cfgWithStatus(mustMakeConfig(t, svcRL("route-fails", "foo", initialConditions...)),
+				v1alpha1.ConfigurationStatus{
+					Conditions: []v1alpha1.ConfigurationCondition{{
+						Type:   v1alpha1.ConfigurationConditionReady,
+						Status: corev1.ConditionTrue,
+					}},
+				}),
+		},
+		Key: "foo/route-fails",
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: svcRL("route-fails", "foo", []v1alpha1.ServiceCondition{{
+				Type:   v1alpha1.ServiceConditionConfigurationsReady,
+				Status: corev1.ConditionTrue,
+			}, {
+				Type:   v1alpha1.ServiceConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}, {
+				Type:   v1alpha1.ServiceConditionRoutesReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Propagate me, please",
+			}}...),
+		}},
 	}}
 
 	table.Test(t, func(listers *Listers, opt reconciler.Options) controller.Reconciler {
@@ -301,5 +406,17 @@ func mutateConfig(cfg *v1alpha1.Configuration) *v1alpha1.Configuration {
 // mutateRoute mutates the specification of the Route to simulate someone editing it around our controller.
 func mutateRoute(rt *v1alpha1.Route) *v1alpha1.Route {
 	rt.Spec = v1alpha1.RouteSpec{}
+	return rt
+}
+
+// TODO(1762): Replace with builders.
+func cfgWithStatus(cfg *v1alpha1.Configuration, s v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
+	cfg.Status = s
+	return cfg
+}
+
+// TODO(1762): Replace with builders.
+func routeWithStatus(rt *v1alpha1.Route, s v1alpha1.RouteStatus) *v1alpha1.Route {
+	rt.Status = s
 	return rt
 }
