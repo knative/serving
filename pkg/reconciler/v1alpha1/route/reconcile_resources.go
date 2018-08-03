@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
+	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources"
@@ -39,7 +39,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, route *v1alpha
 
 	virtualService, err := c.virtualServiceLister.VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
-		virtualService, err = c.ServingClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desiredVirtualService)
+		virtualService, err = c.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desiredVirtualService)
 		if err != nil {
 			logger.Error("Failed to create VirtualService", zap.Error(err))
 			c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
@@ -52,7 +52,7 @@ func (c *Reconciler) reconcileVirtualService(ctx context.Context, route *v1alpha
 		return err
 	} else if !equality.Semantic.DeepEqual(virtualService.Spec, desiredVirtualService.Spec) {
 		virtualService.Spec = desiredVirtualService.Spec
-		virtualService, err = c.ServingClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(virtualService)
+		virtualService, err = c.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(virtualService)
 		if err != nil {
 			logger.Error("Failed to update VirtualService", zap.Error(err))
 			return err
