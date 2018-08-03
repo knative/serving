@@ -22,6 +22,16 @@ import (
 	"testing"
 )
 
+type request struct {
+	doneCh   chan struct{}
+	resultCh chan bool
+}
+
+func (r *request) done() bool {
+	close(r.doneCh)
+	return <-r.resultCh
+}
+
 func TestBreakerOverload(t *testing.T) {
 	t.Skip("Skipping until #1308 is addressed")
 	b := NewBreaker(1, 1)             // Breaker capacity = 2
@@ -44,15 +54,15 @@ func TestBreakerNoOverload(t *testing.T) {
 	b := NewBreaker(1, 1)                  // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
 
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	done(r1)
-	r3, g3 := b.concurrentRequest()
-	done(r2)
-	r4, g4 := b.concurrentRequest()
-	done(r3)
-	done(r4)
-	got := []bool{<-g1, <-g2, <-g3, <-g4}
+	r1 := b.concurrentRequest2()
+	r2 := b.concurrentRequest2()
+	g1 := r1.done()
+	r3 := b.concurrentRequest2()
+	g2 := r2.done()
+	r4 := b.concurrentRequest2()
+	g3 := r3.done()
+	g4 := r4.done()
+	got := []bool{g1, g2, g3, g4}
 
 	if !reflect.DeepEqual(want, got) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
@@ -148,6 +158,21 @@ func (b *Breaker) concurrentRequest() (chan struct{}, chan bool) {
 	}()
 	runtime.Gosched()
 	return release, result
+}
+
+func (b *Breaker) concurrentRequest2() *request {
+	releaseCh := make(chan struct{})
+	thunk := func() {
+		_, _ = <-releaseCh
+	}
+	resultCh := make(chan bool)
+	go func() {
+		resultCh <- b.Maybe(thunk)
+	}()
+	return &request{
+		doneCh:   releaseCh,
+		resultCh: resultCh,
+	}
 }
 
 func done(release chan struct{}) {
