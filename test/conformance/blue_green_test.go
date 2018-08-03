@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -47,19 +48,24 @@ const (
 	expectedGreen = "Re-energize yourself with a slice of pepperoni!"
 )
 
-// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
+// Probe until we get a successful response. This ensures the domain is
+// routable before we send it a bunch of traffic.
+func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
+	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	// TODO(tcnghia): Replace this probing with Status check when we have them.
+	_, err = client.Poll(req, test.Retrying(test.MatchesAny, http.StatusNotFound, http.StatusServiceUnavailable))
+	return err
+}
 
-	// Poll until we get a successful response. This ensures the domain is
-	// routable before we send it a bunch of traffic.
-	if _, err := client.Poll(req, test.MatchesAny); err != nil {
-		return nil, err
-	}
-
+// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
+func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
@@ -73,9 +79,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 				return err
 			}
 
-			// TODO(tcnghia): The ingress endpoint tends to return 404. Ideally we can instead do:
-			// resp, err := client.Do(req)
-			resp, err := client.Poll(req, test.MatchesAny)
+			resp, err := client.Do(req)
 			if err != nil {
 				return err
 			}
@@ -89,9 +93,11 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
+	// badCounts maps the unexpected response body to the number of matching requests we saw.
+	badCounts := make(map[string]int)
 
 	// counts := eval(
 	//   SELECT body, count(*) AS total
@@ -100,15 +106,21 @@ func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedR
 	//   GROUP BY body
 	// )
 	for _, ar := range actualResponses {
+		expected := false
 		for _, er := range expectedResponses {
 			if strings.Contains(string(ar), er) {
 				counts[er]++
+				expected = true
 			}
+		}
+		if !expected {
+			badCounts[ar]++
 		}
 	}
 
 	// Verify that we saw each entry in "expectedResponses" at least "min" times.
 	// check(SELECT body FROM $counts WHERE total < $min)
+	totalMatches := 0
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
@@ -116,8 +128,15 @@ func checkResponses(logger *zap.SugaredLogger, min int, domain string, expectedR
 		} else {
 			logger.Infof("wanted at least %d, got %d requests for domain %s", min, count, domain)
 		}
+		totalMatches += count
 	}
-
+	// Verify that the total expected responses match the number of requests made.
+	for badResponse, count := range badCounts {
+		logger.Infof("saw unexpected response %q %d times", badResponse, count)
+	}
+	if totalMatches < num {
+		return fmt.Errorf("saw expected responses %d times, wanted %d", totalMatches, num)
+	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil
 }
@@ -129,8 +148,6 @@ func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain 
 	if err != nil {
 		return err
 	}
-	// TODO(tcnghia): The ingress endpoint tends to return 404.
-	client.RetryCodes = []int{http.StatusNotFound}
 
 	logger.Infof("Performing %d concurrent requests to %s", num, domain)
 	actualResponses, err := sendRequests(client, domain, num)
@@ -138,7 +155,7 @@ func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain 
 		return err
 	}
 
-	return checkResponses(logger, min, domain, expectedResponses, actualResponses)
+	return checkResponses(logger, num, min, domain, expectedResponses, actualResponses)
 }
 
 // TestBlueGreenRoute verifies that a route configured with a 50/50 traffic split
@@ -149,7 +166,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	clients := setup(t)
 
 	// add test case specific name to its own logger
-	logger := test.Logger.Named("TestBlueGreenRoute")
+	logger := test.GetContextLogger("TestBlueGreenRoute")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
@@ -163,7 +180,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	defer tearDown(clients, names)
 
 	logger.Infof("Creating a Configuration")
-	if _, err := clients.Configs.Create(test.Configuration(test.Flags.Namespace, names, imagePaths[0])); err != nil {
+	if err := test.CreateConfiguration(logger, clients, names, imagePaths[0]); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
@@ -205,7 +222,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	green.TrafficTarget = "green"
 
 	logger.Infof("Creating a Route")
-	if _, err := clients.Routes.Create(test.BlueGreenRoute(test.Flags.Namespace, names, blue, green)); err != nil {
+	if err := test.CreateBlueGreenRoute(logger, clients, names, blue, green); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
 
@@ -224,8 +241,19 @@ func TestBlueGreenRoute(t *testing.T) {
 	greenDomain := fmt.Sprintf("%s.%s", green.TrafficTarget, route.Status.Domain)
 	tealDomain := route.Status.Domain
 
+	// Istio network programming takes some time to be effective.  Currently Istio
+	// does not expose a Status, so we rely on probes to know when they are effective.
+	// It doesn't matter which domain we probe, we just need to choose one.
+	if err := probeDomain(logger, clients, tealDomain); err != nil {
+		t.Fatalf("Error probing domain %s: %v", tealDomain, err)
+	}
+
 	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
+	g.Go(func() error {
+		min := int(concurrentRequests * minSplitPercentage)
+		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
+	})
 	g.Go(func() error {
 		min := int(concurrentRequests * minDirectPercentage)
 		return checkDistribution(logger, clients, blueDomain, concurrentRequests, min, []string{expectedBlue})
@@ -233,10 +261,6 @@ func TestBlueGreenRoute(t *testing.T) {
 	g.Go(func() error {
 		min := int(concurrentRequests * minDirectPercentage)
 		return checkDistribution(logger, clients, greenDomain, concurrentRequests, min, []string{expectedGreen})
-	})
-	g.Go(func() error {
-		min := int(concurrentRequests * minSplitPercentage)
-		return checkDistribution(logger, clients, tealDomain, concurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Error sending requests: %v", err)

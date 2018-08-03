@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -32,8 +34,8 @@ const (
 func TestHelloWorld(t *testing.T) {
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestHelloWorld")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
 	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
@@ -57,7 +59,12 @@ func TestHelloWorld(t *testing.T) {
 	}
 	domain := route.Status.Domain
 
-	err = test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, domain, test.MatchesBody(helloWorldExpectedOutput), "HelloWorldServesText")
+	err = test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		domain,
+		test.Retrying(test.MatchesBody(helloWorldExpectedOutput), http.StatusNotFound),
+		"HelloWorldServesText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, helloWorldExpectedOutput, err)
 	}

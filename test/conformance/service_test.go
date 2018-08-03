@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,12 +20,12 @@ package conformance
 
 import (
 	"encoding/json"
-	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/controller/service/resources/names"
+	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	"github.com/knative/serving/test"
 	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
@@ -41,7 +42,7 @@ func tearDownService(clients *test.Clients, names test.ResourceNames) {
 
 func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, imagePath string) error {
 	patches := []jsonpatch.JsonPatchOperation{
-		jsonpatch.JsonPatchOperation{
+		{
 			Operation: "replace",
 			Path:      "/spec/runLatest/configuration/revisionTemplate/spec/container/image",
 			Value:     imagePath,
@@ -51,20 +52,22 @@ func updateServiceWithImage(clients *test.Clients, names test.ResourceNames, ima
 	if err != nil {
 		return err
 	}
-	newService, err := clients.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
+	_, err = clients.Services.Patch(names.Service, types.JSONPatchType, patchBytes, "")
 	if err != nil {
 		return err
-	}
-	if newService.Spec.Generation != int64(2) {
-		return fmt.Errorf("The spec was updated so the Generation should be 2 but it was actually %d", newService.Spec.Generation)
 	}
 	return nil
 }
 
 // Shamelessly cribbed from route_test. We expect the Route and Configuration to be ready if the Service is ready.
-func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
+func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clients *test.Clients, names test.ResourceNames, routeDomain, expectedGeneration, expectedText string) {
 	// TODO(#1178): Remove "Wait" from all checks below this point.
-	err := test.WaitForEndpointState(clients.Kube, logger, test.Flags.ResolvableDomain, routeDomain, test.EventuallyMatchesBody(expectedText), "WaitForEndpointToServeText")
+	err := test.WaitForEndpointState(
+		clients.Kube,
+		logger,
+		routeDomain,
+		test.Retrying(test.EventuallyMatchesBody(expectedText), http.StatusNotFound),
+		"WaitForEndpointToServeText")
 	if err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}
@@ -74,7 +77,11 @@ func assertServiceResourcesUpdated(t *testing.T, logger *zap.SugaredLogger, clie
 	if err := test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionReady); err != nil {
 		t.Fatalf("Revision %s did not become ready to serve traffic: %v", names.Revision, err)
 	}
-
+	logger.Infof("The Revision will be annotated with the generation")
+	err = test.CheckRevisionState(clients.Revisions, names.Revision, test.IsRevisionAtExpectedGeneration(expectedGeneration))
+	if err != nil {
+		t.Fatalf("Revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
+	}
 	logger.Info("The Service's latestReadyRevisionName should match the Configuration's")
 	err = test.CheckConfigurationState(clients.Configs, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		return c.Status.LatestReadyRevisionName == names.Revision, nil
@@ -125,7 +132,7 @@ func TestRunLatestService(t *testing.T) {
 	clients := setup(t)
 
 	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestRunLatestService")
+	logger := test.GetContextLogger("TestRunLatestService")
 
 	var imagePaths []string
 	imagePaths = append(imagePaths, strings.Join([]string{test.Flags.DockerRepo, image1}, "/"))
@@ -138,7 +145,7 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { tearDownService(clients, names) }, logger)
 
 	logger.Info("Creating a new Service")
-	svc, err := clients.Services.Create(test.LatestService(test.Flags.Namespace, names, imagePaths[0]))
+	svc, err := test.CreateLatestService(logger, clients, names, imagePaths[0])
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -162,7 +169,7 @@ func TestRunLatestService(t *testing.T) {
 	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "What a spaceport!")
+	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "1", "What a spaceport!")
 
 	logger.Info("Updating the Service to use a different image")
 	if err := updateServiceWithImage(clients, names, imagePaths[1]); err != nil {
@@ -180,7 +187,7 @@ func TestRunLatestService(t *testing.T) {
 	if err := test.WaitForServiceState(clients.Services, names.Service, test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "Re-energize yourself with a slice of pepperoni!")
+	assertServiceResourcesUpdated(t, logger, clients, names, routeDomain, "2", "Re-energize yourself with a slice of pepperoni!")
 }
 
 // TODO(jonjohnsonjr): LatestService roads less traveled.

@@ -36,12 +36,13 @@ spec:
         # and substituted here.
         image: github.com/knative/serving/cmd/activator
         ports:
-        - name: http
+        - name: activator-port
           containerPort: 8080
         args:
-        - "-logtostderr=true"
-        - "-stderrthreshold=INFO"
-
+          # Disable glog writing into stderr. Our code doesn't use glog
+          # and seeing k8s logs in addition to ours is not useful.
+        - "-logtostderr=false"
+        - "-stderrthreshold=FATAL"
         volumeMounts:
         - name: config-logging
           mountPath: /etc/config-logging

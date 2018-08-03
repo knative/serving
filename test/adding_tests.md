@@ -53,12 +53,11 @@ _See [e2e_flags.go](./e2e_flags.go)._
 option](README.md#output-verbose-logs), debug logs will be emitted to stdout.
 
 We are using [Knative logging library](/pkg/logging) for structured logging, it is built on top of [zap](https://github.com/uber-go/zap).
-Tests can initialize loggers with `test.Logger.Named`:
+Tests should initialize the global logger to use a test specifc context with `test.GetContextLogger`:
 
 ```go
-// The convention is for the name of the logger to match the name
-// of the test.
-logger := test.Logger.Named("TestHelloWorld")
+// The convention is for the name of the logger to match the name of the test.
+test.GetContextLogger("TestHelloWorld")
 ```
 
 Logs can then be emitted using the `logger` object which is required by
@@ -90,8 +89,6 @@ ctx, span := trace.StartSpan(context.Background(), "MyMetric")
   functions](#check-knative-serving-resources).
 * The traces are emitted by [a custom metric exporter](./logging.go)
   that uses the global logger instance.
-
-TODO(bobcatfish): Either make the test case specific named loggers global or update the metric exporter to use the named loggers.
 
 #### Metric format
 

@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -23,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -42,8 +43,8 @@ func TestContainerErrorMsg(t *testing.T) {
 	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
 	clients := Setup(t)
 
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestContainerErrorMsg")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestContainerErrorMsg")
 
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error

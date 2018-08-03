@@ -2,6 +2,7 @@
 
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -18,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -56,9 +58,8 @@ func generateTrafficBurst(clients *test.Clients, logger *zap.SugaredLogger, num 
 		go func() {
 			test.WaitForEndpointState(clients.Kube,
 				logger,
-				test.Flags.ResolvableDomain,
 				domain,
-				test.EventuallyMatchesBody(autoscaleExpectedOutput),
+				test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound),
 				"MakingConcurrentRequests")
 			concurrentRequests <- true
 		}()
@@ -110,8 +111,8 @@ func tearDown(clients *test.Clients, names test.ResourceNames, logger *zap.Sugar
 }
 
 func TestAutoscaleUpDownUp(t *testing.T) {
-	// Add test case specific name to its own logger.
-	logger := test.Logger.Named("TestAutoscaleUpDownUp")
+	//add test case specific name to its own logger
+	logger := test.GetContextLogger("TestAutoscaleUpDownUp")
 
 	clients := setup(t, logger)
 	imagePath := strings.Join(
@@ -157,9 +158,10 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	err = test.WaitForEndpointState(
 		clients.Kube,
 		logger,
-		test.Flags.ResolvableDomain,
 		domain,
-		test.EventuallyMatchesBody(autoscaleExpectedOutput),
+		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
+		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
+		test.Retrying(test.EventuallyMatchesBody(autoscaleExpectedOutput), http.StatusNotFound, http.StatusServiceUnavailable),
 		"CheckingEndpointAfterUpdating")
 	if err != nil {
 		t.Fatalf(`The endpoint for Route %s at domain %s didn't serve

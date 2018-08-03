@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,13 +20,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/knative/pkg/apis"
 )
 
 func TestRouteValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		r    *Route
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		r: &Route{
@@ -63,8 +66,8 @@ func TestRouteValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: &FieldError{
-			Message: "Expected exactly one, got neither",
+		want: &apis.FieldError{
+			Message: "expected exactly one, got neither",
 			Paths: []string{
 				"spec.traffic[0].revisionName",
 				"spec.traffic[0].configurationName",
@@ -86,7 +89,7 @@ func TestRouteSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rs   *RouteSpec
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		rs: &RouteSpec{
@@ -113,7 +116,7 @@ func TestRouteSpecValidation(t *testing.T) {
 	}, {
 		name: "empty spec",
 		rs:   &RouteSpec{},
-		want: errMissingField(currentField),
+		want: apis.ErrMissingField(apis.CurrentField),
 	}, {
 		name: "invalid traffic entry",
 		rs: &RouteSpec{
@@ -122,9 +125,35 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent: 100,
 			}},
 		},
-		want: &FieldError{
-			Message: "Expected exactly one, got neither",
+		want: &apis.FieldError{
+			Message: "expected exactly one, got neither",
 			Paths:   []string{"traffic[0].revisionName", "traffic[0].configurationName"},
+		},
+	}, {
+		name: "invalid revision name",
+		rs: &RouteSpec{
+			Traffic: []TrafficTarget{{
+				RevisionName: "b@r",
+				Percent:      100,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `invalid key name "b@r"`,
+			Paths:   []string{"traffic[0].revisionName"},
+			Details: `name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
+		},
+	}, {
+		name: "invalid revision name",
+		rs: &RouteSpec{
+			Traffic: []TrafficTarget{{
+				ConfigurationName: "f**",
+				Percent:           100,
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `invalid key name "f**"`,
+			Paths:   []string{"traffic[0].configurationName"},
+			Details: `name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
 		},
 	}, {
 		name: "invalid name conflict",
@@ -139,7 +168,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      50,
 			}},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: `Multiple definitions for "foo"`,
 			Paths:   []string{"traffic[0].name", "traffic[1].name"},
 		},
@@ -168,7 +197,7 @@ func TestRouteSpecValidation(t *testing.T) {
 				Percent:      99,
 			}},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Traffic targets sum to 198, want 100",
 			Paths:   []string{"traffic"},
 		},
@@ -188,7 +217,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		tt   *TrafficTarget
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid with name and revision",
 		tt: &TrafficTarget{
@@ -225,8 +254,8 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName:      "foo",
 			ConfigurationName: "bar",
 		},
-		want: &FieldError{
-			Message: "Expected exactly one, got both",
+		want: &apis.FieldError{
+			Message: "expected exactly one, got both",
 			Paths:   []string{"revisionName", "configurationName"},
 		},
 	}, {
@@ -235,8 +264,8 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Name:    "foo",
 			Percent: 100,
 		},
-		want: &FieldError{
-			Message: "Expected exactly one, got neither",
+		want: &apis.FieldError{
+			Message: "expected exactly one, got neither",
 			Paths:   []string{"revisionName", "configurationName"},
 		},
 	}, {
@@ -245,14 +274,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 			RevisionName: "foo",
 			Percent:      -5,
 		},
-		want: errInvalidValue("-5", "percent"),
+		want: apis.ErrInvalidValue("-5", "percent"),
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
 			Percent:      101,
 		},
-		want: errInvalidValue("101", "percent"),
+		want: apis.ErrInvalidValue("101", "percent"),
 	}}
 
 	for _, test := range tests {

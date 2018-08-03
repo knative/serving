@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -21,19 +22,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/knative/pkg/apis"
 )
 
-func (rt *Revision) Validate() *FieldError {
+func (rt *Revision) Validate() *apis.FieldError {
 	return rt.Spec.Validate().ViaField("spec")
 }
 
-func (rt *RevisionTemplateSpec) Validate() *FieldError {
+func (rt *RevisionTemplateSpec) Validate() *apis.FieldError {
 	return rt.Spec.Validate().ViaField("spec")
 }
 
-func (rs *RevisionSpec) Validate() *FieldError {
+func (rs *RevisionSpec) Validate() *apis.FieldError {
 	if equality.Semantic.DeepEqual(rs, &RevisionSpec{}) {
-		return errMissingField(currentField)
+		return apis.ErrMissingField(apis.CurrentField)
 	}
 	if err := rs.ServingState.Validate(); err != nil {
 		return err.ViaField("servingState")
@@ -44,7 +47,7 @@ func (rs *RevisionSpec) Validate() *FieldError {
 	return rs.ConcurrencyModel.Validate().ViaField("concurrencyModel")
 }
 
-func (ss RevisionServingStateType) Validate() *FieldError {
+func (ss RevisionServingStateType) Validate() *apis.FieldError {
 	switch ss {
 	case RevisionServingStateType(""),
 		RevisionServingStateRetired,
@@ -52,24 +55,24 @@ func (ss RevisionServingStateType) Validate() *FieldError {
 		RevisionServingStateActive:
 		return nil
 	default:
-		return errInvalidValue(string(ss), currentField)
+		return apis.ErrInvalidValue(string(ss), apis.CurrentField)
 	}
 }
 
-func (cm RevisionRequestConcurrencyModelType) Validate() *FieldError {
+func (cm RevisionRequestConcurrencyModelType) Validate() *apis.FieldError {
 	switch cm {
 	case RevisionRequestConcurrencyModelType(""),
 		RevisionRequestConcurrencyModelMulti,
 		RevisionRequestConcurrencyModelSingle:
 		return nil
 	default:
-		return errInvalidValue(string(cm), currentField)
+		return apis.ErrInvalidValue(string(cm), apis.CurrentField)
 	}
 }
 
-func validateContainer(container corev1.Container) *FieldError {
+func validateContainer(container corev1.Container) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
-		return errMissingField(currentField)
+		return apis.ErrMissingField(apis.CurrentField)
 	}
 	// Some corev1.Container fields are set by Knative Serving controller.  We disallow them
 	// here to avoid silently overwriting these fields and causing confusions for
@@ -92,7 +95,7 @@ func validateContainer(container corev1.Container) *FieldError {
 	}
 	if len(ignoredFields) > 0 {
 		// Complain about all ignored fields so that user can remove them all at once.
-		return errDisallowedFields(ignoredFields...)
+		return apis.ErrDisallowedFields(ignoredFields...)
 	}
 	// Validate our probes
 	if err := validateProbe(container.ReadinessProbe); err != nil {
@@ -104,7 +107,7 @@ func validateContainer(container corev1.Container) *FieldError {
 	return nil
 }
 
-func validateProbe(p *corev1.Probe) *FieldError {
+func validateProbe(p *corev1.Probe) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
@@ -112,26 +115,26 @@ func validateProbe(p *corev1.Probe) *FieldError {
 	switch {
 	case p.Handler.HTTPGet != nil:
 		if p.Handler.HTTPGet.Port != emptyPort {
-			return errDisallowedFields("httpGet.port")
+			return apis.ErrDisallowedFields("httpGet.port")
 		}
 	case p.Handler.TCPSocket != nil:
 		if p.Handler.TCPSocket.Port != emptyPort {
-			return errDisallowedFields("tcpSocket.port")
+			return apis.ErrDisallowedFields("tcpSocket.port")
 		}
 	}
 	return nil
 }
 
-func (current *Revision) CheckImmutableFields(og HasImmutableFields) *FieldError {
+func (current *Revision) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
 	original, ok := og.(*Revision)
 	if !ok {
-		return &FieldError{Message: "The provided original was not a Revision"}
+		return &apis.FieldError{Message: "The provided original was not a Revision"}
 	}
 
 	// The autoscaler is allowed to change ServingState, but consider the rest.
 	ignoreServingState := cmpopts.IgnoreFields(RevisionSpec{}, "ServingState")
 	if diff := cmp.Diff(original.Spec, current.Spec, ignoreServingState); diff != "" {
-		return &FieldError{
+		return &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: diff,

@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -15,43 +16,41 @@ limitations under the License.
 
 package v1alpha1
 
-func (s *Service) Validate() *FieldError {
+import (
+	"github.com/knative/pkg/apis"
+)
+
+func (s *Service) Validate() *apis.FieldError {
 	return s.Spec.Validate().ViaField("spec")
 }
 
-func (ss *ServiceSpec) Validate() *FieldError {
+func (ss *ServiceSpec) Validate() *apis.FieldError {
 	// We would do this semantic DeepEqual, but the spec is comprised
 	// entirely of a oneof, the validation for which produces a clearer
 	// error message.
 	// if equality.Semantic.DeepEqual(ss, &ServiceSpec{}) {
-	// 	return errMissingField(currentField)
+	// 	return apis.ErrMissingField(currentField)
 	// }
 
 	switch {
 	case ss.RunLatest != nil && ss.Pinned != nil:
-		return &FieldError{
-			Message: "Expected exactly one, got both",
-			Paths:   []string{"runLatest", "pinned"},
-		}
+		return apis.ErrMultipleOneOf("runLatest", "pinned")
 	case ss.RunLatest != nil:
 		return ss.RunLatest.Validate().ViaField("runLatest")
 	case ss.Pinned != nil:
 		return ss.Pinned.Validate().ViaField("pinned")
 	default:
-		return &FieldError{
-			Message: "Expected exactly one, got neither",
-			Paths:   []string{"runLatest", "pinned"},
-		}
+		return apis.ErrMissingOneOf("runLatest", "pinned")
 	}
 }
 
-func (pt *PinnedType) Validate() *FieldError {
+func (pt *PinnedType) Validate() *apis.FieldError {
 	if pt.RevisionName == "" {
-		return errMissingField("revisionName")
+		return apis.ErrMissingField("revisionName")
 	}
 	return pt.Configuration.Validate().ViaField("configuration")
 }
 
-func (rlt *RunLatestType) Validate() *FieldError {
+func (rlt *RunLatestType) Validate() *apis.FieldError {
 	return rlt.Configuration.Validate().ViaField("configuration")
 }

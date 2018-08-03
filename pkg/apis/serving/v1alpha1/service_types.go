@@ -19,10 +19,13 @@ package v1alpha1
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 // +genclient
@@ -51,8 +54,8 @@ type Service struct {
 }
 
 // Check that Service may be validated and defaulted.
-var _ Validatable = (*Service)(nil)
-var _ Defaultable = (*Service)(nil)
+var _ apis.Validatable = (*Service)(nil)
+var _ apis.Defaultable = (*Service)(nil)
 
 // ServiceSpec represents the configuration for the Service object. Exactly one
 // of its members (other than Generation) must be specified. Services can either
@@ -101,7 +104,9 @@ type ServiceCondition struct {
 	Status corev1.ConditionStatus `json:"status" description:"status of the condition, one of True, False, Unknown"`
 
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
+	// differences (all other things held constant).
+	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -124,9 +129,28 @@ const (
 	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 
+type ServiceConditionSlice []ServiceCondition
+
+// Len implements sort.Interface
+func (scs ServiceConditionSlice) Len() int {
+	return len(scs)
+}
+
+// Less implements sort.Interface
+func (scs ServiceConditionSlice) Less(i, j int) bool {
+	return scs[i].Type < scs[j].Type
+}
+
+// Swap implements sort.Interface
+func (scs ServiceConditionSlice) Swap(i, j int) {
+	scs[i], scs[j] = scs[j], scs[i]
+}
+
+var _ sort.Interface = (ServiceConditionSlice)(nil)
+
 type ServiceStatus struct {
 	// +optional
-	Conditions []ServiceCondition `json:"conditions,omitempty"`
+	Conditions ServiceConditionSlice `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -211,7 +235,7 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	}
 
 	t := new.Type
-	var conditions []ServiceCondition
+	var conditions ServiceConditionSlice
 	for _, cond := range ss.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -223,18 +247,9 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = metav1.NewTime(time.Now())
+	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	ss.Conditions = conditions
-}
-
-func (ss *ServiceStatus) RemoveCondition(t ServiceConditionType) {
-	var conditions []ServiceCondition
-	for _, cond := range ss.Conditions {
-		if cond.Type != t {
-			conditions = append(conditions, cond)
-		}
-	}
+	sort.Sort(conditions)
 	ss.Conditions = conditions
 }
 

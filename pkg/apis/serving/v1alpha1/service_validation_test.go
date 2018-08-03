@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,13 +21,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 func TestServiceValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		s    *Service
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid runLatest",
 		s: &Service{
@@ -93,15 +96,15 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &FieldError{
-			Message: "Expected exactly one, got both",
+		want: &apis.FieldError{
+			Message: "expected exactly one, got both",
 			Paths:   []string{"spec.runLatest", "spec.pinned"},
 		},
 	}, {
 		name: "invalid neither type",
 		s:    &Service{},
-		want: &FieldError{
-			Message: "Expected exactly one, got neither",
+		want: &apis.FieldError{
+			Message: "expected exactly one, got neither",
 			Paths:   []string{"spec.runLatest", "spec.pinned"},
 		},
 	}, {
@@ -122,7 +125,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("spec.runLatest.configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.runLatest.configuration.revisionTemplate.spec.container.name"),
 	}, {
 		name: "invalid pinned",
 		s: &Service{
@@ -142,7 +145,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.pinned.configuration.revisionTemplate.spec.container.name"),
 	}}
 
 	for _, test := range tests {
@@ -159,7 +162,7 @@ func TestRunLatestTypeValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rlt  *RunLatestType
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		rlt: &RunLatestType{
@@ -188,7 +191,7 @@ func TestRunLatestTypeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.name"),
 	}}
 
 	for _, test := range tests {
@@ -205,7 +208,7 @@ func TestPinnedTypeValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		pt   *PinnedType
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		pt: &PinnedType{
@@ -235,7 +238,7 @@ func TestPinnedTypeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errMissingField("revisionName"),
+		want: apis.ErrMissingField("revisionName"),
 	}, {
 		name: "propagate revision failures",
 		pt: &PinnedType{
@@ -251,7 +254,7 @@ func TestPinnedTypeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("configuration.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("configuration.revisionTemplate.spec.container.name"),
 	}}
 
 	for _, test := range tests {

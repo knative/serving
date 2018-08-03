@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -67,8 +68,6 @@ type SpoofingClient struct {
 	RequestInterval time.Duration
 	RequestTimeout  time.Duration
 
-	RetryCodes []int
-
 	endpoint string
 	domain   string
 
@@ -100,6 +99,10 @@ func New(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, domain 
 		ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
+		}
+
+		if len(ingress.Status.LoadBalancer.Ingress) != 1 {
+			return nil, fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %s", len(ingress.Status.LoadBalancer.Ingress), ingress.Status.LoadBalancer.Ingress)
 		}
 
 		if ingress.Status.LoadBalancer.Ingress[0].IP == "" {
@@ -163,17 +166,6 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 				return false, nil
 			}
 			return true, err
-		}
-
-		// TODO(jonjohnson): This could just be pulled out into a retrying ResponseChecker middleware thing.
-		if resp.StatusCode != http.StatusOK {
-			for _, code := range sc.RetryCodes {
-				if resp.StatusCode == code {
-					sc.logger.Infof("Retrying for code %v", resp.StatusCode)
-					return false, nil
-				}
-			}
-			return true, fmt.Errorf("Status code %d was not a retriable code (%v)", resp.StatusCode, sc.RetryCodes)
 		}
 
 		return inState(resp)

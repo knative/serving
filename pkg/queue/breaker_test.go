@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -122,7 +123,7 @@ func TestBreakerLargeCapacityRecover(t *testing.T) {
 		got[i] = <-g
 	}
 
-	// Check the first few suceeded
+	// Check the first few succeeded
 	if !reflect.DeepEqual(want[:10], got[:10]) {
 		t.Fatalf("Wanted %v. Got %v.", want, got)
 	}

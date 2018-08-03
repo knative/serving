@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -28,13 +29,15 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 
+	"github.com/knative/pkg/configmap"
+	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/configmap"
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/logging/logkey"
+	"github.com/knative/serving/pkg/system"
 
 	"github.com/gorilla/websocket"
 
@@ -53,6 +56,7 @@ const (
 	// seconds while an http request is taking the full timeout of 5
 	// second.
 	scaleBufferSize = 10
+	logLevelKey     = "autoscaler"
 )
 
 var (
@@ -69,6 +73,7 @@ var (
 	servingAutoscalerPort string
 	currentScale          int32
 	logger                *zap.SugaredLogger
+	atomicLevel           zap.AtomicLevel
 
 	// Revision-level configuration
 	concurrencyModel = flag.String("concurrencyModel", string(v1alpha1.RevisionRequestConcurrencyModelMulti), "")
@@ -226,12 +231,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, _ = logging.NewLoggerFromConfig(logginConfig, "autoscaler")
+	logger, atomicLevel = logging.NewLoggerFromConfig(logginConfig, logLevelKey)
 	defer logger.Sync()
 
 	initEnv()
 	logger = logger.With(
-		zap.String(logkey.Namespace, servingNamespace),
+		zap.String(commonlogkey.ControllerType, "autoscaler"),
+		zap.String(commonlogkey.Namespace, servingNamespace),
 		zap.String(logkey.Configuration, servingConfig),
 		zap.String(logkey.Revision, servingRevision))
 
@@ -264,6 +270,15 @@ func main() {
 		logger.Fatal("Failed to create stats reporter", zap.Error(err))
 	}
 	statsReporter = reporter
+
+	// Watch the logging config map and dynamically update logging levels.
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start configuration manager: %v", err)
+	}
 
 	go runAutoscaler()
 	go scaleSerializer()

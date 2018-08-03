@@ -101,23 +101,23 @@ To use a k8s cluster running in GKE:
 
     ```shell
     minikube start --memory=8192 --cpus=4 \
-    --kubernetes-version=v1.10.4 \
+    --kubernetes-version=v1.10.5 \
     --vm-driver=kvm2 \
     --bootstrapper=kubeadm \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
-    --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
     For macOS use:
 
     ```shell
     minikube start --memory=8192 --cpus=4 \
-    --kubernetes-version=v1.10.4 \
+    --kubernetes-version=v1.10.5 \
     --vm-driver=hyperkit \
     --bootstrapper=kubeadm \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
-    --extra-config=apiserver.admission-control="DenyEscalatingExec,LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
+    --extra-config=apiserver.admission-control="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
     ```
 1.  [Configure your shell environment](../DEVELOPMENT.md#environment-setup)
     to use your minikube cluster:
@@ -143,13 +143,13 @@ To use a k8s cluster running in GKE:
        so deploy istio with `LoadBalancer` replaced by `NodePort`:
 
        ```bash
-       sed 's/LoadBalancer/NodePort/' third_party/istio-0.8.0/istio.yaml | kubectl apply -f -
+       sed 's/LoadBalancer/NodePort/' third_party/istio-1.0.0/istio.yaml | kubectl apply -f -
        ```
 
        (Then optionally [enable istio injection](../DEVELOPMENT.md#deploy-istio).)
 
     1. [Deploy build](../DEVELOPMENT.md#deploy-build):
-        
+
         ```shell
         kubectl apply -f ./third_party/config/build/release.yaml
         ```

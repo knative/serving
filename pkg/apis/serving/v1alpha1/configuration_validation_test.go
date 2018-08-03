@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,13 +21,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/knative/pkg/apis"
 )
 
 func TestConfigurationSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		c    *ConfigurationSpec
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		c: &ConfigurationSpec{
@@ -52,7 +55,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("revisionTemplate.spec.servingState"),
+		want: apis.ErrDisallowedFields("revisionTemplate.spec.servingState"),
 	}, {
 		name: "propagate revision failures",
 		c: &ConfigurationSpec{
@@ -65,7 +68,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("revisionTemplate.spec.container.name"),
 	}}
 
 	for _, test := range tests {
@@ -82,7 +85,7 @@ func TestConfigurationValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		c    *Configuration
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		c: &Configuration{
@@ -111,11 +114,11 @@ func TestConfigurationValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("spec.revisionTemplate.spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.revisionTemplate.spec.container.name"),
 	}, {
 		name: "empty spec",
 		c:    &Configuration{},
-		want: errMissingField("spec"),
+		want: apis.ErrMissingField("spec"),
 	}}
 
 	for _, test := range tests {

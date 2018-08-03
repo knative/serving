@@ -16,15 +16,15 @@
 
 set -o errexit
 
-: ${1:?"Pass the directory with the test images as argument"}
+: ${1:?"Pass the directories with the test images as arguments"}
 : ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
 
-DOCKER_FILES="$(ls -1 $1/*/Dockerfile)"
-: ${DOCKER_FILES:?"No subdirectories with Dockerfile files found in $1"}
+DOCKER_FILES="$(find $@ -name Dockerfile)"
+: ${DOCKER_FILES:?"No subdirectories with Dockerfile files found in $@"}
 
 for docker_file in ${DOCKER_FILES}; do
   image_dir="$(dirname ${docker_file})"
-  versioned_name="${DOCKER_REPO_OVERRIDE}/$(basename ${image_dir})"
+  versioned_name="${DOCKER_REPO_OVERRIDE}/knative-serving/$(basename ${image_dir})"
   docker build "${image_dir}" -f "${docker_file}" -t "${versioned_name}"
   docker push "${versioned_name}"
 done

@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -34,6 +35,22 @@ func MatchesAny(_ *spoof.Response) (bool, error) {
 	return true, nil
 }
 
+// Retrying modifies a ResponseChecker to retry certain response codes.
+func Retrying(rc spoof.ResponseChecker, codes ...int) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		for _, code := range codes {
+			if resp.StatusCode == code {
+				// Returning (false, nil) causes SpoofingClient.Poll to retry.
+				// sc.logger.Infof("Retrying for code %v", resp.StatusCode)
+				return false, nil
+			}
+		}
+
+		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
+		return rc(resp)
+	}
+}
+
 // MatchesBody checks that the *first* response body matches the "expected" body, otherwise failing.
 func MatchesBody(expected string) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
@@ -64,18 +81,15 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, resolvableDomain bool, domain string, inState spoof.ResponseChecker, desc string) error {
+func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.SugaredLogger, domain string, inState spoof.ResponseChecker, desc string) error {
 	metricName := fmt.Sprintf("WaitForEndpointState/%s", desc)
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	client, err := spoof.New(kubeClientset, logger, domain, resolvableDomain)
+	client, err := spoof.New(kubeClientset, logger, domain, Flags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
-
-	// TODO(#348): The ingress endpoint tends to return 503's and 404's
-	client.RetryCodes = []int{http.StatusServiceUnavailable, http.StatusNotFound}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
 	if err != nil {

@@ -1,9 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](./community/CONTRIBUTING.md) to `Knative Serving`. Also take a look at:
+[contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
+to `Knative Serving`. Also take a look at:
 
-* [The pull request workflow](./community/CONTRIBUTING.md#pull-requests)
+* [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
 * [How to add and run tests](./test/README.md)
 * [Iterating](#iterating)
 
@@ -82,7 +83,8 @@ To check out this repository:
 
 1. Create your own [fork of this
   repo](https://help.github.com/articles/fork-a-repo/)
-2. Clone it to your machine:
+1. Clone it to your machine:
+
   ```shell
   mkdir -p ${GOPATH}/src/github.com/knative
   cd ${GOPATH}/src/github.com/knative
@@ -122,16 +124,10 @@ kubectl create clusterrolebinding cluster-admin-binding \
 ### Deploy Istio
 
 ```shell
-kubectl apply -f ./third_party/istio-0.8.0/istio.yaml
+kubectl apply -f ./third_party/istio-1.0.0/istio.yaml
 ```
 
-Optionally label namespaces with `istio-injection=enabled`:
-
-```shell
-kubectl label namespace default istio-injection=enabled
-```
-
-Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need 
+Follow the [instructions](./docs/setting-up-ingress-static-ip.md) if you need
 to set up static IP for Ingresses in the cluster.
 
 ### Deploy Build
@@ -144,7 +140,7 @@ kubectl apply -f ./third_party/config/build/release.yaml
 
 This step includes building Knative Serving, creating and pushing developer images and deploying them to your Kubernetes cluster.
 
-First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file. 
+First, edit [config-network.yaml](config/config-network.yaml) as instructed within the file.
 If this file is edited and deployed after Knative Serving installation, the changes in it will be
 effective only for newly created revisions.
 
@@ -155,6 +151,7 @@ ko apply -f config/
 ```
 
 You can see things running with:
+
 ```shell
 kubectl -n knative-serving get pods
 NAME                                READY     STATUS    RESTARTS   AGE
@@ -172,46 +169,36 @@ If you're using a GCP project to host your Kubernetes cluster, it's good to chec
 [Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
 page to ensure that all services are up and running (and not blocked by a quota issue, for example).
 
-### Enable log and metric collection
+### Install logging and monitoring backends
 
-You can use two different setups for collecting logs(to Elasticsearch&Kibana) and metrics
-(See [Logs and Metrics](./docs/telemetry.md) for setting up other logging backend):
-
-1. **150-elasticsearch-prod**: This configuration collects logs & metrics from user containers, build controller and Istio requests.
+Run:
 
 ```shell
 kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-prod \
+    -f config/monitoring/150-elasticsearch \
     -f third_party/config/monitoring/common \
     -f third_party/config/monitoring/elasticsearch \
     -f config/monitoring/200-common \
     -f config/monitoring/200-common/100-istio.yaml
 ```
-
-1. **150-elasticsearch-dev**: This configuration collects everything in (1) plus Knative Serving controller logs.
-
-```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch-dev \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
-```
-
-Once complete, follow the instructions at [Logs and Metrics](./docs/telemetry.md).
 
 ## Iterating
 
 As you make changes to the code-base, there are two special cases to be aware of:
 
-* **If you change a type definition ([pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.)),** then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh).
+* **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
+    * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
+    * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
 
 These are both idempotent, and we expect that running these at `HEAD` to have no diffs.
+Code generation is automatically checked to produce no diffs for each pull request.
+Dependencies are not yet automatically checked (see [issue 1711](https://github.com/knative/serving/issues/1711)).
 
 Once the codegen and dependency information is correct, redeploying the controller is simply:
+
 ```shell
 ko apply -f config/controller.yaml
 ```
@@ -222,12 +209,13 @@ redeploy `Knative Serving`](./README.md#start-knative).
 ## Clean up
 
 You can delete all of the service components with:
+
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-common \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-0.8.0/istio.yaml
+  -f ./third_party/istio-1.0.0/istio.yaml
 ```
 
 ## Telemetry

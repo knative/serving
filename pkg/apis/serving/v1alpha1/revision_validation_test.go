@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -22,17 +23,19 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/knative/pkg/apis"
 )
 
 func TestContainerValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		c    corev1.Container
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "empty container",
 		c:    corev1.Container{},
-		want: errMissingField(currentField),
+		want: apis.ErrMissingField(apis.CurrentField),
 	}, {
 		name: "valid container",
 		c: corev1.Container{
@@ -44,7 +47,7 @@ func TestContainerValidation(t *testing.T) {
 		c: corev1.Container{
 			Name: "foo",
 		},
-		want: errDisallowedFields("name"),
+		want: apis.ErrDisallowedFields("name"),
 	}, {
 		name: "has resources",
 		c: corev1.Container{
@@ -54,7 +57,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("resources"),
+		want: apis.ErrDisallowedFields("resources"),
 	}, {
 		name: "has ports",
 		c: corev1.Container{
@@ -63,7 +66,7 @@ func TestContainerValidation(t *testing.T) {
 				ContainerPort: 8080,
 			}},
 		},
-		want: errDisallowedFields("ports"),
+		want: apis.ErrDisallowedFields("ports"),
 	}, {
 		name: "has volumeMounts",
 		c: corev1.Container{
@@ -72,13 +75,13 @@ func TestContainerValidation(t *testing.T) {
 				Name:      "name",
 			}},
 		},
-		want: errDisallowedFields("volumeMounts"),
+		want: apis.ErrDisallowedFields("volumeMounts"),
 	}, {
 		name: "has lifecycle",
 		c: corev1.Container{
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: errDisallowedFields("lifecycle"),
+		want: apis.ErrDisallowedFields("lifecycle"),
 	}, {
 		name: "valid with probes (no port)",
 		c: corev1.Container{
@@ -110,7 +113,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("readinessProbe.httpGet.port"),
+		want: apis.ErrDisallowedFields("readinessProbe.httpGet.port"),
 	}, {
 		name: "invalid liveness tcp probe (has port)",
 		c: corev1.Container{
@@ -123,7 +126,7 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: errDisallowedFields("livenessProbe.tcpSocket.port"),
+		want: apis.ErrDisallowedFields("livenessProbe.tcpSocket.port"),
 	}, {
 		name: "has numerous problems",
 		c: corev1.Container{
@@ -143,7 +146,7 @@ func TestContainerValidation(t *testing.T) {
 			}},
 			Lifecycle: &corev1.Lifecycle{},
 		},
-		want: errDisallowedFields("name", "resources", "ports", "volumeMounts", "lifecycle"),
+		want: apis.ErrDisallowedFields("name", "resources", "ports", "volumeMounts", "lifecycle"),
 	}}
 
 	for _, test := range tests {
@@ -160,7 +163,7 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		cm   RevisionRequestConcurrencyModelType
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "single",
 		cm:   RevisionRequestConcurrencyModelSingle,
@@ -176,11 +179,11 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	}, {
 		name: "bogus",
 		cm:   "bogus",
-		want: errInvalidValue("bogus", currentField),
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
 	}, {
 		name: "balderdash",
 		cm:   "balderdash",
-		want: errInvalidValue("balderdash", currentField),
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
 	}}
 
 	for _, test := range tests {
@@ -197,7 +200,7 @@ func TestServingStateValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		ss   RevisionServingStateType
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "active",
 		ss:   "Active",
@@ -217,11 +220,11 @@ func TestServingStateValidation(t *testing.T) {
 	}, {
 		name: "bogus",
 		ss:   "bogus",
-		want: errInvalidValue("bogus", currentField),
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
 	}, {
 		name: "balderdash",
 		ss:   "balderdash",
-		want: errInvalidValue("balderdash", currentField),
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
 	}}
 
 	for _, test := range tests {
@@ -238,7 +241,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rs   *RevisionSpec
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		rs: &RevisionSpec{
@@ -253,7 +256,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		rs: &RevisionSpec{
 			ServingState: "blah",
 		},
-		want: errInvalidValue("blah", "servingState"),
+		want: apis.ErrInvalidValue("blah", "servingState"),
 	}, {
 		name: "bad concurrency model",
 		rs: &RevisionSpec{
@@ -262,7 +265,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 			ConcurrencyModel: "bogus",
 		},
-		want: errInvalidValue("bogus", "concurrencyModel"),
+		want: apis.ErrInvalidValue("bogus", "concurrencyModel"),
 	}, {
 		name: "bad container spec",
 		rs: &RevisionSpec{
@@ -271,7 +274,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			},
 		},
-		want: errDisallowedFields("container.name"),
+		want: apis.ErrDisallowedFields("container.name"),
 	}}
 
 	for _, test := range tests {
@@ -288,7 +291,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		rts  *RevisionTemplateSpec
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		rts: &RevisionTemplateSpec{
@@ -303,7 +306,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 	}, {
 		name: "empty spec",
 		rts:  &RevisionTemplateSpec{},
-		want: errMissingField("spec"),
+		want: apis.ErrMissingField("spec"),
 	}, {
 		name: "nested spec error",
 		rts: &RevisionTemplateSpec{
@@ -315,7 +318,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				ConcurrencyModel: "Multi",
 			},
 		},
-		want: errDisallowedFields("spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.container.name"),
 	}}
 
 	for _, test := range tests {
@@ -332,7 +335,7 @@ func TestRevisionValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		r    *Revision
-		want *FieldError
+		want *apis.FieldError
 	}{{
 		name: "valid",
 		r: &Revision{
@@ -347,7 +350,7 @@ func TestRevisionValidation(t *testing.T) {
 	}, {
 		name: "empty spec",
 		r:    &Revision{},
-		want: errMissingField("spec"),
+		want: apis.ErrMissingField("spec"),
 	}, {
 		name: "nested spec error",
 		r: &Revision{
@@ -359,7 +362,7 @@ func TestRevisionValidation(t *testing.T) {
 				ConcurrencyModel: "Multi",
 			},
 		},
-		want: errDisallowedFields("spec.container.name"),
+		want: apis.ErrDisallowedFields("spec.container.name"),
 	}}
 
 	for _, test := range tests {
@@ -374,16 +377,16 @@ func TestRevisionValidation(t *testing.T) {
 
 type notARevision struct{}
 
-func (nar *notARevision) CheckImmutableFields(HasImmutableFields) *FieldError {
+func (nar *notARevision) CheckImmutableFields(apis.Immutable) *apis.FieldError {
 	return nil
 }
 
 func TestImmutableFields(t *testing.T) {
 	tests := []struct {
 		name string
-		new  HasImmutableFields
-		old  HasImmutableFields
-		want *FieldError
+		new  apis.Immutable
+		old  apis.Immutable
+		want *apis.FieldError
 	}{{
 		name: "good (no change)",
 		new: &Revision{
@@ -438,7 +441,7 @@ func TestImmutableFields(t *testing.T) {
 			},
 		},
 		old:  &notARevision{},
-		want: &FieldError{Message: "The provided original was not a Revision"},
+		want: &apis.FieldError{Message: "The provided original was not a Revision"},
 	}, {
 		name: "bad (container image change)",
 		new: &Revision{
@@ -459,7 +462,7 @@ func TestImmutableFields(t *testing.T) {
 				ConcurrencyModel: "Multi",
 			},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.Container.Image:
@@ -487,7 +490,7 @@ func TestImmutableFields(t *testing.T) {
 				ConcurrencyModel: "Single",
 			},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.ConcurrencyModel:
@@ -515,7 +518,7 @@ func TestImmutableFields(t *testing.T) {
 				ConcurrencyModel: "Single",
 			},
 		},
-		want: &FieldError{
+		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
 			Details: `{v1alpha1.RevisionSpec}.ConcurrencyModel:
