@@ -76,6 +76,16 @@ func EventuallyMatchesBody(expected string) spoof.ResponseChecker {
 	}
 }
 
+// CheckNoEmptyBody checks that the response body is not empty.
+func CheckNoEmptyBody() spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		if string(resp.Body) == "" {
+			return false, nil
+		}
+		return true, nil
+	}
+}
+
 // WaitForEndpointState will poll an endpoint until inState indicates the state is achieved.
 // If resolvableDomain is false, it will use kubeClientset to look up the ingress and spoof
 // the domain in the request headers, otherwise it will make the request directly to domain.
