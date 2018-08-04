@@ -19,10 +19,15 @@ const (
 	defaultNamespaceName = "serving-tests"
 )
 
-// Setup creates the client objects needed in the e2e tests.
-func Setup(t *testing.T) *test.Clients {
+// Setup creates the client objects needed in the e2e tests. If parallel is true,
+// the test will be marked so as to run in parallel with other parallel tests.
+func Setup(t *testing.T, parallel bool) *test.Clients {
 	if test.Flags.Namespace == "" {
 		test.Flags.Namespace = defaultNamespaceName
+	}
+
+	if parallel {
+		t.Parallel()
 	}
 
 	clients, err := test.NewClients(

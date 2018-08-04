@@ -45,7 +45,7 @@ To run [the e2e tests](./e2e) and [the conformance tests](./conformance), you ne
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance
-go test -v -tags=e2e -count=1 ./test/e2e
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e
 ```
 
 ### One test case
@@ -75,13 +75,14 @@ These tests require:
   enabled is recommended (`-v`).
 * Using [`--logverbose`](#output-verbose-log) to see the verbose log output from test as well as from k8s libraries.
 * Using `-count=1` is [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
+* Using `-parallel=4` to run upto 4 [parallel test functions](https://golang.org/pkg/testing/#T.Parallel) from the test package in [parallel](https://golang.org/cmd/go/#hdr-Testing_flags)
 
 You can [use test flags](#flags) to control the environment
 your tests run against, i.e. override [your environment variables](/DEVELOPMENT.md#environment-setup):
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
-go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e --kubeconfig ~/special/kubeconfig --cluster myspecialcluster --dockerrepo myspecialdockerrepo
 ```
 
 If you are running against an environment with no loadbalancer for the ingress, at the moment
@@ -90,7 +91,7 @@ your only option is to use a domain which will resolve to the IP of the running 
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --resolvabledomain
-go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e --resolvabledomain
 ```
 
 ## Test images
@@ -147,7 +148,7 @@ To run the tests with a non-default kubeconfig file:
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --kubeconfig /my/path/kubeconfig
-go test -v -tags=e2e -count=1 ./test/e2e --kubeconfig /my/path/kubeconfig
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e --kubeconfig /my/path/kubeconfig
 ```
 
 ### Specifying cluster
@@ -159,7 +160,7 @@ if not specified.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --cluster your-cluster-name
-go test -v -tags=e2e -count=1 ./test/e2e --cluster your-cluster-name
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e --cluster your-cluster-name
 ```
 
 The current cluster names can be obtained by running:
@@ -175,7 +176,7 @@ tests. By default, tests will use `serving-tests`.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --namespace your-namespace-name
-go test -v -tags=e2e -count=1 ./test/e2e --namespace your-namespace-name
+go test -v -tags=e2e -parallel=4 -count=1 ./test/e2e --namespace your-namespace-name
 ```
 
 ### Overridding docker repo
@@ -187,7 +188,7 @@ if not specified.
 
 ```bash
 go test -v -tags=e2e -count=1 ./test/conformance --dockerrepo gcr.myhappyproject
-go test -v -tags=e2e -count=1 ./test/e2e --dockerrepo gcr.myhappyproject
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e --dockerrepo gcr.myhappyproject
 ```
 
 ### Using a resolvable domain
@@ -210,7 +211,7 @@ If you have configured your cluster to use a resolvable domain, you can use the
 The `--logverbose` argument lets you see verbose test logs and k8s logs.
 
 ```bash
-go test -v -tags=e2e -count=1 ./test/e2e --logverbose
+go test -v -tags=e2e -count=1 -parallel=4 ./test/e2e --logverbose
 ```
 
 ### Emit metrics

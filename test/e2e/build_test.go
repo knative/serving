@@ -30,7 +30,7 @@ import (
 )
 
 func TestBuildAndServe(t *testing.T) {
-	clients := Setup(t)
+	clients := Setup(t, true)
 
 	// Add test case specific name to its own logger.
 	logger := test.GetContextLogger("TestBuildAndServe")
@@ -101,7 +101,7 @@ func TestBuildAndServe(t *testing.T) {
 }
 
 func TestBuildFailure(t *testing.T) {
-	clients := Setup(t)
+	clients := Setup(t, true)
 
 	// Add test case specific name to its own logger.
 	logger := test.GetContextLogger("TestBuildFailure")
