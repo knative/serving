@@ -25,7 +25,7 @@ data:
   queueSidecarImage: github.com/knative/serving/cmd/queue
 
   # Comment the following lines to disable the single-tenant autoscaler.
-  autoscalerImage: github.com/knative/serving/cmd/autoscaler
+  # autoscalerImage: github.com/knative/serving/cmd/autoscaler
 
   # List of repositories for which tag to digest resolving should be skipped
   registriesSkippingTagResolving: "ko.local,dev.local"
