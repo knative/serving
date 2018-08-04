@@ -23,8 +23,8 @@ import (
 	commonlogkey "github.com/knative/pkg/logging/logkey"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	revisionresourcenames "github.com/knative/serving/pkg/controller/revision/resources/names"
 	"github.com/knative/serving/pkg/logging/logkey"
+	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -37,17 +37,19 @@ type revisionActivator struct {
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
 	logger      *zap.SugaredLogger
+	reporter    StatsReporter
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
 		knaClient:   servingClient,
 		logger:      logger,
+		reporter:    reporter,
 	}
 }
 
@@ -55,12 +57,14 @@ func (r *revisionActivator) Shutdown() {
 	// nothing to do
 }
 
-func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint, status Status, activationError error) {
+func (r *revisionActivator) ActiveEndpoint(namespace, configuration, name string) (end Endpoint, status Status, activationError error) {
 	logger := loggerWithRevisionInfo(r.logger, namespace, name)
-	rev := revisionID{namespace: namespace, name: name}
+	rev := revisionID{namespace: namespace,
+		configuration: configuration,
+		name:          name}
 
 	internalError := func(msg string, args ...interface{}) (Endpoint, Status, error) {
-		logger.Infof(msg, args...)
+		logger.Errorf(msg, args...)
 		return Endpoint{}, http.StatusInternalServerError, fmt.Errorf(fmt.Sprintf("%s for namespace: %s, revision name: %s ", msg, namespace, name), args...)
 	}
 
@@ -70,6 +74,8 @@ func (r *revisionActivator) ActiveEndpoint(namespace, name string) (end Endpoint
 	if err != nil {
 		return internalError("Unable to get revision: %v", err)
 	}
+
+	r.reporter.ReportRequest(namespace, configuration, name, string(revision.Spec.ServingState), 1.0)
 	switch revision.Spec.ServingState {
 	default:
 		return internalError("Disregarding activation request for revision in unknown state %v", revision.Spec.ServingState)

@@ -32,7 +32,7 @@
 [ -v KNATIVE_TEST_INFRA ] || exit 1
 
 # Location of istio for the test cluster
-readonly ISTIO_YAML=./third_party/istio-1.0-prerelease/istio.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.0/istio.yaml
 
 # Helper functions.
 

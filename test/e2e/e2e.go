@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
+	corev1 "k8s.io/api/core/v1"
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
@@ -50,16 +51,19 @@ func TearDown(clients *test.Clients, names test.ResourceNames, logger *zap.Sugar
 // CreateRouteAndConfig will create Route and Config objects using clients.
 // The Config object will serve requests to a container started from the image at imagePath.
 func CreateRouteAndConfig(clients *test.Clients, logger *zap.SugaredLogger, imagePath string) (test.ResourceNames, error) {
-	var names test.ResourceNames
-	names.Config = test.AppendRandomString(configName, logger)
-	names.Route = test.AppendRandomString(routeName, logger)
+	return CreateRouteAndConfigWithEnv(clients, logger, imagePath, nil)
+}
 
-	_, err := clients.Configs.Create(
-		test.Configuration(test.Flags.Namespace, names, imagePath))
-	if err != nil {
-		return test.ResourceNames{}, err
-	}
-	_, err = clients.Routes.Create(
-		test.Route(test.Flags.Namespace, names))
-	return names, err
+// CreateRouteAndConfigWithEnv will create Route and Config objects using clients.
+// The Config object will serve requests to a container started from the image at imagePath and configured with given environment variables.
+func CreateRouteAndConfigWithEnv(clients *test.Clients, logger *zap.SugaredLogger, imagePath string, envVars []corev1.EnvVar) (test.ResourceNames, error) {
+        var names test.ResourceNames
+        names.Config = test.AppendRandomString(configName, logger)
+        names.Route = test.AppendRandomString(routeName, logger)
+
+        if err := test.CreateConfigurationWithEnv(logger, clients, names, imagePath, envVars); err != nil {
+                return test.ResourceNames{}, err
+        }
+        err := test.CreateRoute(logger, clients, names)
+        return names, err
 }

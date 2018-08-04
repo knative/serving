@@ -64,6 +64,8 @@ These tests require:
 2. The namespace `serving-tests``:
     ```bash
     kubectl create namespace serving-tests
+
+    kubectl label namespace serving-tests istio-injection=enabled    
     ```
 3. A docker repo containing [the test images](#test-images)
 

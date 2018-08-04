@@ -89,7 +89,7 @@ func BlueGreenRoute(namespace string, names, blue, green ResourceNames) *v1alpha
 }
 
 // Configuration returns a Configuration object in namespace with the name names.Config
-// that uses the image specifed by imagePath.
+// that uses the image specified by imagePath.
 func Configuration(namespace string, names ResourceNames, imagePath string) *v1alpha1.Configuration {
 	return &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -128,7 +128,7 @@ func ConfigurationWithBuild(namespace string, names ResourceNames, build *buildv
 }
 
 // LatestService returns a RunLatest Service object in namespace with the name names.Service
-// that uses the image specifed by imagePath.
+// that uses the image specified by imagePath.
 func LatestService(namespace string, names ResourceNames, imagePath string) *v1alpha1.Service {
 	return &v1alpha1.Service{
 		ObjectMeta: metav1.ObjectMeta{

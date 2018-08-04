@@ -23,8 +23,9 @@ import (
 
 	"github.com/knative/pkg/configmap"
 
-	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/reconciler"
 
 	"github.com/knative/serving/pkg/system"
 
@@ -39,13 +40,13 @@ import (
 
 	buildclientset "github.com/knative/build/pkg/client/clientset/versioned"
 	buildinformers "github.com/knative/build/pkg/client/informers/externalversions"
+	"github.com/knative/pkg/signals"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/controller/configuration"
-	"github.com/knative/serving/pkg/controller/revision"
-	"github.com/knative/serving/pkg/controller/route"
-	"github.com/knative/serving/pkg/controller/service"
-	"github.com/knative/serving/pkg/signals"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/service"
 )
 
 const (
@@ -107,7 +108,7 @@ func main() {
 
 	configMapWatcher := configmap.NewDefaultWatcher(kubeClient, system.Namespace)
 
-	opt := controller.Options{
+	opt := reconciler.Options{
 		KubeClientSet:    kubeClient,
 		ServingClientSet: servingClient,
 		BuildClientSet:   buildClient,
@@ -129,7 +130,7 @@ func main() {
 
 	// Build all of our controllers, with the clients constructed above.
 	// Add new controllers to this array.
-	controllers := []controller.Interface{
+	controllers := []*controller.Impl{
 		configuration.NewController(
 			opt,
 			configurationInformer,
@@ -196,7 +197,7 @@ func main() {
 
 	// Start all of the controllers.
 	for _, ctrlr := range controllers {
-		go func(ctrlr controller.Interface) {
+		go func(ctrlr *controller.Impl) {
 			// We don't expect this to return until stop is called,
 			// but if it does, propagate it back.
 			if runErr := ctrlr.Run(threadsPerController, stopCh); runErr != nil {

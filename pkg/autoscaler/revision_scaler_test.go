@@ -23,7 +23,7 @@ import (
 	"github.com/knative/serving/pkg/autoscaler"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	fakeKna "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	"github.com/knative/serving/pkg/controller/revision/resources/names"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	"k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

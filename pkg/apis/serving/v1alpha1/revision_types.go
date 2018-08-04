@@ -156,7 +156,7 @@ const (
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady RevisionConditionType = "Ready"
 	// RevisionConditionBuildComplete is set when the revision has an associated build
-	// and is marked True if/once the Build has completed succesfully.
+	// and is marked True if/once the Build has completed successfully.
 	RevisionConditionBuildSucceeded RevisionConditionType = "BuildSucceeded"
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.

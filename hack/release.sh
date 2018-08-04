@@ -28,7 +28,7 @@ readonly SERVING_RELEASE_GCR
 
 # istio.yaml file to upload
 # We publish our own istio.yaml, so users don't need to use helm"
-readonly ISTIO_YAML=./third_party/istio-1.0-prerelease/istio.yaml
+readonly ISTIO_YAML=./third_party/istio-1.0.0/istio.yaml
 # Local generated yaml file.
 readonly OUTPUT_YAML=release.yaml
 # Local generated lite yaml file.
