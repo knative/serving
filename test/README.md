@@ -102,7 +102,7 @@ go test -v -tags=e2e -count=1 ./test/e2e --resolvabledomain
 The [`upload-test-images.sh`](./upload-test-images.sh) script can be used to build and push the
 test images used by the conformance and e2e tests. It requires:
 
-* [`DOCKER_REPO_OVERRIDE`](/DEVELOPMENT.md#environment-setup) to be set
+* [`KO_DOCKER_REPO`](/DEVELOPMENT.md#environment-setup) to be set
 * You to be [authenticated with your
   `DOCKER_REPO_OVERRIDE`](/docs/setting-up-a-docker-registry.md)
 * [`docker`](https://docs.docker.com/install/) to be installed
@@ -110,16 +110,12 @@ test images used by the conformance and e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh test/e2e/test_images test/conformance/test_images
+./test/upload-test-images.sh test/test_images
 ```
 
 ### Adding new test images
 
-New test images should be placed in their own subdirectories. Be sure to to include a `Dockerfile`
-for building and running the test image.
-
-The new test images will also need to be uploaded to the e2e tests Docker repo. You will need one
-of the owners found in [`/test/OWNERS`](OWNERS) to do this.
+New test images should be placed `./test/test_images`.
 
 Because the test images are uploaded to the same folder, they **must** have different names.
 
