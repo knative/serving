@@ -76,7 +76,6 @@ func sendRequest(resolvableDomain bool, domain string) (*spoof.Response, error) 
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
-	t.Skip("Re-enable once https://github.com/knative/serving/issues/1783 is fixed.")
 	logger = test.GetContextLogger("TestServiceToServiceCall")
 	clients = Setup(t)
 
@@ -110,7 +109,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get Route %s: %v", httpProxyNames.Route, err)
 	}
-	if err = test.WaitForEndpointState(clients.Kube, logger, httpProxyRoute.Status.Domain, test.MatchesAny, "HttpProxy"); err != nil {
+	if err = test.WaitForEndpointState(clients.Kube, logger, httpProxyRoute.Status.Domain, test.Retrying(test.MatchesAny, http.StatusServiceUnavailable, http.StatusNotFound), "HttpProxy"); err != nil {
 		t.Fatalf("Failed to start endpoint of httpproxy: %v", err)
 	}
 	logger.Info("httpproxy is ready.")
