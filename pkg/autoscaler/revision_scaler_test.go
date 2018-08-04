@@ -26,9 +26,11 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	"k8s.io/api/apps/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/runtime"
+	scalefake "k8s.io/client-go/scale/fake"
+	clientgotesting "k8s.io/client-go/testing"
 )
 
 const (
@@ -53,50 +55,64 @@ func TestRevisionScalerScalesToZero(t *testing.T) {
 func TestRevisionScalerScalesUp(t *testing.T) {
 	revision := newRevision(v1alpha1.RevisionServingStateActive)
 	deployment := newDeployment(revision, 1)
-	revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
+	revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
 
 	revisionScaler.Scale(revision, 10)
 
 	checkServingState(t, servingClient, v1alpha1.RevisionServingStateActive)
-	checkReplicas(t, kubeClient, deployment, 10)
+	checkReplicas(t, scaleClient, deployment, 10)
 }
 
 func TestRevisionScalerDoesScaleUpInactiveRevision(t *testing.T) {
 	revision := newRevision(v1alpha1.RevisionServingStateReserve)
 	deployment := newDeployment(revision, 1)
-	revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
+	revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
 
 	revisionScaler.Scale(revision, 10)
 
 	checkServingState(t, servingClient, v1alpha1.RevisionServingStateReserve)
-	checkReplicas(t, kubeClient, deployment, 1)
+	checkNoScaling(t, scaleClient)
 }
 
 func TestRevisionScalerDoesNotScaleUpFromZero(t *testing.T) {
 	revision := newRevision(v1alpha1.RevisionServingStateActive) // normally implies a non-zero scale
 	deployment := newDeployment(revision, 0)
-	revisionScaler, servingClient, kubeClient := createRevisionScaler(t, revision, deployment)
+	revisionScaler, servingClient, scaleClient := createRevisionScaler(t, revision, deployment)
 
 	revisionScaler.Scale(revision, 10)
 
 	checkServingState(t, servingClient, v1alpha1.RevisionServingStateActive)
-	checkReplicas(t, kubeClient, deployment, 0)
+	checkNoScaling(t, scaleClient)
 }
 
-func createRevisionScaler(t *testing.T, revision *v1alpha1.Revision, deployment *v1.Deployment) (autoscaler.RevisionScaler, clientset.Interface, kubernetes.Interface) {
-	kubeClient := fakeK8s.NewSimpleClientset()
+func createRevisionScaler(t *testing.T, revision *v1alpha1.Revision, deployment *v1.Deployment) (autoscaler.RevisionScaler, clientset.Interface, *scalefake.FakeScaleClient) {
+	sf := &scalefake.FakeScaleClient{}
 	servingClient := fakeKna.NewSimpleClientset()
 
-	revisionScaler := autoscaler.NewRevisionScaler(servingClient, kubeClient, zap.NewNop().Sugar())
+	revisionScaler := autoscaler.NewRevisionScaler(servingClient, sf, zap.NewNop().Sugar())
 
 	_, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(revision)
 	if err != nil {
 		t.Fatal("Failed to get deployment.", err)
 	}
 
-	kubeClient.AppsV1().Deployments(testNamespace).Create(deployment)
+	sf.AddReactor("get", "deployments", func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+		obj := &autoscalingv1.Scale{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deployment.Name,
+				Namespace: deployment.Namespace,
+			},
+			Spec: autoscalingv1.ScaleSpec{
+				Replicas: *deployment.Spec.Replicas,
+			},
+			Status: autoscalingv1.ScaleStatus{
+				Replicas: deployment.Status.Replicas,
+			},
+		}
+		return true, obj, nil
+	})
 
-	return revisionScaler, servingClient, kubeClient
+	return revisionScaler, servingClient, sf
 }
 
 func newRevision(servingState v1alpha1.RevisionServingStateType) *v1alpha1.Revision {
@@ -137,15 +153,36 @@ func checkServingState(t *testing.T, servingClient clientset.Interface, servingS
 	}
 }
 
-func checkReplicas(t *testing.T, kubeClient kubernetes.Interface, deployment *v1.Deployment, expectedScale int) {
+func checkReplicas(t *testing.T, scaleClient *scalefake.FakeScaleClient, deployment *v1.Deployment, expectedScale int) {
 	t.Helper()
 
-	updatedDeployment, err := kubeClient.AppsV1().Deployments(testNamespace).Get(deployment.ObjectMeta.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal("Failed to get deployment.", err)
+	found := false
+	for _, action := range scaleClient.Actions() {
+		switch action.GetVerb() {
+		case "update":
+			scl := action.(clientgotesting.UpdateAction).GetObject().(*autoscalingv1.Scale)
+			if scl.Name != deployment.Name {
+				continue
+			}
+			if got, want := scl.Spec.Replicas, int32(expectedScale); got != want {
+				t.Errorf("Replicas = %v, wanted %v", got, want)
+			}
+			found = true
+		}
 	}
 
-	if *updatedDeployment.Spec.Replicas != int32(expectedScale) {
-		t.Fatal("Unexpected deployment replicas.", updatedDeployment.Spec.Replicas)
+	if !found {
+		t.Errorf("Did not see scale update for %v", deployment.Name)
+	}
+}
+
+func checkNoScaling(t *testing.T, scaleClient *scalefake.FakeScaleClient) {
+	t.Helper()
+
+	for _, action := range scaleClient.Actions() {
+		switch action.GetVerb() {
+		case "update":
+			t.Errorf("Unexpected update: %v", action)
+		}
 	}
 }
