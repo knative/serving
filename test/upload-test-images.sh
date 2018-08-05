@@ -16,11 +16,10 @@
 
 set -o errexit
 
-: ${1:?"Pass the directories with the test images as arguments"}
 : ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
 
-IMAGE_DIRS="$(find $@ -depth 1 -type d)"
+IMAGE_DIRS="$(find $(dirname $0)/test_images -depth 1 -type d)"
 
 for image_dir in ${IMAGE_DIRS}; do
-  ko publish github.com/knative/serving/${image_dir}
+  ko publish "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
 done

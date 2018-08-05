@@ -110,10 +110,9 @@ function dump_extra_cluster_state() {
 }
 
 function publish_test_images() {
-  image_dirs="$(find test/test_images -depth 1 -type d)"
+  image_dirs="$(find $(dirname $0)/test_images -depth 1 -type d)"
   for image_dir in ${image_dirs}; do
-    echo "Publishing test image github.com/knative/serving/${image_dir}"
-    ko publish github.com/knative/serving/${image_dir}
+    ko publish "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
   done
 }
 
@@ -129,6 +128,8 @@ header "Building and starting Knative Serving"
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 create_everything
 
+publish_test_images
+
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
@@ -136,8 +137,6 @@ set +o pipefail
 wait_until_pods_running knative-serving || fail_test "Knative Serving is not up"
 wait_until_pods_running istio-system || fail_test "Istio system is not up"
 wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
-
-publish_test_images
 
 # Run the tests
 
@@ -148,7 +147,6 @@ options=""
 report_go_test \
   -v -tags=e2e -count=1 -timeout=20m \
   ./test/conformance ./test/e2e \
-  ${options} \
-  -dockerrepo gcr.io/knative-tests/github.com/knative/serving/test_images || fail_test
+  ${options} || fail_test
 
 success

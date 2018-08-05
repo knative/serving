@@ -110,14 +110,14 @@ test images used by the conformance and e2e tests. It requires:
 To run the script for all end to end test images:
 
 ```bash
-./test/upload-test-images.sh test/test_images
+./test/upload-test-images.sh
 ```
+
+Note: this is only required when you run comformance/e2e tests locally with `go test` commands.
 
 ### Adding new test images
 
-New test images should be placed `./test/test_images`.
-
-Because the test images are uploaded to the same folder, they **must** have different names.
+New test images should be placed in `./test/test_images`.
 
 ## Flags
 
