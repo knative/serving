@@ -27,6 +27,7 @@ import (
 type RevisionTarget struct {
 	v1alpha1.TrafficTarget
 	Active bool
+	// The request timeout of the target revision.
 	TimeoutSeconds int
 }
 

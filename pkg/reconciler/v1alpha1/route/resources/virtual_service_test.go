@@ -150,6 +150,179 @@ func TestMakeVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}
 }
 
+func TestMakeVirtualServiceSpec_SingileRevisionTimeout(t *testing.T) {
+	targets := map[string][]traffic.RevisionTarget{
+		"": {{
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           100,
+			},
+			Active: true,
+			TimeoutSeconds: 10,
+		}},
+	}
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"route": "test-route"},
+		},
+		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+	}
+	expected := []v1alpha3.HTTPRoute{{
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &v1alpha3.StringMatch{Exact: "domain.com"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+		}},
+		Route: []v1alpha3.DestinationWeight{{
+			Destination: v1alpha3.Destination{
+				Host: "v2-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 100,
+		}},
+		Timeout: "10s",
+	}}
+	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec.Http
+	if diff := cmp.Diff(expected, routes); diff != "" {
+		fmt.Printf("%+v\n", routes)
+		fmt.Printf("%+v\n", expected)
+		t.Errorf("Unexpected routes (-want +got): %v", diff)
+	}
+}
+
+func TestMakeVirtualServiceSpec_MultipleRevisionTimeout(t *testing.T) {
+	targets := map[string][]traffic.RevisionTarget{
+		"": {{
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           50,
+			},
+			Active: true,
+			TimeoutSeconds: 10,
+		}, {
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           50,
+			},
+			Active: true,
+			TimeoutSeconds: 20,
+		}},
+	}
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"route": "test-route"},
+		},
+		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+	}
+	expected := []v1alpha3.HTTPRoute{{
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &v1alpha3.StringMatch{Exact: "domain.com"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+		}},
+		Route: []v1alpha3.DestinationWeight{{
+			Destination: v1alpha3.Destination{
+				Host: "v2-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 50,
+		}, {
+			Destination: v1alpha3.Destination{
+				Host: "v1-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 50,
+		}},
+		// The expected timeout is 20s, which is the max value of revision "v1" timeout (20s)
+		// and revision "v2" timeout (10s).
+		Timeout: "20s",
+	}}
+	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec.Http
+	if diff := cmp.Diff(expected, routes); diff != "" {
+		fmt.Printf("%+v\n", routes)
+		fmt.Printf("%+v\n", expected)
+		t.Errorf("Unexpected routes (-want +got): %v", diff)
+	}
+}
+
+func TestMakeVirtualServiceSpec_ZeroPercentRevisionTimeout(t *testing.T) {
+	targets := map[string][]traffic.RevisionTarget{
+		"": {{
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           100,
+			},
+			Active: true,
+			TimeoutSeconds: 10,
+		}, {
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           0,
+			},
+			Active: true,
+			TimeoutSeconds: 20,
+		}},
+	}
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"route": "test-route"},
+		},
+		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
+	}
+	expected := []v1alpha3.HTTPRoute{{
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &v1alpha3.StringMatch{Exact: "domain.com"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc.cluster.local"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns.svc"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route.test-ns"},
+		}, {
+			Authority: &v1alpha3.StringMatch{Exact: "test-route"},
+		}},
+		Route: []v1alpha3.DestinationWeight{{
+			Destination: v1alpha3.Destination{
+				Host: "v2-service.test-ns.svc.cluster.local",
+				Port: v1alpha3.PortSelector{Number: 80},
+			},
+			Weight: 100,
+		}},
+		// The expected timeout is 10s. The timeout of revision "v2" is ignored because
+		// its percent is 0.
+		Timeout: "10s",
+	}}
+	routes := MakeVirtualService(r, &traffic.TrafficConfig{Targets: targets}).Spec.Http
+	if diff := cmp.Diff(expected, routes); diff != "" {
+		fmt.Printf("%+v\n", routes)
+		fmt.Printf("%+v\n", expected)
+		t.Errorf("Unexpected routes (-want +got): %v", diff)
+	}
+}
+
 func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{

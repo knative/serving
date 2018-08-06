@@ -146,6 +146,13 @@ type RevisionSpec struct {
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
 
+	// TimeoutSeconds defines the request timeout seconds of the revision.
+	// For the case that a route points to single revision, the timeout of external request
+	// is the timeout of the revision.
+	// For the case that a Route points to multiple Revisions, the timeout of external
+	// request is the maximum timeout of all of the revisions.
+	// If this field is not set, the default timeout (60 seconds) will be used for the revision.
+	// +optional
 	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
 }
 
