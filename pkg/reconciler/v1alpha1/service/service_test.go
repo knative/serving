@@ -25,6 +25,7 @@ import (
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
@@ -241,6 +242,7 @@ func TestReconcile(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	kubeClient := fakekubeclientset.NewSimpleClientset()
+	sharedClient := fakesharedclientset.NewSimpleClientset()
 	servingClient := fakeclientset.NewSimpleClientset()
 	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
 
@@ -250,6 +252,7 @@ func TestNew(t *testing.T) {
 
 	c := NewController(reconciler.Options{
 		KubeClientSet:    kubeClient,
+		SharedClientSet:  sharedClient,
 		ServingClientSet: servingClient,
 		Logger:           TestLogger(t),
 	}, serviceInformer, configurationInformer, routeInformer)

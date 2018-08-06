@@ -22,7 +22,6 @@ import (
 
 	versioned "github.com/knative/serving/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/knative/serving/pkg/client/informers/externalversions/internalinterfaces"
-	istio "github.com/knative/serving/pkg/client/informers/externalversions/istio"
 	serving "github.com/knative/serving/pkg/client/informers/externalversions/serving"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -121,12 +120,7 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Networking() istio.Interface
 	Serving() serving.Interface
-}
-
-func (f *sharedInformerFactory) Networking() istio.Interface {
-	return istio.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Serving() serving.Interface {
