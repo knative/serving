@@ -41,6 +41,11 @@ func MakeRevision(config *v1alpha1.Configuration, buildName string) *v1alpha1.Re
 	}
 	rev.Labels[serving.ConfigurationLabelKey] = config.Name
 
+	// Populate the Service label.
+	if serviceName, ok := config.Labels[serving.ServiceLabelKey]; ok {
+		rev.Labels[serving.ServiceLabelKey] = serviceName
+	}
+
 	// Populate the Configuration Generation annotation.
 	if rev.Annotations == nil {
 		rev.Annotations = make(map[string]string)

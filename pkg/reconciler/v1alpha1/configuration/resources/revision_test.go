@@ -137,6 +137,7 @@ func TestRevisions(t *testing.T) {
 						Labels: map[string]string{
 							"foo": "bar",
 							"baz": "blah",
+							serving.ServiceLabelKey: "labels-service",
 						},
 					},
 					Spec: v1alpha1.RevisionSpec{
@@ -159,6 +160,7 @@ func TestRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
+					serving.ServiceLabelKey:       "labels-service",
 					serving.ConfigurationLabelKey: "labels",
 					"foo": "bar",
 					"baz": "blah",
