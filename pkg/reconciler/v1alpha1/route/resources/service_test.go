@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/resources/names"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,10 +38,8 @@ func TestMakeK8SService_ValidSpec(t *testing.T) {
 		},
 	}
 	expectedSpec := corev1.ServiceSpec{
-		Ports: []corev1.ServicePort{{
-			Name: "http",
-			Port: 80,
-		}},
+		Type:         corev1.ServiceTypeExternalName,
+		ExternalName: names.K8sGatewayServiceFullname,
 	}
 	spec := MakeK8sService(r).Spec
 	if diff := cmp.Diff(expectedSpec, spec); diff != "" {
