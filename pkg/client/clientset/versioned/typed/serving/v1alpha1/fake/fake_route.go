@@ -59,7 +59,7 @@ func (c *FakeRoutes) List(opts v1.ListOptions) (result *v1alpha1.RouteList, err 
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.RouteList{}
+	list := &v1alpha1.RouteList{ListMeta: obj.(*v1alpha1.RouteList).ListMeta}
 	for _, item := range obj.(*v1alpha1.RouteList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)

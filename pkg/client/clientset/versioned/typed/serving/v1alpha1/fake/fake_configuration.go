@@ -59,7 +59,7 @@ func (c *FakeConfigurations) List(opts v1.ListOptions) (result *v1alpha1.Configu
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.ConfigurationList{}
+	list := &v1alpha1.ConfigurationList{ListMeta: obj.(*v1alpha1.ConfigurationList).ListMeta}
 	for _, item := range obj.(*v1alpha1.ConfigurationList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
