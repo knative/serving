@@ -17,6 +17,7 @@ package queue
 
 import (
 	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -126,6 +127,14 @@ func TestUnlimitedBreaker(t *testing.T) {
 
 // Attempts to perform a concurrent request against the specified breaker.
 func (b *Breaker) concurrentRequest() request {
+
+	// There is a brief window between when capacity is released and
+	// when it becomes available to the next request.  We yield here
+	// to reduce the likelihood that we hit that edge case.  E.g.
+	// without yielding `go test ./pkg/queue/breaker.* -count 10000`
+	// will fail about 3 runs.
+	runtime.Gosched()
+
 	r := request{lock: &sync.Mutex{}, accepted: make(chan bool, 2)}
 	r.lock.Lock()
 	started := make(chan bool)
