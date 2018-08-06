@@ -36,6 +36,7 @@ const (
 	PortName   = "http"
 
 	DefaultRouteTimeout = "60s"
+	DefaultRouteTimeoutSeconds = 60
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -149,10 +150,27 @@ func makeVirtualServiceRoute(domains []string, ns string, targets []traffic.Revi
 	route := v1alpha3.HTTPRoute{
 		Match:   matches,
 		Route:   weights,
-		Timeout: DefaultRouteTimeout,
+		Timeout: fmt.Sprintf("%ds", getRouteTimeout(targets)),
 	}
 	// Add traffic rules for activator.
 	return addActivatorRoutes(&route, ns, inactive)
+}
+
+func getRouteTimeout(targets []traffic.RevisionTarget) int {
+	maxTimeoutSeconds := 0
+	for _, t := range targets {
+		if t.Percent == 0 {
+			continue
+		}
+		targetTimeoutSeconds := t.TimeoutSeconds
+		if targetTimeoutSeconds == 0 {
+			targetTimeoutSeconds = DefaultRouteTimeoutSeconds
+		}
+		if maxTimeoutSeconds < targetTimeoutSeconds {
+			maxTimeoutSeconds = targetTimeoutSeconds
+		}
+	}
+	return maxTimeoutSeconds
 }
 
 /////////////////////////////////////////////////
