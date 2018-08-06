@@ -62,7 +62,7 @@ func (c *FakeVirtualServices) List(opts v1.ListOptions) (result *v1alpha3.Virtua
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha3.VirtualServiceList{}
+	list := &v1alpha3.VirtualServiceList{ListMeta: obj.(*v1alpha3.VirtualServiceList).ListMeta}
 	for _, item := range obj.(*v1alpha3.VirtualServiceList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
