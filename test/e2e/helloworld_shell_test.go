@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -56,7 +57,7 @@ func TestHelloWorldFromShell(t *testing.T) {
 	//add test case specific name to its own logger
 	logger := logging.GetContextLogger("TestHelloWorldFromShell")
 
-	imagePath := strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath := fmt.Sprintf("%s/helloworld:%s", test.Flags.DockerRepo, test.Flags.Tag)
 
 	logger.Infof("Creating manifest")
 

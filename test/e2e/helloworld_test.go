@@ -19,8 +19,8 @@ limitations under the License.
 package e2e
 
 import (
+	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
@@ -39,7 +39,7 @@ func TestHelloWorld(t *testing.T) {
 	logger := logging.GetContextLogger("TestHelloWorld")
 
 	var imagePath string
-	imagePath = strings.Join([]string{test.Flags.DockerRepo, "helloworld"}, "/")
+	imagePath = fmt.Sprintf("%s/helloworld:%s", test.Flags.DockerRepo, test.Flags.Tag)
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)

@@ -21,7 +21,6 @@ package e2e
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/knative/pkg/test/logging"
@@ -135,11 +134,7 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	logger := logging.GetContextLogger("TestAutoscaleUpDownUp")
 
 	clients := setup(t, logger)
-	imagePath := strings.Join(
-		[]string{
-			test.Flags.DockerRepo,
-			"autoscale"},
-		"/")
+	imagePath := fmt.Sprintf("%s/autoscale:%s", test.Flags.DockerRepo, test.Flags.Tag)
 
 	logger.Infof("Creating a new Route and Configuration")
 	names, err := CreateRouteAndConfig(clients, logger, imagePath)
