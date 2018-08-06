@@ -41,7 +41,9 @@ const (
 // for the container image missing scenario.
 
 func TestContainerErrorMsg(t *testing.T) {
-	//t.Skip("Skipping until https://github.com/knative/serving/issues/1240 is closed")
+	if strings.HasSuffix(strings.Split(test.Flags.DockerRepo, "/")[0], ".local") {
+		t.Skip("Skipping for local docker repo")
+	}
 	clients := Setup(t)
 
 	//add test case specific name to its own logger
