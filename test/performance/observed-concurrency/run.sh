@@ -16,8 +16,8 @@
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-concurrency=${1:-5}
-duration=${2:-60s}
+export concurrency=${1:-5}
+export duration=${2:-60s}
 
 echo "CLUSTER INFORMATION:"
 echo
