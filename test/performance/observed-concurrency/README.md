@@ -11,7 +11,7 @@
 1. Start the application the load will go against:
 
 ```
-ko apply -f app.yml
+ko apply -f app.yaml
 ```
 
 2. Wait until the route is accessible
