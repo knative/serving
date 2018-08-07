@@ -22,21 +22,22 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/scale"
 )
 
 // revisionScaler scales revisions up or down including scaling to zero.
 type revisionScaler struct {
 	servingClientSet clientset.Interface
-	kubeClientSet    kubernetes.Interface
+	scaleClientSet   scale.ScalesGetter
 	logger           *zap.SugaredLogger
 }
 
 // NewRevisionScaler creates a revisionScaler.
-func NewRevisionScaler(servingClientSet clientset.Interface, kubeClientSet kubernetes.Interface, logger *zap.SugaredLogger) RevisionScaler {
+func NewRevisionScaler(servingClientSet clientset.Interface, scaleClientSet scale.ScalesGetter, logger *zap.SugaredLogger) RevisionScaler {
 	return &revisionScaler{
 		servingClientSet: servingClientSet,
-		kubeClientSet:    kubeClientSet,
+		scaleClientSet:   scaleClientSet,
 		logger:           logger,
 	}
 }
@@ -53,15 +54,19 @@ func (rs *revisionScaler) Scale(oldRev *v1alpha1.Revision, desiredScale int32) {
 		return
 	}
 
-	// Get the revision's deployment.
-	//TODO scale the revision's scaleTargetRef. See https://github.com/knative/serving/issues/1507
 	deploymentName := names.Deployment(oldRev)
-	deployment, err := rs.kubeClientSet.AppsV1().Deployments(oldRev.Namespace).Get(deploymentName, metav1.GetOptions{})
+	resource := schema.GroupResource{
+		Group:    "apps",
+		Resource: "deployments",
+	}
+
+	// Identify the current scale.
+	scl, err := rs.scaleClientSet.Scales(oldRev.Namespace).Get(resource, deploymentName)
 	if err != nil {
 		logger.Error("Deployment not found.", zap.String("deployment", deploymentName), zap.Error(err))
 		return
 	}
-	currentScale := *deployment.Spec.Replicas
+	currentScale := scl.Spec.Replicas
 
 	if desiredScale == currentScale {
 		return
@@ -87,8 +92,8 @@ func (rs *revisionScaler) Scale(oldRev *v1alpha1.Revision, desiredScale int32) {
 	}
 
 	// Scale the deployment.
-	deployment.Spec.Replicas = &desiredScale
-	_, err = rs.kubeClientSet.AppsV1().Deployments(oldRev.Namespace).Update(deployment)
+	scl.Spec.Replicas = desiredScale
+	_, err = rs.scaleClientSet.Scales(oldRev.Namespace).Update(resource, scl)
 	if err != nil {
 		logger.Error("Error scaling deployment.", zap.String("deployment", deploymentName), zap.Error(err))
 		return
