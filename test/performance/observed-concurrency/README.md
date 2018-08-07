@@ -4,7 +4,6 @@
 
 - General knative [development requirements](https://github.com/knative/serving/blob/master/DEVELOPMENT.md#requirements)
 - [wrk](https://github.com/wg/wrk)
-- python2/3 with [matplotlib](https://matplotlib.org/)
 
 ## Instructions to run
 
@@ -25,8 +24,6 @@ ex.
 
 run.sh 5 60s
 ```
-
-Find the resulting chart in `$CONCURRENCY.png`
 
 ## Scenario
 
