@@ -39,12 +39,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"github.com/knative/serving/pkg/system"
 )
 
 const (
 	controllerThreads = 2
 	statsServerAddr   = ":8080"
 	statsBufferLen    = 1000
+	logLevelKey       = "autoscaler"
 )
 
 var (
@@ -63,7 +65,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(loggingConfig, "autoscaler")
+
+	var atomicLevel zap.AtomicLevel
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -77,6 +81,13 @@ func main() {
 	kubeClientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatal("Error building kubernetes clientset.", zap.Error(err))
+	}
+
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClientSet, system.Namespace)
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start watching logging config: %v", err)
 	}
 
 	servingClientSet, err := clientset.NewForConfig(cfg)
