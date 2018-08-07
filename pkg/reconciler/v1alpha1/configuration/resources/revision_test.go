@@ -137,7 +137,6 @@ func TestRevisions(t *testing.T) {
 						Labels: map[string]string{
 							"foo": "bar",
 							"baz": "blah",
-							serving.ServiceLabelKey: "labels-service",
 						},
 					},
 					Spec: v1alpha1.RevisionSpec{
@@ -160,7 +159,6 @@ func TestRevisions(t *testing.T) {
 					BlockOwnerDeletion: &boolTrue,
 				}},
 				Labels: map[string]string{
-					serving.ServiceLabelKey:       "labels-service",
 					serving.ConfigurationLabelKey: "labels",
 					"foo": "bar",
 					"baz": "blah",
@@ -217,6 +215,52 @@ func TestRevisions(t *testing.T) {
 					serving.ConfigurationGenerationAnnotationKey: "99",
 					"foo": "bar",
 					"baz": "blah",
+				},
+			},
+			Spec: v1alpha1.RevisionSpec{
+				Container: corev1.Container{
+					Image: "busybox",
+				},
+			},
+		},
+	}, {
+		name: "with configuration's labels",
+		configuration: &v1alpha1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "with",
+				Name:      "configurations-labels",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "labels-service",
+				},
+			},
+			Spec: v1alpha1.ConfigurationSpec{
+				Generation: 99,
+				RevisionTemplate: v1alpha1.RevisionTemplateSpec{
+					Spec: v1alpha1.RevisionSpec{
+						Container: corev1.Container{
+							Image: "busybox",
+						},
+					},
+				},
+			},
+		},
+		want: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "with",
+				Name:      "configurations-labels-00099",
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "configurations-labels",
+					Controller:         &boolTrue,
+					BlockOwnerDeletion: &boolTrue,
+				}},
+				Labels: map[string]string{
+					serving.ServiceLabelKey:       "labels-service",
+					serving.ConfigurationLabelKey: "configurations-labels",
+				},
+				Annotations: map[string]string{
+					serving.ConfigurationGenerationAnnotationKey: "99",
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
