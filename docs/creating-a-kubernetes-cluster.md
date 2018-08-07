@@ -128,56 +128,52 @@ To use a k8s cluster running in GKE:
     export K8S_USER_OVERRIDE=$USER
     ```
 
-1.  [Start Knative Serving](../DEVELOPMENT.md#starting-knative-serving):
+1.  Install Knative Serving
 
-    You need to deploy Knative itself a bit differently if you would like to have
-    routeable `Route` endpoints, and if you would like to setup secrets for
-    accessing an image registry from within your cluster, e.g.
-    [GCR](#minikube-with-gcr):
+    Before installing knative on minikube, we need to do two things:
 
-    1. [Deploy istio](../DEVELOPMENT.md#deploy-istio):
+    1. [Workaround Minikube's lack of support for `LoadBalancer` type services](#loadbalancer-support-in-minikube)
+    1. [Configure `ko` for local publishing](#minikube-with-ko)
 
-       By default istio uses a `LoadBalancer` which is not available for Minikube
-       but is required for Knative to function properly (`Route` endpoints MUST
-       be available via a routable IP before they will be marked as ready)
-       so deploy istio with `LoadBalancer` replaced by `NodePort`:
+    After doing those, you can [deploy the Knative Serving
+    components](../DEVELOPMENT.md#starting-knative-serving) to
+    Minikube the same way you would any other Kubernetes cluster.
 
-       ```bash
-       sed 's/LoadBalancer/NodePort/' third_party/istio-1.0.1/istio.yaml | kubectl apply -f -
-       ```
 
-       (Then optionally [enable istio injection](../DEVELOPMENT.md#deploy-istio).)
+### `LoadBalancer` Support in Minikube
 
-    1. [Deploy build](../DEVELOPMENT.md#deploy-build):
+By default istio uses a `LoadBalancer` which is [not yet supported by
+Minikube](https://github.com/kubernetes/minikube/issues/2834) but is
+required for Knative to function properly (`Route` endpoints MUST be
+available via a routable IP before they will be marked as ready). [One
+possible
+workaround](https://github.com/elsonrodriguez/minikube-lb-patch) is to
+install a custom controller that provisions an external IP using the
+service's ClusterIP, which must be made routable on the minikube host.
+These two commands accomplish this, and should be run once whenever
+you start a new minikube cluster:
 
-        ```shell
-        kubectl apply -f ./third_party/config/build/release.yaml
-        ```
+```bash
+sudo ip route add $(cat ~/.minikube/profiles/minikube/config.json | jq -r ".KubernetesConfig.ServiceCIDR") via $(minikube ip)
+kubectl run minikube-lb-patch --replicas=1 --image=elsonrodriguez/minikube-lb-patch:0.1 --namespace=kube-system
+```
 
-    1. [Deploy Knative Serving](../DEVELOPMENT.md#deploy-knative-serving):
+### Minikube with `ko`
 
-        1. Create the namespaces and service accounts you'll be modifying:
-           ```bash
-           ko apply -f config/100-namespace.yaml
-           ko apply -f config/200-serviceaccount.yaml
-           ```
-        1. Create the secrets you need and patch the service accounts to use them, e.g.
-           [to setup access to GCR](#minikube-with-gcr).
-        1. Deploy the rest of Knative:
-           ```bash
-           # Use the minikube docker daemon (among other things)
-           eval $(minikube docker-env)
+You can instruct `ko` to sideload images into your Docker daemon
+instead of publishing them to a registry by setting
+`KO_DOCKER_REPO=ko.local`:
 
-           # Switch the current kubectl context to minikube
-           kubectl config use-context minikube
+```shell
+# Use the minikube docker daemon (among other things)
+eval $(minikube docker-env)
 
-           # Deploy to minikube w/o registry.
-           ko apply -L -f config/
-           ```
+# Switch the current kubectl context to minikube
+kubectl config use-context minikube
 
-    1. [Enable log and metric collection](../DEVELOPMENT.md#enable-log-and-metric-collection)
-       (Note you should be using a cluster with 12 GB of memory, see commands above.)
-
+# Set KO_DOCKER_REPO to a sentinel value for ko to sideload into the daemon.
+export KO_DOCKER_REPO="ko.local"
+```
 
 ### Enabling Knative to Use Images in Minikube
 
@@ -192,38 +188,6 @@ For example:
 eval $(minikube docker-env)
 docker pull gcr.io/knative-samples/primer:latest
 docker tag gcr.io/knative-samples/primer:latest dev.local/knative-samples/primer:v1
-```
-
-### Minikube locally with `ko`
-
-You can instruct `ko` to sideload images into your Docker daemon instead of
-publishing them to a registry via the `-L` (local) flag:
-
-```shell
-# Use the minikube docker daemon (among other things)
-eval $(minikube docker-env)
-
-# Switch the current kubectl context to minikube
-kubectl config use-context minikube
-
-# Deploy to minikube w/o registry.
-ko apply -L -f config/
-```
-
-Alternatively (if you don't like flags), set `KO_DOCKER_REPO` to `ko.local`:
-
-```shell
-# Use the minikube docker daemon (among other things)
-eval $(minikube docker-env)
-
-# Switch the current kubectl context to minikube
-kubectl config use-context minikube
-
-# Set KO_DOCKER_REPO to a sentinel value for ko to sideload into the daemon.
-export KO_DOCKER_REPO="ko.local"
-
-# Deploy to minikube w/o registry.
-ko apply -f config/
 ```
 
 ### Minikube with GCR
