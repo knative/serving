@@ -22,24 +22,6 @@ import (
 	"testing"
 )
 
-func TestBreakerOverload(t *testing.T) {
-	t.Skip("Skipping until #1308 is addressed")
-	b := NewBreaker(1, 1)             // Breaker capacity = 2
-	want := []bool{true, true, false} // Only first two requests will be processed
-
-	r1, g1 := b.concurrentRequest()
-	r2, g2 := b.concurrentRequest()
-	r3, g3 := b.concurrentRequest() // Will be shed
-	done(r1)
-	done(r2)
-	done(r3)
-	got := []bool{<-g1, <-g2, <-g3}
-
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Wanted %v. Got %v.", want, got)
-	}
-}
-
 func TestBreakerNoOverload(t *testing.T) {
 	b := NewBreaker(1, 1)                  // Breaker capacity = 2
 	want := []bool{true, true, true, true} // Only two requests will be in flight at a time
