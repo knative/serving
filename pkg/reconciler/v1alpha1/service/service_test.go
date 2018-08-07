@@ -409,13 +409,13 @@ func mutateRoute(rt *v1alpha1.Route) *v1alpha1.Route {
 	return rt
 }
 
-// TODO(1762): Replace with builders.
+// TODO(#1762): Replace with builders.
 func cfgWithStatus(cfg *v1alpha1.Configuration, s v1alpha1.ConfigurationStatus) *v1alpha1.Configuration {
 	cfg.Status = s
 	return cfg
 }
 
-// TODO(1762): Replace with builders.
+// TODO(#1762): Replace with builders.
 func routeWithStatus(rt *v1alpha1.Route, s v1alpha1.RouteStatus) *v1alpha1.Route {
 	rt.Status = s
 	return rt
