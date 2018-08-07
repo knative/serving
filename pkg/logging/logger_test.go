@@ -23,6 +23,9 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestUncoveredFunc(t *testing.T){
+	uncoveredFunc()
+}
 //func TestContext(t *testing.T) {
 //	logger1 := zap.NewNop().Sugar()
 //	logger2 := zap.NewExample().Sugar()
