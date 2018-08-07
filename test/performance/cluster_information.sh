@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-echo "KUBERNETES VERSION: $(kubectl version -o json | jq -r '.serverVersion.gitVersion')"
+echo "KUBERNETES VERSION: $(kubectl version -o yaml | grep -A 20 serverVersion | grep gitVersion)"
 echo
 echo "NODE CAPACITY"
 kubectl get nodes -o=custom-columns=NAME:.metadata.name,KUBELET:.status.nodeInfo.kubeletVersion,KERNEL:.status.nodeInfo.kernelVersion,OS:.status.nodeInfo.osImage,CPUs:.status.capacity.cpu,MEMORY:.status.capacity.memory
