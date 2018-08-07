@@ -95,14 +95,13 @@ func main() {
 		logger.Fatalf("failed to start watching logging config: %v", err)
 	}
 
-	rm := restmapper.NewDeferredDiscoveryRESTMapper(cached.NewMemCacheClient(kubeClientSet.Discovery()))
-	go wait.Until(func() {
-		rm.Reset()
-	}, 30*time.Second, stopCh)
-	scaleKindResolver := scale.NewDiscoveryScaleKindResolver(kubeClientSet.Discovery())
-	scaleClient, err := scale.NewForConfig(cfg, rm, dynamic.LegacyAPIPathResolverFunc, scaleKindResolver)
+	// This is based on how Kubernetes sets up its scale client based on discovery:
+	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
+	restMapper := buildRESTMapper(kubeClientSet, stopCh)
+	scaleClient, err := scale.NewForConfig(cfg, restMapper, dynamic.LegacyAPIPathResolverFunc,
+		scale.NewDiscoveryScaleKindResolver(kubeClientSet.Discovery()))
 	if err != nil {
-		logger.Fatal("Error building kubernetes clientset.", zap.Error(err))
+		logger.Fatal("Error building scale clientset.", zap.Error(err))
 	}
 
 	servingClientSet, err := clientset.NewForConfig(cfg)
@@ -194,6 +193,18 @@ func main() {
 	}
 
 	statsServer.Shutdown(time.Second * 5)
+}
+
+func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{}) *restmapper.DeferredDiscoveryRESTMapper {
+	// This is based on how Kubernetes sets up its discovery-based client:
+	// https://github.com/kubernetes/kubernetes/blob/f2c6473e2/cmd/kube-controller-manager/app/controllermanager.go#L410-L414
+	cachedClient := cached.NewMemCacheClient(kubeClientSet.Discovery())
+	rm := restmapper.NewDeferredDiscoveryRESTMapper(cachedClient)
+	go wait.Until(func() {
+		rm.Reset()
+	}, 30*time.Second, stopCh)
+
+	return rm
 }
 
 func uniScalerFactory(rev *v1alpha1.Revision, config *autoscaler.Config) (autoscaler.UniScaler, error) {
