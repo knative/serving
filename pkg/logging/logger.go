@@ -36,3 +36,16 @@ func WithLogger(ctx context.Context, logger *zap.SugaredLogger) context.Context 
 func FromContext(ctx context.Context) *zap.SugaredLogger {
 	return logging.FromContext(ctx)
 }
+
+func doNothing(){
+
+}
+
+func uncoveredFunc(){
+	doNothing()
+	doNothing()
+	doNothing()
+	doNothing()
+	doNothing()
+	doNothing()
+}
