@@ -35,7 +35,6 @@ const (
 	PortNumber = 80
 	PortName   = "http"
 
-	DefaultRouteTimeout = "60s"
 	DefaultRouteTimeoutSeconds = 60
 )
 
