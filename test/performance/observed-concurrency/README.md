@@ -27,7 +27,7 @@ run.sh 5 60s
 
 ## Scenario
 
-This test reports the *observed concurrency* from the point of view of an external user. As such, this is a blackbox test that knows nothing about the innerts of knative.
+This test reports the *observed concurrency* from the point of view of an external user. As such, this is a blackbox test that knows nothing about the innards of knative.
 
 The application that gets deployed is a minimal http server, that will report the server-side start and finish timestamp of a request in nanoseconds. Moreover, it will sleep for a defined amount of time (defined via a query parameter `timestamp`, which takes the time to sleep in milliseconds). The application is running in single-concurrency mode to surface any scheduling inaccuracies and to be very dependent on quick autoscaling.
 
