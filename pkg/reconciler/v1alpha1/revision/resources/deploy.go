@@ -122,6 +122,8 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		},
 		Volumes:            []corev1.Volume{varLogVolume},
 		ServiceAccountName: rev.Spec.ServiceAccountName,
+		NodeSelector:       rev.Spec.NodeSelector,
+		Tolerations:        rev.Spec.Tolerations,
 	}
 
 	// Add Fluentd sidecar and its config map volume if var log collection is enabled.
