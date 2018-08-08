@@ -51,7 +51,7 @@ const (
 // Probe until we get a successful response. This ensures the domain is
 // routable before we send it a bunch of traffic.
 func probeDomain(logger *zap.SugaredLogger, clients *test.Clients, domain string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+	client, err := spoof.New(clients.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func checkResponses(logger *zap.SugaredLogger, num int, min int, domain string, 
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
 func checkDistribution(logger *zap.SugaredLogger, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := spoof.New(clients.Kube, logger, domain, test.Flags.ResolvableDomain)
+	client, err := spoof.New(clients.Kube, logger, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}

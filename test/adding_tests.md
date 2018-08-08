@@ -165,7 +165,7 @@ in the state you want it to be in (or timeout) use `WaitForEndpointState`:
 err = test.WaitForEndpointState(
 		clients.Kube,
 		logger,
-		test.Flags.ResolvableDomain,
+		test.ServingFlags.ResolvableDomain,
 		updatedRoute.Status.Domain,
 		test.EventuallyMatchesBody(expectedText),
 		"SomeDescription")

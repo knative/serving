@@ -86,7 +86,7 @@ func WaitForEndpointState(kubeClientset *kubernetes.Clientset, logger *zap.Sugar
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	client, err := spoof.New(kubeClientset, logger, domain, Flags.ResolvableDomain)
+	client, err := spoof.New(kubeClientset, logger, domain, ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}

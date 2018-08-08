@@ -115,7 +115,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	logger.Info("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(test.Flags.ResolvableDomain, httpProxyRoute.Status.Domain)
+	response, err := sendRequest(test.ServingFlags.ResolvableDomain, httpProxyRoute.Status.Domain)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
