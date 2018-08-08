@@ -47,44 +47,39 @@ func TestRevisionScaler(t *testing.T) {
 		wantState     v1alpha1.RevisionServingStateType
 		wantReplicas  int
 		wantScaling   bool
-	}{
-		{
-			label:         "scales to zero",
-			startState:    v1alpha1.RevisionServingStateActive,
-			startReplicas: 1,
-			scaleTo:       0,
-			wantState:     v1alpha1.RevisionServingStateReserve,
-			wantReplicas:  1,
-			wantScaling:   false,
-		},
-		{
-			label:         "scales up",
-			startState:    v1alpha1.RevisionServingStateActive,
-			startReplicas: 1,
-			scaleTo:       10,
-			wantState:     v1alpha1.RevisionServingStateActive,
-			wantReplicas:  10,
-			wantScaling:   true,
-		},
-		{
-			label:         "scales up inactive revision",
-			startState:    v1alpha1.RevisionServingStateReserve,
-			startReplicas: 1,
-			scaleTo:       10,
-			wantState:     v1alpha1.RevisionServingStateReserve,
-			wantReplicas:  1,
-			wantScaling:   false,
-		},
-		{
-			label:         "does not scale up from zero",
-			startState:    v1alpha1.RevisionServingStateActive,
-			startReplicas: 0,
-			scaleTo:       10,
-			wantState:     v1alpha1.RevisionServingStateActive,
-			wantReplicas:  0,
-			wantScaling:   false,
-		},
-	}
+	}{{
+		label:         "scales to zero",
+		startState:    v1alpha1.RevisionServingStateActive,
+		startReplicas: 1,
+		scaleTo:       0,
+		wantState:     v1alpha1.RevisionServingStateReserve,
+		wantReplicas:  1,
+		wantScaling:   false,
+	}, {
+		label:         "scales up",
+		startState:    v1alpha1.RevisionServingStateActive,
+		startReplicas: 1,
+		scaleTo:       10,
+		wantState:     v1alpha1.RevisionServingStateActive,
+		wantReplicas:  10,
+		wantScaling:   true,
+	}, {
+		label:         "scales up inactive revision",
+		startState:    v1alpha1.RevisionServingStateReserve,
+		startReplicas: 1,
+		scaleTo:       10,
+		wantState:     v1alpha1.RevisionServingStateReserve,
+		wantReplicas:  1,
+		wantScaling:   false,
+	}, {
+		label:         "does not scale up from zero",
+		startState:    v1alpha1.RevisionServingStateActive,
+		startReplicas: 0,
+		scaleTo:       10,
+		wantState:     v1alpha1.RevisionServingStateActive,
+		wantReplicas:  0,
+		wantScaling:   false,
+	}}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
