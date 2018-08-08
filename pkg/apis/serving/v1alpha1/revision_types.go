@@ -145,6 +145,18 @@ type RevisionSpec struct {
 	// https://github.com/knative/serving/issues/627
 	// +optional
 	Container corev1.Container `json:"container,omitempty"`
+
+	// NodeSelector is a selector which must be true for the revision's pod(s) to
+	// fit on a node.
+	// Selector which must match a node's labels for the pod to be scheduled on
+	// that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// If specified, the revision's tolerations.
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 // RevisionConditionType is used to communicate the status of the reconciliation process.
