@@ -18,511 +18,149 @@ package testing
 
 import (
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
 	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
 	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
+	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
-// ServiceLister is a lister.ServiceLister fake for testing.
-type ServiceLister struct {
-	Err   error
-	Items []*v1alpha1.Service
+var kubeObjectTypes = []runtime.Object{
+	&appsv1.Deployment{},
+	&corev1.Service{},
+	&corev1.Endpoints{},
+	&corev1.ConfigMap{},
 }
 
-// Assert that our fake implements the interface it is faking.
-var _ listers.ServiceLister = (*ServiceLister)(nil)
+var buildObjectTypes = []runtime.Object{
+	&buildv1alpha1.Build{},
+}
 
-func (r *ServiceLister) List(selector labels.Selector) (results []*v1alpha1.Service, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
+var istioObjectTypes = []runtime.Object{
+	&istiov1alpha3.VirtualService{},
+}
+
+var servingObjectTypes = []runtime.Object{
+	&v1alpha1.Service{},
+	&v1alpha1.Route{},
+	&v1alpha1.Configuration{},
+	&v1alpha1.Revision{},
+}
+
+type Listers struct {
+	cache map[reflect.Type]cache.Indexer
+}
+
+func NewListers(objs []runtime.Object) Listers {
+	cache := make(map[reflect.Type]cache.Indexer)
+
+	var supportedObjects []runtime.Object
+	supportedObjects = append(supportedObjects, kubeObjectTypes...)
+	supportedObjects = append(supportedObjects, buildObjectTypes...)
+	supportedObjects = append(supportedObjects, istioObjectTypes...)
+	supportedObjects = append(supportedObjects, servingObjectTypes...)
+
+	for _, t := range supportedObjects {
+		cache[reflect.TypeOf(t).Elem()] = indexer()
+	}
+
+	ls := Listers{
+		cache: cache,
+	}
+
+	for _, obj := range objs {
+		t := reflect.TypeOf(obj).Elem()
+		indexer, ok := cache[t]
+		if !ok {
+			panic(fmt.Sprintf("Unsupported type in TableTest %T", obj))
+		}
+		indexer.Add(obj)
+	}
+
+	return ls
+}
+
+func indexer() cache.Indexer {
+	return cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+}
+
+func (f *Listers) getObjects(types []runtime.Object) []runtime.Object {
+	var objs []runtime.Object
+
+	for _, t := range types {
+		indexer := f.indexerForType(t)
+		for _, item := range indexer.List() {
+			objs = append(objs, item.(runtime.Object))
 		}
 	}
-	return results, r.Err
+	return objs
 }
 
-func (r *ServiceLister) Services(namespace string) listers.ServiceNamespaceLister {
-	return &nsServiceLister{r: r, ns: namespace}
+func (f *Listers) indexerForType(obj runtime.Object) cache.Indexer {
+	return f.cache[reflect.TypeOf(obj).Elem()]
 }
 
-type nsServiceLister struct {
-	r  *ServiceLister
-	ns string
+func (f *Listers) GetKubeObjects() []runtime.Object {
+	return f.getObjects(kubeObjectTypes)
 }
 
-// Assert that our fake implements the interface it is faking.
-var _ listers.ServiceNamespaceLister = (*nsServiceLister)(nil)
-
-func (r *nsServiceLister) List(selector labels.Selector) (results []*v1alpha1.Service, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
+func (f *Listers) GetBuildObjects() []runtime.Object {
+	return f.getObjects(buildObjectTypes)
 }
 
-func (r *nsServiceLister) Get(name string) (*v1alpha1.Service, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+func (f *Listers) GetServingObjects() []runtime.Object {
+	return f.getObjects(servingObjectTypes)
 }
 
-// RouteLister is a lister.RouteLister fake for testing.
-type RouteLister struct {
-	Err   error
-	Items []*v1alpha1.Route
+func (f *Listers) GetSharedObjects() []runtime.Object {
+	return f.getObjects(istioObjectTypes)
 }
 
-// Assert that our fake implements the interface it is faking.
-var _ listers.RouteLister = (*RouteLister)(nil)
-
-func (r *RouteLister) List(selector labels.Selector) (results []*v1alpha1.Route, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
+func (f *Listers) GetServiceLister() servinglisters.ServiceLister {
+	return servinglisters.NewServiceLister(f.indexerForType(&v1alpha1.Service{}))
 }
 
-func (r *RouteLister) Routes(namespace string) listers.RouteNamespaceLister {
-	return &nsRouteLister{r: r, ns: namespace}
+func (f *Listers) GetRouteLister() servinglisters.RouteLister {
+	return servinglisters.NewRouteLister(f.indexerForType(&v1alpha1.Route{}))
 }
 
-type nsRouteLister struct {
-	r  *RouteLister
-	ns string
+func (f *Listers) GetConfigurationLister() servinglisters.ConfigurationLister {
+	return servinglisters.NewConfigurationLister(f.indexerForType(&v1alpha1.Configuration{}))
 }
 
-// Assert that our fake implements the interface it is faking.
-var _ listers.RouteNamespaceLister = (*nsRouteLister)(nil)
-
-func (r *nsRouteLister) List(selector labels.Selector) (results []*v1alpha1.Route, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
+func (f *Listers) GetRevisionLister() servinglisters.RevisionLister {
+	return servinglisters.NewRevisionLister(f.indexerForType(&v1alpha1.Revision{}))
 }
 
-func (r *nsRouteLister) Get(name string) (*v1alpha1.Route, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+func (f *Listers) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
+	return istiolisters.NewVirtualServiceLister(f.indexerForType(&istiov1alpha3.VirtualService{}))
 }
 
-// ConfigurationLister is a lister.ConfigurationLister fake for testing.
-type ConfigurationLister struct {
-	Err   error
-	Items []*v1alpha1.Configuration
+func (f *Listers) GetBuildLister() buildlisters.BuildLister {
+	return buildlisters.NewBuildLister(f.indexerForType(&buildv1alpha1.Build{}))
 }
 
-// Assert that our fake implements the interface it is faking.
-var _ listers.ConfigurationLister = (*ConfigurationLister)(nil)
-
-func (r *ConfigurationLister) List(selector labels.Selector) (results []*v1alpha1.Configuration, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
+func (f *Listers) GetDeploymentLister() appsv1listers.DeploymentLister {
+	return appsv1listers.NewDeploymentLister(f.indexerForType(&appsv1.Deployment{}))
 }
 
-func (r *ConfigurationLister) Configurations(namespace string) listers.ConfigurationNamespaceLister {
-	return &nsConfigurationLister{r: r, ns: namespace}
+func (f *Listers) GetK8sServiceLister() corev1listers.ServiceLister {
+	return corev1listers.NewServiceLister(f.indexerForType(&corev1.Service{}))
 }
 
-type nsConfigurationLister struct {
-	r  *ConfigurationLister
-	ns string
+func (f *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
+	return corev1listers.NewEndpointsLister(f.indexerForType(&corev1.Endpoints{}))
 }
 
-// Assert that our fake implements the interface it is faking.
-var _ listers.ConfigurationNamespaceLister = (*nsConfigurationLister)(nil)
-
-func (r *nsConfigurationLister) List(selector labels.Selector) (results []*v1alpha1.Configuration, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsConfigurationLister) Get(name string) (*v1alpha1.Configuration, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// RevisionLister is a lister.RevisionLister fake for testing.
-type RevisionLister struct {
-	Err   error
-	Items []*v1alpha1.Revision
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ listers.RevisionLister = (*RevisionLister)(nil)
-
-func (r *RevisionLister) List(selector labels.Selector) (results []*v1alpha1.Revision, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *RevisionLister) Revisions(namespace string) listers.RevisionNamespaceLister {
-	return &nsRevisionLister{r: r, ns: namespace}
-}
-
-type nsRevisionLister struct {
-	r  *RevisionLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ listers.RevisionNamespaceLister = (*nsRevisionLister)(nil)
-
-func (r *nsRevisionLister) List(selector labels.Selector) (results []*v1alpha1.Revision, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsRevisionLister) Get(name string) (*v1alpha1.Revision, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// BuildLister is a lister.BuildLister fake for testing.
-type BuildLister struct {
-	Err   error
-	Items []*buildv1alpha1.Build
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ buildlisters.BuildLister = (*BuildLister)(nil)
-
-func (r *BuildLister) List(selector labels.Selector) (results []*buildv1alpha1.Build, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *BuildLister) Builds(namespace string) buildlisters.BuildNamespaceLister {
-	return &nsBuildLister{r: r, ns: namespace}
-}
-
-type nsBuildLister struct {
-	r  *BuildLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ buildlisters.BuildNamespaceLister = (*nsBuildLister)(nil)
-
-func (r *nsBuildLister) List(selector labels.Selector) (results []*buildv1alpha1.Build, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsBuildLister) Get(name string) (*buildv1alpha1.Build, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// DeploymentLister is a lister.DeploymentLister fake for testing.
-type DeploymentLister struct {
-	Err   error
-	Items []*appsv1.Deployment
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ appsv1listers.DeploymentLister = (*DeploymentLister)(nil)
-
-func (r *DeploymentLister) List(selector labels.Selector) (results []*appsv1.Deployment, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *DeploymentLister) Deployments(namespace string) appsv1listers.DeploymentNamespaceLister {
-	return &nsDeploymentLister{r: r, ns: namespace}
-}
-
-func (r *DeploymentLister) GetDeploymentsForReplicaSet(rs *appsv1.ReplicaSet) (results []*appsv1.Deployment, err error) {
-	return nil, fmt.Errorf("unimplemented GetDeploymentsForReplicaSet(%v)", rs)
-}
-
-type nsDeploymentLister struct {
-	r  *DeploymentLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ appsv1listers.DeploymentNamespaceLister = (*nsDeploymentLister)(nil)
-
-func (r *nsDeploymentLister) List(selector labels.Selector) (results []*appsv1.Deployment, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsDeploymentLister) Get(name string) (*appsv1.Deployment, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// EndpointsLister is a lister.EndpointsLister fake for testing.
-type EndpointsLister struct {
-	Err   error
-	Items []*corev1.Endpoints
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ corev1listers.EndpointsLister = (*EndpointsLister)(nil)
-
-func (r *EndpointsLister) List(selector labels.Selector) (results []*corev1.Endpoints, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *EndpointsLister) Endpoints(namespace string) corev1listers.EndpointsNamespaceLister {
-	return &nsEndpointsLister{r: r, ns: namespace}
-}
-
-type nsEndpointsLister struct {
-	r  *EndpointsLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ corev1listers.EndpointsNamespaceLister = (*nsEndpointsLister)(nil)
-
-func (r *nsEndpointsLister) List(selector labels.Selector) (results []*corev1.Endpoints, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsEndpointsLister) Get(name string) (*corev1.Endpoints, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// K8sServiceLister is a lister.ServiceLister fake for testing.
-type K8sServiceLister struct {
-	Err   error
-	Items []*corev1.Service
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ corev1listers.ServiceLister = (*K8sServiceLister)(nil)
-
-func (r *K8sServiceLister) List(selector labels.Selector) (results []*corev1.Service, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *K8sServiceLister) Services(namespace string) corev1listers.ServiceNamespaceLister {
-	return &nsK8sServiceLister{r: r, ns: namespace}
-}
-
-func (r *K8sServiceLister) GetPodServices(p *corev1.Pod) (results []*corev1.Service, err error) {
-	return nil, fmt.Errorf("unimplemented GetPodServices(%v)", p)
-}
-
-type nsK8sServiceLister struct {
-	r  *K8sServiceLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ corev1listers.ServiceNamespaceLister = (*nsK8sServiceLister)(nil)
-
-func (r *nsK8sServiceLister) List(selector labels.Selector) (results []*corev1.Service, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsK8sServiceLister) Get(name string) (*corev1.Service, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// ConfigMapLister is a lister.ConfigMapLister fake for testing.
-type ConfigMapLister struct {
-	Err   error
-	Items []*corev1.ConfigMap
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ corev1listers.ConfigMapLister = (*ConfigMapLister)(nil)
-
-func (r *ConfigMapLister) List(selector labels.Selector) (results []*corev1.ConfigMap, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *ConfigMapLister) ConfigMaps(namespace string) corev1listers.ConfigMapNamespaceLister {
-	return &nsConfigMapLister{r: r, ns: namespace}
-}
-
-type nsConfigMapLister struct {
-	r  *ConfigMapLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ corev1listers.ConfigMapNamespaceLister = (*nsConfigMapLister)(nil)
-
-func (r *nsConfigMapLister) List(selector labels.Selector) (results []*corev1.ConfigMap, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsConfigMapLister) Get(name string) (*corev1.ConfigMap, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
-}
-
-// VirtualServiceLister is a istiolisters.VirtualServiceLister fake for testing.
-type VirtualServiceLister struct {
-	Err   error
-	Items []*istiov1alpha3.VirtualService
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ istiolisters.VirtualServiceLister = (*VirtualServiceLister)(nil)
-
-func (r *VirtualServiceLister) List(selector labels.Selector) (results []*istiov1alpha3.VirtualService, err error) {
-	for _, elt := range r.Items {
-		if selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.Err
-}
-
-func (r *VirtualServiceLister) VirtualServices(namespace string) istiolisters.VirtualServiceNamespaceLister {
-	return &nsVirtualServiceLister{r: r, ns: namespace}
-}
-
-func (r *VirtualServiceLister) GetPodServices(p *corev1.Pod) (results []*istiov1alpha3.VirtualService, err error) {
-	return nil, fmt.Errorf("unimplemented GetPodServices(%v)", p)
-}
-
-type nsVirtualServiceLister struct {
-	r  *VirtualServiceLister
-	ns string
-}
-
-// Assert that our fake implements the interface it is faking.
-var _ istiolisters.VirtualServiceNamespaceLister = (*nsVirtualServiceLister)(nil)
-
-func (r *nsVirtualServiceLister) List(selector labels.Selector) (results []*istiov1alpha3.VirtualService, err error) {
-	for _, elt := range r.r.Items {
-		if elt.Namespace == r.ns && selector.Matches(labels.Set(elt.Labels)) {
-			results = append(results, elt)
-		}
-	}
-	return results, r.r.Err
-}
-
-func (r *nsVirtualServiceLister) Get(name string) (*istiov1alpha3.VirtualService, error) {
-	for _, s := range r.r.Items {
-		if s.Name == name && r.ns == s.Namespace {
-			return s, nil
-		}
-	}
-	return nil, errors.NewNotFound(schema.GroupResource{}, name)
+func (f *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
+	return corev1listers.NewConfigMapLister(f.indexerForType(&corev1.ConfigMap{}))
 }

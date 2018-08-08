@@ -18,7 +18,6 @@ package testing
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -26,211 +25,18 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fakebuildclientset "github.com/knative/build/pkg/client/clientset/versioned/fake"
 	fakesharedclientset "github.com/knative/pkg/client/clientset/versioned/fake"
+	"github.com/knative/pkg/controller"
+	. "github.com/knative/pkg/logging/testing"
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
+	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/system"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
-	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
-	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
-	"github.com/knative/pkg/controller"
-	. "github.com/knative/pkg/logging/testing"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 )
-
-// Listers holds the universe of objects that are available at the start
-// of a reconciliation.
-type Listers struct {
-	Service       *ServiceLister
-	Route         *RouteLister
-	Configuration *ConfigurationLister
-	Revision      *RevisionLister
-
-	VirtualService *VirtualServiceLister
-
-	Build *BuildLister
-
-	Deployment *DeploymentLister
-	K8sService *K8sServiceLister
-	Endpoints  *EndpointsLister
-	ConfigMap  *ConfigMapLister
-}
-
-func (f *Listers) GetServiceLister() *ServiceLister {
-	if f.Service == nil {
-		return &ServiceLister{}
-	}
-	return f.Service
-}
-
-func (f *Listers) GetVirtualServiceLister() *VirtualServiceLister {
-	if f.VirtualService == nil {
-		return &VirtualServiceLister{}
-	}
-	return f.VirtualService
-}
-
-func (f *Listers) GetRouteLister() *RouteLister {
-	if f.Route == nil {
-		return &RouteLister{}
-	}
-	return f.Route
-}
-
-func (f *Listers) GetConfigurationLister() *ConfigurationLister {
-	if f.Configuration == nil {
-		return &ConfigurationLister{}
-	}
-	return f.Configuration
-}
-
-func (f *Listers) GetRevisionLister() *RevisionLister {
-	if f.Revision == nil {
-		return &RevisionLister{}
-	}
-	return f.Revision
-}
-
-func (f *Listers) GetBuildLister() *BuildLister {
-	if f.Build == nil {
-		return &BuildLister{}
-	}
-	return f.Build
-}
-
-func (f *Listers) GetDeploymentLister() *DeploymentLister {
-	if f.Deployment == nil {
-		return &DeploymentLister{}
-	}
-	return f.Deployment
-}
-
-func (f *Listers) GetK8sServiceLister() *K8sServiceLister {
-	if f.K8sService == nil {
-		return &K8sServiceLister{}
-	}
-	return f.K8sService
-}
-
-func (f *Listers) GetEndpointsLister() *EndpointsLister {
-	if f.Endpoints == nil {
-		return &EndpointsLister{}
-	}
-	return f.Endpoints
-}
-
-func (f *Listers) GetConfigMapLister() *ConfigMapLister {
-	if f.ConfigMap == nil {
-		return &ConfigMapLister{}
-	}
-	return f.ConfigMap
-}
-
-func (f *Listers) GetKubeObjects() []runtime.Object {
-	var kubeObjs []runtime.Object
-	for _, r := range f.GetDeploymentLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	for _, r := range f.GetK8sServiceLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	for _, r := range f.GetEndpointsLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	for _, r := range f.GetConfigMapLister().Items {
-		kubeObjs = append(kubeObjs, r)
-	}
-	return kubeObjs
-}
-
-func (f *Listers) GetBuildObjects() []runtime.Object {
-	var buildObjs []runtime.Object
-	for _, r := range f.GetBuildLister().Items {
-		buildObjs = append(buildObjs, r)
-	}
-	return buildObjs
-}
-
-func (f *Listers) GetServingObjects() []runtime.Object {
-	var objs []runtime.Object
-	for _, r := range f.GetServiceLister().Items {
-		objs = append(objs, r)
-	}
-	for _, r := range f.GetRouteLister().Items {
-		objs = append(objs, r)
-	}
-	for _, r := range f.GetConfigurationLister().Items {
-		objs = append(objs, r)
-	}
-	for _, r := range f.GetRevisionLister().Items {
-		objs = append(objs, r)
-	}
-	return objs
-}
-
-func (f *Listers) GetSharedObjects() []runtime.Object {
-	var objs []runtime.Object
-	for _, r := range f.GetVirtualServiceLister().Items {
-		objs = append(objs, r)
-	}
-	return objs
-}
-
-func NewListers(objs []runtime.Object) Listers {
-	ls := Listers{
-		Service:       &ServiceLister{},
-		Route:         &RouteLister{},
-		Configuration: &ConfigurationLister{},
-		Revision:      &RevisionLister{},
-
-		VirtualService: &VirtualServiceLister{},
-
-		Build: &BuildLister{},
-
-		Deployment: &DeploymentLister{},
-		K8sService: &K8sServiceLister{},
-		Endpoints:  &EndpointsLister{},
-		ConfigMap:  &ConfigMapLister{},
-	}
-	for _, obj := range objs {
-		switch o := obj.(type) {
-		case *v1alpha1.Service:
-			ls.Service.Items = append(ls.Service.Items, o)
-		case *v1alpha1.Route:
-			ls.Route.Items = append(ls.Route.Items, o)
-		case *v1alpha1.Configuration:
-			ls.Configuration.Items = append(ls.Configuration.Items, o)
-		case *v1alpha1.Revision:
-			ls.Revision.Items = append(ls.Revision.Items, o)
-
-		case *istiov1alpha3.VirtualService:
-			ls.VirtualService.Items = append(ls.VirtualService.Items, o)
-
-		case *buildv1alpha1.Build:
-			ls.Build.Items = append(ls.Build.Items, o)
-
-		case *appsv1.Deployment:
-			ls.Deployment.Items = append(ls.Deployment.Items, o)
-		case *corev1.Service:
-			ls.K8sService.Items = append(ls.K8sService.Items, o)
-		case *corev1.Endpoints:
-			ls.Endpoints.Items = append(ls.Endpoints.Items, o)
-		case *corev1.ConfigMap:
-			ls.ConfigMap.Items = append(ls.ConfigMap.Items, o)
-
-		default:
-			panic(fmt.Sprintf("Unsupported type in TableTest %T", obj))
-		}
-	}
-	return ls
-}
 
 // TableRow holds a single row of our table test.
 type TableRow struct {
@@ -273,6 +79,7 @@ func (r *TableRow) Test(t *testing.T, ctor Ctor) {
 	sharedClient := fakesharedclientset.NewSimpleClientset(ls.GetSharedObjects()...)
 	client := fakeclientset.NewSimpleClientset(ls.GetServingObjects()...)
 	buildClient := fakebuildclientset.NewSimpleClientset(ls.GetBuildObjects()...)
+
 	// Set up our Controller from the fakes.
 	c := ctor(&ls, reconciler.Options{
 		KubeClientSet:    kubeClient,
