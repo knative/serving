@@ -14,15 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-
-export concurrency=${1:-5}
-export duration=${2:-60s}
-
 echo "CLUSTER INFORMATION:"
 echo
 
-source "$DIR/../cluster_information.sh"
+echo "KUBERNETES VERSION: $(kubectl version -o yaml | grep -A 20 serverVersion | grep gitVersion)"
+echo
+echo "NODE CAPACITY"
+kubectl get nodes -o=custom-columns=NAME:.metadata.name,KUBELET:.status.nodeInfo.kubeletVersion,KERNEL:.status.nodeInfo.kernelVersion,OS:.status.nodeInfo.osImage,CPUs:.status.capacity.cpu,MEMORY:.status.capacity.memory
 
 ip=$(kubectl get svc knative-ingressgateway -n istio-system -o jsonpath="{.status.loadBalancer.ingress[*].ip}")
 host=$(kubectl get route observed-concurrency -o jsonpath="{.status.domain}")
@@ -31,10 +29,10 @@ echo
 echo "RUNNING TEST..."
 echo
 
+# exported because wrk's lua script will use it to determine the target concurrency
+# unfortunately, the "connections" parameter passed to wrk is not available in the
+# script.
+export concurrency=${1:-5}
+duration=${2:-60s}
+
 wrk -t 1 -c "$concurrency" -d "$duration" -s "$DIR/reporter.lua" --latency -H "Host: $host" "http://$ip/?timeout=1000"
-
-echo
-echo "GENERATING REPORT..."
-echo
-
-python "$DIR/reporting.py" "$concurrency"
