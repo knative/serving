@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"

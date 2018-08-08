@@ -31,12 +31,18 @@ import (
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/autoscaling"
+	"github.com/knative/serving/pkg/system"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -45,6 +51,7 @@ const (
 	controllerThreads = 2
 	statsServerAddr   = ":8080"
 	statsBufferLen    = 1000
+	logLevelKey       = "autoscaler"
 )
 
 var (
@@ -63,7 +70,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	logger, _ := logging.NewLoggerFromConfig(loggingConfig, "autoscaler")
+
+	var atomicLevel zap.AtomicLevel
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, logLevelKey)
 	defer logger.Sync()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -79,24 +88,41 @@ func main() {
 		logger.Fatal("Error building kubernetes clientset.", zap.Error(err))
 	}
 
+	// Watch the logging config map and dynamically update logging levels.
+	configMapWatcher := configmap.NewDefaultWatcher(kubeClientSet, system.Namespace)
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	if err := configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatalf("failed to start watching logging config: %v", err)
+	}
+
+	// This is based on how Kubernetes sets up its scale client based on discovery:
+	// https://github.com/kubernetes/kubernetes/blob/94c2c6c84/cmd/kube-controller-manager/app/autoscaling.go#L75-L81
+	restMapper := buildRESTMapper(kubeClientSet, stopCh)
+	scaleClient, err := scale.NewForConfig(cfg, restMapper, dynamic.LegacyAPIPathResolverFunc,
+		scale.NewDiscoveryScaleKindResolver(kubeClientSet.Discovery()))
+	if err != nil {
+		logger.Fatal("Error building scale clientset.", zap.Error(err))
+	}
+
 	servingClientSet, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Fatal("Error building serving clientset.", zap.Error(err))
 	}
 
-	revisionScaler := autoscaler.NewRevisionScaler(servingClientSet, kubeClientSet, logger)
+	revisionScaler := autoscaler.NewRevisionScaler(servingClientSet, scaleClient, logger)
 
 	rawConfig, err := configmap.Load("/etc/config-autoscaler")
 	if err != nil {
-		logger.Fatalf("Error reading config-autoscaler: %v", err)
+		logger.Fatalf("Error reading autoscaler configuration: %v", err)
 	}
-	// TODO: support dynamic modification of the configuration as in, for example, https://github.com/knative/serving/pull/1417.
-	config, err := autoscaler.NewConfigFromMap(rawConfig)
+	dynConfig, err := autoscaler.NewDynamicConfig(rawConfig, logger)
 	if err != nil {
-		logger.Fatalf("Error loading config-autoscaler: %v", err)
+		logger.Fatalf("Error parsing autoscaler configuration: %v", err)
 	}
+	// Watch the autoscaler config map and dynamically update autoscaler config.
+	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(config, revisionScaler, stopCh, uniScalerFactory, logger)
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, revisionScaler, stopCh, uniScalerFactory, logger)
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
@@ -170,14 +196,26 @@ func main() {
 	statsServer.Shutdown(time.Second * 5)
 }
 
-func uniScalerFactory(rev *v1alpha1.Revision, config *autoscaler.Config) (autoscaler.UniScaler, error) {
+func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{}) *restmapper.DeferredDiscoveryRESTMapper {
+	// This is based on how Kubernetes sets up its discovery-based client:
+	// https://github.com/kubernetes/kubernetes/blob/f2c6473e2/cmd/kube-controller-manager/app/controllermanager.go#L410-L414
+	cachedClient := cached.NewMemCacheClient(kubeClientSet.Discovery())
+	rm := restmapper.NewDeferredDiscoveryRESTMapper(cachedClient)
+	go wait.Until(func() {
+		rm.Reset()
+	}, 30*time.Second, stopCh)
+
+	return rm
+}
+
+func uniScalerFactory(rev *v1alpha1.Revision, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	// Create a stats reporter which tags statistics by revision namespace, revision controller name, and revision name.
 	reporter, err := autoscaler.NewStatsReporter(rev.Namespace, revisionControllerName(rev), rev.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return autoscaler.New(config, rev.Spec.ConcurrencyModel, reporter), nil
+	return autoscaler.New(dynamicConfig, rev.Spec.ConcurrencyModel, reporter), nil
 }
 
 func revisionControllerName(rev *v1alpha1.Revision) string {

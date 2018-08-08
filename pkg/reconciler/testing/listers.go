@@ -25,9 +25,9 @@ import (
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	buildlisters "github.com/knative/build/pkg/client/listers/build/v1alpha1"
-	istiov1alpha3 "github.com/knative/serving/pkg/apis/istio/v1alpha3"
+	istiov1alpha3 "github.com/knative/pkg/apis/istio/v1alpha3"
+	istiolisters "github.com/knative/pkg/client/listers/istio/v1alpha3"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	istiolisters "github.com/knative/serving/pkg/client/listers/istio/v1alpha3"
 	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
