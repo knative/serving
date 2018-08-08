@@ -26,21 +26,29 @@ import (
 	"path"
 )
 
-// Flags holds the command line flags or defaults for settings in the user's environment.
+// Flags holds the command line flags or defaults for common knative settings in the user's environment.
 // See EnvironmentFlags for a list of supported fields.
-var Flags = initializeFlags()
+var Flags = initializeCommonFlags()
 
-type EnvironmentFlags struct {
-	Cluster          string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
-	DockerRepo       string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
-	Kubeconfig       string // Path to kubeconfig (defaults to ./kube/config)
-	Namespace        string // K8s namespace (blank by default, to be overwritten by test suite)
-	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
-	LogVerbose       bool   // Enable verbose logging
-	EmitMetrics      bool   // Emit metrics
+// ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
+var ServingFlags = initializeServingFlags()
+
+// ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
+type ServingEnvironmentFlags struct {
+	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
 }
 
-func initializeFlags() *EnvironmentFlags {
+// EnvironmentFlags holds e2e flags common to knative repos
+type EnvironmentFlags struct {
+	Cluster     string // K8s cluster (defaults to $K8S_CLUSTER_OVERRIDE)
+	DockerRepo  string // Docker repo (defaults to $DOCKER_REPO_OVERRIDE)
+	Kubeconfig  string // Path to kubeconfig (defaults to ./kube/config)
+	Namespace   string // K8s namespace (blank by default, to be overwritten by test suite)
+	LogVerbose  bool   // Enable verbose logging
+	EmitMetrics bool   // Emit metrics
+}
+
+func initializeCommonFlags() *EnvironmentFlags {
 	var f EnvironmentFlags
 	defaultCluster := os.Getenv("K8S_CLUSTER_OVERRIDE")
 	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
@@ -59,9 +67,6 @@ func initializeFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Namespace, "namespace", "",
 		"Provide the namespace you would like to use for these tests.")
 
-	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
-		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
-
 	flag.BoolVar(&f.LogVerbose, "logverbose", false,
 		"Set this flag to true if you would like to see verbose logging.")
 
@@ -75,5 +80,14 @@ func initializeFlags() *EnvironmentFlags {
 	if f.EmitMetrics {
 		initializeMetricExporter()
 	}
+	return &f
+}
+
+func initializeServingFlags() *ServingEnvironmentFlags {
+	var f ServingEnvironmentFlags
+
+	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
+		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+
 	return &f
 }
