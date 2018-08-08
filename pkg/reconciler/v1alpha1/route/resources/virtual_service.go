@@ -34,8 +34,6 @@ import (
 const (
 	PortNumber = 80
 	PortName   = "http"
-
-	DefaultRouteTimeoutSeconds = 60
 )
 
 // MakeVirtualService creates an Istio VirtualService to set up routing rules.  Such VirtualService specifies
@@ -163,7 +161,7 @@ func getRouteTimeout(targets []traffic.RevisionTarget) int {
 		}
 		targetTimeoutSeconds := t.TimeoutSeconds
 		if targetTimeoutSeconds == 0 {
-			targetTimeoutSeconds = DefaultRouteTimeoutSeconds
+			targetTimeoutSeconds = v1alpha1.DefaultRevisionTimeoutSeconds
 		}
 		if maxTimeoutSeconds < targetTimeoutSeconds {
 			maxTimeoutSeconds = targetTimeoutSeconds

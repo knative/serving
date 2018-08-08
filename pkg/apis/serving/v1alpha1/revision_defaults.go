@@ -16,6 +16,10 @@ limitations under the License.
 
 package v1alpha1
 
+const (
+	DefaultRevisionTimeoutSeconds = 60
+)
+
 func (r *Revision) SetDefaults() {
 	// We only set the default ServingState in the context of Revision
 	// because we want it unspecified in other contexts (e.g. RevisionTemplateSpec).
@@ -29,5 +33,9 @@ func (r *Revision) SetDefaults() {
 func (rs *RevisionSpec) SetDefaults() {
 	if rs.ConcurrencyModel == "" {
 		rs.ConcurrencyModel = RevisionRequestConcurrencyModelMulti
+	}
+
+	if rs.TimeoutSeconds == 0 {
+		rs.TimeoutSeconds = DefaultRevisionTimeoutSeconds
 	}
 }

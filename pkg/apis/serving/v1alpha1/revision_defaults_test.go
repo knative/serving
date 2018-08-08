@@ -35,6 +35,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ConcurrencyModel: "Multi",
 				// In the context of a Revision we initialize ServingState.
 				ServingState: "Active",
+				TimeoutSeconds: DefaultRevisionTimeoutSeconds,
 			},
 		},
 	}, {
@@ -43,12 +44,14 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ConcurrencyModel: "Single",
 				ServingState:     "Reserve",
+				TimeoutSeconds:   10,
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
 				ConcurrencyModel: "Single",
 				ServingState:     "Reserve",
+				TimeoutSeconds:   10,
 			},
 		},
 	}, {
@@ -62,6 +65,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				ConcurrencyModel: "Multi",
 				ServingState:     "Active",
+				TimeoutSeconds:	  DefaultRevisionTimeoutSeconds,
 			},
 		},
 	}}
