@@ -22,6 +22,7 @@ package v1alpha1
 
 import (
 	build_v1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -255,6 +256,20 @@ func (in *RevisionList) DeepCopyObject() runtime.Object {
 func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 	*out = *in
 	in.Container.DeepCopyInto(&out.Container)
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
+		*out = make([]v1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
