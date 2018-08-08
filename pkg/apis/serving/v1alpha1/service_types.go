@@ -129,28 +129,9 @@ const (
 	ServiceConditionConfigurationsReady ServiceConditionType = "ConfigurationsReady"
 )
 
-type ServiceConditionSlice []ServiceCondition
-
-// Len implements sort.Interface
-func (scs ServiceConditionSlice) Len() int {
-	return len(scs)
-}
-
-// Less implements sort.Interface
-func (scs ServiceConditionSlice) Less(i, j int) bool {
-	return scs[i].Type < scs[j].Type
-}
-
-// Swap implements sort.Interface
-func (scs ServiceConditionSlice) Swap(i, j int) {
-	scs[i], scs[j] = scs[j], scs[i]
-}
-
-var _ sort.Interface = (ServiceConditionSlice)(nil)
-
 type ServiceStatus struct {
 	// +optional
-	Conditions ServiceConditionSlice `json:"conditions,omitempty"`
+	Conditions []ServiceCondition `json:"conditions,omitempty"`
 
 	// From RouteStatus.
 	// Domain holds the top-level domain that will distribute traffic over the provided targets.
@@ -235,7 +216,7 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	}
 
 	t := new.Type
-	var conditions ServiceConditionSlice
+	var conditions []ServiceCondition
 	for _, cond := range ss.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -249,7 +230,7 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	sort.Sort(conditions)
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	ss.Conditions = conditions
 }
 

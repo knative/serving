@@ -165,25 +165,6 @@ const (
 	RevisionConditionContainerHealthy RevisionConditionType = "ContainerHealthy"
 )
 
-type RevisionConditionSlice []RevisionCondition
-
-// Len implements sort.Interface
-func (rcs RevisionConditionSlice) Len() int {
-	return len(rcs)
-}
-
-// Less implements sort.Interface
-func (rcs RevisionConditionSlice) Less(i, j int) bool {
-	return rcs[i].Type < rcs[j].Type
-}
-
-// Swap implements sort.Interface
-func (rcs RevisionConditionSlice) Swap(i, j int) {
-	rcs[i], rcs[j] = rcs[j], rcs[i]
-}
-
-var _ sort.Interface = (RevisionConditionSlice)(nil)
-
 // RevisionCondition defines a readiness condition for a Revision.
 // See: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#typical-status-properties
 type RevisionCondition struct {
@@ -216,7 +197,7 @@ type RevisionStatus struct {
 	// reconciliation processes that bring the "spec" inline with the observed
 	// state of the world.
 	// +optional
-	Conditions RevisionConditionSlice `json:"conditions,omitempty"`
+	Conditions []RevisionCondition `json:"conditions,omitempty"`
 
 	// ObservedGeneration is the 'Generation' of the Configuration that
 	// was last processed by the controller. The observed generation is updated
@@ -288,7 +269,7 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	}
 
 	t := new.Type
-	var conditions RevisionConditionSlice
+	var conditions []RevisionCondition
 	for _, cond := range rs.Conditions {
 		if cond.Type != t {
 			conditions = append(conditions, cond)
@@ -302,7 +283,7 @@ func (rs *RevisionStatus) setCondition(new *RevisionCondition) {
 	}
 	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
-	sort.Sort(conditions)
+	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	rs.Conditions = conditions
 }
 
