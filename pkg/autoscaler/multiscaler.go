@@ -47,8 +47,8 @@ type UniScaler interface {
 	Scale(context.Context, time.Time) (int32, bool)
 }
 
-// UniScalerFactory creates a UniScaler for a given revision using the given configuration.
-type UniScalerFactory func(*v1alpha1.Revision, *Config) (UniScaler, error)
+// UniScalerFactory creates a UniScaler for a given revision using the given dynamic configuration.
+type UniScalerFactory func(*v1alpha1.Revision, *DynamicConfig) (UniScaler, error)
 
 // RevisionScaler knows how to scale revisions.
 type RevisionScaler interface {
@@ -74,7 +74,7 @@ type MultiScaler struct {
 	scalersMutex  sync.RWMutex
 	scalersStopCh <-chan struct{}
 
-	config *Config
+	dynConfig *DynamicConfig
 
 	revisionScaler RevisionScaler
 
@@ -84,12 +84,12 @@ type MultiScaler struct {
 }
 
 // NewMultiScaler constructs a MultiScaler.
-func NewMultiScaler(config *Config, revisionScaler RevisionScaler, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
-	logger.Debugf("Creating MultiScalar with configuration %#v", config)
+func NewMultiScaler(dynConfig *DynamicConfig, revisionScaler RevisionScaler, stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
+	logger.Debugf("Creating MultiScalar with configuration %#v", dynConfig)
 	return &MultiScaler{
 		scalers:          make(map[revisionKey]*scalerRunner),
 		scalersStopCh:    stopCh,
-		config:           config,
+		dynConfig:        dynConfig,
 		revisionScaler:   revisionScaler,
 		uniScalerFactory: uniScalerFactory,
 		logger:           logger,
@@ -132,7 +132,7 @@ func loggerWithRevisionInfo(logger *zap.SugaredLogger, ns string, name string) *
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, rev *v1alpha1.Revision) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(rev, m.config)
+	scaler, err := m.uniScalerFactory(rev, m.dynConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, rev *v1alpha1.Revision) 
 	stopCh := make(chan struct{})
 	runner := &scalerRunner{scaler: scaler, stopCh: stopCh}
 
-	ticker := time.NewTicker(m.config.TickInterval)
+	ticker := time.NewTicker(m.dynConfig.Current().TickInterval)
 
 	scaleChan := make(chan int32, scaleBufferSize)
 
@@ -201,7 +201,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, scaleCha
 		}
 
 		// Don't scale to zero if scale to zero is disabled.
-		if desiredScale == 0 && !m.config.EnableScaleToZero {
+		if desiredScale == 0 && !m.dynConfig.Current().EnableScaleToZero {
 			logger.Warn("Cannot scale: Desired scale == 0 && EnableScaleToZero == false.")
 			return
 		}

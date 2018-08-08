@@ -113,15 +113,16 @@ func main() {
 
 	rawConfig, err := configmap.Load("/etc/config-autoscaler")
 	if err != nil {
-		logger.Fatalf("Error reading config-autoscaler: %v", err)
+		logger.Fatalf("Error reading autoscaler configuration: %v", err)
 	}
-	// TODO: support dynamic modification of the configuration as in, for example, https://github.com/knative/serving/pull/1417.
-	config, err := autoscaler.NewConfigFromMap(rawConfig)
+	dynConfig, err := autoscaler.NewDynamicConfig(rawConfig, logger)
 	if err != nil {
-		logger.Fatalf("Error loading config-autoscaler: %v", err)
+		logger.Fatalf("Error parsing autoscaler configuration: %v", err)
 	}
+	// Watch the autoscaler config map and dynamically update autoscaler config.
+	configMapWatcher.Watch(autoscaler.ConfigName, dynConfig.Update)
 
-	multiScaler := autoscaler.NewMultiScaler(config, revisionScaler, stopCh, uniScalerFactory, logger)
+	multiScaler := autoscaler.NewMultiScaler(dynConfig, revisionScaler, stopCh, uniScalerFactory, logger)
 
 	opt := reconciler.Options{
 		KubeClientSet:    kubeClientSet,
@@ -207,14 +208,14 @@ func buildRESTMapper(kubeClientSet kubernetes.Interface, stopCh <-chan struct{})
 	return rm
 }
 
-func uniScalerFactory(rev *v1alpha1.Revision, config *autoscaler.Config) (autoscaler.UniScaler, error) {
+func uniScalerFactory(rev *v1alpha1.Revision, dynamicConfig *autoscaler.DynamicConfig) (autoscaler.UniScaler, error) {
 	// Create a stats reporter which tags statistics by revision namespace, revision controller name, and revision name.
 	reporter, err := autoscaler.NewStatsReporter(rev.Namespace, revisionControllerName(rev), rev.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return autoscaler.New(config, rev.Spec.ConcurrencyModel, reporter), nil
+	return autoscaler.New(dynamicConfig, rev.Spec.ConcurrencyModel, reporter), nil
 }
 
 func revisionControllerName(rev *v1alpha1.Revision) string {
