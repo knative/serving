@@ -766,6 +766,36 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: apis.ErrOutOfBoundsValue("-30s", "0s",
 			fmt.Sprintf("%ds", int(netv1alpha1.DefaultTimeout.Seconds())),
 			"timeoutSeconds"),
+	}, {
+		name: "bad nodeSelector",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
+			NodeSelector: map[string]string{"foo*bar": "bat"},
+		},
+		want: &apis.FieldError{
+			Message: "invalid key name \"foo*bar\"",
+			Paths:   []string{"nodeSelector.foo*bar"},
+			Details: `name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
+		},
+	}, {
+		name: "bad toleration",
+		rs: &RevisionSpec{
+			Container: corev1.Container{
+				Image: "helloworld",
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Key: "foo*bar",
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: `invalid value "foo*bar"`,
+			Paths:   []string{"tolerations[0].key"},
+			Details: `name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
+		},
 	}}
 
 	for _, test := range tests {
@@ -1079,6 +1109,195 @@ func TestImmutableFields(t *testing.T) {
 			got := test.new.CheckImmutableFields(test.old)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestNodeSelectorValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		nodeSelector map[string]string
+		want         *apis.FieldError
+	}{
+		{
+			name: "invalid key",
+			nodeSelector: map[string]string{
+				"foo*bar": "bat",
+			},
+			want: &apis.FieldError{
+				Message: `invalid key name "foo*bar"`,
+				Paths:   []string{"foo*bar"},
+			},
+		},
+		{
+			name: "invalid value",
+			nodeSelector: map[string]string{
+				"foo": "bar*bat",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "bar*bat"`,
+				Paths:   []string{"foo"},
+			},
+		},
+		{
+			name: "value key/value pair",
+			nodeSelector: map[string]string{
+				"foo": "bar",
+			},
+			want: nil,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateNodeSelector(test.nodeSelector)
+			if (got == nil && test.want != nil) ||
+				(got != nil && test.want == nil) {
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("Validate (-want, +got) = %v", diff)
+				}
+			} else if got != nil && test.want != nil {
+				if diff := cmp.Diff(test.want.Message, got.Message); diff != "" {
+					t.Errorf("Validate Message (-want, +got) = %v", diff)
+				}
+				if diff := cmp.Diff(test.want.Paths, got.Paths); diff != "" {
+					t.Errorf("Validate Paths (-want, +got) = %v", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestTolerationValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		toleration corev1.Toleration
+		want       *apis.FieldError
+	}{
+		{
+			name: "invalid key",
+			toleration: corev1.Toleration{
+				Key: "foo*bar",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo*bar"`,
+				Paths:   []string{"key"},
+			},
+		},
+		{
+			name: "empty key with operator is not Exists",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpEqual,
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "Equal"`,
+				Paths:   []string{"operator"},
+			},
+		},
+		{
+			name: "tolerationSeconds specified with effect is not NoExecute",
+			toleration: corev1.Toleration{
+				Operator:          corev1.TolerationOpExists,
+				TolerationSeconds: &[]int64{10}[0],
+				Effect:            corev1.TaintEffectNoSchedule,
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "NoSchedule"`,
+				Paths:   []string{"effect"},
+			},
+		},
+		{
+			name: "operator is empty and value is invalid",
+			toleration: corev1.Toleration{
+				Key:   "foo",
+				Value: "foo*bar",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo*bar"`,
+				Paths:   []string{"value"},
+			},
+		},
+		{
+			name: "operator is Equal and value is invalid",
+			toleration: corev1.Toleration{
+				Key:      "foo",
+				Operator: corev1.TolerationOpEqual,
+				Value:    "foo*bar",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo*bar"`,
+				Paths:   []string{"value"},
+			},
+		},
+		{
+			name: "operator is Exists and value is not empty",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+				Value:    "foo",
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"value"},
+			},
+		},
+		{
+			name: "operator is invalid",
+			toleration: corev1.Toleration{
+				Key:      "foo",
+				Operator: corev1.TolerationOperator("bar"),
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "bar"`,
+				Paths:   []string{"operator"},
+			},
+		},
+		{
+			name: "effect is invalid",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffect("foo"),
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"effect"},
+			},
+		},
+		{
+			name: "effect is invalid",
+			toleration: corev1.Toleration{
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffect("foo"),
+			},
+			want: &apis.FieldError{
+				Message: `invalid value "foo"`,
+				Paths:   []string{"effect"},
+			},
+		},
+		{
+			name: "valid toleration",
+			toleration: corev1.Toleration{
+				Key:      "foo",
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffectNoSchedule,
+			},
+			want: nil,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateToleration(test.toleration)
+			if (got == nil && test.want != nil) ||
+				(got != nil && test.want == nil) {
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("Validate (-want, +got) = %v", diff)
+				}
+			} else if got != nil && test.want != nil {
+				if diff := cmp.Diff(test.want.Message, got.Message); diff != "" {
+					t.Errorf("Validate Message (-want, +got) = %v", diff)
+				}
+				if diff := cmp.Diff(test.want.Paths, got.Paths); diff != "" {
+					t.Errorf("Validate Paths (-want, +got) = %v", diff)
+				}
 			}
 		})
 	}

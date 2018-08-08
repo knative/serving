@@ -621,6 +621,18 @@ func TestMakePodSpec(t *testing.T) {
 					},
 				}
 				revision.Spec.Container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+				revision.Spec.NodeSelector = map[string]string{
+					"kubernetes.io/role":    "agent",
+					"beta.kubernetes.io/os": "linux",
+					"type":                  "virtual-kubelet",
+				}
+				revision.Spec.Tolerations = []corev1.Toleration{
+					corev1.Toleration{
+						Key:      "virtual-kubelet.github.io",
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				}
 			},
 		),
 		lc: &logging.Config{},
@@ -657,6 +669,19 @@ func TestMakePodSpec(t *testing.T) {
 			queueContainer(
 				withEnvVar("CONTAINER_CONCURRENCY", "1"),
 			),
+		}, func(podSpec *corev1.PodSpec) {
+			podSpec.NodeSelector = map[string]string{
+				"kubernetes.io/role":    "agent",
+				"beta.kubernetes.io/os": "linux",
+				"type":                  "virtual-kubelet",
+			}
+			podSpec.Tolerations = []corev1.Toleration{
+				corev1.Toleration{
+					Key:      "virtual-kubelet.github.io",
+					Operator: corev1.TolerationOpExists,
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			}
 		}),
 	}}
 
