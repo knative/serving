@@ -617,6 +617,18 @@ func TestMakePodSpec(t *testing.T) {
 						Value: "blah",
 					}},
 				},
+				NodeSelector: map[string]string{
+					"kubernetes.io/role":    "agent",
+					"beta.kubernetes.io/os": "linux",
+					"type":                  "virtual-kubelet",
+				},
+				Tolerations: []corev1.Toleration{
+					corev1.Toleration{
+						Key:      "virtual-kubelet.github.io",
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				},
 			},
 		},
 		lc: &logging.Config{},
@@ -677,6 +689,18 @@ func TestMakePodSpec(t *testing.T) {
 				}},
 			}},
 			Volumes: []corev1.Volume{varLogVolume},
+			NodeSelector: map[string]string{
+				"kubernetes.io/role":    "agent",
+				"beta.kubernetes.io/os": "linux",
+				"type":                  "virtual-kubelet",
+			},
+			Tolerations: []corev1.Toleration{
+				corev1.Toleration{
+					Key:      "virtual-kubelet.github.io",
+					Operator: corev1.TolerationOpExists,
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
 		},
 	}}
 
