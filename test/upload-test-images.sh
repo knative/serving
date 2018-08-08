@@ -16,9 +16,11 @@
 
 set -o errexit
 
-: ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
+: ${DOCKER_REPO_OVERRIDE:?"You must set 'DOCKER_REPO_OVERRIDE', see DEVELOPMENT.md"}
+: ${REPO_ROOT_DIR:?"You must set 'REPO_ROOT_DIR' to knative serving repo root"}
 
-IMAGE_DIRS="$(find $(dirname $0)/test_images -depth 1 -type d)"
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+IMAGE_DIRS="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
 
 for image_dir in ${IMAGE_DIRS}; do
   ko publish "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
