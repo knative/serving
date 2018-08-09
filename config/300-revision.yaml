@@ -28,3 +28,13 @@ spec:
     - knative
     - serving
   scope: Namespaced
+  additionalPrinterColumns:
+  - name: Service Name
+    type: string
+    JSONPath: .status.serviceName
+  - name: Ready
+    type: string
+    JSONPath: ".status.conditions[?(@.type==\"Ready\")].status"
+  - name: Reason
+    type: string
+    JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"
