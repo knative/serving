@@ -20,7 +20,7 @@ import (
 
 func TestRewinder(t *testing.T) {
 	str := "test string"
-	rc := &SpyCloser{Reader: bytes.NewBufferString(str)}
+	rc := &spyReadCloser{Reader: bytes.NewBufferString(str)}
 	rewinder := NewRewinder(rc)
 
 	b1, err := ioutil.ReadAll(rewinder)

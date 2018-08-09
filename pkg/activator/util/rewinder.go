@@ -19,17 +19,6 @@ import (
 	"io/ioutil"
 )
 
-type SpyCloser struct {
-	io.Reader
-	Closed bool
-}
-
-func (sc *SpyCloser) Close() error {
-	sc.Closed = true
-
-	return nil
-}
-
 type rewinder struct {
 	rc io.ReadCloser
 	rs io.ReadSeeker

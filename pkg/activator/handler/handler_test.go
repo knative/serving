@@ -10,7 +10,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package activator
+package handler
 
 import (
 	"errors"
@@ -23,43 +23,42 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/knative/serving/cmd/util"
-	"github.com/knative/serving/pkg/controller"
-	"go.uber.org/zap"
+	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/activator/util"
+	"github.com/knative/serving/pkg/reconciler"
 )
 
 type stubActivator struct {
-	endpoint  Endpoint
+	endpoint  activator.Endpoint
 	namespace string
 	name      string
 }
 
-func newStubActivator(namespace string, name string, server *httptest.Server) Activator {
+func newStubActivator(namespace string, name string, server *httptest.Server) activator.Activator {
 	url, _ := url.Parse(server.URL)
 	host := url.Hostname()
 	port, _ := strconv.Atoi(url.Port())
 
 	return &stubActivator{
-		endpoint:  Endpoint{FQDN: host, Port: int32(port)},
+		endpoint:  activator.Endpoint{FQDN: host, Port: int32(port)},
 		namespace: namespace,
 		name:      name,
 	}
 }
 
-func (fa *stubActivator) ActiveEndpoint(namespace, name string) (Endpoint, Status, error) {
+func (fa *stubActivator) ActiveEndpoint(namespace, configuration, name string) (activator.Endpoint, activator.Status, error) {
 	if namespace == fa.namespace && name == fa.name {
 		return fa.endpoint, http.StatusOK, nil
 	}
 
-	return Endpoint{}, http.StatusNotFound, errors.New("not found!")
+	return activator.Endpoint{}, http.StatusNotFound, errors.New("not found!")
 }
 
 func (fa *stubActivator) Shutdown() {
 }
 
 func TestActivationHandler(t *testing.T) {
-	logger := zap.NewExample().Sugar()
-
 	errMsg := func(msg string) string {
 		return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
 	}
@@ -109,17 +108,7 @@ func TestActivationHandler(t *testing.T) {
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
-<<<<<<< HEAD
-			rt := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				if r.Host != "" {
-					t.Errorf("Unexpected request host. Want %q, got %q", "", r.Host)
-				}
-
-||||||| merged common ancestors
-			rt := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-=======
 			rt := util.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
->>>>>>> Move non-activator specific components from cmd/activator to cmd/util
 				if e.wantErr != nil {
 					return nil, e.wantErr
 				}
@@ -127,13 +116,17 @@ func TestActivationHandler(t *testing.T) {
 				return http.DefaultTransport.RoundTrip(r)
 			})
 
-			handler := NewActivationHandler(act, rt, logger)
+			handler := ActivationHandler{
+				Activator: act,
+				Transport: rt,
+				Logger:    TestLogger(t),
+			}
 
 			resp := httptest.NewRecorder()
 
 			req := httptest.NewRequest("POST", "http://example.com", nil)
-			req.Header.Set(controller.GetRevisionHeaderNamespace(), e.namespace)
-			req.Header.Set(controller.GetRevisionHeaderName(), e.name)
+			req.Header.Set(reconciler.GetRevisionHeaderNamespace(), e.namespace)
+			req.Header.Set(reconciler.GetRevisionHeaderName(), e.name)
 
 			handler.ServeHTTP(resp, req)
 
@@ -147,4 +140,5 @@ func TestActivationHandler(t *testing.T) {
 			}
 		})
 	}
+
 }

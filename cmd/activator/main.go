@@ -26,10 +26,10 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
-	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/activator"
+	activatorhandler "github.com/knative/serving/pkg/activator/handler"
+	activatorutil "github.com/knative/serving/pkg/activator/util"
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	"github.com/knative/serving/pkg/configmap"
 
 	"github.com/knative/serving/pkg/logging"
 	"github.com/knative/serving/pkg/system"
@@ -42,13 +42,10 @@ import (
 )
 
 const (
-	maxUploadBytes        = 32e6 // 32MB - same as app engine
-	maxRetry              = 60
-	retryInterval         = 1 * time.Second
-	logLevelKey           = "activator"
-	defaultMaxUploadBytes = 32e6 // 32MB - same as app engine
-	defaultMaxRetries     = 60
-	defaultRetryInterval  = 1 * time.Second
+	maxUploadBytes = 32e6 // 32MB - same as app engine
+	maxRetries     = 60
+	retryInterval  = 1 * time.Second
+	logLevelKey    = "activator"
 )
 
 func main() {
@@ -94,17 +91,26 @@ func main() {
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger, reporter)
 	a = activator.NewDedupingActivator(a)
-	ah := &activationHandler{a, logger}
 
 	// Retry on 503's for up to 60 seconds. The reason is there is
 	// a small delay for k8s to include the ready IP in service.
 	// https://github.com/knative/serving/issues/660#issuecomment-384062553
-	shouldRetry := util.RetryStatus(http.StatusServiceUnavailable)
-	retryer := util.NewLinearRetryer(retryInterval, maxRetries)
-	rt := util.NewRetryRoundTripper(util.AutoTransport, logger, retryer, shouldRetry)
+	shouldRetry := activatorutil.RetryStatus(http.StatusServiceUnavailable)
+	retryer := activatorutil.NewLinearRetryer(retryInterval, maxRetries)
 
-	ah := newActivationHandler(a, rt, logger)
-	ah = newUploadHandler(ah, defaultMaxUploadBytes)
+	rt := activatorutil.NewRetryRoundTripper(activatorutil.AutoTransport, logger, retryer, shouldRetry)
+
+	ah := &activatorhandler.ReportingHTTPHandler{
+		Reporter: reporter,
+		NextHandler: &activatorhandler.EnforceMaxContentLengthHandler{
+			MaxContentLengthBytes: maxUploadBytes,
+			NextHandler: &activatorhandler.ActivationHandler{
+				Activator: a,
+				Transport: rt,
+				Logger:    logger,
+			},
+		},
+	}
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -122,9 +128,7 @@ func main() {
 
 	// Start the endpoint for Prometheus scraping
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", ah.handler)
+	mux.HandleFunc("/", ah.ServeHTTP)
 	mux.Handle("/metrics", promExporter)
 	h2c.ListenAndServe(":8080", mux)
-	http.Handle("/", ah)
-	h2c.ListenAndServe(":8080", nil)
 }

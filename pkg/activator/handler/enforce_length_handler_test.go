@@ -10,17 +10,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package util
+package handler
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestUploadHandler(t *testing.T) {
+func TestEnforceMaxContentLengthHandler(t *testing.T) {
 	payload := "SAMPLE PAYLOAD"
 
 	examples := []struct {
@@ -48,17 +47,9 @@ func TestUploadHandler(t *testing.T) {
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
 			baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				b1, _ := ioutil.ReadAll(r.Body)
-				r.Body.Close()
-
-				b2, _ := ioutil.ReadAll(r.Body)
-				r.Body.Close()
-
-				if string(b1) != payload || string(b2) != payload {
-					t.Errorf("Expected request body to be rereadable. Want %q, got %q and %q.", payload, b1, b2)
-				}
+				w.WriteHeader(http.StatusOK)
 			})
-			handler := NewUploadHandler(baseHandler, int64(e.maxUpload))
+			handler := EnforceMaxContentLengthHandler{NextHandler: baseHandler, MaxContentLengthBytes: int64(e.maxUpload)}
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "http://example.com", bytes.NewBufferString(payload))

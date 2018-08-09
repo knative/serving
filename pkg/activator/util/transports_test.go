@@ -15,13 +15,14 @@ package util
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
-	"time"
 
-	"go.uber.org/zap"
+	. "github.com/knative/pkg/logging/testing"
+	"github.com/knative/serving/pkg/activator"
 )
 
-func TestHttpRoundTripper(t *testing.T) {
+func TestHTTPRoundTripper(t *testing.T) {
 	wants := map[string]bool{}
 	frt := func(key string) http.RoundTripper {
 		return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
@@ -31,7 +32,7 @@ func TestHttpRoundTripper(t *testing.T) {
 		})
 	}
 
-	rt := NewHttpTransport(frt("v1"), frt("v2"))
+	rt := NewHTTPTransport(frt("v1"), frt("v2"))
 
 	examples := []struct {
 		label      string
@@ -39,12 +40,12 @@ func TestHttpRoundTripper(t *testing.T) {
 		want       string
 	}{
 		{
-			label:      "use default transport for http1",
+			label:      "use default transport for HTTP1",
 			protoMajor: 1,
 			want:       "v1",
 		},
 		{
-			label:      "use h2c transport for http2",
+			label:      "use h2c transport for HTTP2",
 			protoMajor: 2,
 			want:       "v2",
 		},
@@ -73,18 +74,15 @@ func TestHttpRoundTripper(t *testing.T) {
 func TestRetryRoundTripper(t *testing.T) {
 	req := &http.Request{}
 
-	goodStatus := 200
-	badStatus1 := 500
-	badStatus2 := 400
-
 	resp := func(status int) *http.Response {
-		return &http.Response{StatusCode: status, Body: &SpyCloser{}}
+		return &http.Response{StatusCode: status, Body: &spyReadCloser{}}
 	}
 
 	someErr := errors.New("some error")
-
-	logger := zap.NewExample().Sugar()
-	conditions := []RetryCond{RetryStatus(badStatus1), RetryStatus(badStatus2)}
+	conditions := []RetryCond{
+		RetryStatus(http.StatusInternalServerError),
+		RetryStatus(http.StatusBadRequest),
+	}
 
 	examples := []struct {
 		label          string
@@ -96,7 +94,7 @@ func TestRetryRoundTripper(t *testing.T) {
 	}{
 		{
 			label:          "no retry",
-			resp:           resp(goodStatus),
+			resp:           resp(http.StatusOK),
 			err:            nil,
 			cond:           conditions,
 			wantRetry:      false,
@@ -104,7 +102,7 @@ func TestRetryRoundTripper(t *testing.T) {
 		},
 		{
 			label:          "no conditions",
-			resp:           resp(badStatus1),
+			resp:           resp(http.StatusInternalServerError),
 			err:            nil,
 			cond:           []RetryCond{},
 			wantRetry:      false,
@@ -120,7 +118,7 @@ func TestRetryRoundTripper(t *testing.T) {
 		},
 		{
 			label:          "retry on condition 1",
-			resp:           resp(badStatus1),
+			resp:           resp(http.StatusInternalServerError),
 			err:            nil,
 			cond:           conditions,
 			wantRetry:      true,
@@ -128,7 +126,7 @@ func TestRetryRoundTripper(t *testing.T) {
 		},
 		{
 			label:          "retry on condition 2",
-			resp:           resp(badStatus2),
+			resp:           resp(http.StatusBadRequest),
 			err:            nil,
 			cond:           conditions,
 			wantRetry:      true,
@@ -142,8 +140,8 @@ func TestRetryRoundTripper(t *testing.T) {
 				return e.resp, e.err
 			})
 
-			retry := RetryerFunc(func(a func() bool) int {
-				if a() {
+			retry := RetryerFunc(func(action ActionFunc) int {
+				if action() {
 					if !e.wantRetry {
 						t.Errorf("Unexpected retry.")
 					}
@@ -151,98 +149,56 @@ func TestRetryRoundTripper(t *testing.T) {
 				return 1
 			})
 
-			rt := NewRetryRoundTripper(transport, logger, retry, e.cond...)
+			rt := NewRetryRoundTripper(
+				transport,
+				TestLogger(t),
+				retry,
+				e.cond...,
+			)
 
-			gotResp, gotErr := rt.RoundTrip(req)
+			resp, err := rt.RoundTrip(req)
 
-			if gotResp != e.resp {
-				t.Errorf("Unexpected response. Want %v, got %v", e.resp, gotResp)
+			if resp != e.resp {
+				t.Errorf("Unexpected response. Want %v, got %v", e.resp, resp)
 			}
 
-			if gotErr != e.err {
-				t.Errorf("Unexpected error. Want %v, got %v", e.err, gotErr)
+			if err != e.err {
+				t.Errorf("Unexpected error. Want %v, got %v", e.err, err)
 			}
 
-			if e.wantBodyClosed && !e.resp.Body.(*SpyCloser).Closed {
+			if e.wantBodyClosed && !e.resp.Body.(*spyReadCloser).Closed {
 				t.Errorf("Expected response body to be closed.")
+			}
+
+			if resp != nil {
+				if got, want := resp.Header.Get(activator.ResponseCountHTTPHeader), "1"; got != want {
+					t.Errorf("Expected retry header not the same got: %q want: %q", got, want)
+				}
 			}
 		})
 	}
 }
 
-func TestLinearRetry(t *testing.T) {
-	checkInterval := func(last *time.Time, want time.Duration) {
-		now := time.Now()
-		got := now.Sub(*last)
-		*last = now
+func TestRetryRoundTripperRewind(t *testing.T) {
+	retry := RetryerFunc(func(action ActionFunc) int {
+		action()
+		action()
+		return 2
+	})
 
-		if got < want {
-			t.Errorf("Unexpected retry interval. Want %v, got %v", want, got)
-		}
-	}
+	rt := NewRetryRoundTripper(
+		http.DefaultTransport,
+		TestLogger(t),
+		retry,
+		RetryStatus(http.StatusInternalServerError),
+	)
 
-	examples := []struct {
-		label       string
-		interval    time.Duration
-		maxRetries  int
-		responses   []bool
-		wantRetries int
-	}{
-		{
-			label:       "atleast once",
-			interval:    5 * time.Millisecond,
-			maxRetries:  0,
-			responses:   []bool{true},
-			wantRetries: 1,
-		},
-		{
-			label:       "< maxRetries",
-			interval:    5 * time.Millisecond,
-			maxRetries:  3,
-			responses:   []bool{false, true},
-			wantRetries: 2,
-		},
-		{
-			label:       "= maxRetries",
-			interval:    10 * time.Millisecond,
-			maxRetries:  3,
-			responses:   []bool{false, false, true},
-			wantRetries: 3,
-		},
-		{
-			label:       "> maxRetries",
-			interval:    5 * time.Millisecond,
-			maxRetries:  3,
-			responses:   []bool{false, false, false, true},
-			wantRetries: 3,
-		},
-	}
+	spy := &spyReadCloser{Reader: strings.NewReader("request body")}
+	req, _ := http.NewRequest("POST", "http://knative.dev/test/", spy)
 
-	for _, e := range examples {
-		t.Run(e.label, func(t *testing.T) {
-			var lastRetry time.Time
-			var got int
+	rt.RoundTrip(req)
 
-			a := func() bool {
-				checkInterval(&lastRetry, e.interval)
-
-				ok := e.responses[got]
-				got++
-
-				return ok
-			}
-
-			lr := NewLinearRetryer(e.interval, e.maxRetries)
-
-			reported := lr.Retry(a)
-
-			if got != e.wantRetries {
-				t.Errorf("Unexpected retries. Want %d, got %d", e.wantRetries, got)
-			}
-
-			if reported != e.wantRetries {
-				t.Errorf("Unexpected retries reported. Want %d, got %d", e.wantRetries, reported)
-			}
-		})
+	if spy.ReadAfterClose {
+		t.Fatal("The retry round tripper read the request body more than once")
 	}
 }

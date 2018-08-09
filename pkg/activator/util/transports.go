@@ -15,7 +15,9 @@ package util
 
 import (
 	"net/http"
-	"time"
+	"strconv"
+
+	"github.com/knative/serving/pkg/activator"
 
 	h2cutil "github.com/knative/serving/pkg/h2c"
 	"go.uber.org/zap"
@@ -27,10 +29,10 @@ func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
-// HttpTransport will use the appropriate transport for the request's http protocol version
-func NewHttpTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
+// NewHttpTransport will use the appropriate transport for the request's HTTP protocol version
+func NewHTTPTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTripper {
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		var t http.RoundTripper = v1
+		t := v1
 		if r.ProtoMajor == 2 {
 			t = v2
 		}
@@ -39,28 +41,8 @@ func NewHttpTransport(v1 http.RoundTripper, v2 http.RoundTripper) http.RoundTrip
 	})
 }
 
-// AutoTransport uses h2c for HTTPv2 requests and falls back to `http.DefaultTransport` for all others
-var AutoTransport = NewHttpTransport(http.DefaultTransport, h2cutil.DefaultTransport)
-
-type Retryer interface {
-	Retry(func() bool) int
-}
-
-type RetryerFunc func(func() bool) int
-
-func (r RetryerFunc) Retry(f func() bool) int {
-	return r(f)
-}
-
-// LinearRetryer will retry `action` up to `maxRetries` times with `interval` delay between retries
-func NewLinearRetryer(interval time.Duration, maxRetries int) Retryer {
-	return RetryerFunc(func(action func() bool) (retries int) {
-		for retries = 1; !action() && retries < maxRetries; retries++ {
-			time.Sleep(interval)
-		}
-		return
-	})
-}
+// AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
+var AutoTransport = NewHTTPTransport(http.DefaultTransport, h2cutil.DefaultTransport)
 
 type RetryCond func(*http.Response) bool
 
@@ -89,6 +71,11 @@ func NewRetryRoundTripper(rt http.RoundTripper, l *zap.SugaredLogger, r Retryer,
 }
 
 func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, err error) {
+	// The request body cannot be read multiple times for retries.
+	// The workaround is to clone the request body into a byte reader
+	// so the body can be read multiple times.
+	r.Body = NewRewinder(r.Body)
+
 	attempts := rrt.retryer.Retry(func() bool {
 		resp, err = rrt.transport.RoundTrip(r)
 
@@ -107,9 +94,14 @@ func (rrt *retryRoundTripper) RoundTrip(r *http.Request) (resp *http.Response, e
 		return false
 	})
 
-	// TODO: add metrics for number of tries and the response code.
 	if err == nil {
 		rrt.logger.Infof("Finished after %d attempt(s). Response code: %d", attempts, resp.StatusCode)
+
+		if resp.Header == nil {
+			resp.Header = make(http.Header)
+		}
+
+		resp.Header.Add(activator.ResponseCountHTTPHeader, strconv.Itoa(attempts))
 	} else {
 		rrt.logger.Errorf("Failed after %d attempts. Last error: %v", attempts, err)
 	}

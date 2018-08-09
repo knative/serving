@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package handler
 
 import (
 	"fmt"
@@ -19,33 +19,31 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/knative/serving/pkg/controller"
+	"github.com/knative/serving/pkg/activator"
+	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 )
 
-type activationHandler struct {
-	activator Activator
-	logger    *zap.SugaredLogger
-	transport http.RoundTripper
+// ActivationHandler will wait for an active endpoint for a revision
+// to be available before proxing the request
+type ActivationHandler struct {
+	Activator activator.Activator
+	Logger    *zap.SugaredLogger
+	Transport http.RoundTripper
 }
 
-// activationHandler will proxy a request to the active endpoint for the specified revision,
-// using the provided transport
-func NewActivationHandler(a Activator, rt http.RoundTripper, l *zap.SugaredLogger) http.Handler {
-	return &activationHandler{activator: a, transport: rt, logger: l}
-}
+func (a *ActivationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	namespace := r.Header.Get(reconciler.GetRevisionHeaderNamespace())
+	name := r.Header.Get(reconciler.GetRevisionHeaderName())
+	config := r.Header.Get(reconciler.GetConfigurationHeader())
 
-func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(controller.GetRevisionHeaderNamespace())
-	name := r.Header.Get(controller.GetRevisionHeaderName())
+	endpoint, status, err := a.Activator.ActiveEndpoint(namespace, config, name)
 
-	endpoint, status, err := a.activator.ActiveEndpoint(namespace, name)
 	if err != nil {
 		msg := fmt.Sprintf("Error getting active endpoint: %v", err)
 
-		a.logger.Errorf(msg)
+		a.Logger.Errorf(msg)
 		http.Error(w, msg, int(status))
-
 		return
 	}
 
@@ -55,7 +53,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = a.transport
+	proxy.Transport = a.Transport
 
 	// TODO: Clear the host to avoid 404's.
 	// https://github.com/knative/serving/issues/964
