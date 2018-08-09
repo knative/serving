@@ -259,7 +259,7 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/listers/build/v1alpha1"
   ]
-  revision = "5c1d8c8469d1ed34b2aecf4c2305b3a57fff2ee3"
+  revision = "e7a708f4562329a7d2bd51eb9f2a3889145a80a7"
 
 [[projects]]
   name = "github.com/knative/pkg"
@@ -866,6 +866,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d1fff5f681b98245891a9364685e187511c7c69c1653ff7ba22b898b38aaf6e2"
+  inputs-digest = "25e7b8408244f7b89d1a4ef04d8f6bd68063f946df29ff6dba4e9f9c58b348fa"
   solver-name = "gps-cdcl"
   solver-version = 1
