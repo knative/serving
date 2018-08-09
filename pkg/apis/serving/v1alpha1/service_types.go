@@ -106,7 +106,7 @@ type ServiceCondition struct {
 	// +optional
 	// We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
 	// differences (all other things held constant).
-	LastTransitionTime VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
+	LastTransitionTime apis.VolatileTime `json:"lastTransitionTime,omitempty" description:"last time the condition transit from one status to another"`
 
 	// +optional
 	Reason string `json:"reason,omitempty" description:"one-word CamelCase reason for the condition's last transition"`
@@ -228,7 +228,7 @@ func (ss *ServiceStatus) setCondition(new *ServiceCondition) {
 			}
 		}
 	}
-	new.LastTransitionTime = VolatileTime{metav1.NewTime(time.Now())}
+	new.LastTransitionTime = apis.VolatileTime{metav1.NewTime(time.Now())}
 	conditions = append(conditions, *new)
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	ss.Conditions = conditions
